@@ -21,8 +21,18 @@ Kartenkacheln in der Kartenansicht. Sonst nichts.
 
 ## Bildschirmfotos
 
-Siehe [docs/screenshots/](docs/screenshots/) – dort ist auch festgehalten,
-wie die Aufnahmen entstehen, damit auf keinem davon je private Fotos landen.
+| Timeline | Entwickeln |
+|---|---|
+| ![Timeline nach Monaten gruppiert](docs/screenshots/timeline.png) | ![Entwickeln mit Histogramm und Reglern](docs/screenshots/entwickeln.png) |
+
+| Karte | Personen |
+|---|---|
+| ![Fotoorte auf der Karte](docs/screenshots/karte.png) | ![Erkannte Personen](docs/screenshots/personen.png) |
+
+Alle Aufnahmen zeigen ausschließlich **gemeinfreie** Fotos aus einer
+Demo-Bibliothek (NASA, National Archives, historische Aufnahmen) – nie
+Bilder aus einer echten Sammlung. Wie das sichergestellt wird, steht in
+[docs/screenshots/](docs/screenshots/).
 
 ## Herunterladen
 

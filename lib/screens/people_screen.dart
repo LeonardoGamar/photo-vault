@@ -337,7 +337,9 @@ class _PeopleGrid extends StatelessWidget {
             maxCrossAxisExtent: 120,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
-            childAspectRatio: 0.8,
+            // 0.8 war zu knapp: Avatar (80px) + Name + zweizeiliger
+            // Hinweistext liefen unten um wenige Pixel über.
+            childAspectRatio: 0.66,
           ),
           itemCount: people.length,
           itemBuilder: (context, index) {
@@ -361,7 +363,12 @@ class _PeopleGrid extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  // maxLines/ellipsis verhindern, dass ein langer Hinweis die
+                  // Kachelhöhe sprengt (siehe childAspectRatio oben).
                   Text('lange drücken: zusammenführen',
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall

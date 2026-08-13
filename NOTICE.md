@@ -22,6 +22,22 @@ beide Dateien sind byte-identisch mit den Originalen der „2k"-Reihe
     2k_earth_daymap.jpg      767ee1dc6eb3802699bfccf6f264880f8acd0b80de3191cd24984fe279b07b7c
     2k_stars_milky_way.jpg   ec2240e6f3784d962ab81609b228bfd470e87c86d1fed5e99134d4cd3de24239
 
+### Bildschirmfotos (`docs/screenshots/`)
+
+Die Aufnahmen zeigen eine eigens aufgebaute Demo-Bibliothek. Alle darin
+enthaltenen Fotos sind **gemeinfrei** (Public Domain) und stammen von
+[Wikimedia Commons](https://commons.wikimedia.org/):
+
+| Motiv | Urheber / Quelle |
+|---|---|
+| Erdaufnahmen, Apollo-Missionen | NASA (Werke der US-Bundesregierung, gemeinfrei) |
+| Landschaften und Architektur | Ansel Adams, National Archives (gemeinfrei) |
+| „Migrant Mother" | Dorothea Lange, Farm Security Administration (gemeinfrei) |
+| Porträts (Lincoln, Curie, Einstein) | historische Aufnahmen, gemeinfrei |
+
+Aufnahmedaten, Koordinaten und Kameramodelle dieser Demo-Fotos wurden für
+die Darstellung gesetzt und sind nicht die historischen Originalangaben.
+
 ### App-Symbole
 
 Die Icons unter `assets/icon/`, `macos/Runner/Assets.xcassets/`,
