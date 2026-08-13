@@ -53,8 +53,8 @@ Nur beim ersten Start nötig. Alternativ im Terminal:
 xattr -dr com.apple.quarantine "/Applications/Photo Vault.app"
 ```
 
-Wer das nicht möchte, baut die App aus dem Quellcode – siehe
-[Einrichtung](#einrichtung).
+Wer das nicht möchte, baut die App selbst – siehe
+[Aus dem Quellcode bauen](#aus-dem-quellcode-bauen).
 
 Zu jedem Release gehört eine `SHA256SUMS.txt`. Prüfsumme des Downloads
 vergleichen:
@@ -200,9 +200,15 @@ welche Modelle aus welcher Quelle stammen.
   Übersicht aller Kürzel
 - Einheitliches Design-Token-System für Abstände/Radien
 
-## Einrichtung
+## Aus dem Quellcode bauen
 
-Voraussetzung: [Flutter SDK](https://docs.flutter.dev/get-started/install)
+**Für die reine Nutzung unter macOS nicht nötig** – dafür genügt der
+Download oben. Weder das Flutter SDK noch Xcode müssen installiert sein,
+die `Photo Vault.app` läuft eigenständig.
+
+Dieser Abschnitt richtet sich an alle, die die App selbst bauen oder
+weiterentwickeln möchten. Voraussetzung dafür:
+[Flutter SDK](https://docs.flutter.dev/get-started/install)
 (stabiler Kanal, ≥ 3.19).
 
 ```bash
@@ -473,7 +479,20 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 
 ## Bekannte Grenzen / nächste Schritte
 
-- Video-Thumbnails zeigen aktuell nur ein Platzhalter-Icon.
+### Plattformen
+
+- **Nur macOS ist vollständig nutzbar.** Sechs Funktionen laufen über eine
+  native Schicht (`macos/Runner/ImageConverter.swift`): HEIC-/RAW-Umwandlung,
+  Entwickeln, Video-Vorschaubild, Video-Zuschnitt und Texterkennung.
+- **Linux** ist vorbereitet, aber noch nicht funktionsgleich – Projektgerüst
+  und Plattform-Abstraktion stehen, die nativen Gegenstücke fehlen. Weg zum
+  vollen Funktionsumfang: [docs/plan_linux.md](docs/plan_linux.md).
+- **Windows** danach; dieselbe Struktur, andere Werkzeuge.
+- `video_player` unterstützt kein Linux/Windows – vorgesehener Ersatz ist
+  `media_kit` (deckt auch macOS ab).
+
+### Funktionale Grenzen
+
 - Die KI-Bildsuche berechnet Ähnlichkeit per Brute-Force über alle
   gespeicherten Embeddings – für private Bibliotheken (bis niedrige
   Zehntausende Fotos) schnell genug.
@@ -481,6 +500,11 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 - Die KI-Restaurierung hält das komplette 4× vergrößerte Ergebnis im
   Arbeitsspeicher (12 MP → ~49 MP). Die Warteschlange arbeitet deshalb
   bewusst nur einen Auftrag gleichzeitig ab.
+- HEIC-Dateien mit HDR-Gain-Map werden korrekt angezeigt, die HDR-Feinheiten
+  gehen bei der JPEG-Vorschau aber verloren.
+
+### Technische Altlasten
+
 - Für die 360°-Kugelansicht wird `panorama_viewer` genutzt, nicht das
   ebenfalls eingebundene `flutter_earth_globe`: Letzteres rendert auf dem
   Testgerät nur Texturen aus gebündelten Assets sichtbar (mit identischem
@@ -488,4 +512,8 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   `FileImage`/`MemoryImage` jeweils 0,0 %) und ist damit für Fotos aus der
   Bibliothek unbrauchbar. Es bleibt für den Erd-Globus in der Kartenansicht
   zuständig, der eine Asset-Textur verwendet.
+- Die Entwickeln-Regler laufen über Core Image, also über einen Umweg per
+  Datei. Ein Flutter-Fragment-Shader wäre schneller, plattformübergreifend
+  und würde die Vorschau live statt nach jedem Reglerstopp aktualisieren –
+  siehe Phase 3 in [docs/plan_linux.md](docs/plan_linux.md).
 - Siehe "Transparenz zu den technischen Risiken" oben.
