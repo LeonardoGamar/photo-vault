@@ -1,12 +1,70 @@
 # Photo Vault
 
-Eine **eigenständige**, lokale Foto-/Video-Verwaltung für macOS (Flutter,
-auf iOS/Android erweiterbar) – inspiriert von Immich/digiKam/Lightroom,
-aber **ohne Server**: eigene SQLite-Datenbank, eigener Dateispeicher, und
-KI-Funktionen, die komplett lokal und quelloffen laufen – keine
-proprietären Betriebssystem-APIs, keine Cloud-KI-Dienste, stattdessen
-etablierte Open-Source-Modelle, die bei Bedarf direkt in der App
-heruntergeladen werden.
+**Deine Fotobibliothek bleibt auf deinem Rechner.** Eine eigenständige
+Foto- und Videoverwaltung für macOS – mit Gesichtserkennung, Bildsuche in
+natürlicher Sprache und RAW-Entwicklung, aber **ohne Server, ohne Konto und
+ohne Cloud-Dienst**.
+
+Inspiriert von Immich, digiKam und Lightroom. Der Unterschied: Es gibt
+nichts, wo deine Fotos hochgeladen werden könnten. Die Datenbank ist eine
+SQLite-Datei, die Fotos liegen als normale Dateien daneben, und sämtliche
+KI-Funktionen laufen lokal über quelloffene Modelle, die du bei Bedarf in
+der App herunterlädst. Ausgeliefert wird kein einziges Modell mit.
+
+```
+Keine Cloud · Keine Telemetrie · Keine Registrierung · Alles offline
+```
+
+Die App macht genau zwei Arten von Netzwerkaufrufen: den Download der
+KI-Modelle bzw. Geodaten, den du selbst anstößt, und das Laden der
+Kartenkacheln in der Kartenansicht. Sonst nichts.
+
+## Bildschirmfotos
+
+Siehe [docs/screenshots/](docs/screenshots/) – dort ist auch festgehalten,
+wie die Aufnahmen entstehen, damit auf keinem davon je private Fotos landen.
+
+## Herunterladen
+
+Fertige Fassungen liegen unter [Releases](../../releases). Aktuell gibt es
+Builds nur für macOS – als Universal Binary, also nativ auf Apple Silicon
+**und** Intel, ab macOS 10.15.
+
+Die App ist **nicht von Apple beglaubigt** (das erfordert ein
+kostenpflichtiges Entwicklerkonto). macOS blockiert sie deshalb beim ersten
+Start. So wird sie trotzdem geöffnet:
+
+1. `Photo Vault.app` nach `/Programme` ziehen
+2. Rechtsklick auf die App → **Öffnen** → im Dialog erneut **Öffnen**
+
+Nur beim ersten Start nötig. Alternativ im Terminal:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Photo Vault.app"
+```
+
+Wer das nicht möchte, baut die App aus dem Quellcode – siehe
+[Einrichtung](#einrichtung).
+
+Zu jedem Release gehört eine `SHA256SUMS.txt`. Prüfsumme des Downloads
+vergleichen:
+
+```bash
+shasum -a 256 PhotoVault-*-macos-universal.zip
+```
+
+Die App enthält **keine** KI-Modelle – die lädst du bei Bedarf in den
+Einstellungen. Das hält den Download klein und macht nachvollziehbar,
+welche Modelle aus welcher Quelle stammen.
+
+## Plattformen
+
+| Plattform | Status |
+|---|---|
+| macOS | vollständig unterstützt |
+| Linux | in Vorbereitung – siehe [docs/plan_linux.md](docs/plan_linux.md) |
+| Windows | geplant, nach Linux |
+| iOS / Android | Code läuft grundsätzlich, aber nicht angepasst oder getestet |
 
 ## Funktionen
 
