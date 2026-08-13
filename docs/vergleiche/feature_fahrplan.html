@@ -1,0 +1,319 @@
+<title>Photo Vault Feature-Fahrplan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #F6F1E7;
+    --surface: #FFFEFA;
+    --surface-2: #EFE7D6;
+    --ink: #241E15;
+    --ink-soft: #6B6153;
+    --ink-faint: #9A9080;
+    --border: #E2D6BE;
+    --border-strong: #CBB98F;
+    --accent: #B25A28;
+    --accent-ink: #7A3C17;
+    --accent-soft: #F1DEC2;
+    --accent-soft-strong: #E7C89D;
+    --good: #3E7A57;
+    --good-bg: #E1EEE1;
+    --partial: #9C7A1F;
+    --partial-bg: #F1E7C7;
+    --gap: #A5402F;
+    --gap-bg: #F3DFD8;
+    --tier1: #3E7A57;
+    --tier1-bg: #E1EEE1;
+    --tier2: #9C7A1F;
+    --tier2-bg: #F1E7C7;
+    --tier3: #6B4A9C;
+    --tier3-bg: #E9E1F3;
+    --shadow: 0 1px 2px rgba(50, 36, 15, 0.06), 0 8px 24px -12px rgba(50, 36, 15, 0.18);
+    --font-display: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16130E;
+      --surface: #1D1811;
+      --surface-2: #262019;
+      --ink: #F1E8D8;
+      --ink-soft: #B6A98F;
+      --ink-faint: #7C7261;
+      --border: #362D20;
+      --border-strong: #4A3D28;
+      --accent: #E08A4C;
+      --accent-ink: #F4B27E;
+      --accent-soft: #382513;
+      --accent-soft-strong: #4A331B;
+      --good: #74BF95;
+      --good-bg: #1D2E24;
+      --partial: #D8B25C;
+      --partial-bg: #362C14;
+      --gap: #E1897A;
+      --gap-bg: #362119;
+      --tier1: #74BF95;
+      --tier1-bg: #1D2E24;
+      --tier2: #D8B25C;
+      --tier2-bg: #362C14;
+      --tier3: #B49CDD;
+      --tier3-bg: #2A2036;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -12px rgba(0, 0, 0, 0.55);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #16130E;
+    --surface: #1D1811;
+    --surface-2: #262019;
+    --ink: #F1E8D8;
+    --ink-soft: #B6A98F;
+    --ink-faint: #7C7261;
+    --border: #362D20;
+    --border-strong: #4A3D28;
+    --accent: #E08A4C;
+    --accent-ink: #F4B27E;
+    --accent-soft: #382513;
+    --accent-soft-strong: #4A331B;
+    --good: #74BF95;
+    --good-bg: #1D2E24;
+    --partial: #D8B25C;
+    --partial-bg: #362C14;
+    --gap: #E1897A;
+    --gap-bg: #362119;
+    --tier1: #74BF95;
+    --tier1-bg: #1D2E24;
+    --tier2: #D8B25C;
+    --tier2-bg: #362C14;
+    --tier3: #B49CDD;
+    --tier3-bg: #2A2036;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 28px -12px rgba(0, 0, 0, 0.55);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    line-height: 1.55;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  .page {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: clamp(28px, 5vw, 72px) clamp(18px, 4vw, 48px) 96px;
+  }
+
+  .hero { padding-bottom: 32px; border-bottom: 1px solid var(--border); margin-bottom: 32px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--accent-ink); margin: 0 0 18px; font-weight: 600;
+  }
+  h1 {
+    font-family: var(--font-display); font-weight: 500; font-size: clamp(32px, 5vw, 50px);
+    line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 18px; text-wrap: balance; color: var(--ink);
+  }
+  .lede { font-size: 17.5px; max-width: 68ch; color: var(--ink-soft); margin: 0; }
+
+  .done-block {
+    margin-top: 28px;
+    background: var(--tier1-bg);
+    border: 1px solid var(--tier1);
+    border-radius: 12px;
+    padding: 18px 22px;
+  }
+  .done-block .done-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px;
+  }
+  .done-block .done-head strong { color: var(--tier1); font-size: 15px; }
+  .done-block .done-head span { font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .done-strip { display: flex; flex-wrap: wrap; gap: 8px; }
+  .done-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; padding: 5px 11px 5px 9px; border-radius: 100px;
+    background: var(--surface); color: var(--ink-soft); border: 1px solid var(--tier1);
+  }
+  .done-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tier1); flex: none; }
+
+  section { margin-bottom: 52px; }
+  .tier-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px; flex-wrap: wrap; }
+  .tier-badge {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 6px; font-weight: 700;
+  }
+  .tier-badge.t1 { background: var(--tier1-bg); color: var(--tier1); }
+  .tier-badge.t2 { background: var(--tier2-bg); color: var(--tier2); }
+  .tier-badge.t3 { background: var(--tier3-bg); color: var(--tier3); }
+  h2 { font-family: var(--font-display); font-weight: 500; font-size: clamp(22px, 3vw, 27px); margin: 0; text-wrap: balance; }
+  .tier-sub { color: var(--ink-faint); font-size: 14.5px; max-width: 74ch; margin: 6px 0 22px; }
+
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px 20px; box-shadow: var(--shadow); display: flex; flex-direction: column;
+  }
+  .card-title { font-size: 16px; font-weight: 700; margin: 0 0 6px; color: var(--ink); }
+  .card p { margin: 0; font-size: 14px; color: var(--ink-soft); line-height: 1.5; }
+  .card p + p { margin-top: 8px; }
+  .inspired {
+    display: inline-flex; align-items: center; gap: 6px; margin-bottom: 10px;
+    font-family: var(--font-mono); font-size: 11.5px; color: var(--accent-ink);
+  }
+  .inspired::before { content: "↳"; opacity: 0.7; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .free-badge {
+    align-self: flex-start; font-size: 11.5px; font-family: var(--font-mono);
+    padding: 3px 9px; border-radius: 100px; background: var(--tier1-bg); color: var(--tier1); border: 1px solid var(--tier1);
+  }
+  .effort-badge {
+    align-self: flex-start; font-size: 11.5px; font-family: var(--font-mono);
+    padding: 3px 9px; border-radius: 100px; background: var(--gap-bg); color: var(--gap); border: 1px solid var(--gap);
+  }
+
+  footer {
+    border-top: 1px solid var(--border); padding-top: 22px; font-size: 12.5px; color: var(--ink-faint);
+  }
+  ::selection { background: var(--accent-soft-strong); color: var(--accent-ink); }
+</style>
+
+<div class="page">
+
+  <header class="hero">
+    <p class="eyebrow">Feature-Fahrplan · 2. Auflage · August 2026</p>
+    <h1>Was als Nächstes sinnvoll wäre</h1>
+    <p class="lede">
+      Der erste Fahrplan ist komplett abgearbeitet — alle 13 Vorschläge sind umgesetzt. Diese Auflage
+      basiert auf einer erneuten Recherche der zehn Vergleichsprogramme (inklusive ihrer 2026er-Updates:
+      darktable&nbsp;5.6, digiKam&nbsp;9, PhotoPrism Juli 2026, Excire&nbsp;Foto&nbsp;2027, Immich&nbsp;3.0)
+      sowie einer code-verifizierten Bestandsaufnahme, was seit der ersten Auflage tatsächlich gebaut wurde.
+    </p>
+    <div class="done-block">
+      <div class="done-head">
+        <strong>Erste Auflage: 13/13 umgesetzt</strong>
+        <span>Stufe 1-3, August 2026</span>
+      </div>
+      <div class="done-strip">
+        <span class="done-chip"><span class="dot"></span>Sternebewertung + Farbmarkierungen</span>
+        <span class="done-chip"><span class="dot"></span>Batch-Metadaten-Bearbeitung</span>
+        <span class="done-chip"><span class="dot"></span>Texterkennung (OCR)</span>
+        <span class="done-chip"><span class="dot"></span>Unschärfe-Erkennung</span>
+        <span class="done-chip"><span class="dot"></span>Numerische Bereichsfilter</span>
+        <span class="done-chip"><span class="dot"></span>Sichtungs-Modus (Culling)</span>
+        <span class="done-chip"><span class="dot"></span>Vorher/Nachher + Verlauf</span>
+        <span class="done-chip"><span class="dot"></span>Video-Trimmen</span>
+        <span class="done-chip"><span class="dot"></span>Serien-/Burst-Gruppierung</span>
+        <span class="done-chip"><span class="dot"></span>Panorama-Ansicht</span>
+        <span class="done-chip"><span class="dot"></span>KI-Bildbeschreibung</span>
+        <span class="done-chip"><span class="dot"></span>KI-Objektmasken</span>
+        <span class="done-chip"><span class="dot"></span>XMP-Sidecar-Export</span>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="tier-head">
+      <span class="tier-badge t1">Stufe 1</span>
+      <h2>Klein, hoher Nutzen</h2>
+    </div>
+    <p class="tier-sub">Baut auf bereits vorhandenen Bausteinen auf (Sichtungs-Modus, Unschärfe-Score, KI-Tag-Vokabular) — keine neue Architektur nötig.</p>
+    <div class="card-grid">
+
+      <div class="card">
+        <span class="inspired">Immich (Server-Integritätsprüfungen)</span>
+        <h3 class="card-title">Bibliotheks-Integritätsprüfung</h3>
+        <p>Ein Werkzeug, das DB-Zeilen gegen tatsächliche Dateien auf der Platte abgleicht: fehlende
+        Dateien, verwaiste Dateien ohne DB-Zeile, Checksummen-Abweichungen. Genau die Klasse von Fehlern,
+        die der jüngste Sicherheits-Audit dieser Sitzung von Hand fand (vergessene Zusatzdateien beim
+        Sperren/Löschen) — als wiederkehrendes Werkzeug statt nur einmaligem Code-Fix.</p>
+        <span class="free-badge">keine neue Abhängigkeit</span>
+      </div>
+
+      <div class="card">
+        <span class="inspired">Excire Foto 2027</span>
+        <h3 class="card-title">Fokus-Peaking im Sichtungs-Modus</h3>
+        <p>Scharfe Kanten farbig hervorheben, während man durch frisch importierte Fotos blättert —
+        ergänzt den bereits vorhandenen Unschärfe-Score um eine visuelle, ortsaufgelöste Rückmeldung
+        (wo genau ist das Bild scharf?), klassische Bildverarbeitung, kein neues Modell.</p>
+        <span class="free-badge">kein Modell nötig</span>
+      </div>
+
+      <div class="card">
+        <span class="inspired">Excire Foto (freies Vokabular)</span>
+        <h3 class="card-title">KI-Tag-Vokabular in den Einstellungen bearbeitbar</h3>
+        <p>Das feste 48-Begriffe-Vokabular (ai_tagging_service.dart) über eine Einstellungsseite
+        erweiterbar machen, statt nur durch Code-Änderung — nutzt die bereits vorhandene CLIP-Zero-Shot-
+        Logik unverändert weiter, nur die Begriffsliste wird nutzerseitig veränderbar.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="tier-head">
+      <span class="tier-badge t2">Stufe 2</span>
+      <h2>Mittlerer Aufwand</h2>
+    </div>
+    <p class="tier-sub">Neue kleine Modelle oder ein neuer Lese-Pfad für bereits geschriebene Daten — überschaubar, aber kein Nachmittagsprojekt.</p>
+    <div class="card-grid">
+
+      <div class="card">
+        <span class="inspired">AI-Culling-Trend 2026 (Imagen, FilterPixel, Narrative Select)</span>
+        <h3 class="card-title">Geschlossene-Augen-Erkennung in der Sichtung</h3>
+        <p>Gesichter mit geschlossenen Augen automatisch markieren, um Porträt-/Gruppenserien schneller
+        zu sichten — die bereits gebündelte Gesichtserkennung (YuNet) liefert nur Bounding-Boxen, kein
+        Augen-Status; bräuchte entweder Landmark-Punkte oder einen kleinen zusätzlichen Klassifikator.</p>
+        <span class="effort-badge">neues (kleines) Modell nötig</span>
+      </div>
+
+      <div class="card">
+        <span class="inspired">PhotoPrism (Juli 2026)</span>
+        <h3 class="card-title">XMP-Import</h3>
+        <p>Ergänzt den bestehenden Export: GPS-Koordinaten, Bewertung, Tags und Gesichts-Regionen aus
+        vorhandenen .xmp-Sidecars einlesen — für Fotos, die zwischenzeitlich in Lightroom/darktable/
+        digiKam bearbeitet wurden. Reiner Lese-Pfad, die Bibliothek bleibt weiterhin führend.</p>
+      </div>
+
+      <div class="card">
+        <span class="inspired">PhotoPrism (Juli 2026, 360°-Ansicht)</span>
+        <h3 class="card-title">Echter 360°/Kugelpanorama-Viewer</h3>
+        <p>Die heutige Panorama-Ansicht behandelt sehr breite Fotos als schwenkbaren Streifen —
+        equirechteckige 360°-Aufnahmen (von 360°-Kameras) bräuchten stattdessen eine echte
+        Kugelprojektion. Nur relevant, falls solche Kameras tatsächlich genutzt werden.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <div class="tier-head">
+      <span class="tier-badge t3">Stufe 3</span>
+      <h2>Großes, eigenständiges Unterfangen</h2>
+    </div>
+    <p class="tier-sub">In der Größenordnung der ursprünglichen KI-Objektmasken-Einführung — hier bewusst nur skizziert.</p>
+    <div class="card-grid">
+
+      <div class="card">
+        <span class="inspired">darktable 5.6 (Juni 2026)</span>
+        <h3 class="card-title">Vektor-Masken + ML-Entrauschen/Hochskalieren</h3>
+        <p>Zwei separate, große Bausteine: (1) die heutigen Raster-Alphamasken (Graustufen-PNG) durch
+        editierbare Vektorformen ersetzen, die sich nachträglich verfeinern lassen; (2) ein
+        "Neural Restore"-Modul für ML-basiertes Entrauschen/Hochskalieren als eigene, neue
+        Modellkategorie neben Erkennung/Suche/Segmentierung. Jedes für sich ein Projekt in der
+        Größenordnung der ursprünglichen SAM-Integration.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    Photo Vault · Feature-Fahrplan, 2. Auflage, Fortsetzung von "Photo Vault im Vergleich" · Quellen: digiKam 9.1, Immich 3.0/3.1, PhotoPrism (März/Mai/Juli 2026), Apple Photos, Mylio, Excire Foto 2027, Peakto 2.7, Adobe Lightroom, darktable 5.6, Photo Mechanic Plus, plus allgemeine AI-Culling-Recherche (Imagen, FilterPixel, Narrative Select)
+  </footer>
+
+</div>

@@ -1,0 +1,119 @@
+name: photo_vault
+description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Lokale Datenbank (eigene, private SQLite-Datei statt eines Servers).
+  # sqlite3 ab 3.x bündelt die native SQLite-Bibliothek selbst (über Dart
+  # Build Hooks) – das früher dafür nötige sqlite3_flutter_libs ist seit
+  # Version 0.6.0 offiziell abgekündigt ("+eol", siehe Changelog) und wird
+  # bewusst nicht mehr verwendet.
+  drift: ^2.20.0
+  sqlite3: ^3.5.1
+
+  # Dateisystem / Pfade
+  path_provider: ^2.1.4
+  path: ^1.9.0
+
+  # State Management
+  provider: ^6.1.2
+
+  # Datei-/Ordnerauswahl (Import & Backup-Ziel)
+  file_picker: ^8.1.6
+
+  # Bildverarbeitung (Thumbnails, Größe, Gesichts-Crops)
+  image: ^4.2.0
+
+  # EXIF-Datum lesen
+  exif: ^3.3.0
+
+  # Prüfsummen für Duplikaterkennung
+  crypto: ^3.0.5
+
+  # Darstellung / Medien
+  cached_network_image: ^3.4.1 # auch für lokale file://-URIs mit Caching nutzbar
+  photo_view: ^0.15.0
+  video_player: ^2.9.5
+
+  # Datum, IDs
+  intl: ^0.19.0
+  uuid: ^4.5.1
+
+  # @visibleForTesting (StoragePaths.forTesting, siehe test/)
+  meta: ^1.15.0
+
+  # On-device KI-Inferenz (CLIP-Bildsuche + Gesichtserkennung/-erkennung)
+  flutter_onnxruntime: ^1.8.0
+
+  # HTTP-Downloads der offenen Modelldateien (mit Fortschrittsanzeige)
+  dio: ^5.7.0
+
+  # Kartenansicht (OpenStreetMap-Kacheln, quelloffen, kein API-Key nötig –
+  # bewusst statt Google Maps, das auf macOS-Desktop kein offizielles
+  # Flutter-Plugin hat)
+  flutter_map: ^8.3.1
+  latlong2: ^0.10.1
+
+  # Interaktiver 3D-Globus als alternative Darstellung zur flachen Karte
+  # (siehe MapScreen) – reiner Flutter-Widget-Code (GPU-Shader), kein
+  # Cloud-Dienst; Erd-/Sternentextur liegt lokal unter assets/globe/.
+  # NUR dort verwendbar, NICHT für die 360°-Panoramaansicht: das Paket
+  # rendert auf diesem Gerät real nachweislich nur dann etwas Sichtbares,
+  # wenn die Kugeltextur aus einem gebündelten Asset stammt. Mit identischem
+  # Bildinhalt per RenderRepaintBoundary.toImage()-Pixelerfassung gemessen:
+  # AssetImage 64,7 % nicht-schwarze Pixel, FileImage und MemoryImage
+  # jeweils 0,0 %. Bibliotheksfotos sind immer Dateien – siehe
+  # panorama_360_view.dart, das dafür panorama_viewer nutzt.
+  flutter_earth_globe: ^2.2.1
+
+  # Echte Kugelprojektion für 360°-Fotos aus der Bibliothek (siehe
+  # panorama_360_view.dart) – baut auf flutter_cube auf und dekodiert die
+  # Textur über Flutters normalen ImageStream, funktioniert daher anders als
+  # flutter_earth_globe auch mit Datei-basierten Bildern (real verifiziert:
+  # 97,3 % nicht-schwarze Pixel mit einem echten Bibliotheksfoto).
+  panorama_viewer: ^2.0.4
+
+  # AES-256-GCM-Verschlüsselung + PBKDF2 für den gesperrten Ordner (reines
+  # Dart, keine native Abhängigkeit) – "crypto" oben kann nur hashen.
+  cryptography: ^2.7.0
+
+  # Entpacken der GeoNames-Städteliste (cities1000.zip) für die lokale/
+  # offline Umkehr-Geokodierung (GPS -> Land/Bundesland/Stadt).
+  archive: ^4.0.9
+
+  # Nativer Teilen-Dialog (AirDrop/Mail/Nachrichten via NSSharingServicePicker
+  # auf macOS) – ergänzt den bestehenden "Exportieren"-Button (Kopie in einen
+  # gewählten Ordner) um direktes Teilen ohne Umweg über den Finder.
+  share_plus: ^12.0.2
+
+  # Balkendiagramme für die Analyseseite (Fotos pro Jahr/Monat, Kameras) –
+  # reiner Flutter-Widget-Code, kein Cloud-Dienst.
+  fl_chart: ^1.2.0
+
+  # XMP-Sidecar-Export (Interoperabilität mit Lightroom/darktable/digiKam) –
+  # bisher nur transitiv vorhanden (über flutter_map/archive), hier als
+  # direkte Abhängigkeit, da xmp_writer.dart XmlBuilder direkt nutzt.
+  xml: ^7.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  drift_dev: ^2.20.0
+  build_runner: ^2.4.13
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/app_icon.png
+    - assets/globe/2k_earth_daymap.jpg
+    - assets/globe/2k_stars_milky_way.jpg

@@ -1,0 +1,205 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+
+import '../db/database.dart';
+import '../services/export_service.dart';
+import '../state/library_state.dart';
+import '../theme/app_spacing.dart';
+import '../widgets/asset_thumbnail_tile.dart';
+import '../widgets/pin_dialogs.dart';
+import '../widgets/selection_action_bar.dart';
+import 'asset_viewer_screen.dart';
+
+class AlbumDetailScreen extends StatefulWidget {
+  final LibraryState library;
+  final String albumId;
+  final String albumName;
+
+  const AlbumDetailScreen({
+    super.key,
+    required this.library,
+    required this.albumId,
+    required this.albumName,
+  });
+
+  @override
+  State<AlbumDetailScreen> createState() => _AlbumDetailScreenState();
+}
+
+class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
+  final Set<String> _selected = {};
+
+  void _toggle(String id) => setState(() {
+        if (!_selected.remove(id)) _selected.add(id);
+      });
+
+  void _openViewer(List<AssetData> assets, int index) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AssetViewerScreen(
+        assets: assets,
+        initialIndex: index,
+        paths: widget.library.paths,
+        db: widget.library.db,
+        library: widget.library,
+        onToggleFavorite: (a) => widget.library.db.setFavorite(a.id, !a.isFavorite),
+        onDelete: (a) async {
+          await widget.library.db.removeAssetFromAlbum(widget.albumId, a.id);
+          await widget.library.db.moveToTrash([a.id]);
+        },
+        onLock: (a) async {
+          if (await ensureVaultUnlocked(context, widget.library)) {
+            await widget.library.lockAsset(a);
+          }
+        },
+      ),
+    ));
+  }
+
+  /// Entfernt die Auswahl aus dem Album UND verschiebt sie in den
+  /// Papierkorb – dieselbe Doppelbedeutung von "Löschen" wie beim
+  /// Einzelfoto in der Vollbildansicht (siehe [_openViewer]'s `onDelete`).
+  Future<void> _deleteSelected() async {
+    final ids = _selected.toList();
+    final confirmed = await confirmDialog(
+      context,
+      '${ids.length} Foto(s) löschen?',
+      'Diese Fotos werden aus dem Album entfernt und in den Papierkorb verschoben.',
+    );
+    if (!confirmed) return;
+    for (final id in ids) {
+      await widget.library.db.removeAssetFromAlbum(widget.albumId, id);
+    }
+    await widget.library.db.moveToTrash(ids);
+    if (mounted) setState(_selected.clear);
+  }
+
+  Future<void> _exportAlbum(BuildContext context, List<AssetData> assets) async {
+    final destination = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Zielordner für "${widget.albumName}" wählen',
+    );
+    if (destination == null || !context.mounted) return;
+
+    final exporter = ExportService(widget.library.paths, library: widget.library);
+    var done = 0;
+    void Function(void Function())? setDialogState;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(builder: (context, setState) {
+        setDialogState = setState;
+        return AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox(width: 16),
+              Expanded(child: Text('Exportiere … ($done / ${assets.length})')),
+            ],
+          ),
+        );
+      }),
+    );
+
+    var exported = 0;
+    for (final asset in assets) {
+      try {
+        await exporter.exportAsset(asset, destination);
+        exported++;
+      } catch (_) {
+        // Einzelne fehlgeschlagene Datei überspringen, Rest weiter exportieren.
+      }
+      done++;
+      setDialogState?.call(() {});
+    }
+
+    if (context.mounted) {
+      Navigator.of(context).pop(); // Ladeanzeige schließen
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$exported von ${assets.length} Foto(s) exportiert nach $destination')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AssetData>>(
+      stream: widget.library.db.watchAlbumAssets(widget.albumId),
+      builder: (context, snapshot) {
+        final assets = snapshot.data ?? [];
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(widget.albumName),
+            actions: [
+              if (assets.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.ios_share),
+                  tooltip: 'Album exportieren',
+                  onPressed: () => _exportAlbum(context, assets),
+                ),
+            ],
+          ),
+          body: assets.isEmpty
+              ? const Center(child: Text('Dieses Album enthält noch keine Fotos.'))
+              : Stack(
+                  children: [
+                    GridView.builder(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 160,
+                        mainAxisSpacing: 4,
+                        crossAxisSpacing: 4,
+                      ),
+                      itemCount: assets.length,
+                      itemBuilder: (context, index) {
+                        final asset = assets[index];
+                        return AssetThumbnailTile(
+                          asset: asset,
+                          paths: widget.library.paths,
+                          selected: _selected.contains(asset.id),
+                          onLongPress: () => _toggle(asset.id),
+                          onTap: () => _selected.isNotEmpty ? _toggle(asset.id) : _openViewer(assets, index),
+                        );
+                      },
+                    ),
+                    if (_selected.isNotEmpty)
+                      SelectionActionBar(
+                        count: _selected.length,
+                        onClear: () => setState(_selected.clear),
+                        onFavorite: () async {
+                          await runBatchFavorite(widget.library, _selected.toList());
+                          if (mounted) setState(_selected.clear);
+                        },
+                        onAddToAlbum: () async {
+                          await runBatchAddToAlbumDialog(context, widget.library, _selected.toList());
+                          if (mounted) setState(_selected.clear);
+                        },
+                        onTag: () async {
+                          await runBatchTagDialog(context, widget.library, _selected.toList());
+                          if (mounted) setState(_selected.clear);
+                        },
+                        onSetRating: () async {
+                          await runBatchSetRating(context, widget.library, _selected.toList());
+                          if (mounted) setState(_selected.clear);
+                        },
+                        onSetColorLabel: () async {
+                          await runBatchSetColorLabel(context, widget.library, _selected.toList());
+                          if (mounted) setState(_selected.clear);
+                        },
+                        onEditMetadata: () async {
+                          await runBatchEditMetadataDialog(context, widget.library, _selected.toList());
+                          if (mounted) setState(_selected.clear);
+                        },
+                        onExport: () async {
+                          final selectedAssets = assets.where((a) => _selected.contains(a.id)).toList();
+                          await runBatchExport(context, widget.library, selectedAssets);
+                          if (mounted) setState(_selected.clear);
+                        },
+                        onDelete: _deleteSelected,
+                      ),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+}

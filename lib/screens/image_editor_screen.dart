@@ -1,0 +1,484 @@
+import 'dart:typed_data';
+
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
+
+import '../db/database.dart';
+import '../services/import_service.dart';
+import '../services/storage_paths.dart';
+import '../theme/app_spacing.dart';
+
+/// Ergebnis einer Bildbearbeitungs-Operation in einem Hintergrund-Isolate
+/// (siehe [_ImageEditorScreenState]): die neu encodierten JPEG-Bytes plus
+/// die resultierenden Abmessungen (werden für Anzeige-Skalierung und
+/// Zuschnitt-Koordinaten gebraucht, ohne dafür das dekodierte [img.Image]
+/// selbst über die Isolate-Grenze schicken zu müssen).
+typedef _ImageEditResult = ({Uint8List bytes, int width, int height});
+
+_ImageEditResult? _encodeResult(img.Image image) => (
+      bytes: Uint8List.fromList(img.encodeJpg(image, quality: 90)),
+      width: image.width,
+      height: image.height,
+    );
+
+/// Läuft über `compute()` in einem Hintergrund-Isolate (siehe
+/// [ImageEditorScreen]) – Dekodieren + Transformieren + JPEG-Encodieren
+/// einer vollauflösenden Fotodatei kostet bei jedem Werkzeug-Klick leicht
+/// hunderte Millisekunden bis niedrige Sekunden und würde sonst die UI bei
+/// jedem einzelnen Dreh-/Spiegel-/Zuschneide-Tastendruck kurz einfrieren.
+_ImageEditResult? _rotateImageLeftIsolate(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  return decoded == null ? null : _encodeResult(img.copyRotate(decoded, angle: -90));
+}
+
+_ImageEditResult? _rotateImageRightIsolate(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  return decoded == null ? null : _encodeResult(img.copyRotate(decoded, angle: 90));
+}
+
+_ImageEditResult? _flipImageHorizontalIsolate(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  return decoded == null ? null : _encodeResult(img.flipHorizontal(decoded));
+}
+
+_ImageEditResult? _flipImageVerticalIsolate(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  return decoded == null ? null : _encodeResult(img.flipVertical(decoded));
+}
+
+typedef _CropArgs = ({Uint8List bytes, int x, int y, int width, int height});
+
+_ImageEditResult? _cropImageIsolate(_CropArgs args) {
+  final decoded = img.decodeImage(args.bytes);
+  if (decoded == null) return null;
+  final cropped = img.copyCrop(decoded, x: args.x, y: args.y, width: args.width, height: args.height);
+  return _encodeResult(cropped);
+}
+
+/// Finale, etwas höherwertige JPEG-Encodierung beim Speichern (siehe
+/// [_ImageEditorScreenState._save]) – separat von den Zwischenschritten,
+/// die für eine flüssige Vorschau bewusst mit niedrigerer Qualität
+/// encodieren.
+Uint8List? _finalizeImageIsolate(Uint8List bytes) {
+  final decoded = img.decodeImage(bytes);
+  if (decoded == null) return null;
+  return Uint8List.fromList(img.encodeJpg(decoded, quality: 92));
+}
+
+/// Grundlegende Bildbearbeitung (Zuschneiden, Spiegeln, Drehen) direkt auf
+/// der Originaldatei. Bewusst destruktiv – ersetzt die Originaldatei ohne
+/// Bearbeitungs-Historie oder "Zurücksetzen auf Original": eine
+/// nicht-destruktive Bearbeitung (mit dauerhaft aufbewahrten Ausgangsdaten)
+/// wäre ein eigenständiges, deutlich größeres Feature. Nur für Fotos, nicht
+/// für gesperrte (verschlüsselte) Assets, um die Wiederverschlüsselung nach
+/// dem Speichern nicht mit abdecken zu müssen.
+class ImageEditorScreen extends StatefulWidget {
+  final AssetData asset;
+  final AppDatabase db;
+  final StoragePaths paths;
+
+  const ImageEditorScreen({super.key, required this.asset, required this.db, required this.paths});
+
+  @override
+  State<ImageEditorScreen> createState() => _ImageEditorScreenState();
+}
+
+class _ImageEditorScreenState extends State<ImageEditorScreen> {
+  // _currentBytes ist bereits das, was angezeigt wird (Image.memory erkennt
+  // das Format selbst – vor der ersten Bearbeitung können das auch die
+  // unveränderten Original-Bytes in einem anderen Format als JPEG sein).
+  Uint8List? _currentBytes;
+  int? _currentWidth;
+  int? _currentHeight;
+  bool _loading = true;
+  bool _processing = false; // Dreh-/Spiegel-/Zuschneide-Operation läuft im Hintergrund-Isolate.
+  bool _saving = false;
+  String? _error;
+
+  bool _cropping = false;
+  Rect? _cropRect; // In lokalen Koordinaten des angezeigten (skalierten) Bilds.
+  double? _displayScale; // Bild-Pixel * _displayScale = angezeigte Koordinaten.
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final relativePath = widget.asset.previewRelativePath ?? widget.asset.relativePath;
+      final bytes = await widget.paths.absolute(relativePath).readAsBytes();
+      // Nur zum Ermitteln der Abmessungen – läuft einmalig beim Öffnen des
+      // Editors (nicht pro Werkzeug-Klick), ein einmaliger kurzer Ruckler
+      // ist hier anders als bei den Bearbeitungs-Operationen unten
+      // akzeptabel.
+      final decoded = img.decodeImage(bytes);
+      if (!mounted) return;
+      if (decoded == null) {
+        setState(() {
+          _loading = false;
+          _error = 'Bild konnte nicht gelesen werden.';
+        });
+        return;
+      }
+      setState(() {
+        _currentBytes = bytes;
+        _currentWidth = decoded.width;
+        _currentHeight = decoded.height;
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Bild konnte nicht gelesen werden: $e';
+        });
+      }
+    }
+  }
+
+  Future<void> _runEdit(Future<_ImageEditResult?> Function() operation) async {
+    if (_processing) return;
+    setState(() => _processing = true);
+    final result = await operation();
+    if (!mounted) return;
+    setState(() {
+      if (result != null) {
+        _currentBytes = result.bytes;
+        _currentWidth = result.width;
+        _currentHeight = result.height;
+      }
+      _cropping = false;
+      _cropRect = null;
+      _processing = false;
+    });
+  }
+
+  void _rotateLeft() => _runEdit(() => compute(_rotateImageLeftIsolate, _currentBytes!));
+  void _rotateRight() => _runEdit(() => compute(_rotateImageRightIsolate, _currentBytes!));
+  void _flipHorizontal() => _runEdit(() => compute(_flipImageHorizontalIsolate, _currentBytes!));
+  void _flipVertical() => _runEdit(() => compute(_flipImageVerticalIsolate, _currentBytes!));
+
+  void _startCrop() => setState(() => _cropping = true);
+  void _cancelCrop() => setState(() {
+        _cropping = false;
+        _cropRect = null;
+      });
+
+  void _applyCrop() {
+    final rect = _cropRect;
+    final scale = _displayScale;
+    final bytes = _currentBytes;
+    final width = _currentWidth;
+    final height = _currentHeight;
+    if (rect == null || scale == null || bytes == null || width == null || height == null) return;
+    final x = (rect.left / scale).round().clamp(0, width - 1);
+    final y = (rect.top / scale).round().clamp(0, height - 1);
+    final w = (rect.width / scale).round().clamp(1, width - x);
+    final h = (rect.height / scale).round().clamp(1, height - y);
+    _runEdit(() => compute(_cropImageIsolate, (bytes: bytes, x: x, y: y, width: w, height: h)));
+  }
+
+  Future<void> _save() async {
+    final currentBytes = _currentBytes;
+    if (currentBytes == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Änderungen speichern?'),
+        content: const Text(
+          'Die Originaldatei wird durch die bearbeitete Version ersetzt. Das lässt sich nicht rückgängig machen.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Speichern')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      final jpegBytes = await compute(_finalizeImageIsolate, currentBytes);
+      if (jpegBytes == null) throw Exception('Bild konnte nicht finalisiert werden.');
+      final checksum = sha256.convert(jpegBytes).toString();
+
+      // Original bereits ein JPEG -> an Ort und Stelle ersetzen. Andere
+      // Formate (HEIC/PNG/RAW & Co.) -> neue .jpg-Datei anlegen und die alte
+      // Originaldatei danach entfernen, damit Dateiendung und tatsächlicher
+      // Inhalt nicht auseinanderlaufen.
+      final ext = p.extension(widget.asset.relativePath).toLowerCase();
+      final keepsSamePath = ext == '.jpg' || ext == '.jpeg';
+      final newRelativePath = keepsSamePath
+          ? widget.asset.relativePath
+          : widget.paths.originalRelativePath(widget.asset.fileCreatedAt, widget.asset.id, '.jpg');
+
+      final targetFile = widget.paths.absolute(newRelativePath);
+      await targetFile.parent.create(recursive: true);
+      await targetFile.writeAsBytes(jpegBytes);
+      if (!keepsSamePath) {
+        await widget.paths.deletePermanently(widget.asset.relativePath);
+      }
+
+      await widget.db.setEditedAssetFile(widget.asset.id, relativePath: newRelativePath, checksum: checksum);
+
+      final importService = ImportService(widget.db, widget.paths);
+      final thumbResult = await importService.generateThumbnailAndPreview(
+        targetFile,
+        widget.asset.id,
+        '.jpg',
+        alreadyReadBytes: jpegBytes,
+      );
+      await widget.db.updateThumbnailInfo(
+        widget.asset.id,
+        thumbnailRelativePath: thumbResult.thumbnailRelativePath,
+        widthPx: thumbResult.width,
+        heightPx: thumbResult.height,
+      );
+
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Speichern fehlgeschlagen: $e')));
+      }
+    }
+  }
+
+  Widget _buildEditorArea() {
+    final bytes = _currentBytes;
+    final width = _currentWidth;
+    final height = _currentHeight;
+    if (bytes == null || width == null || height == null) return const SizedBox.shrink();
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final imgW = width.toDouble();
+      final imgH = height.toDouble();
+      final scale = (constraints.maxWidth / imgW < constraints.maxHeight / imgH)
+          ? constraints.maxWidth / imgW
+          : constraints.maxHeight / imgH;
+      final displayW = imgW * scale;
+      final displayH = imgH * scale;
+      _displayScale = scale;
+
+      if (_cropping) {
+        _cropRect ??= Rect.fromLTWH(displayW * 0.1, displayH * 0.1, displayW * 0.8, displayH * 0.8);
+      }
+
+      return Center(
+        child: SizedBox(
+          width: displayW,
+          height: displayH,
+          child: Stack(
+            children: [
+              Image.memory(bytes, width: displayW, height: displayH, fit: BoxFit.fill, gaplessPlayback: true),
+              if (_cropping && _cropRect != null)
+                _CropOverlay(
+                  imageSize: Size(displayW, displayH),
+                  rect: _cropRect!,
+                  onChanged: (r) => setState(() => _cropRect = r),
+                ),
+              if (_processing)
+                const Positioned.fill(
+                  child: ColoredBox(
+                    color: Colors.black45,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildToolbar() {
+    if (_cropping) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton.icon(
+            onPressed: _processing ? null : _cancelCrop,
+            icon: const Icon(Icons.close, color: Colors.white70),
+            label: const Text('Abbrechen', style: TextStyle(color: Colors.white70)),
+          ),
+          const SizedBox(width: 24),
+          FilledButton.icon(
+            onPressed: _processing ? null : _applyCrop,
+            icon: const Icon(Icons.check),
+            label: const Text('Zuschneiden anwenden'),
+          ),
+        ],
+      );
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _toolButton(Icons.crop_outlined, 'Zuschneiden', _startCrop),
+        _toolButton(Icons.rotate_left, 'Nach links drehen', _rotateLeft),
+        _toolButton(Icons.rotate_right, 'Nach rechts drehen', _rotateRight),
+        _toolButton(Icons.flip, 'Horizontal spiegeln', _flipHorizontal),
+        _toolButton(Icons.flip, 'Vertikal spiegeln', _flipVertical, quarterTurns: 1),
+      ],
+    );
+  }
+
+  Widget _toolButton(IconData icon, String tooltip, VoidCallback onPressed, {int quarterTurns = 0}) {
+    return IconButton(
+      tooltip: tooltip,
+      color: Colors.white,
+      icon: RotatedBox(quarterTurns: quarterTurns, child: Icon(icon)),
+      onPressed: _processing ? null : onPressed,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        title: const Text('Bearbeiten'),
+        actions: [
+          if (_saving)
+            const Padding(
+              padding: EdgeInsets.all(AppSpacing.lg),
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.check),
+              tooltip: 'Speichern',
+              onPressed: _currentBytes == null || _processing ? null : _save,
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+                ? Center(child: Text(_error!, style: const TextStyle(color: Colors.white70)))
+                : Column(
+                    children: [
+                      Expanded(child: Padding(padding: const EdgeInsets.all(AppSpacing.lg), child: _buildEditorArea())),
+                      Padding(padding: const EdgeInsets.symmetric(vertical: AppSpacing.md), child: _buildToolbar()),
+                    ],
+                  ),
+      ),
+    );
+  }
+}
+
+/// Interaktives Zuschneide-Rechteck über einem Bild: vier Eck-Anfasser zum
+/// Ändern der Größe, Ziehen innerhalb des Rechtecks zum Verschieben. Alle
+/// Koordinaten sind lokal zum angezeigten (bereits skalierten) Bild.
+class _CropOverlay extends StatelessWidget {
+  final Size imageSize;
+  final Rect rect;
+  final ValueChanged<Rect> onChanged;
+  const _CropOverlay({required this.imageSize, required this.rect, required this.onChanged});
+
+  static const _handleSize = 24.0;
+  static const _minSize = 40.0;
+
+  Rect _clamp(Rect r) {
+    final left = r.left.clamp(0.0, imageSize.width - _minSize);
+    final top = r.top.clamp(0.0, imageSize.height - _minSize);
+    final right = r.right.clamp(left + _minSize, imageSize.width);
+    final bottom = r.bottom.clamp(top + _minSize, imageSize.height);
+    return Rect.fromLTRB(left, top, right, bottom);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(child: CustomPaint(painter: _CropMaskPainter(rect))),
+        ),
+        Positioned.fromRect(
+          rect: rect,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onPanUpdate: (details) {
+              var moved = rect.shift(details.delta);
+              if (moved.left < 0) moved = moved.shift(Offset(-moved.left, 0));
+              if (moved.top < 0) moved = moved.shift(Offset(0, -moved.top));
+              if (moved.right > imageSize.width) moved = moved.shift(Offset(imageSize.width - moved.right, 0));
+              if (moved.bottom > imageSize.height) {
+                moved = moved.shift(Offset(0, imageSize.height - moved.bottom));
+              }
+              onChanged(moved);
+            },
+            child: Container(decoration: BoxDecoration(border: Border.all(color: Colors.white, width: 2))),
+          ),
+        ),
+        _cornerHandle(
+          Offset(rect.left, rect.top),
+          (delta) => _clamp(Rect.fromLTRB(rect.left + delta.dx, rect.top + delta.dy, rect.right, rect.bottom)),
+        ),
+        _cornerHandle(
+          Offset(rect.right, rect.top),
+          (delta) => _clamp(Rect.fromLTRB(rect.left, rect.top + delta.dy, rect.right + delta.dx, rect.bottom)),
+        ),
+        _cornerHandle(
+          Offset(rect.left, rect.bottom),
+          (delta) => _clamp(Rect.fromLTRB(rect.left + delta.dx, rect.top, rect.right, rect.bottom + delta.dy)),
+        ),
+        _cornerHandle(
+          Offset(rect.right, rect.bottom),
+          (delta) => _clamp(Rect.fromLTRB(rect.left, rect.top, rect.right + delta.dx, rect.bottom + delta.dy)),
+        ),
+      ],
+    );
+  }
+
+  Widget _cornerHandle(Offset at, Rect Function(Offset delta) resize) {
+    return Positioned(
+      left: at.dx - _handleSize / 2,
+      top: at.dy - _handleSize / 2,
+      width: _handleSize,
+      height: _handleSize,
+      child: GestureDetector(
+        onPanUpdate: (details) => onChanged(resize(details.delta)),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.black26),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CropMaskPainter extends CustomPainter {
+  final Rect hole;
+  _CropMaskPainter(this.hole);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final outer = Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    final inner = Path()..addRect(hole);
+    final mask = Path.combine(PathOperation.difference, outer, inner);
+    canvas.drawPath(mask, Paint()..color = Colors.black54);
+    canvas.drawRect(hole, Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CropMaskPainter oldDelegate) => oldDelegate.hole != hole;
+}
