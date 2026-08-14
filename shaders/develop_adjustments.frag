@@ -1,0 +1,83 @@
+#version 460 core
+#include <flutter/runtime_effect.glsl>
+
+// Entwickeln-Regler auf der GPU – plattformübergreifende Entsprechung zu
+// applyNonRawAdjustments() aus macos/Runner/ImageConverter.swift.
+//
+// Zweck: LIVE-Vorschau während des Regler-Ziehens. Maßgeblich für das
+// gespeicherte Ergebnis bleibt der native Renderpfad (bei RAW wirken die
+// Regler dort auf den Rohdaten, was deutlich mehr Spielraum hat).
+//
+// Bewusst NICHT enthalten: Schärfe und Rauschunterdrückung (brauchen
+// Nachbarpixel bzw. echte Entrauschung) sowie Masken.
+
+// Ohne eigene layout(location = …): Flutter vergibt die Float-Indizes in
+// Deklarationsreihenfolge (uSize belegt 0 und 1), Sampler haben einen
+// eigenen Indexraum. Eigene Locations führen sonst zu
+// "overlapping use of location 0" zwischen vec2 und sampler2D.
+uniform vec2 uSize;
+uniform float uExposure;    // EV, -3 … +3
+uniform float uTemperature; // Kelvin, 2000 … 12000
+uniform float uTint;        // -100 … +100
+uniform float uContrast;    // -1 … +1
+uniform float uShadows;     // -1 … +1
+uniform float uApplyWhiteBalance; // 0 = aus (Automatik)
+
+uniform sampler2D uTexture;
+
+out vec4 fragColor;
+
+// sRGB -> linear. Core Image rechnet linear; ohne diese Umrechnung weicht
+// schon die Belichtung sichtbar ab.
+vec3 srgbToLinear(vec3 c) {
+  return mix(c / 12.92,
+             pow((c + 0.055) / 1.055, vec3(2.4)),
+             step(vec3(0.04045), c));
+}
+
+vec3 linearToSrgb(vec3 c) {
+  c = max(c, vec3(0.0));
+  return mix(c * 12.92,
+             1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055,
+             step(vec3(0.0031308), c));
+}
+
+// Grobe Kelvin -> RGB-Faktoren, bezogen auf 6500 K als neutral.
+// Näherung: Wärmer (< 6500) hebt Rot und senkt Blau, kühler umgekehrt.
+// Entspricht nicht exakt CITemperatureAndTint – siehe Dateikopf.
+vec3 whiteBalanceGain(float kelvin, float tint) {
+  float t = clamp(kelvin, 2000.0, 12000.0) / 6500.0;
+  // Exponent gedämpft, damit die Enden des Reglers nicht überzeichnen.
+  float r = pow(1.0 / t, 0.55);
+  float b = pow(t, 0.55);
+  // Tint verschiebt zwischen Grün (negativ) und Magenta (positiv).
+  float g = 1.0 - clamp(tint, -100.0, 100.0) / 400.0;
+  return vec3(r, g, b);
+}
+
+void main() {
+  vec2 uv = FlutterFragCoord().xy / uSize;
+  vec4 quelle = texture(uTexture, uv);
+  vec3 c = srgbToLinear(quelle.rgb);
+
+  // 1. Belichtung (CIExposureAdjust: linearer Faktor 2^EV)
+  c *= pow(2.0, uExposure);
+
+  // 2. Weißabgleich – nur wenn nicht auf Automatik
+  if (uApplyWhiteBalance > 0.5) {
+    c *= whiteBalanceGain(uTemperature, uTint);
+  }
+
+  // 3. Kontrast (CIColorControls: um 0,5 herum spreizen)
+  c = (c - 0.5) * (1.0 + uContrast) + 0.5;
+
+  // 4. Schatten: dunkle Bereiche anheben bzw. absenken, Lichter kaum
+  //    antasten. Gewichtung über die Luminanz (Rec. 709).
+  if (abs(uShadows) > 0.001) {
+    float luma = dot(clamp(c, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722));
+    float gewicht = 1.0 - smoothstep(0.0, 0.6, luma);
+    c += uShadows * 0.35 * gewicht;
+  }
+
+  fragColor = vec4(linearToSrgb(clamp(c, 0.0, 1.0)), quelle.a);
+}

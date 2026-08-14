@@ -4,9 +4,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import 'security_scoped_bookmark.dart';
+import 'platform/folder_access.dart';
 
-export 'security_scoped_bookmark.dart' show PickedFolder;
+export 'platform/folder_access.dart' show PickedFolder;
 
 /// Verwaltet, WO die eigentlichen Bibliotheksdaten (`library.sqlite` +
 /// `library/`-Ordner mit Originalen/Thumbnails/Gesichts-Crops) liegen.
@@ -22,6 +22,10 @@ export 'security_scoped_bookmark.dart' show PickedFolder;
 class LibraryLocation {
   LibraryLocation._();
 
+  /// Plattformabhängiger Teil (Sandbox-Bookmarks unter macOS, blanker Pfad
+  /// unter Linux/Windows) – siehe services/platform/folder_access.dart.
+  static final FolderAccess _access = FolderAccess.forCurrentPlatform();
+
   static Future<Directory> _anchorDir() async {
     final support = await getApplicationSupportDirectory();
     final dir = Directory(p.join(support.path, 'PhotoVault'));
@@ -35,22 +39,25 @@ class LibraryLocation {
   }
 
   /// Aktuelles Wurzelverzeichnis für `library.sqlite` und den `library/`-
-  /// Ordner. Löst dabei – falls ein externer Ordner konfiguriert ist – über
-  /// das gespeicherte Security-Scoped-Bookmark erneut den Sandbox-Zugriff
-  /// auf, da macOS diesen sonst nach jedem Neustart wieder entzieht.
+  /// Ordner. Stellt dabei – falls ein externer Ordner konfiguriert ist – den
+  /// Zugriff darauf wieder her: unter macOS über das gespeicherte
+  /// Security-Scoped-Bookmark (die Sandbox entzieht ihn sonst bei jedem
+  /// Neustart), unter Linux/Windows über den gespeicherten Pfad.
   static Future<Directory> currentRoot() async {
     final configFile = await _configFile();
     if (!await configFile.exists()) return _anchorDir();
 
     try {
       final json = jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
-      final bookmark = json['bookmark'] as String?;
-      if (bookmark == null) return _anchorDir();
-
-      final resolved = await SecurityScopedBookmark.resolve(bookmark);
-      // Bookmark ungültig geworden (z.B. Ordner gelöscht/umbenannt, Laufwerk
-      // nicht eingebunden) – auf den Standardordner zurückfallen, statt die
-      // App gar nicht erst starten zu lassen.
+      final resolved = await _access.resolveRoot(
+        path: json['path'] as String?,
+        // Ältere Konfigurationen (vor der Plattform-Trennung) speichern das
+        // Token noch unter dem macOS-Namen "bookmark".
+        token: (json['token'] ?? json['bookmark']) as String?,
+      );
+      // Ordner nicht mehr erreichbar (gelöscht/umbenannt, Laufwerk nicht
+      // eingebunden, Bookmark ungültig) – auf den Standardordner
+      // zurückfallen, statt die App gar nicht erst starten zu lassen.
       if (resolved == null) return _anchorDir();
       return Directory(resolved);
     } catch (_) {
@@ -61,14 +68,15 @@ class LibraryLocation {
   /// Ob aktuell ein vom Standard abweichender Speicherort konfiguriert ist.
   static Future<bool> get isCustom async => (await _configFile()).exists();
 
-  /// Zeigt einen nativen Ordnerauswahl-Dialog und erzeugt dabei atomar
-  /// (siehe [SecurityScopedBookmark.pickFolderAndCreateBookmark]) ein
-  /// dauerhaftes Security-Scoped-Bookmark für den gewählten Ordner. Gibt
-  /// `null` zurück, falls der Nutzer abgebrochen hat. Bewusst von
-  /// [applyRoot] getrennt: die eigentliche UI (z.B. eine Ladeanzeige) soll
-  /// erst nach der Ordnerauswahl erscheinen, nicht schon währenddessen.
+  /// Zeigt einen Ordnerauswahl-Dialog. Unter macOS entsteht dabei atomar im
+  /// selben nativen Aufruf ein dauerhaftes Security-Scoped-Bookmark, unter
+  /// Linux/Windows genügt der gewählte Pfad (siehe
+  /// services/platform/folder_access.dart). Gibt `null` zurück, falls der
+  /// Nutzer abgebrochen hat. Bewusst von [applyRoot] getrennt: die
+  /// eigentliche UI (z.B. eine Ladeanzeige) soll erst nach der Ordnerauswahl
+  /// erscheinen, nicht schon währenddessen.
   static Future<PickedFolder?> pickFolder({String? dialogMessage}) {
-    return SecurityScopedBookmark.pickFolderAndCreateBookmark(message: dialogMessage);
+    return _access.pickFolder(message: dialogMessage);
   }
 
   /// Legt einen zuvor per [pickFolder] gewählten Ordner als neuen
@@ -93,7 +101,7 @@ class LibraryLocation {
     await _moveLibraryData(oldRoot, newRoot);
 
     final configFile = await _configFile();
-    await configFile.writeAsString(jsonEncode({'path': picked.path, 'bookmark': picked.bookmark}));
+    await configFile.writeAsString(jsonEncode({'path': picked.path, 'token': picked.token}));
     return picked.path;
   }
 

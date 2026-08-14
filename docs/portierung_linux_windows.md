@@ -52,23 +52,15 @@ Plattformen.
 Dart-Pakete (`image`, `exif`, `crypto`, `cryptography`, `archive`, `xml`,
 `fl_chart`, `panorama_viewer`, `flutter_cube`, `flutter_earth_globe`, …).
 
-**Einziger Paket-Blocker:** `video_player` unterstützt nur Android, iOS,
-macOS und Web – **nicht** Linux/Windows.
+**Der einzige Paket-Blocker ist beseitigt:** `video_player` unterstützte
+nur Android/iOS/macOS/Web und ist inzwischen vollständig durch `media_kit`
+ersetzt, das alle sechs Plattformen abdeckt (siehe Phase 1 in
+[plan_linux.md](plan_linux.md)). Damit unterstützt **jede** Abhängigkeit
+des Projekts Linux und Windows.
 
 ## Was noch fehlt
 
-### 1. Videowiedergabe (Paket-Blocker)
-
-`video_player` betrifft drei Dateien: `asset_viewer_screen.dart`,
-`video_trim_screen.dart`, `live_photo_view.dart`.
-
-Empfohlener Ersatz: **`media_kit`** – unterstützt alle Desktop-Plattformen
-inklusive macOS, sodass am Ende nur eine Wiedergabe-Implementierung nötig
-ist statt zwei. Der Umbau sollte erst erfolgen, wenn auf einer der
-Zielplattformen getestet werden kann; ein blinder Austausch würde die
-funktionierende macOS-Wiedergabe gefährden.
-
-### 2. Native Bildverarbeitung
+### 1. Native Bildverarbeitung
 
 `macos/Runner/ImageConverter.swift` stellt sechs Funktionen bereit, die es
 unter Linux/Windows noch nicht gibt. Der Dart-Wrapper
@@ -91,7 +83,7 @@ das reine Dart-Paket `image` abdeckt.
 iPhone-Fotos unsichtbar – das trifft am meisten Nutzer), dann
 `videoThumbnail`, danach der Rest.
 
-### 3. Noch nicht geprüft
+### 2. Noch nicht geprüft
 
 - **Bauen und Starten** auf echten Linux-/Windows-Systemen. Von macOS aus
   lässt sich das nicht erzeugen; `flutter analyze` und die Testsuite laufen

@@ -9,6 +9,7 @@ import '../services/geo_data_catalog.dart';
 import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../state/library_state.dart';
+import '../services/platform/reveal_in_file_manager.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/pin_dialogs.dart';
@@ -94,7 +95,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _openInFinder(String path) async {
-    if (Platform.isMacOS) await Process.run('open', [path]);
+    final opened = await revealInFileManager(path);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ordner konnte nicht geöffnet werden: $path')),
+      );
+    }
   }
 
   Future<void> _downloadModel(ModelCatalogEntry entry) async {

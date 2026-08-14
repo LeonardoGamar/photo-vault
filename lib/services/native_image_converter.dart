@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import 'platform/linux_image_tools.dart';
 import 'raw_formats.dart';
 
 /// Formate, die Flutter (Skia) selbst nicht rendern kann und die das
@@ -20,8 +21,11 @@ class NativeImageConverter {
 
   static bool? _supported;
 
-  /// Prüft (und cached), ob der native Kanal verfügbar ist (Swift-Datei
+  /// Prüft (und cached), ob der native macOS-Kanal verfügbar ist (Swift-Datei
   /// muss dafür manuell ins Xcode-Projekt eingebunden sein, siehe README).
+  ///
+  /// Unter Linux gibt es diesen Kanal nicht – dort übernimmt
+  /// [LinuxImageTools] über Kommandozeilenwerkzeuge, siehe [_linux].
   static Future<bool> isSupported() async {
     if (_supported != null) return _supported!;
     if (!Platform.isMacOS) {
@@ -37,6 +41,15 @@ class NativeImageConverter {
     return _supported!;
   }
 
+  /// Ob auf dieser Plattform der Linux-Weg (externe Werkzeuge) gilt.
+  static bool get _linux => Platform.isLinux;
+
+  /// Welche Fähigkeiten hier verfügbar sind – für Diagnose und um in der
+  /// UI ehrlich anzuzeigen, was fehlt. Leere Map = alles über den nativen
+  /// Kanal (macOS) bzw. gar nichts (Windows, noch nicht umgesetzt).
+  static Future<Map<String, bool>> verfuegbareWerkzeuge() async =>
+      _linux ? await LinuxImageTools.pruefeWerkzeuge() : const <String, bool>{};
+
   /// Konvertiert eine Bilddatei (z.B. HEIC oder DNG) zu JPEG-Bytes, skaliert
   /// auf maximal [maxDimension] Pixel an der längeren Seite. Gibt `null`
   /// zurück, falls die native Anbindung fehlt oder die Datei nicht
@@ -46,6 +59,10 @@ class NativeImageConverter {
     int maxDimension = 2048,
     double quality = 0.9,
   }) async {
+    if (_linux) {
+      return LinuxImageTools.convertToJpeg(file,
+          maxDimension: maxDimension, quality: (quality * 100).round());
+    }
     if (!await isSupported()) return null;
     try {
       final result = await _channel.invokeMethod<Uint8List>('convertToJpeg', {
@@ -99,6 +116,10 @@ class NativeImageConverter {
     File file, {
     int maxDimension = 800,
   }) async {
+    if (_linux) {
+      final r = await LinuxImageTools.videoThumbnail(file, maxDimension: maxDimension);
+      return r == null ? null : VideoThumbnailResult(r.jpeg, r.dauerSekunden);
+    }
     if (!await isSupported()) return null;
     try {
       final result = await _channel.invokeMethod<Map<Object?, Object?>>('videoThumbnail', {
@@ -144,6 +165,10 @@ class NativeImageConverter {
     required double endSeconds,
     required String outputPath,
   }) async {
+    if (_linux) {
+      return LinuxImageTools.trimVideo(file,
+          startSekunden: startSeconds, endSekunden: endSeconds, zielPfad: outputPath);
+    }
     if (!await isSupported()) return false;
     try {
       final success = await _channel.invokeMethod<bool>('trimVideo', {

@@ -8,7 +8,6 @@ import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:video_player/video_player.dart';
 
 import '../db/database.dart';
 import '../services/asset_display_path.dart';
@@ -22,6 +21,7 @@ import '../widgets/asset_info_sheet.dart';
 import '../widgets/live_photo_view.dart';
 import '../widgets/metadata_editor_dialog.dart';
 import '../widgets/panorama_360_view.dart';
+import '../widgets/video_playback.dart';
 import '../widgets/selection_action_bar.dart' show confirmDialog;
 import 'develop_screen.dart';
 import 'image_editor_screen.dart';
@@ -1191,12 +1191,12 @@ class _VideoPageState extends State<_VideoPage> {
   // Nicht mehr eager im Feld-Initialisierer erzeugt: PageView.builder kann
   // Nachbarseiten schon vorab aufbauen, bevor zu ihnen geblättert wurde – ein
   // dort sofort erzeugter, initialisierter und abspielender
-  // VideoPlayerController würde dann außerhalb der sichtbaren Seite unnötig
+  // Videocontroller würde dann außerhalb der sichtbaren Seite unnötig
   // Speicher/Decoder-Ressourcen belegen und (bei zwei gleichzeitig
   // abspielenden Videos) sogar doppelten Ton erzeugen. Stattdessen wird der
   // Controller erst erzeugt, sobald diese Seite tatsächlich [isCurrent] ist,
   // und beim Verlassen pausiert statt weiterzulaufen.
-  VideoPlayerController? _controller;
+  VideoPlaybackController? _controller;
 
   @override
   void initState() {
@@ -1217,12 +1217,17 @@ class _VideoPageState extends State<_VideoPage> {
 
   void _ensureController() {
     if (_controller != null) return;
-    final controller = VideoPlayerController.file(widget.file)..setLooping(true);
+    final controller = VideoPlaybackController();
     _controller = controller;
-    controller.initialize().then((_) {
+    controller.open(widget.file, loop: true).then((ok) {
       if (!mounted) return;
       setState(() {});
-      if (widget.isCurrent) controller.play();
+      if (ok && widget.isCurrent) controller.play();
+    });
+    // Start/Stopp kommt bei media_kit über einen Strom, nicht über einen
+    // ChangeNotifier – ohne dieses Abo bliebe das Play-Symbol stehen.
+    controller.changes.listen((_) {
+      if (mounted) setState(() {});
     });
   }
 
@@ -1235,7 +1240,7 @@ class _VideoPageState extends State<_VideoPage> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    if (controller == null || !controller.value.isInitialized) {
+    if (controller == null || !controller.isReady) {
       return widget.isCurrent
           ? const Center(child: CircularProgressIndicator())
           : const ColoredBox(color: Colors.black);
@@ -1243,33 +1248,27 @@ class _VideoPageState extends State<_VideoPage> {
     return Center(
       child: GestureDetector(
         onTap: () => setState(() {
-          controller.value.isPlaying ? controller.pause() : controller.play();
+          controller.isPlaying ? controller.pause() : controller.play();
         }),
         child: Stack(
           alignment: Alignment.center,
           children: [
             AspectRatio(
-              aspectRatio: controller.value.aspectRatio,
-              child: VideoPlayer(controller),
+              aspectRatio: controller.aspectRatio,
+              child: VideoSurface(controller: controller),
             ),
             // Kurz aufblitzendes Play-Symbol, solange pausiert (z.B. direkt
             // nach dem Öffnen oder nach einem Tap zum Pausieren).
-            if (!controller.value.isPlaying)
+            if (!controller.isPlaying)
               const Icon(Icons.play_arrow, color: Colors.white70, size: 72),
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              child: VideoProgressIndicator(
-                controller,
-                allowScrubbing: true,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
-                colors: const VideoProgressColors(
-                  playedColor: Colors.white,
-                  bufferedColor: Colors.white38,
-                  backgroundColor: Colors.white12,
-                ),
+              child: VideoProgressBar(
+                controller: controller,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md, vertical: AppSpacing.md),
               ),
             ),
           ],

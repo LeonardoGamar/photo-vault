@@ -14,7 +14,7 @@ Sieben Fähigkeiten fehlen unter Linux. Sechs stammen aus
 
 | # | Fähigkeit | Heute (macOS) | Ohne Umsetzung fehlt |
 |---|---|---|---|
-| 1 | Videowiedergabe | `video_player` (AVFoundation) | Videos, Live Photos, Video-Zuschnitt-Vorschau |
+| 1 | ~~Videowiedergabe~~ | ~~`video_player`~~ | **erledigt** – jetzt `media_kit` |
 | 2 | HEIC/RAW → JPEG | ImageIO | alle iPhone-Fotos und RAW-Dateien unsichtbar |
 | 3 | RAW-Entwicklung | CIRAWFilter / Core Image | „Entwickeln" wirkungslos |
 | 4 | Video-Vorschaubild | AVFoundation | Videos ohne Thumbnail |
@@ -51,74 +51,141 @@ Reihenfolge nach Nutzen: Was die meisten Fotos betrifft, kommt zuerst.
 
 ### Phase 0 – Bauen und starten (Grundlage)
 
-Auf einem echten Linux-System (oder in einer VM/Container) `flutter build
-linux` durchführen und die App starten. Erwartete Stolpersteine: fehlende
-Systempakete (`libgtk-3-dev`, `libsecret`), Pfadtrennzeichen, sqlite3-
-Bibliothek. Ohne diesen Schritt ist alles Weitere Spekulation – **von macOS
-aus nicht durchführbar.**
+**Auf der Linux-Maschine als Erstes ausführen:**
 
-Ergebnis: App startet, Timeline zeigt JPG/PNG, Datenbank und
-Verschlüsselung funktionieren.
+```bash
+tool/linux_setup_check.sh
+```
 
-### Phase 1 – Videowiedergabe (`media_kit`)
+Das Skript prüft Bau-Voraussetzungen (Flutter, clang, cmake, ninja,
+pkg-config, GTK 3) und Laufzeit-Werkzeuge (libmpv, ffmpeg, heif-convert,
+dcraw_emu) und nennt zu jedem fehlenden Stück den Installationsbefehl.
+Fehlende Laufzeit-Werkzeuge verhindern den Build nicht – sie kosten nur
+einzelne Funktionen.
 
-Betrifft `asset_viewer_screen.dart`, `video_trim_screen.dart`,
-`live_photo_view.dart`.
+Auf Debian/Ubuntu meist in einem Rutsch:
 
-`media_kit` unterstützt alle Zielplattformen inklusive macOS. Deshalb
-**vollständig ersetzen statt parallel führen** – am Ende gibt es eine
-Wiedergabe-Implementierung, nicht zwei. Unter Linux wird `libmpv`
-gebraucht (im Flatpak gebündelt).
+```bash
+sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev \
+                 libmpv-dev mpv ffmpeg libheif-examples libraw-bin
+```
 
-Vorgehen: hinter einer eigenen Abstraktion in `lib/services/platform/`
-kapseln, zuerst unter macOS umstellen und dort gegen die bestehende
-Funktion prüfen (Live-Photo-Wiedergabe per Gedrückthalten, framegenaues
-Suchen im Zuschnitt-Bildschirm), erst danach Linux.
+Danach:
 
-### Phase 2 – HEIC und RAW lesbar machen (größter Nutzen)
+```bash
+flutter pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter run -d linux
+```
 
-Ohne diesen Schritt sind iPhone-Fotos und RAW-Dateien schlicht unsichtbar.
+**Worauf beim ersten Start zu achten ist:**
 
-Neue Datei `lib/services/platform/image_decoder_linux.dart`, die dieselbe
-Rolle erfüllt wie `convertToJpeg` unter macOS:
+1. Startet die App und erscheint die Timeline?
+2. Lässt sich unter Einstellungen → Speicherort ein Ordner wählen? (Das
+   war der ursprüngliche Blocker, jetzt über `folder_access_desktop.dart`.)
+3. Importieren JPG/PNG samt Thumbnail?
+4. Spielt ein Video ab? (media_kit, braucht libmpv)
+5. Erscheint bei HEIC/RAW ein Vorschaubild? (braucht heif-convert bzw.
+   dcraw_emu, siehe Phase 2)
+
+Erwartete Stolpersteine: Pfadtrennzeichen, die sqlite3-Bibliothek und
+Groß-/Kleinschreibung bei Dateinamen (Linux unterscheidet sie, macOS
+üblicherweise nicht).
+
+### Phase 1 – Videowiedergabe (`media_kit`) — **ERLEDIGT**
+
+`video_player` ist vollständig durch `media_kit` ersetzt. Da dieses alle
+sechs Plattformen abdeckt, war keine plattformabhängige Variante nötig –
+es gibt weiterhin genau eine Wiedergabe-Implementierung.
+
+Umgesetzt in `lib/widgets/video_playback.dart`:
+`VideoPlaybackController` (öffnen, abspielen, pausieren, spulen,
+Dauerschleife, Dauer, Seitenverhältnis), `VideoSurface` (Bildausgabe) und
+`VideoProgressBar` – letztere ersetzt `VideoProgressIndicator`, für das es
+bei `media_kit` keine Entsprechung gibt.
+
+Angepasst: `asset_viewer_screen.dart`, `video_trim_screen.dart`,
+`live_photo_view.dart`; `MediaKit.ensureInitialized()` in `main.dart`.
+
+Auf macOS real gegen ein Video aus der Bibliothek geprüft: Öffnen in
+457 ms, korrekte Dauer (31,96 s) und Seitenverhältnis, Position läuft in
+Echtzeit weiter, 29,9 % nicht-schwarze Pixel (es wird also wirklich Bild
+gerendert, nicht nur Ton), Pausieren und Zurückspulen funktionieren.
+
+Die Plugin-Registrierung für Linux (`media_kit_libs_linux`) und Windows
+(`media_kit_libs_windows_video`) ist erzeugt, dort aber **noch ungetestet**
+– unter Linux wird zusätzlich `libmpv` gebraucht (im Flatpak zu bündeln).
+
+Nebeneffekt: Das Projekt nutzt für macOS/iOS jetzt CocoaPods statt Swift
+Package Manager, da `media_kit` nur damit ausgeliefert wird.
+
+### Phase 2 – HEIC und RAW lesbar machen — **GESCHRIEBEN, UNGETESTET**
+
+Umgesetzt in `lib/services/platform/linux_image_tools.dart`:
 
 - **HEIC/HEIF:** `heif-convert` (Paket `libheif-examples`)
-- **RAW:** `dcraw_emu` aus LibRaw, alternativ `darktable-cli`
+- **RAW:** `dcraw_emu` aus LibRaw (Paket `libraw-bin`), Ausgabe als TIFF
 
-Beides schreibt in eine temporäre Datei, die dann wie bisher weiterverarbeitet
-wird. Die Aufrufe gehören in ein Isolate (`compute`), damit die UI nicht
-blockiert – dasselbe Muster wie beim bestehenden Thumbnail-Pfad.
+Beide schreiben in einen temporären Ordner, der anschließend immer
+aufgeräumt wird; das Verkleinern übernimmt das `image`-Paket in einem
+Isolate (`compute`), damit die UI nicht blockiert. Die RAW-Datei wird
+vorher in den Temp-Ordner kopiert, weil `dcraw_emu` sonst neben das
+Original schreiben würde – die Bibliothek bleibt unangetastet.
 
-**Wichtig:** Die HDR-Gain-Map-Behandlung aus `convertHdrAwareJpeg` hat unter
-Linux keine direkte Entsprechung. Für v1 akzeptabel (Bild wird korrekt
-angezeigt, nur ohne HDR-Feinheiten), sollte aber dokumentiert werden.
+`NativeImageConverter` bleibt die einzige Anlaufstelle und verzweigt
+intern nach Plattform; die 11 Aufrufstellen in der App sind unverändert.
 
-### Phase 3 – Entwickeln (der anspruchsvollste Teil)
+**Noch offen:** `developImage` (die Entwickeln-Regler) hat unter Linux
+weiterhin keine Entsprechung – dafür braucht es Phase 3 als maßgeblichen
+Renderpfad. Ebenso die HDR-Gain-Map-Behandlung aus `convertHdrAwareJpeg`:
+Das Bild wird korrekt angezeigt, nur ohne HDR-Feinheiten.
 
-Core Image hat unter Linux keine Entsprechung. Statt einen Ersatz zu suchen,
-bietet sich ein **Fragment-Shader in Flutter selbst** an: Belichtung,
-Kontrast, Schatten, Temperatur, Tint und die Maskenebenen sind reine
-Pixeloperationen und lassen sich in GLSL abbilden (`FragmentProgram`,
-seit Flutter 3.7).
+### Phase 3 – Entwickeln: Regler als Shader — **TEILWEISE ERLEDIGT**
 
-Das ist mehr Arbeit als ein CLI-Aufruf, hat aber drei Vorteile: es
-funktioniert auf **allen** Plattformen identisch, läuft auf der GPU (also
-schneller als der heutige native Umweg über eine Datei), und macht die
-Vorschau live statt nach jedem Reglerstopp neu gerendert.
+`shaders/develop_adjustments.frag` bildet Belichtung, Weißabgleich,
+Kontrast und Schatten in GLSL nach – die portable Entsprechung zu
+`applyNonRawAdjustments`. Angebunden über
+`lib/widgets/develop_preview.dart`.
 
-Bleibt zweigeteilt:
-- **Anpassungen** (Belichtung, Kontrast, …) → Shader, plattformübergreifend
-- **RAW-Demosaicing + Objektivkorrektur** → weiter nativ; unter Linux über
-  LibRaw (Objektivkorrektur via `lensfun`, das LibRaw anbinden kann)
+**Rolle heute:** Live-Vorschau während des Regler-Ziehens. Maßgeblich für
+das gespeicherte Ergebnis bleibt der native Renderpfad – bei RAW wirken
+die Regler dort auf den Rohdaten (CIRAWFilter beim Demosaicing), was
+deutlich mehr Spielraum hat als eine nachträgliche Korrektur.
 
-Empfehlung: Shader zuerst und plattformübergreifend einführen, danach RAW.
-Der Shader-Teil ist auch für macOS ein Gewinn.
+**Real gemessene Abweichung** vom nativen Render (mittlere Helligkeit
+desselben Fotos):
 
-### Phase 4 – Video-Vorschaubild und -Zuschnitt (`ffmpeg`)
+| Einstellung | Abweichung |
+|---|---|
+| neutral | 0,1 % |
+| Belichtung +1 EV | 0,1 % |
+| Kontrast +0,5 | 1,3 % |
+| Temperatur 3200 K | 6,1 % |
+| Temperatur 9000 K | 0,4 % |
 
-Beides direkt über `ffmpeg`:
-- Vorschaubild: einzelnes Bild an einer Zeitposition extrahieren
-- Zuschnitt: verlustfrei schneiden (`-c copy`), also ohne Neukodierung –
+Wegen der Abweichung beim warmen Weißabgleich sind **Temperatur und Tint
+von der Live-Vorschau ausgenommen** (`liveVorschau: false` am jeweiligen
+Regler): Gerade dort beurteilt man die Farbe, eine genäherte Vorschau
+würde zu falschen Einstellungen verleiten.
+
+Ebenfalls nicht im Shader: Schärfe und Rauschunterdrückung (brauchen
+Nachbarpixel bzw. echte Entrauschung) sowie Masken – bei vorhandenen
+Masken bleibt es beim nativen Render, da die neutrale Basis keine
+Maskenwirkung enthält.
+
+**Für Linux bleibt zu tun:** den Shader vom Vorschau- zum maßgeblichen
+Renderpfad machen (dort gibt es kein Core Image), inklusive Schärfe,
+Rauschunterdrückung und Maskenkomposition, gespeist aus einem per LibRaw
+dekodierten Bild (Phase 2).
+
+### Phase 4 – Video-Vorschaubild und -Zuschnitt — **GESCHRIEBEN, UNGETESTET**
+
+Ebenfalls in `linux_image_tools.dart`:
+- Vorschaubild: `ffmpeg` extrahiert einen Frame bei Sekunde 1 (nicht bei 0
+  – der allererste Frame ist bei vielen Videos schwarz) und skaliert dabei
+  gleich mit
+- Länge: `ffprobe`
+- Zuschnitt: `ffmpeg -c copy`, also verlustfrei ohne Neukodierung –
   entspricht dem nicht-destruktiven Verhalten unter macOS
 
 ### Phase 5 – Texterkennung (OCR)
@@ -152,11 +219,11 @@ müssen die Abhängigkeiten als Paketabhängigkeiten deklariert werden.
 ## Reihenfolge auf einen Blick
 
 ```
+Phase 1  Videowiedergabe          ERLEDIGT (auf macOS verifiziert)
+Phase 3  Entwickeln-Shader        TEILWEISE (Live-Vorschau steht)
+Phase 2  HEIC/RAW lesbar          geschrieben, wartet auf Linux-Test
+Phase 4  Video-Thumbnail/Schnitt  geschrieben, wartet auf Linux-Test
 Phase 0  bauen/starten            Grundlage, blockiert alles Weitere
-Phase 2  HEIC/RAW lesbar          größter Nutzen für Nutzer
-Phase 1  Videowiedergabe          betrifft alle Videos
-Phase 4  Video-Thumbnail/Schnitt  ergänzt Phase 1
-Phase 3  Entwickeln (Shader)      größter Aufwand, auch macOS-Gewinn
 Phase 5  OCR                      am wenigsten kritisch
 Phase 6  Flatpak                  parallel ab Phase 2 sinnvoll
 ```

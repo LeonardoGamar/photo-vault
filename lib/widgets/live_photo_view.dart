@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 import '../theme/app_spacing.dart';
+import 'video_playback.dart';
 
 /// Obergrenze für die Dekodierauflösung des Standbilds, aus demselben Grund
 /// wie in `asset_viewer_screen.dart` (dort keine gemeinsame Datei, da als
@@ -24,7 +24,7 @@ class LivePhotoView extends StatefulWidget {
 }
 
 class _LivePhotoViewState extends State<LivePhotoView> {
-  VideoPlayerController? _controller;
+  VideoPlaybackController? _controller;
   bool _playing = false;
   bool _initializing = false;
 
@@ -33,13 +33,12 @@ class _LivePhotoViewState extends State<LivePhotoView> {
   /// Press-and-Hold-Gestus eine per Button gestartete Wiedergabe abbricht.
   bool _loopMode = false;
 
-  Future<VideoPlayerController?> _ensureController() async {
+  Future<VideoPlaybackController?> _ensureController() async {
     if (_controller != null) return _controller;
     setState(() => _initializing = true);
-    final controller = VideoPlayerController.file(widget.videoFile);
-    try {
-      await controller.initialize();
-    } catch (_) {
+    final controller = VideoPlaybackController();
+    if (!await controller.open(widget.videoFile)) {
+      await controller.dispose();
       if (mounted) setState(() => _initializing = false);
       return null;
     }
@@ -61,7 +60,7 @@ class _LivePhotoViewState extends State<LivePhotoView> {
       _loopMode = loop;
     });
     await controller.setLooping(loop);
-    await controller.seekTo(Duration.zero);
+    await controller.seekToStart();
     await controller.play();
   }
 
@@ -100,7 +99,7 @@ class _LivePhotoViewState extends State<LivePhotoView> {
 
   @override
   Widget build(BuildContext context) {
-    final showVideo = _playing && _controller != null && _controller!.value.isInitialized;
+    final showVideo = _playing && _controller != null && _controller!.isReady;
     return GestureDetector(
       onLongPressStart: (_) => _onHoldStart(),
       onLongPressEnd: (_) => _onHoldEnd(),
@@ -121,8 +120,8 @@ class _LivePhotoViewState extends State<LivePhotoView> {
           ),
           if (showVideo)
             AspectRatio(
-              aspectRatio: _controller!.value.aspectRatio,
-              child: VideoPlayer(_controller!),
+              aspectRatio: _controller!.aspectRatio,
+              child: VideoSurface(controller: _controller!),
             ),
           if (_initializing)
             const CircularProgressIndicator(color: Colors.white),

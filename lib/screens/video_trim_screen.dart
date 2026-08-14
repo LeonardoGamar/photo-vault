@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 import '../db/database.dart';
 import '../services/native_image_converter.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/video_playback.dart';
 
 /// Nicht-destruktiver Video-Zuschnitt: Start-/Endpunkt über eine
 /// Bereichsleiste wählen, "Speichern" schneidet nativ über AVFoundation
@@ -24,8 +24,9 @@ class VideoTrimScreen extends StatefulWidget {
 }
 
 class _VideoTrimScreenState extends State<VideoTrimScreen> {
-  VideoPlayerController? _controller;
+  VideoPlaybackController? _controller;
   RangeValues? _range;
+  String? _fehler;
   bool _saving = false;
   bool _hasExistingTrim = false;
 
@@ -36,13 +37,19 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
   }
 
   Future<void> _init() async {
-    final controller = VideoPlayerController.file(widget.paths.absolute(widget.asset.relativePath));
+    final controller = VideoPlaybackController();
     _controller = controller;
-    await controller.initialize();
+    final ok = await controller.open(widget.paths.absolute(widget.asset.relativePath));
     if (!mounted) return;
+    if (!ok) {
+      // Ohne diese Prüfung bliebe der Ladekreis für immer stehen, weil
+      // _range nie gesetzt wird.
+      setState(() => _fehler = 'Video konnte nicht geöffnet werden.');
+      return;
+    }
 
     final existing = await widget.db.videoTrimForAsset(widget.asset.id);
-    final durationSeconds = controller.value.duration.inMilliseconds / 1000;
+    final durationSeconds = controller.duration.inMilliseconds / 1000;
     setState(() {
       _hasExistingTrim = existing != null;
       _range = RangeValues(
@@ -58,7 +65,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
     super.dispose();
   }
 
-  double get _durationSeconds => (_controller?.value.duration.inMilliseconds ?? 0) / 1000;
+  double get _durationSeconds => (_controller?.duration.inMilliseconds ?? 0) / 1000;
 
   String _formatSeconds(double seconds) {
     final duration = Duration(milliseconds: (seconds * 1000).round());
@@ -140,15 +147,24 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
         ],
       ),
       body: SafeArea(
-        child: controller == null || !controller.value.isInitialized || range == null
+        child: _fehler != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: Text(_fehler!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white70)),
+                ),
+              )
+            : controller == null || !controller.isReady || range == null
             ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
                   Expanded(
                     child: Center(
                       child: AspectRatio(
-                        aspectRatio: controller.value.aspectRatio,
-                        child: VideoPlayer(controller),
+                        aspectRatio: controller.aspectRatio,
+                        child: VideoSurface(controller: controller),
                       ),
                     ),
                   ),

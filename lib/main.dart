@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:provider/provider.dart';
 
 import 'db/database.dart';
@@ -9,6 +10,8 @@ import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Muss vor der ersten Videowiedergabe laufen (siehe widgets/video_playback.dart).
+  MediaKit.ensureInitialized();
   await initializeDateFormatting('de_DE');
   runApp(const PhotoVaultApp());
 }

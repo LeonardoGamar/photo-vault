@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -42,7 +42,15 @@ dependencies:
   # Darstellung / Medien
   cached_network_image: ^3.4.1 # auch für lokale file://-URIs mit Caching nutzbar
   photo_view: ^0.15.0
-  video_player: ^2.9.5
+
+  # Videowiedergabe über libmpv. Ersetzt video_player, das ausschließlich
+  # Android/iOS/macOS/Web unterstützt und damit der einzige Paket-Blocker
+  # für die Linux-/Windows-Portierung war (siehe docs/plan_linux.md).
+  # media_kit deckt alle sechs Plattformen ab – dadurch bleibt es bei EINER
+  # Wiedergabe-Implementierung statt einer pro Plattform.
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7 # native Bibliotheken je Plattform
 
   # Datum, IDs
   intl: ^0.19.0
@@ -117,3 +125,8 @@ flutter:
     - assets/icon/app_icon.png
     - assets/globe/2k_earth_daymap.jpg
     - assets/globe/2k_stars_milky_way.jpg
+
+  # Entwickeln-Regler als GPU-Shader (siehe widgets/develop_preview.dart) –
+  # plattformübergreifend, anders als das native Core Image.
+  shaders:
+    - shaders/develop_adjustments.frag

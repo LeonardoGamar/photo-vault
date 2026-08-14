@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart' show compute;
@@ -20,6 +21,7 @@ import '../services/vector_mask_service.dart';
 import '../state/library_state.dart' show decodeImageBytes;
 import '../theme/app_spacing.dart';
 import '../utils/debouncer.dart';
+import '../widgets/develop_preview.dart';
 import '../widgets/histogram_view.dart';
 
 /// Welche Art von Maske gerade erstellt/bearbeitet wird – KI-Auswahl (SAM-
@@ -85,6 +87,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
   Uint8List? _originalPreviewBytes;
   bool _loadingOriginalPreview = false;
   bool _showingOriginal = false;
+
+  // --- Live-Vorschau per GPU-Shader ------------------------------------
+  // Während des Regler-Ziehens rechnet der Shader sofort auf der
+  // neutralen Basis; nach dem Loslassen ersetzt der native Render das Bild
+  // und ist maßgeblich (siehe shaders/develop_adjustments.frag).
+  ui.FragmentShader? _shader;
+  ui.Image? _shaderBasis;
+  bool _dragging = false;
+
+  /// Shader-Vorschau nur, wenn sie auch stimmen kann: beim Ziehen, mit
+  /// geladener Basis und Shader – und ohne Masken, da die neutrale Basis
+  /// keine Maskenwirkung enthält und beim Ziehen sonst alle Masken
+  /// verschwinden und danach wieder auftauchen würden.
+  bool get _zeigeShaderVorschau =>
+      _dragging && _masks.isEmpty && _shader != null && _shaderBasis != null;
 
   /// Tonwertverteilung der aktuell angezeigten Vorschau (siehe
   /// [_recomputeHistogram]). `null`, solange noch nichts berechnet wurde.
@@ -160,12 +177,56 @@ class _DevelopScreenState extends State<DevelopScreen> {
   @override
   void initState() {
     super.initState();
+    // _initShaderVorschau() bewusst NICHT hier: _init() lehnt gesperrte
+    // Fotos ab, bevor irgendetwas die noch verschlüsselte Originaldatei
+    // anfasst. Ein paralleler Aufruf würde genau daran vorbeilaufen. Der
+    // Start erfolgt daher am Ende von _init(), wo Sperre und Vorschau
+    // bereits geklärt sind.
     _init();
+  }
+
+  /// Lädt Shader-Programm und neutrale Basis für die Live-Vorschau.
+  ///
+  /// Wird am Ende von [_init] aufgerufen, also erst nachdem die Sperre
+  /// geprüft und die Vorschau geladen ist. Beides ist optional: Schlägt es
+  /// fehl (Plattform ohne Shader, Foto nicht renderbar), bleibt schlicht
+  /// das bisherige Verhalten – nach jedem Reglerstopp ein nativer Render.
+  Future<void> _initShaderVorschau({required bool unbearbeitet}) async {
+    final shader = await ladeDevelopShader();
+    if (!mounted) return;
+    if (shader != null) setState(() => _shader = shader);
+
+    // Bei einem unbearbeiteten Foto IST die angezeigte Vorschau bereits der
+    // neutrale Stand – die lässt sich direkt als Shader-Basis verwenden.
+    // Ein zusätzlicher nativer Render wäre reine Verschwendung und würde
+    // die Optimierung aus _init() (kein CIRAWFilter-Durchlauf für
+    // unveränderte Fotos) wieder zunichtemachen.
+    Uint8List? bytes = unbearbeitet ? _previewBytes : null;
+    if (bytes == null) {
+      await _ensureOriginalPreviewLoaded();
+      bytes = _originalPreviewBytes;
+    }
+    if (bytes == null || !mounted) return;
+    try {
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      if (!mounted) {
+        frame.image.dispose();
+        return;
+      }
+      setState(() => _shaderBasis = frame.image);
+    } catch (_) {
+      // Ohne Basis keine Live-Vorschau – kein Grund, den Screen zu stören.
+    }
   }
 
   @override
   void dispose() {
     _debouncer.dispose();
+    // GPU-Ressourcen gehören ausdrücklich freigegeben – der Garbage
+    // Collector räumt sie nicht ab.
+    _shader?.dispose();
+    _shaderBasis?.dispose();
     super.dispose();
   }
 
@@ -209,8 +270,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
       // heraus) – erspart bei RAW-Dateien einen vollen CIRAWFilter-Durchlauf,
       // nur um exakt das zu zeigen, was schon auf der Platte liegt.
       await _showExistingPreview();
+      unawaited(_initShaderVorschau(unbearbeitet: true));
     } else {
       await _requestPreview();
+      unawaited(_initShaderVorschau(unbearbeitet: false));
     }
   }
 
@@ -289,6 +352,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
     if (token != _requestToken || !mounted) return;
     setState(() {
       _rendering = false;
+      // Jetzt erst ist der native Render da – ab hier darf die
+      // Shader-Vorschau abgelöst werden (siehe onChangeEnd im _slider).
+      _dragging = false;
       if (bytes != null) {
         _previewBytes = bytes;
         _error = null;
@@ -904,6 +970,13 @@ class _DevelopScreenState extends State<DevelopScreen> {
     double max,
     ValueChanged<double> onChanged, {
     bool enabled = true,
+    // Für Temperatur/Tint bewusst aus: der Shader bildet den Weißabgleich
+    // nur genähert nach (real gemessen bis 6,1 % Abweichung vom nativen
+    // Render bei 3200 K, gegenüber 0,1 % bei Belichtung). Genau bei diesem
+    // Regler beurteilt man die Farbe – eine ungenaue Live-Vorschau würde
+    // zu falschen Einstellungen verleiten. Beim Ziehen dieser beiden
+    // Regler bleibt es deshalb beim nativen Render.
+    bool liveVorschau = true,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -924,6 +997,16 @@ class _DevelopScreenState extends State<DevelopScreen> {
             value: value,
             min: min,
             max: max,
+            // Während des Ziehens rechnet der Shader live; nach dem
+            // Loslassen übernimmt wieder der native Render.
+            onChangeStart:
+                (enabled && liveVorschau) ? (_) => setState(() => _dragging = true) : null,
+            // Bewusst NICHT hier _dragging zurücksetzen: der native Render
+            // ist erst nach Debounce + Renderzeit da. Sofortiges Umschalten
+            // würde für diese Zeitspanne den ALTEN Stand zeigen, das Bild
+            // also sichtbar zurückspringen. Zurückgesetzt wird in
+            // _requestPreview(), sobald das neue Bild vorliegt.
+            onChangeEnd: null,
             onChanged: enabled
                 ? (v) {
                     onChanged(v);
@@ -1017,13 +1100,19 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                     children: [
                                       Padding(
                                         padding: const EdgeInsets.all(AppSpacing.lg),
-                                        child: Image.memory(
-                                          (_showingOriginal && _originalPreviewBytes != null)
-                                              ? _originalPreviewBytes!
-                                              : _previewBytes!,
-                                          gaplessPlayback: true,
-                                          fit: BoxFit.contain,
-                                        ),
+                                        child: (_zeigeShaderVorschau && !_showingOriginal)
+                                            ? DevelopShaderPreview(
+                                                shader: _shader,
+                                                image: _shaderBasis!,
+                                                adjustments: _currentAdjustments(),
+                                              )
+                                            : Image.memory(
+                                                (_showingOriginal && _originalPreviewBytes != null)
+                                                    ? _originalPreviewBytes!
+                                                    : _previewBytes!,
+                                                gaplessPlayback: true,
+                                                fit: BoxFit.contain,
+                                              ),
                                       ),
                                       if (_showingOriginal)
                                         Positioned(
@@ -1455,8 +1544,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
           },
         ),
         _slider('Temperatur (K)', _temperature, 2000, 12000, (v) => setState(() => _temperature = v),
-            enabled: !_autoWhiteBalance),
-        _slider('Tint', _tint, -100, 100, (v) => setState(() => _tint = v), enabled: !_autoWhiteBalance),
+            enabled: !_autoWhiteBalance, liveVorschau: false),
+        _slider('Tint', _tint, -100, 100, (v) => setState(() => _tint = v),
+            enabled: !_autoWhiteBalance, liveVorschau: false),
         const Divider(color: Colors.white24),
         _slider('Kontrast', _contrast, -1, 1, (v) => setState(() => _contrast = v)),
         _slider('Schatten', _shadows, -1, 1, (v) => setState(() => _shadows = v)),
