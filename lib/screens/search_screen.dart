@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -128,13 +130,24 @@ class _SearchScreenState extends State<SearchScreen> {
         final clip = widget.library.clipService!;
         final queryVector = await clip.embedText(query);
         final embeddings = await widget.library.cachedEmbeddings();
-        final ranked = ClipService.rankBySimilarity(queryVector, embeddings, topK: 200);
-        final rankedIds = ranked.map((e) => e.key).toList();
-        final filtered = await widget.library.db.searchAssets(_filters, restrictToIds: rankedIds);
-        // searchAssets sortiert nach Datum – die Ähnlichkeits-Reihenfolge
-        // aus dem CLIP-Ranking danach wiederherstellen.
-        final byId = {for (final a in filtered) a.id: a};
-        results = [for (final id in rankedIds) if (byId.containsKey(id)) byId[id]!];
+
+        // Reihenfolge ist entscheidend: ERST die übrigen Filter anwenden,
+        // DANN innerhalb dieser Treffermenge nach Ähnlichkeit ranken.
+        // Andersherum (Audit-Fund) entschied das bibliotheksweite Top-200
+        // darüber, was der Filter überhaupt noch zu sehen bekam: Wer
+        // "Sonnenuntergang" sucht und zusätzlich auf ein Album einschränkt,
+        // verlor damit jeden Treffer, der es global nicht unter die besten
+        // 200 geschafft hatte – auch wenn das Album nur fünf Fotos umfasst.
+        // Ohne gesetzte Filter bleibt das Ergebnis dasselbe wie zuvor.
+        final gefiltert = await widget.library.db.searchAssets(_filters);
+        final byId = {for (final a in gefiltert) a.id: a};
+        final kandidaten = <String, Float32List>{
+          for (final e in embeddings.entries)
+            if (byId.containsKey(e.key)) e.key: e.value,
+        };
+        final ranked = ClipService.rankBySimilarity(queryVector, kandidaten, topK: 200);
+        // searchAssets sortiert nach Datum – hier zählt die Ähnlichkeit.
+        results = [for (final e in ranked) byId[e.key]!];
       } else {
         results = await widget.library.db.searchAssets(_filters);
       }

@@ -1224,8 +1224,18 @@ class AppDatabase extends _$AppDatabase {
 
   /// Bild-Assets ohne Texterkennung – für den nachträglichen Lauf in den
   /// Werkzeugen (Fotos, die vor Einführung dieser Funktion importiert wurden).
+  ///
+  /// Ohne gesperrte Fotos, aus demselben Grund wie bei [assetsForAiTagging]:
+  /// Erkannter Text ist Bildinhalt und hätte in der unverschlüsselten
+  /// Datenbank nichts zu suchen. Bisher fehlte dieser Filter (Audit-Fund) –
+  /// folgenlos nur deshalb, weil die mitverschlüsselte Vorschau ohnehin
+  /// nicht dekodierbar ist; verlassen sollte sich darauf niemand.
   Future<List<AssetData>> assetsForOcrBackfill() => (select(assets)
-        ..where((t) => t.type.equals('IMAGE') & t.isTrashed.equals(false) & t.ocrScanned.equals(false)))
+        ..where((t) =>
+            t.type.equals('IMAGE') &
+            t.isTrashed.equals(false) &
+            t.isLocked.equals(false) &
+            t.ocrScanned.equals(false)))
       .get();
 
   /// Setzt das Ergebnis der KI-Bildbeschreibung (siehe CaptioningService) –
@@ -1237,19 +1247,57 @@ class AppDatabase extends _$AppDatabase {
       ));
 
   /// Bild-Assets ohne KI-Bildbeschreibung – für den nachträglichen Lauf in
-  /// den Werkzeugen, analog zu [assetsForOcrBackfill].
+  /// den Werkzeugen, analog zu [assetsForOcrBackfill] (gesperrte Fotos
+  /// ebenfalls ausgenommen, siehe dort).
   Future<List<AssetData>> assetsForCaptionBackfill() => (select(assets)
-        ..where((t) => t.type.equals('IMAGE') & t.isTrashed.equals(false) & t.aiCaptionScanned.equals(false)))
+        ..where((t) =>
+            t.type.equals('IMAGE') &
+            t.isTrashed.equals(false) &
+            t.isLocked.equals(false) &
+            t.aiCaptionScanned.equals(false)))
       .get();
 
   Future<void> setSharpnessScore(String assetId, double score) =>
       (update(assets)..where((t) => t.id.equals(assetId)))
           .write(AssetsCompanion(sharpnessScore: Value(score)));
 
+  /// Bild-Assets, denen mindestens eine der drei Auswertungen fehlt, die
+  /// DASSELBE dekodierte Bild brauchen: Unschärfe, Gesichter, CLIP-Embedding.
+  ///
+  /// Grundlage für den gemeinsamen Durchlauf in
+  /// [LibraryState.starteHintergrundanalyse]: Statt dass jede Stufe die
+  /// Bibliothek für sich durchgeht und jedes Foto erneut dekodiert (gemessen
+  /// rund 85 ms je Foto), wird einmal dekodiert und das Ergebnis an alle drei
+  /// weitergereicht.
+  ///
+  /// `hatEmbedding` kommt aus dem Left Join und sagt, ob die CLIP-Stufe für
+  /// dieses Foto noch etwas zu tun hat – die beiden anderen Stufen lassen
+  /// sich direkt am Asset ablesen ([Assets.sharpnessScore], [Assets.facesScanned]).
+  Future<List<({AssetData asset, bool hatEmbedding})>> assetsForCombinedImageAnalysis() async {
+    final query = select(assets).join([
+      leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
+    ])
+      ..where(assets.type.equals('IMAGE') &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          (assets.sharpnessScore.isNull() |
+              assets.facesScanned.equals(false) |
+              imageEmbeddings.assetId.isNull()));
+    final rows = await query.get();
+    return [
+      for (final r in rows)
+        (asset: r.readTable(assets), hatEmbedding: r.readTableOrNull(imageEmbeddings) != null),
+    ];
+  }
+
   /// Bild-Assets ohne Schärfe-Score – für den nachträglichen Lauf in den
-  /// Werkzeugen.
+  /// Werkzeugen. Gesperrte Fotos ausgenommen, siehe [assetsForOcrBackfill].
   Future<List<AssetData>> assetsForBlurBackfill() => (select(assets)
-        ..where((t) => t.type.equals('IMAGE') & t.isTrashed.equals(false) & t.sharpnessScore.isNull()))
+        ..where((t) =>
+            t.type.equals('IMAGE') &
+            t.isTrashed.equals(false) &
+            t.isLocked.equals(false) &
+            t.sharpnessScore.isNull()))
       .get();
 
   /// Assets für den XMP-Sidecar-Export (Bibliothek + Backup) – bewusst OHNE
@@ -1961,13 +2009,15 @@ class AppDatabase extends _$AppDatabase {
   /// werden untereinander ebenfalls UND-verknüpft ("muss alle enthalten",
   /// nicht "mindestens einen").
   ///
-  /// [restrictToIds] schränkt zusätzlich auf eine vorgegebene ID-Menge ein –
-  /// genutzt für den "Kontext"-Modus (KI-Bildsuche): die
-  /// Ähnlichkeits-Rangfolge kommt aus [ClipService], hier wird nur noch
-  /// geprüft, welche der bereits gerankten Treffer auch die übrigen
-  /// strukturierten Filter erfüllen. Die Reihenfolge nach Ähnlichkeit muss
-  /// der Aufrufer danach selbst wiederherstellen (SQL sortiert hier nach
-  /// Datum, nicht nach Rang).
+  /// [restrictToIds] schränkt zusätzlich auf eine vorgegebene ID-Menge ein.
+  ///
+  /// Der "Kontext"-Modus (KI-Bildsuche) nutzt das bewusst NICHT mehr: Er
+  /// filtert erst hier und rankt die Treffer danach über [ClipService].
+  /// Andersherum – erst ranken, dann filtern – entschied das
+  /// bibliotheksweite Top-N darüber, was die Filter überhaupt noch zu sehen
+  /// bekamen, und ließ Treffer in kleinen Alben verschwinden (Audit-Fund).
+  /// Der Suchtext selbst wird unten im Kontext-Modus absichtlich nicht als
+  /// LIKE-Bedingung angewendet – dafür ist gerade das Embedding zuständig.
   Future<List<AssetData>> searchAssets(SearchFilters filters, {List<String>? restrictToIds}) {
     final query = select(assets)
       ..where((t) =>
@@ -2382,6 +2432,10 @@ class AppDatabase extends _$AppDatabase {
     ])
       ..where(assets.type.equals('IMAGE') &
           assets.isTrashed.equals(false) &
+          // Gesperrte Fotos ausgenommen, siehe [assetsForOcrBackfill]: Ein
+          // CLIP-Embedding beschreibt den Bildinhalt und ist damit ebenso
+          // wenig für die unverschlüsselte Datenbank gedacht.
+          assets.isLocked.equals(false) &
           imageEmbeddings.assetId.isNull());
     final rows = await query.get();
     return rows.map((r) => r.readTable(assets)).toList();
@@ -2565,6 +2619,37 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setAssetsLocked(List<String> assetIds, bool locked) async {
     await (update(assets)..where((t) => t.id.isIn(assetIds)))
         .write(AssetsCompanion(isLocked: Value(locked)));
+    _embeddingsGeneration++;
+  }
+
+  /// Entfernt die maschinell aus dem BILDINHALT abgeleiteten Daten eines
+  /// Assets: erkannten Text, KI-Bildunterschrift und CLIP-Embedding.
+  ///
+  /// Wird beim Sperren aufgerufen. Ohne das blieb der Inhalt eines
+  /// gesperrten Fotos in der unverschlüsselten `library.sqlite` lesbar –
+  /// bei einem abfotografierten Dokument also genau der Text, wegen dem es
+  /// gesperrt wurde (Audit-Fund). Über die Oberfläche war er zwar nicht
+  /// erreichbar (searchAssets filtert `isLocked`), wohl aber für jeden mit
+  /// Dateizugriff.
+  ///
+  /// Verlustfrei, nur nicht kostenlos: Die `*Scanned`-Flags werden
+  /// zurückgesetzt, sodass die Hintergrundanalyse alles neu berechnet,
+  /// sobald das Foto wieder entsperrt ist.
+  ///
+  /// Bewusst NICHT angetastet:
+  /// - [description] – Nutzer-Freitext, kein abgeleiteter Wert.
+  /// - Tags – können von Hand vergeben worden sein; sie zu löschen wäre
+  ///   ein echter Datenverlust, nicht nur eine Neuberechnung.
+  /// - [sharpnessScore] – eine Zahl über die Bildschärfe verrät nichts
+  ///   über den Bildinhalt und wird für die Ausschuss-Sichtung gebraucht.
+  Future<void> clearDerivedContentData(List<String> assetIds) async {
+    await (update(assets)..where((t) => t.id.isIn(assetIds))).write(const AssetsCompanion(
+      ocrText: Value(null),
+      ocrScanned: Value(false),
+      aiCaption: Value(null),
+      aiCaptionScanned: Value(false),
+    ));
+    await (delete(imageEmbeddings)..where((t) => t.assetId.isIn(assetIds))).go();
     _embeddingsGeneration++;
   }
 

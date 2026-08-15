@@ -86,32 +86,34 @@ class _AnalyseBanner extends StatelessWidget {
     if (a == null) return const SizedBox.shrink();
 
     final anteil = a.gesamt > 0 ? a.erledigt / a.gesamt : null;
+    // Nur der Knopf bricht ab, nicht das ganze Banner: Ein Tipp auf den
+    // Fortschrittstext beendete sonst einen stundenlangen Lauf (Audit-Fund).
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: InkWell(
-        onTap: library.brichHintergrundanalyseAb,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, value: anteil),
+      child: Padding(
+        padding: const EdgeInsets.only(
+            left: AppSpacing.lg, right: AppSpacing.sm, top: AppSpacing.sm, bottom: AppSpacing.sm),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, value: anteil),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                '${a.stufe} wird berechnet '
+                '(Schritt ${a.stufeNummer} von ${a.stufenGesamt}'
+                '${a.gesamt > 0 ? ", ${a.erledigt}/${a.gesamt}" : ""})',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  '${a.stufe} wird berechnet '
-                  '(Schritt ${a.stufeNummer} von ${a.stufenGesamt}'
-                  '${a.gesamt > 0 ? ", ${a.erledigt}/${a.gesamt}" : ""})',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              Text('Abbrechen', style: Theme.of(context).textTheme.labelSmall),
-            ],
-          ),
+            ),
+            TextButton(
+              onPressed: library.brichHintergrundanalyseAb,
+              child: const Text('Abbrechen'),
+            ),
+          ],
         ),
       ),
     );

@@ -288,99 +288,108 @@ class BackupService {
     final metadataFile = File(p.join(backupRootPath, 'metadata.json'));
     List<Map<String, dynamic>> metaAssets = const [];
     File? entschluesselteMetadaten;
-    if (await metadataFile.exists()) {
-      File zuLesen = metadataFile;
-      if (decryptionKey != null) {
-        entschluesselteMetadaten = File(
-            p.join(Directory.systemTemp.path, 'photovault_restore_${_uuid.v4()}.json'));
-        await VaultCrypto.decryptFile(metadataFile, entschluesselteMetadaten, decryptionKey);
-        zuLesen = entschluesselteMetadaten;
-      }
-      try {
-        final inhalt = jsonDecode(await zuLesen.readAsString()) as Map<String, dynamic>;
-        metaAssets = (inhalt['assets'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-      } catch (e) {
-        // Beschädigte Metadaten dürfen den Restore NICHT abbrechen: Beim
-        // alten Format werden die Dateien ohnehin über ihre Endung
-        // gefunden, die Fotos kommen also trotzdem zurück (nur ohne
-        // Favoriten/Tags). Beim neuen, namenlosen Format sind sie die
-        // einzige Quelle – dann bleibt die Liste eben leer, statt zu
-        // scheitern.
-        debugPrint('metadata.json unlesbar, Restore läuft ohne Metadaten weiter: $e');
-      }
-    }
-
-    // Was wiederhergestellt werden soll: Pfad plus die Endung, die die Datei
-    // im Original hatte (beim neuen Format steckt sie nicht mehr im Namen).
-    final files = <({String pfad, String endung})>[];
-
-    final datenOrdner = Directory(p.join(backupRootPath, VerschluesselteNamen.ordner));
-    final originalsIn = Directory(p.join(backupRootPath, 'originals'));
-
-    if (await datenOrdner.exists() && decryptionKey != null) {
-      // Neues Format: flach und namenlos. Die Zuordnung entsteht durch
-      // Nachrechnen des Namens aus der Prüfsumme – ohne Schlüssel ist das
-      // nicht möglich, genau das ist der Zweck.
-      for (final eintrag in metaAssets) {
-        final pruefsumme = eintrag['checksum'] as String?;
-        if (pruefsumme == null) continue;
-        final name = await VerschluesselteNamen.fuerPruefsumme(pruefsumme, decryptionKey);
-        final datei = File(p.join(datenOrdner.path, name));
-        if (await datei.exists()) {
-          files.add((
-            pfad: datei.path,
-            endung: p.extension((eintrag['originalFileName'] as String?) ?? '.jpg'),
-          ));
-        }
-      }
-    } else if (await originalsIn.exists()) {
-      // Altes Format: nach Endung durchsuchen. Bei verschlüsselten Backups
-      // sind die Bytes zwar Chiffretext, die Endung im Pfad blieb aber die
-      // des Originals.
-      await for (final entity in originalsIn.list(recursive: true, followLinks: false)) {
-        if (entity is File && importService.isSupported(entity.path)) {
-          files.add((pfad: entity.path, endung: p.extension(entity.path)));
-        }
-      }
-    } else {
-      // Fallback: falls direkt der "originals"-Ordner selbst ausgewählt wurde.
-      for (final f in await importService.collectSupportedFilesInFolder(backupRootPath)) {
-        files.add((pfad: f, endung: p.extension(f)));
-      }
-    }
-
-    var done = 0;
-    yield BackupProgress(0, files.length);
-    for (final eintrag in files) {
-      final filePath = eintrag.pfad;
-      if (decryptionKey == null) {
-        await importService.importFile(filePath);
-      } else {
-        // In eine temporäre Datei mit derselben Endung entschlüsseln (für
-        // Bild-/Videotyp-Erkennung beim Import), dann importieren und die
-        // Zwischenkopie sofort wieder löschen. Der ursprüngliche Dateiname
-        // ist ohnehin nur die Asset-UUID (siehe StoragePaths) – der echte,
-        // von Menschen lesbare Name kommt gleich aus metadata.json über den
-        // Prüfsummen-Abgleich zurück, unabhängig vom Namen dieser
-        // Zwischenkopie.
-        final tempFile = File(p.join(
-          Directory.systemTemp.path,
-          'photovault_restore_${_uuid.v4()}${eintrag.endung}',
-        ));
-        try {
-          await VaultCrypto.decryptFile(File(filePath), tempFile, decryptionKey);
-          await importService.importFile(tempFile.path);
-        } finally {
-          if (await tempFile.exists()) await tempFile.delete();
-        }
-      }
-      done++;
-      yield BackupProgress(done, files.length, currentFile: p.basename(filePath));
-    }
-
-    // Metadaten anwenden – die Datei wurde oben bereits (ggf. entschlüsselt)
-    // eingelesen, deshalb hier keine zweite Entschlüsselung.
+    // Ab hier kann eine entschlüsselte Klartext-Kopie der Metadaten im
+    // Temp-Verzeichnis liegen (Dateinamen, GPS, Tags, Beschreibungen aller
+    // gesicherten Fotos). Sie MUSS in jedem Fall wieder verschwinden –
+    // auch wenn eine einzelne Datei defekt ist und die Schleife wirft, und
+    // vor allem, wenn der Aufrufer den Stream vorzeitig abbestellt (Nutzer
+    // bricht die Wiederherstellung ab). Dart führt das `finally` eines
+    // async*-Generators auch bei Abbruch am `yield` aus – deshalb umschließt
+    // es hier den GESAMTEN weiteren Ablauf und nicht nur das Anwenden der
+    // Metadaten am Ende (Audit-Fund).
     try {
+      if (await metadataFile.exists()) {
+        File zuLesen = metadataFile;
+        if (decryptionKey != null) {
+          entschluesselteMetadaten = File(
+              p.join(Directory.systemTemp.path, 'photovault_restore_${_uuid.v4()}.json'));
+          await VaultCrypto.decryptFile(metadataFile, entschluesselteMetadaten, decryptionKey);
+          zuLesen = entschluesselteMetadaten;
+        }
+        try {
+          final inhalt = jsonDecode(await zuLesen.readAsString()) as Map<String, dynamic>;
+          metaAssets = (inhalt['assets'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+        } catch (e) {
+          // Beschädigte Metadaten dürfen den Restore NICHT abbrechen: Beim
+          // alten Format werden die Dateien ohnehin über ihre Endung
+          // gefunden, die Fotos kommen also trotzdem zurück (nur ohne
+          // Favoriten/Tags). Beim neuen, namenlosen Format sind sie die
+          // einzige Quelle – dann bleibt die Liste eben leer, statt zu
+          // scheitern.
+          debugPrint('metadata.json unlesbar, Restore läuft ohne Metadaten weiter: $e');
+        }
+      }
+
+      // Was wiederhergestellt werden soll: Pfad plus die Endung, die die Datei
+      // im Original hatte (beim neuen Format steckt sie nicht mehr im Namen).
+      final files = <({String pfad, String endung})>[];
+
+      final datenOrdner = Directory(p.join(backupRootPath, VerschluesselteNamen.ordner));
+      final originalsIn = Directory(p.join(backupRootPath, 'originals'));
+
+      if (await datenOrdner.exists() && decryptionKey != null) {
+        // Neues Format: flach und namenlos. Die Zuordnung entsteht durch
+        // Nachrechnen des Namens aus der Prüfsumme – ohne Schlüssel ist das
+        // nicht möglich, genau das ist der Zweck.
+        for (final eintrag in metaAssets) {
+          final pruefsumme = eintrag['checksum'] as String?;
+          if (pruefsumme == null) continue;
+          final name = await VerschluesselteNamen.fuerPruefsumme(pruefsumme, decryptionKey);
+          final datei = File(p.join(datenOrdner.path, name));
+          if (await datei.exists()) {
+            files.add((
+              pfad: datei.path,
+              endung: p.extension((eintrag['originalFileName'] as String?) ?? '.jpg'),
+            ));
+          }
+        }
+      } else if (await originalsIn.exists()) {
+        // Altes Format: nach Endung durchsuchen. Bei verschlüsselten Backups
+        // sind die Bytes zwar Chiffretext, die Endung im Pfad blieb aber die
+        // des Originals.
+        await for (final entity in originalsIn.list(recursive: true, followLinks: false)) {
+          if (entity is File && importService.isSupported(entity.path)) {
+            files.add((pfad: entity.path, endung: p.extension(entity.path)));
+          }
+        }
+      } else {
+        // Fallback: falls direkt der "originals"-Ordner selbst ausgewählt wurde.
+        for (final f in await importService.collectSupportedFilesInFolder(backupRootPath)) {
+          files.add((pfad: f, endung: p.extension(f)));
+        }
+      }
+
+      var done = 0;
+      yield BackupProgress(0, files.length);
+      for (final eintrag in files) {
+        final filePath = eintrag.pfad;
+        if (decryptionKey == null) {
+          await importService.importFile(filePath);
+        } else {
+          // In eine temporäre Datei mit derselben Endung entschlüsseln (für
+          // Bild-/Videotyp-Erkennung beim Import), dann importieren und die
+          // Zwischenkopie sofort wieder löschen. Der ursprüngliche Dateiname
+          // ist ohnehin nur die Asset-UUID (siehe StoragePaths) – der echte,
+          // von Menschen lesbare Name kommt gleich aus metadata.json über den
+          // Prüfsummen-Abgleich zurück, unabhängig vom Namen dieser
+          // Zwischenkopie.
+          final tempFile = File(p.join(
+            Directory.systemTemp.path,
+            'photovault_restore_${_uuid.v4()}${eintrag.endung}',
+          ));
+          try {
+            await VaultCrypto.decryptFile(File(filePath), tempFile, decryptionKey);
+            await importService.importFile(tempFile.path);
+          } finally {
+            if (await tempFile.exists()) await tempFile.delete();
+          }
+        }
+        done++;
+        yield BackupProgress(done, files.length, currentFile: p.basename(filePath));
+      }
+
+      // Metadaten anwenden – die Datei wurde oben bereits (ggf. entschlüsselt)
+      // eingelesen, deshalb hier keine zweite Entschlüsselung.
       if (await metadataFile.exists()) {
         await _applyMetadataExport(entschluesselteMetadaten ?? metadataFile);
       }

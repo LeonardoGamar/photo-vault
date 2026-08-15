@@ -211,6 +211,19 @@ class LibraryState extends ChangeNotifier {
 
     _ready = true;
     notifyListeners();
+
+    // Eine beim letzten Beenden unfertige Hintergrundanalyse fortsetzen.
+    // Sie ist nach einem Import mit mehreren tausend Fotos stundenlang
+    // unterwegs – die App zwischendurch zu schließen ist der Normalfall,
+    // und ohne diesen Aufruf bliebe die Bibliothek halb ausgewertet, bis
+    // der nächste Import läuft oder jemand den Knopf in den Werkzeugen
+    // findet (Audit-Fund). Ein eigener Fortschrittsstand ist dafür nicht
+    // nötig: Jede Stufe ermittelt selbst, welche Fotos ihr noch fehlen,
+    // und ist damit gefahrlos wiederholbar. Erst NACH `_ready`, damit der
+    // Start der Oberfläche nicht darauf wartet.
+    if (await db.autoAnalyzeAfterImportEnabled()) {
+      unawaited(starteHintergrundanalyse());
+    }
   }
 
   /// Prüft, welche Modelldateien bereits im models-Ordner liegen, und lädt
@@ -478,27 +491,34 @@ class LibraryState extends ChangeNotifier {
   /// ihr Modell fehlt. Deshalb ist ein erneuter Aufruf gefahrlos.
   ///
   /// Reihenfolge nach steigendem Aufwand: Zuerst das, was schnell fertig
-  /// ist und sofort nutzbar (Unschärfe, Gesichter), zuletzt die
-  /// Bildbeschreibung – die erzeugt ihren Satz Wort für Wort und ist damit
-  /// mit Abstand die teuerste Stufe.
+  /// ist und sofort nutzbar, zuletzt die Bildbeschreibung – die erzeugt
+  /// ihren Satz Wort für Wort und ist damit mit Abstand die teuerste Stufe.
   ///
-  /// BEKANNTE INEFFIZIENZ: Unschärfe, Gesichter, CLIP und Bildbeschreibung
-  /// dekodieren das Foto jeweils für sich. Vorher – inline im Import –
-  /// reichte ein Dekodiervorgang für alle Stufen. Der Import ist trotzdem
-  /// deutlich schneller (real gemessen: 99 ms statt ~1600 ms pro Foto),
-  /// aber ein gemeinsamer Durchlauf, der einmal dekodiert und das Ergebnis
-  /// an alle Stufen weiterreicht, wäre die nächste Optimierung. Er müsste
-  /// dafür die Auswahl-Logik der einzelnen Backfills nachbilden ("welche
-  /// Fotos fehlen mir noch"), die heute jede Stufe selbst mitbringt.
+  /// Unschärfe, Gesichter und CLIP brauchen DASSELBE dekodierte Bild und
+  /// laufen deshalb als ein gemeinsamer Durchlauf ([_bildinhaltsAnalyse]),
+  /// der je Foto nur einmal dekodiert. Vorher ging jede Stufe die
+  /// Bibliothek für sich durch und dekodierte erneut – bei gemessenen
+  /// ~85 ms je Dekodiervorgang war das der größte vermeidbare Posten
+  /// (Audit-Fund).
+  ///
+  /// Die Bildbeschreibung bleibt bewusst eine eigene, letzte Stufe, obwohl
+  /// sie dasselbe Bild bräuchte: Sie ist um ein Vielfaches teurer als die
+  /// anderen drei zusammen. Zöge man sie in den gemeinsamen Durchlauf,
+  /// zahlte jedes einzelne Foto sofort ihren vollen Preis, und ein Abbruch
+  /// nach der halben Zeit ließe die halbe Bibliothek gänzlich unausgewertet
+  /// zurück – statt, wie jetzt, vollständig bis auf die Bildbeschreibung.
+  /// Die Texterkennung wiederum arbeitet nativ auf der Datei und hat vom
+  /// dekodierten Bild ohnehin nichts.
   Future<void> starteHintergrundanalyse() async {
     if (_analyse != null) return; // läuft bereits
     _analyseAbbruch = false;
 
     final stufen = <({String name, Stream<ImportProgress> Function() lauf})>[
-      (name: 'Unschärfe', lauf: () => backfillBlurScores()),
-      (name: 'Gesichter', lauf: () => rescanFaces(onlyNewPhotos: true)),
+      (name: 'Bildanalyse', lauf: () => _bildinhaltsAnalyse()),
       (name: 'Texterkennung', lauf: () => backfillOcrText()),
-      (name: 'Bildsuche', lauf: () => backfillClipEmbeddings()),
+      // Kein eigener CLIP-Schritt mehr – die Embeddings entstehen bereits in
+      // der Bildanalyse. [backfillClipEmbeddings] bleibt für den manuellen
+      // Aufruf in den Werkzeugen erhalten.
       (name: 'Schlagwörter', lauf: () => backfillAiTags(onlyUntagged: true)),
       (name: 'Bildbeschreibung', lauf: () => backfillCaptions()),
     ];
@@ -507,20 +527,27 @@ class LibraryState extends ChangeNotifier {
       for (var i = 0; i < stufen.length; i++) {
         if (_analyseAbbruch) break;
         final stufe = stufen[i];
-        await for (final p in stufe.lauf()) {
-          if (_analyseAbbruch) break;
-          _analyse = AnalyseFortschritt(
-            stufe: stufe.name,
-            stufeNummer: i + 1,
-            stufenGesamt: stufen.length,
-            erledigt: p.done,
-            gesamt: p.total,
-          );
-          notifyListeners();
+        // Jede Stufe für sich absichern: Wirft eine (z.B. weil ein einzelnes
+        // Foto beschädigt ist oder ein Modell fehlschlägt), sollen die
+        // FOLGENDEN Stufen trotzdem noch laufen. Vorher umschloss ein
+        // einziges try/catch die ganze Schleife – ein Fehler in Stufe 1 ließ
+        // die Stufen 2-6 stillschweigend ausfallen (Audit-Fund).
+        try {
+          await for (final p in stufe.lauf()) {
+            if (_analyseAbbruch) break;
+            _analyse = AnalyseFortschritt(
+              stufe: stufe.name,
+              stufeNummer: i + 1,
+              stufenGesamt: stufen.length,
+              erledigt: p.done,
+              gesamt: p.total,
+            );
+            notifyListeners();
+          }
+        } catch (e) {
+          debugPrint('Analysestufe "${stufe.name}" fehlgeschlagen, weiter mit der nächsten: $e');
         }
       }
-    } catch (e) {
-      debugPrint('Hintergrundanalyse abgebrochen: $e');
     } finally {
       _analyse = null;
       _analyseAbbruch = false;
@@ -857,9 +884,15 @@ class LibraryState extends ChangeNotifier {
     var done = 0;
     yield ImportProgress(0, assets.length);
     for (final asset in assets) {
-      final text = await NativeImageConverter.recognizeText(_decodableFile(asset));
-      if (text != null) {
-        await db.setOcrResult(asset.id, text);
+      // Pro Foto abgesichert: Ein einzelner Fehlschlag (beschädigte Datei,
+      // Fehler im nativen Aufruf) darf nicht den ganzen Lauf abbrechen.
+      try {
+        final text = await NativeImageConverter.recognizeText(_decodableFile(asset));
+        if (text != null) {
+          await db.setOcrResult(asset.id, text);
+        }
+      } catch (e) {
+        debugPrint('Texterkennung fehlgeschlagen für ${asset.originalFileName}: $e');
       }
       done++;
       yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
@@ -892,16 +925,83 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  /// Gemeinsamer Durchlauf für die drei Auswertungen, die dasselbe
+  /// dekodierte Bild brauchen: Unschärfe, Gesichter und CLIP-Embedding.
+  /// Jedes Foto wird EINMAL dekodiert (gemessen ~85 ms) statt bis zu
+  /// dreimal – siehe [starteHintergrundanalyse].
+  ///
+  /// Je Foto wird nur nachgeholt, was tatsächlich fehlt, und nur, wenn das
+  /// zugehörige Modell da ist. Ein Foto, dem keine der drei Auswertungen
+  /// mehr fehlt, wird gar nicht erst dekodiert.
+  ///
+  /// Fehler bleiben pro Foto UND pro Auswertung eingegrenzt: Ein
+  /// fehlschlagendes CLIP-Modell darf weder die Unschärfe desselben Fotos
+  /// noch die folgenden Fotos verhindern.
+  Stream<ImportProgress> _bildinhaltsAnalyse() async* {
+    final kandidaten = await db.assetsForCombinedImageAnalysis();
+    // Einmal festhalten: Die Modelle können zwischendurch nachgeladen
+    // werden, der Durchlauf soll aber mit einem stabilen Stand arbeiten.
+    final clip = clipService;
+    final gesichter = faceEngine;
+    var done = 0;
+    yield ImportProgress(0, kandidaten.length);
+
+    for (final k in kandidaten) {
+      final asset = k.asset;
+      final brauchtUnschaerfe = asset.sharpnessScore == null;
+      final brauchtGesichter = !asset.facesScanned && gesichter != null;
+      final brauchtEmbedding = !k.hatEmbedding && clip != null;
+
+      if (brauchtUnschaerfe || brauchtGesichter || brauchtEmbedding) {
+        final decoded = await _decodeAsset(asset);
+        if (decoded != null) {
+          if (brauchtUnschaerfe) {
+            try {
+              await db.setSharpnessScore(asset.id, await compute(computeBlurScore, decoded));
+            } catch (e) {
+              debugPrint('Unschärfe fehlgeschlagen für ${asset.originalFileName}: $e');
+            }
+          }
+          if (brauchtGesichter) {
+            try {
+              await _scanFacesForDecodedAsset(asset, decoded, deleteExistingUnassigned: false);
+            } catch (e) {
+              debugPrint('Gesichtserkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+            }
+          }
+          if (brauchtEmbedding) {
+            try {
+              await db.saveEmbedding(asset.id, await clip.embedImage(decoded));
+            } catch (e) {
+              debugPrint('CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
+            }
+          }
+        }
+      }
+
+      done++;
+      yield ImportProgress(done, kandidaten.length, currentFile: asset.originalFileName);
+    }
+  }
+
   /// Berechnet Unschärfe-Scores nachträglich für Fotos, die vor Einführung
   /// dieses Features importiert wurden (siehe [_postProcessNewAsset]).
+  /// Wird von der Hintergrundanalyse nicht mehr direkt aufgerufen (dort
+  /// erledigt das [_bildinhaltsAnalyse] mit), bleibt aber für den manuellen
+  /// Lauf in den Werkzeugen erhalten.
   Stream<ImportProgress> backfillBlurScores() async* {
     final assets = await db.assetsForBlurBackfill();
     var done = 0;
     yield ImportProgress(0, assets.length);
     for (final asset in assets) {
-      final decoded = await _decodeAsset(asset);
-      if (decoded != null) {
-        await db.setSharpnessScore(asset.id, await compute(computeBlurScore, decoded));
+      // Pro Foto abgesichert, analog zu [backfillOcrText].
+      try {
+        final decoded = await _decodeAsset(asset);
+        if (decoded != null) {
+          await db.setSharpnessScore(asset.id, await compute(computeBlurScore, decoded));
+        }
+      } catch (e) {
+        debugPrint('Unschärfe-Berechnung fehlgeschlagen für ${asset.originalFileName}: $e');
       }
       done++;
       yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
@@ -1189,11 +1289,16 @@ class LibraryState extends ChangeNotifier {
     if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
     await _encryptAssetFiles(asset, key);
     await db.setAssetsLocked([asset.id], true);
+    // Auch die aus dem Bildinhalt abgeleiteten Daten müssen weg, sonst
+    // bliebe der Inhalt in der unverschlüsselten Datenbank lesbar – siehe
+    // [AppDatabase.clearDerivedContentData].
+    await db.clearDerivedContentData([asset.id]);
     if (asset.linkedAssetId != null) {
       final partner = await db.assetById(asset.linkedAssetId!);
       if (partner != null && !partner.isLocked) {
         await _encryptAssetFiles(partner, key);
         await db.setAssetsLocked([partner.id], true);
+        await db.clearDerivedContentData([partner.id]);
       }
     }
   }
