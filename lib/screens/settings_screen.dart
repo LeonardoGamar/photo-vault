@@ -586,6 +586,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
           ),
         ),
+        FutureBuilder<bool>(
+          future: widget.library.db.autoAnalyzeAfterImportEnabled(),
+          builder: (context, snapshot) {
+            final an = snapshot.data ?? true;
+            return Card(
+              child: SwitchListTile(
+                value: an,
+                onChanged: (v) async {
+                  await widget.library.db.setAutoAnalyzeAfterImport(v);
+                  if (mounted) setState(() {});
+                },
+                secondary: const Icon(Icons.schedule_outlined),
+                title: const Text('KI-Auswertung nach dem Import automatisch nachholen'),
+                isThreeLine: true,
+                subtitle: const Text(
+                  'Der Import legt die Fotos nur ab und bleibt dadurch schnell. '
+                  'Gesichter, Texterkennung, Bildsuche und Bildbeschreibung laufen '
+                  'danach im Hintergrund nach. Ausgeschaltet lässt sich das '
+                  'jederzeit unter Werkzeuge von Hand anstoßen.',
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 12),
         for (final entry in ModelCatalog.all)
           _ModelCard(
             entry: entry,
@@ -902,6 +927,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final enabled = config?.autoBackupEnabled ?? false;
               final destination = config?.autoBackupDestination;
               final intervalHours = config?.autoBackupIntervalHours ?? 24;
+              final maxMbPerRun = config?.autoBackupMaxMbPerRun ?? 0;
               final lastRun = config?.lastAutoBackupAt;
               final keyReady = widget.library.backupKeyAvailableThisSession;
 
@@ -952,6 +978,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         if (v == null) return;
                         await widget.library.db
                             .setAutoBackupConfig(enabled: enabled, intervalHours: v);
+                        if (mounted) _reloadBackupSettings();
+                      },
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.speed_outlined),
+                    title: const Text('Menge je Lauf'),
+                    subtitle: const Text(
+                      'Begrenzt, wie viel pro Durchlauf ins Ziel geschrieben wird. '
+                      'Sinnvoll bei Cloud-Ordnern: Der Upload kommt sonst tagelang '
+                      'nicht hinterher. Der Rest folgt beim nächsten Intervall.',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    isThreeLine: true,
+                    trailing: DropdownButton<int>(
+                      value: maxMbPerRun,
+                      items: const [
+                        DropdownMenuItem(value: 0, child: Text('Unbegrenzt')),
+                        DropdownMenuItem(value: 500, child: Text('500 MB')),
+                        DropdownMenuItem(value: 2000, child: Text('2 GB')),
+                        DropdownMenuItem(value: 10000, child: Text('10 GB')),
+                      ],
+                      onChanged: (v) async {
+                        if (v == null) return;
+                        await widget.library.db.setAutoBackupMaxMbPerRun(v);
                         if (mounted) _reloadBackupSettings();
                       },
                     ),

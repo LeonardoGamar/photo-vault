@@ -129,7 +129,7 @@ void main() {
     });
 
     test('schreibt KEINE Sidecars bei einem verschlüsselten Backup', () async {
-      final a = await importPhoto('a.jpg');
+      await importPhoto('a.jpg');
       final backup = BackupService(db, paths);
       final destination = Directory(p.join(tempRoot.path, 'backup_target'));
 
@@ -139,11 +139,17 @@ void main() {
       final key = SecretKey(List<int>.generate(32, (i) => i));
       await backup.performBackup(destination.path, encryptionKey: key).drain<void>();
 
-      final backupRoot = p.join(destination.path, 'PhotoVault-Backup');
-      final encryptedOriginal = File(p.join(backupRoot, a.relativePath));
-      expect(await encryptedOriginal.exists(), isTrue);
-      final sidecar = File(p.setExtension(encryptedOriginal.path, '.xmp'));
-      expect(await sidecar.exists(), isFalse);
+      // Verschlüsselte Backups liegen flach unter data/ mit abgeleiteten
+      // Namen (siehe VerschluesselteNamen) – deshalb nicht mehr über den
+      // ursprünglichen relativen Pfad gesucht, sondern über den Ordner.
+      final backupRoot = Directory(p.join(destination.path, 'PhotoVault-Backup'));
+      final alleDateien = backupRoot.listSync(recursive: true).whereType<File>().toList();
+
+      expect(alleDateien.where((f) => p.dirname(f.path).endsWith('data')), hasLength(1),
+          reason: 'die verschlüsselte Datei muss vorhanden sein');
+      // Der eigentliche Zweck dieses Tests: nirgends ein Klartext-Sidecar,
+      // das die Vertraulichkeit der Verschlüsselung unterlaufen würde.
+      expect(alleDateien.where((f) => f.path.endsWith('.xmp')), isEmpty);
     });
   });
 }

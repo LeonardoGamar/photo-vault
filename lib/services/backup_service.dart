@@ -46,14 +46,34 @@ class BackupService {
   /// (Favoriten, Beschreibung, Tags, Alben) werden bei jedem Lauf komplett
   /// neu als `metadata.json` exportiert, damit der Cloud-Ordner immer den
   /// aktuellen Stand widerspiegelt.
-  Stream<BackupProgress> performBackup(String destinationRootPath, {SecretKey? encryptionKey}) async* {
+  /// [maxBytesPerRun] begrenzt, wie viel je Lauf ins Ziel geschrieben wird
+  /// (0 oder negativ = unbegrenzt). Gedacht für Cloud-Sync-Ordner: Ohne
+  /// Grenze landen bei der ersten Sicherung zigtausend Dateien auf einmal
+  /// im Sync-Ordner und der Upload läuft tagelang. Was nicht mehr
+  /// hineinpasst, bleibt unmarkiert und kommt beim nächsten Lauf dran.
+  Stream<BackupProgress> performBackup(
+    String destinationRootPath, {
+    SecretKey? encryptionKey,
+    int maxBytesPerRun = 0,
+  }) async* {
     final backupRoot = Directory(p.join(destinationRootPath, _backupFolderName));
     final originalsOut = Directory(p.join(backupRoot.path, 'originals'));
     await originalsOut.create(recursive: true);
 
+    // Lokaler Zwischenspeicher: Verschlüsseln bzw. Kopieren passiert hier,
+    // erst die fertige Datei wandert ins Ziel. Zwei Gründe: Cloud-Clients
+    // beginnen sonst, halbfertige Dateien hochzuladen; und das Ziel kann
+    // ein langsames Netzlaufwerk sein, auf dem man nicht mehrfach schreiben
+    // will. Liegt bewusst im System-Temp – geht er verloren (Neustart),
+    // wird die betroffene Datei beim nächsten Lauf einfach neu erzeugt,
+    // denn markiert wird erst nach erfolgreicher Ablage im Ziel.
+    final staging = await Directory.systemTemp.createTemp('pv_backup_stage_');
+
     final pending = await _db.assetsNotBackedUp();
     var done = 0;
     var totalBytes = 0;
+    var geschriebeneBytes = 0;
+    var abgebrochenWegenLimit = false;
     final backedUpIds = <String>[];
 
     // XMP-Sidecars nur für unverschlüsselte Backups: bei einem verschlüsselten
@@ -64,23 +84,54 @@ class BackupService {
 
     yield BackupProgress(0, pending.length);
 
-    for (final asset in pending) {
-      final source = _paths.absolute(asset.relativePath);
-      if (await source.exists()) {
-        final target = File(p.join(originalsOut.path, asset.relativePath.replaceFirst('originals${Platform.pathSeparator}', '')));
-        await target.parent.create(recursive: true);
-        if (encryptionKey != null) {
-          await VaultCrypto.encryptFile(source, target, encryptionKey);
-        } else {
-          await source.copy(target.path);
-          final xmp = buildXmpPacket(asset, tagsByAssetId![asset.id] ?? const []);
-          await File(_paths.xmpSidecarPath(target.path)).writeAsString(xmp);
+    try {
+      for (final asset in pending) {
+        if (maxBytesPerRun > 0 && geschriebeneBytes >= maxBytesPerRun) {
+          abgebrochenWegenLimit = true;
+          break;
         }
-        totalBytes += await source.length();
+
+        final source = _paths.absolute(asset.relativePath);
+        if (await source.exists()) {
+          // Verschlüsselt: flach unter data/ mit abgeleitetem Namen, damit
+          // weder Aufnahmezeitraum noch Dateiformat sichtbar bleiben.
+          // Unverschlüsselt: weiterhin die lesbare Ordnerstruktur, damit
+          // sich so ein Backup auch ohne die App durchsehen lässt.
+          final target = encryptionKey != null
+              ? File(p.join(backupRoot.path, VerschluesselteNamen.ordner,
+                  await VerschluesselteNamen.fuerPruefsumme(asset.checksum, encryptionKey)))
+              : File(p.join(originalsOut.path,
+                  asset.relativePath.replaceFirst('originals${Platform.pathSeparator}', '')));
+          await target.parent.create(recursive: true);
+
+          // Erst in den Zwischenspeicher schreiben …
+          final zwischen = File(p.join(staging.path, 'teil'));
+          if (encryptionKey != null) {
+            await VaultCrypto.encryptFile(source, zwischen, encryptionKey);
+          } else {
+            await source.copy(zwischen.path);
+          }
+          // … und erst die vollständige Datei ins Ziel legen.
+          await _verschiebe(zwischen, target);
+
+          if (encryptionKey == null) {
+            final xmp = buildXmpPacket(asset, tagsByAssetId![asset.id] ?? const []);
+            await File(_paths.xmpSidecarPath(target.path)).writeAsString(xmp);
+          }
+
+          final groesse = await target.length();
+          totalBytes += await source.length();
+          geschriebeneBytes += groesse;
+        }
+        backedUpIds.add(asset.id);
+        done++;
+        yield BackupProgress(done, pending.length, currentFile: asset.originalFileName);
       }
-      backedUpIds.add(asset.id);
-      done++;
-      yield BackupProgress(done, pending.length, currentFile: asset.originalFileName);
+    } finally {
+      // Reste immer wegräumen, auch bei Fehlern.
+      try {
+        await staging.delete(recursive: true);
+      } catch (_) {}
     }
 
     if (backedUpIds.isNotEmpty) {
@@ -96,9 +147,39 @@ class BackupService {
       id: _uuid.v4(),
       performedAt: DateTime.now(),
       destinationPath: destinationRootPath,
-      fileCount: pending.length,
+      // Nur die tatsächlich gesicherten Dateien zählen, nicht die geplanten –
+      // sonst behauptet der Bericht bei einem begrenzten Lauf mehr, als er
+      // geschafft hat.
+      fileCount: backedUpIds.length,
       totalBytes: totalBytes,
     ));
+
+    // Abschließende Meldung macht sichtbar, dass noch etwas aussteht –
+    // sonst wirkt ein begrenzter Lauf wie ein vollständiges Backup.
+    if (abgebrochenWegenLimit) {
+      yield BackupProgress(
+        done,
+        pending.length,
+        currentFile: 'Grenze erreicht – ${pending.length - done} Datei(en) folgen '
+            'beim nächsten Lauf',
+      );
+    }
+  }
+
+  /// Verschiebt [von] nach [nach].
+  ///
+  /// `rename` ist innerhalb desselben Dateisystems atomar – der Cloud-Client
+  /// sieht die Datei dann entweder gar nicht oder vollständig, nie halb
+  /// geschrieben. Über Dateisystemgrenzen hinweg (Zwischenspeicher im
+  /// System-Temp, Ziel auf einem anderen Volume) schlägt `rename` fehl;
+  /// dann wird kopiert und die Zwischendatei gelöscht.
+  Future<void> _verschiebe(File von, File nach) async {
+    try {
+      await von.rename(nach.path);
+    } on FileSystemException {
+      await von.copy(nach.path);
+      await von.delete();
+    }
   }
 
   Future<void> _writeMetadataExport(Directory backupRoot, {SecretKey? encryptionKey}) async {
@@ -201,25 +282,77 @@ class BackupService {
       );
     }
 
+    // Metadaten früh einlesen: Beim neuen, namenlosen Format sind sie die
+    // EINZIGE Quelle dafür, welche Dateien es gibt und welche Endung sie
+    // hatten – aus dem Ordner selbst lässt sich das nicht mehr ablesen.
+    final metadataFile = File(p.join(backupRootPath, 'metadata.json'));
+    List<Map<String, dynamic>> metaAssets = const [];
+    File? entschluesselteMetadaten;
+    if (await metadataFile.exists()) {
+      File zuLesen = metadataFile;
+      if (decryptionKey != null) {
+        entschluesselteMetadaten = File(
+            p.join(Directory.systemTemp.path, 'photovault_restore_${_uuid.v4()}.json'));
+        await VaultCrypto.decryptFile(metadataFile, entschluesselteMetadaten, decryptionKey);
+        zuLesen = entschluesselteMetadaten;
+      }
+      try {
+        final inhalt = jsonDecode(await zuLesen.readAsString()) as Map<String, dynamic>;
+        metaAssets = (inhalt['assets'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+      } catch (e) {
+        // Beschädigte Metadaten dürfen den Restore NICHT abbrechen: Beim
+        // alten Format werden die Dateien ohnehin über ihre Endung
+        // gefunden, die Fotos kommen also trotzdem zurück (nur ohne
+        // Favoriten/Tags). Beim neuen, namenlosen Format sind sie die
+        // einzige Quelle – dann bleibt die Liste eben leer, statt zu
+        // scheitern.
+        debugPrint('metadata.json unlesbar, Restore läuft ohne Metadaten weiter: $e');
+      }
+    }
+
+    // Was wiederhergestellt werden soll: Pfad plus die Endung, die die Datei
+    // im Original hatte (beim neuen Format steckt sie nicht mehr im Namen).
+    final files = <({String pfad, String endung})>[];
+
+    final datenOrdner = Directory(p.join(backupRootPath, VerschluesselteNamen.ordner));
     final originalsIn = Directory(p.join(backupRootPath, 'originals'));
-    final files = <String>[];
-    if (await originalsIn.exists()) {
+
+    if (await datenOrdner.exists() && decryptionKey != null) {
+      // Neues Format: flach und namenlos. Die Zuordnung entsteht durch
+      // Nachrechnen des Namens aus der Prüfsumme – ohne Schlüssel ist das
+      // nicht möglich, genau das ist der Zweck.
+      for (final eintrag in metaAssets) {
+        final pruefsumme = eintrag['checksum'] as String?;
+        if (pruefsumme == null) continue;
+        final name = await VerschluesselteNamen.fuerPruefsumme(pruefsumme, decryptionKey);
+        final datei = File(p.join(datenOrdner.path, name));
+        if (await datei.exists()) {
+          files.add((
+            pfad: datei.path,
+            endung: p.extension((eintrag['originalFileName'] as String?) ?? '.jpg'),
+          ));
+        }
+      }
+    } else if (await originalsIn.exists()) {
+      // Altes Format: nach Endung durchsuchen. Bei verschlüsselten Backups
+      // sind die Bytes zwar Chiffretext, die Endung im Pfad blieb aber die
+      // des Originals.
       await for (final entity in originalsIn.list(recursive: true, followLinks: false)) {
-        // Bei verschlüsselten Backups sind die Bytes zwar Chiffretext, die
-        // Dateiendung im Pfad bleibt aber die des Originals – isSupported()
-        // prüft nur die Endung, funktioniert also unverändert.
         if (entity is File && importService.isSupported(entity.path)) {
-          files.add(entity.path);
+          files.add((pfad: entity.path, endung: p.extension(entity.path)));
         }
       }
     } else {
       // Fallback: falls direkt der "originals"-Ordner selbst ausgewählt wurde.
-      files.addAll(await importService.collectSupportedFilesInFolder(backupRootPath));
+      for (final f in await importService.collectSupportedFilesInFolder(backupRootPath)) {
+        files.add((pfad: f, endung: p.extension(f)));
+      }
     }
 
     var done = 0;
     yield BackupProgress(0, files.length);
-    for (final filePath in files) {
+    for (final eintrag in files) {
+      final filePath = eintrag.pfad;
       if (decryptionKey == null) {
         await importService.importFile(filePath);
       } else {
@@ -232,7 +365,7 @@ class BackupService {
         // Zwischenkopie.
         final tempFile = File(p.join(
           Directory.systemTemp.path,
-          'photovault_restore_${_uuid.v4()}${p.extension(filePath)}',
+          'photovault_restore_${_uuid.v4()}${eintrag.endung}',
         ));
         try {
           await VaultCrypto.decryptFile(File(filePath), tempFile, decryptionKey);
@@ -245,18 +378,15 @@ class BackupService {
       yield BackupProgress(done, files.length, currentFile: p.basename(filePath));
     }
 
-    final metadataFile = File(p.join(backupRootPath, 'metadata.json'));
-    if (await metadataFile.exists()) {
-      if (decryptionKey == null) {
-        await _applyMetadataExport(metadataFile);
-      } else {
-        final tempMetadata = File(p.join(Directory.systemTemp.path, 'photovault_restore_${_uuid.v4()}.json'));
-        try {
-          await VaultCrypto.decryptFile(metadataFile, tempMetadata, decryptionKey);
-          await _applyMetadataExport(tempMetadata);
-        } finally {
-          if (await tempMetadata.exists()) await tempMetadata.delete();
-        }
+    // Metadaten anwenden – die Datei wurde oben bereits (ggf. entschlüsselt)
+    // eingelesen, deshalb hier keine zweite Entschlüsselung.
+    try {
+      if (await metadataFile.exists()) {
+        await _applyMetadataExport(entschluesselteMetadaten ?? metadataFile);
+      }
+    } finally {
+      if (entschluesselteMetadaten != null && await entschluesselteMetadaten.exists()) {
+        await entschluesselteMetadaten.delete();
       }
     }
   }
@@ -353,7 +483,14 @@ class BackupService {
   /// das Backup mitreißen). Dateien werden nur ergänzt, der DB-Schnappschuss
   /// nur ersetzt (er beschreibt ohnehin immer den kompletten aktuellen
   /// Zustand, nicht nur eine Differenz).
-  Stream<BackupProgress> performAutoBackup(String destinationRootPath, SecretKey encryptionKey) async* {
+  /// [maxBytesPerRun] siehe [performBackup] – hier besonders wichtig, weil
+  /// das automatische Backup typischerweise auf einen Cloud-Sync-Ordner
+  /// zeigt und ungefragt im Hintergrund läuft.
+  Stream<BackupProgress> performAutoBackup(
+    String destinationRootPath,
+    SecretKey encryptionKey, {
+    int maxBytesPerRun = 0,
+  }) async* {
     final backupRoot = Directory(p.join(destinationRootPath, _autoBackupFolderName));
     final originalsOut = Directory(p.join(backupRoot.path, 'originals'));
     await originalsOut.create(recursive: true);
@@ -361,28 +498,50 @@ class BackupService {
     await _writeEncryptedDatabaseSnapshot(backupRoot, encryptionKey);
     await _writeKeyEnvelope(backupRoot);
 
+    final staging = await Directory.systemTemp.createTemp('pv_autobackup_stage_');
     final pending = await _db.assetsNotAutoBackedUp();
     var done = 0;
+    var geschriebeneBytes = 0;
+    var abgebrochenWegenLimit = false;
     final autoBackedUpIds = <String>[];
     yield BackupProgress(0, pending.length);
 
-    for (final asset in pending) {
-      final source = _paths.absolute(asset.relativePath);
-      if (await source.exists()) {
-        final target = File(p.join(
-          originalsOut.path,
-          asset.relativePath.replaceFirst('originals${Platform.pathSeparator}', ''),
-        ));
-        await target.parent.create(recursive: true);
-        await VaultCrypto.encryptFile(source, target, encryptionKey);
+    try {
+      for (final asset in pending) {
+        if (maxBytesPerRun > 0 && geschriebeneBytes >= maxBytesPerRun) {
+          abgebrochenWegenLimit = true;
+          break;
+        }
+        final source = _paths.absolute(asset.relativePath);
+        if (await source.exists()) {
+          // Automatische Backups sind immer verschlüsselt – daher stets die
+          // flache, namenlose Ablage (siehe VerschluesselteNamen).
+          final target = File(p.join(backupRoot.path, VerschluesselteNamen.ordner,
+              await VerschluesselteNamen.fuerPruefsumme(asset.checksum, encryptionKey)));
+          await target.parent.create(recursive: true);
+          final zwischen = File(p.join(staging.path, 'teil'));
+          await VaultCrypto.encryptFile(source, zwischen, encryptionKey);
+          await _verschiebe(zwischen, target);
+          geschriebeneBytes += await target.length();
+        }
+        autoBackedUpIds.add(asset.id);
+        done++;
+        yield BackupProgress(done, pending.length, currentFile: asset.originalFileName);
       }
-      autoBackedUpIds.add(asset.id);
-      done++;
-      yield BackupProgress(done, pending.length, currentFile: asset.originalFileName);
+    } finally {
+      try {
+        await staging.delete(recursive: true);
+      } catch (_) {}
     }
 
     if (autoBackedUpIds.isNotEmpty) {
       await _db.markAutoBackedUp(autoBackedUpIds);
+    }
+
+    if (abgebrochenWegenLimit) {
+      yield BackupProgress(done, pending.length,
+          currentFile: 'Grenze erreicht – ${pending.length - done} Datei(en) folgen '
+              'beim nächsten Lauf');
     }
   }
 
@@ -404,5 +563,32 @@ class BackupService {
     } finally {
       if (await snapshotFile.exists()) await snapshotFile.delete();
     }
+  }
+}
+
+/// Ableitung der Dateinamen für verschlüsselte Backups.
+///
+/// Bei einem verschlüsselten Backup sollen die Dateien im Zielordner nichts
+/// über den Inhalt verraten. Bisher blieb trotz verschlüsselter Bytes
+/// sichtbar: der Aufnahmezeitraum (Ordner nach Jahr/Monat), das Dateiformat
+/// (Endung) und über die Prüfsumme im Namen sogar, OB eine bestimmte,
+/// anderweitig bekannte Datei enthalten ist.
+///
+/// Deshalb liegen verschlüsselte Backups flach unter `data/` mit einem
+/// Namen, der sich nur MIT dem Schlüssel berechnen lässt: HMAC-SHA256 über
+/// die Prüfsumme des Fotos. Deterministisch, damit ein erneuter Lauf
+/// dieselbe Datei überschreibt statt eine zweite anzulegen.
+class VerschluesselteNamen {
+  VerschluesselteNamen._();
+
+  /// Unterordner für die verschlüsselten Dateien.
+  static const ordner = 'data';
+
+  static Future<String> fuerPruefsumme(String pruefsumme, SecretKey schluessel) async {
+    final mac = await Hmac.sha256().calculateMac(
+      utf8.encode(pruefsumme),
+      secretKey: schluessel,
+    );
+    return mac.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 }

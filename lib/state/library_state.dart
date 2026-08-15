@@ -32,6 +32,23 @@ import '../services/storage_paths.dart';
 import '../services/vault_crypto.dart';
 import '../services/xmp_writer.dart';
 
+/// Fortschritt der Hintergrundanalyse (siehe
+/// [LibraryState.starteHintergrundanalyse]).
+class AnalyseFortschritt {
+  final String stufe;
+  final int stufeNummer;
+  final int stufenGesamt;
+  final int erledigt;
+  final int gesamt;
+  const AnalyseFortschritt({
+    required this.stufe,
+    required this.stufeNummer,
+    required this.stufenGesamt,
+    required this.erledigt,
+    required this.gesamt,
+  });
+}
+
 class ImportProgress {
   final int done;
   final int total;
@@ -358,6 +375,14 @@ class LibraryState extends ChangeNotifier {
         assetId: result.outcome == ImportOutcome.imported ? result.assetId : null,
       );
     }
+
+    // Erst NACH dem Import: die rechenintensiven Auswertungen laufen im
+    // Hintergrund nach, statt jeden einzelnen Import auszubremsen. Bewusst
+    // nicht abgewartet – der Import gilt als fertig, sobald die Dateien in
+    // der Bibliothek sind.
+    if (await db.autoAnalyzeAfterImportEnabled()) {
+      unawaited(starteHintergrundanalyse());
+    }
   }
 
   /// Datei, die tatsächlich dekodiert werden kann: die konvertierte
@@ -439,6 +464,86 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  // --- Hintergrundanalyse nach dem Import -------------------------------
+
+  /// Beschreibt, was die Hintergrundanalyse gerade tut – für den Hinweis in
+  /// [HomeShell].
+  AnalyseFortschritt? _analyse;
+  AnalyseFortschritt? get analyse => _analyse;
+  bool get analyseLaeuft => _analyse != null;
+  bool _analyseAbbruch = false;
+
+  /// Arbeitet die rechenintensiven Auswertungen nacheinander ab – jede
+  /// überspringt selbst die Fotos, die sie schon hat, und tut nichts, wenn
+  /// ihr Modell fehlt. Deshalb ist ein erneuter Aufruf gefahrlos.
+  ///
+  /// Reihenfolge nach steigendem Aufwand: Zuerst das, was schnell fertig
+  /// ist und sofort nutzbar (Unschärfe, Gesichter), zuletzt die
+  /// Bildbeschreibung – die erzeugt ihren Satz Wort für Wort und ist damit
+  /// mit Abstand die teuerste Stufe.
+  ///
+  /// BEKANNTE INEFFIZIENZ: Unschärfe, Gesichter, CLIP und Bildbeschreibung
+  /// dekodieren das Foto jeweils für sich. Vorher – inline im Import –
+  /// reichte ein Dekodiervorgang für alle Stufen. Der Import ist trotzdem
+  /// deutlich schneller (real gemessen: 99 ms statt ~1600 ms pro Foto),
+  /// aber ein gemeinsamer Durchlauf, der einmal dekodiert und das Ergebnis
+  /// an alle Stufen weiterreicht, wäre die nächste Optimierung. Er müsste
+  /// dafür die Auswahl-Logik der einzelnen Backfills nachbilden ("welche
+  /// Fotos fehlen mir noch"), die heute jede Stufe selbst mitbringt.
+  Future<void> starteHintergrundanalyse() async {
+    if (_analyse != null) return; // läuft bereits
+    _analyseAbbruch = false;
+
+    final stufen = <({String name, Stream<ImportProgress> Function() lauf})>[
+      (name: 'Unschärfe', lauf: () => backfillBlurScores()),
+      (name: 'Gesichter', lauf: () => rescanFaces(onlyNewPhotos: true)),
+      (name: 'Texterkennung', lauf: () => backfillOcrText()),
+      (name: 'Bildsuche', lauf: () => backfillClipEmbeddings()),
+      (name: 'Schlagwörter', lauf: () => backfillAiTags(onlyUntagged: true)),
+      (name: 'Bildbeschreibung', lauf: () => backfillCaptions()),
+    ];
+
+    try {
+      for (var i = 0; i < stufen.length; i++) {
+        if (_analyseAbbruch) break;
+        final stufe = stufen[i];
+        await for (final p in stufe.lauf()) {
+          if (_analyseAbbruch) break;
+          _analyse = AnalyseFortschritt(
+            stufe: stufe.name,
+            stufeNummer: i + 1,
+            stufenGesamt: stufen.length,
+            erledigt: p.done,
+            gesamt: p.total,
+          );
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('Hintergrundanalyse abgebrochen: $e');
+    } finally {
+      _analyse = null;
+      _analyseAbbruch = false;
+      notifyListeners();
+    }
+  }
+
+  /// Bricht nach der laufenden Datei ab – kein harter Abbruch mitten in
+  /// einer Modell-Inferenz.
+  void brichHintergrundanalyseAb() {
+    if (_analyse == null) return;
+    _analyseAbbruch = true;
+  }
+
+  /// Nachbereitung direkt beim Import – bewusst NUR ressourcenschonende
+  /// Schritte: reine Datenbankarbeit und ein Nachschlagen im bereits
+  /// geladenen Ortsverzeichnis. Kein Dekodieren, keine Modell-Inferenz.
+  ///
+  /// Alles Rechenintensive (Gesichter, Unschärfe, Texterkennung, CLIP,
+  /// Bildbeschreibung) läuft NACH dem Import als Hintergrundaufgabe, siehe
+  /// [starteHintergrundanalyse]. Vorher lief es hier inline und machte den
+  /// Import bei mehreren tausend Fotos unzumutbar langsam: fünf schwere
+  /// Durchläufe je Foto, nacheinander.
   Future<void> _postProcessNewAsset(String assetId) async {
     final asset = await db.assetById(assetId);
     if (asset == null) return;
@@ -448,66 +553,16 @@ class LibraryState extends ChangeNotifier {
 
     if (asset.type != 'IMAGE') return;
 
-    // Wird jetzt immer dekodiert (früher nur bei installiertem
-    // Gesichts-/CLIP-Modell) – die Unschärfe-Erkennung unten braucht das
-    // dekodierte Bild für jedes importierte Foto. Bewusst akzeptierter
-    // Mehraufwand pro Import, analog zur OCR-Entscheidung.
-    final decoded = await _decodeAsset(asset);
-
-    await _scanFacesForDecodedAsset(asset, decoded, deleteExistingUnassigned: false);
-
-    if (decoded != null) {
-      // Über compute() ausgelagert (Audit-Fund: lief vorher synchron im
-      // Haupt-Isolate, blockierte bei jedem Import spürbar die UI) – exakt
-      // dasselbe Muster wie decodeImageBytes oben.
-      final sharpness = await compute(computeBlurScore, decoded);
-      await db.setSharpnessScore(asset.id, sharpness);
-    }
-
-    // `null` bedeutet "native Erkennung nicht verfügbar/fehlgeschlagen" (im
-    // Unterschied zum leeren String für "kein Text gefunden", siehe
-    // ImageConverter.swifts recognizeText) – dann bleibt ocrScanned=false,
-    // damit ein späterer Backfill-Lauf (z.B. nach macOS-Update) es erneut
-    // versuchen kann, statt das Ergebnis fälschlich als final zu markieren.
-    final ocrText = await NativeImageConverter.recognizeText(_decodableFile(asset));
-    if (ocrText != null) {
-      await db.setOcrResult(asset.id, ocrText);
-    }
-
+    // Ortsauflösung bleibt hier: reines Nachschlagen im bereits im
+    // Speicher liegenden GeoNames-Verzeichnis, kein Bild wird angefasst.
     if (geocoder != null && asset.latitude != null && asset.longitude != null) {
       final result = geocoder!.lookup(asset.latitude!, asset.longitude!);
       if (result != null) {
         await db.setLocationNames(asset.id, country: result.country, state: result.state, city: result.city);
       }
     }
-
-    if (clipService != null && decoded != null) {
-      try {
-        final embedding = await clipService!.embedImage(decoded);
-        await db.saveEmbedding(asset.id, embedding);
-        // KI-Tagging kostet hier keine zusätzliche Bild-Inferenz: es nutzt
-        // das gerade eben berechnete Embedding weiter, nur Textembeddings
-        // des (in den Einstellungen editierbaren) Vokabulars werden
-        // (einmalig pro Begriff, gecacht) berechnet.
-        final vocabulary = await db.aiTagVocabularyTerms();
-        final tags = await aiTaggingService!.suggestTags(embedding, vocabulary);
-        for (final tag in tags) {
-          await db.tagAsset(asset.id, tag);
-        }
-      } catch (e) {
-        debugPrint('CLIP-Embedding/KI-Tagging fehlgeschlagen für ${asset.originalFileName}: $e');
-      }
-    }
-
-    if (captioningService != null && decoded != null) {
-      try {
-        final caption = await captioningService!.generateCaption(decoded);
-        await db.setAiCaption(asset.id, caption);
-      } catch (e) {
-        debugPrint('KI-Bildbeschreibung fehlgeschlagen für ${asset.originalFileName}: $e');
-      }
-    }
   }
+
 
   /// Führt die Gesichtserkennung für ein Asset aus, dessen Bild bereits
   /// dekodiert vorliegt (siehe [_postProcessNewAsset], wo dasselbe Bild auch
@@ -1236,8 +1291,19 @@ class LibraryState extends ChangeNotifier {
   /// Führt ein manuelles Backup aus – bei [encrypt] mit dem für diese
   /// Sitzung entsperrten Backup-Schlüssel (siehe [ensureBackupKeyAvailable]
   /// in pin_dialogs.dart, das der Aufrufer vorher ausgeführt haben muss).
-  Stream<BackupProgress> runManualBackup(String destination, {required bool encrypt}) =>
-      backupService.performBackup(destination, encryptionKey: encrypt ? _backupKey : null);
+  Stream<BackupProgress> runManualBackup(String destination, {required bool encrypt}) async* {
+    final grenze = await _backupGrenzeBytes();
+    yield* backupService.performBackup(destination,
+        encryptionKey: encrypt ? _backupKey : null, maxBytesPerRun: grenze);
+  }
+
+  /// Portionsgrenze je Sicherungslauf in Bytes, 0 = unbegrenzt (siehe
+  /// BackupSettings.autoBackupMaxMbPerRun).
+  Future<int> _backupGrenzeBytes() async {
+    final config = await db.backupSettingsRow();
+    final mb = config?.autoBackupMaxMbPerRun ?? 0;
+    return mb > 0 ? mb * 1024 * 1024 : 0;
+  }
 
   /// Löst das automatische Backup unabhängig vom Intervall manuell aus
   /// (z.B. über den "Jetzt synchronisieren"-Button in den Einstellungen).
@@ -1246,7 +1312,8 @@ class LibraryState extends ChangeNotifier {
   Stream<BackupProgress> runAutoBackupNow(String destination) async* {
     final key = _backupKey;
     if (key == null) throw StateError('Die Backup-Passphrase muss vorher entsperrt sein.');
-    yield* backupService.performAutoBackup(destination, key);
+    yield* backupService.performAutoBackup(destination, key,
+        maxBytesPerRun: await _backupGrenzeBytes());
     await db.setLastAutoBackupAt(DateTime.now());
   }
 
@@ -1276,7 +1343,12 @@ class LibraryState extends ChangeNotifier {
 
     _autoBackupRunning = true;
     try {
-      await backupService.performAutoBackup(destination, key).drain<void>();
+      await backupService
+          .performAutoBackup(destination, key,
+              maxBytesPerRun: (config.autoBackupMaxMbPerRun > 0)
+                  ? config.autoBackupMaxMbPerRun * 1024 * 1024
+                  : 0)
+          .drain<void>();
       await db.setLastAutoBackupAt(DateTime.now());
     } catch (e) {
       debugPrint('Automatisches Backup fehlgeschlagen: $e');

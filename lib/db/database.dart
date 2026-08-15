@@ -441,6 +441,14 @@ class BackupSettings extends Table {
   IntColumn get autoBackupIntervalHours => integer().withDefault(const Constant(24))();
   DateTimeColumn get lastAutoBackupAt => dateTime().nullable()();
 
+  /// Obergrenze je Sicherungslauf in Megabyte, 0 = unbegrenzt.
+  ///
+  /// Gedacht für Cloud-Ordner: Ohne Grenze landen bei der ersten Sicherung
+  /// zigtausend Dateien auf einmal im Sync-Ordner, und der Upload läuft
+  /// danach stunden- bis tagelang. Mit Grenze wird portionsweise gesichert,
+  /// der Rest folgt beim nächsten Intervall.
+  IntColumn get autoBackupMaxMbPerRun => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -471,6 +479,13 @@ class TrashSettings extends Table {
 class AppSettings extends Table {
   IntColumn get id => integer()();
   TextColumn get themeMode => text().withDefault(const Constant('system'))();
+
+  /// Ob die rechenintensiven KI-Auswertungen (Gesichter, Texterkennung,
+  /// CLIP, Bildbeschreibung, Unschärfe) nach einem Import automatisch als
+  /// Hintergrundaufgabe nachlaufen. Standard an – sonst blieben frisch
+  /// importierte Fotos ohne Suche und ohne Personenzuordnung, bis jemand
+  /// die Werkzeuge von Hand anstößt.
+  BoolColumn get autoAnalyzeAfterImport => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -542,7 +557,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 29;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -723,8 +738,42 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(assets, assets.restoredRelativePath);
             await m.createTable(restoreJobs);
           }
+          if (from < 28) {
+            await _addColumnIfMissing(m, appSettings, appSettings.autoAnalyzeAfterImport,
+                'app_settings', 'auto_analyze_after_import');
+          }
+          if (from < 29) {
+            // Beide bewusst nachgeholt: Eine fehlerhafte Zwischenfassung hat
+            // Datenbanken als Version 28 gestempelt, ohne die zugehörige
+            // Spalte anzulegen. Ohne dieses Nachholen bliebe eine so
+            // markierte Datenbank dauerhaft unbrauchbar, weil Drift die
+            // Migration für erledigt hält und nie erneut ausführt.
+            await _addColumnIfMissing(m, appSettings, appSettings.autoAnalyzeAfterImport,
+                'app_settings', 'auto_analyze_after_import');
+            await _addColumnIfMissing(m, backupSettings, backupSettings.autoBackupMaxMbPerRun,
+                'backup_settings', 'auto_backup_max_mb_per_run');
+          }
         },
       );
+
+  /// Legt [spalte] nur an, wenn sie in [tabellenName] noch fehlt.
+  ///
+  /// Schützt gegen den Fall, dass eine Datenbank bereits auf eine
+  /// Schemaversion gestempelt wurde, deren Migration die Spalte gar nicht
+  /// angelegt hat – dann würde ein blindes addColumn beim Nachholen mit
+  /// "duplicate column" scheitern und der Start bräche ab.
+  Future<void> _addColumnIfMissing(
+    Migrator m,
+    TableInfo table,
+    GeneratedColumn spalte,
+    String tabellenName,
+    String spaltenName,
+  ) async {
+    final vorhanden = await customSelect('PRAGMA table_info($tabellenName)').get();
+    final namen = vorhanden.map((r) => r.data['name'] as String).toSet();
+    if (namen.contains(spaltenName)) return;
+    await m.addColumn(table, spalte);
+  }
 
   /// Öffnet (bzw. legt beim ersten Start an) die lokale SQLite-Datei im
   /// App-Support-Verzeichnis des Betriebssystems.
@@ -1088,6 +1137,19 @@ class AppDatabase extends _$AppDatabase {
   /// Einstellungen sofort in main.dart ankommt, ohne App-Neustart.
   Stream<AppSettingsData?> watchAppSettings() =>
       (select(appSettings)..where((t) => t.id.equals(0))).watchSingleOrNull();
+
+  Future<void> setAutoAnalyzeAfterImport(bool an) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        autoAnalyzeAfterImport: Value(an),
+      ));
+
+  /// Einmalig gelesen (nicht als Stream): wird direkt nach einem Import
+  /// abgefragt, um zu entscheiden, ob die Analyse anlaufen soll.
+  Future<bool> autoAnalyzeAfterImportEnabled() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    return row?.autoAnalyzeAfterImport ?? true;
+  }
 
   Future<void> setThemeMode(String mode) =>
       into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
@@ -2426,14 +2488,33 @@ class AppDatabase extends _$AppDatabase {
         wrappedMasterKey: Value(null),
       ));
 
+  /// [destination] und [intervalHours] werden nur geschrieben, wenn sie
+  /// angegeben sind – `null` heißt "unverändert lassen", nicht "löschen".
+  ///
+  /// Vorher wurde das Ziel immer geschrieben: Ein Umstellen des Intervalls
+  /// oder auch nur des Aktiv-Schalters übergab kein Ziel und löschte damit
+  /// den zuvor gewählten Ordner, der dann erneut ausgewählt werden musste.
+  /// Zum bewussten Entfernen gibt es [clearAutoBackupDestination].
   Future<void> setAutoBackupConfig({required bool enabled, String? destination, int? intervalHours}) =>
       into(backupSettings).insertOnConflictUpdate(BackupSettingsCompanion.insert(
         id: const Value(0),
         autoBackupEnabled: Value(enabled),
-        autoBackupDestination: Value(destination),
+        autoBackupDestination:
+            destination != null ? Value(destination) : const Value.absent(),
         autoBackupIntervalHours:
             intervalHours != null ? Value(intervalHours) : const Value.absent(),
       ));
+
+  Future<void> setAutoBackupMaxMbPerRun(int mb) =>
+      into(backupSettings).insertOnConflictUpdate(BackupSettingsCompanion.insert(
+        id: const Value(0),
+        autoBackupMaxMbPerRun: Value(mb),
+      ));
+
+  /// Entfernt das Sicherungsziel ausdrücklich (siehe [setAutoBackupConfig]).
+  Future<void> clearAutoBackupDestination() =>
+      (update(backupSettings)..where((t) => t.id.equals(0)))
+          .write(const BackupSettingsCompanion(autoBackupDestination: Value(null)));
 
   Future<void> setLastAutoBackupAt(DateTime when) =>
       (update(backupSettings)..where((t) => t.id.equals(0)))

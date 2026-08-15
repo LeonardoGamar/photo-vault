@@ -624,6 +624,28 @@ class _ToolsScreenState extends State<ToolsScreen> {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.play_circle_outline),
+                  title: const Text('Alle Auswertungen jetzt nachholen'),
+                  subtitle: const Text(
+                    'Startet alle rechenintensiven Schritte nacheinander im '
+                    'Hintergrund: Unschärfe, Gesichter, Texterkennung, Bildsuche, '
+                    'Schlagwörter und Bildbeschreibung. Jeder Schritt überspringt, '
+                    'was er schon hat – die App bleibt bedienbar.',
+                  ),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    widget.library.starteHintergrundanalyse();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Auswertung läuft im Hintergrund – '
+                            'Fortschritt oben in der Leiste.'),
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
                   leading: const Icon(Icons.travel_explore_outlined),
                   title: const Text('CLIP-Embeddings berechnen'),
                   subtitle: const Text(

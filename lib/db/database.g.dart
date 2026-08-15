@@ -4766,6 +4766,14 @@ class $BackupSettingsTable extends BackupSettings
   late final GeneratedColumn<DateTime> lastAutoBackupAt =
       GeneratedColumn<DateTime>('last_auto_backup_at', aliasedName, true,
           type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _autoBackupMaxMbPerRunMeta =
+      const VerificationMeta('autoBackupMaxMbPerRun');
+  @override
+  late final GeneratedColumn<int> autoBackupMaxMbPerRun = GeneratedColumn<int>(
+      'auto_backup_max_mb_per_run', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -4775,7 +4783,8 @@ class $BackupSettingsTable extends BackupSettings
         autoBackupEnabled,
         autoBackupDestination,
         autoBackupIntervalHours,
-        lastAutoBackupAt
+        lastAutoBackupAt,
+        autoBackupMaxMbPerRun
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4831,6 +4840,12 @@ class $BackupSettingsTable extends BackupSettings
           lastAutoBackupAt.isAcceptableOrUnknown(
               data['last_auto_backup_at']!, _lastAutoBackupAtMeta));
     }
+    if (data.containsKey('auto_backup_max_mb_per_run')) {
+      context.handle(
+          _autoBackupMaxMbPerRunMeta,
+          autoBackupMaxMbPerRun.isAcceptableOrUnknown(
+              data['auto_backup_max_mb_per_run']!, _autoBackupMaxMbPerRunMeta));
+    }
     return context;
   }
 
@@ -4859,6 +4874,8 @@ class $BackupSettingsTable extends BackupSettings
           data['${effectivePrefix}auto_backup_interval_hours'])!,
       lastAutoBackupAt: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}last_auto_backup_at']),
+      autoBackupMaxMbPerRun: attachedDatabase.typeMapping.read(DriftSqlType.int,
+          data['${effectivePrefix}auto_backup_max_mb_per_run'])!,
     );
   }
 
@@ -4878,6 +4895,14 @@ class BackupSettingsData extends DataClass
   final String? autoBackupDestination;
   final int autoBackupIntervalHours;
   final DateTime? lastAutoBackupAt;
+
+  /// Obergrenze je Sicherungslauf in Megabyte, 0 = unbegrenzt.
+  ///
+  /// Gedacht für Cloud-Ordner: Ohne Grenze landen bei der ersten Sicherung
+  /// zigtausend Dateien auf einmal im Sync-Ordner, und der Upload läuft
+  /// danach stunden- bis tagelang. Mit Grenze wird portionsweise gesichert,
+  /// der Rest folgt beim nächsten Intervall.
+  final int autoBackupMaxMbPerRun;
   const BackupSettingsData(
       {required this.id,
       this.kdfSalt,
@@ -4886,7 +4911,8 @@ class BackupSettingsData extends DataClass
       required this.autoBackupEnabled,
       this.autoBackupDestination,
       required this.autoBackupIntervalHours,
-      this.lastAutoBackupAt});
+      this.lastAutoBackupAt,
+      required this.autoBackupMaxMbPerRun});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -4909,6 +4935,7 @@ class BackupSettingsData extends DataClass
     if (!nullToAbsent || lastAutoBackupAt != null) {
       map['last_auto_backup_at'] = Variable<DateTime>(lastAutoBackupAt);
     }
+    map['auto_backup_max_mb_per_run'] = Variable<int>(autoBackupMaxMbPerRun);
     return map;
   }
 
@@ -4932,6 +4959,7 @@ class BackupSettingsData extends DataClass
       lastAutoBackupAt: lastAutoBackupAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastAutoBackupAt),
+      autoBackupMaxMbPerRun: Value(autoBackupMaxMbPerRun),
     );
   }
 
@@ -4952,6 +4980,8 @@ class BackupSettingsData extends DataClass
           serializer.fromJson<int>(json['autoBackupIntervalHours']),
       lastAutoBackupAt:
           serializer.fromJson<DateTime?>(json['lastAutoBackupAt']),
+      autoBackupMaxMbPerRun:
+          serializer.fromJson<int>(json['autoBackupMaxMbPerRun']),
     );
   }
   @override
@@ -4969,6 +4999,7 @@ class BackupSettingsData extends DataClass
       'autoBackupIntervalHours':
           serializer.toJson<int>(autoBackupIntervalHours),
       'lastAutoBackupAt': serializer.toJson<DateTime?>(lastAutoBackupAt),
+      'autoBackupMaxMbPerRun': serializer.toJson<int>(autoBackupMaxMbPerRun),
     };
   }
 
@@ -4980,7 +5011,8 @@ class BackupSettingsData extends DataClass
           bool? autoBackupEnabled,
           Value<String?> autoBackupDestination = const Value.absent(),
           int? autoBackupIntervalHours,
-          Value<DateTime?> lastAutoBackupAt = const Value.absent()}) =>
+          Value<DateTime?> lastAutoBackupAt = const Value.absent(),
+          int? autoBackupMaxMbPerRun}) =>
       BackupSettingsData(
         id: id ?? this.id,
         kdfSalt: kdfSalt.present ? kdfSalt.value : this.kdfSalt,
@@ -4999,6 +5031,8 @@ class BackupSettingsData extends DataClass
         lastAutoBackupAt: lastAutoBackupAt.present
             ? lastAutoBackupAt.value
             : this.lastAutoBackupAt,
+        autoBackupMaxMbPerRun:
+            autoBackupMaxMbPerRun ?? this.autoBackupMaxMbPerRun,
       );
   BackupSettingsData copyWithCompanion(BackupSettingsCompanion data) {
     return BackupSettingsData(
@@ -5022,6 +5056,9 @@ class BackupSettingsData extends DataClass
       lastAutoBackupAt: data.lastAutoBackupAt.present
           ? data.lastAutoBackupAt.value
           : this.lastAutoBackupAt,
+      autoBackupMaxMbPerRun: data.autoBackupMaxMbPerRun.present
+          ? data.autoBackupMaxMbPerRun.value
+          : this.autoBackupMaxMbPerRun,
     );
   }
 
@@ -5035,7 +5072,8 @@ class BackupSettingsData extends DataClass
           ..write('autoBackupEnabled: $autoBackupEnabled, ')
           ..write('autoBackupDestination: $autoBackupDestination, ')
           ..write('autoBackupIntervalHours: $autoBackupIntervalHours, ')
-          ..write('lastAutoBackupAt: $lastAutoBackupAt')
+          ..write('lastAutoBackupAt: $lastAutoBackupAt, ')
+          ..write('autoBackupMaxMbPerRun: $autoBackupMaxMbPerRun')
           ..write(')'))
         .toString();
   }
@@ -5049,7 +5087,8 @@ class BackupSettingsData extends DataClass
       autoBackupEnabled,
       autoBackupDestination,
       autoBackupIntervalHours,
-      lastAutoBackupAt);
+      lastAutoBackupAt,
+      autoBackupMaxMbPerRun);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -5063,7 +5102,8 @@ class BackupSettingsData extends DataClass
           other.autoBackupEnabled == this.autoBackupEnabled &&
           other.autoBackupDestination == this.autoBackupDestination &&
           other.autoBackupIntervalHours == this.autoBackupIntervalHours &&
-          other.lastAutoBackupAt == this.lastAutoBackupAt);
+          other.lastAutoBackupAt == this.lastAutoBackupAt &&
+          other.autoBackupMaxMbPerRun == this.autoBackupMaxMbPerRun);
 }
 
 class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
@@ -5075,6 +5115,7 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
   final Value<String?> autoBackupDestination;
   final Value<int> autoBackupIntervalHours;
   final Value<DateTime?> lastAutoBackupAt;
+  final Value<int> autoBackupMaxMbPerRun;
   const BackupSettingsCompanion({
     this.id = const Value.absent(),
     this.kdfSalt = const Value.absent(),
@@ -5084,6 +5125,7 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
     this.autoBackupDestination = const Value.absent(),
     this.autoBackupIntervalHours = const Value.absent(),
     this.lastAutoBackupAt = const Value.absent(),
+    this.autoBackupMaxMbPerRun = const Value.absent(),
   });
   BackupSettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -5094,6 +5136,7 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
     this.autoBackupDestination = const Value.absent(),
     this.autoBackupIntervalHours = const Value.absent(),
     this.lastAutoBackupAt = const Value.absent(),
+    this.autoBackupMaxMbPerRun = const Value.absent(),
   });
   static Insertable<BackupSettingsData> custom({
     Expression<int>? id,
@@ -5104,6 +5147,7 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
     Expression<String>? autoBackupDestination,
     Expression<int>? autoBackupIntervalHours,
     Expression<DateTime>? lastAutoBackupAt,
+    Expression<int>? autoBackupMaxMbPerRun,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -5117,6 +5161,8 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
       if (autoBackupIntervalHours != null)
         'auto_backup_interval_hours': autoBackupIntervalHours,
       if (lastAutoBackupAt != null) 'last_auto_backup_at': lastAutoBackupAt,
+      if (autoBackupMaxMbPerRun != null)
+        'auto_backup_max_mb_per_run': autoBackupMaxMbPerRun,
     });
   }
 
@@ -5128,7 +5174,8 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
       Value<bool>? autoBackupEnabled,
       Value<String?>? autoBackupDestination,
       Value<int>? autoBackupIntervalHours,
-      Value<DateTime?>? lastAutoBackupAt}) {
+      Value<DateTime?>? lastAutoBackupAt,
+      Value<int>? autoBackupMaxMbPerRun}) {
     return BackupSettingsCompanion(
       id: id ?? this.id,
       kdfSalt: kdfSalt ?? this.kdfSalt,
@@ -5141,6 +5188,8 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
       autoBackupIntervalHours:
           autoBackupIntervalHours ?? this.autoBackupIntervalHours,
       lastAutoBackupAt: lastAutoBackupAt ?? this.lastAutoBackupAt,
+      autoBackupMaxMbPerRun:
+          autoBackupMaxMbPerRun ?? this.autoBackupMaxMbPerRun,
     );
   }
 
@@ -5174,6 +5223,10 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
     if (lastAutoBackupAt.present) {
       map['last_auto_backup_at'] = Variable<DateTime>(lastAutoBackupAt.value);
     }
+    if (autoBackupMaxMbPerRun.present) {
+      map['auto_backup_max_mb_per_run'] =
+          Variable<int>(autoBackupMaxMbPerRun.value);
+    }
     return map;
   }
 
@@ -5187,7 +5240,8 @@ class BackupSettingsCompanion extends UpdateCompanion<BackupSettingsData> {
           ..write('autoBackupEnabled: $autoBackupEnabled, ')
           ..write('autoBackupDestination: $autoBackupDestination, ')
           ..write('autoBackupIntervalHours: $autoBackupIntervalHours, ')
-          ..write('lastAutoBackupAt: $lastAutoBackupAt')
+          ..write('lastAutoBackupAt: $lastAutoBackupAt, ')
+          ..write('autoBackupMaxMbPerRun: $autoBackupMaxMbPerRun')
           ..write(')'))
         .toString();
   }
@@ -8786,8 +8840,18 @@ class $AppSettingsTable extends AppSettings
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('system'));
+  static const VerificationMeta _autoAnalyzeAfterImportMeta =
+      const VerificationMeta('autoAnalyzeAfterImport');
   @override
-  List<GeneratedColumn> get $columns => [id, themeMode];
+  late final GeneratedColumn<bool> autoAnalyzeAfterImport =
+      GeneratedColumn<bool>('auto_analyze_after_import', aliasedName, false,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintIsAlways(
+              'CHECK ("auto_analyze_after_import" IN (0, 1))'),
+          defaultValue: const Constant(true));
+  @override
+  List<GeneratedColumn> get $columns => [id, themeMode, autoAnalyzeAfterImport];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -8805,6 +8869,12 @@ class $AppSettingsTable extends AppSettings
       context.handle(_themeModeMeta,
           themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta));
     }
+    if (data.containsKey('auto_analyze_after_import')) {
+      context.handle(
+          _autoAnalyzeAfterImportMeta,
+          autoAnalyzeAfterImport.isAcceptableOrUnknown(
+              data['auto_analyze_after_import']!, _autoAnalyzeAfterImportMeta));
+    }
     return context;
   }
 
@@ -8818,6 +8888,9 @@ class $AppSettingsTable extends AppSettings
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       themeMode: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}theme_mode'])!,
+      autoAnalyzeAfterImport: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool,
+          data['${effectivePrefix}auto_analyze_after_import'])!,
     );
   }
 
@@ -8830,12 +8903,23 @@ class $AppSettingsTable extends AppSettings
 class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   final int id;
   final String themeMode;
-  const AppSettingsData({required this.id, required this.themeMode});
+
+  /// Ob die rechenintensiven KI-Auswertungen (Gesichter, Texterkennung,
+  /// CLIP, Bildbeschreibung, Unschärfe) nach einem Import automatisch als
+  /// Hintergrundaufgabe nachlaufen. Standard an – sonst blieben frisch
+  /// importierte Fotos ohne Suche und ohne Personenzuordnung, bis jemand
+  /// die Werkzeuge von Hand anstößt.
+  final bool autoAnalyzeAfterImport;
+  const AppSettingsData(
+      {required this.id,
+      required this.themeMode,
+      required this.autoAnalyzeAfterImport});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['theme_mode'] = Variable<String>(themeMode);
+    map['auto_analyze_after_import'] = Variable<bool>(autoAnalyzeAfterImport);
     return map;
   }
 
@@ -8843,6 +8927,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     return AppSettingsCompanion(
       id: Value(id),
       themeMode: Value(themeMode),
+      autoAnalyzeAfterImport: Value(autoAnalyzeAfterImport),
     );
   }
 
@@ -8852,6 +8937,8 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     return AppSettingsData(
       id: serializer.fromJson<int>(json['id']),
       themeMode: serializer.fromJson<String>(json['themeMode']),
+      autoAnalyzeAfterImport:
+          serializer.fromJson<bool>(json['autoAnalyzeAfterImport']),
     );
   }
   @override
@@ -8860,17 +8947,25 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'themeMode': serializer.toJson<String>(themeMode),
+      'autoAnalyzeAfterImport': serializer.toJson<bool>(autoAnalyzeAfterImport),
     };
   }
 
-  AppSettingsData copyWith({int? id, String? themeMode}) => AppSettingsData(
+  AppSettingsData copyWith(
+          {int? id, String? themeMode, bool? autoAnalyzeAfterImport}) =>
+      AppSettingsData(
         id: id ?? this.id,
         themeMode: themeMode ?? this.themeMode,
+        autoAnalyzeAfterImport:
+            autoAnalyzeAfterImport ?? this.autoAnalyzeAfterImport,
       );
   AppSettingsData copyWithCompanion(AppSettingsCompanion data) {
     return AppSettingsData(
       id: data.id.present ? data.id.value : this.id,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      autoAnalyzeAfterImport: data.autoAnalyzeAfterImport.present
+          ? data.autoAnalyzeAfterImport.value
+          : this.autoAnalyzeAfterImport,
     );
   }
 
@@ -8878,46 +8973,59 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   String toString() {
     return (StringBuffer('AppSettingsData(')
           ..write('id: $id, ')
-          ..write('themeMode: $themeMode')
+          ..write('themeMode: $themeMode, ')
+          ..write('autoAnalyzeAfterImport: $autoAnalyzeAfterImport')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, themeMode);
+  int get hashCode => Object.hash(id, themeMode, autoAnalyzeAfterImport);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppSettingsData &&
           other.id == this.id &&
-          other.themeMode == this.themeMode);
+          other.themeMode == this.themeMode &&
+          other.autoAnalyzeAfterImport == this.autoAnalyzeAfterImport);
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<int> id;
   final Value<String> themeMode;
+  final Value<bool> autoAnalyzeAfterImport;
   const AppSettingsCompanion({
     this.id = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.autoAnalyzeAfterImport = const Value.absent(),
   });
   AppSettingsCompanion.insert({
     this.id = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.autoAnalyzeAfterImport = const Value.absent(),
   });
   static Insertable<AppSettingsData> custom({
     Expression<int>? id,
     Expression<String>? themeMode,
+    Expression<bool>? autoAnalyzeAfterImport,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (themeMode != null) 'theme_mode': themeMode,
+      if (autoAnalyzeAfterImport != null)
+        'auto_analyze_after_import': autoAnalyzeAfterImport,
     });
   }
 
-  AppSettingsCompanion copyWith({Value<int>? id, Value<String>? themeMode}) {
+  AppSettingsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? themeMode,
+      Value<bool>? autoAnalyzeAfterImport}) {
     return AppSettingsCompanion(
       id: id ?? this.id,
       themeMode: themeMode ?? this.themeMode,
+      autoAnalyzeAfterImport:
+          autoAnalyzeAfterImport ?? this.autoAnalyzeAfterImport,
     );
   }
 
@@ -8930,6 +9038,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (themeMode.present) {
       map['theme_mode'] = Variable<String>(themeMode.value);
     }
+    if (autoAnalyzeAfterImport.present) {
+      map['auto_analyze_after_import'] =
+          Variable<bool>(autoAnalyzeAfterImport.value);
+    }
     return map;
   }
 
@@ -8937,7 +9049,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   String toString() {
     return (StringBuffer('AppSettingsCompanion(')
           ..write('id: $id, ')
-          ..write('themeMode: $themeMode')
+          ..write('themeMode: $themeMode, ')
+          ..write('autoAnalyzeAfterImport: $autoAnalyzeAfterImport')
           ..write(')'))
         .toString();
   }
@@ -11404,6 +11517,7 @@ typedef $$BackupSettingsTableCreateCompanionBuilder = BackupSettingsCompanion
   Value<String?> autoBackupDestination,
   Value<int> autoBackupIntervalHours,
   Value<DateTime?> lastAutoBackupAt,
+  Value<int> autoBackupMaxMbPerRun,
 });
 typedef $$BackupSettingsTableUpdateCompanionBuilder = BackupSettingsCompanion
     Function({
@@ -11415,6 +11529,7 @@ typedef $$BackupSettingsTableUpdateCompanionBuilder = BackupSettingsCompanion
   Value<String?> autoBackupDestination,
   Value<int> autoBackupIntervalHours,
   Value<DateTime?> lastAutoBackupAt,
+  Value<int> autoBackupMaxMbPerRun,
 });
 
 class $$BackupSettingsTableFilterComposer
@@ -11454,6 +11569,10 @@ class $$BackupSettingsTableFilterComposer
 
   ColumnFilters<DateTime> get lastAutoBackupAt => $composableBuilder(
       column: $table.lastAutoBackupAt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get autoBackupMaxMbPerRun => $composableBuilder(
+      column: $table.autoBackupMaxMbPerRun,
       builder: (column) => ColumnFilters(column));
 }
 
@@ -11495,6 +11614,10 @@ class $$BackupSettingsTableOrderingComposer
   ColumnOrderings<DateTime> get lastAutoBackupAt => $composableBuilder(
       column: $table.lastAutoBackupAt,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get autoBackupMaxMbPerRun => $composableBuilder(
+      column: $table.autoBackupMaxMbPerRun,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$BackupSettingsTableAnnotationComposer
@@ -11529,6 +11652,9 @@ class $$BackupSettingsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get lastAutoBackupAt => $composableBuilder(
       column: $table.lastAutoBackupAt, builder: (column) => column);
+
+  GeneratedColumn<int> get autoBackupMaxMbPerRun => $composableBuilder(
+      column: $table.autoBackupMaxMbPerRun, builder: (column) => column);
 }
 
 class $$BackupSettingsTableTableManager extends RootTableManager<
@@ -11566,6 +11692,7 @@ class $$BackupSettingsTableTableManager extends RootTableManager<
             Value<String?> autoBackupDestination = const Value.absent(),
             Value<int> autoBackupIntervalHours = const Value.absent(),
             Value<DateTime?> lastAutoBackupAt = const Value.absent(),
+            Value<int> autoBackupMaxMbPerRun = const Value.absent(),
           }) =>
               BackupSettingsCompanion(
             id: id,
@@ -11576,6 +11703,7 @@ class $$BackupSettingsTableTableManager extends RootTableManager<
             autoBackupDestination: autoBackupDestination,
             autoBackupIntervalHours: autoBackupIntervalHours,
             lastAutoBackupAt: lastAutoBackupAt,
+            autoBackupMaxMbPerRun: autoBackupMaxMbPerRun,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -11586,6 +11714,7 @@ class $$BackupSettingsTableTableManager extends RootTableManager<
             Value<String?> autoBackupDestination = const Value.absent(),
             Value<int> autoBackupIntervalHours = const Value.absent(),
             Value<DateTime?> lastAutoBackupAt = const Value.absent(),
+            Value<int> autoBackupMaxMbPerRun = const Value.absent(),
           }) =>
               BackupSettingsCompanion.insert(
             id: id,
@@ -11596,6 +11725,7 @@ class $$BackupSettingsTableTableManager extends RootTableManager<
             autoBackupDestination: autoBackupDestination,
             autoBackupIntervalHours: autoBackupIntervalHours,
             lastAutoBackupAt: lastAutoBackupAt,
+            autoBackupMaxMbPerRun: autoBackupMaxMbPerRun,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -13442,11 +13572,13 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
     Function({
   Value<int> id,
   Value<String> themeMode,
+  Value<bool> autoAnalyzeAfterImport,
 });
 typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
     Function({
   Value<int> id,
   Value<String> themeMode,
+  Value<bool> autoAnalyzeAfterImport,
 });
 
 class $$AppSettingsTableFilterComposer
@@ -13463,6 +13595,10 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<String> get themeMode => $composableBuilder(
       column: $table.themeMode, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get autoAnalyzeAfterImport => $composableBuilder(
+      column: $table.autoAnalyzeAfterImport,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$AppSettingsTableOrderingComposer
@@ -13479,6 +13615,10 @@ class $$AppSettingsTableOrderingComposer
 
   ColumnOrderings<String> get themeMode => $composableBuilder(
       column: $table.themeMode, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get autoAnalyzeAfterImport => $composableBuilder(
+      column: $table.autoAnalyzeAfterImport,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$AppSettingsTableAnnotationComposer
@@ -13495,6 +13635,9 @@ class $$AppSettingsTableAnnotationComposer
 
   GeneratedColumn<String> get themeMode =>
       $composableBuilder(column: $table.themeMode, builder: (column) => column);
+
+  GeneratedColumn<bool> get autoAnalyzeAfterImport => $composableBuilder(
+      column: $table.autoAnalyzeAfterImport, builder: (column) => column);
 }
 
 class $$AppSettingsTableTableManager extends RootTableManager<
@@ -13525,18 +13668,22 @@ class $$AppSettingsTableTableManager extends RootTableManager<
           updateCompanionCallback: ({
             Value<int> id = const Value.absent(),
             Value<String> themeMode = const Value.absent(),
+            Value<bool> autoAnalyzeAfterImport = const Value.absent(),
           }) =>
               AppSettingsCompanion(
             id: id,
             themeMode: themeMode,
+            autoAnalyzeAfterImport: autoAnalyzeAfterImport,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             Value<String> themeMode = const Value.absent(),
+            Value<bool> autoAnalyzeAfterImport = const Value.absent(),
           }) =>
               AppSettingsCompanion.insert(
             id: id,
             themeMode: themeMode,
+            autoAnalyzeAfterImport: autoAnalyzeAfterImport,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

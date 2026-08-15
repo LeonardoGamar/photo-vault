@@ -46,8 +46,11 @@ void main() {
     expect(await keyFile.exists(), isTrue);
 
     // Die Originaldatei im Backup ist tatsächlich Chiffretext, kein Klartext.
-    final originalsDir = Directory(p.join(backupRoot, 'originals'));
-    final backedUpFiles = await originalsDir.list(recursive: true).where((e) => e is File).toList();
+    // Verschlüsselte Backups liegen flach unter data/ mit abgeleiteten,
+    // endungslosen Namen (siehe VerschluesselteNamen) – gesucht wird deshalb
+    // dort statt unter originals/.
+    final datenDir = Directory(p.join(backupRoot, 'data'));
+    final backedUpFiles = await datenDir.list(recursive: true).where((e) => e is File).toList();
     expect(backedUpFiles, hasLength(1));
     final backedUpBytes = await File(backedUpFiles.single.path).readAsBytes();
     expect(backedUpBytes, isNot(equals(await photo.readAsBytes())));

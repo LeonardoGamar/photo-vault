@@ -73,6 +73,51 @@ class _RestoreQueueBanner extends StatelessWidget {
   }
 }
 
+/// Zeigt an, dass die rechenintensiven KI-Auswertungen nach einem Import
+/// im Hintergrund nachlaufen (siehe LibraryState.starteHintergrundanalyse).
+/// Unsichtbar, solange nichts läuft. Tippen bricht ab.
+class _AnalyseBanner extends StatelessWidget {
+  final LibraryState library;
+  const _AnalyseBanner({required this.library});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = library.analyse;
+    if (a == null) return const SizedBox.shrink();
+
+    final anteil = a.gesamt > 0 ? a.erledigt / a.gesamt : null;
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: InkWell(
+        onTap: library.brichHintergrundanalyseAb,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, value: anteil),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  '${a.stufe} wird berechnet '
+                  '(Schritt ${a.stufeNummer} von ${a.stufenGesamt}'
+                  '${a.gesamt > 0 ? ", ${a.erledigt}/${a.gesamt}" : ""})',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              Text('Abbrechen', style: Theme.of(context).textTheme.labelSmall),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Icon für einen Navigationseintrag mit Hover-"Pop"-Effekt (leichtes
 /// Aufskalieren + Tooltip mit dem Namen) für Maus-Nutzer auf dem Desktop –
 /// relevant, weil bei `labelType: NavigationRailLabelType.selected` nicht
@@ -258,6 +303,7 @@ class _HomeShellState extends State<HomeShell> {
         body: Column(
           children: [
             _RestoreQueueBanner(library: widget.library),
+            _AnalyseBanner(library: widget.library),
             Expanded(child: LayoutBuilder(
               builder: (context, constraints) {
                 // Skaliert Icon-Größe und Abstand zwischen den 9 Einträgen mit der

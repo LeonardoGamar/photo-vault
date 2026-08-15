@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../db/database.dart';
 import '../services/embedding_similarity.dart';
+import '../services/duplicate_selection.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
@@ -71,6 +72,74 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     }
   }
 
+  /// Behält je Gruppe das beste Foto und verschiebt den Rest in den
+  /// Papierkorb – erst nach Vorschau und Bestätigung. Die Regeln stehen in
+  /// services/duplicate_selection.dart; Gruppen mit mehreren favorisierten
+  /// oder bewerteten Fotos bleiben bewusst unangetastet.
+  Future<void> _alleKopienLoeschen() async {
+    final vorschau = berechneLoeschVorschau(_groups);
+
+    if (vorschau.zuLoeschen.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(vorschau.uebersprungeneGruppen > 0
+            ? 'Nichts automatisch löschbar: In allen Gruppen sind mehrere Fotos '
+                'favorisiert oder bewertet – die bitte von Hand durchsehen.'
+            : 'Nichts zu löschen.'),
+      ));
+      return;
+    }
+
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kopien in den Papierkorb?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${vorschau.zuLoeschen.length} Foto(s) aus '
+                '${_groups.length} Gruppe(n) werden in den Papierkorb verschoben.'),
+            const SizedBox(height: AppSpacing.md),
+            const Text(
+              'Behalten wird je Gruppe: Favorit, sonst höchste Bewertung, '
+              'sonst das schärfste, sonst das mit der höchsten Auflösung.',
+              style: TextStyle(fontSize: 12),
+            ),
+            if (vorschau.uebersprungeneGruppen > 0) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '${vorschau.uebersprungeneGruppen} Gruppe(n) bleiben unangetastet, '
+                'weil dort mehrere Fotos favorisiert oder bewertet sind.',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              'Rückgängig: über den Papierkorb wiederherstellbar.',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('In den Papierkorb'),
+          ),
+        ],
+      ),
+    );
+    if (bestaetigt != true) return;
+
+    await widget.library.db.moveToTrash(vorschau.zuLoeschen.map((a) => a.id).toList());
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('${vorschau.zuLoeschen.length} Foto(s) in den Papierkorb verschoben.'),
+    ));
+    await _load();
+  }
+
   Future<void> _moveToTrash(AssetData asset, List<AssetData> group) async {
     await widget.library.db.moveToTrash([asset.id]);
     setState(() {
@@ -91,7 +160,17 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Duplikate & ähnliche Fotos')),
+      appBar: AppBar(
+        title: const Text('Duplikate & ähnliche Fotos'),
+        actions: [
+          if (_groups.isNotEmpty)
+            TextButton.icon(
+              onPressed: _alleKopienLoeschen,
+              icon: const Icon(Icons.auto_delete_outlined),
+              label: const Text('Alle Kopien löschen'),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
