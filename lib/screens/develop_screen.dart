@@ -148,6 +148,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
 
   bool _maskEditMode = false;
   bool _computingEmbedding = false;
+  /// Beim ersten Mal wird das Segmentierungsmodell (101 MB) geladen –
+  /// das dauert deutlich länger als das blosse Vorbereiten des Bildes
+  /// und verdient eine eigene Erklärung.
+  bool _ladeSegmentierungsmodell = false;
   bool _computingMask = false;
   SamImageEmbedding? _embedding;
   img.Image? _decodedForMasking;
@@ -681,7 +685,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
     final halter = widget.segmentation;
     final previewBytes = _previewBytes;
     if (halter == null || previewBytes == null || _embedding != null) return;
-    setState(() => _computingEmbedding = true);
+    setState(() {
+      _computingEmbedding = true;
+      _ladeSegmentierungsmodell = !halter.istGeladen;
+    });
 
     SegmentationService? segmentation;
     try {
@@ -700,31 +707,49 @@ class _DevelopScreenState extends State<DevelopScreen> {
       return;
     }
 
-    final decoded = await compute(decodeImageBytes, previewBytes);
-    if (decoded == null) {
-      halter.zurueckgeben();
+    // Ab hier ist die Leihe offen und MUSS auf jedem Weg wieder heraus –
+    // ausser im Erfolgsfall, wo dieser Bildschirm sie bis zu seinem
+    // dispose() behält. Vorher lagen `compute` und `encodeImage` ohne
+    // try/finally dazwischen: Warf eines von beiden (ONNX-Inferenz kann
+    // das), blieb der Nutzerzähler für immer auf 1, das
+    // Segmentierungsmodell (101 MB) liess sich bis zum Programmende nicht
+    // mehr freigeben, und der Ladekringel drehte sich endlos weiter.
+    // dispose() half dabei nicht: Es prüft `_segmentation`, das erst im
+    // Erfolgsfall gesetzt wird (Audit-Fund).
+    var behalten = false;
+    try {
+      final decoded = await compute(decodeImageBytes, previewBytes);
+      if (decoded == null) {
+        if (mounted) {
+          setState(() => _computingEmbedding = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Vorschaubild konnte nicht für die Maskierung dekodiert werden.')),
+          );
+        }
+        return;
+      }
+      final embedding = await segmentation.encodeImage(decoded);
+      // Bildschirm inzwischen verlassen? Dann gibt das finally die Leihe
+      // zurück – dispose() kann sie nicht kennen, dieser Aufruf war ja
+      // noch nicht fertig.
+      if (!mounted) return;
+      setState(() {
+        _decodedForMasking = decoded;
+        _embedding = embedding;
+        _segmentation = segmentation;
+        _computingEmbedding = false;
+      });
+      behalten = true;
+    } catch (e) {
       if (mounted) {
         setState(() => _computingEmbedding = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vorschaubild konnte nicht für die Maskierung dekodiert werden.')),
+          SnackBar(content: Text('KI-Auswahl fehlgeschlagen: $e')),
         );
       }
-      return;
+    } finally {
+      if (!behalten) halter.zurueckgeben();
     }
-    final embedding = await segmentation.encodeImage(decoded);
-    if (!mounted) {
-      // Bildschirm inzwischen verlassen – dispose() konnte die Leihe noch
-      // nicht kennen (dieser Aufruf war ja noch nicht fertig), also hier
-      // selbst zurückgeben statt sie zu verlieren.
-      halter.zurueckgeben();
-      return;
-    }
-    setState(() {
-      _decodedForMasking = decoded;
-      _embedding = embedding;
-      _segmentation = segmentation;
-      _computingEmbedding = false;
-    });
   }
 
   /// Der tatsächlich gerenderte Bildbereich innerhalb eines Widgets, das per
@@ -1218,12 +1243,17 @@ class _DevelopScreenState extends State<DevelopScreen> {
                   child: Image.memory(_pendingMaskOverlayPng!, gaplessPlayback: true, fit: BoxFit.contain),
                 ),
               if (_computingEmbedding)
-                const Column(
+                Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircularProgressIndicator(color: Colors.white70),
-                    SizedBox(height: 12),
-                    Text('Bild wird für die Maskierung vorbereitet …', style: TextStyle(color: Colors.white70)),
+                    const CircularProgressIndicator(color: Colors.white70),
+                    const SizedBox(height: 12),
+                    Text(
+                      _ladeSegmentierungsmodell
+                          ? 'Modell für die KI-Auswahl wird geladen …'
+                          : 'Bild wird für die Maskierung vorbereitet …',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
                   ],
                 )
               else if (_computingMask)

@@ -26,6 +26,10 @@ class _SearchScreenState extends State<SearchScreen> {
   final _queryCtrl = TextEditingController();
   SearchFilters _filters = const SearchFilters();
   bool _loading = false;
+  /// Erklärt eine ungewöhnlich lange Wartezeit – bisher nur das
+  /// einmalige Laden des Bildsuche-Modells. Null, solange es nichts
+  /// zu erklären gibt.
+  String? _statusText;
   bool _searched = false;
   List<AssetData> _results = [];
   String? _error;
@@ -126,11 +130,32 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final query = _filters.query.trim();
       List<AssetData> results;
-      final queryVector = _filters.textMode == SearchTextMode.context && query.isNotEmpty
-          // Nur der Text-Encoder (242 MB) – der Bildteil wird für eine
-          // Suchanfrage nicht gebraucht.
-          ? await widget.library.clipTextHalter.mit((c) => c.embedText(query))
-          : null;
+      final kontextSuche = _filters.textMode == SearchTextMode.context && query.isNotEmpty;
+
+      Float32List? queryVector;
+      if (kontextSuche) {
+        // Nur der Text-Encoder – der Bildteil wird für eine Suchanfrage
+        // nicht gebraucht (siehe LibraryState.clipTextHalter).
+        final halter = widget.library.clipTextHalter;
+        if (!halter.installiert) {
+          // Ohne diese Meldung fiel die Suche stillschweigend auf eine
+          // Suche ohne Suchbegriff zurück und lieferte einfach die
+          // neuesten Fotos – für den Nutzer nicht von einem Treffer zu
+          // unterscheiden (Audit-Fund).
+          setState(() => _error = 'Für die Kontext-Suche fehlt das Bildsuche-Modell. '
+              'Es lässt sich in den Einstellungen unter "KI-Modelle" laden.');
+          return;
+        }
+        // Beim ersten Mal wird ein mehrere hundert MB grosses Modell
+        // geladen; das dauert spürbar und soll nicht wie eine langsame
+        // Suche aussehen.
+        if (!halter.istGeladen) {
+          setState(() => _statusText = 'Modell für die Bildsuche wird geladen …');
+        }
+        queryVector = await halter.mit((c) => c.embedText(query));
+        if (mounted) setState(() => _statusText = null);
+      }
+
       if (queryVector != null) {
         final embeddings = await widget.library.cachedEmbeddings();
 
@@ -158,7 +183,12 @@ class _SearchScreenState extends State<SearchScreen> {
     } catch (e) {
       setState(() => _error = 'Suche fehlgeschlagen: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _statusText = null;
+        });
+      }
     }
   }
 
@@ -240,6 +270,17 @@ class _SearchScreenState extends State<SearchScreen> {
           },
         ),
         if (_loading) const LinearProgressIndicator(),
+        if (_statusText != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+            child: Text(
+              _statusText!,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ),
         if (_error != null) Padding(padding: const EdgeInsets.all(AppSpacing.sm), child: Text(_error!)),
         Expanded(
           child: !_searched

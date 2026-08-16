@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 
@@ -89,5 +90,33 @@ class ModelDownloadService {
       final f = File(p.join(modelsDir, file.fileName));
       if (await f.exists()) await f.delete();
     }
+  }
+
+  /// Entfernt liegengebliebene `.part`-Dateien abgebrochener Downloads.
+  ///
+  /// Der Fehlerpfad des Downloads räumt selbst auf; wird die App aber
+  /// mitten im Herunterladen beendet oder stürzt ab, bleibt die halbe
+  /// Datei zurück – bis zu 335 MB, ohne dass irgendwo etwas darauf
+  /// hinweist. Wiederaufnehmen lässt sie sich ohnehin nicht (der Download
+  /// beginnt jedes Mal von vorn), sie ist also reiner Ballast
+  /// (Audit-Fund).
+  ///
+  /// Nur beim Programmstart aufrufen: Während ein Download läuft, wäre
+  /// genau diese Datei in Benutzung.
+  Future<int> raeumeAbgebrocheneDownloads() async {
+    final dir = Directory(modelsDir);
+    if (!await dir.exists()) return 0;
+    var entfernt = 0;
+    await for (final eintrag in dir.list()) {
+      if (eintrag is File && eintrag.path.endsWith('.part')) {
+        try {
+          await eintrag.delete();
+          entfernt++;
+        } catch (e) {
+          debugPrint('Rest eines Downloads liess sich nicht entfernen: $e');
+        }
+      }
+    }
+    return entfernt;
   }
 }

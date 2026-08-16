@@ -228,6 +228,10 @@ class LibraryState extends ChangeNotifier {
     await Directory(geoDataDir).create(recursive: true);
     geoDataDownloadService = GeoDataDownloadService(geoDataDir);
 
+    // Reste abgebrochener Modell-Downloads wegräumen, bevor irgendetwas
+    // den Modellordner ansieht – sie sind nutzlos und können mehrere
+    // hundert MB belegen (Audit-Fund).
+    unawaited(modelDownloadService.raeumeAbgebrocheneDownloads());
     await _loadModelsIfPresent();
     await _loadGeoDataIfPresent();
     await clearDecryptCache();
