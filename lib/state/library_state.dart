@@ -145,6 +145,11 @@ class LibraryState extends ChangeNotifier {
   /// eine bereits geladene [ClipService]-Sitzung als Parameter, deshalb ohne
   /// eigenen Halter und für die ganze App-Laufzeit unverändert nutzbar.
   final AiTaggingService aiTaggingService = AiTaggingService();
+  /// Name der geöffneten Bibliothek – nur gesetzt, wenn überhaupt mehr als
+  /// eine bekannt ist. Sonst wäre die Anzeige in der Navigationsleiste ein
+  /// Hinweis ohne Aussage.
+  String? aktiveBibliothek;
+
   ReverseGeocoder? geocoder;
   bool _ready = false;
   bool get isReady => _ready;
@@ -232,6 +237,16 @@ class LibraryState extends ChangeNotifier {
     // den Modellordner ansieht – sie sind nutzlos und können mehrere
     // hundert MB belegen (Audit-Fund).
     unawaited(modelDownloadService.raeumeAbgebrocheneDownloads());
+    // Welche Bibliothek ist offen? Nur anzeigen, wenn es eine Wahl gibt.
+    try {
+      final bekannt = await LibraryLocation.bekannte();
+      if (bekannt.length > 1) {
+        aktiveBibliothek = bekannt.where((b) => b.istAktiv).map((b) => b.eintrag.name).firstOrNull;
+      }
+    } catch (e) {
+      debugPrint('Bibliotheksliste nicht lesbar: $e');
+    }
+
     await _loadModelsIfPresent();
     await _loadGeoDataIfPresent();
     await clearDecryptCache();

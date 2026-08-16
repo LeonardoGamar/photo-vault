@@ -40,6 +40,23 @@ void main() {
           f.path.endsWith('.json'))
       .toList();
 
+  /// Wartet kurz ab, bis keine NEUEN Metadatendateien mehr liegen bleiben.
+  ///
+  /// Das System-Temp gehört allen: Die Testdateien laufen parallel, und ein
+  /// anderer Backup-Test kann währenddessen seine eigene, kurzlebige
+  /// `photovault_restore_*.json` dort liegen haben. Ein einzelner Blick
+  /// erwischt die und meldet fälschlich ein Leck. Ein echtes Leck dagegen
+  /// bleibt beliebig lange liegen und überlebt dieses Zeitfenster mühelos.
+  Future<List<File>> neueRestePruefen(Set<String> vorher) async {
+    var reste = <File>[];
+    for (var versuch = 0; versuch < 20; versuch++) {
+      reste = uebrigeMetadatenDateien().where((f) => !vorher.contains(f.path)).toList();
+      if (reste.isEmpty) return reste;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    return reste;
+  }
+
   group('Wiederherstellung hinterlässt keine Klartext-Metadaten', () {
     test('auch dann nicht, wenn sie vorzeitig abgebrochen wird', () async {
       final quelle = await bibliothek('quelle');
@@ -71,8 +88,7 @@ void main() {
       // Der finally-Block des Generators läuft asynchron zum cancel().
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      final neueReste =
-          uebrigeMetadatenDateien().where((f) => !vorher.contains(f.path)).toList();
+      final neueReste = await neueRestePruefen(vorher);
       addTearDown(() {
         for (final f in neueReste) {
           if (f.existsSync()) f.deleteSync();
@@ -103,8 +119,7 @@ void main() {
               passphrase: 'geheim-123')
           .drain<void>();
 
-      final neueReste =
-          uebrigeMetadatenDateien().where((f) => !vorher.contains(f.path)).toList();
+      final neueReste = await neueRestePruefen(vorher);
       addTearDown(() {
         for (final r in neueReste) {
           if (r.existsSync()) r.deleteSync();

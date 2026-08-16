@@ -6,9 +6,24 @@
 
 // The application's name. By default this is also the title of the Flutter window.
 PRODUCT_NAME = Photo Vault
+// Der Testbau heißt anders, damit im Dock und im Programme-Ordner auf den
+// ersten Blick erkennbar ist, welche der beiden Fassungen offen ist.
+PRODUCT_NAME[config=Debug] = Photo Vault (Test)
 
 // The application's bundle identifier
+//
+// Debug-Bauten bekommen bewusst eine EIGENE Kennung. macOS vergibt den
+// Sandbox-Container anhand dieser Kennung – mit derselben Kennung greift
+// ein `flutter run` auf dieselbe Bibliothek zu wie die installierte App,
+// und ein Fehler im Testlauf träfe die echten Fotos. Mit eigener Kennung
+// bekommt der Testbau einen vollständig getrennten Container: eigene
+// Bibliothek, eigene Einstellungen, eigener Papierkorb.
+//
+// Preis: Auch der Modellordner ist getrennt (er liegt im Container, siehe
+// LibraryState.initialize). Wer im Testbau KI-Funktionen braucht, lädt die
+// Modelle dort einmal separat.
 PRODUCT_BUNDLE_IDENTIFIER = com.example.photoVault
+PRODUCT_BUNDLE_IDENTIFIER[config=Debug] = com.example.photoVault.test
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.

@@ -59,12 +59,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late Future<bool> _hasBackupKeyFuture;
   late Future<BackupSettingsData?> _backupSettingsFuture;
   late Future<TrashSettingsData?> _trashSettingsFuture;
+  late Future<List<BibliothekMitZustand>> _bibliothekenFuture;
 
   @override
   void initState() {
     super.initState();
     _refresh();
     _isCustomLocationFuture = LibraryLocation.isCustom;
+    _bibliothekenFuture = LibraryLocation.bekannte();
     _hasPinSetFuture = widget.library.db.hasPinSet();
     _hasBackupKeyFuture = widget.library.db.hasBackupKey();
     _backupSettingsFuture = widget.library.db.backupSettingsRow();
@@ -211,6 +213,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.library.geoDataDownloadService.deleteAll();
     await widget.library.reloadGeoData();
     setState(() {});
+  }
+
+  /// Wechselt die geöffnete Bibliothek. Verschiebt NICHTS – siehe
+  /// [LibraryLocation.wechsleZu]. Danach ist ein Neustart nötig, weil
+  /// Datenbankverbindung, StoragePaths und sämtliche Zwischenspeicher am
+  /// alten Ort hängen.
+  Future<void> _wechsleBibliothek(BibliothekMitZustand ziel) async {
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Zu „${ziel.eintrag.name}" wechseln?'),
+        content: const Text(
+          'Die App wird danach geschlossen und öffnet beim nächsten Start die '
+          'gewählte Bibliothek.\n\n'
+          'Es werden keine Fotos verschoben oder gelöscht – beide Bibliotheken '
+          'bleiben unverändert an ihrem Ort.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Wechseln')),
+        ],
+      ),
+    );
+    if (bestaetigt != true || !mounted) return;
+
+    await _runRelocation(
+      loadingText: 'Wechsle Bibliothek …',
+      restartMessage: 'Die Bibliothek wurde gewechselt. Es wurden keine Daten '
+          'verschoben. Die App wird jetzt geschlossen – bitte danach manuell '
+          'neu öffnen.',
+      errorPrefix: 'Wechseln fehlgeschlagen',
+      action: () async {
+        // Reihenfolge mit Bedacht: ERST den Zeiger schreiben, DANN die
+        // Datenbank schliessen. Andersherum liefe die App bei einem Fehler
+        // im Schreibvorgang mit geschlossener Datenbank weiter und wäre
+        // unbrauchbar, obwohl gar nichts passiert ist. Das Schliessen ist
+        // hier ohnehin nur Höflichkeit vor dem Beenden (WAL sauber
+        // abschliessen) – der Wechsel selbst rührt die Bibliothek nicht an.
+        await LibraryLocation.wechsleZu(ziel.eintrag);
+        await widget.library.db.close();
+      },
+    );
+  }
+
+  /// Nimmt einen Ordner in die Liste auf, ohne ihn zu öffnen.
+  Future<void> _bibliothekHinzufuegen() async {
+    final picked = await LibraryLocation.pickFolder(
+      dialogMessage: 'Ordner einer bestehenden Bibliothek wählen – oder einen leeren '
+          'Ordner für eine neue. Es wird nichts verschoben.',
+    );
+    if (picked == null || !mounted) return;
+
+    final vorhanden = File(p.join(picked.path, 'library.sqlite')).existsSync();
+    await LibraryLocation.fuegeHinzu(picked);
+    if (!mounted) return;
+    setState(() => _bibliothekenFuture = LibraryLocation.bekannte());
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(vorhanden
+          ? 'Bestehende Bibliothek hinzugefügt.'
+          : 'Leerer Ordner hinzugefügt – beim Wechseln dorthin entsteht eine neue, leere Bibliothek.'),
+    ));
+  }
+
+  /// Streicht einen Eintrag aus der Liste. Die Fotos bleiben, wo sie sind.
+  Future<void> _entferneBibliothek(BibliothekMitZustand b) async {
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('„${b.eintrag.name}" aus der Liste entfernen?'),
+        content: const Text(
+          'Die Bibliothek verschwindet nur aus dieser Liste. Fotos, Datenbank '
+          'und Ordner bleiben unverändert erhalten und lassen sich jederzeit '
+          'wieder hinzufügen.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Entfernen')),
+        ],
+      ),
+    );
+    if (bestaetigt != true) return;
+    await LibraryLocation.entferneAusListe(b.eintrag.path);
+    if (!mounted) return;
+    setState(() => _bibliothekenFuture = LibraryLocation.bekannte());
   }
 
   Future<void> _changeLibraryLocation() async {
@@ -522,7 +608,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Bibliothek', style: Theme.of(context).textTheme.titleMedium),
+        Text('Bibliotheken', style: Theme.of(context).textTheme.titleMedium),
+        Card(
+          child: FutureBuilder<List<BibliothekMitZustand>>(
+            future: _bibliothekenFuture,
+            builder: (context, snapshot) {
+              final eintraege = snapshot.data;
+              if (eintraege == null) {
+                return const Padding(
+                  padding: EdgeInsets.all(AppSpacing.lg),
+                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                );
+              }
+              return Column(
+                children: [
+                  for (final b in eintraege)
+                    ListTile(
+                      leading: Icon(
+                        b.istAktiv ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        color: b.istAktiv ? Theme.of(context).colorScheme.primary : null,
+                      ),
+                      title: Text(
+                        b.eintrag.name,
+                        style: b.erreichbar
+                            ? null
+                            : TextStyle(color: Theme.of(context).disabledColor),
+                      ),
+                      subtitle: Text(
+                        b.erreichbar
+                            ? b.eintrag.path
+                            : 'Ordner nicht gefunden – Laufwerk eingebunden?',
+                      ),
+                      // `enabled` steuert die Einfärbung, nicht die
+                      // Antippbarkeit: Die aktive Bibliothek ist zwar nicht
+                      // antippbar (man ist ja schon drin), darf aber nicht
+                      // ausgegraut erscheinen – ausgegraut heißt hier
+                      // "nicht erreichbar".
+                      enabled: b.erreichbar,
+                      onTap: b.erreichbar && !b.istAktiv ? () => _wechsleBibliothek(b) : null,
+                      trailing: b.istAktiv
+                          ? const Text('aktiv')
+                          : IconButton(
+                              icon: const Icon(Icons.playlist_remove),
+                              tooltip: 'Aus der Liste entfernen (löscht keine Fotos)',
+                              onPressed: () => _entferneBibliothek(b),
+                            ),
+                    ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _bibliothekHinzufuegen,
+                            icon: const Icon(Icons.library_add_outlined),
+                            label: const Text('Bibliothek hinzufügen…'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+                    child: Text(
+                      'Ein Wechsel biegt nur um, welche Bibliothek geöffnet wird – '
+                      'es werden keine Fotos verschoben. Zum Verlegen der aktuellen '
+                      'Bibliothek an einen anderen Ort dient „Speicherort ändern" weiter unten.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text('Speicherort der aktiven Bibliothek',
+            style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: Column(
             children: [

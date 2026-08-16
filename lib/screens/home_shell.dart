@@ -332,10 +332,43 @@ class _HomeShellState extends State<HomeShell> {
                         leading: Padding(
                           padding: const EdgeInsets.symmetric(
                               vertical: AppSpacing.md),
-                          child: Image(
-                            image: const AssetImage('assets/icon/app_icon.png'),
-                            width: 32 * railScale,
-                            height: 32 * railScale,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image(
+                                image: const AssetImage('assets/icon/app_icon.png'),
+                                width: 32 * railScale,
+                                height: 32 * railScale,
+                              ),
+                              // Name der geöffneten Bibliothek – erst, wenn es
+                              // überhaupt mehr als eine gibt. Ohne diesen
+                              // Hinweis ist nach einem Wechsel nicht
+                              // erkennbar, worin man gerade arbeitet.
+                              if (widget.library.aktiveBibliothek != null) ...[
+                                const SizedBox(height: 4),
+                                SizedBox(
+                                  width: 72,
+                                  child: Tooltip(
+                                    message:
+                                        'Geöffnete Bibliothek: ${widget.library.aktiveBibliothek}',
+                                    child: Text(
+                                      widget.library.aktiveBibliothek!,
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .labelSmall
+                                          ?.copyWith(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                         destinations:
