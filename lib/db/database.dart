@@ -126,6 +126,15 @@ class Assets extends Table {
   /// analog zu [ocrScanned].
   BoolColumn get aiCaptionScanned => boolean().withDefault(const Constant(false))();
 
+  /// Eigenes Flag statt "hat keine Tags" als "noch nicht verschlagwortet"-
+  /// Signal, aus demselben Grund wie [ocrScanned]: Dass CLIP zu keinem
+  /// Vokabelbegriff eine ausreichende Ähnlichkeit findet, ist ein GÜLTIGES
+  /// Ergebnis, kein offener Posten. Ohne dieses Flag blieben solche Fotos
+  /// dauerhaft Kandidaten und die Tagging-Stufe lud bei JEDEM Programmstart
+  /// beide CLIP-Encoder (577 MB), rechnete sie durch und erzeugte wieder
+  /// nichts (Audit-Fund: gemessen 1066 MB Grundlast statt 214 MB).
+  BoolColumn get aiTagsScanned => boolean().withDefault(const Constant(false))();
+
   /// Laplace-Varianz des Bilds (siehe blur_detection.dart) – höher = schärfer.
   /// Null, solange noch nicht berechnet.
   RealColumn get sharpnessScore => real().nullable()();
@@ -615,7 +624,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 30;
+  int get schemaVersion => 31;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -814,6 +823,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 30) {
             await m.createTable(automationRules);
             await m.createTable(automationRuleTags);
+          }
+          if (from < 31) {
+            await _addColumnIfMissing(
+                m, assets, assets.aiTagsScanned, 'assets', 'ai_tags_scanned');
           }
         },
       );
@@ -2642,10 +2655,19 @@ class AppDatabase extends _$AppDatabase {
 
   /// Bild-Assets, die für automatisches KI-Tagging infrage kommen (nicht
   /// gelöscht/gesperrt – gesperrte Fotos werden bewusst nicht verarbeitet,
-  /// solange sie versteckt sind). Bei [onlyUntagged] nur Fotos ganz ohne
-  /// Tags (weder manuell noch automatisch vergeben) – wer stattdessen
-  /// "Alle" wählt, ergänzt zusätzlich passende KI-Tags bei bereits
-  /// getaggten Fotos, ohne vorhandene (auch manuelle) Tags zu entfernen.
+  /// solange sie versteckt sind).
+  ///
+  /// Bei [onlyUntagged] nur Fotos, die noch nie durch die Verschlagwortung
+  /// gelaufen sind ([Assets.aiTagsScanned]) UND noch keinen Tag tragen.
+  /// Das Flag ist dabei das entscheidende Kriterium: Ein Foto, zu dem CLIP
+  /// keinen passenden Begriff gefunden hat, bleibt für immer ohne Tags und
+  /// wäre ohne das Flag bei jedem Lauf erneut Kandidat – siehe dort.
+  /// Die zusätzliche Tag-Prüfung hält Fotos draussen, die vor Einführung
+  /// des Flags bereits verschlagwortet wurden.
+  ///
+  /// Wer stattdessen "Alle" wählt, ergänzt passende KI-Tags auch bei
+  /// bereits getaggten Fotos, ohne vorhandene (auch manuelle) Tags zu
+  /// entfernen.
   Future<List<AssetData>> assetsForAiTagging({required bool onlyUntagged}) async {
     if (!onlyUntagged) {
       return (select(assets)
@@ -2658,10 +2680,17 @@ class AppDatabase extends _$AppDatabase {
       ..where(assets.type.equals('IMAGE') &
           assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
+          assets.aiTagsScanned.equals(false) &
           assetTags.assetId.isNull());
     final rows = await query.get();
     return rows.map((r) => r.readTable(assets)).toList();
   }
+
+  /// Vermerkt, dass ein Foto die Verschlagwortung durchlaufen hat –
+  /// unabhängig davon, ob dabei Tags heraussprangen.
+  Future<void> markAiTagsScanned(List<String> assetIds) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(const AssetsCompanion(aiTagsScanned: Value(true)));
 
   /// Zählvariante von [assetsForAiTagging], siehe [countLocationBackfill].
   Future<int> countAiTagging({required bool onlyUntagged}) async {
@@ -2677,6 +2706,9 @@ class AppDatabase extends _$AppDatabase {
       ..where(assets.type.equals('IMAGE') &
           assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
+          // Muss deckungsgleich mit assetsForAiTagging bleiben, sonst zeigt
+          // die Hintergrundaufgaben-Übersicht Wartende an, die keine sind.
+          assets.aiTagsScanned.equals(false) &
           assetTags.assetId.isNull());
     final row = await query.getSingle();
     return row.read<int>(countExpr) ?? 0;

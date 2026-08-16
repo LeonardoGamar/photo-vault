@@ -55,6 +55,7 @@ void main() {
         rating: rating,
         ocrScanned: false,
         aiCaptionScanned: false,
+        aiTagsScanned: false,
         isStackCover: false,
         durationSeconds: durationSeconds,
       );

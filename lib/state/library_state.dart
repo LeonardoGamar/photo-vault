@@ -803,6 +803,13 @@ class LibraryState extends ChangeNotifier {
   /// [onlyNewPhotos] = false: ALLE Fotos erneut scannen (dauert entsprechend
   /// länger bei großen Bibliotheken).
   Stream<ImportProgress> rescanFaces({required bool onlyNewPhotos}) async* {
+    // Erst die Arbeit ermitteln, dann die Modelle holen – siehe
+    // [_bildinhaltsAnalyse].
+    final assets = await db.assetsForFaceScan(onlyNew: onlyNewPhotos);
+    if (assets.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
     final engine = await faceEngineHalter.leihen();
     if (engine == null) {
       yield ImportProgress(0, 0);
@@ -811,7 +818,6 @@ class LibraryState extends ChangeNotifier {
     try {
       final eyeState = await eyeStateHalter.leihen();
       try {
-        final assets = await db.assetsForFaceScan(onlyNew: onlyNewPhotos);
         var done = 0;
         yield ImportProgress(0, assets.length);
         for (final asset in assets) {
@@ -1043,13 +1049,21 @@ class LibraryState extends ChangeNotifier {
   /// Installation des Modells importiert wurden (Captions entstehen sonst
   /// nur automatisch beim Import, siehe [_postProcessNewAsset]).
   Stream<ImportProgress> backfillCaptions() async* {
+    // Erst die Arbeit ermitteln, dann das Modell holen – siehe
+    // [_bildinhaltsAnalyse]. Das Bildbeschreibungs-Modell ist mit 235 MB
+    // das zweitgrösste; es für eine leere Liste zu laden war der teuerste
+    // Einzelposten des Fehlers.
+    final assets = await db.assetsForCaptionBackfill();
+    if (assets.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
     final service = await captioningHalter.leihen();
     if (service == null) {
       yield ImportProgress(0, 0);
       return;
     }
     try {
-      final assets = await db.assetsForCaptionBackfill();
       var done = 0;
       yield ImportProgress(0, assets.length);
       for (final asset in assets) {
@@ -1083,6 +1097,16 @@ class LibraryState extends ChangeNotifier {
   /// noch die folgenden Fotos verhindern.
   Stream<ImportProgress> _bildinhaltsAnalyse() async* {
     final kandidaten = await db.assetsForCombinedImageAnalysis();
+    // Nichts zu tun? Dann auch nichts laden. Ohne diese Abkürzung lieh sich
+    // die Stufe ihre Modelle, sah danach eine leere Liste und gab sie
+    // ungenutzt wieder frei – bei jedem Programmstart, weil die Analyse dort
+    // automatisch anläuft. Gemessen belegte die App so 1076 MB statt 214 MB,
+    // ohne ein einziges Foto anzufassen; der ganze Zweck des bedarfsweisen
+    // Ladens war damit für den Normalfall aufgehoben (Audit-Fund).
+    if (kandidaten.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
     // Einmal für den ganzen Durchlauf geliehen (siehe ModellHalter.leihen)
     // statt bei tausenden Fotos das Modell implizit ständig neu zu laden.
     // Nur der Bild-Encoder: Hier entstehen ausschliesslich Bild-Embeddings.
@@ -1244,13 +1268,19 @@ class LibraryState extends ChangeNotifier {
   /// ohne dieses Werkzeug bliebe die KI-Bildsuche/Duplikatsuche auf die
   /// wenigen danach importierten Fotos beschränkt.
   Stream<ImportProgress> backfillClipEmbeddings() async* {
+    // Erst die Arbeit ermitteln, dann das Modell holen – siehe
+    // [_bildinhaltsAnalyse].
+    final assets = await db.assetsForEmbeddingBackfill();
+    if (assets.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
     final service = await clipBildHalter.leihen();
     if (service == null) {
       yield ImportProgress(0, 0);
       return;
     }
     try {
-      final assets = await db.assetsForEmbeddingBackfill();
       var done = 0;
       yield ImportProgress(0, assets.length);
       for (final asset in assets) {
@@ -1276,6 +1306,15 @@ class LibraryState extends ChangeNotifier {
   /// bereits gespeichertes CLIP-Embedding weiter, falls vorhanden, statt es
   /// neu zu berechnen.
   Stream<ImportProgress> backfillAiTags({required bool onlyUntagged}) async* {
+    // Erst nachsehen, ob es Arbeit gibt – Modelle zu leihen kostet hier
+    // besonders viel (beide CLIP-Encoder, 577 MB), und bei einer fertig
+    // ausgewerteten Bibliothek wäre es reine Verschwendung. Siehe
+    // [_bildinhaltsAnalyse] für den gemessenen Effekt.
+    final assets = await db.assetsForAiTagging(onlyUntagged: onlyUntagged);
+    if (assets.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
     // Die einzige Stelle, die BEIDE CLIP-Encoder braucht: das Foto wird
     // als Bild eingebettet, die Vokabelbegriffe als Text (siehe
     // AiTaggingService.suggestTags). Hier fällt die Aufteilung also nicht
@@ -1288,7 +1327,6 @@ class LibraryState extends ChangeNotifier {
       return;
     }
     try {
-      final assets = await db.assetsForAiTagging(onlyUntagged: onlyUntagged);
       // Einmal pro Lauf statt pro Asset gelesen – das Vokabular ändert sich
       // während eines laufenden Backfills nicht, ein SELECT pro Foto wäre
       // gegenüber der ohnehin pro Foto anfallenden CLIP-Inferenz reine Verschwendung.
@@ -1314,6 +1352,13 @@ class LibraryState extends ChangeNotifier {
           if (tags.isNotEmpty) {
             await applyAutomationRules(asset.id, aiTags: tags, rules: automationRules);
           }
+          // Auch bei LEERER Trefferliste vermerken: "kein Begriff passt" ist
+          // ein Ergebnis, kein offener Posten. Ohne diesen Vermerk bliebe das
+          // Foto für immer Kandidat und die Stufe lüde bei jedem Start erneut
+          // beide CLIP-Encoder, um wieder nichts zu finden (Audit-Fund).
+          // Bewusst NUR im Erfolgsfall – ein abgebrochener Durchlauf (siehe
+          // catch) soll erneut versucht werden.
+          await db.markAiTagsScanned([asset.id]);
         } catch (e) {
           debugPrint('KI-Tagging fehlgeschlagen für ${asset.originalFileName}: $e');
         }
