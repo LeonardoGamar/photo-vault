@@ -92,6 +92,35 @@ class ModelDownloadService {
     }
   }
 
+  /// Wie viel Platz die Dateien eines Eintrags tatsächlich belegen.
+  /// Fehlende Dateien zählen als 0, ein nicht installierter Eintrag ergibt
+  /// also 0.
+  ///
+  /// Bewusst synchron und ohne Zwischenspeicher: Es sind eine Handvoll
+  /// `stat`-Aufrufe, und die Oberfläche prüft an derselben Stelle ohnehin
+  /// schon synchron auf Vorhandensein (siehe [isEntryInstalled]).
+  int belegteBytes(ModelCatalogEntry entry) {
+    var summe = 0;
+    for (final f in entry.files) {
+      final datei = File(p.join(modelsDir, f.fileName));
+      if (datei.existsSync()) summe += datei.lengthSync();
+    }
+    return summe;
+  }
+
+  /// Gesamter Platzbedarf des Modellordners – auch Dateien, die zu keinem
+  /// Katalog-Eintrag (mehr) gehören. Der Ordner wächst schnell auf über ein
+  /// Gigabyte, ohne dass die App das bisher irgendwo auswies.
+  int gesamteBytes() {
+    final dir = Directory(modelsDir);
+    if (!dir.existsSync()) return 0;
+    var summe = 0;
+    for (final e in dir.listSync()) {
+      if (e is File) summe += e.lengthSync();
+    }
+    return summe;
+  }
+
   /// Entfernt liegengebliebene `.part`-Dateien abgebrochener Downloads.
   ///
   /// Der Fehlerpfad des Downloads räumt selbst auf; wird die App aber

@@ -617,9 +617,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             entry: entry,
             installed: widget.library.isModelInstalled(entry),
             downloading: _downloading.contains(entry.id),
+            groesse: widget.library.isModelInstalled(entry)
+                ? _formatBytes(widget.library.modelDownloadService.belegteBytes(entry))
+                : null,
             onDownload: () => _downloadModel(entry),
             onDelete: () => _deleteModel(entry),
           ),
+        // Der Modellordner wächst schnell auf über ein Gigabyte, ohne dass
+        // das bisher irgendwo stand.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Text(
+            'Belegter Platz aller Modelle: '
+            '${_formatBytes(widget.library.modelDownloadService.gesamteBytes())}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+        ),
         const SizedBox(height: 12),
         Card(
           child: ListTile(
@@ -1160,6 +1175,10 @@ class _ModelCard extends StatelessWidget {
   final ModelCatalogEntry entry;
   final bool installed;
   final bool downloading;
+  /// Belegter Platz, bereits lesbar formatiert – null, solange das Modell
+  /// nicht installiert ist. Vorher lässt sich die Grösse nicht angeben:
+  /// Der Katalog führt nur Dateinamen und Prüfsummen, keine Längen.
+  final String? groesse;
   final VoidCallback onDownload;
   final VoidCallback onDelete;
 
@@ -1167,6 +1186,7 @@ class _ModelCard extends StatelessWidget {
     required this.entry,
     required this.installed,
     required this.downloading,
+    required this.groesse,
     required this.onDownload,
     required this.onDelete,
   });
@@ -1180,7 +1200,8 @@ class _ModelCard extends StatelessWidget {
           color: installed ? Colors.green : null,
         ),
         title: Text(entry.title),
-        subtitle: Text('${entry.description}\nLizenz: ${entry.license}'),
+        subtitle: Text('${entry.description}\nLizenz: ${entry.license}'
+            '${groesse != null ? ' · $groesse' : ''}'),
         isThreeLine: true,
         trailing: downloading
             ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
