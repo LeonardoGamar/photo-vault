@@ -126,9 +126,12 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final query = _filters.query.trim();
       List<AssetData> results;
-      if (_filters.textMode == SearchTextMode.context && query.isNotEmpty && widget.library.clipAvailable) {
-        final clip = widget.library.clipService!;
-        final queryVector = await clip.embedText(query);
+      final queryVector = _filters.textMode == SearchTextMode.context && query.isNotEmpty
+          // Nur der Text-Encoder (242 MB) – der Bildteil wird für eine
+          // Suchanfrage nicht gebraucht.
+          ? await widget.library.clipTextHalter.mit((c) => c.embedText(query))
+          : null;
+      if (queryVector != null) {
         final embeddings = await widget.library.cachedEmbeddings();
 
         // Reihenfolge ist entscheidend: ERST die übrigen Filter anwenden,

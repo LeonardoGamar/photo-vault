@@ -9239,6 +9239,788 @@ class AiTagVocabularyCompanion extends UpdateCompanion<AiTagVocabularyData> {
   }
 }
 
+class $AutomationRulesTable extends AutomationRules
+    with TableInfo<$AutomationRulesTable, AutomationRuleData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AutomationRulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _triggerTypeMeta =
+      const VerificationMeta('triggerType');
+  @override
+  late final GeneratedColumn<String> triggerType = GeneratedColumn<String>(
+      'trigger_type', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _regionCenterLatMeta =
+      const VerificationMeta('regionCenterLat');
+  @override
+  late final GeneratedColumn<double> regionCenterLat = GeneratedColumn<double>(
+      'region_center_lat', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _regionCenterLonMeta =
+      const VerificationMeta('regionCenterLon');
+  @override
+  late final GeneratedColumn<double> regionCenterLon = GeneratedColumn<double>(
+      'region_center_lon', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _regionRadiusKmMeta =
+      const VerificationMeta('regionRadiusKm');
+  @override
+  late final GeneratedColumn<double> regionRadiusKm = GeneratedColumn<double>(
+      'region_radius_km', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _aiTagTermMeta =
+      const VerificationMeta('aiTagTerm');
+  @override
+  late final GeneratedColumn<String> aiTagTerm = GeneratedColumn<String>(
+      'ai_tag_term', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _dateFromMeta =
+      const VerificationMeta('dateFrom');
+  @override
+  late final GeneratedColumn<DateTime> dateFrom = GeneratedColumn<DateTime>(
+      'date_from', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _dateToMeta = const VerificationMeta('dateTo');
+  @override
+  late final GeneratedColumn<DateTime> dateTo = GeneratedColumn<DateTime>(
+      'date_to', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _targetAlbumIdMeta =
+      const VerificationMeta('targetAlbumId');
+  @override
+  late final GeneratedColumn<String> targetAlbumId = GeneratedColumn<String>(
+      'target_album_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _autoFavoriteMeta =
+      const VerificationMeta('autoFavorite');
+  @override
+  late final GeneratedColumn<bool> autoFavorite = GeneratedColumn<bool>(
+      'auto_favorite', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("auto_favorite" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        name,
+        triggerType,
+        regionCenterLat,
+        regionCenterLon,
+        regionRadiusKm,
+        aiTagTerm,
+        dateFrom,
+        dateTo,
+        targetAlbumId,
+        autoFavorite
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'automation_rules';
+  @override
+  VerificationContext validateIntegrity(Insertable<AutomationRuleData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('trigger_type')) {
+      context.handle(
+          _triggerTypeMeta,
+          triggerType.isAcceptableOrUnknown(
+              data['trigger_type']!, _triggerTypeMeta));
+    } else if (isInserting) {
+      context.missing(_triggerTypeMeta);
+    }
+    if (data.containsKey('region_center_lat')) {
+      context.handle(
+          _regionCenterLatMeta,
+          regionCenterLat.isAcceptableOrUnknown(
+              data['region_center_lat']!, _regionCenterLatMeta));
+    }
+    if (data.containsKey('region_center_lon')) {
+      context.handle(
+          _regionCenterLonMeta,
+          regionCenterLon.isAcceptableOrUnknown(
+              data['region_center_lon']!, _regionCenterLonMeta));
+    }
+    if (data.containsKey('region_radius_km')) {
+      context.handle(
+          _regionRadiusKmMeta,
+          regionRadiusKm.isAcceptableOrUnknown(
+              data['region_radius_km']!, _regionRadiusKmMeta));
+    }
+    if (data.containsKey('ai_tag_term')) {
+      context.handle(
+          _aiTagTermMeta,
+          aiTagTerm.isAcceptableOrUnknown(
+              data['ai_tag_term']!, _aiTagTermMeta));
+    }
+    if (data.containsKey('date_from')) {
+      context.handle(_dateFromMeta,
+          dateFrom.isAcceptableOrUnknown(data['date_from']!, _dateFromMeta));
+    }
+    if (data.containsKey('date_to')) {
+      context.handle(_dateToMeta,
+          dateTo.isAcceptableOrUnknown(data['date_to']!, _dateToMeta));
+    }
+    if (data.containsKey('target_album_id')) {
+      context.handle(
+          _targetAlbumIdMeta,
+          targetAlbumId.isAcceptableOrUnknown(
+              data['target_album_id']!, _targetAlbumIdMeta));
+    }
+    if (data.containsKey('auto_favorite')) {
+      context.handle(
+          _autoFavoriteMeta,
+          autoFavorite.isAcceptableOrUnknown(
+              data['auto_favorite']!, _autoFavoriteMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AutomationRuleData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AutomationRuleData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      triggerType: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}trigger_type'])!,
+      regionCenterLat: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}region_center_lat']),
+      regionCenterLon: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}region_center_lon']),
+      regionRadiusKm: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}region_radius_km']),
+      aiTagTerm: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ai_tag_term']),
+      dateFrom: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}date_from']),
+      dateTo: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}date_to']),
+      targetAlbumId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}target_album_id']),
+      autoFavorite: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}auto_favorite'])!,
+    );
+  }
+
+  @override
+  $AutomationRulesTable createAlias(String alias) {
+    return $AutomationRulesTable(attachedDatabase, alias);
+  }
+}
+
+class AutomationRuleData extends DataClass
+    implements Insertable<AutomationRuleData> {
+  final String id;
+  final String name;
+  final String triggerType;
+  final double? regionCenterLat;
+  final double? regionCenterLon;
+  final double? regionRadiusKm;
+  final String? aiTagTerm;
+  final DateTime? dateFrom;
+  final DateTime? dateTo;
+  final String? targetAlbumId;
+  final bool autoFavorite;
+  const AutomationRuleData(
+      {required this.id,
+      required this.name,
+      required this.triggerType,
+      this.regionCenterLat,
+      this.regionCenterLon,
+      this.regionRadiusKm,
+      this.aiTagTerm,
+      this.dateFrom,
+      this.dateTo,
+      this.targetAlbumId,
+      required this.autoFavorite});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['trigger_type'] = Variable<String>(triggerType);
+    if (!nullToAbsent || regionCenterLat != null) {
+      map['region_center_lat'] = Variable<double>(regionCenterLat);
+    }
+    if (!nullToAbsent || regionCenterLon != null) {
+      map['region_center_lon'] = Variable<double>(regionCenterLon);
+    }
+    if (!nullToAbsent || regionRadiusKm != null) {
+      map['region_radius_km'] = Variable<double>(regionRadiusKm);
+    }
+    if (!nullToAbsent || aiTagTerm != null) {
+      map['ai_tag_term'] = Variable<String>(aiTagTerm);
+    }
+    if (!nullToAbsent || dateFrom != null) {
+      map['date_from'] = Variable<DateTime>(dateFrom);
+    }
+    if (!nullToAbsent || dateTo != null) {
+      map['date_to'] = Variable<DateTime>(dateTo);
+    }
+    if (!nullToAbsent || targetAlbumId != null) {
+      map['target_album_id'] = Variable<String>(targetAlbumId);
+    }
+    map['auto_favorite'] = Variable<bool>(autoFavorite);
+    return map;
+  }
+
+  AutomationRulesCompanion toCompanion(bool nullToAbsent) {
+    return AutomationRulesCompanion(
+      id: Value(id),
+      name: Value(name),
+      triggerType: Value(triggerType),
+      regionCenterLat: regionCenterLat == null && nullToAbsent
+          ? const Value.absent()
+          : Value(regionCenterLat),
+      regionCenterLon: regionCenterLon == null && nullToAbsent
+          ? const Value.absent()
+          : Value(regionCenterLon),
+      regionRadiusKm: regionRadiusKm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(regionRadiusKm),
+      aiTagTerm: aiTagTerm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aiTagTerm),
+      dateFrom: dateFrom == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateFrom),
+      dateTo:
+          dateTo == null && nullToAbsent ? const Value.absent() : Value(dateTo),
+      targetAlbumId: targetAlbumId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetAlbumId),
+      autoFavorite: Value(autoFavorite),
+    );
+  }
+
+  factory AutomationRuleData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AutomationRuleData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      triggerType: serializer.fromJson<String>(json['triggerType']),
+      regionCenterLat: serializer.fromJson<double?>(json['regionCenterLat']),
+      regionCenterLon: serializer.fromJson<double?>(json['regionCenterLon']),
+      regionRadiusKm: serializer.fromJson<double?>(json['regionRadiusKm']),
+      aiTagTerm: serializer.fromJson<String?>(json['aiTagTerm']),
+      dateFrom: serializer.fromJson<DateTime?>(json['dateFrom']),
+      dateTo: serializer.fromJson<DateTime?>(json['dateTo']),
+      targetAlbumId: serializer.fromJson<String?>(json['targetAlbumId']),
+      autoFavorite: serializer.fromJson<bool>(json['autoFavorite']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'triggerType': serializer.toJson<String>(triggerType),
+      'regionCenterLat': serializer.toJson<double?>(regionCenterLat),
+      'regionCenterLon': serializer.toJson<double?>(regionCenterLon),
+      'regionRadiusKm': serializer.toJson<double?>(regionRadiusKm),
+      'aiTagTerm': serializer.toJson<String?>(aiTagTerm),
+      'dateFrom': serializer.toJson<DateTime?>(dateFrom),
+      'dateTo': serializer.toJson<DateTime?>(dateTo),
+      'targetAlbumId': serializer.toJson<String?>(targetAlbumId),
+      'autoFavorite': serializer.toJson<bool>(autoFavorite),
+    };
+  }
+
+  AutomationRuleData copyWith(
+          {String? id,
+          String? name,
+          String? triggerType,
+          Value<double?> regionCenterLat = const Value.absent(),
+          Value<double?> regionCenterLon = const Value.absent(),
+          Value<double?> regionRadiusKm = const Value.absent(),
+          Value<String?> aiTagTerm = const Value.absent(),
+          Value<DateTime?> dateFrom = const Value.absent(),
+          Value<DateTime?> dateTo = const Value.absent(),
+          Value<String?> targetAlbumId = const Value.absent(),
+          bool? autoFavorite}) =>
+      AutomationRuleData(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        triggerType: triggerType ?? this.triggerType,
+        regionCenterLat: regionCenterLat.present
+            ? regionCenterLat.value
+            : this.regionCenterLat,
+        regionCenterLon: regionCenterLon.present
+            ? regionCenterLon.value
+            : this.regionCenterLon,
+        regionRadiusKm:
+            regionRadiusKm.present ? regionRadiusKm.value : this.regionRadiusKm,
+        aiTagTerm: aiTagTerm.present ? aiTagTerm.value : this.aiTagTerm,
+        dateFrom: dateFrom.present ? dateFrom.value : this.dateFrom,
+        dateTo: dateTo.present ? dateTo.value : this.dateTo,
+        targetAlbumId:
+            targetAlbumId.present ? targetAlbumId.value : this.targetAlbumId,
+        autoFavorite: autoFavorite ?? this.autoFavorite,
+      );
+  AutomationRuleData copyWithCompanion(AutomationRulesCompanion data) {
+    return AutomationRuleData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      triggerType:
+          data.triggerType.present ? data.triggerType.value : this.triggerType,
+      regionCenterLat: data.regionCenterLat.present
+          ? data.regionCenterLat.value
+          : this.regionCenterLat,
+      regionCenterLon: data.regionCenterLon.present
+          ? data.regionCenterLon.value
+          : this.regionCenterLon,
+      regionRadiusKm: data.regionRadiusKm.present
+          ? data.regionRadiusKm.value
+          : this.regionRadiusKm,
+      aiTagTerm: data.aiTagTerm.present ? data.aiTagTerm.value : this.aiTagTerm,
+      dateFrom: data.dateFrom.present ? data.dateFrom.value : this.dateFrom,
+      dateTo: data.dateTo.present ? data.dateTo.value : this.dateTo,
+      targetAlbumId: data.targetAlbumId.present
+          ? data.targetAlbumId.value
+          : this.targetAlbumId,
+      autoFavorite: data.autoFavorite.present
+          ? data.autoFavorite.value
+          : this.autoFavorite,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AutomationRuleData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('triggerType: $triggerType, ')
+          ..write('regionCenterLat: $regionCenterLat, ')
+          ..write('regionCenterLon: $regionCenterLon, ')
+          ..write('regionRadiusKm: $regionRadiusKm, ')
+          ..write('aiTagTerm: $aiTagTerm, ')
+          ..write('dateFrom: $dateFrom, ')
+          ..write('dateTo: $dateTo, ')
+          ..write('targetAlbumId: $targetAlbumId, ')
+          ..write('autoFavorite: $autoFavorite')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      name,
+      triggerType,
+      regionCenterLat,
+      regionCenterLon,
+      regionRadiusKm,
+      aiTagTerm,
+      dateFrom,
+      dateTo,
+      targetAlbumId,
+      autoFavorite);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AutomationRuleData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.triggerType == this.triggerType &&
+          other.regionCenterLat == this.regionCenterLat &&
+          other.regionCenterLon == this.regionCenterLon &&
+          other.regionRadiusKm == this.regionRadiusKm &&
+          other.aiTagTerm == this.aiTagTerm &&
+          other.dateFrom == this.dateFrom &&
+          other.dateTo == this.dateTo &&
+          other.targetAlbumId == this.targetAlbumId &&
+          other.autoFavorite == this.autoFavorite);
+}
+
+class AutomationRulesCompanion extends UpdateCompanion<AutomationRuleData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> triggerType;
+  final Value<double?> regionCenterLat;
+  final Value<double?> regionCenterLon;
+  final Value<double?> regionRadiusKm;
+  final Value<String?> aiTagTerm;
+  final Value<DateTime?> dateFrom;
+  final Value<DateTime?> dateTo;
+  final Value<String?> targetAlbumId;
+  final Value<bool> autoFavorite;
+  final Value<int> rowid;
+  const AutomationRulesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.triggerType = const Value.absent(),
+    this.regionCenterLat = const Value.absent(),
+    this.regionCenterLon = const Value.absent(),
+    this.regionRadiusKm = const Value.absent(),
+    this.aiTagTerm = const Value.absent(),
+    this.dateFrom = const Value.absent(),
+    this.dateTo = const Value.absent(),
+    this.targetAlbumId = const Value.absent(),
+    this.autoFavorite = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AutomationRulesCompanion.insert({
+    required String id,
+    required String name,
+    required String triggerType,
+    this.regionCenterLat = const Value.absent(),
+    this.regionCenterLon = const Value.absent(),
+    this.regionRadiusKm = const Value.absent(),
+    this.aiTagTerm = const Value.absent(),
+    this.dateFrom = const Value.absent(),
+    this.dateTo = const Value.absent(),
+    this.targetAlbumId = const Value.absent(),
+    this.autoFavorite = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        name = Value(name),
+        triggerType = Value(triggerType);
+  static Insertable<AutomationRuleData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? triggerType,
+    Expression<double>? regionCenterLat,
+    Expression<double>? regionCenterLon,
+    Expression<double>? regionRadiusKm,
+    Expression<String>? aiTagTerm,
+    Expression<DateTime>? dateFrom,
+    Expression<DateTime>? dateTo,
+    Expression<String>? targetAlbumId,
+    Expression<bool>? autoFavorite,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (triggerType != null) 'trigger_type': triggerType,
+      if (regionCenterLat != null) 'region_center_lat': regionCenterLat,
+      if (regionCenterLon != null) 'region_center_lon': regionCenterLon,
+      if (regionRadiusKm != null) 'region_radius_km': regionRadiusKm,
+      if (aiTagTerm != null) 'ai_tag_term': aiTagTerm,
+      if (dateFrom != null) 'date_from': dateFrom,
+      if (dateTo != null) 'date_to': dateTo,
+      if (targetAlbumId != null) 'target_album_id': targetAlbumId,
+      if (autoFavorite != null) 'auto_favorite': autoFavorite,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AutomationRulesCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? name,
+      Value<String>? triggerType,
+      Value<double?>? regionCenterLat,
+      Value<double?>? regionCenterLon,
+      Value<double?>? regionRadiusKm,
+      Value<String?>? aiTagTerm,
+      Value<DateTime?>? dateFrom,
+      Value<DateTime?>? dateTo,
+      Value<String?>? targetAlbumId,
+      Value<bool>? autoFavorite,
+      Value<int>? rowid}) {
+    return AutomationRulesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      triggerType: triggerType ?? this.triggerType,
+      regionCenterLat: regionCenterLat ?? this.regionCenterLat,
+      regionCenterLon: regionCenterLon ?? this.regionCenterLon,
+      regionRadiusKm: regionRadiusKm ?? this.regionRadiusKm,
+      aiTagTerm: aiTagTerm ?? this.aiTagTerm,
+      dateFrom: dateFrom ?? this.dateFrom,
+      dateTo: dateTo ?? this.dateTo,
+      targetAlbumId: targetAlbumId ?? this.targetAlbumId,
+      autoFavorite: autoFavorite ?? this.autoFavorite,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (triggerType.present) {
+      map['trigger_type'] = Variable<String>(triggerType.value);
+    }
+    if (regionCenterLat.present) {
+      map['region_center_lat'] = Variable<double>(regionCenterLat.value);
+    }
+    if (regionCenterLon.present) {
+      map['region_center_lon'] = Variable<double>(regionCenterLon.value);
+    }
+    if (regionRadiusKm.present) {
+      map['region_radius_km'] = Variable<double>(regionRadiusKm.value);
+    }
+    if (aiTagTerm.present) {
+      map['ai_tag_term'] = Variable<String>(aiTagTerm.value);
+    }
+    if (dateFrom.present) {
+      map['date_from'] = Variable<DateTime>(dateFrom.value);
+    }
+    if (dateTo.present) {
+      map['date_to'] = Variable<DateTime>(dateTo.value);
+    }
+    if (targetAlbumId.present) {
+      map['target_album_id'] = Variable<String>(targetAlbumId.value);
+    }
+    if (autoFavorite.present) {
+      map['auto_favorite'] = Variable<bool>(autoFavorite.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AutomationRulesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('triggerType: $triggerType, ')
+          ..write('regionCenterLat: $regionCenterLat, ')
+          ..write('regionCenterLon: $regionCenterLon, ')
+          ..write('regionRadiusKm: $regionRadiusKm, ')
+          ..write('aiTagTerm: $aiTagTerm, ')
+          ..write('dateFrom: $dateFrom, ')
+          ..write('dateTo: $dateTo, ')
+          ..write('targetAlbumId: $targetAlbumId, ')
+          ..write('autoFavorite: $autoFavorite, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AutomationRuleTagsTable extends AutomationRuleTags
+    with TableInfo<$AutomationRuleTagsTable, AutomationRuleTag> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AutomationRuleTagsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ruleIdMeta = const VerificationMeta('ruleId');
+  @override
+  late final GeneratedColumn<String> ruleId = GeneratedColumn<String>(
+      'rule_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _tagIdMeta = const VerificationMeta('tagId');
+  @override
+  late final GeneratedColumn<String> tagId = GeneratedColumn<String>(
+      'tag_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [ruleId, tagId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'automation_rule_tags';
+  @override
+  VerificationContext validateIntegrity(Insertable<AutomationRuleTag> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('rule_id')) {
+      context.handle(_ruleIdMeta,
+          ruleId.isAcceptableOrUnknown(data['rule_id']!, _ruleIdMeta));
+    } else if (isInserting) {
+      context.missing(_ruleIdMeta);
+    }
+    if (data.containsKey('tag_id')) {
+      context.handle(
+          _tagIdMeta, tagId.isAcceptableOrUnknown(data['tag_id']!, _tagIdMeta));
+    } else if (isInserting) {
+      context.missing(_tagIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ruleId, tagId};
+  @override
+  AutomationRuleTag map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AutomationRuleTag(
+      ruleId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}rule_id'])!,
+      tagId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tag_id'])!,
+    );
+  }
+
+  @override
+  $AutomationRuleTagsTable createAlias(String alias) {
+    return $AutomationRuleTagsTable(attachedDatabase, alias);
+  }
+}
+
+class AutomationRuleTag extends DataClass
+    implements Insertable<AutomationRuleTag> {
+  final String ruleId;
+  final String tagId;
+  const AutomationRuleTag({required this.ruleId, required this.tagId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['rule_id'] = Variable<String>(ruleId);
+    map['tag_id'] = Variable<String>(tagId);
+    return map;
+  }
+
+  AutomationRuleTagsCompanion toCompanion(bool nullToAbsent) {
+    return AutomationRuleTagsCompanion(
+      ruleId: Value(ruleId),
+      tagId: Value(tagId),
+    );
+  }
+
+  factory AutomationRuleTag.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AutomationRuleTag(
+      ruleId: serializer.fromJson<String>(json['ruleId']),
+      tagId: serializer.fromJson<String>(json['tagId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ruleId': serializer.toJson<String>(ruleId),
+      'tagId': serializer.toJson<String>(tagId),
+    };
+  }
+
+  AutomationRuleTag copyWith({String? ruleId, String? tagId}) =>
+      AutomationRuleTag(
+        ruleId: ruleId ?? this.ruleId,
+        tagId: tagId ?? this.tagId,
+      );
+  AutomationRuleTag copyWithCompanion(AutomationRuleTagsCompanion data) {
+    return AutomationRuleTag(
+      ruleId: data.ruleId.present ? data.ruleId.value : this.ruleId,
+      tagId: data.tagId.present ? data.tagId.value : this.tagId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AutomationRuleTag(')
+          ..write('ruleId: $ruleId, ')
+          ..write('tagId: $tagId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(ruleId, tagId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AutomationRuleTag &&
+          other.ruleId == this.ruleId &&
+          other.tagId == this.tagId);
+}
+
+class AutomationRuleTagsCompanion extends UpdateCompanion<AutomationRuleTag> {
+  final Value<String> ruleId;
+  final Value<String> tagId;
+  final Value<int> rowid;
+  const AutomationRuleTagsCompanion({
+    this.ruleId = const Value.absent(),
+    this.tagId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AutomationRuleTagsCompanion.insert({
+    required String ruleId,
+    required String tagId,
+    this.rowid = const Value.absent(),
+  })  : ruleId = Value(ruleId),
+        tagId = Value(tagId);
+  static Insertable<AutomationRuleTag> custom({
+    Expression<String>? ruleId,
+    Expression<String>? tagId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ruleId != null) 'rule_id': ruleId,
+      if (tagId != null) 'tag_id': tagId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AutomationRuleTagsCompanion copyWith(
+      {Value<String>? ruleId, Value<String>? tagId, Value<int>? rowid}) {
+    return AutomationRuleTagsCompanion(
+      ruleId: ruleId ?? this.ruleId,
+      tagId: tagId ?? this.tagId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ruleId.present) {
+      map['rule_id'] = Variable<String>(ruleId.value);
+    }
+    if (tagId.present) {
+      map['tag_id'] = Variable<String>(tagId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AutomationRuleTagsCompanion(')
+          ..write('ruleId: $ruleId, ')
+          ..write('tagId: $tagId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9269,6 +10051,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
   late final $AiTagVocabularyTable aiTagVocabulary =
       $AiTagVocabularyTable(this);
+  late final $AutomationRulesTable automationRules =
+      $AutomationRulesTable(this);
+  late final $AutomationRuleTagsTable automationRuleTags =
+      $AutomationRuleTagsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9295,7 +10081,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         developMasks,
         restoreJobs,
         appSettings,
-        aiTagVocabulary
+        aiTagVocabulary,
+        automationRules,
+        automationRuleTags
       ];
 }
 
@@ -13830,6 +14618,408 @@ typedef $$AiTagVocabularyTableProcessedTableManager = ProcessedTableManager<
     ),
     AiTagVocabularyData,
     PrefetchHooks Function()>;
+typedef $$AutomationRulesTableCreateCompanionBuilder = AutomationRulesCompanion
+    Function({
+  required String id,
+  required String name,
+  required String triggerType,
+  Value<double?> regionCenterLat,
+  Value<double?> regionCenterLon,
+  Value<double?> regionRadiusKm,
+  Value<String?> aiTagTerm,
+  Value<DateTime?> dateFrom,
+  Value<DateTime?> dateTo,
+  Value<String?> targetAlbumId,
+  Value<bool> autoFavorite,
+  Value<int> rowid,
+});
+typedef $$AutomationRulesTableUpdateCompanionBuilder = AutomationRulesCompanion
+    Function({
+  Value<String> id,
+  Value<String> name,
+  Value<String> triggerType,
+  Value<double?> regionCenterLat,
+  Value<double?> regionCenterLon,
+  Value<double?> regionRadiusKm,
+  Value<String?> aiTagTerm,
+  Value<DateTime?> dateFrom,
+  Value<DateTime?> dateTo,
+  Value<String?> targetAlbumId,
+  Value<bool> autoFavorite,
+  Value<int> rowid,
+});
+
+class $$AutomationRulesTableFilterComposer
+    extends Composer<_$AppDatabase, $AutomationRulesTable> {
+  $$AutomationRulesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get triggerType => $composableBuilder(
+      column: $table.triggerType, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get regionCenterLat => $composableBuilder(
+      column: $table.regionCenterLat,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get regionCenterLon => $composableBuilder(
+      column: $table.regionCenterLon,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get regionRadiusKm => $composableBuilder(
+      column: $table.regionRadiusKm,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get aiTagTerm => $composableBuilder(
+      column: $table.aiTagTerm, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get dateFrom => $composableBuilder(
+      column: $table.dateFrom, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get dateTo => $composableBuilder(
+      column: $table.dateTo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get targetAlbumId => $composableBuilder(
+      column: $table.targetAlbumId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get autoFavorite => $composableBuilder(
+      column: $table.autoFavorite, builder: (column) => ColumnFilters(column));
+}
+
+class $$AutomationRulesTableOrderingComposer
+    extends Composer<_$AppDatabase, $AutomationRulesTable> {
+  $$AutomationRulesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get triggerType => $composableBuilder(
+      column: $table.triggerType, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get regionCenterLat => $composableBuilder(
+      column: $table.regionCenterLat,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get regionCenterLon => $composableBuilder(
+      column: $table.regionCenterLon,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get regionRadiusKm => $composableBuilder(
+      column: $table.regionRadiusKm,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get aiTagTerm => $composableBuilder(
+      column: $table.aiTagTerm, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get dateFrom => $composableBuilder(
+      column: $table.dateFrom, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get dateTo => $composableBuilder(
+      column: $table.dateTo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get targetAlbumId => $composableBuilder(
+      column: $table.targetAlbumId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get autoFavorite => $composableBuilder(
+      column: $table.autoFavorite,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$AutomationRulesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AutomationRulesTable> {
+  $$AutomationRulesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get triggerType => $composableBuilder(
+      column: $table.triggerType, builder: (column) => column);
+
+  GeneratedColumn<double> get regionCenterLat => $composableBuilder(
+      column: $table.regionCenterLat, builder: (column) => column);
+
+  GeneratedColumn<double> get regionCenterLon => $composableBuilder(
+      column: $table.regionCenterLon, builder: (column) => column);
+
+  GeneratedColumn<double> get regionRadiusKm => $composableBuilder(
+      column: $table.regionRadiusKm, builder: (column) => column);
+
+  GeneratedColumn<String> get aiTagTerm =>
+      $composableBuilder(column: $table.aiTagTerm, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dateFrom =>
+      $composableBuilder(column: $table.dateFrom, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dateTo =>
+      $composableBuilder(column: $table.dateTo, builder: (column) => column);
+
+  GeneratedColumn<String> get targetAlbumId => $composableBuilder(
+      column: $table.targetAlbumId, builder: (column) => column);
+
+  GeneratedColumn<bool> get autoFavorite => $composableBuilder(
+      column: $table.autoFavorite, builder: (column) => column);
+}
+
+class $$AutomationRulesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $AutomationRulesTable,
+    AutomationRuleData,
+    $$AutomationRulesTableFilterComposer,
+    $$AutomationRulesTableOrderingComposer,
+    $$AutomationRulesTableAnnotationComposer,
+    $$AutomationRulesTableCreateCompanionBuilder,
+    $$AutomationRulesTableUpdateCompanionBuilder,
+    (
+      AutomationRuleData,
+      BaseReferences<_$AppDatabase, $AutomationRulesTable, AutomationRuleData>
+    ),
+    AutomationRuleData,
+    PrefetchHooks Function()> {
+  $$AutomationRulesTableTableManager(
+      _$AppDatabase db, $AutomationRulesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AutomationRulesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AutomationRulesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AutomationRulesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<String> triggerType = const Value.absent(),
+            Value<double?> regionCenterLat = const Value.absent(),
+            Value<double?> regionCenterLon = const Value.absent(),
+            Value<double?> regionRadiusKm = const Value.absent(),
+            Value<String?> aiTagTerm = const Value.absent(),
+            Value<DateTime?> dateFrom = const Value.absent(),
+            Value<DateTime?> dateTo = const Value.absent(),
+            Value<String?> targetAlbumId = const Value.absent(),
+            Value<bool> autoFavorite = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AutomationRulesCompanion(
+            id: id,
+            name: name,
+            triggerType: triggerType,
+            regionCenterLat: regionCenterLat,
+            regionCenterLon: regionCenterLon,
+            regionRadiusKm: regionRadiusKm,
+            aiTagTerm: aiTagTerm,
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            targetAlbumId: targetAlbumId,
+            autoFavorite: autoFavorite,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String name,
+            required String triggerType,
+            Value<double?> regionCenterLat = const Value.absent(),
+            Value<double?> regionCenterLon = const Value.absent(),
+            Value<double?> regionRadiusKm = const Value.absent(),
+            Value<String?> aiTagTerm = const Value.absent(),
+            Value<DateTime?> dateFrom = const Value.absent(),
+            Value<DateTime?> dateTo = const Value.absent(),
+            Value<String?> targetAlbumId = const Value.absent(),
+            Value<bool> autoFavorite = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AutomationRulesCompanion.insert(
+            id: id,
+            name: name,
+            triggerType: triggerType,
+            regionCenterLat: regionCenterLat,
+            regionCenterLon: regionCenterLon,
+            regionRadiusKm: regionRadiusKm,
+            aiTagTerm: aiTagTerm,
+            dateFrom: dateFrom,
+            dateTo: dateTo,
+            targetAlbumId: targetAlbumId,
+            autoFavorite: autoFavorite,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AutomationRulesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $AutomationRulesTable,
+    AutomationRuleData,
+    $$AutomationRulesTableFilterComposer,
+    $$AutomationRulesTableOrderingComposer,
+    $$AutomationRulesTableAnnotationComposer,
+    $$AutomationRulesTableCreateCompanionBuilder,
+    $$AutomationRulesTableUpdateCompanionBuilder,
+    (
+      AutomationRuleData,
+      BaseReferences<_$AppDatabase, $AutomationRulesTable, AutomationRuleData>
+    ),
+    AutomationRuleData,
+    PrefetchHooks Function()>;
+typedef $$AutomationRuleTagsTableCreateCompanionBuilder
+    = AutomationRuleTagsCompanion Function({
+  required String ruleId,
+  required String tagId,
+  Value<int> rowid,
+});
+typedef $$AutomationRuleTagsTableUpdateCompanionBuilder
+    = AutomationRuleTagsCompanion Function({
+  Value<String> ruleId,
+  Value<String> tagId,
+  Value<int> rowid,
+});
+
+class $$AutomationRuleTagsTableFilterComposer
+    extends Composer<_$AppDatabase, $AutomationRuleTagsTable> {
+  $$AutomationRuleTagsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ruleId => $composableBuilder(
+      column: $table.ruleId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tagId => $composableBuilder(
+      column: $table.tagId, builder: (column) => ColumnFilters(column));
+}
+
+class $$AutomationRuleTagsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AutomationRuleTagsTable> {
+  $$AutomationRuleTagsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ruleId => $composableBuilder(
+      column: $table.ruleId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tagId => $composableBuilder(
+      column: $table.tagId, builder: (column) => ColumnOrderings(column));
+}
+
+class $$AutomationRuleTagsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AutomationRuleTagsTable> {
+  $$AutomationRuleTagsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ruleId =>
+      $composableBuilder(column: $table.ruleId, builder: (column) => column);
+
+  GeneratedColumn<String> get tagId =>
+      $composableBuilder(column: $table.tagId, builder: (column) => column);
+}
+
+class $$AutomationRuleTagsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $AutomationRuleTagsTable,
+    AutomationRuleTag,
+    $$AutomationRuleTagsTableFilterComposer,
+    $$AutomationRuleTagsTableOrderingComposer,
+    $$AutomationRuleTagsTableAnnotationComposer,
+    $$AutomationRuleTagsTableCreateCompanionBuilder,
+    $$AutomationRuleTagsTableUpdateCompanionBuilder,
+    (
+      AutomationRuleTag,
+      BaseReferences<_$AppDatabase, $AutomationRuleTagsTable, AutomationRuleTag>
+    ),
+    AutomationRuleTag,
+    PrefetchHooks Function()> {
+  $$AutomationRuleTagsTableTableManager(
+      _$AppDatabase db, $AutomationRuleTagsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AutomationRuleTagsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AutomationRuleTagsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AutomationRuleTagsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> ruleId = const Value.absent(),
+            Value<String> tagId = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AutomationRuleTagsCompanion(
+            ruleId: ruleId,
+            tagId: tagId,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String ruleId,
+            required String tagId,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AutomationRuleTagsCompanion.insert(
+            ruleId: ruleId,
+            tagId: tagId,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AutomationRuleTagsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $AutomationRuleTagsTable,
+    AutomationRuleTag,
+    $$AutomationRuleTagsTableFilterComposer,
+    $$AutomationRuleTagsTableOrderingComposer,
+    $$AutomationRuleTagsTableAnnotationComposer,
+    $$AutomationRuleTagsTableCreateCompanionBuilder,
+    $$AutomationRuleTagsTableUpdateCompanionBuilder,
+    (
+      AutomationRuleTag,
+      BaseReferences<_$AppDatabase, $AutomationRuleTagsTable, AutomationRuleTag>
+    ),
+    AutomationRuleTag,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13877,4 +15067,8 @@ class $AppDatabaseManager {
       $$AppSettingsTableTableManager(_db, _db.appSettings);
   $$AiTagVocabularyTableTableManager get aiTagVocabulary =>
       $$AiTagVocabularyTableTableManager(_db, _db.aiTagVocabulary);
+  $$AutomationRulesTableTableManager get automationRules =>
+      $$AutomationRulesTableTableManager(_db, _db.automationRules);
+  $$AutomationRuleTagsTableTableManager get automationRuleTags =>
+      $$AutomationRuleTagsTableTableManager(_db, _db.automationRuleTags);
 }

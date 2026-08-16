@@ -39,15 +39,15 @@ const List<String> defaultAiTagVocabulary = [
 /// oder ergänzen – es gibt bewusst keine Unterscheidung "KI" vs. "manuell"
 /// in der Datenbank, um das Datenmodell einfach zu halten.
 class AiTaggingService {
-  AiTaggingService(this._clip);
-
-  final ClipService _clip;
-
   /// Pro-Begriff-Cache statt einer "alles oder nichts"-Vorberechnung: da
   /// sich das Vokabular jetzt zur Laufzeit ändern kann (Hinzufügen/Entfernen
   /// einzelner Begriffe in den Einstellungen), würde ein einmalig gefüllter
   /// Gesamt-Cache bei jeder Änderung ungültig. Entfernte Begriffe bleiben
   /// harmlos im Cache zurück (wenige Dutzend kurze Vektoren, vernachlässigbar).
+  ///
+  /// Bewusst unabhängig davon, WELCHE CLIP-Sitzung (siehe [ModellHalter] in
+  /// LibraryState) den jeweiligen Begriff berechnet hat – die Vektoren
+  /// bleiben auch nach einem Freigeben/Neuladen des Modells gültig.
   final Map<String, Float32List> _termEmbeddingCache = {};
 
   /// Liefert alle Begriffe aus [vocabulary], deren Kosinus-Ähnlichkeit zum
@@ -57,14 +57,22 @@ class AiTaggingService {
   /// zurückhaltend gewählt, um zu viele falsche Tags zu vermeiden; ein
   /// zugewiesener Tag lässt sich in der Info-Ansicht jederzeit wieder
   /// entfernen.
+  ///
+  /// [clipText] wird als Parameter statt im Konstruktor übergeben, weil die
+  /// zugrundeliegende ONNX-Sitzung jetzt bedarfsweise geladen/freigegeben
+  /// wird (siehe LibraryState.clipTextHalter) statt für die ganze App-Laufzeit
+  /// fest zu stehen. Gebraucht wird hier ausschliesslich der TEXT-Encoder:
+  /// Das Bild-Embedding kommt fertig als [imageEmbedding] herein, nur die
+  /// Vokabelbegriffe müssen noch eingebettet werden.
   Future<List<String>> suggestTags(
+    ClipService clipText,
     Float32List imageEmbedding,
     List<String> vocabulary, {
     double threshold = 0.24,
   }) async {
     final matches = <String>[];
     for (final term in vocabulary) {
-      final embedding = _termEmbeddingCache[term] ??= await _clip.embedText(term);
+      final embedding = _termEmbeddingCache[term] ??= await clipText.embedText(term);
       if (_cosine(imageEmbedding, embedding) >= threshold) matches.add(term);
     }
     return matches;

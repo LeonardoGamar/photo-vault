@@ -24,11 +24,12 @@ import '../widgets/panorama_360_view.dart';
 import '../widgets/video_playback.dart';
 import '../widgets/selection_action_bar.dart' show confirmDialog;
 import 'develop_screen.dart';
+import 'face_review_screen.dart';
 import 'image_editor_screen.dart';
 import 'similar_photos_screen.dart';
 import 'video_trim_screen.dart';
 
-enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata }
+enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata, faceReview }
 
 /// Obergrenze für die Dekodierauflösung (längste Kante) in der
 /// Vollbildansicht. Ohne diese Grenze dekodiert `Image`/`PhotoView` ein Foto
@@ -346,8 +347,8 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         globalPosition & const Size(1, 1),
         Offset.zero & overlay.size,
       ),
-      items: const [
-        PopupMenuItem(
+      items: [
+        const PopupMenuItem(
           value: _ContextMenuAction.showInTimeline,
           child: Row(children: [
             Icon(Icons.photo_library_outlined, size: 20),
@@ -355,7 +356,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
             Text('Foto in der Timeline anzeigen'),
           ]),
         ),
-        PopupMenuItem(
+        const PopupMenuItem(
           value: _ContextMenuAction.showSimilar,
           child: Row(children: [
             Icon(Icons.image_search_outlined, size: 20),
@@ -363,7 +364,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
             Text('Ähnliche Bilder anzeigen'),
           ]),
         ),
-        PopupMenuItem(
+        const PopupMenuItem(
           value: _ContextMenuAction.editMetadata,
           child: Row(children: [
             Icon(Icons.edit_note_outlined, size: 20),
@@ -371,6 +372,21 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
             Text('Metadaten bearbeiten'),
           ]),
         ),
+        // Nur für Fotos (nicht Videos), nicht gesperrt (FaceReviewScreen
+        // liest Original/Vorschau direkt von der Platte, ohne die
+        // Entschlüsselungs-/Wiederverschlüsselungs-Logik der Vollbildansicht
+        // zu kennen – analog zum Ausschluss in ImageEditorScreen/
+        // DevelopScreen) und nur, wenn eine LibraryState-Instanz vorliegt
+        // (FaceReviewScreen braucht sie zwingend, siehe dessen Konstruktor).
+        if (widget.library != null && _currentAsset.type == 'IMAGE' && !_currentAsset.isLocked)
+          const PopupMenuItem(
+            value: _ContextMenuAction.faceReview,
+            child: Row(children: [
+              Icon(Icons.face_retouching_natural_outlined, size: 20),
+              SizedBox(width: 12),
+              Text('Gesichter bearbeiten'),
+            ]),
+          ),
       ],
     );
     if (selected == null || !mounted) return;
@@ -381,7 +397,23 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         _showSimilarImages();
       case _ContextMenuAction.editMetadata:
         await _openMetadataEditor();
+      case _ContextMenuAction.faceReview:
+        await _openFaceReview();
     }
+  }
+
+  /// Springt direkt aus der Vollbildansicht in die Gesichts-Bearbeitung für
+  /// das aktuelle Foto (bisher nur über den Personen-Tab erreichbar) –
+  /// reduziert die Hürde, ein übersehenes oder falsch zugeordnetes Gesicht
+  /// direkt beim Ansehen zu korrigieren, statt erst zum Personen-Tab
+  /// wechseln und das Foto dort wiederfinden zu müssen.
+  Future<void> _openFaceReview() async {
+    final library = widget.library;
+    if (library == null) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => FaceReviewScreen(library: library, asset: _currentAsset),
+    ));
+    if (mounted) await _refreshCurrentAsset();
   }
 
   Future<void> _editAsset() async {
@@ -405,7 +437,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         asset: asset,
         db: widget.db,
         paths: widget.paths,
-        segmentation: widget.library?.segmentationService,
+        segmentation: widget.library?.segmentationHalter,
         restoreQueue: widget.library?.restoreQueue,
       ),
     ));

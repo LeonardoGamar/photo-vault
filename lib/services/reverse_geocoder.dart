@@ -81,9 +81,9 @@ class ReverseGeocoder {
     final candidates = safetyRadius > radius ? _collectBox(latCell, lonCell, safetyRadius) : found;
 
     var bestIndex = candidates.first;
-    var bestDistanceKm = _haversineKm(lat, lon, _cities[bestIndex].lat, _cities[bestIndex].lon);
+    var bestDistanceKm = haversineKm(lat, lon, _cities[bestIndex].lat, _cities[bestIndex].lon);
     for (final index in candidates.skip(1)) {
-      final distanceKm = _haversineKm(lat, lon, _cities[index].lat, _cities[index].lon);
+      final distanceKm = haversineKm(lat, lon, _cities[index].lat, _cities[index].lon);
       if (distanceKm < bestDistanceKm) {
         bestDistanceKm = distanceKm;
         bestIndex = index;
@@ -112,7 +112,11 @@ class ReverseGeocoder {
 
   static int _cellKey(int latCell, int lonCell) => (latCell + 90) * 512 + (lonCell + 180);
 
-  static double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+  /// Distanz zweier Koordinaten in km – öffentlich, weil auch das
+  /// Automatisierungs-Regelwerk (siehe LibraryState.applyAutomationRules)
+  /// eine Umkreis-Bedingung damit auswertet, nicht nur die Umkehr-
+  /// Geokodierung hier.
+  static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
     const earthRadiusKm = 6371.0;
     final dLat = _degToRad(lat2 - lat1);
     final dLon = _degToRad(lon2 - lon1);

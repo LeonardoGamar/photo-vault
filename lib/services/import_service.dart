@@ -17,7 +17,7 @@ import 'raw_formats.dart';
 import 'storage_paths.dart';
 
 const _imageExtensions = {
-  '.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif', '.bmp', '.tiff',
+  '.jpg', '.jpeg', '.png', '.heic', '.heif', '.avif', '.avifs', '.webp', '.gif', '.bmp', '.tiff',
   ...rawImageExtensions,
 };
 const _videoExtensions = {'.mp4', '.mov', '.avi', '.mkv', '.m4v'};

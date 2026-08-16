@@ -22,6 +22,9 @@ String assetFormatLabel(AssetData asset) {
     case '.heic':
     case '.heif':
       return 'HEIC';
+    case '.avif':
+    case '.avifs':
+      return 'AVIF';
     case '.webp':
       return 'WEBP';
     case '.gif':

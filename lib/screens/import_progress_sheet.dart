@@ -48,7 +48,7 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
       allowMultiple: true,
       type: FileType.custom,
       allowedExtensions: [
-        'jpg', 'jpeg', 'png', 'heic', 'heif', 'webp', 'gif', 'bmp', 'tiff',
+        'jpg', 'jpeg', 'png', 'heic', 'heif', 'avif', 'avifs', 'webp', 'gif', 'bmp', 'tiff',
         for (final ext in rawImageExtensions) ext.substring(1),
         'mp4', 'mov', 'avi', 'mkv', 'm4v',
       ],

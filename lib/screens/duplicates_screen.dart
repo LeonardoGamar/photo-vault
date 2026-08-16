@@ -9,6 +9,7 @@ import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
+import 'second_library_compare_screen.dart';
 
 /// Gruppiert Fotos, deren CLIP-Bild-Embeddings sich sehr ähnlich sind
 /// (Kosinus-Ähnlichkeit über einer einstellbaren Schwelle). Das findet nicht
@@ -163,6 +164,13 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       appBar: AppBar(
         title: const Text('Duplikate & ähnliche Fotos'),
         actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => SecondLibraryCompareScreen(library: widget.library),
+            )),
+            icon: const Icon(Icons.folder_copy_outlined),
+            label: const Text('Zweite Bibliothek'),
+          ),
           if (_groups.isNotEmpty)
             TextButton.icon(
               onPressed: _alleKopienLoeschen,

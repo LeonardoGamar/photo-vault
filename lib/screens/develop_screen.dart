@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 import '../db/database.dart';
 import '../services/asset_display_path.dart';
 import '../services/histogram.dart';
+import '../services/modell_halter.dart';
 import '../services/native_image_converter.dart';
 import '../services/restore_queue_service.dart';
 import '../services/segmentation_service.dart';
@@ -42,10 +43,13 @@ enum _MaskFormType { aiSelect, freehand, ellipse, gradient }
 /// mit abdecken zu müssen.
 ///
 /// Masken (siehe DevelopMasks) gibt es in zwei Arten: KI-Auswahl per
-/// SAM-Punkt-Prompt (nur mit [segmentation] verfügbar – `null`, solange das
-/// Segmentierungs-Modell nicht heruntergeladen ist) und editierbare
-/// Vektorformen (Pinsel/Ellipse/Verlauf, siehe vector_mask_service.dart),
-/// die kein Modell benötigen und jederzeit verfügbar sind.
+/// SAM-Punkt-Prompt (nur verfügbar, wenn [segmentation] installiert ist –
+/// `null`/`installiert == false`, solange das Segmentierungs-Modell nicht
+/// heruntergeladen ist) und editierbare Vektorformen (Pinsel/Ellipse/
+/// Verlauf, siehe vector_mask_service.dart), die kein Modell benötigen und
+/// jederzeit verfügbar sind. Die eigentliche ONNX-Sitzung wird erst beim
+/// Öffnen des KI-Auswahl-Werkzeugs geliehen ([_ensureEmbedding]) und beim
+/// Verlassen des Bildschirms wieder zurückgegeben (siehe [dispose]).
 ///
 /// [restoreQueue] schaltet die KI-Restaurierung frei (Hochskalieren +
 /// Entrauschen, läuft im Hintergrund und dauert mehrere Minuten, siehe
@@ -55,7 +59,7 @@ class DevelopScreen extends StatefulWidget {
   final AssetData asset;
   final AppDatabase db;
   final StoragePaths paths;
-  final SegmentationService? segmentation;
+  final ModellHalter<SegmentationService>? segmentation;
   final RestoreQueueService? restoreQueue;
 
   const DevelopScreen({
@@ -148,6 +152,11 @@ class _DevelopScreenState extends State<DevelopScreen> {
   SamImageEmbedding? _embedding;
   img.Image? _decodedForMasking;
 
+  /// Die von [widget.segmentation] geliehene Sitzung (siehe
+  /// [_ensureEmbedding]) – nicht-null bedeutet zugleich "muss in [dispose]
+  /// zurückgegeben werden".
+  SegmentationService? _segmentation;
+
   /// Punkte im Koordinatenraum des für die Maskierung dekodierten Bilds
   /// ([_decodedForMasking]), in Tipp-Reihenfolge – `isBackground: true` =
   /// "hier NICHT auswählen"-Punkt (SAM-Konvention Label 0).
@@ -227,6 +236,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     // Collector räumt sie nicht ab.
     _shader?.dispose();
     _shaderBasis?.dispose();
+    if (_segmentation != null) widget.segmentation?.zurueckgeben();
     super.dispose();
   }
 
@@ -617,7 +627,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       FreehandShape() => _MaskFormType.freehand,
       EllipseShape() => _MaskFormType.ellipse,
       GradientShape() => _MaskFormType.gradient,
-      null => widget.segmentation != null ? _MaskFormType.aiSelect : _MaskFormType.freehand,
+      null => (widget.segmentation?.installiert ?? false) ? _MaskFormType.aiSelect : _MaskFormType.freehand,
     };
     setState(() {
       _maskEditMode = true;
@@ -668,12 +678,31 @@ class _DevelopScreenState extends State<DevelopScreen> {
   /// Vorschau ist für die interaktive Punktauswahl auflösungsmäßig mehr
   /// als ausreichend).
   Future<void> _ensureEmbedding() async {
-    final segmentation = widget.segmentation;
+    final halter = widget.segmentation;
     final previewBytes = _previewBytes;
-    if (segmentation == null || previewBytes == null || _embedding != null) return;
+    if (halter == null || previewBytes == null || _embedding != null) return;
     setState(() => _computingEmbedding = true);
+
+    SegmentationService? segmentation;
+    try {
+      segmentation = await halter.leihen();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _computingEmbedding = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('KI-Auswahl konnte nicht geladen werden: $e')),
+        );
+      }
+      return;
+    }
+    if (segmentation == null) {
+      if (mounted) setState(() => _computingEmbedding = false);
+      return;
+    }
+
     final decoded = await compute(decodeImageBytes, previewBytes);
     if (decoded == null) {
+      halter.zurueckgeben();
       if (mounted) {
         setState(() => _computingEmbedding = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -683,10 +712,17 @@ class _DevelopScreenState extends State<DevelopScreen> {
       return;
     }
     final embedding = await segmentation.encodeImage(decoded);
-    if (!mounted) return;
+    if (!mounted) {
+      // Bildschirm inzwischen verlassen – dispose() konnte die Leihe noch
+      // nicht kennen (dieser Aufruf war ja noch nicht fertig), also hier
+      // selbst zurückgeben statt sie zu verlieren.
+      halter.zurueckgeben();
+      return;
+    }
     setState(() {
       _decodedForMasking = decoded;
       _embedding = embedding;
+      _segmentation = segmentation;
       _computingEmbedding = false;
     });
   }
@@ -767,7 +803,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
   /// SegmentationService.decodeMask) – kein Mehrschritt-Loop, daher auch
   /// bei mehreren Punkten hintereinander noch interaktiv genug.
   Future<void> _runMaskPrediction() async {
-    final segmentation = widget.segmentation;
+    final segmentation = _segmentation;
     final embedding = _embedding;
     if (segmentation == null || embedding == null || _maskPoints.isEmpty) return;
     setState(() => _computingMask = true);
@@ -1036,10 +1072,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
             ),
           IconButton(
             icon: const Icon(Icons.auto_awesome_outlined),
-            tooltip: widget.restoreQueue?.restoreService == null
+            tooltip: widget.restoreQueue?.restoreHalter?.installiert != true
                 ? 'Benötigt das Restaurierungs-Modell (Einstellungen → KI-Modelle)'
                 : 'KI-Restaurierung anwenden (läuft im Hintergrund, dauert mehrere Minuten)',
-            onPressed: (_saving || widget.restoreQueue?.restoreService == null) ? null : _enqueueRestore,
+            onPressed: (_saving || widget.restoreQueue?.restoreHalter?.installiert != true) ? null : _enqueueRestore,
           ),
           IconButton(
             icon: const Icon(Icons.auto_fix_high_outlined),
@@ -1265,7 +1301,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
                 value: _MaskFormType.aiSelect,
                 label: const Text('KI'),
                 icon: const Icon(Icons.auto_awesome_outlined, size: 16),
-                enabled: widget.segmentation != null,
+                enabled: widget.segmentation?.installiert ?? false,
               ),
               const ButtonSegment(
                 value: _MaskFormType.freehand,

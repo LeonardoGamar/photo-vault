@@ -4,6 +4,7 @@ import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import 'modell_halter.dart';
 import 'native_image_converter.dart';
 import 'restore_service.dart';
 import 'storage_paths.dart';
@@ -22,22 +23,24 @@ class RestoreQueueService {
   final AppDatabase _db;
   final StoragePaths _paths;
 
-  /// Von außen gesetzt, sobald das Modell heruntergeladen und geladen ist
+  /// Von außen gesetzt, sobald bekannt ist, ob das Modell installiert ist
   /// (Muster: LibraryState._loadModelsIfPresent, analog zu
-  /// `segmentationService`) – ohne Modell bleibt die Warteschlange nutzbar
-  /// für bereits vorhandene Aufträge, [enqueue] schlägt aber fehl.
-  RestoreService? restoreService;
+  /// `segmentationHalter`) – lädt die ONNX-Sitzung erst beim ersten
+  /// tatsächlichen Auftrag ([_process] leiht sie sich dort). Ohne Halter
+  /// (App noch nicht initialisiert) bleibt die Warteschlange nutzbar für
+  /// bereits vorhandene Aufträge, [enqueue] schlägt aber fehl.
+  ModellHalter<RestoreService>? restoreHalter;
 
   bool _processing = false;
   String? _activeJobId;
   final Set<String> _cancelRequested = {};
 
-  /// Ob gerade ein Auftrag verarbeitet wird – LibraryState.reloadModels()
-  /// prüft das, bevor es [restoreService] disposed/ersetzt: die ONNX-
-  /// Sitzung eines laufenden, oft mehrere Minuten dauernden Auftrags darf
-  /// nicht unter ihm weggerissen werden (anders als bei den kurzen
-  /// SAM/CLIP-Aufrufen der übrigen Modelle ist das Zeitfenster hier real
-  /// relevant, nicht nur theoretisch).
+  /// Ob gerade ein Auftrag verarbeitet wird – für die Duplikat-Prüfung in
+  /// [enqueue]/[cancel]. Ein Ersetzen von [restoreHalter] durch
+  /// LibraryState.reloadModels() während eines laufenden Auftrags ist
+  /// unproblematisch: [_process] hält seine eigene lokale Referenz auf den
+  /// Halter, von dem es geliehen hat (siehe dort), die Nutzerzähler-Logik in
+  /// ModellHalter verhindert ein Entsorgen mitten in der Inferenz strukturell.
   bool get isProcessing => _processing;
 
   /// Legt einen neuen Auftrag an und stößt die Verarbeitung an (falls
@@ -49,8 +52,8 @@ class RestoreQueueService {
   /// Screens) denselben mehrminütigen Auftrag mehrfach redundant laufen
   /// lassen.
   Future<String> enqueue(String assetId) async {
-    if (restoreService == null) {
-      throw StateError('KI-Restaurierung ist nicht verfügbar – Modell nicht geladen.');
+    if (restoreHalter?.installiert != true) {
+      throw StateError('KI-Restaurierung ist nicht verfügbar – Modell nicht installiert.');
     }
     final existing = await _db.activeRestoreJobForAsset(assetId);
     if (existing != null) return existing.id;
@@ -111,7 +114,25 @@ class RestoreQueueService {
   }
 
   Future<void> _process(RestoreJobData job) async {
-    final service = restoreService;
+    // Lokal einfangen statt später erneut über das Feld zu gehen: Ersetzt
+    // LibraryState.reloadModels() [restoreHalter] mitten in der Verarbeitung
+    // (neuer Modell-Download), soll [zurueckgeben] weiterhin auf DIESEM
+    // (dann "retirierten", aber noch gültigen) Halter aufgerufen werden –
+    // sonst bliebe sein Nutzerzähler für immer > 0 und er würde nie entsorgt.
+    final halter = restoreHalter;
+    RestoreService? service;
+    try {
+      service = await halter?.leihen();
+    } catch (e) {
+      // Ohne dieses try/catch verließ eine Ladefehler-Exception (z.B. eine
+      // beschädigte Modelldatei) _process() unbehandelt – der Auftrag blieb
+      // für immer auf "queued" stehen UND das nachfolgende
+      // unawaited(_maybeStartNext()) in _maybeStartNext() wurde nie erreicht,
+      // wodurch die gesamte Warteschlange dauerhaft blockierte (Audit-Fund).
+      await _db.markRestoreJobStatus(job.id, 'failed',
+          errorMessage: 'KI-Restaurierungs-Modell konnte nicht geladen werden: $e');
+      return;
+    }
     if (service == null) {
       await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: 'Modell nicht mehr verfügbar.');
       return;
@@ -211,6 +232,8 @@ class RestoreQueueService {
       await _db.completeRestoreJob(job.id, job.assetId, relativePath);
     } catch (e) {
       await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: e.toString());
+    } finally {
+      halter!.zurueckgeben();
     }
   }
 }

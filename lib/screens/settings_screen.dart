@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/progress_dialog.dart';
 import '../widgets/typed_confirm_dialog.dart';
+import 'background_tasks_screen.dart';
 import 'locked_folder_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -629,6 +630,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ? 'Erkennung + Wiedererkennungs-Embeddings aktiv'
                     : 'Nur Erkennung aktiv (Wiedererkennung: SFace-Modell fehlt noch)')
                 : 'Inaktiv – YuNet-Modell oben herunterladen'),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text('Hintergrundaufgaben', style: Theme.of(context).textTheme.titleMedium),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.pending_actions_outlined),
+            title: const Text('Aufgaben-Übersicht'),
+            subtitle: const Text('Alle Auswertungen mit Anzahl noch offener Fotos, einzeln anstoßbar'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => BackgroundTasksScreen(library: widget.library)),
+            ),
           ),
         ),
         const SizedBox(height: 20),

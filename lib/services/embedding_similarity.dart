@@ -191,6 +191,12 @@ Float32List _randomDirection(int dim, int seed) {
   return v;
 }
 
+/// Öffentlich, weil auch SecondLibraryScanService dieselbe Kosinus-
+/// Ähnlichkeit für einzelne Paare braucht (nicht nur die Gruppenbildung
+/// hier) – z.B. um einer gefundenen externen Übereinstimmung einen
+/// konkreten Ähnlichkeitswert für die Anzeige mitzugeben.
+double cosineSimilarity(Float32List a, Float32List b) => _cosineSimilarity(a, b);
+
 double _cosineSimilarity(Float32List a, Float32List b) {
   var dot = 0.0;
   final len = math.min(a.length, b.length);

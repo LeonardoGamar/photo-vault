@@ -405,12 +405,24 @@ class _CameraPresetEditorDialogState extends State<_CameraPresetEditorDialog> {
                   const DropdownMenuItem<AlbumData?>(value: null, child: Text('Kein Album')),
                   for (final a in widget.albums) DropdownMenuItem<AlbumData?>(value: a, child: Text(a.name)),
                 ],
-                onChanged: (a) => setState(() => _selectedAlbum = a),
+                // Beide Felder meinen dasselbe Ziel (Zielalbum) – ohne das
+                // gegenseitige Leeren würde die zuletzt beim Speichern
+                // gelesene Eingabe die andere still überschreiben, ohne dass
+                // der Nutzer merkt, welche "gewonnen" hat (Audit-Fund).
+                onChanged: (a) => setState(() {
+                  _selectedAlbum = a;
+                  if (a != null) _newAlbumCtrl.clear();
+                }),
               ),
               const SizedBox(height: 4),
               TextField(
                 controller: _newAlbumCtrl,
                 decoration: const InputDecoration(labelText: 'oder: neues Album anlegen'),
+                onChanged: (text) {
+                  if (text.trim().isNotEmpty && _selectedAlbum != null) {
+                    setState(() => _selectedAlbum = null);
+                  }
+                },
               ),
               const SizedBox(height: 16),
               SwitchListTile(

@@ -31,9 +31,15 @@ const _imageSize = 224;
 class ClipService {
   ClipService._(this._imageSession, this._textSession, this._tokenizer);
 
-  final OrtSession _imageSession;
-  final OrtSession _textSession;
-  final ClipTokenizer _tokenizer;
+  /// Beide Encoder sind einzeln ladbar, weil sie zu verschiedenen Zeiten
+  /// gebraucht werden und zusammen 577 MB belegen: Der Bild-Encoder
+  /// (335 MB) arbeitet in der Hintergrundanalyse, der Text-Encoder
+  /// (242 MB) ausschliesslich dann, wenn jemand eine Kontext-Suche
+  /// eintippt. Wer nur sucht, soll nicht den Bildteil mitladen – und
+  /// umgekehrt. Siehe [load].
+  final OrtSession? _imageSession;
+  final OrtSession? _textSession;
+  final ClipTokenizer? _tokenizer;
 
   // Eingabenamen werden zur Laufzeit dynamisch aus session.inputNames gelesen
   // (siehe embedImage/embedText) statt geraten – das war zuvor eine
@@ -56,14 +62,28 @@ class ClipService {
 
   static bool isAvailable(String modelsDir) => _filesPresent(modelsDir);
 
-  static Future<ClipService> load(String modelsDir) async {
+  /// Lädt nur die angeforderten Encoder. [bild] wird für [embedImage]
+  /// gebraucht, [text] für [embedText]; der Tokenizer hängt am Textteil.
+  /// Der jeweils nicht angeforderte Encoder bleibt ungeladen, und die
+  /// zugehörige Methode wirft dann einen erklärenden Fehler statt still
+  /// Unsinn zu liefern.
+  static Future<ClipService> load(
+    String modelsDir, {
+    bool bild = true,
+    bool text = true,
+  }) async {
+    assert(bild || text, 'Ein ClipService ohne Encoder wäre nutzlos.');
     final ort = OnnxRuntime();
-    final imageSession = await ort.createSession('$modelsDir/clip_image_encoder.onnx');
-    final textSession = await ort.createSession('$modelsDir/clip_text_encoder.onnx');
-    final tokenizer = await ClipTokenizer.loadFromFiles(
-      vocabJsonPath: '$modelsDir/vocab.json',
-      mergesTxtPath: '$modelsDir/merges.txt',
-    );
+    final imageSession =
+        bild ? await ort.createSession('$modelsDir/clip_image_encoder.onnx') : null;
+    final textSession =
+        text ? await ort.createSession('$modelsDir/clip_text_encoder.onnx') : null;
+    final tokenizer = text
+        ? await ClipTokenizer.loadFromFiles(
+            vocabJsonPath: '$modelsDir/vocab.json',
+            mergesTxtPath: '$modelsDir/merges.txt',
+          )
+        : null;
     return ClipService._(imageSession, textSession, tokenizer);
   }
 
@@ -74,6 +94,10 @@ class ClipService {
   /// dekodieren wäre verschwendete Rechenzeit. Videos werden aktuell nicht
   /// unterstützt (es müsste zunächst ein Frame extrahiert werden).
   Future<Float32List> embedImage(img.Image decoded) async {
+    final session = _imageSession;
+    if (session == null) {
+      throw StateError('Dieser ClipService wurde ohne Bild-Encoder geladen.');
+    }
     final resized = img.copyResize(decoded, width: _imageSize, height: _imageSize);
 
     final chw = Float32List(3 * _imageSize * _imageSize);
@@ -90,8 +114,8 @@ class ClipService {
     }
 
     final inputTensor = await OrtValue.fromList(chw, [1, 3, _imageSize, _imageSize]);
-    final outputs = await _imageSession.run({_imageSession.inputNames.first: inputTensor});
-    final outputTensor = outputs[imageOutputName] ?? outputs[_imageSession.outputNames.first]!;
+    final outputs = await session.run({session.inputNames.first: inputTensor});
+    final outputTensor = outputs[imageOutputName] ?? outputs[session.outputNames.first]!;
     final raw = await outputTensor.asFlattenedList();
     await inputTensor.dispose();
     for (final v in outputs.values) {
@@ -101,13 +125,18 @@ class ClipService {
   }
 
   Future<Float32List> embedText(String text) async {
-    final tokenIds = Int64List.fromList(_tokenizer.encode(text));
+    final session = _textSession;
+    final tokenizer = _tokenizer;
+    if (session == null || tokenizer == null) {
+      throw StateError('Dieser ClipService wurde ohne Text-Encoder geladen.');
+    }
+    final tokenIds = Int64List.fromList(tokenizer.encode(text));
 
     final idsTensor = await OrtValue.fromList(tokenIds, [1, ClipTokenizer.contextLength]);
-    final outputs = await _textSession.run({
-      _textSession.inputNames.first: idsTensor,
+    final outputs = await session.run({
+      session.inputNames.first: idsTensor,
     });
-    final outputTensor = outputs[textOutputName] ?? outputs[_textSession.outputNames.first]!;
+    final outputTensor = outputs[textOutputName] ?? outputs[session.outputNames.first]!;
     final raw = await outputTensor.asFlattenedList();
     await idsTensor.dispose();
     for (final v in outputs.values) {
@@ -152,7 +181,7 @@ class ClipService {
   }
 
   Future<void> dispose() async {
-    await _imageSession.close();
-    await _textSession.close();
+    await _imageSession?.close();
+    await _textSession?.close();
   }
 }

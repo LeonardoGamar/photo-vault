@@ -23,6 +23,7 @@ import '../services/import_service.dart';
 import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
+import '../services/modell_halter.dart';
 import '../services/native_image_converter.dart';
 import '../services/restore_queue_service.dart';
 import '../services/restore_service.dart';
@@ -94,12 +95,56 @@ class LibraryState extends ChangeNotifier {
   late final GeoDataDownloadService geoDataDownloadService;
   late final RestoreQueueService restoreQueue;
 
-  ClipService? clipService;
-  AiTaggingService? aiTaggingService;
-  FaceEngineService? faceEngine;
-  EyeStateService? eyeStateService;
-  SegmentationService? segmentationService;
-  CaptioningService? captioningService;
+  // Jedes KI-Modell wird erst beim ersten Gebrauch geladen und nach einer
+  // Weile Leerlauf wieder freigegeben (siehe ModellHalter, _sweepIdleModels) –
+  // vorher lagen hier eager beim App-Start alle sechs Modelle im Speicher
+  // (gemessen 1538 MB gegen 213 MB ohne). Nicht `late`, sondern mit einem
+  // "nichts installiert"-Platzhalter vorbelegt: Tests bauen LibraryState oft
+  // ohne den vollen initialize()-Durchlauf zusammen (siehe
+  // audit_optimierungen_test.dart) und dürfen dabei nicht auf ein
+  // uninitialisiertes `late`-Feld treffen. _loadModelsIfPresent() ersetzt
+  // die Platzhalter beim echten Start durch die tatsächlichen Halter.
+  ModellHalter<FaceEngineService> faceEngineHalter = _leererHalter('Gesichtserkennung');
+  ModellHalter<EyeStateService> eyeStateHalter = _leererHalter('Augen-Zustand');
+  // CLIP getrennt nach Encoder: Der Bildteil (335 MB) arbeitet in der
+  // Hintergrundanalyse, der Textteil (242 MB) nur, wenn jemand eine
+  // Kontext-Suche eintippt. Zusammen wären es 577 MB, von denen die
+  // jeweilige Aufgabe die Hälfte nie anfasst. Einzige Ausnahme ist das
+  // KI-Tagging, das beide braucht (Bild-Embedding des Fotos gegen
+  // Text-Embeddings der Vokabelbegriffe) und deshalb beide leiht.
+  ModellHalter<ClipService> clipBildHalter = _leererHalter('CLIP-Bild');
+  ModellHalter<ClipService> clipTextHalter = _leererHalter('CLIP-Text');
+  ModellHalter<SegmentationService> segmentationHalter = _leererHalter('Segmentierung');
+  ModellHalter<CaptioningService> captioningHalter = _leererHalter('Bildbeschreibung');
+
+  static ModellHalter<T> _leererHalter<T>(String name) => ModellHalter<T>(
+        name: name,
+        installiert: false,
+        laden: () => throw StateError('LibraryState.initialize() wurde noch nicht aufgerufen.'),
+        entsorgen: (_) async {},
+      );
+
+  /// Halter, die gerade durch einen frischen ersetzt wurden, während sie
+  /// noch in Benutzung waren (siehe _loadModelsIfPresent) – ohne diese Liste
+  /// gäbe es keine Referenz mehr, über die sie je freigegeben würden. Wird
+  /// vom selben Timer wie die übrigen Halter regelmäßig abgeräumt.
+  final List<ModellHalter> _retiredHalters = [];
+  Timer? _modellFreigabeTimer;
+
+  List<ModellHalter> get _alleHalter => [
+        faceEngineHalter,
+        eyeStateHalter,
+        clipBildHalter,
+        clipTextHalter,
+        segmentationHalter,
+        captioningHalter,
+        if (restoreQueue.restoreHalter != null) restoreQueue.restoreHalter!,
+      ];
+
+  /// Kein eigenes ONNX-Modell (siehe ai_tagging_service.dart) – braucht nur
+  /// eine bereits geladene [ClipService]-Sitzung als Parameter, deshalb ohne
+  /// eigenen Halter und für die ganze App-Laufzeit unverändert nutzbar.
+  final AiTaggingService aiTaggingService = AiTaggingService();
   ReverseGeocoder? geocoder;
   bool _ready = false;
   bool get isReady => _ready;
@@ -209,6 +254,12 @@ class LibraryState extends ChangeNotifier {
     unawaited(purgeExpiredTrashIfDue());
     _trashPurgeTimer = Timer.periodic(const Duration(hours: 6), (_) => purgeExpiredTrashIfDue());
 
+    // Gibt KI-Modelle frei, die seit dem letzten Durchlauf nicht mehr in
+    // Benutzung sind (siehe ModellHalter.freigebenWennUnbenutzt) – das ist
+    // der Gegenpart zum bedarfsweisen Laden: ohne das hier bliebe ein einmal
+    // benutztes Modell bis zum Beenden der App im Speicher.
+    _modellFreigabeTimer = Timer.periodic(const Duration(minutes: 2), (_) => _sweepIdleModels());
+
     _ready = true;
     notifyListeners();
 
@@ -226,105 +277,94 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
-  /// Prüft, welche Modelldateien bereits im models-Ordner liegen, und lädt
-  /// die entsprechenden Engines. Wird auch nach einem Download in den
-  /// Einstellungen erneut aufgerufen.
+  /// Prüft, welche Modelldateien bereits im models-Ordner liegen, und legt
+  /// dafür je einen [ModellHalter] an (der die eigentliche Engine erst beim
+  /// ersten Gebrauch lädt). Wird auch nach einem Download in den
+  /// Einstellungen erneut aufgerufen ([reloadModels]) – dann ersetzt ein
+  /// frischer Halter den alten, weil `installiert` sich nur beim Anlegen
+  /// ermittelt (siehe ModellHalter-Klassenkommentar). Ein alter Halter, der
+  /// gerade noch in Benutzung ist, wird nicht zwangsweise entsorgt (das
+  /// würde eine laufende Inferenz zum Absturz bringen), sondern in
+  /// [_retiredHalters] geparkt und dort vom selben Timer wie die übrigen
+  /// Halter abgeräumt, sobald er wieder frei ist – die frühere
+  /// Sonderbehandlung von `restoreService` ("während eines Auftrags nicht
+  /// ersetzen") ist dadurch nicht mehr nötig, siehe RestoreQueueService.
   Future<void> _loadModelsIfPresent() async {
-    if (FaceEngineService.isDetectionAvailable(_modelsDir!)) {
-      try {
-        faceEngine = await FaceEngineService.load(_modelsDir!);
-      } catch (e) {
-        debugPrint('Gesichts-Engine konnte nicht geladen werden: $e');
-        faceEngine = null;
-      }
-    } else {
-      faceEngine = null;
-    }
+    // Die Platzhalter aus den Feld-Initialisierern (nichts installiert,
+    // nie geladen) landen hier harmlos: _sweepIdleModels() entfernt sie
+    // beim nächsten Durchlauf sofort wieder aus _retiredHalters, da
+    // `istGeladen` nie true war. _alleHalter liest dieselben (gleich
+    // überschriebenen) Felder, daher identisch zu einer eigenen Liste hier.
+    _retiredHalters.addAll(_alleHalter);
 
-    if (EyeStateService.isAvailable(_modelsDir!)) {
-      try {
-        eyeStateService = await EyeStateService.load(_modelsDir!);
-      } catch (e) {
-        debugPrint('Augen-Zustands-Modell konnte nicht geladen werden: $e');
-        eyeStateService = null;
-      }
-    } else {
-      eyeStateService = null;
-    }
-
-    if (ClipService.isAvailable(_modelsDir!)) {
-      try {
-        clipService = await ClipService.load(_modelsDir!);
-        aiTaggingService = AiTaggingService(clipService!);
-      } catch (e) {
-        debugPrint('CLIP-Modell konnte nicht geladen werden: $e');
-        clipService = null;
-        aiTaggingService = null;
-      }
-    } else {
-      clipService = null;
-      aiTaggingService = null;
-    }
-
-    if (SegmentationService.isAvailable(_modelsDir!)) {
-      try {
-        segmentationService = await SegmentationService.load(_modelsDir!);
-      } catch (e) {
-        debugPrint('Segmentierungs-Modell konnte nicht geladen werden: $e');
-        segmentationService = null;
-      }
-    } else {
-      segmentationService = null;
-    }
-
-    if (CaptioningService.isAvailable(_modelsDir!)) {
-      try {
-        captioningService = await CaptioningService.load(_modelsDir!);
-      } catch (e) {
-        debugPrint('Bildbeschreibungs-Modell konnte nicht geladen werden: $e');
-        captioningService = null;
-      }
-    } else {
-      captioningService = null;
-    }
-
-    // Während ein Auftrag läuft, wird restoreService bewusst NICHT ersetzt
-    // (siehe reloadModels()) – sonst würde das Feld auf eine neue,
-    // ungenutzte Sitzung zeigen, während der laufende Auftrag noch seine
-    // eigene, dann vom Feld losgelöste Referenz auf die alte Sitzung
-    // benutzt, die anschließend nie disposed würde (Ressourcen-Leck). Beim
-    // nächsten Aufruf (nach Abschluss des Auftrags) wird ganz normal neu
-    // geladen.
-    if (!restoreQueue.isProcessing) {
-      if (RestoreService.isAvailable(_modelsDir!)) {
-        try {
-          restoreQueue.restoreService = await RestoreService.load(_modelsDir!);
-        } catch (e) {
-          debugPrint('KI-Restaurierungs-Modell konnte nicht geladen werden: $e');
-          restoreQueue.restoreService = null;
-        }
-      } else {
-        restoreQueue.restoreService = null;
-      }
-    }
+    faceEngineHalter = ModellHalter<FaceEngineService>(
+      name: 'Gesichtserkennung',
+      installiert: FaceEngineService.isDetectionAvailable(_modelsDir!),
+      // load() ist nullable, weil es intern denselben Dateicheck wie
+      // isDetectionAvailable() wiederholt – der ist hier über `installiert`
+      // oben bereits als true bekannt, daher unbedenklich entpackt.
+      laden: () async => (await FaceEngineService.load(_modelsDir!))!,
+      entsorgen: (s) => s.dispose(),
+    );
+    eyeStateHalter = ModellHalter<EyeStateService>(
+      name: 'Augen-Zustand',
+      installiert: EyeStateService.isAvailable(_modelsDir!),
+      // Gleiches Argument wie bei faceEngineHalter oben.
+      laden: () async => (await EyeStateService.load(_modelsDir!))!,
+      entsorgen: (s) => s.dispose(),
+    );
+    // Beide Halter prüfen dieselben Dateien (isAvailable deckt Bild-,
+    // Text-Encoder und Tokenizer gemeinsam ab), laden aber jeweils nur
+    // ihren Teil – siehe ClipService.load.
+    clipBildHalter = ModellHalter<ClipService>(
+      name: 'CLIP-Bild',
+      installiert: ClipService.isAvailable(_modelsDir!),
+      laden: () => ClipService.load(_modelsDir!, bild: true, text: false),
+      entsorgen: (s) => s.dispose(),
+    );
+    clipTextHalter = ModellHalter<ClipService>(
+      name: 'CLIP-Text',
+      installiert: ClipService.isAvailable(_modelsDir!),
+      laden: () => ClipService.load(_modelsDir!, bild: false, text: true),
+      entsorgen: (s) => s.dispose(),
+    );
+    segmentationHalter = ModellHalter<SegmentationService>(
+      name: 'Segmentierung',
+      installiert: SegmentationService.isAvailable(_modelsDir!),
+      laden: () => SegmentationService.load(_modelsDir!),
+      entsorgen: (s) => s.dispose(),
+    );
+    captioningHalter = ModellHalter<CaptioningService>(
+      name: 'Bildbeschreibung',
+      installiert: CaptioningService.isAvailable(_modelsDir!),
+      laden: () => CaptioningService.load(_modelsDir!),
+      entsorgen: (s) => s.dispose(),
+    );
+    restoreQueue.restoreHalter = ModellHalter<RestoreService>(
+      name: 'KI-Restaurierung',
+      installiert: RestoreService.isAvailable(_modelsDir!),
+      laden: () => RestoreService.load(_modelsDir!),
+      entsorgen: (s) => s.dispose(),
+    );
   }
 
-  Future<void> reloadModels() async {
-    await faceEngine?.dispose();
-    await eyeStateService?.dispose();
-    await clipService?.dispose();
-    await segmentationService?.dispose();
-    await captioningService?.dispose();
-    // Ein Restaurierungs-Auftrag läuft oft mehrere Minuten (anders als die
-    // kurzen SAM/CLIP-Aufrufe der übrigen Modelle) – die ONNX-Sitzung
-    // während eines laufenden Auftrags zu disposen würde die Inferenz
-    // mitten im Lauf zum Absturz bringen. In diesem (seltenen) Fall bleibt
-    // die alte Sitzung weiter in Benutzung; ein erneutes Herunterladen des
-    // Restaurierungs-Modells wirkt dann erst beim nächsten Aufruf von
-    // reloadModels(), nicht sofort.
-    if (!restoreQueue.isProcessing) {
-      await restoreQueue.restoreService?.dispose();
+  /// Gibt alle aktuellen UND retirierten Halter frei, die gerade nicht in
+  /// Benutzung sind (siehe ModellHalter.freigebenWennUnbenutzt) – regelmäßig
+  /// per Timer aufgerufen, siehe [initialize].
+  Future<void> _sweepIdleModels() async {
+    for (final halter in _alleHalter) {
+      await halter.freigebenWennUnbenutzt();
     }
+    for (final halter in _retiredHalters) {
+      await halter.freigebenWennUnbenutzt();
+    }
+    _retiredHalters.removeWhere((h) => !h.istGeladen && !h.laedtGerade);
+  }
+
+  /// Wird nach einem Modell-Download/-Löschen in den Einstellungen
+  /// aufgerufen (siehe settings_screen.dart) – legt frische Halter an, damit
+  /// neu heruntergeladene Dateien als `installiert` erkannt werden.
+  Future<void> reloadModels() async {
     await _loadModelsIfPresent();
     notifyListeners();
     unawaited(restoreQueue.resume());
@@ -358,11 +398,14 @@ class LibraryState extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool get clipAvailable => clipService != null;
-  bool get faceDetectionAvailable => faceEngine != null;
-  bool get faceRecognitionAvailable => faceEngine?.canEmbed ?? false;
-  bool get segmentationAvailable => segmentationService != null;
-  bool get captioningAvailable => captioningService != null;
+  // Beide CLIP-Halter prüfen dieselben Dateien – einer genügt als Auskunft.
+  bool get clipAvailable => clipBildHalter.installiert;
+  bool get faceDetectionAvailable => faceEngineHalter.installiert;
+  // Statische Dateiprüfung statt `faceEngine?.canEmbed`: Letzteres brauchte
+  // eine dauerhaft geladene Instanz, die es jetzt nicht mehr gibt.
+  bool get faceRecognitionAvailable => FaceEngineService.isRecognitionAvailable(_modelsDir!);
+  bool get segmentationAvailable => segmentationHalter.installiert;
+  bool get captioningAvailable => captioningHalter.installiert;
   bool get geoDataAvailable => geocoder != null;
 
   bool isModelInstalled(ModelCatalogEntry entry) =>
@@ -477,6 +520,73 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  /// Wendet passende Automatisierungsregeln an (Zielalbum, Tags, automatisch
+  /// favorisieren) – Verallgemeinerung von [applyCameraPreset] auf Orts-/
+  /// Datums-/KI-Tag-Bedingungen statt nur Kamera, siehe AutomationRules in
+  /// database.dart. Zwei Aufrufstellen, je nachdem, wann die jeweilige
+  /// Bedingung überhaupt geprüft werden kann:
+  ///
+  /// - [latitude]/[longitude]/[fileCreatedAt] liegen schon beim Import vor
+  ///   ([_postProcessNewAsset]) – werten `location`-/`dateRange`-Regeln aus.
+  /// - [aiTags] liegen erst nach der KI-Tagging-Stufe der Hintergrundanalyse
+  ///   vor ([backfillAiTags]) – wertet `aiTag`-Regeln aus.
+  ///
+  /// Ein Aufruf mit nur einem Teil der Parameter überspringt die jeweils
+  /// nicht auswertbaren Regeltypen folgerichtig (kein Fehler) – so ruft
+  /// jede Aufrufstelle dieselbe Methode auf, ohne die andere Bedingungsart
+  /// zu kennen.
+  ///
+  /// [rules] erlaubt Stapelverarbeitungen, die Regeln EINMAL pro Lauf statt
+  /// pro Foto zu laden (siehe [backfillAiTags]) – dieselbe Überlegung wie
+  /// beim dortigen Vokabular-Laden. Ohne den Parameter werden sie pro
+  /// Aufruf frisch geholt, was für den Einzelaufruf beim Import richtig ist
+  /// (eine zwischenzeitlich geänderte Regel soll sofort greifen).
+  @visibleForTesting
+  Future<void> applyAutomationRules(
+    String assetId, {
+    double? latitude,
+    double? longitude,
+    DateTime? fileCreatedAt,
+    List<String>? aiTags,
+    List<AutomationRuleData>? rules,
+  }) async {
+    for (final rule in rules ?? await db.allAutomationRules()) {
+      final bool matches;
+      switch (rule.triggerType) {
+        case 'location':
+          matches = latitude != null &&
+              longitude != null &&
+              rule.regionCenterLat != null &&
+              rule.regionCenterLon != null &&
+              rule.regionRadiusKm != null &&
+              ReverseGeocoder.haversineKm(latitude, longitude, rule.regionCenterLat!, rule.regionCenterLon!) <=
+                  rule.regionRadiusKm!;
+        case 'dateRange':
+          matches = fileCreatedAt != null &&
+              rule.dateFrom != null &&
+              rule.dateTo != null &&
+              !fileCreatedAt.isBefore(rule.dateFrom!) &&
+              !fileCreatedAt.isAfter(rule.dateTo!);
+        case 'aiTag':
+          matches = aiTags != null && rule.aiTagTerm != null && aiTags.contains(rule.aiTagTerm);
+        default:
+          matches = false;
+      }
+      if (!matches) continue;
+
+      if (rule.targetAlbumId != null) {
+        await db.addAssetsToAlbum(rule.targetAlbumId!, [assetId]);
+      }
+      if (rule.autoFavorite) {
+        await db.setFavorite(assetId, true);
+      }
+      final tagIds = await db.tagIdsForAutomationRule(rule.id);
+      for (final tagId in tagIds) {
+        await db.tagAssetById(assetId, tagId);
+      }
+    }
+  }
+
   // --- Hintergrundanalyse nach dem Import -------------------------------
 
   /// Beschreibt, was die Hintergrundanalyse gerade tut – für den Hinweis in
@@ -577,6 +687,12 @@ class LibraryState extends ChangeNotifier {
 
     await _tryLinkLivePhoto(asset);
     await applyCameraPreset(asset.id, cameraMake: asset.cameraMake, cameraModel: asset.cameraModel);
+    await applyAutomationRules(
+      asset.id,
+      latitude: asset.latitude,
+      longitude: asset.longitude,
+      fileCreatedAt: asset.fileCreatedAt,
+    );
 
     if (asset.type != 'IMAGE') return;
 
@@ -606,11 +722,10 @@ class LibraryState extends ChangeNotifier {
   Future<void> _scanFacesForDecodedAsset(
     AssetData asset,
     img.Image? decoded, {
+    required FaceEngineService engine,
+    EyeStateService? eyeState,
     required bool deleteExistingUnassigned,
   }) async {
-    final engine = faceEngine;
-    if (engine == null) return;
-
     if (deleteExistingUnassigned) {
       await db.deleteUnassignedFacesForAsset(asset.id);
     }
@@ -634,9 +749,9 @@ class LibraryState extends ChangeNotifier {
           // erneute Erkennung nötig, nur ein kleiner Zusatz-Klassifikator
           // auf zwei winzigen Augen-Ausschnitten.
           double? eyeOpenScore;
-          if (eyeStateService != null) {
+          if (eyeState != null) {
             try {
-              eyeOpenScore = await eyeStateService!.eyeOpenScore(decoded, box);
+              eyeOpenScore = await eyeState.eyeOpenScore(decoded, box);
             } catch (e) {
               debugPrint('Augen-Zustand-Erkennung fehlgeschlagen für ${asset.originalFileName}: $e');
             }
@@ -664,10 +779,20 @@ class LibraryState extends ChangeNotifier {
   /// Dekodiert das Bild eines Assets und führt die Gesichtserkennung aus –
   /// für Aufrufer, die (anders als [_postProcessNewAsset]) noch kein
   /// dekodiertes Bild vorliegen haben (manueller Rescan über die Werkzeuge).
-  Future<void> _scanFacesForAsset(AssetData asset, {required bool deleteExistingUnassigned}) async {
-    if (faceEngine == null) return;
+  Future<void> _scanFacesForAsset(
+    AssetData asset, {
+    required FaceEngineService engine,
+    EyeStateService? eyeState,
+    required bool deleteExistingUnassigned,
+  }) async {
     final decoded = await _decodeAsset(asset);
-    await _scanFacesForDecodedAsset(asset, decoded, deleteExistingUnassigned: deleteExistingUnassigned);
+    await _scanFacesForDecodedAsset(
+      asset,
+      decoded,
+      engine: engine,
+      eyeState: eyeState,
+      deleteExistingUnassigned: deleteExistingUnassigned,
+    );
   }
 
   /// Manueller (Re-)Scan der Gesichtserkennung, z.B. nachdem das YuNet-Modell
@@ -678,17 +803,32 @@ class LibraryState extends ChangeNotifier {
   /// [onlyNewPhotos] = false: ALLE Fotos erneut scannen (dauert entsprechend
   /// länger bei großen Bibliotheken).
   Stream<ImportProgress> rescanFaces({required bool onlyNewPhotos}) async* {
-    if (faceEngine == null) {
+    final engine = await faceEngineHalter.leihen();
+    if (engine == null) {
       yield ImportProgress(0, 0);
       return;
     }
-    final assets = await db.assetsForFaceScan(onlyNew: onlyNewPhotos);
-    var done = 0;
-    yield ImportProgress(0, assets.length);
-    for (final asset in assets) {
-      await _scanFacesForAsset(asset, deleteExistingUnassigned: !onlyNewPhotos);
-      done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+    try {
+      final eyeState = await eyeStateHalter.leihen();
+      try {
+        final assets = await db.assetsForFaceScan(onlyNew: onlyNewPhotos);
+        var done = 0;
+        yield ImportProgress(0, assets.length);
+        for (final asset in assets) {
+          await _scanFacesForAsset(
+            asset,
+            engine: engine,
+            eyeState: eyeState,
+            deleteExistingUnassigned: !onlyNewPhotos,
+          );
+          done++;
+          yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+        }
+      } finally {
+        if (eyeState != null) eyeStateHalter.zurueckgeben();
+      }
+    } finally {
+      faceEngineHalter.zurueckgeben();
     }
   }
 
@@ -903,25 +1043,29 @@ class LibraryState extends ChangeNotifier {
   /// Installation des Modells importiert wurden (Captions entstehen sonst
   /// nur automatisch beim Import, siehe [_postProcessNewAsset]).
   Stream<ImportProgress> backfillCaptions() async* {
-    final service = captioningService;
+    final service = await captioningHalter.leihen();
     if (service == null) {
       yield ImportProgress(0, 0);
       return;
     }
-    final assets = await db.assetsForCaptionBackfill();
-    var done = 0;
-    yield ImportProgress(0, assets.length);
-    for (final asset in assets) {
-      try {
-        final decoded = await _decodeAsset(asset);
-        if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
-        final caption = await service.generateCaption(decoded);
-        await db.setAiCaption(asset.id, caption);
-      } catch (e) {
-        debugPrint('KI-Bildbeschreibung fehlgeschlagen für ${asset.originalFileName}: $e');
+    try {
+      final assets = await db.assetsForCaptionBackfill();
+      var done = 0;
+      yield ImportProgress(0, assets.length);
+      for (final asset in assets) {
+        try {
+          final decoded = await _decodeAsset(asset);
+          if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
+          final caption = await service.generateCaption(decoded);
+          await db.setAiCaption(asset.id, caption);
+        } catch (e) {
+          debugPrint('KI-Bildbeschreibung fehlgeschlagen für ${asset.originalFileName}: $e');
+        }
+        done++;
+        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
       }
-      done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+    } finally {
+      captioningHalter.zurueckgeben();
     }
   }
 
@@ -939,48 +1083,68 @@ class LibraryState extends ChangeNotifier {
   /// noch die folgenden Fotos verhindern.
   Stream<ImportProgress> _bildinhaltsAnalyse() async* {
     final kandidaten = await db.assetsForCombinedImageAnalysis();
-    // Einmal festhalten: Die Modelle können zwischendurch nachgeladen
-    // werden, der Durchlauf soll aber mit einem stabilen Stand arbeiten.
-    final clip = clipService;
-    final gesichter = faceEngine;
-    var done = 0;
-    yield ImportProgress(0, kandidaten.length);
+    // Einmal für den ganzen Durchlauf geliehen (siehe ModellHalter.leihen)
+    // statt bei tausenden Fotos das Modell implizit ständig neu zu laden.
+    // Nur der Bild-Encoder: Hier entstehen ausschliesslich Bild-Embeddings.
+    final clip = await clipBildHalter.leihen();
+    try {
+      final gesichter = await faceEngineHalter.leihen();
+      try {
+        final augenzustand = gesichter != null ? await eyeStateHalter.leihen() : null;
+        try {
+          var done = 0;
+          yield ImportProgress(0, kandidaten.length);
 
-    for (final k in kandidaten) {
-      final asset = k.asset;
-      final brauchtUnschaerfe = asset.sharpnessScore == null;
-      final brauchtGesichter = !asset.facesScanned && gesichter != null;
-      final brauchtEmbedding = !k.hatEmbedding && clip != null;
+          for (final k in kandidaten) {
+            final asset = k.asset;
+            final brauchtUnschaerfe = asset.sharpnessScore == null;
+            final brauchtGesichter = !asset.facesScanned && gesichter != null;
+            final brauchtEmbedding = !k.hatEmbedding && clip != null;
 
-      if (brauchtUnschaerfe || brauchtGesichter || brauchtEmbedding) {
-        final decoded = await _decodeAsset(asset);
-        if (decoded != null) {
-          if (brauchtUnschaerfe) {
-            try {
-              await db.setSharpnessScore(asset.id, await compute(computeBlurScore, decoded));
-            } catch (e) {
-              debugPrint('Unschärfe fehlgeschlagen für ${asset.originalFileName}: $e');
+            if (brauchtUnschaerfe || brauchtGesichter || brauchtEmbedding) {
+              final decoded = await _decodeAsset(asset);
+              if (decoded != null) {
+                if (brauchtUnschaerfe) {
+                  try {
+                    await db.setSharpnessScore(asset.id, await compute(computeBlurScore, decoded));
+                  } catch (e) {
+                    debugPrint('Unschärfe fehlgeschlagen für ${asset.originalFileName}: $e');
+                  }
+                }
+                if (brauchtGesichter) {
+                  try {
+                    await _scanFacesForDecodedAsset(
+                      asset,
+                      decoded,
+                      engine: gesichter,
+                      eyeState: augenzustand,
+                      deleteExistingUnassigned: false,
+                    );
+                  } catch (e) {
+                    debugPrint('Gesichtserkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+                  }
+                }
+                if (brauchtEmbedding) {
+                  try {
+                    await db.saveEmbedding(asset.id, await clip.embedImage(decoded));
+                  } catch (e) {
+                    debugPrint('CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
+                  }
+                }
+              }
             }
+
+            done++;
+            yield ImportProgress(done, kandidaten.length, currentFile: asset.originalFileName);
           }
-          if (brauchtGesichter) {
-            try {
-              await _scanFacesForDecodedAsset(asset, decoded, deleteExistingUnassigned: false);
-            } catch (e) {
-              debugPrint('Gesichtserkennung fehlgeschlagen für ${asset.originalFileName}: $e');
-            }
-          }
-          if (brauchtEmbedding) {
-            try {
-              await db.saveEmbedding(asset.id, await clip.embedImage(decoded));
-            } catch (e) {
-              debugPrint('CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
-            }
-          }
+        } finally {
+          if (augenzustand != null) eyeStateHalter.zurueckgeben();
         }
+      } finally {
+        if (gesichter != null) faceEngineHalter.zurueckgeben();
       }
-
-      done++;
-      yield ImportProgress(done, kandidaten.length, currentFile: asset.originalFileName);
+    } finally {
+      if (clip != null) clipBildHalter.zurueckgeben();
     }
   }
 
@@ -1080,25 +1244,29 @@ class LibraryState extends ChangeNotifier {
   /// ohne dieses Werkzeug bliebe die KI-Bildsuche/Duplikatsuche auf die
   /// wenigen danach importierten Fotos beschränkt.
   Stream<ImportProgress> backfillClipEmbeddings() async* {
-    final service = clipService;
+    final service = await clipBildHalter.leihen();
     if (service == null) {
       yield ImportProgress(0, 0);
       return;
     }
-    final assets = await db.assetsForEmbeddingBackfill();
-    var done = 0;
-    yield ImportProgress(0, assets.length);
-    for (final asset in assets) {
-      try {
-        final decoded = await _decodeAsset(asset);
-        if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
-        final embedding = await service.embedImage(decoded);
-        await db.saveEmbedding(asset.id, embedding);
-      } catch (e) {
-        debugPrint('CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
+    try {
+      final assets = await db.assetsForEmbeddingBackfill();
+      var done = 0;
+      yield ImportProgress(0, assets.length);
+      for (final asset in assets) {
+        try {
+          final decoded = await _decodeAsset(asset);
+          if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
+          final embedding = await service.embedImage(decoded);
+          await db.saveEmbedding(asset.id, embedding);
+        } catch (e) {
+          debugPrint('CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
+        }
+        done++;
+        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
       }
-      done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+    } finally {
+      clipBildHalter.zurueckgeben();
     }
   }
 
@@ -1108,37 +1276,53 @@ class LibraryState extends ChangeNotifier {
   /// bereits gespeichertes CLIP-Embedding weiter, falls vorhanden, statt es
   /// neu zu berechnen.
   Stream<ImportProgress> backfillAiTags({required bool onlyUntagged}) async* {
-    final clip = clipService;
-    final tagging = aiTaggingService;
-    if (clip == null || tagging == null) {
+    // Die einzige Stelle, die BEIDE CLIP-Encoder braucht: das Foto wird
+    // als Bild eingebettet, die Vokabelbegriffe als Text (siehe
+    // AiTaggingService.suggestTags). Hier fällt die Aufteilung also nicht
+    // ins Gewicht – die übrigen Stellen sparen dafür je die Hälfte.
+    final clipBild = await clipBildHalter.leihen();
+    final clipText = clipBild == null ? null : await clipTextHalter.leihen();
+    if (clipBild == null || clipText == null) {
+      if (clipBild != null) clipBildHalter.zurueckgeben();
       yield ImportProgress(0, 0);
       return;
     }
-    final assets = await db.assetsForAiTagging(onlyUntagged: onlyUntagged);
-    // Einmal pro Lauf statt pro Asset gelesen – das Vokabular ändert sich
-    // während eines laufenden Backfills nicht, ein SELECT pro Foto wäre
-    // gegenüber der ohnehin pro Foto anfallenden CLIP-Inferenz reine Verschwendung.
-    final vocabulary = await db.aiTagVocabularyTerms();
-    var done = 0;
-    yield ImportProgress(0, assets.length);
-    for (final asset in assets) {
-      try {
-        var embedding = await db.embeddingForAsset(asset.id);
-        if (embedding == null) {
-          final decoded = await _decodeAsset(asset);
-          if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
-          embedding = await clip.embedImage(decoded);
-          await db.saveEmbedding(asset.id, embedding);
+    try {
+      final assets = await db.assetsForAiTagging(onlyUntagged: onlyUntagged);
+      // Einmal pro Lauf statt pro Asset gelesen – das Vokabular ändert sich
+      // während eines laufenden Backfills nicht, ein SELECT pro Foto wäre
+      // gegenüber der ohnehin pro Foto anfallenden CLIP-Inferenz reine Verschwendung.
+      final vocabulary = await db.aiTagVocabularyTerms();
+      // Aus demselben Grund wie das Vokabular einmal pro Lauf statt pro
+      // Foto geladen (siehe applyAutomationRules' `rules`-Parameter).
+      final automationRules = await db.allAutomationRules();
+      var done = 0;
+      yield ImportProgress(0, assets.length);
+      for (final asset in assets) {
+        try {
+          var embedding = await db.embeddingForAsset(asset.id);
+          if (embedding == null) {
+            final decoded = await _decodeAsset(asset);
+            if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
+            embedding = await clipBild.embedImage(decoded);
+            await db.saveEmbedding(asset.id, embedding);
+          }
+          final tags = await aiTaggingService.suggestTags(clipText, embedding, vocabulary);
+          for (final tag in tags) {
+            await db.tagAsset(asset.id, tag);
+          }
+          if (tags.isNotEmpty) {
+            await applyAutomationRules(asset.id, aiTags: tags, rules: automationRules);
+          }
+        } catch (e) {
+          debugPrint('KI-Tagging fehlgeschlagen für ${asset.originalFileName}: $e');
         }
-        final tags = await tagging.suggestTags(embedding, vocabulary);
-        for (final tag in tags) {
-          await db.tagAsset(asset.id, tag);
-        }
-      } catch (e) {
-        debugPrint('KI-Tagging fehlgeschlagen für ${asset.originalFileName}: $e');
+        done++;
+        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
       }
-      done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+    } finally {
+      clipTextHalter.zurueckgeben();
+      clipBildHalter.zurueckgeben();
     }
   }
 
@@ -1527,6 +1711,7 @@ class LibraryState extends ChangeNotifier {
   void dispose() {
     _autoBackupTimer?.cancel();
     _trashPurgeTimer?.cancel();
+    _modellFreigabeTimer?.cancel();
     super.dispose();
   }
 }

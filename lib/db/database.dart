@@ -211,6 +211,62 @@ class CameraPresetTags extends Table {
   Set<Column> get primaryKey => {presetId, tagId};
 }
 
+/// Verallgemeinerung von [CameraPresets] auf andere Bedingungen als die
+/// Kamera – bewusst eine eigene, zusätzliche Tabelle statt [CameraPresets]
+/// zu erweitern: Kamera-Presets bleiben unverändert nutzbar (kein
+/// Migrationsrisiko für bestehende Daten), und die je nach [triggerType]
+/// stark unterschiedlich geformten Bedingungen (Umkreis, Datumsbereich,
+/// KI-Tag) hätten als zusätzliche, meist leere Spalten auf [CameraPresets]
+/// keine saubere Passform gehabt.
+///
+/// [triggerType] ist bewusst ein einfacher String statt eines Drift-Enums
+/// (`'location'`/`'aiTag'`/`'dateRange'`) – dieselbe Konvention wie
+/// [Assets.type] (`'IMAGE'`/`'VIDEO'`). Je nach Typ sind nur die
+/// zugehörigen Bedingungs-Spalten gesetzt, der Rest bleibt `null` – siehe
+/// LibraryState.applyAutomationRules für die Auswertung.
+///
+/// Zwei Auslösepunkte, weil die jeweilige Bedingung zu unterschiedlichen
+/// Zeitpunkten überhaupt geprüft werden kann: `location`/`dateRange` schon
+/// beim Import (GPS/Datum liegen sofort vor), `aiTag` erst nach der
+/// KI-Tagging-Stufe der Hintergrundanalyse.
+@DataClassName('AutomationRuleData')
+class AutomationRules extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get triggerType => text()();
+
+  // triggerType == 'location': Umkreis um einen Mittelpunkt (einfacher fürs
+  // UI als eine Bounding-Box – ein Punkt + Radius-Regler).
+  RealColumn get regionCenterLat => real().nullable()();
+  RealColumn get regionCenterLon => real().nullable()();
+  RealColumn get regionRadiusKm => real().nullable()();
+
+  // triggerType == 'aiTag': muss exakt einem Begriff aus dem KI-Tag-
+  // Vokabular entsprechen (siehe AiTagVocabulary).
+  TextColumn get aiTagTerm => text().nullable()();
+
+  // triggerType == 'dateRange': volles Datum statt wiederkehrend
+  // Monat/Tag – vermeidet Jahresübergangs-Sonderfälle (z.B. "20.12.–5.1."),
+  // auf Kosten dessen, dass eine wiederkehrende Regel jedes Jahr neu
+  // angelegt werden muss.
+  DateTimeColumn get dateFrom => dateTime().nullable()();
+  DateTimeColumn get dateTo => dateTime().nullable()();
+
+  TextColumn get targetAlbumId => text().nullable()();
+  BoolColumn get autoFavorite => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class AutomationRuleTags extends Table {
+  TextColumn get ruleId => text()();
+  TextColumn get tagId => text()();
+
+  @override
+  Set<Column> get primaryKey => {ruleId, tagId};
+}
+
 /// Nicht-destruktive Entwicklungs-Einstellungen für ein Asset (siehe
 /// DevelopScreen) – existiert nur, solange der Nutzer tatsächlich
 /// Anpassungen vorgenommen hat (kein Row = "unverändert"). Ein Asset pro
@@ -543,6 +599,8 @@ class SavedSearches extends Table {
   RestoreJobs,
   AppSettings,
   AiTagVocabulary,
+  AutomationRules,
+  AutomationRuleTags,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -557,7 +615,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 29;
+  int get schemaVersion => 30;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -752,6 +810,10 @@ class AppDatabase extends _$AppDatabase {
                 'app_settings', 'auto_analyze_after_import');
             await _addColumnIfMissing(m, backupSettings, backupSettings.autoBackupMaxMbPerRun,
                 'backup_settings', 'auto_backup_max_mb_per_run');
+          }
+          if (from < 30) {
+            await m.createTable(automationRules);
+            await m.createTable(automationRuleTags);
           }
         },
       );
@@ -1184,6 +1246,11 @@ class AppDatabase extends _$AppDatabase {
             t.type.equals('IMAGE') & t.isTrashed.equals(false) & t.latitude.isNull()))
       .get();
 
+  /// Zählvariante von [assetsForLocationBackfill] – für Anzeigezwecke (siehe
+  /// BackgroundTasksScreen), ohne die vollen Zeilen aus der DB zu holen.
+  Future<int> countLocationBackfill() =>
+      _countWhere(assets.type.equals('IMAGE') & assets.isTrashed.equals(false) & assets.latitude.isNull());
+
   /// Setzt die Kamera-/Objektiv-/Aufnahme-Angaben eines Assets (siehe
   /// CameraInfo) – beim Import automatisch oder nachträglich über das
   /// Werkzeug "Kameradaten einlesen".
@@ -1213,6 +1280,12 @@ class AppDatabase extends _$AppDatabase {
             t.cameraModel.isNull()))
       .get();
 
+  /// Zählvariante von [assetsForCameraMetadataBackfill], siehe [countLocationBackfill].
+  Future<int> countCameraMetadataBackfill() => _countWhere(assets.type.equals('IMAGE') &
+      assets.isTrashed.equals(false) &
+      assets.cameraMake.isNull() &
+      assets.cameraModel.isNull());
+
   /// Setzt das Ergebnis der Texterkennung (siehe ImageConverter.swift
   /// `recognizeText`) – [text] darf leer sein (kein Text im Bild gefunden),
   /// `ocrScanned` unterscheidet das von "noch nicht gescannt".
@@ -1238,6 +1311,12 @@ class AppDatabase extends _$AppDatabase {
             t.ocrScanned.equals(false)))
       .get();
 
+  /// Zählvariante von [assetsForOcrBackfill], siehe [countLocationBackfill].
+  Future<int> countOcrBackfill() => _countWhere(assets.type.equals('IMAGE') &
+      assets.isTrashed.equals(false) &
+      assets.isLocked.equals(false) &
+      assets.ocrScanned.equals(false));
+
   /// Setzt das Ergebnis der KI-Bildbeschreibung (siehe CaptioningService) –
   /// analog zu [setOcrResult].
   Future<void> setAiCaption(String assetId, String caption) =>
@@ -1256,6 +1335,12 @@ class AppDatabase extends _$AppDatabase {
             t.isLocked.equals(false) &
             t.aiCaptionScanned.equals(false)))
       .get();
+
+  /// Zählvariante von [assetsForCaptionBackfill], siehe [countLocationBackfill].
+  Future<int> countCaptionBackfill() => _countWhere(assets.type.equals('IMAGE') &
+      assets.isTrashed.equals(false) &
+      assets.isLocked.equals(false) &
+      assets.aiCaptionScanned.equals(false));
 
   Future<void> setSharpnessScore(String assetId, double score) =>
       (update(assets)..where((t) => t.id.equals(assetId)))
@@ -1300,6 +1385,12 @@ class AppDatabase extends _$AppDatabase {
             t.sharpnessScore.isNull()))
       .get();
 
+  /// Zählvariante von [assetsForBlurBackfill], siehe [countLocationBackfill].
+  Future<int> countBlurBackfill() => _countWhere(assets.type.equals('IMAGE') &
+      assets.isTrashed.equals(false) &
+      assets.isLocked.equals(false) &
+      assets.sharpnessScore.isNull());
+
   /// Assets für den XMP-Sidecar-Export (Bibliothek + Backup) – bewusst OHNE
   /// gesperrte Assets: ein Sidecar würde Beschreibung/GPS/Tags im Klartext
   /// neben die (im Falle der Bibliothek noch verschlüsselte, im Falle des
@@ -1310,6 +1401,10 @@ class AppDatabase extends _$AppDatabase {
   /// hat der Nutzer das Entschlüsseln/Exportieren bereits aktiv angestoßen.
   Future<List<AssetData>> assetsForXmpExport() =>
       (select(assets)..where((t) => t.isTrashed.equals(false) & t.isLocked.equals(false))).get();
+
+  /// Zählvariante von [assetsForXmpExport], siehe [countLocationBackfill].
+  Future<int> countXmpExport() =>
+      _countWhere(assets.isTrashed.equals(false) & assets.isLocked.equals(false));
 
   /// Noch unbewertete Fotos/Videos für den Sichtungs-Modus (Culling) –
   /// bewusst `rating == 0` statt eines eigenen "gesichtet"-Flags: sobald ein
@@ -1351,6 +1446,12 @@ class AppDatabase extends _$AppDatabase {
             t.longitude.isNotNull() &
             t.locationCountry.isNull()))
       .get();
+
+  /// Zählvariante von [assetsForLocationNameBackfill], siehe [countLocationBackfill].
+  Future<int> countLocationNameBackfill() => _countWhere(assets.isTrashed.equals(false) &
+      assets.latitude.isNotNull() &
+      assets.longitude.isNotNull() &
+      assets.locationCountry.isNull());
 
   /// Alle nicht gelöschten Assets mit aufgelöstem Orts-Namen (Land/
   /// Bundesland/Stadt), neueste zuerst – für die "Erkannte Orte"-Sektion im
@@ -1443,6 +1544,10 @@ class AppDatabase extends _$AppDatabase {
             t.type.equals(type) & t.isTrashed.equals(false) & t.linkedAssetId.isNull()))
       .get();
 
+  /// Zählvariante von [unlinkedAssetsOfType], siehe [countLocationBackfill].
+  Future<int> countUnlinkedAssetsOfType(String type) =>
+      _countWhere(assets.type.equals(type) & assets.isTrashed.equals(false) & assets.linkedAssetId.isNull());
+
   Future<void> linkAssets(String idA, String idB) async {
     await (update(assets)..where((t) => t.id.equals(idA)))
         .write(AssetsCompanion(linkedAssetId: Value(idB)));
@@ -1499,6 +1604,11 @@ class AppDatabase extends _$AppDatabase {
     }
     return query.get();
   }
+
+  /// Zählvariante von [assetsForThumbnailRegen], siehe [countLocationBackfill].
+  Future<int> countThumbnailRegen({required bool onlyMissing}) => _countWhere(onlyMissing
+      ? assets.isTrashed.equals(false) & assets.thumbnailRelativePath.isNull()
+      : assets.isTrashed.equals(false));
 
   /// Für die Bibliotheks-Integritätsprüfung (IntegrityCheckScreen): bewusst
   /// vollständig ungefiltert (auch gelöscht/gesperrt), da all diese Assets
@@ -1647,6 +1757,18 @@ class AppDatabase extends _$AppDatabase {
       ..where(assets.isTrashed.equals(false) & assets.isLocked.equals(false));
     final rows = await query.get();
     return rows.map((r) => (r.readTable(assets), r.readTable(developSettings))).toList();
+  }
+
+  /// Zählvariante von [assetsWithDevelopSettings], siehe [countLocationBackfill].
+  Future<int> countAssetsWithDevelopSettings() async {
+    final countExpr = assets.id.count();
+    final query = selectOnly(assets).join([
+      innerJoin(developSettings, developSettings.assetId.equalsExp(assets.id)),
+    ])
+      ..addColumns([countExpr])
+      ..where(assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+    final row = await query.getSingle();
+    return row.read<int>(countExpr) ?? 0;
   }
 
   // -----------------------------------------------------------------------
@@ -1944,6 +2066,61 @@ class AppDatabase extends _$AppDatabase {
           ..limit(1))
         .get();
     return rows.isEmpty ? null : rows.first;
+  }
+
+  // -----------------------------------------------------------------------
+  // Automatisierungs-Regelwerk (Verallgemeinerung der Kamera-Presets auf
+  // Ort/Datum/KI-Tag, siehe AutomationRules-Tabelle)
+  // -----------------------------------------------------------------------
+
+  Stream<List<AutomationRuleData>> watchAutomationRules() =>
+      (select(automationRules)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+
+  /// Alle Regeln auf einmal statt eines gezielten Lookups (anders als
+  /// [cameraPresetFor]): die Bedingungen sind zu unterschiedlich geformt
+  /// (Umkreis/Datumsbereich/KI-Tag), um sie in einem einzelnen SQL-WHERE
+  /// zusammenzufassen – die Tabelle ist wie CameraPresets klein, ein voller
+  /// Scan mit Auswertung in Dart (siehe LibraryState.applyAutomationRules)
+  /// ist hier güngstiger als der Aufwand einer typspezifischen Abfrage.
+  Future<List<AutomationRuleData>> allAutomationRules() => select(automationRules).get();
+
+  /// Tag-Zuordnungen ALLER Regeln auf einmal, reaktiv – siehe
+  /// [watchAllCameraPresetTagIds] für die Begründung (N+1/Veralten
+  /// vermeiden).
+  Stream<Map<String, List<String>>> watchAllAutomationRuleTagIds() {
+    return select(automationRuleTags).watch().map((rows) {
+      final map = <String, List<String>>{};
+      for (final row in rows) {
+        map.putIfAbsent(row.ruleId, () => []).add(row.tagId);
+      }
+      return map;
+    });
+  }
+
+  Future<void> upsertAutomationRule(AutomationRulesCompanion rule) =>
+      into(automationRules).insertOnConflictUpdate(rule);
+
+  Future<void> deleteAutomationRule(String id) async {
+    await (delete(automationRuleTags)..where((t) => t.ruleId.equals(id))).go();
+    await (delete(automationRules)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<List<String>> tagIdsForAutomationRule(String ruleId) async {
+    final rows = await (select(automationRuleTags)..where((t) => t.ruleId.equals(ruleId))).get();
+    return rows.map((r) => r.tagId).toList();
+  }
+
+  /// Ersetzt die komplette Tag-Zuordnung einer Regel auf einmal, siehe
+  /// [setCameraPresetTags].
+  Future<void> setAutomationRuleTags(String ruleId, List<String> tagIds) async {
+    await (delete(automationRuleTags)..where((t) => t.ruleId.equals(ruleId))).go();
+    if (tagIds.isEmpty) return;
+    await batch((b) {
+      b.insertAll(
+        automationRuleTags,
+        tagIds.map((tagId) => AutomationRuleTagsCompanion.insert(ruleId: ruleId, tagId: tagId)),
+      );
+    });
   }
 
   Future<List<TagData>> tagsForAsset(String assetId) async {
@@ -2382,6 +2559,13 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  /// Zählvariante von [assetsForFaceScan], siehe [countLocationBackfill].
+  Future<int> countFaceScan({required bool onlyNew}) {
+    var predicate = assets.type.equals('IMAGE') & assets.isTrashed.equals(false) & assets.isLocked.equals(false);
+    if (onlyNew) predicate = predicate & assets.facesScanned.equals(false);
+    return _countWhere(predicate);
+  }
+
   Future<void> markFacesScanned(List<String> assetIds) => (update(assets)
         ..where((t) => t.id.isIn(assetIds)))
       .write(const AssetsCompanion(facesScanned: Value(true)));
@@ -2441,6 +2625,21 @@ class AppDatabase extends _$AppDatabase {
     return rows.map((r) => r.readTable(assets)).toList();
   }
 
+  /// Zählvariante von [assetsForEmbeddingBackfill], siehe [countLocationBackfill].
+  Future<int> countEmbeddingBackfill() async {
+    final countExpr = assets.id.count();
+    final query = selectOnly(assets).join([
+      leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
+    ])
+      ..addColumns([countExpr])
+      ..where(assets.type.equals('IMAGE') &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          imageEmbeddings.assetId.isNull());
+    final row = await query.getSingle();
+    return row.read<int>(countExpr) ?? 0;
+  }
+
   /// Bild-Assets, die für automatisches KI-Tagging infrage kommen (nicht
   /// gelöscht/gesperrt – gesperrte Fotos werden bewusst nicht verarbeitet,
   /// solange sie versteckt sind). Bei [onlyUntagged] nur Fotos ganz ohne
@@ -2462,6 +2661,25 @@ class AppDatabase extends _$AppDatabase {
           assetTags.assetId.isNull());
     final rows = await query.get();
     return rows.map((r) => r.readTable(assets)).toList();
+  }
+
+  /// Zählvariante von [assetsForAiTagging], siehe [countLocationBackfill].
+  Future<int> countAiTagging({required bool onlyUntagged}) async {
+    if (!onlyUntagged) {
+      return _countWhere(
+          assets.type.equals('IMAGE') & assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+    }
+    final countExpr = assets.id.count();
+    final query = selectOnly(assets).join([
+      leftOuterJoin(assetTags, assetTags.assetId.equalsExp(assets.id)),
+    ])
+      ..addColumns([countExpr])
+      ..where(assets.type.equals('IMAGE') &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          assetTags.assetId.isNull());
+    final row = await query.getSingle();
+    return row.read<int>(countExpr) ?? 0;
   }
 
   /// Lädt alle gespeicherten Embeddings (assetId -> Vektor) für die

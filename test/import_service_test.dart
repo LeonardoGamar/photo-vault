@@ -30,6 +30,8 @@ void main() {
   test('isSupported erkennt Bild- und Videoformate unabhängig von Groß-/Kleinschreibung', () {
     expect(importService.isSupported('foto.JPG'), isTrue);
     expect(importService.isSupported('foto.heic'), isTrue);
+    expect(importService.isSupported('foto.avif'), isTrue);
+    expect(importService.isSupported('foto.AVIFS'), isTrue);
     expect(importService.isSupported('clip.MOV'), isTrue);
     expect(importService.isSupported('dokument.txt'), isFalse);
   });

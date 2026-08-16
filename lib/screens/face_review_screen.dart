@@ -39,6 +39,15 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   @override
   void initState() {
     super.initState();
+    // Redundant zur Sperre in asset_viewer_screen.dart (bisher der einzige
+    // Einstiegspunkt, seit heute auch über dessen Kontextmenü erreichbar):
+    // schützt auch dann, falls dieser Screen je aus einem anderen Kontext
+    // heraus geöffnet würde, bevor die Original-/Vorschau-Datei (noch
+    // verschlüsselt) angefasst wird – dasselbe Muster wie DevelopScreen._init.
+    if (widget.asset.isLocked) {
+      _loading = false;
+      return;
+    }
     _load();
   }
 
@@ -116,9 +125,25 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     final croppedThumb = FaceEngineService.cropFaceImage(decoded, box);
     await FaceEngineService.saveFaceCrop(croppedThumb, cropFile);
 
+    // Ein Ladefehler (z.B. eine beschädigte Modelldatei) darf den Rest
+    // dieser Methode nicht abbrechen: Ohne dieses try/catch würde die
+    // Exception hier unbehandelt aus dem Tap-Callback fliegen, während der
+    // Crop bereits auf der Platte liegt (siehe oben) – ein verwaistes Foto
+    // ohne zugehörigen Faces-Eintrag, ohne jede Fehlermeldung für den
+    // Nutzer. Stattdessen wird ein Ladefehler wie "kann nicht einbetten"
+    // behandelt: das Gesicht wird trotzdem der Person zugeordnet, nur ohne
+    // Wiedererkennungs-Embedding.
     Float32List? embedding;
-    if (widget.library.faceEngine?.canEmbed ?? false) {
-      embedding = await widget.library.faceEngine!.embedFace(decoded, box);
+    try {
+      embedding = await widget.library.faceEngineHalter.mit<Float32List?>((engine) {
+        return engine.canEmbed ? engine.embedFace(decoded, box) : Future<Float32List?>.value(null);
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Wiedererkennungs-Embedding fehlgeschlagen: $e')),
+        );
+      }
     }
 
     await widget.library.db.insertFace(FacesCompanion.insert(
@@ -149,6 +174,26 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.asset.isLocked) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: Text(widget.asset.originalFileName, overflow: TextOverflow.ellipsis),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppSpacing.xxl),
+            child: Text(
+              'Gesichts-Bearbeitung ist für Fotos im gesperrten Ordner nicht verfügbar.',
+              style: TextStyle(color: Colors.white70),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(

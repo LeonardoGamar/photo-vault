@@ -10,7 +10,7 @@ import 'raw_formats.dart';
 /// versucht, über [NativeImageConverter] eine JPEG-Vorschau zu erzeugen,
 /// unabhängig davon, ob ein direkter Dekodierversuch zufällig teilweise
 /// klappen würde.
-const heicAndRawExtensions = {'.heic', '.heif', ...rawImageExtensions};
+const heicAndRawExtensions = {'.heic', '.heif', '.avif', '.avifs', ...rawImageExtensions};
 
 /// Wrapper um einen MethodChannel zur nativen macOS-Bildkonvertierung via
 /// ImageIO (siehe native/macos_image_convert/ImageConverter.swift). Deckt

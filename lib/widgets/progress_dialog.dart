@@ -13,15 +13,26 @@ class ProgressDialog extends StatelessWidget {
       stream: stream,
       builder: (context, snapshot) {
         final done = snapshot.connectionState == ConnectionState.done;
+        final failed = snapshot.hasError;
         return AlertDialog(
           title: Text(title),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (!done) const LinearProgressIndicator() else const Icon(Icons.check_circle, color: Colors.green),
+              if (!done)
+                const LinearProgressIndicator()
+              else if (failed)
+                const Icon(Icons.error_outline, color: Colors.red)
+              else
+                const Icon(Icons.check_circle, color: Colors.green),
               const SizedBox(height: 12),
-              Text(snapshot.data ?? '…'),
+              // Ein Stream-Fehler (z.B. ein Modell, das sich nicht laden
+              // ließ) darf hier nie als Erfolg durchgehen – vorher wurde nur
+              // `snapshot.data` gelesen, das bei einem Fehler VOR dem ersten
+              // `yield` schlicht leer blieb und trotzdem den grünen Haken
+              // zeigte (Audit-Fund).
+              Text(failed ? 'Fehlgeschlagen: ${snapshot.error}' : (snapshot.data ?? '…')),
             ],
           ),
           actions: [
