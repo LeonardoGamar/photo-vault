@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../services/clip_service.dart';
 import '../state/library_state.dart';
@@ -62,12 +64,12 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
   Widget build(BuildContext context) {
     if (!widget.library.clipAvailable) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Ähnliche Fotos')),
-        body: const Center(
+        appBar: AppBar(title: Text(AppTexte.of(context).aehnlTitel)),
+        body: Center(
           child: Padding(
-            padding: EdgeInsets.all(AppSpacing.xxl),
+            padding: const EdgeInsets.all(AppSpacing.xxl),
             child: Text(
-              'KI-Bildsuche nicht verfügbar – CLIP-Modell fehlt (siehe Einstellungen → KI-Modelle).',
+              AppTexte.of(context).aehnlClipFehlt,
               textAlign: TextAlign.center,
             ),
           ),
@@ -76,7 +78,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ähnliche Fotos')),
+      appBar: AppBar(title: Text(AppTexte.of(context).aehnlTitel)),
       body: FutureBuilder<List<AssetData>>(
         future: _resultsFuture,
         builder: (context, snapshot) {
@@ -85,12 +87,11 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
           }
           final results = snapshot.data ?? [];
           if (results.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(AppSpacing.xxl),
+                padding: const EdgeInsets.all(AppSpacing.xxl),
                 child: Text(
-                  'Für dieses Foto liegt noch kein KI-Embedding vor (siehe Werkzeuge → KI-Bildsuche → '
-                  'CLIP-Embeddings berechnen) oder es gibt keine ähnlichen Fotos in der Bibliothek.',
+                  AppTexte.of(context).aehnlKeineTreffer,
                   textAlign: TextAlign.center,
                 ),
               ),

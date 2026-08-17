@@ -11,7 +11,9 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/asset_display_path.dart';
+import '../services/develop_color.dart';
 import '../services/histogram.dart';
 import '../services/modell_halter.dart';
 import '../services/native_image_converter.dart';
@@ -22,8 +24,10 @@ import '../services/vector_mask_service.dart';
 import '../state/library_state.dart' show decodeImageBytes;
 import '../theme/app_spacing.dart';
 import '../utils/debouncer.dart';
+import '../widgets/color_mixer_panel.dart';
 import '../widgets/develop_preview.dart';
 import '../widgets/histogram_view.dart';
+import '../widgets/tone_curve_editor.dart';
 
 /// Welche Art von Maske gerade erstellt/bearbeitet wird – KI-Auswahl (SAM-
 /// Punkt-Prompts, siehe SegmentationService) oder eine der drei editierbaren
@@ -62,12 +66,30 @@ class DevelopScreen extends StatefulWidget {
   final ModellHalter<SegmentationService>? segmentation;
   final RestoreQueueService? restoreQueue;
 
+  /// Legt die gespeicherten Einstellungen dieses Fotos in die
+  /// Zwischenablage, um sie danach auf andere Fotos zu übertragen (siehe
+  /// LibraryState.kopiereEntwicklungVon). Als Rückruf statt als
+  /// LibraryState-Abhängigkeit, damit dieser Bildschirm weiterhin nur mit
+  /// Datenbank und Pfaden auskommt.
+  /// Legt den aktuellen Reglerstand in die Zwischenablage (siehe
+  /// LibraryState.setzeKopierteEntwicklung).
+  final void Function(DevelopSettingsData werte)? onEinstellungenKopieren;
+
+  /// Liefert zuvor kopierte Einstellungen, oder `null`, wenn nichts in der
+  /// Zwischenablage liegt. Hier werden sie in die Regler gesetzt statt
+  /// stapelweise angewandt: In diesem Bildschirm geht es um genau ein
+  /// Foto, und der Nutzer soll das Ergebnis sehen und noch nachjustieren
+  /// können, bevor er speichert.
+  final DevelopSettingsData? Function()? kopierteEinstellungen;
+
   const DevelopScreen({
     super.key,
     required this.asset,
     required this.db,
     required this.paths,
     this.segmentation,
+    this.onEinstellungenKopieren,
+    this.kopierteEinstellungen,
     this.restoreQueue,
   });
 
@@ -126,6 +148,13 @@ class _DevelopScreenState extends State<DevelopScreen> {
   double _sharpness = 0;
   double _noiseReduction = 0;
   bool _lensCorrectionEnabled = true;
+
+  /// Tonwertkurve und Farbmischer (siehe develop_color.dart). Anders als
+  /// die Regler darüber tragen sie keinen einzelnen Zahlenwert, sondern
+  /// eine ganze Punktfolge bzw. acht Bänder – und gelten nur fürs ganze
+  /// Bild, nicht je Maske.
+  ToneCurve _toneCurve = ToneCurve.neutral;
+  ColorMixer _colorMixer = ColorMixer.neutral;
 
   // --- KI-Objektmasken -------------------------------------------------
   List<DevelopMaskData> _masks = [];
@@ -254,7 +283,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Entwickeln ist für Fotos im gesperrten Ordner nicht verfügbar.';
+          _error = AppTexte.of(context).entwGesperrt;
         });
       }
       return;
@@ -268,6 +297,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _sharpness = settings.sharpness;
       _noiseReduction = settings.noiseReduction;
       _lensCorrectionEnabled = settings.lensCorrectionEnabled;
+      _toneCurve = toneCurveAus(settings.toneCurveJson);
+      _colorMixer = colorMixerAus(settings.colorMixerJson);
       if (settings.temperature != null) {
         _autoWhiteBalance = false;
         _temperature = settings.temperature!;
@@ -312,6 +343,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
         sharpness: _sharpness,
         noiseReduction: _noiseReduction,
         lensCorrectionEnabled: _lensCorrectionEnabled,
+        toneCurve: _toneCurve,
+        colorMixer: _colorMixer,
       );
 
   /// Baut die Masken-Ebenen für den nativen Renderaufruf: für die gerade
@@ -373,7 +406,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
         _previewBytes = bytes;
         _error = null;
       } else {
-        _error = 'Vorschau konnte nicht erzeugt werden – native Bildkonvertierung nicht verfügbar?';
+        _error = AppTexte.of(context).entwVorschauFehlt;
       }
     });
     if (bytes != null) unawaited(_recomputeHistogram());
@@ -436,6 +469,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _sharpness = entry.sharpness;
       _noiseReduction = entry.noiseReduction;
       _lensCorrectionEnabled = entry.lensCorrectionEnabled;
+      _toneCurve = toneCurveAus(entry.toneCurveJson);
+      _colorMixer = colorMixerAus(entry.colorMixerJson);
       _autoWhiteBalance = entry.temperature == null;
       _temperature = entry.temperature ?? _temperature;
       _tint = entry.tint ?? 0;
@@ -451,12 +486,11 @@ class _DevelopScreenState extends State<DevelopScreen> {
       backgroundColor: const Color(0xFF1A1A1A),
       builder: (context) {
         if (history.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(AppSpacing.xxl),
+          return Padding(
+            padding: const EdgeInsets.all(AppSpacing.xxl),
             child: Text(
-              'Noch kein Verlauf vorhanden – ein Eintrag entsteht, sobald du nach einer '
-              'ersten Anpassung erneut speicherst.',
-              style: TextStyle(color: Colors.white70),
+              AppTexte.of(context).entwKeinVerlauf,
+              style: const TextStyle(color: Colors.white70),
             ),
           );
         }
@@ -468,7 +502,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
                 ListTile(
                   leading: const Icon(Icons.history, color: Colors.white70),
                   title: Text(
-                    DateFormat('dd.MM.yyyy HH:mm', 'de_DE').format(entry.createdAt),
+                    DateFormat.yMd(Localizations.localeOf(context).toString())
+                        .add_Hm()
+                        .format(entry.createdAt),
                     style: const TextStyle(color: Colors.white),
                   ),
                   onTap: () => Navigator.pop(context, entry),
@@ -479,6 +515,57 @@ class _DevelopScreenState extends State<DevelopScreen> {
       },
     );
     if (selected != null) _loadHistoryEntry(selected);
+  }
+
+  /// Legt den AKTUELLEN Reglerstand in die Zwischenablage – nicht den
+  /// zuletzt gespeicherten. Andernfalls käme man nie zum Kopieren: Das
+  /// Speichern schliesst diesen Bildschirm (Fehlerbericht).
+  void _kopiereEinstellungen() {
+    final a = _currentAdjustments();
+    widget.onEinstellungenKopieren!(DevelopSettingsData(
+      assetId: widget.asset.id,
+      exposure: a.exposure,
+      temperature: a.temperature,
+      tint: a.tint,
+      contrast: a.contrast,
+      shadows: a.shadows,
+      sharpness: a.sharpness,
+      noiseReduction: a.noiseReduction,
+      lensCorrectionEnabled: a.lensCorrectionEnabled,
+      toneCurveJson: a.toneCurve.istNeutral ? null : a.toneCurve.encode(),
+      colorMixerJson: a.colorMixer.istNeutral ? null : a.colorMixer.encode(),
+      updatedAt: DateTime.now(),
+    ));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppTexte.of(context).entwKopiert),
+    ));
+  }
+
+  /// Setzt die kopierten Werte in die Regler. Bewusst ohne sofortiges
+  /// Speichern: Der Nutzer sieht die Vorschau, kann nachjustieren und
+  /// entscheidet selbst – anders als beim Stapellauf über die Auswahl, wo
+  /// eine Vorschau je Foto gar nicht möglich wäre.
+  Future<void> _setzeKopierteEinstellungen() async {
+    final w = widget.kopierteEinstellungen?.call();
+    if (w == null) return;
+    setState(() {
+      _exposure = w.exposure;
+      _autoWhiteBalance = w.temperature == null;
+      if (w.temperature != null) _temperature = w.temperature!;
+      if (w.tint != null) _tint = w.tint!;
+      _contrast = w.contrast;
+      _shadows = w.shadows;
+      _sharpness = w.sharpness;
+      _noiseReduction = w.noiseReduction;
+      _lensCorrectionEnabled = w.lensCorrectionEnabled;
+      _toneCurve = toneCurveAus(w.toneCurveJson);
+      _colorMixer = colorMixerAus(w.colorMixerJson);
+    });
+    await _requestPreview();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppTexte.of(context).entwEingesetzt),
+    ));
   }
 
   Future<void> _save() async {
@@ -496,8 +583,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
     if (bytes == null) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Speichern fehlgeschlagen: Bild konnte nicht gerendert werden.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppTexte.of(context).entwSpeichernFehlgeschlagen)));
       }
       return;
     }
@@ -519,6 +606,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
         sharpness: Value(adjustments.sharpness),
         noiseReduction: Value(adjustments.noiseReduction),
         lensCorrectionEnabled: Value(adjustments.lensCorrectionEnabled),
+        toneCurveJson: Value(
+            adjustments.toneCurve.istNeutral ? null : adjustments.toneCurve.encode()),
+        colorMixerJson: Value(
+            adjustments.colorMixer.istNeutral ? null : adjustments.colorMixer.encode()),
         updatedAt: DateTime.now(),
       ),
       developedRelativePath: developedRelativePath,
@@ -564,13 +655,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
       await queue.enqueue(widget.asset.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Zur Warteschlange für KI-Restaurierung hinzugefügt.')),
+          SnackBar(content: Text(AppTexte.of(context).entwRestaurierungEingereiht)),
+        );
+      }
+    } on RestaurierungNichtVerfuegbar {
+      // Der Dienst kennt keine Oberflächensprache und wirft deshalb einen
+      // eigenen Typ statt eines fertigen Satzes.
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppTexte.of(context).restaurNichtVerfuegbar)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Konnte nicht zur Warteschlange hinzugefügt werden: $e')));
+            .showSnackBar(SnackBar(content: Text(AppTexte.of(context).entwRestaurierungFehler('$e'))));
       }
     }
   }
@@ -697,7 +796,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       if (mounted) {
         setState(() => _computingEmbedding = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('KI-Auswahl konnte nicht geladen werden: $e')),
+          SnackBar(content: Text(AppTexte.of(context).entwKiAuswahlLadefehler('$e'))),
         );
       }
       return;
@@ -723,7 +822,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
         if (mounted) {
           setState(() => _computingEmbedding = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vorschaubild konnte nicht für die Maskierung dekodiert werden.')),
+            SnackBar(content: Text(AppTexte.of(context).entwVorschauNichtDekodiert)),
           );
         }
         return;
@@ -744,7 +843,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       if (mounted) {
         setState(() => _computingEmbedding = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('KI-Auswahl fehlgeschlagen: $e')),
+          SnackBar(content: Text(AppTexte.of(context).entwKiAuswahlFehler('$e'))),
         );
       }
     } finally {
@@ -855,6 +954,11 @@ class _DevelopScreenState extends State<DevelopScreen> {
   Future<void> _commitMask() async {
     final result = _pendingMaskResult;
     if (result == null) return;
+    // Vor dem ersten await auflösen – danach ist der Kontext nicht mehr
+    // verlässlich. Der Name wird gespeichert und bleibt deshalb in der
+    // Sprache stehen, in der die Maske entstanden ist; das ist gewollt,
+    // Masken lassen sich wie Alben umbenennen.
+    final name = AppTexte.of(context).entwMaskeNummer(_masks.length + 1);
     final pngBytes = await compute(renderMaskPngBytes, result);
     final relativePath = widget.paths.maskRelativePath(const Uuid().v4());
     final file = widget.paths.absolute(relativePath);
@@ -864,7 +968,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     await widget.db.createDevelopMask(DevelopMasksCompanion.insert(
       assetId: widget.asset.id,
       maskRelativePath: relativePath,
-      label: 'Maske ${_masks.length + 1}',
+      label: name,
       createdAt: DateTime.now(),
     ));
     final refreshedMasks = await widget.db.masksForAsset(widget.asset.id);
@@ -965,11 +1069,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
     if (width == null || height == null || width <= 0 || height <= 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bildauflösung unbekannt – Maske kann nicht gespeichert werden.')),
+          SnackBar(content: Text(AppTexte.of(context).entwAufloesungUnbekannt)),
         );
       }
       return;
     }
+    final name = AppTexte.of(context).entwMaskeNummer(_masks.length + 1);
     setState(() => _computingMask = true);
     final pngBytes = await compute(rasterizeMaskShapeToPngBytes, (shape, width, height));
     var editingId = _editingMaskId;
@@ -998,7 +1103,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       await widget.db.createDevelopMask(DevelopMasksCompanion.insert(
         assetId: widget.asset.id,
         maskRelativePath: relativePath,
-        label: 'Maske ${_masks.length + 1}',
+        label: name,
         createdAt: DateTime.now(),
         shapeDefinitionJson: Value(shape.encode()),
       ));
@@ -1087,34 +1192,47 @@ class _DevelopScreenState extends State<DevelopScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Entwickeln'),
+        title: Text(AppTexte.of(context).entwTitel),
         actions: [
           if (widget.asset.restoredRelativePath != null)
             IconButton(
               icon: const Icon(Icons.remove_circle_outline),
-              tooltip: 'KI-Restaurierung entfernen',
+              tooltip: AppTexte.of(context).entwRestaurierungEntfernen,
               onPressed: _saving ? null : _removeRestoredResult,
             ),
           IconButton(
             icon: const Icon(Icons.auto_awesome_outlined),
             tooltip: widget.restoreQueue?.restoreHalter?.installiert != true
-                ? 'Benötigt das Restaurierungs-Modell (Einstellungen → KI-Modelle)'
-                : 'KI-Restaurierung anwenden (läuft im Hintergrund, dauert mehrere Minuten)',
+                ? AppTexte.of(context).entwRestaurierungModellFehlt
+                : AppTexte.of(context).entwRestaurierungAnwenden,
             onPressed: (_saving || widget.restoreQueue?.restoreHalter?.installiert != true) ? null : _enqueueRestore,
           ),
           IconButton(
             icon: const Icon(Icons.auto_fix_high_outlined),
-            tooltip: 'Maske hinzufügen',
+            tooltip: AppTexte.of(context).entwMaskeHinzufuegen,
             onPressed: (_saving || _maskEditMode) ? null : () => _startMaskCreation(),
           ),
           IconButton(
             icon: const Icon(Icons.history),
-            tooltip: 'Verlauf',
+            tooltip: AppTexte.of(context).entwVerlauf,
             onPressed: _saving ? null : _showHistory,
           ),
+          if (widget.onEinstellungenKopieren != null)
+            IconButton(
+              icon: const Icon(Icons.copy_all_outlined),
+              tooltip: AppTexte.of(context).entwEinstellungenKopieren,
+              onPressed: _saving ? null : _kopiereEinstellungen,
+            ),
+          if (widget.kopierteEinstellungen?.call() != null)
+            IconButton(
+              icon: const Icon(Icons.content_paste_go_outlined),
+              tooltip: AppTexte.of(context).entwEinstellungenEinsetzen,
+              onPressed: _saving ? null : _setzeKopierteEinstellungen,
+            ),
           TextButton(
             onPressed: _saving ? null : _reset,
-            child: const Text('Zurücksetzen', style: TextStyle(color: Colors.white70)),
+            child: Text(AppTexte.of(context).einstZuruecksetzen,
+                style: const TextStyle(color: Colors.white70)),
           ),
           if (_saving)
             const Padding(
@@ -1128,7 +1246,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
           else
             IconButton(
               icon: const Icon(Icons.check),
-              tooltip: 'Speichern',
+              tooltip: AppTexte.of(context).allgSpeichern,
               onPressed: _save,
             ),
         ],
@@ -1184,16 +1302,18 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                               color: Colors.black54,
                                               borderRadius: BorderRadius.circular(AppRadius.pill),
                                             ),
-                                            child: const Text('Original',
-                                                style: TextStyle(color: Colors.white, fontSize: 12)),
+                                            child: Text(AppTexte.of(context).entwOriginal,
+                                                style: const TextStyle(
+                                                    color: Colors.white, fontSize: 12)),
                                           ),
                                         )
                                       else
-                                        const Positioned(
+                                        Positioned(
                                           bottom: 4,
                                           child: Text(
-                                            'Zum Vergleichen gedrückt halten',
-                                            style: TextStyle(color: Colors.white38, fontSize: 11),
+                                            AppTexte.of(context).entwVergleichen,
+                                            style: const TextStyle(
+                                                color: Colors.white38, fontSize: 11),
                                           ),
                                         ),
                                       if (_rendering)
@@ -1250,8 +1370,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _ladeSegmentierungsmodell
-                          ? 'Modell für die KI-Auswahl wird geladen …'
-                          : 'Bild wird für die Maskierung vorbereitet …',
+                          ? AppTexte.of(context).entwModellLaedt
+                          : AppTexte.of(context).entwBildWirdVorbereitet,
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ],
@@ -1323,30 +1443,32 @@ class _DevelopScreenState extends State<DevelopScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Maske erstellen', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
+          Text(AppTexte.of(context).entwMaskeErstellen,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           SegmentedButton<_MaskFormType>(
             segments: [
               ButtonSegment(
                 value: _MaskFormType.aiSelect,
-                label: const Text('KI'),
+                label: Text(AppTexte.of(context).entwFormKi),
                 icon: const Icon(Icons.auto_awesome_outlined, size: 16),
                 enabled: widget.segmentation?.installiert ?? false,
               ),
-              const ButtonSegment(
+              ButtonSegment(
                 value: _MaskFormType.freehand,
-                label: Text('Pinsel'),
-                icon: Icon(Icons.brush_outlined, size: 16),
+                label: Text(AppTexte.of(context).entwFormPinsel),
+                icon: const Icon(Icons.brush_outlined, size: 16),
               ),
-              const ButtonSegment(
+              ButtonSegment(
                 value: _MaskFormType.ellipse,
-                label: Text('Ellipse'),
-                icon: Icon(Icons.circle_outlined, size: 16),
+                label: Text(AppTexte.of(context).entwFormEllipse),
+                icon: const Icon(Icons.circle_outlined, size: 16),
               ),
-              const ButtonSegment(
+              ButtonSegment(
                 value: _MaskFormType.gradient,
-                label: Text('Verlauf'),
-                icon: Icon(Icons.gradient_outlined, size: 16),
+                label: Text(AppTexte.of(context).entwFormVerlauf),
+                icon: const Icon(Icons.gradient_outlined, size: 16),
               ),
             ],
             selected: {_maskFormType},
@@ -1358,13 +1480,14 @@ class _DevelopScreenState extends State<DevelopScreen> {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(onPressed: _cancelMaskCreation, child: const Text('Abbrechen')),
+                child: OutlinedButton(
+                    onPressed: _cancelMaskCreation, child: Text(AppTexte.of(context).allgAbbrechen)),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: FilledButton(
                   onPressed: _canCommitShape ? _commitCurrentMask : null,
-                  child: const Text('Fertig'),
+                  child: Text(AppTexte.of(context).allgFertig),
                 ),
               ),
             ],
@@ -1386,15 +1509,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          'Auf den Bereich tippen, den du anpassen möchtest. Mehrere Tipps verfeinern die Auswahl.',
-          style: TextStyle(color: Colors.white70, fontSize: 12),
+        Text(
+          AppTexte.of(context).entwKiHinweis,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
         ),
         const SizedBox(height: 16),
         SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: false, label: Text('Hinzufügen'), icon: Icon(Icons.add)),
-            ButtonSegment(value: true, label: Text('Entfernen'), icon: Icon(Icons.remove)),
+          segments: [
+            ButtonSegment(
+                value: false,
+                label: Text(AppTexte.of(context).entwPunktHinzufuegen),
+                icon: const Icon(Icons.add)),
+            ButtonSegment(
+                value: true,
+                label: Text(AppTexte.of(context).entwPunktEntfernen),
+                icon: const Icon(Icons.remove)),
           ],
           selected: {_backgroundPointMode},
           onSelectionChanged: (s) => setState(() => _backgroundPointMode = s.first),
@@ -1403,7 +1532,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
         TextButton.icon(
           onPressed: _maskPoints.isEmpty ? null : _undoLastMaskPoint,
           icon: const Icon(Icons.undo, color: Colors.white70, size: 18),
-          label: const Text('Letzten Punkt entfernen', style: TextStyle(color: Colors.white70)),
+          label: Text(AppTexte.of(context).entwLetztenPunktEntfernen,
+              style: const TextStyle(color: Colors.white70)),
         ),
       ],
     );
@@ -1416,12 +1546,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          'Über den Bereich ziehen, den du anpassen möchtest.',
-          style: TextStyle(color: Colors.white70, fontSize: 12),
+        Text(
+          AppTexte.of(context).entwPinselHinweis,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
         ),
         const SizedBox(height: 16),
-        _shapeSlider('Strichbreite', strokeWidth, 0.01, 0.15, (v) {
+        _shapeSlider(AppTexte.of(context).entwStrichbreite, strokeWidth, 0.01, 0.15, (v) {
           setState(() => _draftShape =
               FreehandShape(points: shape is FreehandShape ? shape.points : const [], strokeWidth: v));
         }),
@@ -1429,7 +1559,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
         TextButton.icon(
           onPressed: shape == null ? null : () => setState(() => _draftShape = null),
           icon: const Icon(Icons.undo, color: Colors.white70, size: 18),
-          label: const Text('Neu zeichnen', style: TextStyle(color: Colors.white70)),
+          label: Text(AppTexte.of(context).entwNeuZeichnen, style: const TextStyle(color: Colors.white70)),
         ),
       ],
     );
@@ -1443,12 +1573,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          'Über den Bereich ziehen, um die Ellipse aufzuziehen.',
-          style: TextStyle(color: Colors.white70, fontSize: 12),
+        Text(
+          AppTexte.of(context).entwEllipseHinweis,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
         ),
         const SizedBox(height: 16),
-        _shapeSlider('Rotation (°)', rotationDeg, -180, 180, (v) {
+        _shapeSlider(AppTexte.of(context).entwRotation, rotationDeg, -180, 180, (v) {
           if (shape is! EllipseShape) return;
           setState(() => _draftShape = EllipseShape(
                 centerX: shape.centerX,
@@ -1459,7 +1589,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
                 feather: shape.feather,
               ));
         }, enabled: shape is EllipseShape),
-        _shapeSlider('Weichzeichnung', feather, 0, 1, (v) {
+        _shapeSlider(AppTexte.of(context).entwWeichzeichnung, feather, 0, 1, (v) {
           if (shape is! EllipseShape) return;
           setState(() => _draftShape = EllipseShape(
                 centerX: shape.centerX,
@@ -1481,12 +1611,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Text(
-          'Von einer Kante zur anderen ziehen, um den Verlauf festzulegen.',
-          style: TextStyle(color: Colors.white70, fontSize: 12),
+        Text(
+          AppTexte.of(context).entwVerlaufHinweis,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
         ),
         const SizedBox(height: 16),
-        _shapeSlider('Weichzeichnung', feather, 0, 1, (v) {
+        _shapeSlider(AppTexte.of(context).entwWeichzeichnung, feather, 0, 1, (v) {
           if (shape is! GradientShape) return;
           setState(() => _draftShape = GradientShape(
                 startX: shape.startX,
@@ -1542,14 +1672,15 @@ class _DevelopScreenState extends State<DevelopScreen> {
           const Divider(color: Colors.white24),
           const SizedBox(height: AppSpacing.sm),
           if (_masks.isNotEmpty) ...[
-            const Text('Anpassung für', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(AppTexte.of(context).entwAnpassungFuer,
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
               children: [
                 ChoiceChip(
-                  label: const Text('Ganzes Bild'),
+                  label: Text(AppTexte.of(context).entwGanzesBild),
                   selected: !editingMask,
                   onSelected: (_) => _selectGlobalAdjustments(),
                 ),
@@ -1591,40 +1722,64 @@ class _DevelopScreenState extends State<DevelopScreen> {
         child: OutlinedButton.icon(
           onPressed: () => _startMaskCreation(editingMask: mask),
           icon: const Icon(Icons.edit_outlined, size: 18),
-          label: const Text('Form bearbeiten'),
+          label: Text(AppTexte.of(context).entwFormBearbeiten),
         ),
       ),
     ];
   }
 
   List<Widget> _buildGlobalSliders() => [
-        _slider('Belichtung', _exposure, -3, 3, (v) => setState(() => _exposure = v)),
+        _slider(AppTexte.of(context).entwBelichtung, _exposure, -3, 3, (v) => setState(() => _exposure = v)),
         const Divider(color: Colors.white24),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Automatischer Weißabgleich', style: TextStyle(color: Colors.white, fontSize: 13)),
+          title: Text(AppTexte.of(context).entwAutoWeissabgleich,
+              style: const TextStyle(color: Colors.white, fontSize: 13)),
           value: _autoWhiteBalance,
           onChanged: (v) {
             setState(() => _autoWhiteBalance = v);
             _scheduleRerender();
           },
         ),
-        _slider('Temperatur (K)', _temperature, 2000, 12000, (v) => setState(() => _temperature = v),
+        _slider(AppTexte.of(context).entwTemperatur, _temperature, 2000, 12000, (v) => setState(() => _temperature = v),
             enabled: !_autoWhiteBalance, liveVorschau: false),
-        _slider('Tint', _tint, -100, 100, (v) => setState(() => _tint = v),
+        _slider(AppTexte.of(context).entwTint, _tint, -100, 100, (v) => setState(() => _tint = v),
             enabled: !_autoWhiteBalance, liveVorschau: false),
         const Divider(color: Colors.white24),
-        _slider('Kontrast', _contrast, -1, 1, (v) => setState(() => _contrast = v)),
-        _slider('Schatten', _shadows, -1, 1, (v) => setState(() => _shadows = v)),
-        _slider('Schärfe', _sharpness, 0, 1, (v) => setState(() => _sharpness = v)),
-        _slider('Rauschunterdrückung', _noiseReduction, 0, 1, (v) => setState(() => _noiseReduction = v)),
+        _slider(AppTexte.of(context).entwKontrast, _contrast, -1, 1, (v) => setState(() => _contrast = v)),
+        _slider(AppTexte.of(context).entwSchatten, _shadows, -1, 1, (v) => setState(() => _shadows = v)),
+        _slider(AppTexte.of(context).entwSchaerfe, _sharpness, 0, 1, (v) => setState(() => _sharpness = v)),
+        _slider(AppTexte.of(context).entwRauschunterdrueckung, _noiseReduction, 0, 1, (v) => setState(() => _noiseReduction = v)),
+        const Divider(color: Colors.white24),
+        ToneCurveEditor(
+          curve: _toneCurve,
+          histogram: _histogram,
+          // Wie beim Regler-Ziehen: Während der Geste rechnet der Shader
+          // live, nach dem Loslassen übernimmt der native Render.
+          onChanged: (kurve) => setState(() {
+            _toneCurve = kurve;
+            _dragging = true;
+          }),
+          onChangeEnd: _scheduleRerender,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        const Divider(color: Colors.white24),
+        ColorMixerPanel(
+          mixer: _colorMixer,
+          onChanged: (mischer) => setState(() {
+            _colorMixer = mischer;
+            _dragging = true;
+          }),
+          onChangeEnd: _scheduleRerender,
+        ),
         const Divider(color: Colors.white24),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Objektivkorrektur', style: TextStyle(color: Colors.white, fontSize: 13)),
-          subtitle: const Text(
-            'Nur wirksam für RAW-Fotos, deren Kamera/Objektiv unterstützt wird.',
-            style: TextStyle(color: Colors.white38, fontSize: 11),
+          title: Text(AppTexte.of(context).entwObjektivkorrektur,
+              style: const TextStyle(color: Colors.white, fontSize: 13)),
+          subtitle: Text(
+            AppTexte.of(context).entwObjektivkorrekturHinweis,
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
           ),
           value: _lensCorrectionEnabled,
           onChanged: (v) {
@@ -1635,30 +1790,31 @@ class _DevelopScreenState extends State<DevelopScreen> {
       ];
 
   List<Widget> _buildMaskSliders() => [
-        const Text(
-          'Diese Anpassungen wirken nur innerhalb der ausgewählten Maske.',
-          style: TextStyle(color: Colors.white38, fontSize: 11),
+        Text(
+          AppTexte.of(context).entwMaskenHinweis,
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
         ),
         const SizedBox(height: 8),
-        _slider('Belichtung', _maskExposure, -3, 3, (v) => setState(() => _maskExposure = v)),
+        _slider(AppTexte.of(context).entwBelichtung, _maskExposure, -3, 3, (v) => setState(() => _maskExposure = v)),
         const Divider(color: Colors.white24),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Automatischer Weißabgleich', style: TextStyle(color: Colors.white, fontSize: 13)),
+          title: Text(AppTexte.of(context).entwAutoWeissabgleich,
+              style: const TextStyle(color: Colors.white, fontSize: 13)),
           value: _maskAutoWhiteBalance,
           onChanged: (v) {
             setState(() => _maskAutoWhiteBalance = v);
             _scheduleRerender();
           },
         ),
-        _slider('Temperatur (K)', _maskTemperature, 2000, 12000, (v) => setState(() => _maskTemperature = v),
+        _slider(AppTexte.of(context).entwTemperatur, _maskTemperature, 2000, 12000, (v) => setState(() => _maskTemperature = v),
             enabled: !_maskAutoWhiteBalance),
-        _slider('Tint', _maskTint, -100, 100, (v) => setState(() => _maskTint = v), enabled: !_maskAutoWhiteBalance),
+        _slider(AppTexte.of(context).entwTint, _maskTint, -100, 100, (v) => setState(() => _maskTint = v), enabled: !_maskAutoWhiteBalance),
         const Divider(color: Colors.white24),
-        _slider('Kontrast', _maskContrast, -1, 1, (v) => setState(() => _maskContrast = v)),
-        _slider('Schatten', _maskShadows, -1, 1, (v) => setState(() => _maskShadows = v)),
-        _slider('Schärfe', _maskSharpness, 0, 1, (v) => setState(() => _maskSharpness = v)),
-        _slider('Rauschunterdrückung', _maskNoiseReduction, 0, 1, (v) => setState(() => _maskNoiseReduction = v)),
+        _slider(AppTexte.of(context).entwKontrast, _maskContrast, -1, 1, (v) => setState(() => _maskContrast = v)),
+        _slider(AppTexte.of(context).entwSchatten, _maskShadows, -1, 1, (v) => setState(() => _maskShadows = v)),
+        _slider(AppTexte.of(context).entwSchaerfe, _maskSharpness, 0, 1, (v) => setState(() => _maskSharpness = v)),
+        _slider(AppTexte.of(context).entwRauschunterdrueckung, _maskNoiseReduction, 0, 1, (v) => setState(() => _maskNoiseReduction = v)),
       ];
 }
 

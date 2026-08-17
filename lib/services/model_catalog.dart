@@ -14,6 +14,10 @@
 ///
 /// Falls sich die Downloadpfade auf HuggingFace/GitHub ändern, reicht es,
 /// die URLs in dieser Datei anzupassen.
+library;
+
+import '../l10n/app_localizations.dart';
+
 class ModelFile {
   final String fileName; // Zieldateiname im models-Ordner
   final String url;
@@ -30,29 +34,71 @@ class ModelFile {
 
 class ModelCatalogEntry {
   final String id;
-  final String title;
-  final String description;
-  final String license;
+
+  /// Herkunft der Gewichte – dokumentiert, nicht angezeigt.
   final String sourceUrl;
   final List<ModelFile> files;
 
   const ModelCatalogEntry({
     required this.id,
-    required this.title,
-    required this.description,
-    required this.license,
     required this.sourceUrl,
     required this.files,
   });
 }
 
+/// Titel, Beschreibung und Lizenz eines Katalogeintrags in der
+/// Oberflächensprache.
+///
+/// Sie stehen nicht in [ModelCatalogEntry] selbst: Die Einträge sind `const`,
+/// ein übersetzter Text braucht aber den Kontext. Stünden sie doppelt – hier
+/// deutsch und in den Sprachdateien nochmal – liefen beide Fassungen früher
+/// oder später auseinander. Die Zuordnung läuft über die
+/// [ModelCatalogEntry.id], dieselbe Kennung, unter der die Dateien im
+/// Modellordner liegen.
+String modellTitel(AppTexte t, String id) => switch (id) {
+      'face_detection_yunet' => t.modellYunetTitel,
+      'face_recognition_sface' => t.modellSfaceTitel,
+      'clip_vit_b32' => t.modellClipTitel,
+      'segmentation_sam_vit_base' => t.modellSamTitel,
+      'captioning_vit_gpt2' => t.modellCaptionTitel,
+      'eye_state_ocec' => t.modellOcecTitel,
+      'neural_restore_real_esrgan_x4' => t.modellEsrganTitel,
+      'translation_en_de' => t.modellEnDeTitel,
+      'translation_de_en' => t.modellDeEnTitel,
+      // Lieber die Kennung als eine leere Karte: Ein neu aufgenommenes
+      // Modell fällt so sofort auf, statt still ohne Namen dazustehen.
+      _ => id,
+    };
+
+String modellBeschreibung(AppTexte t, String id) => switch (id) {
+      'face_detection_yunet' => t.modellYunetText,
+      'face_recognition_sface' => t.modellSfaceText,
+      'clip_vit_b32' => t.modellClipText,
+      'segmentation_sam_vit_base' => t.modellSamText,
+      'captioning_vit_gpt2' => t.modellCaptionText,
+      'eye_state_ocec' => t.modellOcecText,
+      'neural_restore_real_esrgan_x4' => t.modellEsrganText,
+      'translation_en_de' => t.modellEnDeText,
+      'translation_de_en' => t.modellDeEnText,
+      _ => '',
+    };
+
+String modellLizenz(AppTexte t, String id) => switch (id) {
+      'face_detection_yunet' => t.modellYunetLizenz,
+      'face_recognition_sface' => t.modellSfaceLizenz,
+      'clip_vit_b32' => t.modellClipLizenz,
+      'segmentation_sam_vit_base' => t.modellSamLizenz,
+      'captioning_vit_gpt2' => t.modellCaptionLizenz,
+      'eye_state_ocec' => t.modellOcecLizenz,
+      'neural_restore_real_esrgan_x4' => t.modellEsrganLizenz,
+      'translation_en_de' => t.modellEnDeLizenz,
+      'translation_de_en' => t.modellDeEnLizenz,
+      _ => '',
+    };
+
 class ModelCatalog {
   static const faceDetection = ModelCatalogEntry(
     id: 'face_detection_yunet',
-    title: 'Gesichtserkennung – YuNet',
-    description: 'Erkennt Gesichter (Bounding Boxes) in Fotos. Leichtgewichtiges '
-        'CNN, Teil von OpenCV Zoo.',
-    license: 'Apache-2.0',
     sourceUrl: 'https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet',
     files: [
       ModelFile(
@@ -65,11 +111,6 @@ class ModelCatalog {
 
   static const faceRecognition = ModelCatalogEntry(
     id: 'face_recognition_sface',
-    title: 'Gesichts-Wiedererkennung – SFace',
-    description: 'Berechnet ein Embedding pro Gesicht, um ähnliche/gleiche '
-        'Gesichter beim manuellen Zuordnen leichter zu gruppieren. Teil von '
-        'OpenCV Zoo.',
-    license: 'Apache-2.0',
     sourceUrl: 'https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface',
     files: [
       ModelFile(
@@ -82,11 +123,6 @@ class ModelCatalog {
 
   static const clip = ModelCatalogEntry(
     id: 'clip_vit_b32',
-    title: 'KI-Bildsuche – CLIP ViT-B/32',
-    description: 'Ermöglicht die Suche nach Fotos in natürlicher Sprache '
-        '(z.B. "Sonnenuntergang am Meer"). OpenAI-Originalgewichte, als '
-        'separate Bild-/Text-Encoder-ONNX-Graphen exportiert.',
-    license: 'MIT (Gewichte: OpenAI CLIP, siehe Quelle)',
     sourceUrl: 'https://huggingface.co/Xenova/clip-vit-base-patch32',
     files: [
       ModelFile(
@@ -131,12 +167,6 @@ class ModelCatalog {
   /// höchster IoU-Wert gewinnt).
   static const segmentation = ModelCatalogEntry(
     id: 'segmentation_sam_vit_base',
-    title: 'KI-Objektmasken – SAM ViT-Base',
-    description: 'Erlaubt gezielte Anpassungen nur auf einem ausgewählten Bereich '
-        '(z.B. nur den Himmel aufhellen) im Entwickeln-Screen, statt jede Anpassung '
-        'auf das ganze Bild anzuwenden. Nutzer setzt Vordergrund-/Hintergrund-Punkte, '
-        'ein promptbares Segmentierungsmodell schlägt die passende Maske vor.',
-    license: 'Apache-2.0 (Gewichte: Meta Segment Anything, siehe Quelle)',
     sourceUrl: 'https://huggingface.co/Xenova/sam-vit-base',
     files: [
       ModelFile(
@@ -176,11 +206,6 @@ class ModelCatalog {
   /// Trainingsdaten), UI kennzeichnet das entsprechend.
   static const captioning = ModelCatalogEntry(
     id: 'captioning_vit_gpt2',
-    title: 'KI-Bildbeschreibung – ViT-GPT2 (Englisch)',
-    description: 'Erzeugt automatisch eine kurze, englische Bildunterschrift pro Foto '
-        '(z.B. für die Suche oder als schnelle Übersicht). Es gibt aktuell kein '
-        'vergleichbar kleines deutsches Modell – Ausgabe ist immer Englisch.',
-    license: 'Apache-2.0 (Basis: nlpconnect/vit-gpt2-image-captioning, ONNX-Port: Xenova)',
     sourceUrl: 'https://huggingface.co/Xenova/vit-gpt2-image-captioning',
     files: [
       ModelFile(
@@ -215,10 +240,6 @@ class ModelCatalog {
   /// Geschwindigkeitsvorteil bei <1ms Inferenzzeit ohnehin.
   static const eyeState = ModelCatalogEntry(
     id: 'eye_state_ocec',
-    title: 'Geschlossene-Augen-Erkennung – OCEC',
-    description: 'Markiert Gesichter mit geschlossenen Augen in der Sichtung – schnelleres '
-        'Aussortieren von Fotos mit Blinzlern in Porträt-/Gruppenserien.',
-    license: 'MIT',
     sourceUrl: 'https://github.com/PINTO0309/OCEC',
     files: [
       ModelFile(
@@ -243,11 +264,6 @@ class ModelCatalog {
   /// ohne Modifikation.
   static const neuralRestore = ModelCatalogEntry(
     id: 'neural_restore_real_esrgan_x4',
-    title: 'KI-Restaurierung – Real-ESRGAN x4',
-    description: 'Skaliert ein Foto um Faktor 4 hoch und entrauscht dabei. Läuft als '
-        'Hintergrund-Warteschlange (Einstellungen/Entwickeln) und dauert je nach '
-        'Fotogröße mehrere Minuten.',
-    license: 'BSD-3-Clause (Real-ESRGAN-Originalgewichte)',
     sourceUrl: 'https://huggingface.co/SceneWorks/real-esrgan-onnx',
     files: [
       ModelFile(
@@ -258,5 +274,97 @@ class ModelCatalog {
     ],
   );
 
-  static const all = [faceDetection, faceRecognition, clip, segmentation, captioning, eyeState, neuralRestore];
+  /// Gemeinsames Wörterbuch beider Übersetzungsrichtungen.
+  ///
+  /// Die `tokenizer.json` von `Xenova/opus-mt-en-de` und
+  /// `Xenova/opus-mt-de-en` sind Byte für Byte identisch (geprüft) – OPUS-MT
+  /// nutzt für ein Sprachpaar ein gemeinsames SentencePiece-Wörterbuch.
+  /// Deshalb steht sie in beiden Einträgen unter demselben Zielnamen und
+  /// wird nur einmal geladen, egal welche Richtung zuerst installiert wird.
+  static const _uebersetzungsVokabular = ModelFile(
+    'translate_vocab.json',
+    'https://huggingface.co/Xenova/opus-mt-en-de/resolve/main/tokenizer.json',
+    '8e0fcf45621ea87fa680c7f9969c37a7f819c1f4c7658a2e6e0879b866a14b17',
+  );
+
+  /// Englisch → Deutsch, für die Bildbeschreibungen.
+  ///
+  /// **Warum Übersetzen und nicht gleich ein deutsches Modell?** Weil es
+  /// kein vergleichbar kleines gibt (siehe [captioning]). Der naheliegende
+  /// Weg für die Suche – ein mehrsprachiger CLIP-Text-Encoder, der in
+  /// denselben Bildraum abbildet – scheitert an der Vertrauensfrage: Von
+  /// `clip-ViT-B-32-multilingual-v1` existieren als ONNX nur
+  /// Gemeinschaftskopien mit zweistelligen Downloadzahlen, weder bei Xenova
+  /// noch bei onnx-community.
+  ///
+  /// **Kein Zwischenspeicher für die Aufmerksamkeit.** Anders als beim
+  /// Beschreibungsmodell wird hier der Decoder OHNE `past_key_values`
+  /// benutzt, also bei jedem Wort die ganze bisherige Folge neu gerechnet.
+  /// Zwei Gründe, beide gemessen:
+  ///
+  ///  * Der zusammengeführte Decoder (`decoder_model_merged_quantized`)
+  ///    lässt sich im ersten Schritt gar nicht ausführen – die
+  ///    Kreuz-Aufmerksamkeit stolpert über den leeren Cache
+  ///    (`encoder_attn/Reshape_4`, „dimension with value zero"). Das gilt
+  ///    für leere wie für volllange Nulltensoren.
+  ///  * Gebraucht werden hier Bildunterschriften und Suchbegriffe, also
+  ///    eine Handvoll Wörter. Ein realer Lauf braucht dafür 0,03–0,05 s
+  ///    pro Satz. Der Cache würde Rechenzeit sparen, die es nicht zu
+  ///    sparen gibt, und dafür eine dritte Modelldatei und 24 Tensoren
+  ///    Buchführung je Schritt kosten.
+  static const translationEnDe = ModelCatalogEntry(
+    id: 'translation_en_de',
+    sourceUrl: 'https://huggingface.co/Xenova/opus-mt-en-de',
+    files: [
+      ModelFile(
+        'translate_en_de_encoder.onnx',
+        'https://huggingface.co/Xenova/opus-mt-en-de/resolve/main/onnx/encoder_model_quantized.onnx',
+        '15834b45fabd2dfb8c6c029b3ca3e7289aeefd90ece798ce42bcf548d1bd3b8d',
+      ),
+      ModelFile(
+        'translate_en_de_decoder.onnx',
+        'https://huggingface.co/Xenova/opus-mt-en-de/resolve/main/onnx/decoder_model_quantized.onnx',
+        '75ef79aa9bde9e3dce9ca584c29507be5f464973f6c600c89ff419bc8de29ebc',
+      ),
+      _uebersetzungsVokabular,
+    ],
+  );
+
+  /// Deutsch → Englisch, für Suchanfragen und das Tag-Vokabular.
+  ///
+  /// Der CLIP-Text-Encoder versteht nur Englisch. Das Tag-Vokabular
+  /// (`defaultAiTagVocabulary`) ist aber durchgehend deutsch – „Sonnen-
+  /// untergang", „Geburtstagstorte" – und wurde bisher unübersetzt gegen
+  /// einen englischen Encoder gerechnet. Diese Richtung schliesst die
+  /// Lücke: Ein realer Lauf übersetzt genau in die Begriffe, die CLIP
+  /// erwartet (Sunset, Birthday cake, Screenshot, Playground).
+  static const translationDeEn = ModelCatalogEntry(
+    id: 'translation_de_en',
+    sourceUrl: 'https://huggingface.co/Xenova/opus-mt-de-en',
+    files: [
+      ModelFile(
+        'translate_de_en_encoder.onnx',
+        'https://huggingface.co/Xenova/opus-mt-de-en/resolve/main/onnx/encoder_model_quantized.onnx',
+        '4cedda8f8c89b72a42b3c6cd1e7a27f2de24457093e3bf80cb3e46829641fcd8',
+      ),
+      ModelFile(
+        'translate_de_en_decoder.onnx',
+        'https://huggingface.co/Xenova/opus-mt-de-en/resolve/main/onnx/decoder_model_quantized.onnx',
+        'e44c1c4b50e8f51e49d4d5e54a9af1550dc74763d4023644a38af62611e6efc9',
+      ),
+      _uebersetzungsVokabular,
+    ],
+  );
+
+  static const all = [
+    faceDetection,
+    faceRecognition,
+    clip,
+    segmentation,
+    captioning,
+    eyeState,
+    neuralRestore,
+    translationEnDe,
+    translationDeEn,
+  ];
 }

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../services/platform/folder_access.dart';
 import '../services/second_library_scan_service.dart';
 import '../state/library_state.dart';
@@ -45,14 +47,14 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
 
   Future<void> _pickAndScan() async {
     if (!widget.library.clipAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Benötigt das CLIP-Modell (Einstellungen → KI-Modelle).'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppTexte.of(context).allgClipNoetigKurz),
       ));
       return;
     }
 
     final picked = await FolderAccess.forCurrentPlatform()
-        .pickFolder(message: 'Ordner der zweiten PhotoVault-Bibliothek wählen');
+        .pickFolder(message: AppTexte.of(context).zweitOrdnerWaehlen);
     if (picked == null || !mounted) return;
 
     setState(() {
@@ -102,7 +104,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Zweite Bibliothek vergleichen')),
+      appBar: AppBar(title: Text(AppTexte.of(context).zweitTitel)),
       body: _buildBody(),
     );
   }
@@ -122,7 +124,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
               children: [
                 Text(_error ?? 'Unbekannter Fehler', textAlign: TextAlign.center),
                 const SizedBox(height: AppSpacing.lg),
-                OutlinedButton(onPressed: _pickAndScan, child: const Text('Erneut versuchen')),
+                OutlinedButton(onPressed: _pickAndScan, child: Text(AppTexte.of(context).allgErneutVersuchen)),
               ],
             ),
           ),
@@ -139,20 +141,15 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Vergleicht die eigene Bibliothek gegen eine zweite, unabhängige '
-              'PhotoVault-Bibliothek (z.B. auf einer externen Platte oder einem '
-              'alten Rechner) per KI-Bildähnlichkeit – findet Fotos, die dort '
-              'schon liegen, bevor du sie erneut importierst.\n\n'
-              'Gesperrte Fotos der zweiten Bibliothek werden dabei nie '
-              'einbezogen, ohne dass deren PIN gebraucht wird.',
+            Text(
+              AppTexte.of(context).zweitErklaerung,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.lg),
             FilledButton.icon(
               onPressed: _pickAndScan,
               icon: const Icon(Icons.folder_open_outlined),
-              label: const Text('Ordner der zweiten Bibliothek wählen'),
+              label: Text(AppTexte.of(context).zweitOrdnerKnopf),
             ),
           ],
         ),
@@ -167,7 +164,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
           padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
           child: Row(
             children: [
-              const Text('Ähnlichkeit:'),
+              Text(AppTexte.of(context).duplAehnlichkeit),
               Expanded(
                 child: Slider(
                   value: _threshold,
@@ -183,11 +180,11 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
             ],
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           child: Text(
-            'Höhere Werte = nur sehr ähnliche Fotos gelten als Übereinstimmung.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            AppTexte.of(context).zweitSchwelleHinweis,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ),
         const Divider(height: 16),
@@ -198,12 +195,12 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
               Expanded(
                 child: Text(
                   _matches.isEmpty
-                      ? 'Keine ähnlichen Fotos in der zweiten Bibliothek gefunden.'
-                      : '${_matches.length} mögliche Übereinstimmung(en)',
+                      ? AppTexte.of(context).zweitKeineTreffer
+                      : AppTexte.of(context).zweitTreffer(_matches.length),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
-              TextButton(onPressed: _pickAndScan, child: const Text('Anderer Ordner')),
+              TextButton(onPressed: _pickAndScan, child: Text(AppTexte.of(context).zweitAndererOrdner)),
             ],
           ),
         ),
@@ -225,7 +222,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                '${(match.similarity * 100).toStringAsFixed(0)} % ähnlich',
+                AppTexte.of(context).zweitAehnlichProzent((match.similarity * 100).toStringAsFixed(0)),
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 11, color: Colors.grey),
               ),
@@ -277,7 +274,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                           ),
-                          const Text('zweite Bibliothek', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                          Text(AppTexte.of(context).zweitBibliothek, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                         ],
                       ),
                     ),

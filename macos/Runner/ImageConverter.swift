@@ -86,7 +86,10 @@ class ImageConverterChannel: NSObject {
                     shadows: (args["shadows"] as? NSNumber)?.floatValue ?? 0,
                     sharpness: (args["sharpness"] as? NSNumber)?.floatValue ?? 0,
                     noiseReduction: (args["noiseReduction"] as? NSNumber)?.floatValue ?? 0,
-                    lensCorrectionEnabled: (args["lensCorrectionEnabled"] as? Bool) ?? true
+                    lensCorrectionEnabled: (args["lensCorrectionEnabled"] as? Bool) ?? true,
+                    curveLut: floatArray(args["toneCurveLut"]),
+                    colorCube: floatArray(args["colorCube"]),
+                    colorCubeSize: (args["colorCubeSize"] as? NSNumber)?.intValue ?? 0
                 )
                 // KI-Objektmasken (siehe MaskEditor/DevelopMasks): jede trägt
                 // eine Grauwert-PNG-Alphamaske + ihren eigenen Regler-Satz,
@@ -367,6 +370,19 @@ class ImageConverterChannel: NSObject {
         let sharpness: Float
         let noiseReduction: Float
         let lensCorrectionEnabled: Bool
+
+        /// Tonwertkurve und Farbmischer kommen NICHT als Regler-Zahlen an,
+        /// sondern als fertig ausgerechnete Nachschlagetabellen (siehe
+        /// lib/services/develop_color.dart). Der Grund ist Absicht: Sonst
+        /// müssten die Kurveninterpolation und die Farbband-Mathematik hier
+        /// ein zweites Mal stehen – neben der Fassung im GPU-Shader für die
+        /// Live-Vorschau – und beide könnten unbemerkt auseinanderlaufen.
+        ///
+        /// Fehlt eine der beiden, ist das Werkzeug neutral und der Filter
+        /// entfällt; Masken übertragen sie grundsätzlich nicht.
+        var curveLut: [Float]? = nil
+        var colorCube: [Float]? = nil
+        var colorCubeSize: Int = 0
     }
 
     /// Eine KI-Objektmaske (siehe MaskEditor/DevelopMasks): [path] zeigt auf
@@ -433,7 +449,11 @@ class ImageConverterChannel: NSObject {
             if longSide > 0 {
                 filter.scaleFactor = min(1, Float(maxDimension) / Float(longSide))
             }
-            output = filter.outputImage
+            // CIRAWFilter kennt weder Kurve noch Farbmischer – beide laufen
+            // deshalb als Nachkette auf seiner Ausgabe. Dieselbe Funktion
+            // wie im Nicht-RAW-Zweig, die beiden Pfade teilen sich hier
+            // erstmals Code, statt ihn zu spiegeln.
+            output = filter.outputImage.map { applyCurveAndMixer($0, adjustments) }
         } else {
             guard let source = CIImage(contentsOf: url, options: [.applyOrientationProperty: true])
             else { return nil }
@@ -482,6 +502,55 @@ class ImageConverterChannel: NSObject {
         return result
     }
 
+    /// Liest eine Float32List vom Method-Channel als Swift-Array.
+    ///
+    /// Gibt `nil` zurück, wenn nichts da ist oder die Länge kein Vielfaches
+    /// von 4 Byte ist – lieber den Filter weglassen als aus einem halben
+    /// Wert eine Farbe zu erfinden.
+    private static func floatArray(_ value: Any?) -> [Float]? {
+        guard let typed = value as? FlutterStandardTypedData else { return nil }
+        let data = typed.data
+        guard !data.isEmpty, data.count % MemoryLayout<Float32>.size == 0 else { return nil }
+        return data.withUnsafeBytes { roh in Array(roh.bindMemory(to: Float32.self)) }
+    }
+
+    /// Tonwertkurve und Farbmischer als Core-Image-Filter.
+    ///
+    /// Beide arbeiten in **sRGB**, nicht linear: Das ist die Konvention von
+    /// Lightroom und darktable, und nur so entspricht die im Programm
+    /// gezeichnete Kurve dem, was am Ende im Bild steht. `inputColorSpace`
+    /// deshalb ausdrücklich setzen statt der Vorgabe zu vertrauen.
+    ///
+    /// Die Tabellen kommen fertig aus Dart – hier wird nichts gerechnet,
+    /// nur übergeben (siehe [DevelopAdjustments.curveLut]).
+    private static func applyCurveAndMixer(_ input: CIImage, _ a: DevelopAdjustments) -> CIImage {
+        var image = input
+        guard let raum = CGColorSpace(name: CGColorSpace.sRGB) else { return image }
+
+        if let lut = a.curveLut, lut.count == 256 * 3, let f = CIFilter(name: "CIColorCurves") {
+            f.setValue(image, forKey: kCIInputImageKey)
+            f.setValue(Data(bytes: lut, count: lut.count * MemoryLayout<Float>.size),
+                       forKey: "inputCurvesData")
+            f.setValue(CIVector(x: 0, y: 1), forKey: "inputCurvesDomain")
+            f.setValue(raum, forKey: "inputColorSpace")
+            image = f.outputImage ?? image
+        }
+
+        if let cube = a.colorCube, a.colorCubeSize > 1,
+            cube.count == a.colorCubeSize * a.colorCubeSize * a.colorCubeSize * 4,
+            let f = CIFilter(name: "CIColorCubeWithColorSpace")
+        {
+            f.setValue(image, forKey: kCIInputImageKey)
+            f.setValue(a.colorCubeSize, forKey: "inputCubeDimension")
+            f.setValue(Data(bytes: cube, count: cube.count * MemoryLayout<Float>.size),
+                       forKey: "inputCubeData")
+            f.setValue(raum, forKey: "inputColorSpace")
+            image = f.outputImage ?? image
+        }
+
+        return image
+    }
+
     /// CIFilter-Kette für Nicht-RAW-Formate (JPEG/HEIC/PNG & Co.), als
     /// Ersatz für die CIRAWFilter-Eigenschaften oben – dieselben sechs
     /// Regler, nur auf dem bereits demosaicten Bild angewendet.
@@ -513,6 +582,13 @@ class ImageConverterChannel: NSObject {
             f.setValue(1.0 + a.shadows, forKey: "inputShadowAmount")
             image = f.outputImage ?? image
         }
+        // Tonwertkurve und Farbmischer wirken auf dem tonkorrigierten Bild,
+        // aber VOR Schärfe und Rauschunterdrückung: Eine steile Kurve nach
+        // dem Schärfen würde dessen Säume mit verstärken. Im RAW-Zweig
+        // ergibt sich dieselbe Reihenfolge von selbst, weil CIRAWFilter
+        // Schärfe und Entrauschen schon vor seiner Ausgabe erledigt.
+        image = applyCurveAndMixer(image, a)
+
         if a.sharpness > 0, let f = CIFilter(name: "CISharpenLuminance") {
             f.setValue(image, forKey: kCIInputImageKey)
             f.setValue(a.sharpness * 2.0, forKey: kCIInputSharpnessKey)

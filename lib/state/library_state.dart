@@ -1,20 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
+
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/ai_tagging_service.dart';
 import '../services/backup_service.dart';
 import '../services/blur_detection.dart';
 import '../services/captioning_service.dart';
 import '../services/clip_service.dart';
+import '../services/develop_color.dart';
+import '../services/translation_service.dart';
 import '../services/embedding_codec.dart';
 import '../services/eye_state_service.dart';
 import '../services/face_engine_service.dart';
@@ -24,6 +30,7 @@ import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
 import '../services/modell_halter.dart';
+import '../services/platform/folder_access.dart';
 import '../services/native_image_converter.dart';
 import '../services/restore_queue_service.dart';
 import '../services/restore_service.dart';
@@ -33,10 +40,25 @@ import '../services/storage_paths.dart';
 import '../services/vault_crypto.dart';
 import '../services/xmp_writer.dart';
 
+/// Die Schritte der Hintergrundanalyse, in der Reihenfolge ihres Ablaufs.
+///
+/// Eine Aufzählung statt eines fertigen Namens: Dieser Dienst kennt keine
+/// Oberflächensprache, und der Name wird an zwei Stellen angezeigt (Leiste
+/// oben, Hintergrundaufgaben). Die Zuordnung zum Text steht dort.
+enum Analysestufe { bildanalyse, texterkennung, schlagwoerter, bildbeschreibung }
+
+/// Der Name einer Stufe in der Oberflächensprache.
+String analysestufeName(AppTexte t, Analysestufe stufe) => switch (stufe) {
+      Analysestufe.bildanalyse => t.stufeBildanalyse,
+      Analysestufe.texterkennung => t.stufeTexterkennung,
+      Analysestufe.schlagwoerter => t.stufeSchlagwoerter,
+      Analysestufe.bildbeschreibung => t.stufeBildbeschreibung,
+    };
+
 /// Fortschritt der Hintergrundanalyse (siehe
 /// [LibraryState.starteHintergrundanalyse]).
 class AnalyseFortschritt {
-  final String stufe;
+  final Analysestufe stufe;
   final int stufeNummer;
   final int stufenGesamt;
   final int erledigt;
@@ -117,6 +139,13 @@ class LibraryState extends ChangeNotifier {
   ModellHalter<SegmentationService> segmentationHalter = _leererHalter('Segmentierung');
   ModellHalter<CaptioningService> captioningHalter = _leererHalter('Bildbeschreibung');
 
+  /// Die beiden Übersetzungsrichtungen – getrennte Halter, weil sie
+  /// getrennt installierbar sind und selten gleichzeitig gebraucht werden.
+  ModellHalter<TranslationService> uebersetzungEnDeHalter =
+      _leererHalter('translate-en-de');
+  ModellHalter<TranslationService> uebersetzungDeEnHalter =
+      _leererHalter('translate-de-en');
+
   static ModellHalter<T> _leererHalter<T>(String name) => ModellHalter<T>(
         name: name,
         installiert: false,
@@ -138,6 +167,8 @@ class LibraryState extends ChangeNotifier {
         clipTextHalter,
         segmentationHalter,
         captioningHalter,
+        uebersetzungEnDeHalter,
+        uebersetzungDeEnHalter,
         if (restoreQueue.restoreHalter != null) restoreQueue.restoreHalter!,
       ];
 
@@ -188,11 +219,58 @@ class LibraryState extends ChangeNotifier {
   /// FaceEngineService.alignFace – mit dem vorherigen reinen
   /// Bounding-Box-Crop lagen die Werte auf einer anderen, unkalibrierten
   /// Skala).
+  ///
+  /// Wird beim Start aus [AppSettings] geladen und beim Ändern dorthin
+  /// zurückgeschrieben – vorher lag der Wert nur im Speicher und der
+  /// Regler stand nach jedem Programmstart wieder auf dem Ausgangswert,
+  /// ohne dass das irgendwo stand.
   double faceSimilarityThreshold = 0.363;
 
-  void setFaceSimilarityThreshold(double value) {
+  Future<void> ladeGesichtsSchwelle() async {
+    faceSimilarityThreshold = await db.faceSimilarityThresholdWert();
+    notifyListeners();
+  }
+
+  /// Setzt die allgemeine Schwelle. Die persönlichen Schwellen einzelner
+  /// Personen werden dabei mitgezogen (siehe
+  /// `AppDatabase.setFaceSimilarityThreshold`).
+  Future<void> setFaceSimilarityThreshold(double value) async {
     faceSimilarityThreshold = value;
     notifyListeners();
+    await db.setFaceSimilarityThreshold(value);
+  }
+
+  /// Die für [personId] geltende Schwelle: die persönliche, sonst die
+  /// allgemeine.
+  double schwelleFuerPerson(PersonData person) =>
+      person.similarityThreshold ?? faceSimilarityThreshold;
+
+  /// Übersetzt [text] ins Englische, sofern das Modell installiert und die
+  /// Einstellung eingeschaltet ist – sonst kommt [text] unverändert zurück.
+  ///
+  /// Gebraucht, weil der CLIP-Text-Encoder nur Englisch versteht, das
+  /// Tag-Vokabular aber deutsch ist und die Suche in einer deutschen
+  /// Oberfläche stattfindet. An 103 Fotos gemessen trennt die übersetzte
+  /// Fassung bei 33 von 56 Vokabelbegriffen schärfer, bei 19 schlechter –
+  /// ein realer, aber weder grosser noch durchgängiger Gewinn. Deshalb
+  /// eine Einstellung und keine stille Umstellung.
+  ///
+  /// Schlägt die Übersetzung fehl, gilt der Ausgangstext: Eine Suche, die
+  /// mittelmässige Treffer liefert, ist besser als eine, die eine
+  /// Fehlermeldung liefert.
+  Future<String> insEnglische(String text) async {
+    if (text.trim().isEmpty) return text;
+    if (!uebersetzungDeEnHalter.installiert) return text;
+    if (!await db.uebersetzeSucheUndTags()) return text;
+    try {
+      // `mit` gibt null zurück, wenn das Modell doch nicht ladbar war.
+      final uebersetzt = await uebersetzungDeEnHalter.mit((s) => s.translate(text));
+      if (uebersetzt == null || uebersetzt.trim().isEmpty) return text;
+      return uebersetzt;
+    } catch (e) {
+      debugPrint('Übersetzung der Anfrage fehlgeschlagen: $e');
+      return text;
+    }
   }
 
   String? _modelsDir;
@@ -247,6 +325,7 @@ class LibraryState extends ChangeNotifier {
       debugPrint('Bibliotheksliste nicht lesbar: $e');
     }
 
+    await ladeGesichtsSchwelle();
     await _loadModelsIfPresent();
     await _loadGeoDataIfPresent();
     await clearDecryptCache();
@@ -272,6 +351,12 @@ class LibraryState extends ChangeNotifier {
     // da "nach N Tagen" ohnehin keine Sekundengenauigkeit braucht.
     unawaited(purgeExpiredTrashIfDue());
     _trashPurgeTimer = Timer.periodic(const Duration(hours: 6), (_) => purgeExpiredTrashIfDue());
+
+    // Überwachter Ordner – einmal beim Start und danach regelmässig, aus
+    // demselben Grund wie beim automatischen Backup: Es gibt keinen
+    // Hintergrunddienst, der das erledigen könnte.
+    unawaited(pruefeUeberwachtenOrdner());
+    _ordnerTimer = Timer.periodic(_ordnerIntervall, (_) => pruefeUeberwachtenOrdner());
 
     // Gibt KI-Modelle frei, die seit dem letzten Durchlauf nicht mehr in
     // Benutzung sind (siehe ModellHalter.freigebenWennUnbenutzt) – das ist
@@ -351,6 +436,18 @@ class LibraryState extends ChangeNotifier {
       name: 'Segmentierung',
       installiert: SegmentationService.isAvailable(_modelsDir!),
       laden: () => SegmentationService.load(_modelsDir!),
+      entsorgen: (s) => s.dispose(),
+    );
+    uebersetzungEnDeHalter = ModellHalter<TranslationService>(
+      name: 'translate-en-de',
+      installiert: TranslationService.isAvailable(_modelsDir!, Uebersetzungsrichtung.enDe),
+      laden: () => TranslationService.load(_modelsDir!, Uebersetzungsrichtung.enDe),
+      entsorgen: (s) => s.dispose(),
+    );
+    uebersetzungDeEnHalter = ModellHalter<TranslationService>(
+      name: 'translate-de-en',
+      installiert: TranslationService.isAvailable(_modelsDir!, Uebersetzungsrichtung.deEn),
+      laden: () => TranslationService.load(_modelsDir!, Uebersetzungsrichtung.deEn),
       entsorgen: (s) => s.dispose(),
     );
     captioningHalter = ModellHalter<CaptioningService>(
@@ -642,14 +739,14 @@ class LibraryState extends ChangeNotifier {
     if (_analyse != null) return; // läuft bereits
     _analyseAbbruch = false;
 
-    final stufen = <({String name, Stream<ImportProgress> Function() lauf})>[
-      (name: 'Bildanalyse', lauf: () => _bildinhaltsAnalyse()),
-      (name: 'Texterkennung', lauf: () => backfillOcrText()),
+    final stufen = <({Analysestufe name, Stream<ImportProgress> Function() lauf})>[
+      (name: Analysestufe.bildanalyse, lauf: () => _bildinhaltsAnalyse()),
+      (name: Analysestufe.texterkennung, lauf: () => backfillOcrText()),
       // Kein eigener CLIP-Schritt mehr – die Embeddings entstehen bereits in
       // der Bildanalyse. [backfillClipEmbeddings] bleibt für den manuellen
       // Aufruf in den Werkzeugen erhalten.
-      (name: 'Schlagwörter', lauf: () => backfillAiTags(onlyUntagged: true)),
-      (name: 'Bildbeschreibung', lauf: () => backfillCaptions()),
+      (name: Analysestufe.schlagwoerter, lauf: () => backfillAiTags(onlyUntagged: true)),
+      (name: Analysestufe.bildbeschreibung, lauf: () => backfillCaptions()),
     ];
 
     try {
@@ -674,7 +771,8 @@ class LibraryState extends ChangeNotifier {
             notifyListeners();
           }
         } catch (e) {
-          debugPrint('Analysestufe "${stufe.name}" fehlgeschlagen, weiter mit der nächsten: $e');
+          debugPrint('Analysestufe "${stufe.name.name}" fehlgeschlagen, '
+              'weiter mit der nächsten: $e');
         }
       }
     } finally {
@@ -1044,6 +1142,202 @@ class LibraryState extends ChangeNotifier {
   /// Erkennt Text nachträglich für Fotos, die vor Einführung der OCR-Suche
   /// importiert wurden (siehe [_postProcessNewAsset], wo dasselbe seit
   /// diesem Feature automatisch bei jedem Import läuft).
+  // -----------------------------------------------------------------------
+  // Überwachter Ordner
+  // -----------------------------------------------------------------------
+
+  Timer? _ordnerTimer;
+  bool _ordnerLaeuft = false;
+
+  /// Wie oft nachgesehen wird. Bewusst Abtastung statt echter
+  /// Dateisystem-Ereignisse: Letzteres bräuchte eine weitere Abhängigkeit,
+  /// und ein Ordner, in den eine Kamera entlädt, verträgt ein paar Minuten
+  /// Verzögerung ohne Weiteres.
+  static const _ordnerIntervall = Duration(minutes: 5);
+
+  /// Sieht im überwachten Ordner nach neuen Dateien und importiert sie.
+  ///
+  /// Gefahrlos wiederholbar: Der Import erkennt bereits vorhandene Dateien
+  /// an ihrer Prüfsumme und legt sie kein zweites Mal an. Deshalb genügt
+  /// hier schlichtes Nachsehen – es braucht keine Liste dessen, was schon
+  /// gesehen wurde, die bei jedem Fehlerfall aus dem Tritt geriete.
+  ///
+  /// Die Dateien bleiben, wo sie sind. Sie zu verschieben oder zu löschen
+  /// wäre ein Eingriff in fremde Ordner, den ein Programm ungefragt nicht
+  /// tun sollte – auch wenn andere Programme das so halten.
+  Future<int> pruefeUeberwachtenOrdner() async {
+    if (_ordnerLaeuft) return 0;
+    final eintrag = await db.ueberwachterOrdner();
+    if (eintrag == null) return 0;
+
+    _ordnerLaeuft = true;
+    try {
+      // Unter macOS erlischt der Zugriff auf einen fremden Ordner bei jedem
+      // Programmstart und muss aus dem gespeicherten Merkmal wiederhergestellt
+      // werden (siehe FolderAccess).
+      final zugriff = FolderAccess.forCurrentPlatform();
+      var pfad = await zugriff.resolveRoot(path: eintrag.pfad, token: eintrag.token);
+      // Ohne Merkmal liefert die macOS-Umsetzung grundsätzlich null – das
+      // ist für Ordner ausserhalb des Programmbereichs richtig, schliesst
+      // aber auch solche aus, die ohnehin gelesen werden dürfen (innerhalb
+      // des eigenen Bereichs, und unter Linux/Windows generell). Deshalb
+      // ein Rückfall auf den blossen Pfad: Fehlt der Zugriff tatsächlich,
+      // scheitert das Auflisten gleich darauf und wird unten aufgefangen.
+      pfad ??= Directory(eintrag.pfad).existsSync() ? eintrag.pfad : null;
+      if (pfad == null) {
+        debugPrint('Überwachter Ordner nicht erreichbar: ${eintrag.pfad}');
+        return 0;
+      }
+
+      final dateien = await importService.collectSupportedFilesInFolder(pfad);
+      if (dateien.isEmpty) return 0;
+
+      var neue = 0;
+      await for (final p in importFiles(dateien)) {
+        if (p.assetId != null) neue++;
+      }
+      return neue;
+    } catch (e) {
+      debugPrint('Überwachter Ordner konnte nicht geprüft werden: $e');
+      return 0;
+    } finally {
+      _ordnerLaeuft = false;
+    }
+  }
+
+    // -----------------------------------------------------------------------
+  // Entwicklungseinstellungen übertragen
+  // -----------------------------------------------------------------------
+
+  /// Zuletzt kopierte Entwicklungseinstellungen – Zwischenablage nach dem
+  /// Vorbild von Lightrooms "Einstellungen kopieren/einfügen". Bewusst nur
+  /// im Speicher: Sie soll wie eine Zwischenablage wirken und nicht über
+  /// einen Programmstart hinaus überraschen.
+  DevelopSettingsData? _kopierteEntwicklung;
+  DevelopSettingsData? get kopierteEntwicklung => _kopierteEntwicklung;
+  bool get hatKopierteEntwicklung => _kopierteEntwicklung != null;
+
+  /// Legt die GESPEICHERTEN Einstellungen eines Fotos in die
+  /// Zwischenablage. Gibt `false` zurück, wenn das Foto gar nicht
+  /// entwickelt wurde. Für Aufrufer ausserhalb des Entwickeln-Bildschirms,
+  /// die nur eine Foto-Kennung haben.
+  Future<bool> kopiereEntwicklungVon(String assetId) async {
+    final s = await db.developSettingsForAsset(assetId);
+    if (s == null) return false;
+    _kopierteEntwicklung = s;
+    notifyListeners();
+    return true;
+  }
+
+  /// Legt einen beliebigen Satz Werte in die Zwischenablage – gedacht für
+  /// den Entwickeln-Bildschirm, der den AKTUELLEN Reglerstand kopiert.
+  ///
+  /// Die erste Fassung kopierte dort nur, was schon gespeichert war. Das
+  /// klang vorsichtig ("übertragen wird, was das Foto auch zeigt"), führte
+  /// aber in eine Sackgasse: Speichern schliesst den Bildschirm, man kam
+  /// also nach dem Einstellen gar nicht mehr zum Kopieren
+  /// (Fehlerbericht). Wer Werte kopiert, will sie weitergeben – ob er sie
+  /// für dieses Foto auch behält, ist eine andere Entscheidung.
+  void setzeKopierteEntwicklung(DevelopSettingsData werte) {
+    _kopierteEntwicklung = werte;
+    notifyListeners();
+  }
+
+  void leereEntwicklungsZwischenablage() {
+    _kopierteEntwicklung = null;
+    notifyListeners();
+  }
+
+  /// Überträgt die kopierten Einstellungen auf [zielIds] und rendert jedes
+  /// Zielfoto dabei neu – ohne das Rendern bliebe die Änderung unsichtbar,
+  /// weil die Anzeige aus der entwickelten Datei kommt und nicht aus den
+  /// Reglerwerten.
+  ///
+  /// Masken werden bewusst NICHT mitübertragen: Sie umschliessen einen Ort
+  /// im Quellbild (ein Gesicht, einen Himmel) und hätten im Zielbild keine
+  /// Entsprechung – eine Maske um den Kopf auf Foto A liegt auf Foto B
+  /// irgendwo im Nichts. Übertragen werden die Werte, die für das ganze
+  /// Bild gelten.
+  ///
+  /// Der bisherige Stand jedes Zielfotos wandert über [saveDevelopResult]
+  /// in dessen Verlauf; ein versehentlicher Übertrag lässt sich also je
+  /// Foto im Entwickeln-Bildschirm wieder zurückholen.
+  Stream<ImportProgress> uebertrageEntwicklung(List<String> zielIds) async* {
+    final quelle = _kopierteEntwicklung;
+    if (quelle == null) {
+      yield ImportProgress(0, 0);
+      return;
+    }
+
+    // Gesperrte Fotos und Videos scheiden aus: Bei gesperrten läge das
+    // Original verschlüsselt vor, Videos kennen keine Entwicklung.
+    final ziele = <AssetData>[];
+    for (final id in zielIds) {
+      final a = await db.assetById(id);
+      if (a == null || a.isLocked || a.type != 'IMAGE') continue;
+      if (a.id == quelle.assetId) continue;
+      ziele.add(a);
+    }
+
+    final werte = DevelopAdjustments(
+      exposure: quelle.exposure,
+      temperature: quelle.temperature,
+      tint: quelle.tint,
+      contrast: quelle.contrast,
+      shadows: quelle.shadows,
+      sharpness: quelle.sharpness,
+      noiseReduction: quelle.noiseReduction,
+      lensCorrectionEnabled: quelle.lensCorrectionEnabled,
+      // Kurve und Mischer gehören genauso zur Entwicklung wie die Regler.
+      // Ohne diese beiden Zeilen übernähme das Ziel die Belichtung, aber
+      // nicht die Gradation – und niemand sähe, dass etwas fehlt.
+      toneCurve: toneCurveAus(quelle.toneCurveJson),
+      colorMixer: colorMixerAus(quelle.colorMixerJson),
+    );
+
+    var done = 0;
+    yield ImportProgress(0, ziele.length);
+    for (final asset in ziele) {
+      try {
+        final bytes = await NativeImageConverter.developImage(
+          paths.absolute(asset.relativePath),
+          adjustments: werte,
+          maxDimension: 4096,
+          quality: 0.92,
+        );
+        if (bytes == null) throw Exception('Bild konnte nicht gerendert werden.');
+
+        final zielPfad = paths.developedRelativePath(asset.id);
+        final datei = paths.absolute(zielPfad);
+        await datei.parent.create(recursive: true);
+        await datei.writeAsBytes(bytes);
+
+        await db.saveDevelopResult(
+          asset.id,
+          settings: DevelopSettingsCompanion.insert(
+            assetId: asset.id,
+            exposure: Value(werte.exposure),
+            temperature: Value(werte.temperature),
+            tint: Value(werte.tint),
+            contrast: Value(werte.contrast),
+            shadows: Value(werte.shadows),
+            sharpness: Value(werte.sharpness),
+            noiseReduction: Value(werte.noiseReduction),
+            lensCorrectionEnabled: Value(werte.lensCorrectionEnabled),
+            toneCurveJson: Value(quelle.toneCurveJson),
+            colorMixerJson: Value(quelle.colorMixerJson),
+            updatedAt: DateTime.now(),
+          ),
+          developedRelativePath: zielPfad,
+        );
+      } catch (e) {
+        debugPrint('Entwicklung übertragen fehlgeschlagen für ${asset.originalFileName}: $e');
+      }
+      done++;
+      yield ImportProgress(done, ziele.length, currentFile: asset.originalFileName);
+    }
+  }
+
   Stream<ImportProgress> backfillOcrText() async* {
     final assets = await db.assetsForOcrBackfill();
     var done = 0;
@@ -1082,6 +1376,14 @@ class LibraryState extends ChangeNotifier {
       yield ImportProgress(0, 0);
       return;
     }
+    // Der Übersetzer wird für den ganzen Lauf einmal geliehen, nicht je
+    // Foto – sonst würde ein 100-MB-Modell pro Bild geladen und wieder
+    // freigegeben. Null heisst schlicht: nicht installiert oder
+    // abgeschaltet, dann bleibt es bei der englischen Beschreibung.
+    final uebersetzer = await db.uebersetzeBeschreibungen()
+        ? await uebersetzungEnDeHalter.leihen()
+        : null;
+
     try {
       var done = 0;
       yield ImportProgress(0, assets.length);
@@ -1090,7 +1392,17 @@ class LibraryState extends ChangeNotifier {
           final decoded = await _decodeAsset(asset);
           if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
           final caption = await service.generateCaption(decoded);
-          await db.setAiCaption(asset.id, caption);
+          String? deutsch;
+          if (uebersetzer != null && caption.isNotEmpty) {
+            try {
+              deutsch = await uebersetzer.translate(caption);
+            } catch (e) {
+              // Eine fehlgeschlagene Übersetzung darf die Beschreibung
+              // nicht mitreissen – das englische Original ist brauchbar.
+              debugPrint('Übersetzung fehlgeschlagen für ${asset.originalFileName}: $e');
+            }
+          }
+          await db.setAiCaption(asset.id, caption, deutsch: deutsch);
         } catch (e) {
           debugPrint('KI-Bildbeschreibung fehlgeschlagen für ${asset.originalFileName}: $e');
         }
@@ -1098,6 +1410,7 @@ class LibraryState extends ChangeNotifier {
         yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
       }
     } finally {
+      if (uebersetzer != null) uebersetzungEnDeHalter.zurueckgeben();
       captioningHalter.zurueckgeben();
     }
   }
@@ -1364,7 +1677,12 @@ class LibraryState extends ChangeNotifier {
             embedding = await clipBild.embedImage(decoded);
             await db.saveEmbedding(asset.id, embedding);
           }
-          final tags = await aiTaggingService.suggestTags(clipText, embedding, vocabulary);
+          final tags = await aiTaggingService.suggestTags(
+            clipText,
+            embedding,
+            vocabulary,
+            insEnglische: insEnglische,
+          );
           for (final tag in tags) {
             await db.tagAsset(asset.id, tag);
           }
@@ -1580,7 +1898,10 @@ class LibraryState extends ChangeNotifier {
     if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
     final cacheDir = _decryptCacheDir;
     await cacheDir.create(recursive: true);
-    final safeName = relativePath.replaceAll(RegExp(r'[\\/]'), '_');
+    // Über den Hash des Pfades, nicht über ersetzte Trennzeichen: „a/b.jpg"
+    // und „a_b.jpg" wurden sonst auf denselben Namen abgebildet und konnten
+    // sich gegenseitig anzeigen.
+    final safeName = sha256.convert(utf8.encode(relativePath)).toString();
     final target = File(p.join(cacheDir.path, safeName));
     if (!await target.exists()) {
       await VaultCrypto.decryptFile(paths.absolute(relativePath), target, key);
@@ -1775,6 +2096,7 @@ class LibraryState extends ChangeNotifier {
   void dispose() {
     _autoBackupTimer?.cancel();
     _trashPurgeTimer?.cancel();
+    _ordnerTimer?.cancel();
     _modellFreigabeTimer?.cancel();
     super.dispose();
   }

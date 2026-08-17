@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
@@ -13,7 +15,20 @@ import '../widgets/person_picker_dialog.dart';
 class FaceClusterSuggestion {
   final List<FaceData> faces;
   final PersonData? suggestedPerson;
-  const FaceClusterSuggestion({required this.faces, this.suggestedPerson});
+
+  /// Ähnlichkeit zwischen diesem Cluster und [suggestedPerson] – nur
+  /// gesetzt, wenn es einen Vorschlag gibt.
+  ///
+  /// Wird beim Zuordnen als Rückmeldung festgehalten: Ohne den Wert zum
+  /// Zeitpunkt der Entscheidung liesse sich später keine Schwelle daraus
+  /// ableiten (siehe face_threshold.dart).
+  final double? similarity;
+
+  const FaceClusterSuggestion({
+    required this.faces,
+    this.suggestedPerson,
+    this.similarity,
+  });
 }
 
 /// Review-Ansicht für die Vorschläge aus "Automatisch gruppieren": jede
@@ -42,7 +57,7 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
     final choice = await showPersonPickerDialog(
       context,
       people,
-      title: '${cluster.faces.length} Gesichter zuordnen',
+      title: AppTexte.of(context).clusterGesichterZuordnen(cluster.faces.length),
       suggestedPerson: cluster.suggestedPerson,
     );
     if (choice == null) return;
@@ -57,20 +72,49 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
       personId = choice.existingPersonId!;
     }
     await widget.library.db.assignFacesToPerson(cluster.faces.map((f) => f.id).toList(), personId);
+
+    // Gab es einen Vorschlag, ist die Wahl des Nutzers ein Urteil darüber:
+    // dieselbe Person = bestätigt, eine andere = abgelehnt.
+    //
+    // Ein Eintrag je Cluster, nicht je Gesicht: Die Ähnlichkeit wurde
+    // zwischen dem Cluster-Schwerpunkt und der Person gemessen, nicht für
+    // jedes einzelne Gesicht. Sie acht Mal einzutragen behauptete acht
+    // Beobachtungen, wo nur eine vorliegt – und liesse die Schwelle nach
+    // einem einzigen Klick als "belegt" gelten.
+    final vorschlag = cluster.suggestedPerson;
+    final aehnlichkeit = cluster.similarity;
+    if (vorschlag != null && aehnlichkeit != null) {
+      await widget.library.db.merkeGesichtsEntscheidungen(
+        vorschlag.id,
+        [
+          (
+            faceId: cluster.faces.first.id,
+            accepted: personId == vorschlag.id,
+            similarity: aehnlichkeit,
+          ),
+        ],
+        allgemeineSchwelle: widget.library.faceSimilarityThreshold,
+      );
+    }
+
     if (mounted) setState(() => _pending.remove(cluster));
   }
 
+  /// "Überspringen" heisst "nicht jetzt", nicht "falsch" – deshalb wird
+  /// hier bewusst nichts festgehalten. Als Ablehnung gewertet würde jeder
+  /// übersprungene Vorschlag die Schwelle der vorgeschlagenen Person
+  /// hochziehen, obwohl der Nutzer gar keine Aussage gemacht hat.
   void _skip(FaceClusterSuggestion cluster) => setState(() => _pending.remove(cluster));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Vorschläge prüfen')),
+      appBar: AppBar(title: Text(AppTexte.of(context).clusterTitel)),
       body: _pending.isEmpty
-          ? const Center(
+          ? Center(
               child: Padding(
-                padding: EdgeInsets.all(AppSpacing.xxl),
-                child: Text('Alle Vorschläge durchgesehen.', textAlign: TextAlign.center),
+                padding: const EdgeInsets.all(AppSpacing.xxl),
+                child: Text(AppTexte.of(context).clusterFertig, textAlign: TextAlign.center),
               ),
             )
           : ListView.builder(
@@ -108,12 +152,12 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text('${cluster.faces.length} Gesichter'),
+                        Text(AppTexte.of(context).clusterGesichterAnzahl(cluster.faces.length)),
                         if (cluster.suggestedPerson != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 6),
                             child: Chip(
-                              label: Text('Ähnlich zu: ${cluster.suggestedPerson!.name}'),
+                              label: Text(AppTexte.of(context).clusterAehnlichZu(cluster.suggestedPerson!.name)),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
@@ -123,14 +167,14 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: () => _skip(cluster),
-                                child: const Text('Überspringen'),
+                                child: Text(AppTexte.of(context).clusterUeberspringen),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: FilledButton(
                                 onPressed: () => _assign(cluster),
-                                child: const Text('Zuordnen'),
+                                child: Text(AppTexte.of(context).personZuordnenAktion),
                               ),
                             ),
                           ],

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
@@ -121,7 +123,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       if (decoded == null) {
         setState(() {
           _loading = false;
-          _error = 'Bild konnte nicht gelesen werden.';
+          _error = AppTexte.of(context).bearbBildNichtLesbar;
         });
         return;
       }
@@ -135,7 +137,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = 'Bild konnte nicht gelesen werden: $e';
+          _error = AppTexte.of(context).bearbBildNichtLesbarFehler('$e');
         });
       }
     }
@@ -190,22 +192,24 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Änderungen speichern?'),
-        content: const Text(
-          'Die Originaldatei wird durch die bearbeitete Version ersetzt. Das lässt sich nicht rückgängig machen.',
+        title: Text(AppTexte.of(context).bearbSpeichernTitel),
+        content: Text(
+          AppTexte.of(context).bearbSpeichernText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Speichern')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgSpeichern)),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
+    // Vor dem await auflösen – danach ist der Kontext nicht mehr sicher.
+    final nichtFinalisiert = AppTexte.of(context).bearbNichtFinalisiert;
     setState(() => _saving = true);
     try {
       final jpegBytes = await compute(_finalizeImageIsolate, currentBytes);
-      if (jpegBytes == null) throw Exception('Bild konnte nicht finalisiert werden.');
+      if (jpegBytes == null) throw Exception(nichtFinalisiert);
       final checksum = sha256.convert(jpegBytes).toString();
 
       // Original bereits ein JPEG -> an Ort und Stelle ersetzen. Andere
@@ -245,7 +249,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Speichern fehlgeschlagen: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppTexte.of(context).bearbSpeichernFehler('$e'))));
       }
     }
   }
@@ -305,13 +309,13 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
           TextButton.icon(
             onPressed: _processing ? null : _cancelCrop,
             icon: const Icon(Icons.close, color: Colors.white70),
-            label: const Text('Abbrechen', style: TextStyle(color: Colors.white70)),
+            label: Text(AppTexte.of(context).allgAbbrechen, style: const TextStyle(color: Colors.white70)),
           ),
           const SizedBox(width: 24),
           FilledButton.icon(
             onPressed: _processing ? null : _applyCrop,
             icon: const Icon(Icons.check),
-            label: const Text('Zuschneiden anwenden'),
+            label: Text(AppTexte.of(context).bearbZuschneidenAnwenden),
           ),
         ],
       );
@@ -344,7 +348,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Bearbeiten'),
+        title: Text(AppTexte.of(context).bearbTitel),
         actions: [
           if (_saving)
             const Padding(
@@ -358,7 +362,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
           else
             IconButton(
               icon: const Icon(Icons.check),
-              tooltip: 'Speichern',
+              tooltip: AppTexte.of(context).allgSpeichern,
               onPressed: _currentBytes == null || _processing ? null : _save,
             ),
         ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import 'album_detail_screen.dart';
@@ -15,15 +16,15 @@ class AlbumsScreen extends StatelessWidget {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Neues Album'),
+        title: Text(AppTexte.of(context).albumNeu),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Albumname'),
+          decoration: InputDecoration(labelText: AppTexte.of(context).albumName),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Erstellen')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: Text(AppTexte.of(context).allgErstellen)),
         ],
       ),
     );
@@ -43,14 +44,14 @@ class AlbumsScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _createAlbum(context),
         icon: const Icon(Icons.add),
-        label: const Text('Neues Album'),
+        label: Text(AppTexte.of(context).albumNeu),
       ),
       body: StreamBuilder<List<AlbumData>>(
         stream: library.db.watchAlbums(),
         builder: (context, snapshot) {
           final albums = snapshot.data ?? [];
           if (albums.isEmpty) {
-            return const Center(child: Text('Noch keine Alben vorhanden.'));
+            return Center(child: Text(AppTexte.of(context).albenLeer));
           }
           return GridView.builder(
             padding: const EdgeInsets.all(AppSpacing.lg),

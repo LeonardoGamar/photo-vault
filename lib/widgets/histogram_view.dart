@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../services/histogram.dart';
 import '../theme/app_spacing.dart';
 
@@ -48,7 +50,8 @@ class _HistogramViewState extends State<HistogramView> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Histogramm', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            Text(AppTexte.of(context).histogrammTitel,
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
             if (widget.isStale)
               const SizedBox(
                 width: 12,
@@ -67,10 +70,10 @@ class _HistogramViewState extends State<HistogramView> {
           ),
           clipBehavior: Clip.antiAlias,
           child: data == null || data.isEmpty
-              ? const Center(
+              ? Center(
                   child: Text(
-                    'Noch keine Vorschau',
-                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                    AppTexte.of(context).histogrammKeineVorschau,
+                    style: const TextStyle(color: Colors.white38, fontSize: 11),
                   ),
                 )
               : CustomPaint(
@@ -84,12 +87,13 @@ class _HistogramViewState extends State<HistogramView> {
             visualDensity: VisualDensity.compact,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
-          segments: const [
+          segments: [
             ButtonSegment(
               value: HistogramMode.luminance,
-              label: Text('Helligkeit', style: TextStyle(fontSize: 11)),
+              label: Text(AppTexte.of(context).histogrammHelligkeit,
+                  style: const TextStyle(fontSize: 11)),
             ),
-            ButtonSegment(
+            const ButtonSegment(
               value: HistogramMode.rgb,
               label: Text('RGB', style: TextStyle(fontSize: 11)),
             ),
@@ -147,34 +151,51 @@ class _HistogramPainter extends CustomPainter {
     int peak,
     Color color, {
     BlendMode blend = BlendMode.srcOver,
-  }) {
-    if (peak <= 0) return;
-
-    final path = Path()..moveTo(0, size.height);
-    for (var i = 0; i < bins.length; i++) {
-      final x = size.width * i / (bins.length - 1);
-      // Quadratwurzel-Skalierung: reale Fotos haben oft einzelne, extrem
-      // hohe Spitzen (etwa eine große einfarbige Fläche), gegen die alle
-      // anderen Tonwerte bei linearer Skalierung zu einer unlesbaren
-      // Nulllinie zusammenfallen würden.
-      final normalized = (bins[i] / peak).clamp(0.0, 1.0);
-      final y = size.height * (1 - math.sqrt(normalized));
-      path.lineTo(x, y);
-    }
-    path
-      ..lineTo(size.width, size.height)
-      ..close();
-
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.fill
-        ..blendMode = blend,
-    );
-  }
+  }) =>
+      paintHistogramSilhouette(canvas, size, bins, peak, color, blend: blend);
 
   @override
   bool shouldRepaint(covariant _HistogramPainter oldDelegate) =>
       oldDelegate.mode != mode || !identical(oldDelegate.data, data);
+}
+
+/// Zeichnet die Fläche unter einer Tonwertverteilung.
+///
+/// Öffentlich, weil der Tonwertkurven-Editor dieselbe Silhouette hinter
+/// seinem Raster zeigt – dort ist sie der eigentliche Bezugspunkt: Man
+/// zieht die Kurve dorthin, wo die Tonwerte tatsächlich liegen. Eine
+/// zweite, leicht abweichende Zeichenroutine dafür wäre genau die Art
+/// Ungenauigkeit, die beim Vergleichen stört.
+///
+/// Die Quadratwurzel-Skalierung ist kein Schönheitsmittel: Reale Fotos
+/// haben oft einzelne, extrem hohe Spitzen (etwa eine grosse einfarbige
+/// Fläche), gegen die alle anderen Tonwerte bei linearer Skalierung zu
+/// einer unlesbaren Nulllinie zusammenfielen.
+void paintHistogramSilhouette(
+  Canvas canvas,
+  Size size,
+  List<int> bins,
+  int peak,
+  Color color, {
+  BlendMode blend = BlendMode.srcOver,
+}) {
+  if (peak <= 0 || bins.length < 2) return;
+
+  final path = Path()..moveTo(0, size.height);
+  for (var i = 0; i < bins.length; i++) {
+    final x = size.width * i / (bins.length - 1);
+    final normalized = (bins[i] / peak).clamp(0.0, 1.0);
+    path.lineTo(x, size.height * (1 - math.sqrt(normalized)));
+  }
+  path
+    ..lineTo(size.width, size.height)
+    ..close();
+
+  canvas.drawPath(
+    path,
+    Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..blendMode = blend,
+  );
 }

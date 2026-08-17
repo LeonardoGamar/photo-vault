@@ -1,29 +1,36 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 
 /// Fragt einen PIN ab (z.B. um den gesperrten Ordner zu öffnen oder eine
 /// Änderung zu bestätigen). Gibt `null` zurück, wenn abgebrochen wurde.
 /// `maxLength` deckt auch schon bestehende, mit einer älteren (4-6-stelligen)
 /// Richtlinie eingerichtete PINs ab – siehe [showSetPinDialog].
-Future<String?> showEnterPinDialog(BuildContext context, {String title = 'PIN eingeben'}) async {
+Future<String?> showEnterPinDialog(BuildContext context, {String? title}) async {
+  // Vorgabewert erst hier: im Kopf gibt es noch keinen Kontext. Als lokale
+  // Variable, weil ein Parameter innerhalb des Builder-Closures unten nicht
+  // als „sicher nicht null" gilt.
+  final titel = title ?? AppTexte.of(context).pinEingebenTitel;
   final ctrl = TextEditingController();
   final result = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(title),
+      title: Text(titel),
       content: TextField(
         controller: ctrl,
         autofocus: true,
         obscureText: true,
         keyboardType: TextInputType.number,
         maxLength: 10,
-        decoration: const InputDecoration(labelText: 'PIN', counterText: ''),
+        decoration: InputDecoration(labelText: AppTexte.of(context).pinFeld, counterText: ''),
         onSubmitted: (v) => Navigator.pop(context, v),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
         FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text('OK')),
       ],
     ),
@@ -52,7 +59,7 @@ Future<String?> showSetPinDialog(BuildContext context) async {
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('PIN festlegen'),
+        title: Text(AppTexte.of(context).pinFestlegenTitel),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -62,48 +69,49 @@ Future<String?> showSetPinDialog(BuildContext context) async {
               obscureText: true,
               keyboardType: TextInputType.number,
               maxLength: 10,
-              decoration: const InputDecoration(labelText: 'Neuer PIN (8-10 Ziffern)', counterText: ''),
+              decoration: InputDecoration(
+                  labelText: AppTexte.of(context).pinNeuFeld, counterText: ''),
             ),
             TextField(
               controller: confirmCtrl,
               obscureText: true,
               keyboardType: TextInputType.number,
               maxLength: 10,
-              decoration: const InputDecoration(labelText: 'PIN wiederholen', counterText: ''),
+              decoration: InputDecoration(
+                  labelText: AppTexte.of(context).pinWiederholen, counterText: ''),
             ),
             if (error != null)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.sm),
-                child: Text(error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                child: Text(error!, style: TextStyle(
+                        color: Theme.of(context).colorScheme.error, fontSize: 12)),
               ),
-            const Padding(
-              padding: EdgeInsets.only(top: AppSpacing.md),
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
               child: Text(
-                'Wichtig: Fotos im gesperrten Ordner werden echt verschlüsselt (AES-256). '
-                'Ohne diesen PIN gibt es KEINE Möglichkeit, sie wiederherzustellen – auch '
-                'nicht durch Zurücksetzen der App.',
-                style: TextStyle(fontSize: 12, color: Colors.orange),
+                AppTexte.of(context).pinWarnung,
+                style: TextStyle(fontSize: 12, color: context.semantik.warnung),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
           FilledButton(
             onPressed: () {
               final pin = pinCtrl.text.trim();
               final confirm = confirmCtrl.text.trim();
               if (pin.length < 8 || pin.length > 10 || int.tryParse(pin) == null) {
-                setState(() => error = 'PIN muss aus 8-10 Ziffern bestehen.');
+                setState(() => error = AppTexte.of(context).pinZiffernFehler);
                 return;
               }
               if (pin != confirm) {
-                setState(() => error = 'PINs stimmen nicht überein.');
+                setState(() => error = AppTexte.of(context).pinUngleich);
                 return;
               }
               Navigator.pop(context, pin);
             },
-            child: const Text('Festlegen'),
+            child: Text(AppTexte.of(context).allgFestlegen),
           ),
         ],
       ),
@@ -134,14 +142,14 @@ Future<bool> ensureVaultUnlocked(BuildContext context, LibraryState library) asy
   }
 
   if (!context.mounted) return false;
-  final pin = await showEnterPinDialog(context, title: 'PIN eingeben');
+  final pin = await showEnterPinDialog(context);
   if (pin == null) return false;
   try {
     await library.unlockVaultWithPin(pin);
     return true;
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Falscher PIN.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppTexte.of(context).pinFalsch)));
     }
     return false;
   }
@@ -152,21 +160,23 @@ Future<bool> ensureVaultUnlocked(BuildContext context, LibraryState library) asy
 /// Zahlenfeld/keine Längenbegrenzung – ein Backup liegt oft langfristig
 /// extern (Cloud-Ordner, externe Platte), eine kurze PIN wäre dafür zu
 /// schwach. Gibt `null` zurück, wenn abgebrochen wurde.
-Future<String?> showEnterPassphraseDialog(BuildContext context, {String title = 'Backup-Passphrase eingeben'}) async {
+Future<String?> showEnterPassphraseDialog(BuildContext context,
+    {String? title}) async {
+  final titel = title ?? AppTexte.of(context).einstBackupPassphraseEingeben;
   final ctrl = TextEditingController();
   final result = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text(title),
+      title: Text(titel),
       content: TextField(
         controller: ctrl,
         autofocus: true,
         obscureText: true,
-        decoration: const InputDecoration(labelText: 'Passphrase'),
+        decoration: InputDecoration(labelText: AppTexte.of(context).passphraseFeld),
         onSubmitted: (v) => Navigator.pop(context, v),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
         FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text('OK')),
       ],
     ),
@@ -186,7 +196,7 @@ Future<String?> showSetPassphraseDialog(BuildContext context) async {
     context: context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        title: const Text('Backup-Passphrase festlegen'),
+        title: Text(AppTexte.of(context).passphraseFestlegenTitel),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -194,32 +204,32 @@ Future<String?> showSetPassphraseDialog(BuildContext context) async {
               controller: passCtrl,
               autofocus: true,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Neue Passphrase (mind. 8 Zeichen)'),
+              decoration:
+                  InputDecoration(labelText: AppTexte.of(context).passphraseNeuFeld),
             ),
             TextField(
               controller: confirmCtrl,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'Passphrase wiederholen'),
+              decoration:
+                  InputDecoration(labelText: AppTexte.of(context).passphraseWiederholen),
             ),
             if (error != null)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.sm),
-                child: Text(error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                child: Text(error!, style: TextStyle(
+                        color: Theme.of(context).colorScheme.error, fontSize: 12)),
               ),
-            const Padding(
-              padding: EdgeInsets.only(top: AppSpacing.md),
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.md),
               child: Text(
-                'Wichtig: Backups werden echt verschlüsselt (AES-256). Ohne diese '
-                'Passphrase gibt es KEINE Möglichkeit, sie wiederherzustellen – auch '
-                'nicht auf einem anderen Rechner. Am besten zusätzlich an einem sicheren '
-                'Ort notieren.',
-                style: TextStyle(fontSize: 12, color: Colors.orange),
+                AppTexte.of(context).passphraseWarnung,
+                style: TextStyle(fontSize: 12, color: context.semantik.warnung),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
           FilledButton(
             onPressed: () {
               final pass = passCtrl.text;
@@ -229,12 +239,12 @@ Future<String?> showSetPassphraseDialog(BuildContext context) async {
                 return;
               }
               if (pass != confirm) {
-                setState(() => error = 'Passphrasen stimmen nicht überein.');
+                setState(() => error = AppTexte.of(context).passphraseUngleich);
                 return;
               }
               Navigator.pop(context, pass);
             },
-            child: const Text('Festlegen'),
+            child: Text(AppTexte.of(context).allgFestlegen),
           ),
         ],
       ),
@@ -269,7 +279,7 @@ Future<bool> ensureBackupKeyAvailable(BuildContext context, LibraryState library
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Falsche Passphrase.')));
+          .showSnackBar(SnackBar(content: Text(AppTexte.of(context).passphraseFalsch)));
     }
     return false;
   }

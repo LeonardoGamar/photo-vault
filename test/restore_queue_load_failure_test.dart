@@ -61,6 +61,9 @@ void main() {
 
     final jobA = (await db.watchRestoreJobs().first).firstWhere((j) => j.id == jobIdA);
     expect(jobA.status, 'failed');
+    // Gespeichert wird die Kennung des Grundes (übersetzbar) und dahinter
+    // die Ursache – die ist es, die bei einem Fehlerbericht weiterhilft.
+    expect(jobA.errorMessage, startsWith('modellLaedtNicht: '));
     expect(jobA.errorMessage, contains('Modelldatei beschädigt'));
 
     // Die Warteschlange darf danach nicht blockiert bleiben – ein zweiter

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../services/removable_media_service.dart';
 import '../theme/app_spacing.dart';
 
@@ -51,7 +53,7 @@ class _CameraSourcePickerDialogState extends State<_CameraSourcePickerDialog> {
   Widget build(BuildContext context) {
     final sources = _sources;
     return AlertDialog(
-      title: const Text('Von Kamera/SD-Karte importieren'),
+      title: Text(AppTexte.of(context).kameraImportTitel),
       content: SizedBox(
         width: 420,
         child: sources == null
@@ -60,13 +62,9 @@ class _CameraSourcePickerDialogState extends State<_CameraSourcePickerDialog> {
                 child: Center(child: CircularProgressIndicator()),
               )
             : sources.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                    child: Text(
-                      'Kein Datenträger mit Fotos/Videos gefunden. Kamera oder '
-                      'SD-Karte per USB einstecken – die Liste aktualisiert sich '
-                      'automatisch, sobald sie erkannt wird.',
-                    ),
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    child: Text(AppTexte.of(context).kameraKeinDatentraeger),
                   )
                 : Column(
                     mainAxisSize: MainAxisSize.min,
@@ -87,7 +85,7 @@ class _CameraSourcePickerDialogState extends State<_CameraSourcePickerDialog> {
                   ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
       ],
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../services/embedding_similarity.dart';
 import '../services/duplicate_selection.dart';
@@ -41,7 +43,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     try {
       if (!widget.library.clipAvailable) {
         setState(() {
-          _error = 'Benötigt das CLIP-Modell (Einstellungen → KI-Modelle).';
+          _error = AppTexte.of(context).allgClipNoetigKurz;
           _groups = [];
         });
         return;
@@ -84,9 +86,8 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(vorschau.uebersprungeneGruppen > 0
-            ? 'Nichts automatisch löschbar: In allen Gruppen sind mehrere Fotos '
-                'favorisiert oder bewertet – die bitte von Hand durchsehen.'
-            : 'Nichts zu löschen.'),
+            ? AppTexte.of(context).duplNichtsLoeschbar
+            : AppTexte.of(context).duplNichtsZuLoeschen),
       ));
       return;
     }
@@ -94,39 +95,37 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     final bestaetigt = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Kopien in den Papierkorb?'),
+        title: Text(AppTexte.of(context).duplPapierkorbTitel),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${vorschau.zuLoeschen.length} Foto(s) aus '
-                '${_groups.length} Gruppe(n) werden in den Papierkorb verschoben.'),
+            Text(AppTexte.of(context).duplPapierkorbAnzahl(
+                vorschau.zuLoeschen.length, _groups.length)),
             const SizedBox(height: AppSpacing.md),
-            const Text(
-              'Behalten wird je Gruppe: Favorit, sonst höchste Bewertung, '
-              'sonst das schärfste, sonst das mit der höchsten Auflösung.',
-              style: TextStyle(fontSize: 12),
+            Text(
+              AppTexte.of(context).duplBehaltenRegel,
+              style: const TextStyle(fontSize: 12),
             ),
             if (vorschau.uebersprungeneGruppen > 0) ...[
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '${vorschau.uebersprungeneGruppen} Gruppe(n) bleiben unangetastet, '
-                'weil dort mehrere Fotos favorisiert oder bewertet sind.',
+                AppTexte.of(context).duplUebersprungen(vorschau.uebersprungeneGruppen),
                 style: const TextStyle(fontSize: 12),
               ),
             ],
             const SizedBox(height: AppSpacing.sm),
-            const Text(
-              'Rückgängig: über den Papierkorb wiederherstellbar.',
-              style: TextStyle(fontSize: 12),
+            Text(
+              AppTexte.of(context).duplRueckgaengig,
+              style: const TextStyle(fontSize: 12),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('In den Papierkorb'),
+            child: Text(AppTexte.of(context).duplInPapierkorb),
           ),
         ],
       ),
@@ -136,7 +135,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     await widget.library.db.moveToTrash(vorschau.zuLoeschen.map((a) => a.id).toList());
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('${vorschau.zuLoeschen.length} Foto(s) in den Papierkorb verschoben.'),
+      content: Text(AppTexte.of(context).duplVerschoben(vorschau.zuLoeschen.length)),
     ));
     await _load();
   }
@@ -162,20 +161,20 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Duplikate & ähnliche Fotos'),
+        title: Text(AppTexte.of(context).duplTitel),
         actions: [
           TextButton.icon(
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => SecondLibraryCompareScreen(library: widget.library),
             )),
             icon: const Icon(Icons.folder_copy_outlined),
-            label: const Text('Zweite Bibliothek'),
+            label: Text(AppTexte.of(context).duplZweiteBibliothek),
           ),
           if (_groups.isNotEmpty)
             TextButton.icon(
               onPressed: _alleKopienLoeschen,
               icon: const Icon(Icons.auto_delete_outlined),
-              label: const Text('Alle Kopien löschen'),
+              label: Text(AppTexte.of(context).duplAlleKopienLoeschen),
             ),
         ],
       ),
@@ -185,7 +184,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
             child: Row(
               children: [
-                const Text('Ähnlichkeit:'),
+                Text(AppTexte.of(context).duplAehnlichkeit),
                 Expanded(
                   child: Slider(
                     value: _threshold,
@@ -201,12 +200,11 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
               ],
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: Text(
-              'Höhere Werte = nur sehr ähnliche Fotos werden als Gruppe erkannt. '
-              'Niedrigere Werte finden mehr, aber auch weniger sichere Treffer.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              AppTexte.of(context).duplSchwelleHinweis,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
           const Divider(height: 16),
@@ -227,10 +225,10 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       );
     }
     if (_groups.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(AppSpacing.xxl),
-          child: Text('Keine ähnlichen Fotogruppen gefunden.', textAlign: TextAlign.center),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Text(AppTexte.of(context).duplKeineGruppen, textAlign: TextAlign.center),
         ),
       );
     }
@@ -244,7 +242,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Gruppe ${groupIndex + 1} · ${group.length} Fotos',
+              Text(AppTexte.of(context).duplGruppe(groupIndex + 1, group.length),
                   style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
               SizedBox(
@@ -288,7 +286,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
                               shape: const CircleBorder(),
                               child: IconButton(
                                 icon: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
-                                tooltip: 'In den Papierkorb verschieben',
+                                tooltip: AppTexte.of(context).duplVerschiebenTooltip,
                                 onPressed: () => _moveToTrash(asset, group),
                               ),
                             ),

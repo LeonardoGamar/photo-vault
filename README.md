@@ -160,6 +160,12 @@ welche Modelle aus welcher Quelle stammen.
   (Belichtung, Kontrast, Objektivkorrektur über CIRAWFilter, Masken-basierte
   gezielte Korrekturen) werden als Verlauf gespeichert, das Original bleibt
   unverändert; jeder Schritt lässt sich zurückverfolgen
+- **Tonwertkurve** – Punktkurve mit den Kanälen RGB, R, G und B; Punkte per
+  Ziehen setzen und verschieben, langes Drücken entfernt sie. Monotone
+  Interpolation nach Fritsch–Carlson, damit die Kurve zwischen zwei Punkten
+  nicht überschwingt.
+- **Farbmischer** – acht Farbbänder (Rot bis Magenta) mit je Farbton,
+  Sättigung und Helligkeit, wie in Lightroom und darktable
 - **Histogramm** im Entwickeln-Screen, umschaltbar zwischen **Helligkeit**
   (Luma-gewichtet) und **RGB** (die drei Kanäle additiv überlagert) –
   aktualisiert sich live zu den Reglern
@@ -187,12 +193,23 @@ welche Modelle aus welcher Quelle stammen.
   diesen Master-Key über Argon2id). Gesperrte, gelöschte Fotos landen in
   einem eigenen, ebenfalls PIN-geschützten Papierkorb – nicht im normalen.
   PIN-Wechsel erfordert keine Neuverschlüsselung aller Dateien.
+  Jede verschlüsselte Datei ist zusätzlich als Ganzes gesichert: Jeder Block
+  ist an seine laufende Nummer gebunden, ein Abschlussblock hält ihre Anzahl
+  fest. Wird eine Datei gekürzt oder werden Blöcke vertauscht, fällt das beim
+  Entschlüsseln auf, statt eine stillschweigend verkürzte Datei zu liefern.
+  Dateien im vorherigen Format werden unverändert weiter gelesen.
 - **Manuelles Cloud-Backup** – kopiert neue Dateien (optional verschlüsselt
   mit einer Passphrase) in einen frei wählbaren Ordner (z.B. deinen
   Dropbox-/Google-Drive-Sync-Ordner) und wieder zurück
 
 ### Bedienung
 
+- **Zweisprachige Oberfläche – Deutsch und Englisch.** Umschaltbar unter
+  Einstellungen → Sprache, wahlweise fest oder der Systemsprache folgend;
+  der Wechsel wirkt sofort, ohne Neustart. Datum, Uhrzeit und
+  Tausendertrennung richten sich mit. Beim Wechsel bietet die App an, das
+  Schlagwort-Vokabular mitzuziehen – selbst hinzugefügte Begriffe bleiben
+  dabei unangetastet.
 - **Helles/Dunkles/System-Erscheinungsbild**, native macOS-Typografie
   (San Francisco über `.AppleSystemUIFont`)
 - **Tastaturkürzel** – ⌘1–⌘9 für die Navigation, F (Favorit), ⌫ (Löschen mit
@@ -229,10 +246,11 @@ flutter run -d macos
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 27: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 36: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
-Warteschlange, …). Drift migriert das automatisch beim
+Warteschlange, Tonwertkurve und Farbmischer, gelernte
+Wiedererkennungs-Schwellen, Sprachwahl, …). Drift migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
 
@@ -270,6 +288,8 @@ Download-Button:
 | ViT-GPT2 | Automatische Bildbeschreibung (Englisch) | Apache-2.0 | Xenova/HuggingFace |
 | OCEC | Erkennung geschlossener Augen (Blinzler) | MIT | PINTO0309/GitHub |
 | Real-ESRGAN x4 | KI-Restaurierung (4× hochskalieren + entrauschen) | BSD-3-Clause | SceneWorks/HuggingFace |
+| OPUS-MT en→de | Bildbeschreibungen in die Oberflächensprache übersetzen | Apache-2.0 (Helsinki-NLP) | Xenova/HuggingFace |
+| OPUS-MT de→en | Deutsche Suchanfragen und Schlagwörter für die Bildsuche übersetzen | Apache-2.0 (Helsinki-NLP) | Xenova/HuggingFace |
 
 Ein Klick auf "Herunterladen" lädt die Dateien direkt von GitHub bzw.
 HuggingFace in `~/Library/Application Support/PhotoVault/models/` – kein

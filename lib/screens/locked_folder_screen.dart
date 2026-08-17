@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -49,7 +51,7 @@ class _LockedFolderScreenState extends State<LockedFolderScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Gesperrter Ordner'),
+          title: Text(AppTexte.of(context).einstGesperrterOrdner),
           bottom: const TabBar(tabs: [Tab(text: 'Fotos'), Tab(text: 'Papierkorb')]),
         ),
         body: TabBarView(
@@ -74,13 +76,11 @@ class _LockedAssetsGrid extends StatelessWidget {
       builder: (context, snapshot) {
         final assets = snapshot.data ?? [];
         if (assets.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(AppSpacing.xxl),
+              padding: const EdgeInsets.all(AppSpacing.xxl),
               child: Text(
-                'Keine gesperrten Fotos. In der Vollbildansicht eines Fotos '
-                'lässt es sich über das Schloss-Symbol oben rechts hierher '
-                'verschieben (dabei verschlüsselt).',
+                AppTexte.of(context).gesperrtLeer,
                 textAlign: TextAlign.center,
               ),
             ),
@@ -124,7 +124,7 @@ class _LockedAssetsGrid extends StatelessWidget {
                     shape: const CircleBorder(),
                     child: IconButton(
                       icon: const Icon(Icons.lock_open, color: Colors.white, size: 18),
-                      tooltip: 'Aus dem gesperrten Ordner entfernen (entschlüsseln)',
+                      tooltip: AppTexte.of(context).gesperrtEntfernen,
                       onPressed: () => library.unlockAsset(asset),
                     ),
                   ),
@@ -147,17 +147,16 @@ class _LockedTrashGrid extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Endgültig löschen?'),
-        content: const Text(
-          'Die Datei wird unwiderruflich gelöscht – auch mit dem richtigen PIN gibt es '
-          'danach keine Wiederherstellung mehr.',
+        title: Text(AppTexte.of(context).gesperrtEndgueltigTitel),
+        content: Text(
+          AppTexte.of(context).gesperrtEndgueltigText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Endgültig löschen'),
+            child: Text(AppTexte.of(context).bestaetigEndgueltigLoeschen),
           ),
         ],
       ),
@@ -171,13 +170,11 @@ class _LockedTrashGrid extends StatelessWidget {
       builder: (context, snapshot) {
         final assets = snapshot.data ?? [];
         if (assets.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(AppSpacing.xxl),
+              padding: const EdgeInsets.all(AppSpacing.xxl),
               child: Text(
-                'Der gesperrte Papierkorb ist leer.\n\nAus dem gesperrten Ordner '
-                'gelöschte Fotos landen hier statt im normalen (ungeschützten) '
-                'Papierkorb.',
+                AppTexte.of(context).gesperrtPapierkorbLeer,
                 textAlign: TextAlign.center,
               ),
             ),
@@ -219,7 +216,7 @@ class _LockedTrashGrid extends StatelessWidget {
                     shape: const CircleBorder(),
                     child: IconButton(
                       icon: const Icon(Icons.delete_forever_outlined, color: Colors.white, size: 18),
-                      tooltip: 'Endgültig löschen',
+                      tooltip: AppTexte.of(context).bestaetigEndgueltigLoeschen,
                       onPressed: () async {
                         final confirm = await _confirmDelete(context);
                         if (confirm == true) await onPermanentlyDelete(asset);
@@ -235,7 +232,7 @@ class _LockedTrashGrid extends StatelessWidget {
                     shape: const CircleBorder(),
                     child: IconButton(
                       icon: const Icon(Icons.restore_from_trash_outlined, color: Colors.white, size: 18),
-                      tooltip: 'Wiederherstellen (bleibt gesperrt)',
+                      tooltip: AppTexte.of(context).gesperrtWiederherstellen,
                       onPressed: () => library.db.restoreFromTrash([asset.id]),
                     ),
                   ),

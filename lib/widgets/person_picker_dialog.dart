@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 
 class PersonChoice {
@@ -16,7 +18,7 @@ class PersonChoice {
 Future<PersonChoice?> showPersonPickerDialog(
   BuildContext context,
   List<PersonData> existingPeople, {
-  String title = 'Person zuordnen',
+  String? title,
   String? currentName,
   PersonData? suggestedPerson,
 }) {
@@ -24,7 +26,8 @@ Future<PersonChoice?> showPersonPickerDialog(
     context: context,
     builder: (context) => _PersonPickerDialog(
       existingPeople: existingPeople,
-      title: title,
+      // Vorgabewert erst hier: im Kopf gibt es noch keinen Kontext.
+      title: title ?? AppTexte.of(context).personZuordnenTitel,
       currentName: currentName,
       suggestedPerson: suggestedPerson,
     ),
@@ -66,31 +69,34 @@ class _PersonPickerDialogState extends State<_PersonPickerDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (widget.currentName != null) ...[
-            Text('Aktuell: ${widget.currentName}', style: const TextStyle(color: Colors.grey)),
+            Text(AppTexte.of(context).personAktuell(widget.currentName!),
+                style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 12),
           ],
           if (widget.existingPeople.isNotEmpty) ...[
             DropdownButtonFormField<PersonData>(
               initialValue: _selectedExisting,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Bestehende Person'),
+              decoration: InputDecoration(labelText: AppTexte.of(context).personBestehende),
               items: widget.existingPeople
                   .map((p) => DropdownMenuItem(value: p, child: Text(p.name)))
                   .toList(),
               onChanged: (p) => setState(() => _selectedExisting = p),
             ),
             const SizedBox(height: 12),
-            const Text('— oder —', style: TextStyle(color: Colors.grey)),
+            Text(AppTexte.of(context).allgOder, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 12),
           ],
           TextField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Neue Person anlegen'),
+            decoration: InputDecoration(labelText: AppTexte.of(context).personNeuAnlegen),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
         FilledButton(
           onPressed: () {
             if (_nameCtrl.text.trim().isNotEmpty) {
@@ -99,7 +105,7 @@ class _PersonPickerDialogState extends State<_PersonPickerDialog> {
               Navigator.pop(context, PersonChoice.existing(_selectedExisting!.id));
             }
           },
-          child: const Text('Zuordnen'),
+          child: Text(AppTexte.of(context).personZuordnenAktion),
         ),
       ],
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../services/native_image_converter.dart';
 import '../services/storage_paths.dart';
@@ -44,7 +46,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
     if (!ok) {
       // Ohne diese Prüfung bliebe der Ladekreis für immer stehen, weil
       // _range nie gesetzt wird.
-      setState(() => _fehler = 'Video konnte nicht geöffnet werden.');
+      setState(() => _fehler = AppTexte.of(context).videoNichtGeoeffnet);
       return;
     }
 
@@ -94,7 +96,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Zuschneiden fehlgeschlagen.')),
+          SnackBar(content: Text(AppTexte.of(context).videoZuschneidenFehler)),
         );
       }
       return;
@@ -126,12 +128,12 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: const Text('Zuschneiden'),
+        title: Text(AppTexte.of(context).videoZuschneiden),
         actions: [
           if (_hasExistingTrim)
             TextButton(
               onPressed: _saving ? null : _reset,
-              child: const Text('Zurücksetzen', style: TextStyle(color: Colors.white70)),
+              child: Text(AppTexte.of(context).einstZuruecksetzen, style: const TextStyle(color: Colors.white70)),
             ),
           if (_saving)
             const Padding(
@@ -143,7 +145,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
               ),
             )
           else
-            IconButton(icon: const Icon(Icons.check), tooltip: 'Speichern', onPressed: _save),
+            IconButton(icon: const Icon(Icons.check), tooltip: AppTexte.of(context).allgSpeichern, onPressed: _save),
         ],
       ),
       body: SafeArea(

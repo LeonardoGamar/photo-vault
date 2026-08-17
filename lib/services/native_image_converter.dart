@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import 'develop_color.dart';
 import 'platform/linux_image_tools.dart';
 import 'raw_formats.dart';
 
@@ -210,6 +211,13 @@ class DevelopAdjustments {
   final double noiseReduction; // 0..1
   final bool lensCorrectionEnabled;
 
+  /// Tonwertkurve und Farbmischer (siehe develop_color.dart). Anders als
+  /// die Regler darüber gehen sie nicht als Zahl über den Kanal, sondern
+  /// als fertig ausgerechnete Nachschlagetabelle – die Mathematik liegt
+  /// bewusst nur in Dart, nicht noch einmal in Swift.
+  final ToneCurve toneCurve;
+  final ColorMixer colorMixer;
+
   const DevelopAdjustments({
     this.exposure = 0,
     this.temperature,
@@ -219,6 +227,8 @@ class DevelopAdjustments {
     this.sharpness = 0,
     this.noiseReduction = 0,
     this.lensCorrectionEnabled = true,
+    this.toneCurve = ToneCurve.neutral,
+    this.colorMixer = ColorMixer.neutral,
   });
 
   /// Alle Regler auf "unverändert" – DevelopScreen zeigt bei fehlenden
@@ -227,6 +237,9 @@ class DevelopAdjustments {
   /// DevelopScreen._init).
   static const neutral = DevelopAdjustments();
 
+  /// Neutrale Kurve bzw. neutraler Mischer werden gar nicht erst
+  /// übertragen: Die native Seite lässt den jeweiligen Filter dann weg,
+  /// statt eine Identität durch Core Image zu schicken.
   Map<String, Object?> toChannelMap() => {
         'exposure': exposure,
         'temperature': temperature,
@@ -236,12 +249,22 @@ class DevelopAdjustments {
         'sharpness': sharpness,
         'noiseReduction': noiseReduction,
         'lensCorrectionEnabled': lensCorrectionEnabled,
+        if (!toneCurve.istNeutral) 'toneCurveLut': buildCurveLut(toneCurve),
+        if (!colorMixer.istNeutral) ...{
+          'colorCube': buildColorCube(colorMixer),
+          'colorCubeSize': colorCubeSize,
+        },
       };
 }
 
 /// Eine KI-Objektmaske (siehe MaskEditor/DevelopMasks) für
 /// [NativeImageConverter.developImage]: [maskFilePath] zeigt auf eine
 /// Grauwert-PNG-Alphamaske, [adjustments] gilt nur innerhalb dieser Maske.
+///
+/// Tonwertkurve und Farbmischer bleiben hier bewusst neutral – Masken
+/// führen sie nicht (siehe DevelopMasks in database.dart). Da
+/// [DevelopAdjustments.toChannelMap] neutrale Werte ohnehin weglässt,
+/// ergibt sich das von selbst, ohne Sonderfall.
 class MaskAdjustmentLayer {
   final String maskFilePath;
   final DevelopAdjustments adjustments;

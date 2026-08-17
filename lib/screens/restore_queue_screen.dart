@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -13,9 +15,16 @@ import 'asset_viewer_screen.dart';
 /// Abbrechen (wartend/laufend), Öffnen (fertig) und Entfernen aus der Liste
 /// (fertig/fehlgeschlagen/abgebrochen – betrifft nur den Warteschlangen-
 /// Eintrag, nicht das Foto selbst).
-class RestoreQueueScreen extends StatelessWidget {
+class RestoreQueueScreen extends StatefulWidget {
   final LibraryState library;
   const RestoreQueueScreen({super.key, required this.library});
+
+  @override
+  State<RestoreQueueScreen> createState() => _RestoreQueueScreenState();
+}
+
+class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
+  LibraryState get library => widget.library;
 
   Future<void> _openAsset(BuildContext context, String assetId) async {
     final asset = await library.db.assetById(assetId);
@@ -31,14 +40,55 @@ class RestoreQueueScreen extends StatelessWidget {
     ));
   }
 
-  String _statusLabel(RestoreJobData job) => switch (job.status) {
-        'queued' => 'Wartet in der Warteschlange',
-        'running' => job.tilesTotal > 0 ? 'Läuft – Kachel ${job.tilesDone} von ${job.tilesTotal}' : 'Wird gestartet …',
-        'done' => 'Fertig',
-        'cancelled' => 'Abgebrochen',
-        'failed' => job.errorMessage != null ? 'Fehlgeschlagen: ${job.errorMessage}' : 'Fehlgeschlagen',
-        _ => job.status,
+  String _statusLabel(BuildContext context, RestoreJobData job) {
+    final t = AppTexte.of(context);
+    return switch (job.status) {
+      'queued' => t.restaurWartet,
+      'running' => job.tilesTotal > 0
+          ? t.restaurLaeuft(job.tilesDone, job.tilesTotal)
+          : t.restaurWirdGestartet,
+      'done' => t.allgFertig,
+      'cancelled' => t.restaurAbgebrochen,
+      'failed' => job.errorMessage == null
+          ? t.restaurFehlgeschlagenKurz
+          : t.restaurFehlgeschlagen(_grundText(t, job.errorMessage!)),
+      _ => job.status,
+    };
+  }
+
+  /// Der Dienst legt die Kennung des Grundes ab (siehe
+  /// [RestaurierungsGrund]), bei einem Ladefehler gefolgt von der Ursache.
+  /// Was zu keiner Kennung passt, stammt aus einer älteren Fassung, die den
+  /// fertigen Satz gespeichert hat – der wird dann unverändert gezeigt,
+  /// statt dem Nutzer eine Kennung vorzusetzen.
+  String _grundText(AppTexte t, String gespeichert) {
+    final trenner = gespeichert.indexOf(': ');
+    if (trenner > 0) {
+      final kennung = gespeichert.substring(0, trenner);
+      final ursache = gespeichert.substring(trenner + 2);
+      final uebersetzt = _kennung(t, kennung);
+      if (uebersetzt != null) return '$uebersetzt $ursache';
+    }
+    return _kennung(t, gespeichert) ?? gespeichert;
+  }
+
+  String? _kennung(AppTexte t, String gespeichert) => switch (gespeichert) {
+        'modellLaedtNicht' => t.restaurGrundModellLaedtNicht,
+        'modellWeg' => t.restaurGrundModellWeg,
+        'fotoWeg' => t.restaurGrundFotoWeg,
+        'gesperrt' => t.restaurGrundGesperrt,
+        'aufloesungUnbekannt' => t.restaurGrundAufloesung,
+        'nichtGerendert' => t.restaurGrundNichtGerendert,
+        'nichtDekodiert' => t.restaurGrundNichtDekodiert,
+        _ => null,
       };
+
+  /// Gemerkte Auftrags-Fotos. Ein Auftrag zeigt immer dasselbe Foto, die
+  /// Abfrage muss also genau einmal laufen.
+  final Map<String, Future<AssetData?>> _assets = {};
+
+  Future<AssetData?> _asset(String assetId) =>
+      _assets.putIfAbsent(assetId, () => library.db.assetById(assetId));
 
   IconData _statusIcon(String status) => switch (status) {
         'queued' => Icons.schedule_outlined,
@@ -52,16 +102,15 @@ class RestoreQueueScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('KI-Restaurierung – Warteschlange')),
+      appBar: AppBar(title: Text(AppTexte.of(context).restaurTitel)),
       body: StreamBuilder<List<RestoreJobData>>(
         stream: library.db.watchRestoreJobs(),
         builder: (context, snapshot) {
           final jobs = snapshot.data ?? [];
           if (jobs.isEmpty) {
-            return const EmptyState(
+            return EmptyState(
               icon: Icons.auto_awesome_outlined,
-              message: 'Keine Restaurierungs-Aufträge vorhanden.\n'
-                  'Im Entwickeln-Screen eines Fotos lässt sich eine KI-Restaurierung anstoßen.',
+              message: AppTexte.of(context).restaurLeer,
             );
           }
           return ListView.separated(
@@ -72,23 +121,27 @@ class RestoreQueueScreen extends StatelessWidget {
               final job = jobs[index];
               final isActive = job.status == 'queued' || job.status == 'running';
               return FutureBuilder<AssetData?>(
-                future: library.db.assetById(job.assetId),
+                // Nicht `library.db.assetById(...)` direkt: Dieser
+                // Bildschirm baut bei jeder fertigen Kachel neu, und der
+                // Aufruf hier würde dann je Auftrag eine Abfrage auslösen –
+                // bei einem 12-MP-Foto rund 63 Stück ohne neue Information.
+                future: _asset(job.assetId),
                 builder: (context, assetSnapshot) {
                   final asset = assetSnapshot.data;
                   return ListTile(
                     leading: Icon(_statusIcon(job.status)),
                     title: Text(asset?.originalFileName ?? job.assetId),
-                    subtitle: Text(_statusLabel(job)),
+                    subtitle: Text(_statusLabel(context, job)),
                     onTap: job.status == 'done' ? () => _openAsset(context, job.assetId) : null,
                     trailing: isActive
                         ? IconButton(
                             icon: const Icon(Icons.close),
-                            tooltip: 'Abbrechen',
+                            tooltip: AppTexte.of(context).allgAbbrechen,
                             onPressed: () => library.restoreQueue.cancel(job.id),
                           )
                         : IconButton(
                             icon: const Icon(Icons.delete_outline),
-                            tooltip: 'Aus der Liste entfernen',
+                            tooltip: AppTexte.of(context).restaurAusListe,
                             onPressed: () => library.db.deleteRestoreJob(job.id),
                           ),
                   );

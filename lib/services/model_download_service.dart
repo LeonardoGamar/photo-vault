@@ -8,6 +8,30 @@ import 'package:path/path.dart' as p;
 
 import 'model_catalog.dart';
 
+/// Warum ein Modell-Download gescheitert ist.
+///
+/// Kein fertiger Satz: Dieser Dienst kennt keine Oberflächensprache. Die
+/// Teile (Dateiname, Prüfsummen) reicht er mit, den Satz baut der
+/// Einstellungs-Bildschirm.
+class ModellDownloadFehler implements Exception {
+  final String datei;
+
+  /// Gesetzt, wenn die Prüfsumme nicht stimmte – dann ist der Download
+  /// bewusst verworfen worden.
+  final String? erhalten;
+  final String? erwartet;
+
+  /// Gesetzt, wenn die Übertragung selbst fehlschlug.
+  final String? ursache;
+
+  const ModellDownloadFehler.pruefsumme(this.datei, this.erhalten, this.erwartet)
+      : ursache = null;
+  const ModellDownloadFehler.uebertragung(this.datei, this.ursache)
+      : erhalten = null,
+        erwartet = null;
+}
+
+
 class ModelDownloadProgress {
   final String fileName;
   final int receivedBytes;
@@ -53,12 +77,8 @@ class ModelDownloadService {
           final expectedHash = file.sha256.toLowerCase();
           if (actualHash != expectedHash) {
             await File(tmpPath).delete();
-            controller.addError(Exception(
-              'Prüfsumme von ${file.fileName} stimmt nicht mit der erwarteten SHA-256 '
-              'überein (erhalten $actualHash, erwartet $expectedHash) – Download '
-              'verworfen. Die Datei am Server hat sich möglicherweise geändert oder '
-              'wurde beim Transfer verändert.',
-            ));
+            controller.addError(ModellDownloadFehler.pruefsumme(
+                file.fileName, actualHash, expectedHash));
             await controller.close();
             return;
           }
@@ -67,7 +87,8 @@ class ModelDownloadService {
         } catch (e) {
           final partial = File(tmpPath);
           if (await partial.exists()) await partial.delete();
-          controller.addError(Exception('Download von ${file.fileName} fehlgeschlagen: $e'));
+          controller.addError(
+              ModellDownloadFehler.uebertragung(file.fileName, '$e'));
           await controller.close();
           return;
         }

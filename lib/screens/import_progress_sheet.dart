@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../services/raw_formats.dart';
 import '../state/library_state.dart';
@@ -17,25 +19,23 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
   final mode = await showDialog<_ImportMode>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Was möchtest du importieren?'),
-      content: const Text(
-        'Wähle einzelne Fotos/Videos aus, importiere einen kompletten Ordner '
-        '(inkl. aller Unterordner), oder importiere direkt von einer '
-        'angeschlossenen Kamera/SD-Karte.',
+      title: Text(AppTexte.of(context).importWasTitel),
+      content: Text(
+        AppTexte.of(context).importWasText,
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, _ImportMode.files),
-          child: const Text('Einzelne Dateien wählen'),
+          child: Text(AppTexte.of(context).importEinzelneDateien),
         ),
         OutlinedButton(
           onPressed: () => Navigator.pop(context, _ImportMode.folder),
-          child: const Text('Ganzen Ordner wählen'),
+          child: Text(AppTexte.of(context).importGanzerOrdner),
         ),
         FilledButton.icon(
           onPressed: () => Navigator.pop(context, _ImportMode.camera),
           icon: const Icon(Icons.photo_camera_outlined, size: 18),
-          label: const Text('Von Kamera/SD-Karte'),
+          label: Text(AppTexte.of(context).importVonKamera),
         ),
       ],
     ),
@@ -57,7 +57,7 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
     paths = result.files.map((f) => f.path).whereType<String>().toList();
   } else if (mode == _ImportMode.folder) {
     final folder = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Ordner zum Importieren wählen',
+      dialogTitle: AppTexte.of(context).importOrdnerWaehlen,
     );
     if (folder == null) return;
     if (!context.mounted) return;
@@ -65,7 +65,7 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
     if (paths.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Keine unterstützten Fotos/Videos in diesem Ordner gefunden.')),
+          SnackBar(content: Text(AppTexte.of(context).importNichtsImOrdner)),
         );
       }
       return;
@@ -78,7 +78,7 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
     if (paths.isEmpty) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Keine unterstützten Fotos/Videos auf diesem Datenträger gefunden.')),
+          SnackBar(content: Text(AppTexte.of(context).importNichtsAufDatentraeger)),
         );
       }
       return;
@@ -167,7 +167,7 @@ class _ImportProgressSheetState extends State<_ImportProgressSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              _finished ? 'Import abgeschlossen' : 'Importiere Fotos & Videos …',
+              _finished ? AppTexte.of(context).importAbgeschlossen : AppTexte.of(context).importLaeuft,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
@@ -180,11 +180,11 @@ class _ImportProgressSheetState extends State<_ImportProgressSheet> {
                 FilledButton.icon(
                   onPressed: _reviewImported,
                   icon: const Icon(Icons.rate_review_outlined, size: 18),
-                  label: const Text('Jetzt sichten'),
+                  label: Text(AppTexte.of(context).importJetztSichten),
                 ),
                 const SizedBox(height: 8),
               ],
-              OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fertig')),
+              OutlinedButton(onPressed: () => Navigator.of(context).pop(), child: Text(AppTexte.of(context).allgFertig)),
             ],
           ],
         ),

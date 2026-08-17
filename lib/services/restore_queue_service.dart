@@ -9,6 +9,30 @@ import 'native_image_converter.dart';
 import 'restore_service.dart';
 import 'storage_paths.dart';
 
+/// Grund, an dem ein Restaurierungs-Auftrag gescheitert ist.
+///
+/// In der Datenbank steht der Name dieses Werts, nicht der fertige Satz:
+/// Die Zeile überlebt einen Sprachwechsel, und ein Dienst ohne
+/// BuildContext kann ohnehin nicht übersetzen. Die Zuordnung zum Text
+/// steht im Warteschlangen-Bildschirm; Einträge aus älteren Fassungen
+/// tragen dort noch den deutschen Satz und werden unverändert angezeigt.
+enum RestaurierungsGrund {
+  modellLaedtNicht,
+  modellWeg,
+  fotoWeg,
+  gesperrt,
+  aufloesungUnbekannt,
+  nichtGerendert,
+  nichtDekodiert,
+}
+
+/// Geworfen, wenn das Modell fehlt – der Aufrufer zeigt seinen eigenen,
+/// übersetzten Hinweis.
+class RestaurierungNichtVerfuegbar implements Exception {
+  const RestaurierungNichtVerfuegbar();
+}
+
+
 /// Persistierte Hintergrund-Warteschlange für KI-Restaurierung (siehe
 /// RestoreService, RestoreJobs) – ein Auftrag läuft oft mehrere Minuten
 /// (echt gemessen: ~5 Min. bei 12 MP mit CoreML), daher bewusst NICHT als
@@ -53,7 +77,7 @@ class RestoreQueueService {
   /// lassen.
   Future<String> enqueue(String assetId) async {
     if (restoreHalter?.installiert != true) {
-      throw StateError('KI-Restaurierung ist nicht verfügbar – Modell nicht installiert.');
+      throw const RestaurierungNichtVerfuegbar();
     }
     final existing = await _db.activeRestoreJobForAsset(assetId);
     if (existing != null) return existing.id;
@@ -130,11 +154,13 @@ class RestoreQueueService {
       // unawaited(_maybeStartNext()) in _maybeStartNext() wurde nie erreicht,
       // wodurch die gesamte Warteschlange dauerhaft blockierte (Audit-Fund).
       await _db.markRestoreJobStatus(job.id, 'failed',
-          errorMessage: 'KI-Restaurierungs-Modell konnte nicht geladen werden: $e');
+          // Kennung UND Ursache: Die Kennung wird übersetzt, die Ursache
+          // dahinter ist das, was bei einem Fehlerbericht wirklich hilft.
+          errorMessage: '${RestaurierungsGrund.modellLaedtNicht.name}: $e');
       return;
     }
     if (service == null) {
-      await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: 'Modell nicht mehr verfügbar.');
+      await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: RestaurierungsGrund.modellWeg.name);
       return;
     }
     await _db.markRestoreJobStatus(job.id, 'running');
@@ -142,18 +168,18 @@ class RestoreQueueService {
     try {
       final asset = await _db.assetById(job.assetId);
       if (asset == null) {
-        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: 'Foto wurde inzwischen gelöscht.');
+        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: RestaurierungsGrund.fotoWeg.name);
         return;
       }
       if (asset.isLocked) {
         await _db.markRestoreJobStatus(job.id, 'failed',
-            errorMessage: 'KI-Restaurierung ist für gesperrte Fotos nicht verfügbar.');
+            errorMessage: RestaurierungsGrund.gesperrt.name);
         return;
       }
       final targetWidth = asset.widthPx;
       final targetHeight = asset.heightPx;
       if (targetWidth == null || targetHeight == null) {
-        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: 'Bildauflösung unbekannt.');
+        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: RestaurierungsGrund.aufloesungUnbekannt.name);
         return;
       }
 
@@ -199,12 +225,12 @@ class RestoreQueueService {
         quality: 0.95,
       );
       if (jpegBytes == null) {
-        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: 'Bild konnte nicht gerendert werden.');
+        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: RestaurierungsGrund.nichtGerendert.name);
         return;
       }
       final decoded = img.decodeJpg(jpegBytes);
       if (decoded == null) {
-        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: 'Gerendertes Bild konnte nicht dekodiert werden.');
+        await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: RestaurierungsGrund.nichtDekodiert.name);
         return;
       }
 

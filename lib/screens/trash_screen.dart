@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -24,11 +26,11 @@ class _TrashScreenState extends State<TrashScreen> {
         title: Text(title),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Löschen'),
+            child: Text(AppTexte.of(context).allgLoeschen),
           ),
         ],
       ),
@@ -46,11 +48,11 @@ class _TrashScreenState extends State<TrashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Papierkorb'),
+        title: Text(AppTexte.of(context).papierkorbTitel),
         actions: [
           if (_selected.isNotEmpty) ...[
             IconButton(
-              tooltip: 'Wiederherstellen',
+              tooltip: AppTexte.of(context).einstWiederherstellen,
               icon: const Icon(Icons.restore_from_trash_outlined),
               onPressed: () async {
                 await widget.library.db.restoreFromTrash(_selected.toList());
@@ -58,11 +60,11 @@ class _TrashScreenState extends State<TrashScreen> {
               },
             ),
             IconButton(
-              tooltip: 'Endgültig löschen',
+              tooltip: AppTexte.of(context).bestaetigEndgueltigLoeschen,
               icon: const Icon(Icons.delete_forever_outlined),
               onPressed: () async {
                 final confirm = await _confirm(
-                    'Endgültig löschen?', '${_selected.length} Datei(en) unwiderruflich löschen.');
+                    AppTexte.of(context).papierkorbEndgueltigTitel, AppTexte.of(context).papierkorbEndgueltigText(_selected.length));
                 if (confirm != true) return;
                 final all = await widget.library.db.select(widget.library.db.assets).get();
                 final toDelete = all.where((a) => _selected.contains(a.id)).toList();
@@ -78,7 +80,7 @@ class _TrashScreenState extends State<TrashScreen> {
         builder: (context, snapshot) {
           final assets = snapshot.data ?? [];
           if (assets.isEmpty) {
-            return const EmptyState(icon: Icons.delete_outline, message: 'Der Papierkorb ist leer.');
+            return EmptyState(icon: Icons.delete_outline, message: AppTexte.of(context).papierkorbLeer);
           }
           return GridView.builder(
             padding: const EdgeInsets.all(AppSpacing.md),

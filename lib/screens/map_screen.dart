@@ -9,6 +9,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -245,10 +246,10 @@ class _MapScreenState extends State<MapScreen> {
     final located = _located;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Karte'),
+        title: Text(AppTexte.of(context).karteTitel),
         actions: [
           PopupMenuButton<_MapViewMode>(
-            tooltip: 'Kartenansicht',
+            tooltip: AppTexte.of(context).karteAnsicht,
             icon: Icon(switch (_mode) {
               _MapViewMode.light => Icons.light_mode_outlined,
               _MapViewMode.dark => Icons.dark_mode_outlined,
@@ -287,15 +288,11 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildBody(List<AssetData>? located) {
     if (located == null) return const Center(child: CircularProgressIndicator());
     if (located.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(AppSpacing.xxl),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Text(
-            'Noch keine Fotos mit bekanntem Ort.\n\n'
-            'Der Ort wird beim Import automatisch aus den GPS-Daten eines '
-            'Fotos übernommen (falls vorhanden) oder lässt sich in der '
-            'Info-Ansicht eines Fotos/Videos (Vollbildvorschau → ⓘ) manuell '
-            'festlegen.',
+            AppTexte.of(context).karteKeineOrteLang,
             textAlign: TextAlign.center,
           ),
         ),
@@ -319,12 +316,12 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
           ),
-          const Positioned(
+          Positioned(
             left: 8,
             bottom: 8,
             child: Text(
-              'Erd-/Sternentextur: Solar System Scope (CC BY 4.0)',
-              style: TextStyle(fontSize: 10, color: Colors.grey),
+              AppTexte.of(context).karteTexturNachweis,
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
             ),
           ),
         ],

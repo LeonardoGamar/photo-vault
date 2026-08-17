@@ -22,8 +22,18 @@ uniform float uTint;        // -100 … +100
 uniform float uContrast;    // -1 … +1
 uniform float uShadows;     // -1 … +1
 uniform float uApplyWhiteBalance; // 0 = aus (Automatik)
+uniform float uCurveActive;       // 0 = keine Tonwertkurve
+uniform float uMixerActive;       // 0 = kein Farbmischer
+uniform float uCubeSize;          // Kantenlänge des Farbwürfels
 
 uniform sampler2D uTexture;
+
+// Fertig ausgerechnete Nachschlagetabellen aus develop_color.dart – hier
+// wird weder eine Kurve interpoliert noch mit Farbtönen gerechnet, es wird
+// nur nachgeschlagen. Genau dieselben Tabellen bekommt Core Image für das
+// gespeicherte Ergebnis; deshalb kann beides nicht auseinanderlaufen.
+uniform sampler2D uCurveLut;  // 256x1
+uniform sampler2D uColorCube; // (n*n) x n, siehe farbwuerfel()
 
 out vec4 fragColor;
 
@@ -55,6 +65,44 @@ vec3 whiteBalanceGain(float kelvin, float tint) {
   return vec3(r, g, b);
 }
 
+// Tonwertkurve: je Kanal ein eigener Eintrag derselben 256er-Tabelle.
+// Die lineare Filterung der Textur glättet zwischen den Stufen – ohne sie
+// wären 256 sichtbare Sprünge statt eines Verlaufs.
+vec3 tonwertkurve(vec3 c) {
+  return vec3(
+    texture(uCurveLut, vec2((c.r * 255.0 + 0.5) / 256.0, 0.5)).r,
+    texture(uCurveLut, vec2((c.g * 255.0 + 0.5) / 256.0, 0.5)).g,
+    texture(uCurveLut, vec2((c.b * 255.0 + 0.5) / 256.0, 0.5)).b
+  );
+}
+
+// Eine einzelne Blau-Scheibe des Farbwürfels abtasten.
+//
+// Flutter-Shader kennen nur zweidimensionale Abtaster, ein echter
+// 3D-Würfel ist also nicht übertragbar. Die Scheiben liegen deshalb
+// nebeneinander: Rot läuft innerhalb einer Scheibe waagerecht, Grün
+// senkrecht, Blau wählt die Scheibe (siehe packColorCubeForTexture).
+//
+// Rot und Grün interpoliert die Textur selbst. Der Abtastpunkt liegt in
+// Rot höchstens auf der Mitte des letzten Texels einer Scheibe, greift
+// also nie in die Nachbarscheibe hinüber.
+vec3 wuerfelScheibe(float scheibe, vec2 rg) {
+  float breite = uCubeSize * uCubeSize;
+  float x = scheibe * uCubeSize + rg.r * (uCubeSize - 1.0) + 0.5;
+  float y = rg.g * (uCubeSize - 1.0) + 0.5;
+  return texture(uColorCube, vec2(x / breite, y / uCubeSize)).rgb;
+}
+
+// Zwischen den beiden benachbarten Blau-Scheiben wird von Hand geblendet –
+// diese eine Achse kann die Textur nicht für uns interpolieren.
+vec3 farbwuerfel(vec3 c) {
+  float bf = clamp(c.b, 0.0, 1.0) * (uCubeSize - 1.0);
+  float unten = floor(bf);
+  float oben = min(unten + 1.0, uCubeSize - 1.0);
+  vec2 rg = clamp(c.rg, 0.0, 1.0);
+  return mix(wuerfelScheibe(unten, rg), wuerfelScheibe(oben, rg), bf - unten);
+}
+
 void main() {
   vec2 uv = FlutterFragCoord().xy / uSize;
   vec4 quelle = texture(uTexture, uv);
@@ -79,5 +127,17 @@ void main() {
     c += uShadows * 0.35 * gewicht;
   }
 
-  fragColor = vec4(linearToSrgb(clamp(c, 0.0, 1.0)), quelle.a);
+  // 5. Tonwertkurve und Farbmischer – bewusst NACH der Rückrechnung nach
+  //    sRGB. Beide sind auf Anzeigewerte bezogen (Konvention von Lightroom
+  //    und darktable); linear angewendet ergäbe dieselbe gezeichnete Kurve
+  //    ein deutlich anderes Bild. Die native Seite hält es genauso.
+  vec3 srgb = linearToSrgb(clamp(c, 0.0, 1.0));
+  if (uCurveActive > 0.5) {
+    srgb = tonwertkurve(srgb);
+  }
+  if (uMixerActive > 0.5) {
+    srgb = farbwuerfel(srgb);
+  }
+
+  fragColor = vec4(srgb, quelle.a);
 }

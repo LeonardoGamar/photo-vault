@@ -1,7 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
 import 'package:intl/intl.dart';
+
+import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
 import '../services/asset_format.dart';
@@ -33,15 +36,21 @@ class AssetThumbnailTile extends StatelessWidget {
   /// Sprechendes Label für VoiceOver, da die Kachel sonst nur als
   /// unbeschriftetes Bild-Icon vorgelesen würde – Favorit-/Bewertungsstatus
   /// fließen mit ein, damit sie auch ohne den Info-Bereich hörbar sind.
-  String _semanticLabel() {
-    final typeLabel = asset.type == 'VIDEO' ? 'Video' : 'Foto';
-    final date = DateFormat('d. MMMM y', 'de_DE').format(asset.fileCreatedAt);
-    final parts = <String>['$typeLabel ${asset.originalFileName}, $date'];
+  String _semanticLabel(BuildContext context) {
+    final t = AppTexte.of(context);
+    final sprache = Localizations.localeOf(context).toString();
+    final parts = <String>[
+      t.kachelBeschreibung(
+        asset.type == 'VIDEO' ? t.allgVideo : t.allgFoto,
+        asset.originalFileName,
+        DateFormat.yMMMMd(sprache).format(asset.fileCreatedAt),
+      ),
+    ];
     if (asset.type == 'VIDEO' && asset.durationSeconds != null) {
       parts.add(_formatDuration(asset.durationSeconds!));
     }
-    if (asset.isFavorite) parts.add('favorisiert');
-    if (asset.rating > 0) parts.add('Bewertung ${asset.rating} von 5 Sternen');
+    if (asset.isFavorite) parts.add(t.kachelFavorisiert);
+    if (asset.rating > 0) parts.add(t.sterneBewertungAnzeige(asset.rating));
     return parts.join(', ');
   }
 
@@ -49,7 +58,7 @@ class AssetThumbnailTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final thumbPath = asset.thumbnailRelativePath;
     return Semantics(
-      label: _semanticLabel(),
+      label: _semanticLabel(context),
       button: true,
       selected: selected,
       child: ExcludeSemantics(

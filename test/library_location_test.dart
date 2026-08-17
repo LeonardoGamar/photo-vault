@@ -112,12 +112,40 @@ void main() {
     final vorher = fingerabdruck(a);
     await LibraryLocation.fuegeHinzu(PickedFolder(a.path, ''), name: 'A');
 
-    await LibraryLocation.entferneAusListe(a.path);
+    expect(await LibraryLocation.entferneAusListe(a.path), isTrue);
 
     expect((await LibraryLocation.bekannte()).map((e) => e.eintrag.path),
         isNot(contains(a.path)));
     expect(fingerabdruck(a), vorher, reason: 'die Fotos bleiben, wo sie sind');
     expect(a.existsSync(), isTrue);
+  });
+
+  test('der Standardordner lässt sich nicht entfernen und sagt das auch', () async {
+    // Er wird von bekannte() erzeugt und steht nicht in der gespeicherten
+    // Liste – ein Entfernen wäre folgenlos. Die erste Fassung bot dafür
+    // trotzdem einen Knopf an, der stillschweigend nichts tat.
+    final liste = await LibraryLocation.bekannte();
+    final standard = liste.single;
+    expect(standard.istStandard, isTrue);
+    expect(standard.entfernbar, isFalse);
+
+    expect(await LibraryLocation.entferneAusListe(standard.eintrag.path), isFalse,
+        reason: 'die Oberfläche muss erfahren, dass nichts geschah');
+    expect((await LibraryLocation.bekannte()), hasLength(1));
+  });
+
+  test('ein hinzugefügter Eintrag ist entfernbar und meldet Erfolg', () async {
+    final a = bibliothek('entfernbar', 'A');
+    await LibraryLocation.fuegeHinzu(PickedFolder(a.path, ''), name: 'A');
+
+    final eintrag = (await LibraryLocation.bekannte())
+        .firstWhere((e) => p.equals(e.eintrag.path, a.path));
+    expect(eintrag.istStandard, isFalse);
+    expect(eintrag.entfernbar, isTrue);
+
+    expect(await LibraryLocation.entferneAusListe(a.path), isTrue);
+    expect(await LibraryLocation.entferneAusListe(a.path), isFalse,
+        reason: 'ein zweites Mal gibt es nichts mehr zu entfernen');
   });
 
   test('die aktive Bibliothek lässt sich nicht aus der Liste entfernen', () async {

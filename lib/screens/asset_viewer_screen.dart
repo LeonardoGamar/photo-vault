@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/asset_display_path.dart';
 import '../services/asset_format.dart';
 import '../services/blur_detection.dart';
@@ -22,14 +23,14 @@ import '../widgets/live_photo_view.dart';
 import '../widgets/metadata_editor_dialog.dart';
 import '../widgets/panorama_360_view.dart';
 import '../widgets/video_playback.dart';
-import '../widgets/selection_action_bar.dart' show confirmDialog;
+import '../widgets/selection_action_bar.dart' show confirmDialog, runBatchPasteDevelop;
 import 'develop_screen.dart';
 import 'face_review_screen.dart';
 import 'image_editor_screen.dart';
 import 'similar_photos_screen.dart';
 import 'video_trim_screen.dart';
 
-enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata, faceReview }
+enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata, faceReview, entwicklungEinfuegen }
 
 /// Obergrenze für die Dekodierauflösung (längste Kante) in der
 /// Vollbildansicht. Ohne diese Grenze dekodiert `Image`/`PhotoView` ein Foto
@@ -297,7 +298,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   /// schließen – anders als der Maus-Lösch-Knopf, der bewusst schließt (eine
   /// gezielte Einzelaktion statt eines schnellen Tastatur-Durchlaufs).
   Future<void> _confirmAndDeleteCurrent() async {
-    final confirmed = await confirmDialog(context, 'Foto löschen?', 'Wird in den Papierkorb verschoben.');
+    final confirmed = await confirmDialog(context, AppTexte.of(context).loeschenTitel(1), AppTexte.of(context).loeschenHinweis(1));
     if (!confirmed) return;
     await _removeCurrentAndAdvance();
   }
@@ -310,7 +311,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
 
   Future<void> _confirmAndDelete() async {
     if (widget.onDelete == null) return;
-    final confirmed = await confirmDialog(context, 'Foto löschen?', 'Wird in den Papierkorb verschoben.');
+    final confirmed = await confirmDialog(context, AppTexte.of(context).loeschenTitel(1), AppTexte.of(context).loeschenHinweis(1));
     if (!confirmed) return;
     await widget.onDelete!(_currentAsset);
   }
@@ -348,28 +349,40 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         Offset.zero & overlay.size,
       ),
       items: [
-        const PopupMenuItem(
+        // Nur, wenn tatsächlich Einstellungen kopiert wurden. Der Weg über
+        // die Mehrfachauswahl bleibt daneben bestehen – hier gesucht hatte
+        // ihn der erste Bericht (Fehlerbericht).
+        if (widget.library?.hatKopierteEntwicklung ?? false)
+          PopupMenuItem(
+            value: _ContextMenuAction.entwicklungEinfuegen,
+            child: Row(children: [
+              const Icon(Icons.auto_fix_high_outlined, size: 20),
+              const SizedBox(width: 12),
+              Text(AppTexte.of(context).viewerEntwicklungAnwenden),
+            ]),
+          ),
+        PopupMenuItem(
           value: _ContextMenuAction.showInTimeline,
           child: Row(children: [
-            Icon(Icons.photo_library_outlined, size: 20),
-            SizedBox(width: 12),
-            Text('Foto in der Timeline anzeigen'),
+            const Icon(Icons.photo_library_outlined, size: 20),
+            const SizedBox(width: 12),
+            Text(AppTexte.of(context).viewerInTimelineZeigen),
           ]),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _ContextMenuAction.showSimilar,
           child: Row(children: [
-            Icon(Icons.image_search_outlined, size: 20),
-            SizedBox(width: 12),
-            Text('Ähnliche Bilder anzeigen'),
+            const Icon(Icons.image_search_outlined, size: 20),
+            const SizedBox(width: 12),
+            Text(AppTexte.of(context).viewerAehnlicheZeigen),
           ]),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _ContextMenuAction.editMetadata,
           child: Row(children: [
-            Icon(Icons.edit_note_outlined, size: 20),
-            SizedBox(width: 12),
-            Text('Metadaten bearbeiten'),
+            const Icon(Icons.edit_note_outlined, size: 20),
+            const SizedBox(width: 12),
+            Text(AppTexte.of(context).viewerMetadatenBearbeiten),
           ]),
         ),
         // Nur für Fotos (nicht Videos), nicht gesperrt (FaceReviewScreen
@@ -379,12 +392,12 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         // DevelopScreen) und nur, wenn eine LibraryState-Instanz vorliegt
         // (FaceReviewScreen braucht sie zwingend, siehe dessen Konstruktor).
         if (widget.library != null && _currentAsset.type == 'IMAGE' && !_currentAsset.isLocked)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: _ContextMenuAction.faceReview,
             child: Row(children: [
-              Icon(Icons.face_retouching_natural_outlined, size: 20),
-              SizedBox(width: 12),
-              Text('Gesichter bearbeiten'),
+              const Icon(Icons.face_retouching_natural_outlined, size: 20),
+              const SizedBox(width: 12),
+              Text(AppTexte.of(context).viewerGesichterBearbeiten),
             ]),
           ),
       ],
@@ -399,6 +412,9 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         await _openMetadataEditor();
       case _ContextMenuAction.faceReview:
         await _openFaceReview();
+      case _ContextMenuAction.entwicklungEinfuegen:
+        await runBatchPasteDevelop(context, widget.library!, [_currentAsset.id]);
+        await _refreshCurrentAsset();
     }
   }
 
@@ -439,6 +455,8 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         paths: widget.paths,
         segmentation: widget.library?.segmentationHalter,
         restoreQueue: widget.library?.restoreQueue,
+        onEinstellungenKopieren: widget.library?.setzeKopierteEntwicklung,
+        kopierteEinstellungen: () => widget.library?.kopierteEntwicklung,
       ),
     ));
     if (saved == true) await _refreshCurrentAsset();
@@ -456,7 +474,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   Future<void> _exportAsset() async {
     final asset = _currentAsset;
     final destination = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Zielordner zum Exportieren wählen',
+      dialogTitle: AppTexte.of(context).viewerExportZielordner,
     );
     if (destination == null || !mounted) return;
 
@@ -471,12 +489,12 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Exportiert: ${exported.join(', ')}')));
+            SnackBar(content: Text(AppTexte.of(context).viewerExportiert(exported.join(', ')))));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Export fehlgeschlagen: $e')));
+            .showSnackBar(SnackBar(content: Text(AppTexte.of(context).viewerExportFehlgeschlagen('$e'))));
       }
     }
   }
@@ -510,7 +528,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Teilen fehlgeschlagen: $e')));
+            .showSnackBar(SnackBar(content: Text(AppTexte.of(context).viewerTeilenFehlgeschlagen('$e'))));
       }
     }
   }
@@ -556,41 +574,55 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
             if (_assets.length > 1)
               IconButton(
                 icon: Icon(_slideshowActive ? Icons.pause_circle_outline : Icons.slideshow_outlined),
-                tooltip: _slideshowActive ? 'Diaschau stoppen' : 'Diaschau starten',
+                tooltip: _slideshowActive ? AppTexte.of(context).viewerDiaschauStoppen : AppTexte.of(context).viewerDiaschauStarten,
                 onPressed: _toggleSlideshow,
               ),
             IconButton(
               icon: Icon(_showInfo ? Icons.info : Icons.info_outline),
-              tooltip: 'Info',
+              tooltip: AppTexte.of(context).viewerInfo,
               onPressed: _toggleInfo,
             ),
             IconButton(
               key: _shareButtonKey,
               icon: const Icon(Icons.ios_share),
-              tooltip: 'Teilen',
+              tooltip: AppTexte.of(context).viewerTeilen,
               onPressed: _shareAsset,
             ),
             IconButton(
               icon: const Icon(Icons.save_alt_outlined),
-              tooltip: 'Exportieren',
+              tooltip: AppTexte.of(context).viewerExportieren,
               onPressed: _exportAsset,
             ),
             if (asset.type == 'IMAGE' && !asset.isLocked)
               IconButton(
                 icon: const Icon(Icons.exposure),
-                tooltip: 'Entwickeln',
+                tooltip: AppTexte.of(context).viewerEntwickeln,
                 onPressed: _developAsset,
+              ),
+            // Sichtbar in der Leiste statt nur im Rechtsklick-Menü: Dort
+            // hatte ihn niemand gefunden, weil in einer Vollbildansicht
+            // niemand einen Rechtsklick erwartet (Fehlerbericht).
+            if (asset.type == 'IMAGE' &&
+                !asset.isLocked &&
+                (widget.library?.hatKopierteEntwicklung ?? false))
+              IconButton(
+                icon: const Icon(Icons.auto_fix_high_outlined),
+                tooltip: AppTexte.of(context).viewerEntwicklungAnwendenLang,
+                onPressed: () async {
+                  await runBatchPasteDevelop(context, widget.library!, [asset.id]);
+                  await _refreshCurrentAsset();
+                },
               ),
             if (asset.type == 'IMAGE' && !asset.isLocked)
               IconButton(
                 icon: const Icon(Icons.tune),
-                tooltip: 'Bearbeiten',
+                tooltip: AppTexte.of(context).viewerBearbeiten,
                 onPressed: _editAsset,
               ),
             if (asset.type == 'VIDEO' && !asset.isLocked)
               IconButton(
                 icon: const Icon(Icons.content_cut),
-                tooltip: 'Zuschneiden',
+                tooltip: AppTexte.of(context).viewerZuschneiden,
                 onPressed: _trimVideoAsset,
               ),
             if (widget.onToggleFavorite != null)
@@ -598,14 +630,14 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                 icon: Icon(
                     asset.isFavorite ? Icons.favorite : Icons.favorite_border),
                 tooltip: asset.isFavorite
-                    ? 'Favorit entfernen (F)'
-                    : 'Als Favorit markieren (F)',
+                    ? AppTexte.of(context).viewerFavoritEntfernen
+                    : AppTexte.of(context).viewerFavoritSetzen,
                 onPressed: _toggleFavorite,
               ),
             if (widget.onLock != null)
               IconButton(
                 icon: const Icon(Icons.lock_outline),
-                tooltip: 'In gesperrten Ordner verschieben (verschlüsselt)',
+                tooltip: AppTexte.of(context).viewerInGesperrtenOrdner,
                 onPressed: () async {
                   await widget.onLock!(asset);
                   if (context.mounted) Navigator.of(context).pop();
@@ -614,7 +646,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
             if (widget.onDelete != null)
               IconButton(
                 icon: const Icon(Icons.delete_outline),
-                tooltip: 'In den Papierkorb verschieben (⌫)',
+                tooltip: AppTexte.of(context).viewerInPapierkorb,
                 onPressed: () async {
                   await _confirmAndDelete();
                   if (context.mounted) Navigator.of(context).pop();
@@ -660,7 +692,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                             child: Center(
                                 child: _NavArrowButton(
                                     icon: Icons.chevron_left,
-                                    tooltip: 'Vorheriges Foto',
+                                    tooltip: AppTexte.of(context).viewerVorherigesFoto,
                                     onPressed: _goToPrevious)),
                           ),
                         if (_hasNext)
@@ -671,7 +703,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                             child: Center(
                                 child: _NavArrowButton(
                                     icon: Icons.chevron_right,
-                                    tooltip: 'Nächstes Foto',
+                                    tooltip: AppTexte.of(context).viewerNaechstesFoto,
                                     onPressed: _goToNext)),
                           ),
                       ],
@@ -750,17 +782,17 @@ class _CullingHintBar extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Text(
-            '$current / $total   ·   0–5 Bewertung   ·   ⌫ Ablehnen   ·   ← → weiter',
+            AppTexte.of(context).sichtungHilfeleiste(current, total),
             style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
           if (hasClosedEyes)
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: EdgeInsets.only(left: 12),
+                padding: const EdgeInsets.only(left: 12),
                 child: Tooltip(
-                  message: 'Mindestens ein Gesicht mit geschlossenen Augen erkannt',
-                  child: Icon(Icons.visibility_off_outlined, size: 18, color: Colors.orangeAccent),
+                  message: AppTexte.of(context).viewerGeschlosseneAugen,
+                  child: const Icon(Icons.visibility_off_outlined, size: 18, color: Colors.orangeAccent),
                 ),
               ),
             ),
@@ -772,7 +804,7 @@ class _CullingHintBar extends StatelessWidget {
                 size: 20,
                 color: focusPeakingEnabled ? Theme.of(context).colorScheme.primary : Colors.white70,
               ),
-              tooltip: 'Fokus-Peaking (scharfe Kanten hervorheben)',
+              tooltip: AppTexte.of(context).viewerFokusPeaking,
               onPressed: onToggleFocusPeaking,
             ),
           ),
@@ -1070,7 +1102,7 @@ class _AssetPageState extends State<_AssetPage> {
                     _NavArrowButton(
                       icon: isSphere ? Icons.panorama_horizontal : Icons.threed_rotation,
                       tooltip: isSphere
-                          ? 'Flaches Schwenken statt 3D-Kugel'
+                          ? AppTexte.of(context).viewerFlachesSchwenken
                           : '3D-Kugel statt flachem Schwenken',
                       onPressed: () => setState(() {
                         _panoramaMode =
@@ -1080,7 +1112,7 @@ class _AssetPageState extends State<_AssetPage> {
                     const SizedBox(width: AppSpacing.xs),
                     _NavArrowButton(
                       icon: Icons.crop_original,
-                      tooltip: 'Flache Vorschau statt 360°-Ansicht',
+                      tooltip: AppTexte.of(context).viewerFlacheVorschau,
                       onPressed: () => setState(() => _showFlatPreview = true),
                     ),
                   ],
@@ -1111,7 +1143,7 @@ class _AssetPageState extends State<_AssetPage> {
                   right: 8,
                   child: _NavArrowButton(
                     icon: Icons.public,
-                    tooltip: '360°-Ansicht',
+                    tooltip: AppTexte.of(context).ansicht360,
                     onPressed: () => setState(() => _showFlatPreview = false),
                   ),
                 ),

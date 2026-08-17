@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/services/develop_color.dart';
 
 /// Prüft die DB-Seite der nicht-destruktiven Bildentwicklung (siehe
 /// DevelopScreen): Speichern/Zurücksetzen der Einstellungen samt
@@ -183,6 +184,110 @@ void main() {
     final history = await db.developHistoryForAsset(assetId);
     expect(history, hasLength(1));
     expect(history.single.exposure, closeTo(0.5, 1e-9)); // der ERSETZTE (alte) Stand, nicht der neue
+  });
+
+  test('Tonwertkurve und Farbmischer wandern in den Verlauf mit', () async {
+    // Ohne diese beiden Spalten in DevelopHistory führte "Zurück zu diesem
+    // Stand" zu einem anderen Bild als damals – und zwar lautlos, weil die
+    // Regler ja alle stimmen würden.
+    const kurve = ToneCurve(
+      zusammen: [CurvePoint(0, 0), CurvePoint(0.4, 0.6), CurvePoint(1, 1)],
+    );
+    const mischer = ColorMixer({ColorBand.aqua: BandAnpassung(saettigung: -0.5)});
+
+    final assetId = await insertAsset('a');
+    await db.saveDevelopResult(
+      assetId,
+      settings: DevelopSettingsCompanion.insert(
+        assetId: assetId,
+        exposure: const Value(0.5),
+        toneCurveJson: Value(kurve.encode()),
+        colorMixerJson: Value(mischer.encode()),
+        updatedAt: DateTime(2024, 1, 1),
+      ),
+      developedRelativePath: 'developed/a.jpg',
+    );
+    // Beide Spalten ausdrücklich auf null – genau das tut DevelopScreen._save
+    // bei einer zurückgesetzten Kurve. Weggelassen würden sie NICHT geleert:
+    // insertOnConflictUpdate schreibt nur die gesetzten Spalten, eine
+    // ausgelassene behielte stillschweigend ihren alten Wert.
+    await db.saveDevelopResult(
+      assetId,
+      settings: DevelopSettingsCompanion.insert(
+        assetId: assetId,
+        exposure: const Value(1.5),
+        toneCurveJson: const Value(null),
+        colorMixerJson: const Value(null),
+        updatedAt: DateTime(2024, 1, 2),
+      ),
+      developedRelativePath: 'developed/a.jpg',
+    );
+
+    final eintrag = (await db.developHistoryForAsset(assetId)).single;
+    expect(toneCurveAus(eintrag.toneCurveJson), kurve);
+    expect(colorMixerAus(eintrag.colorMixerJson), mischer);
+
+    final aktuell = await db.developSettingsForAsset(assetId);
+    expect(aktuell!.toneCurveJson, isNull);
+    expect(aktuell.colorMixerJson, isNull);
+  });
+
+  test('eine ausgelassene Kurvenspalte behält ihren alten Wert', () async {
+    // Hält das Verhalten von insertOnConflictUpdate fest, weil daraus eine
+    // stille Falle würde: Wer einen neuen Speicherpfad schreibt und die
+    // Spalte vergisst, bekommt keine leere Kurve, sondern die alte.
+    const kurve = ToneCurve(zusammen: [CurvePoint(0, 0), CurvePoint(1, 0.5)]);
+    final assetId = await insertAsset('a');
+
+    await db.saveDevelopResult(
+      assetId,
+      settings: DevelopSettingsCompanion.insert(
+        assetId: assetId,
+        toneCurveJson: Value(kurve.encode()),
+        updatedAt: DateTime(2024, 1, 1),
+      ),
+      developedRelativePath: 'developed/a.jpg',
+    );
+    await db.saveDevelopResult(
+      assetId,
+      settings: DevelopSettingsCompanion.insert(
+        assetId: assetId,
+        exposure: const Value(2),
+        updatedAt: DateTime(2024, 1, 2),
+      ),
+      developedRelativePath: 'developed/a.jpg',
+    );
+
+    final aktuell = await db.developSettingsForAsset(assetId);
+    expect(toneCurveAus(aktuell!.toneCurveJson), kurve);
+  });
+
+  test('eine unbenutzte Kurve hinterlässt keinen Ballast in der Zeile', () async {
+    final assetId = await insertAsset('a');
+    await db.saveDevelopResult(
+      assetId,
+      settings: DevelopSettingsCompanion.insert(
+        assetId: assetId,
+        exposure: const Value(0.5),
+        updatedAt: DateTime(2024, 1, 1),
+      ),
+      developedRelativePath: 'developed/a.jpg',
+    );
+
+    final zeile = await db.developSettingsForAsset(assetId);
+    expect(zeile!.toneCurveJson, isNull);
+    expect(zeile.colorMixerJson, isNull);
+    expect(toneCurveAus(zeile.toneCurveJson).istNeutral, isTrue);
+    expect(colorMixerAus(zeile.colorMixerJson).istNeutral, isTrue);
+  });
+
+  test('beschädigtes JSON macht ein Foto nicht unerreichbar', () async {
+    // Lieber eine fehlende Anpassung als ein Entwickeln-Bildschirm, der
+    // beim Öffnen wirft.
+    expect(toneCurveAus('{kaputt').istNeutral, isTrue);
+    expect(colorMixerAus('[]').istNeutral, isTrue);
+    expect(toneCurveAus('').istNeutral, isTrue);
+    expect(colorMixerAus(null).istNeutral, isTrue);
   });
 
   test('developHistoryForAsset kürzt auf die neuesten 10 Einträge pro Asset', () async {

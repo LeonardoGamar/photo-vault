@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 /// Feste Farbmarkierungs-Palette (Photo-Mechanic-/Lightroom-Konvention) –
 /// die Schlüssel werden 1:1 als `Assets.colorLabel` in der DB gespeichert.
 const Map<String, Color> colorLabelSwatches = {
@@ -10,16 +12,17 @@ const Map<String, Color> colorLabelSwatches = {
   'purple': Color(0xFF8E24AA),
 };
 
-/// Deutsche Anzeigenamen für VoiceOver-Labels – die Kreise selbst tragen
-/// keinen Text, ohne diese Zuordnung wären sie für Screenreader-Nutzer nur
-/// nummerierte, nicht unterscheidbare Buttons.
-const Map<String, String> _colorLabelNames = {
-  'red': 'Rot',
-  'yellow': 'Gelb',
-  'green': 'Grün',
-  'blue': 'Blau',
-  'purple': 'Violett',
-};
+/// Anzeigenamen für VoiceOver-Labels – die Kreise selbst tragen keinen Text,
+/// ohne diese Zuordnung wären sie für Screenreader-Nutzer nur nummerierte,
+/// nicht unterscheidbare Buttons.
+String farbmarkierungName(AppTexte t, String schluessel) => switch (schluessel) {
+      'red' => t.farbeRot,
+      'yellow' => t.farbeGelb,
+      'green' => t.farbeGruen,
+      'blue' => t.farbeBlau,
+      'purple' => t.farbeViolett,
+      _ => schluessel,
+    };
 
 /// Reihe von 5 farbigen Kreisen zur Einzelauswahl (Info-Panel) – Tippen auf
 /// die bereits ausgewählte Farbe hebt die Markierung wieder auf (`null`).
@@ -40,8 +43,8 @@ class ColorLabelPicker extends StatelessWidget {
             padding: const EdgeInsets.only(right: 6),
             child: Semantics(
               label: value == entry.key
-                  ? '${_colorLabelNames[entry.key]}, ausgewählt'
-                  : 'Farbmarkierung ${_colorLabelNames[entry.key]} setzen',
+                  ? AppTexte.of(context).farbeAusgewaehlt(farbmarkierungName(AppTexte.of(context), entry.key))
+                  : AppTexte.of(context).farbeSetzen(farbmarkierungName(AppTexte.of(context), entry.key)),
               button: onChanged != null,
               excludeSemantics: true,
               child: InkWell(

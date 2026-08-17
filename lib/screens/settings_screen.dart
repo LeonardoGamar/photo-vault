@@ -2,10 +2,20 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
+import '../services/ai_tagging_service.dart';
 import '../services/geo_data_catalog.dart';
+import '../services/model_download_service.dart';
+import '../services/geo_data_download_service.dart';
+import 'package:dio/dio.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+import '../services/aktualisierungspruefung.dart';
+import '../services/backup_service.dart';
 import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../state/library_state.dart';
@@ -27,6 +37,98 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  /// Wechselt die Oberflächensprache und bietet dabei einmalig an, das
+  /// Schlagwort-Vokabular mitzuziehen.
+  ///
+  /// Die Reihenfolge ist Absicht: erst umstellen, dann fragen. So sieht der
+  /// Nutzer den Dialog bereits in der neuen Sprache und kann beurteilen,
+  /// worauf er sich einlässt. Lehnt er ab, bleibt es dabei – es gibt keine
+  /// zweite Nachfrage bei jedem Start.
+  Future<void> _wechsleSprache(String sprachcode) async {
+    // Vor dem ersten await lesen: Danach kann der Kontext veraltet sein,
+    // und die Sprache VOR der Umstellung ist genau das, was gebraucht wird.
+    //
+    // Massgeblich ist dabei, welche Sprache tatsächlich WIRKT, nicht welche
+    // eingestellt ist: Wer von „System" (auf einem englischen Rechner) auf
+    // „Deutsch" stellt, wechselt real von Englisch nach Deutsch – die
+    // gespeicherten Werte allein ('system' -> 'de') verrieten das nicht.
+    final vorher = Localizations.localeOf(context).languageCode;
+
+    if (await widget.library.db.spracheWert() == sprachcode) return;
+    await widget.library.db.setSprache(sprachcode);
+    final nachher = sprachcode == 'system'
+        ? _systemsprache()
+        : sprachcode;
+
+    final richtung = switch ((vorher, nachher)) {
+      ('de', 'en') => aiTagVocabularyEnglisch,
+      ('en', 'de') => {for (final e in aiTagVocabularyEnglisch.entries) e.value: e.key},
+      _ => null,
+    };
+    if (richtung == null || !mounted) return;
+
+    // Nur Begriffe anbieten, die auch wirklich im Vokabular stehen.
+    final vorhandene = await widget.library.db.aiTagVocabularyTerms();
+    final betroffen = {
+      for (final e in richtung.entries)
+        if (vorhandene.contains(e.key)) e.key: e.value,
+    };
+    if (betroffen.isEmpty || !mounted) return;
+    final eigene = vorhandene.length - betroffen.length;
+
+    final t = AppTexte.of(context);
+    final uebersetzen = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.spracheVokabularTitel),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t.spracheVokabularText(betroffen.length, vorhandene.length)),
+            if (eigene > 0) ...[
+              const SizedBox(height: 10),
+              Text(t.spracheVokabularSelbstAngelegt(eigene),
+                  style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.spracheVokabularBehalten),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t.spracheVokabularUebersetzen),
+          ),
+        ],
+      ),
+    );
+    if (uebersetzen != true) return;
+
+    final anzahl = await widget.library.db.uebersetzeVokabular(betroffen);
+    // Die zwischengespeicherten Begriffs-Vektoren gehören zu den alten
+    // Wörtern und wären danach nie wieder erreichbar.
+    widget.library.aiTaggingService.leereBegriffsCache();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppTexte.of(context).spracheVokabularFertig(anzahl))),
+    );
+  }
+
+  /// Welche der unterstützten Sprachen bei "System" greift.
+  ///
+  /// Flutter würde bei einer nicht unterstützten Systemsprache auf den
+  /// ersten Eintrag aus `supportedLocales` zurückfallen; genau das bildet
+  /// diese Zeile nach, statt es zu raten.
+  String _systemsprache() {
+    final system = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    return AppTexte.supportedLocales.any((l) => l.languageCode == system)
+        ? system
+        : AppTexte.supportedLocales.first.languageCode;
+  }
+
   int? _sizeBytes;
   BackupRecordData? _lastBackup;
   final Set<String> _downloading = {};
@@ -60,6 +162,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late Future<BackupSettingsData?> _backupSettingsFuture;
   late Future<TrashSettingsData?> _trashSettingsFuture;
   late Future<List<BibliothekMitZustand>> _bibliothekenFuture;
+  late Future<({String pfad, String? token})?> _ueberwachterOrdnerFuture;
+  late Future<PackageInfo> _versionFuture;
+  Aktualisierungsstand? _aktualisierungsstand;
+  String? _aktualisierungsfehler;
+  bool _pruefeAktualisierung = false;
 
   @override
   void initState() {
@@ -67,6 +174,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _refresh();
     _isCustomLocationFuture = LibraryLocation.isCustom;
     _bibliothekenFuture = LibraryLocation.bekannte();
+    _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner();
+    _versionFuture = PackageInfo.fromPlatform();
     _hasPinSetFuture = widget.library.db.hasPinSet();
     _hasBackupKeyFuture = widget.library.db.hasBackupKey();
     _backupSettingsFuture = widget.library.db.backupSettingsRow();
@@ -97,11 +206,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
+  /// Datum in der Schreibweise der aktiven Sprache – 17.08.2026 gegen
+  /// 8/17/2026. Vorher stand hier `${d}.${m}.${y}` von Hand zusammengesetzt,
+  /// was in jeder Sprache deutsch aussah.
+  String _datum(DateTime zeitpunkt) =>
+      DateFormat.yMd(Localizations.localeOf(context).toString()).format(zeitpunkt);
+
+  String _datumZeit(DateTime zeitpunkt) {
+    final sprache = Localizations.localeOf(context).toString();
+    return '${DateFormat.yMd(sprache).format(zeitpunkt)} – '
+        '${DateFormat.Hm(sprache).format(zeitpunkt)}';
+  }
+
+  /// Übersetzt die Fehler der beiden Download-Dienste.
+  ///
+  /// Sie melden nur die Bestandteile (siehe [ModellDownloadFehler]); alles
+  /// andere geht unverändert durch, damit ein unerwarteter Fehler nicht
+  /// stillschweigend zu einer leeren Meldung wird.
+  static String _fehlertext(BuildContext context, Object fehler) {
+    final t = AppTexte.of(context);
+    return switch (fehler) {
+      BackupBrauchtPassphrase() => t.backupPassphraseNoetig,
+      AktualisierungsFehler(problem: Aktualisierungsproblem.keineVeroeffentlichungen) =>
+        t.aktualisierungKeineVeroeffentlichungen,
+      AktualisierungsFehler(problem: Aktualisierungsproblem.keineVersion) =>
+        t.aktualisierungKeineVersion,
+      ModellDownloadFehler(
+        :final datei,
+        erhalten: final erhalten?,
+        erwartet: final erwartet?
+      ) =>
+        t.downloadPruefsummeFehler(datei, erhalten, erwartet),
+      ModellDownloadFehler(:final datei, :final ursache) =>
+        t.downloadFehlgeschlagen(datei, ursache ?? ''),
+      GeoDownloadFehler(:final datei, ursache: null, beimEntpacken: true) =>
+        t.downloadNichtImZip(datei),
+      GeoDownloadFehler(:final datei, :final ursache, beimEntpacken: true) =>
+        t.downloadEntpackenFehler(datei, ursache ?? ''),
+      GeoDownloadFehler(:final datei, :final ursache) =>
+        t.downloadFehlgeschlagen(datei, ursache ?? ''),
+      _ => '$fehler',
+    };
+  }
+
+  /// Eine Zeile Backup-Fortschritt.
+  ///
+  /// Der Dienst meldet nur Zahlen und Dateinamen; ob die Mengenbegrenzung
+  /// gegriffen hat, steht als Zahl in [BackupProgress.grenzeOffen] und wird
+  /// erst hier zu einem Satz.
+  static String _backupZeile(AppTexte t, BackupProgress p) {
+    if (p.grenzeOffen != null) return t.backupGrenzeErreicht(p.grenzeOffen!);
+    return '${p.done} / ${p.total}'
+        '${p.currentFile != null ? ' — ${p.currentFile}' : ''}';
+  }
+
   Future<void> _openInFinder(String path) async {
     final opened = await revealInFileManager(path);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ordner konnte nicht geöffnet werden: $path')),
+        SnackBar(content: Text(AppTexte.of(context).einstOrdnerNichtGeoeffnet(path))),
       );
     }
   }
@@ -127,7 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Lade "${entry.title}" herunter …',
+              Text(AppTexte.of(context).einstModellLaedt(modellTitel(AppTexte.of(context), entry.id)),
                   style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: progress > 0 ? progress : null),
@@ -147,7 +310,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await widget.library.reloadModels();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_fehlertext(context, e))));
       }
     } finally {
       if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -182,7 +346,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Lade Standortdaten herunter …', style: Theme.of(context).textTheme.titleMedium),
+              Text(AppTexte.of(context).einstGeoLaedt, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
               LinearProgressIndicator(value: _geoDataProgress > 0 ? _geoDataProgress : null),
               const SizedBox(height: 8),
@@ -201,7 +365,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await widget.library.reloadGeoData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_fehlertext(context, e))));
       }
     } finally {
       if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -219,31 +384,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// [LibraryLocation.wechsleZu]. Danach ist ein Neustart nötig, weil
   /// Datenbankverbindung, StoragePaths und sämtliche Zwischenspeicher am
   /// alten Ort hängen.
+  /// Fragt beim öffentlichen Veröffentlichungsverzeichnis nach einer
+  /// neueren Fassung – nur auf diesen Knopfdruck hin, nie von selbst
+  /// (siehe Aktualisierungspruefung).
+  Future<void> _sucheAktualisierung(String installiert) async {
+    setState(() {
+      _pruefeAktualisierung = true;
+      _aktualisierungsfehler = null;
+      _aktualisierungsstand = null;
+    });
+    try {
+      final stand = await Aktualisierungspruefung().pruefe(installiert);
+      if (mounted) setState(() => _aktualisierungsstand = stand);
+    } catch (e) {
+      if (mounted) {
+        // Den tatsächlichen Grund nennen statt auf die Internetverbindung
+        // zu raten: Beim ersten Fehlerbericht bestand die Verbindung
+        // durchaus, die Abfrage war schlicht falsch gestellt.
+        setState(() => _aktualisierungsfehler = AppTexte.of(context)
+            .einstAktualisierungFehler(e is DioException
+                ? (e.message ?? e.type.name)
+                : _fehlertext(context, e)));
+      }
+    } finally {
+      if (mounted) setState(() => _pruefeAktualisierung = false);
+    }
+  }
+
+  Future<void> _waehleUeberwachtenOrdner() async {
+    final picked = await LibraryLocation.pickFolder(
+      dialogMessage: AppTexte.of(context).einstUeberwachtAuswahl,
+    );
+    if (picked == null || !mounted) return;
+    await widget.library.db
+        .setzeUeberwachtenOrdner(pfad: picked.path, token: picked.token);
+    if (!mounted) return;
+    setState(() => _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner());
+    final neue = await widget.library.pruefeUeberwachtenOrdner();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(neue > 0
+          ? AppTexte.of(context).einstUeberwachtUebernommen(neue)
+          : AppTexte.of(context).einstUeberwachtNichtsNeues),
+    ));
+  }
+
+  Future<void> _beendeUeberwachung() async {
+    await widget.library.db.setzeUeberwachtenOrdner(pfad: null, token: null);
+    if (!mounted) return;
+    setState(() => _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner());
+  }
+
   Future<void> _wechsleBibliothek(BibliothekMitZustand ziel) async {
     final bestaetigt = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Zu „${ziel.eintrag.name}" wechseln?'),
-        content: const Text(
-          'Die App wird danach geschlossen und öffnet beim nächsten Start die '
-          'gewählte Bibliothek.\n\n'
-          'Es werden keine Fotos verschoben oder gelöscht – beide Bibliotheken '
-          'bleiben unverändert an ihrem Ort.',
+        title: Text(AppTexte.of(context).einstBibWechselnTitel(ziel.eintrag.name)),
+        content: Text(
+          AppTexte.of(context).einstBibWechselnText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Wechseln')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).einstBibWechselnAktion)),
         ],
       ),
     );
     if (bestaetigt != true || !mounted) return;
 
     await _runRelocation(
-      loadingText: 'Wechsle Bibliothek …',
-      restartMessage: 'Die Bibliothek wurde gewechselt. Es wurden keine Daten '
-          'verschoben. Die App wird jetzt geschlossen – bitte danach manuell '
-          'neu öffnen.',
-      errorPrefix: 'Wechseln fehlgeschlagen',
+      loadingText: AppTexte.of(context).einstBibWechselnLaeuft,
+      restartMessage: AppTexte.of(context).einstBibGewechselt,
+      errorPrefix: AppTexte.of(context).einstWechselnFehlgeschlagen,
       action: () async {
         // Reihenfolge mit Bedacht: ERST den Zeiger schreiben, DANN die
         // Datenbank schliessen. Andersherum liefe die App bei einem Fehler
@@ -260,8 +471,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Nimmt einen Ordner in die Liste auf, ohne ihn zu öffnen.
   Future<void> _bibliothekHinzufuegen() async {
     final picked = await LibraryLocation.pickFolder(
-      dialogMessage: 'Ordner einer bestehenden Bibliothek wählen – oder einen leeren '
-          'Ordner für eine neue. Es wird nichts verschoben.',
+      dialogMessage: AppTexte.of(context).einstBibHinzufuegenAuswahl,
     );
     if (picked == null || !mounted) return;
 
@@ -271,8 +481,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _bibliothekenFuture = LibraryLocation.bekannte());
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(vorhanden
-          ? 'Bestehende Bibliothek hinzugefügt.'
-          : 'Leerer Ordner hinzugefügt – beim Wechseln dorthin entsteht eine neue, leere Bibliothek.'),
+          ? AppTexte.of(context).einstBibBestehendHinzugefuegt
+          : AppTexte.of(context).einstBibLeerHinzugefuegt),
     ));
   }
 
@@ -281,22 +491,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final bestaetigt = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('„${b.eintrag.name}" aus der Liste entfernen?'),
-        content: const Text(
-          'Die Bibliothek verschwindet nur aus dieser Liste. Fotos, Datenbank '
-          'und Ordner bleiben unverändert erhalten und lassen sich jederzeit '
-          'wieder hinzufügen.',
+        title: Text(AppTexte.of(context).einstBibEntfernenTitel(b.eintrag.name)),
+        content: Text(
+          AppTexte.of(context).einstBibEntfernenText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Entfernen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgEntfernen)),
         ],
       ),
     );
     if (bestaetigt != true) return;
-    await LibraryLocation.entferneAusListe(b.eintrag.path);
+    final entfernt = await LibraryLocation.entferneAusListe(b.eintrag.path);
     if (!mounted) return;
     setState(() => _bibliothekenFuture = LibraryLocation.bekannte());
+    if (!entfernt) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppTexte.of(context).einstBibNichtEntfernbar),
+      ));
+    }
   }
 
   Future<void> _changeLibraryLocation() async {
@@ -307,13 +520,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Zertifikat) – für PhotoVault reicht aber jeder bereits vorhandene
       // Ordner, ein neuer muss also nicht extra im Dialog angelegt werden.
       dialogMessage:
-          'Fotos, Videos, Thumbnails und die Datenbank werden in diesen Ordner verschoben. '
-          'Bitte einen bereits vorhandenen Ordner wählen (falls nötig vorher im Finder anlegen).',
+          AppTexte.of(context).einstSpeicherortWaehlen,
     );
     if (picked == null || !mounted) return;
 
     await _runRelocation(
-      loadingText: 'Verschiebe Bibliothek …',
+      loadingText: AppTexte.of(context).einstSpeicherortVerschiebenLaeuft,
       action: () => LibraryLocation.applyRoot(picked, beforeMove: () => widget.library.db.close()),
     );
   }
@@ -322,22 +534,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Speicherort zurücksetzen?'),
-        content: const Text(
-          'Die Bibliothek wird zurück in den Standard-App-Support-Ordner '
-          'verschoben. Die App wird danach automatisch geschlossen – bitte '
-          'anschließend neu öffnen.',
+        title: Text(AppTexte.of(context).einstSpeicherortZuruecksetzenTitel),
+        content: Text(
+          AppTexte.of(context).einstSpeicherortZuruecksetzenText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Zurücksetzen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).einstZuruecksetzen)),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
     await _runRelocation(
-      loadingText: 'Setze Speicherort zurück …',
+      loadingText: AppTexte.of(context).einstSpeicherortZuruecksetzenLaeuft,
       action: () => widget.library.resetLibraryLocation(),
     );
   }
@@ -349,11 +559,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _runRelocation({
     required String loadingText,
     required Future<void> Function() action,
-    String restartMessage = 'Der Speicherort wurde geändert. Die App wird jetzt geschlossen '
-        '– bitte danach manuell neu öffnen, damit sie die Bibliothek am '
-        'neuen Ort lädt.',
-    String errorPrefix = 'Verschieben fehlgeschlagen',
+    // Kein Vorgabewert im Kopf: Ein übersetzter Text braucht den Kontext,
+    // den es dort noch nicht gibt. null heisst „der übliche Text".
+    String? restartMessage,
+    String? errorPrefix,
   }) async {
+    restartMessage ??= AppTexte.of(context).einstSpeicherortGeaendert;
+    errorPrefix ??= AppTexte.of(context).einstVerschiebenFehlgeschlagen;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -376,10 +588,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: const Text('Neustart erforderlich'),
-          content: Text(restartMessage),
+          title: Text(AppTexte.of(context).einstNeustartTitel),
+          content: Text(restartMessage!),
           actions: [
-            FilledButton(onPressed: () => exit(0), child: const Text('Schließen')),
+            FilledButton(
+                onPressed: () => exit(0),
+                child: Text(AppTexte.of(context).allgSchliessen)),
           ],
         ),
       );
@@ -401,26 +615,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _resetDatabase() async {
     final confirmed = await showTypedConfirmDialog(
       context,
-      title: 'Datenbank wirklich zurücksetzen?',
+      title: AppTexte.of(context).einstResetBestaetigenTitel,
       message:
-          'Löscht UNWIDERRUFLICH alle Fotos, Videos, Thumbnails und die gesamte '
-          'Datenbank dieser Bibliothek (Alben, Personen, Tags, Orte, Favoriten, '
-          'gesperrter Ordner, Papierkorb, gespeicherte Suchen, …). '
-          'Heruntergeladene KI-Modelle und Geodaten bleiben erhalten. '
-          'Erstelle vorher ein Backup, falls du dir nicht sicher bist – '
-          'diese Aktion lässt sich NICHT rückgängig machen.',
-      confirmationWord: 'ZURÜCKSETZEN',
-      confirmLabel: 'Endgültig zurücksetzen',
+          AppTexte.of(context).einstResetBestaetigenText,
+      confirmationWord: AppTexte.of(context).einstResetWort,
+      confirmLabel: AppTexte.of(context).einstResetEndgueltig,
     );
     if (!confirmed || !mounted) return;
 
     await _runRelocation(
-      loadingText: 'Lösche Bibliothek …',
+      loadingText: AppTexte.of(context).einstResetLaeuft,
       action: () => widget.library.eraseLibraryCompletely(),
-      restartMessage: 'Die Bibliothek wurde vollständig gelöscht. Die App wird jetzt '
-          'geschlossen – bitte danach manuell neu öffnen, um mit einer leeren '
-          'Bibliothek neu zu beginnen.',
-      errorPrefix: 'Zurücksetzen fehlgeschlagen',
+      restartMessage: AppTexte.of(context).einstResetFertig,
+      errorPrefix: AppTexte.of(context).einstResetFehlgeschlagen,
     );
   }
 
@@ -449,14 +656,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('PIN-Schutz entfernen?'),
-        content: const Text(
-          'Alle Fotos im gesperrten Ordner werden entschlüsselt und wieder normal sichtbar '
-          '(Timeline, Suche, Alben, Personen, Karte, Backup). Das lässt sich nicht rückgängig machen.',
+        title: Text(AppTexte.of(context).einstGesperrtAufloesenTitel),
+        content: Text(
+          AppTexte.of(context).einstGesperrtAufloesenText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Entfernen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgEntfernen)),
         ],
       ),
     );
@@ -478,17 +684,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!ok || !mounted) return;
     }
     final destination = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Backup-Ziel wählen (z.B. dein Dropbox- oder Google-Drive-Ordner)',
+      dialogTitle: AppTexte.of(context).einstBackupZielWaehlen,
     );
     if (destination == null || !mounted) return;
+    final t = AppTexte.of(context);
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => ProgressDialog(
-        title: 'Sichere Bibliothek …',
-        stream: widget.library.runManualBackup(destination, encrypt: _encryptManualBackup).map(
-              (p) => '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}',
-            ),
+        title: AppTexte.of(context).einstBackupSichertLaeuft,
+        stream: widget.library
+            .runManualBackup(destination, encrypt: _encryptManualBackup)
+            .map((p) => _backupZeile(t, p)),
       ),
     );
     _refresh();
@@ -496,14 +703,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _runRestore() async {
     final source = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Backup-Ordner wählen (enthält "PhotoVault-Backup" bzw. "originals")',
+      dialogTitle: AppTexte.of(context).einstBackupOrdnerWaehlen,
     );
     if (source == null || !mounted) return;
 
     String? passphrase;
     if (await File(p.join(source, 'vault.key')).exists()) {
       if (!mounted) return;
-      passphrase = await showEnterPassphraseDialog(context, title: 'Backup-Passphrase eingeben');
+      passphrase = await showEnterPassphraseDialog(context, title: AppTexte.of(context).einstBackupPassphraseEingeben);
       if (passphrase == null) return;
     }
 
@@ -512,7 +719,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => ProgressDialog(
-        title: 'Stelle Bibliothek wieder her …',
+        title: AppTexte.of(context).einstBackupWiederherstellenLaeuft,
+        fehlerText: (e) => _fehlertext(context, e),
         stream: widget.library.backupService
             .restoreFromBackup(source, widget.library.importService, passphrase: passphrase)
             .map((p) => '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}'),
@@ -540,15 +748,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Backup-Verschlüsselung entfernen?'),
-        content: const Text(
-          'Neue Backups werden danach nicht mehr verschlüsselt. Bereits bestehende '
-          'verschlüsselte Backups am Zielort bleiben unverändert und weiterhin nur mit der '
-          'bisherigen Passphrase entschlüsselbar.',
+        title: Text(AppTexte.of(context).einstBackupEntschluesselnTitel),
+        content: Text(
+          AppTexte.of(context).einstBackupEntschluesselnText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Entfernen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgEntfernen)),
         ],
       ),
     );
@@ -564,16 +770,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final config = await widget.library.db.backupSettingsRow();
     final destination = config?.autoBackupDestination;
     if (destination == null || !mounted) return;
+    // Vorher auflösen: Der Mapper unten läuft bei jedem Fortschritts-Ereignis,
+    // also lange nach dem Aufbau des Dialogs. Einen BuildContext so lange
+    // festzuhalten ist genau das, wovor `use_build_context_synchronously`
+    // warnt – der Text selbst ändert sich in dieser Zeit ohnehin nicht.
+    final keineNeuen = AppTexte.of(context).einstBackupKeineNeuen;
+    final t = AppTexte.of(context);
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (context) => ProgressDialog(
-        title: 'Automatisches Backup läuft …',
-        stream: widget.library.runAutoBackupNow(destination).map(
-              (p) => p.total == 0
-                  ? 'Keine neuen Dateien – Datenbank-Schnappschuss wird aktualisiert.'
-                  : '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}',
-            ),
+        title: AppTexte.of(context).einstBackupLaeuft,
+        stream: widget.library
+            .runAutoBackupNow(destination)
+            .map((p) => p.total == 0 ? keineNeuen : _backupZeile(t, p)),
       ),
     );
     if (mounted) _reloadBackupSettings();
@@ -584,7 +794,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
-        Text('Erscheinungsbild', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittErscheinungsbild, style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: StreamBuilder<AppSettingsData?>(
             stream: widget.library.db.watchAppSettings(),
@@ -592,12 +802,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final mode = themeModeFromString(snapshot.data?.themeMode);
               return ListTile(
                 leading: const Icon(Icons.contrast_outlined),
-                title: const Text('Design'),
+                title: Text(AppTexte.of(context).einstDesign),
                 subtitle: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(value: ThemeMode.light, label: Text('Hell'), icon: Icon(Icons.light_mode_outlined)),
-                    ButtonSegment(value: ThemeMode.dark, label: Text('Dunkel'), icon: Icon(Icons.dark_mode_outlined)),
-                    ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto_outlined)),
+                  segments: [
+                    ButtonSegment(
+                        value: ThemeMode.light,
+                        label: Text(AppTexte.of(context).einstDesignHell),
+                        icon: const Icon(Icons.light_mode_outlined)),
+                    ButtonSegment(
+                        value: ThemeMode.dark,
+                        label: Text(AppTexte.of(context).einstDesignDunkel),
+                        icon: const Icon(Icons.dark_mode_outlined)),
+                    ButtonSegment(
+                        value: ThemeMode.system,
+                        label: Text(AppTexte.of(context).einstDesignSystem),
+                        icon: const Icon(Icons.brightness_auto_outlined)),
                   ],
                   selected: {mode},
                   onSelectionChanged: (selection) =>
@@ -608,7 +827,94 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Bibliotheken', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).spracheTitel,
+            style: Theme.of(context).textTheme.titleMedium),
+        Card(
+          child: StreamBuilder<AppSettingsData?>(
+            stream: widget.library.db.watchAppSettings(),
+            builder: (context, snapshot) {
+              final t = AppTexte.of(context);
+              final aktuell = snapshot.data?.sprache ?? 'system';
+              return ListTile(
+                leading: const Icon(Icons.translate_outlined),
+                title: Text(t.spracheTitel),
+                isThreeLine: true,
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 6),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(value: 'system', label: Text(t.spracheSystem)),
+                        // Sprachnamen stehen bewusst in ihrer eigenen Sprache
+                        // da – wer die Oberfläche nicht versteht, findet
+                        // "English" trotzdem, "Englisch" womöglich nicht.
+                        ButtonSegment(value: 'de', label: Text(t.spracheDeutsch)),
+                        ButtonSegment(value: 'en', label: Text(t.spracheEnglisch)),
+                      ],
+                      selected: {aktuell},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (auswahl) => _wechsleSprache(auswahl.first),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(t.spracheHinweis,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.outline)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(AppTexte.of(context).einstUeberwachtTitel, style: Theme.of(context).textTheme.titleMedium),
+        Card(
+          child: FutureBuilder<({String pfad, String? token})?>(
+            future: _ueberwachterOrdnerFuture,
+            builder: (context, snapshot) {
+              final eintrag = snapshot.data;
+              return Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.folder_special_outlined),
+                    title: Text(eintrag == null ? AppTexte.of(context).einstUeberwachtKeiner : eintrag.pfad),
+                    subtitle: Text(eintrag == null
+                        ? AppTexte.of(context).einstUeberwachtErklaerung
+                        : AppTexte.of(context).einstUeberwachtAktiv),
+                    isThreeLine: eintrag == null,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _waehleUeberwachtenOrdner,
+                            icon: const Icon(Icons.folder_open_outlined),
+                            label: Text(eintrag == null ? AppTexte.of(context).einstUeberwachtWaehlen : AppTexte.of(context).einstUeberwachtAndererWaehlen),
+                          ),
+                        ),
+                        if (eintrag != null) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _beendeUeberwachung,
+                              icon: const Icon(Icons.stop_circle_outlined),
+                              label: Text(AppTexte.of(context).einstUeberwachtBeenden),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(AppTexte.of(context).einstBibListe, style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: FutureBuilder<List<BibliothekMitZustand>>(
             future: _bibliothekenFuture,
@@ -637,7 +943,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       subtitle: Text(
                         b.erreichbar
                             ? b.eintrag.path
-                            : 'Ordner nicht gefunden – Laufwerk eingebunden?',
+                            : AppTexte.of(context).einstBibNichtGefunden,
                       ),
                       // `enabled` steuert die Einfärbung, nicht die
                       // Antippbarkeit: Die aktive Bibliothek ist zwar nicht
@@ -646,13 +952,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // "nicht erreichbar".
                       enabled: b.erreichbar,
                       onTap: b.erreichbar && !b.istAktiv ? () => _wechsleBibliothek(b) : null,
+                      // Der Standardordner lässt sich nicht entfernen: Er
+                      // wird erzeugt, nicht gespeichert, und es gibt ihn
+                      // immer. Ihm einen Knopf zu geben, der nichts tut,
+                      // war der Fehler der ersten Fassung.
                       trailing: b.istAktiv
-                          ? const Text('aktiv')
-                          : IconButton(
-                              icon: const Icon(Icons.playlist_remove),
-                              tooltip: 'Aus der Liste entfernen (löscht keine Fotos)',
-                              onPressed: () => _entferneBibliothek(b),
-                            ),
+                          ? Text(AppTexte.of(context).einstBibAktiv)
+                          : b.entfernbar
+                              ? IconButton(
+                                  icon: const Icon(Icons.playlist_remove),
+                                  tooltip: AppTexte.of(context).einstBibAusListeEntfernen,
+                                  onPressed: () => _entferneBibliothek(b),
+                                )
+                              : Text(AppTexte.of(context).einstBibImmerVorhanden,
+                                  style: const TextStyle(fontSize: 12)),
                     ),
                   const Divider(height: 1),
                   Padding(
@@ -663,7 +976,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _bibliothekHinzufuegen,
                             icon: const Icon(Icons.library_add_outlined),
-                            label: const Text('Bibliothek hinzufügen…'),
+                            label: Text(AppTexte.of(context).einstBibHinzufuegen),
                           ),
                         ),
                       ],
@@ -673,9 +986,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     padding: const EdgeInsets.fromLTRB(
                         AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
                     child: Text(
-                      'Ein Wechsel biegt nur um, welche Bibliothek geöffnet wird – '
-                      'es werden keine Fotos verschoben. Zum Verlegen der aktuellen '
-                      'Bibliothek an einen anderen Ort dient „Speicherort ändern" weiter unten.',
+                      AppTexte.of(context).einstBibWechselHinweis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
@@ -687,18 +998,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Speicherort der aktiven Bibliothek',
+        Text(AppTexte.of(context).einstSpeicherortTitel,
             style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: Column(
             children: [
               ListTile(
                 leading: const Icon(Icons.folder_outlined),
-                title: const Text('Speicherort'),
+                title: Text(AppTexte.of(context).einstSpeicherort),
                 subtitle: Text(widget.library.paths.root.path),
                 trailing: IconButton(
                   icon: const Icon(Icons.open_in_new),
-                  tooltip: 'Im Finder anzeigen',
+                  tooltip: AppTexte.of(context).einstImFinderAnzeigen,
                   onPressed: () => _openInFinder(widget.library.paths.root.path),
                 ),
               ),
@@ -715,7 +1026,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _changeLibraryLocation,
                             icon: const Icon(Icons.drive_file_move_outline),
-                            label: const Text('Ändern…'),
+                            label: Text(AppTexte.of(context).einstAendern),
                           ),
                         ),
                         if (isCustom) ...[
@@ -724,7 +1035,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: OutlinedButton.icon(
                               onPressed: _resetLibraryLocation,
                               icon: const Icon(Icons.restart_alt),
-                              label: const Text('Zurücksetzen'),
+                              label: Text(AppTexte.of(context).einstZuruecksetzen),
                             ),
                           ),
                         ],
@@ -735,25 +1046,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ListTile(
                 leading: const Icon(Icons.sd_storage_outlined),
-                title: const Text('Speicherbedarf (Originale)'),
-                subtitle: Text(_sizeBytes == null ? 'wird berechnet …' : _formatBytes(_sizeBytes!)),
+                title: Text(AppTexte.of(context).einstSpeicherbedarf),
+                subtitle: Text(_sizeBytes == null ? AppTexte.of(context).einstWirdBerechnet : _formatBytes(_sizeBytes!)),
               ),
             ],
           ),
         ),
         const SizedBox(height: 20),
-        Text('KI-Modelle (lokal & quelloffen)', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittModelle, style: Theme.of(context).textTheme.titleMedium),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            'Wie bei digiKam laufen alle KI-Funktionen offline auf diesem Rechner. '
-            'Die Modelldateien werden nicht mitgeliefert, sondern bei Bedarf aus '
-            'offiziellen Open-Source-Quellen heruntergeladen (einmalig, danach '
-            'komplett offline nutzbar).',
+            AppTexte.of(context).einstKiHinweis,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
           ),
         ),
         FutureBuilder<bool>(
+          key: const ValueKey('auto-analyse'),
           future: widget.library.db.autoAnalyzeAfterImportEnabled(),
           builder: (context, snapshot) {
             final an = snapshot.data ?? true;
@@ -765,18 +1074,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (mounted) setState(() {});
                 },
                 secondary: const Icon(Icons.schedule_outlined),
-                title: const Text('KI-Auswertung nach dem Import automatisch nachholen'),
+                title: Text(AppTexte.of(context).einstAutoAnalyseTitel),
                 isThreeLine: true,
-                subtitle: const Text(
-                  'Der Import legt die Fotos nur ab und bleibt dadurch schnell. '
-                  'Gesichter, Texterkennung, Bildsuche und Bildbeschreibung laufen '
-                  'danach im Hintergrund nach. Ausgeschaltet lässt sich das '
-                  'jederzeit unter Werkzeuge von Hand anstoßen.',
+                subtitle: Text(
+                  AppTexte.of(context).einstAutoAnalyseText,
                 ),
               ),
             );
           },
         ),
+        // Beide Schalter übersetzen zwischen Englisch und Deutsch. Steht die
+        // Oberfläche auf Englisch, sind sie gegenstandslos: Beschreibungen
+        // und Vokabular liegen dann bereits in der Sprache vor, in der man
+        // sucht. Ausgeblendet statt wirkungslos angeboten – die gespeicherte
+        // Einstellung bleibt erhalten und ist beim Zurückwechseln wieder da.
+        if (Localizations.localeOf(context).languageCode == 'de') ...[
+          _uebersetzungsSchalter(
+            icon: Icons.translate_outlined,
+            titel: AppTexte.of(context).einstUebersetzeBeschreibungTitel,
+            beschreibung: AppTexte.of(context).einstUebersetzeBeschreibungText,
+            installiert: widget.library.uebersetzungEnDeHalter.installiert,
+            lesen: widget.library.db.uebersetzeBeschreibungen,
+            schreiben: widget.library.db.setzeUebersetzeBeschreibungen,
+          ),
+          _uebersetzungsSchalter(
+            icon: Icons.search_outlined,
+            titel: AppTexte.of(context).einstUebersetzeSucheTitel,
+            beschreibung: AppTexte.of(context).einstUebersetzeSucheText,
+            installiert: widget.library.uebersetzungDeEnHalter.installiert,
+            lesen: widget.library.db.uebersetzeSucheUndTags,
+            schreiben: (an) async {
+              await widget.library.db.setzeUebersetzeSucheUndTags(an);
+              // Die zwischengespeicherten Begriffs-Vektoren stammen sonst
+              // noch aus der anderen Sprache und die Umstellung bliebe bis
+              // zum nächsten Programmstart wirkungslos.
+              widget.library.aiTaggingService.leereBegriffsCache();
+            },
+          ),
+        ],
         const SizedBox(height: 12),
         for (final entry in ModelCatalog.all)
           _ModelCard(
@@ -794,8 +1129,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Text(
-            'Belegter Platz aller Modelle: '
-            '${_formatBytes(widget.library.modelDownloadService.gesamteBytes())}',
+            AppTexte.of(context).einstModelleBelegterPlatz(
+                _formatBytes(widget.library.modelDownloadService.gesamteBytes())),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -805,21 +1140,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Card(
           child: ListTile(
             leading: const Icon(Icons.face_outlined),
-            title: const Text('Gesichtserkennung aktiv'),
+            title: Text(AppTexte.of(context).einstGesichtserkennungAktiv),
             subtitle: Text(widget.library.faceDetectionAvailable
                 ? (widget.library.faceRecognitionAvailable
-                    ? 'Erkennung + Wiedererkennungs-Embeddings aktiv'
-                    : 'Nur Erkennung aktiv (Wiedererkennung: SFace-Modell fehlt noch)')
-                : 'Inaktiv – YuNet-Modell oben herunterladen'),
+                    ? AppTexte.of(context).einstGesichtserkennungBeides
+                    : AppTexte.of(context).einstNurErkennung)
+                : AppTexte.of(context).einstGesichtserkennungInaktiv),
           ),
         ),
         const SizedBox(height: 20),
-        Text('Hintergrundaufgaben', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittHintergrund, style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: ListTile(
             leading: const Icon(Icons.pending_actions_outlined),
-            title: const Text('Aufgaben-Übersicht'),
-            subtitle: const Text('Alle Auswertungen mit Anzahl noch offener Fotos, einzeln anstoßbar'),
+            title: Text(AppTexte.of(context).einstAufgabenTitel),
+            subtitle: Text(AppTexte.of(context).einstAufgabenText),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => BackgroundTasksScreen(library: widget.library)),
@@ -827,14 +1162,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('KI-Tagging-Vokabular', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittVokabular, style: Theme.of(context).textTheme.titleMedium),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            'Begriffe, die automatisch per KI-Bildsuche-Modell (CLIP) auf neu importierte Fotos '
-            'angewendet werden. Änderungen hier gelten nur für künftige Fotos – um sie '
-            'rückwirkend auf die vorhandene Bibliothek anzuwenden, siehe Werkzeuge → '
-            '"KI-Tags berechnen" → "Alle Fotos".',
+            AppTexte.of(context).einstVokabularText,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
           ),
         ),
@@ -870,17 +1202,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Expanded(
                       child: TextField(
                         controller: _aiTagVocabularyController,
-                        decoration: const InputDecoration(
-                          hintText: 'Begriff hinzufügen …',
+                        decoration: InputDecoration(
+                          hintText: AppTexte.of(context).einstBegriffHinzufuegenFeld,
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onSubmitted: (_) => _addAiTagVocabularyTerm(),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.add),
-                      tooltip: 'Begriff hinzufügen',
+                      tooltip: AppTexte.of(context).einstBegriffHinzufuegen,
                       onPressed: _addAiTagVocabularyTerm,
                     ),
                   ],
@@ -890,14 +1222,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Standortdaten (lokal & quelloffen)', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittStandortdaten, style: Theme.of(context).textTheme.titleMedium),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            'Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu – komplett '
-            'lokal über die nächstgelegene bekannte Stadt (GeoNames-Datensatz), ohne Anfrage an '
-            'einen Online-Kartendienst. Für die Land-/Bundesland-/Stadt-Filter in den '
-            'Suchoptionen nötig.',
+            AppTexte.of(context).einstOrteText,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
           ),
         ),
@@ -907,23 +1236,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               widget.library.geoDataAvailable ? Icons.check_circle : Icons.cloud_download_outlined,
               color: widget.library.geoDataAvailable ? Colors.green : null,
             ),
-            title: const Text('GeoNames – Städte, Länder, Bundesländer'),
-            subtitle: const Text(
-              'Städte ab 1000 Einwohnern weltweit (~10 MB). Lizenz: ${GeoDataCatalog.license}.',
+            title: Text(AppTexte.of(context).einstGeoTitel),
+            subtitle: Text(
+              AppTexte.of(context).einstGeoText(GeoDataCatalog.license),
             ),
             trailing: _downloadingGeoData
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
                 : widget.library.geoDataAvailable
                     ? IconButton(
                         icon: const Icon(Icons.delete_outline),
-                        tooltip: 'GeoNames-Datensatz löschen',
+                        tooltip: AppTexte.of(context).einstGeoLoeschen,
                         onPressed: _deleteGeoData,
                       )
-                    : FilledButton(onPressed: _downloadGeoData, child: const Text('Herunterladen')),
+                    : FilledButton(onPressed: _downloadGeoData, child: Text(AppTexte.of(context).allgHerunterladen)),
           ),
         ),
         const SizedBox(height: 20),
-        Text('Gesperrter Ordner', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittGesperrterOrdner, style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: FutureBuilder<bool>(
             future: _hasPinSetFuture,
@@ -932,15 +1261,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (!hasPin) {
                 return ListTile(
                   leading: const Icon(Icons.enhanced_encryption_outlined),
-                  title: const Text('PIN einrichten'),
-                  subtitle: const Text(
-                    'Verschlüsselt private Fotos mit AES-256 (echte Verschlüsselung, nicht '
-                    'nur ein Anzeige-Filter) und blendet sie überall sonst (Timeline, Suche, '
-                    'Alben, Personen, Karte, Backup) aus. Ohne den PIN gibt es keine '
-                    'Wiederherstellung.',
+                  title: Text(AppTexte.of(context).einstPinEinrichten),
+                  subtitle: Text(
+                    AppTexte.of(context).einstGesperrtText,
                   ),
                   isThreeLine: true,
-                  trailing: FilledButton(onPressed: _setupPin, child: const Text('Einrichten')),
+                  trailing: FilledButton(onPressed: _setupPin, child: Text(AppTexte.of(context).allgEinrichten)),
                 );
               }
               final unlocked = widget.library.vaultUnlockedThisSession;
@@ -948,14 +1274,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   ListTile(
                     leading: Icon(unlocked ? Icons.lock_open_outlined : Icons.lock_outline),
-                    title: const Text('Gesperrter Ordner'),
+                    title: Text(AppTexte.of(context).einstGesperrterOrdner),
                     subtitle: Text(unlocked
-                        ? 'PIN eingerichtet – für diese Sitzung bereits entsperrt.'
-                        : 'PIN eingerichtet.'),
+                        ? AppTexte.of(context).einstGesperrtEntsperrt
+                        : AppTexte.of(context).einstPinEingerichtet),
                     trailing: FilledButton.icon(
                       onPressed: _openLockedFolder,
                       icon: const Icon(Icons.lock_open_outlined),
-                      label: const Text('Öffnen'),
+                      label: Text(AppTexte.of(context).einstGesperrtOeffnen),
                     ),
                   ),
                   const Divider(height: 1),
@@ -964,11 +1290,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(onPressed: _changePin, child: const Text('PIN ändern')),
+                          child: OutlinedButton(onPressed: _changePin, child: Text(AppTexte.of(context).einstPinAendern)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: OutlinedButton(onPressed: _removePin, child: const Text('PIN entfernen')),
+                          child: OutlinedButton(onPressed: _removePin, child: Text(AppTexte.of(context).einstPinEntfernen)),
                         ),
                       ],
                     ),
@@ -981,7 +1307,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: TextButton.icon(
                           onPressed: _lockVaultSession,
                           icon: const Icon(Icons.lock_clock_outlined),
-                          label: const Text('Sitzung jetzt sperren'),
+                          label: Text(AppTexte.of(context).einstSitzungSperren),
                         ),
                       ),
                     ),
@@ -991,7 +1317,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Backup-Verschlüsselung', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstBackupVerschluesselungTitel, style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: FutureBuilder<bool>(
             future: _hasBackupKeyFuture,
@@ -1000,15 +1326,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (!hasKey) {
                 return ListTile(
                   leading: const Icon(Icons.enhanced_encryption_outlined),
-                  title: const Text('Passphrase einrichten'),
-                  subtitle: const Text(
-                    'Ermöglicht, manuelle und automatische Backups mit AES-256 zu '
-                    'verschlüsseln. Eigene Passphrase, unabhängig vom PIN des gesperrten '
-                    'Ordners – ein Backup landet oft extern und muss auch ohne diesen '
-                    'Rechner entschlüsselbar sein.',
+                  title: Text(AppTexte.of(context).einstPassphraseEinrichten),
+                  subtitle: Text(
+                    AppTexte.of(context).einstBackupVerschluesselungText,
                   ),
                   isThreeLine: true,
-                  trailing: FilledButton(onPressed: _setupBackupPassphrase, child: const Text('Einrichten')),
+                  trailing: FilledButton(onPressed: _setupBackupPassphrase, child: Text(AppTexte.of(context).allgEinrichten)),
                 );
               }
               final unlocked = widget.library.backupKeyAvailableThisSession;
@@ -1016,10 +1339,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   ListTile(
                     leading: Icon(unlocked ? Icons.lock_open_outlined : Icons.lock_outline),
-                    title: const Text('Backup-Passphrase'),
+                    title: Text(AppTexte.of(context).einstBackupPassphrase),
                     subtitle: Text(unlocked
-                        ? 'Eingerichtet – für diese Sitzung bereits entsperrt.'
-                        : 'Eingerichtet – wird beim nächsten Backup abgefragt.'),
+                        ? AppTexte.of(context).einstBackupEntsperrt
+                        : AppTexte.of(context).einstBackupGesperrt),
                   ),
                   const Divider(height: 1),
                   Padding(
@@ -1028,12 +1351,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                              onPressed: _changeBackupPassphrase, child: const Text('Ändern')),
+                              onPressed: _changeBackupPassphrase, child: Text(AppTexte.of(context).einstBackupAendern)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton(
-                              onPressed: _removeBackupEncryption, child: const Text('Entfernen')),
+                              onPressed: _removeBackupEncryption, child: Text(AppTexte.of(context).allgEntfernen)),
                         ),
                       ],
                     ),
@@ -1044,26 +1367,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Manuelles Cloud-Backup', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittManuellesBackup, style: Theme.of(context).textTheme.titleMedium),
         Card(
           child: Column(
             children: [
               ListTile(
                 leading: const Icon(Icons.history),
-                title: const Text('Letztes Backup'),
+                title: Text(AppTexte.of(context).einstLetztesBackup),
                 subtitle: Text(_lastBackup == null
-                    ? 'Noch nie gesichert.'
-                    : '${_lastBackup!.performedAt.day}.${_lastBackup!.performedAt.month}.'
-                        '${_lastBackup!.performedAt.year} – ${_lastBackup!.fileCount} Datei(en) nach '
-                        '${_lastBackup!.destinationPath}'),
+                    ? AppTexte.of(context).einstBackupNieGesichert
+                    : AppTexte.of(context).einstBackupZusammenfassung(
+                        _datum(_lastBackup!.performedAt),
+                        _lastBackup!.fileCount,
+                        _lastBackup!.destinationPath)),
               ),
               const Divider(height: 1),
               CheckboxListTile(
                 value: _encryptManualBackup,
                 onChanged: (v) => setState(() => _encryptManualBackup = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('Backup verschlüsseln'),
-                subtitle: const Text('Fragt bei Bedarf die Backup-Passphrase von oben ab.'),
+                title: Text(AppTexte.of(context).einstBackupVerschluesseln),
+                subtitle: Text(AppTexte.of(context).einstBackupPassphraseAbfrage),
               ),
               const Divider(height: 1),
               Padding(
@@ -1074,7 +1398,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: FilledButton.icon(
                         onPressed: _runBackup,
                         icon: const Icon(Icons.backup_outlined),
-                        label: const Text('Jetzt sichern'),
+                        label: Text(AppTexte.of(context).einstJetztSichern),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1082,7 +1406,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: OutlinedButton.icon(
                         onPressed: _runRestore,
                         icon: const Icon(Icons.settings_backup_restore),
-                        label: const Text('Wiederherstellen'),
+                        label: Text(AppTexte.of(context).einstWiederherstellen),
                       ),
                     ),
                   ],
@@ -1091,9 +1415,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                 child: Text(
-                  'Wähle als Ziel z.B. deinen lokalen Dropbox- oder Google-Drive-'
-                  'Ordner – die Desktop-App des jeweiligen Anbieters lädt die '
-                  'Dateien dann automatisch in die Cloud hoch.',
+                  AppTexte.of(context).einstBackupZielHinweis,
                   style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
                 ),
               ),
@@ -1101,16 +1423,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Automatisches Backup', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittAutoBackup, style: Theme.of(context).textTheme.titleMedium),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            'Läuft nur, während die App geöffnet ist (kein Hintergrunddienst) – prüft beim '
-            'Start und danach alle 30 Minuten, ob das Intervall abgelaufen ist. Sichert immer '
-            'verschlüsselt, zusätzlich zu den Originaldateien auch einen Schnappschuss der '
-            'gesamten Datenbank (Gesichter, Orte, Tags, Alben, Favoriten, …), damit sich bei '
-            'Datenverlust der komplette Zustand wiederherstellen lässt. Löscht am Zielort nie '
-            'etwas – lokale Löschungen werden bewusst nicht nachvollzogen.',
+            AppTexte.of(context).einstBackupAutoHinweis,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
           ),
         ),
@@ -1136,38 +1453,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             await widget.library.db.setAutoBackupConfig(enabled: v);
                             if (mounted) _reloadBackupSettings();
                           },
-                    title: const Text('Aktiv'),
-                    subtitle: Text(destination ?? 'Zuerst einen Zielordner wählen.'),
+                    title: Text(AppTexte.of(context).allgAktiv),
+                    subtitle: Text(destination ?? AppTexte.of(context).einstBackupZuerstZiel),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.folder_outlined),
-                    title: const Text('Zielordner'),
-                    subtitle: Text(destination ?? 'Kein Ordner gewählt.'),
+                    title: Text(AppTexte.of(context).einstZielordner),
+                    subtitle: Text(destination ?? AppTexte.of(context).einstBackupKeinOrdner),
                     trailing: OutlinedButton(
                       onPressed: () async {
                         final picked = await FilePicker.platform.getDirectoryPath(
-                          dialogTitle: 'Zielordner für automatisches Backup wählen',
+                          dialogTitle: AppTexte.of(context).einstBackupAutoZielWaehlen,
                         );
                         if (picked == null) return;
                         await widget.library.db
                             .setAutoBackupConfig(enabled: enabled, destination: picked);
                         if (mounted) _reloadBackupSettings();
                       },
-                      child: const Text('Wählen…'),
+                      child: Text(AppTexte.of(context).einstWaehlen),
                     ),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.schedule_outlined),
-                    title: const Text('Intervall'),
+                    title: Text(AppTexte.of(context).einstIntervall),
                     trailing: DropdownButton<int>(
                       value: intervalHours,
-                      items: const [
-                        DropdownMenuItem(value: 1, child: Text('Stündlich')),
-                        DropdownMenuItem(value: 6, child: Text('Alle 6 Stunden')),
-                        DropdownMenuItem(value: 24, child: Text('Täglich')),
-                        DropdownMenuItem(value: 168, child: Text('Wöchentlich')),
+                      items: [
+                        DropdownMenuItem(value: 1, child: Text(AppTexte.of(context).einstStuendlich)),
+                        DropdownMenuItem(value: 6, child: Text(AppTexte.of(context).einstIntervallSechsStunden)),
+                        DropdownMenuItem(value: 24, child: Text(AppTexte.of(context).einstTaeglich)),
+                        DropdownMenuItem(value: 168, child: Text(AppTexte.of(context).einstWoechentlich)),
                       ],
                       onChanged: (v) async {
                         if (v == null) return;
@@ -1180,21 +1497,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.speed_outlined),
-                    title: const Text('Menge je Lauf'),
-                    subtitle: const Text(
-                      'Begrenzt, wie viel pro Durchlauf ins Ziel geschrieben wird. '
-                      'Sinnvoll bei Cloud-Ordnern: Der Upload kommt sonst tagelang '
-                      'nicht hinterher. Der Rest folgt beim nächsten Intervall.',
-                      style: TextStyle(fontSize: 12),
+                    title: Text(AppTexte.of(context).einstMengeJeLauf),
+                    subtitle: Text(
+                      AppTexte.of(context).einstBackupGrenzeText,
+                      style: const TextStyle(fontSize: 12),
                     ),
                     isThreeLine: true,
                     trailing: DropdownButton<int>(
                       value: maxMbPerRun,
-                      items: const [
-                        DropdownMenuItem(value: 0, child: Text('Unbegrenzt')),
-                        DropdownMenuItem(value: 500, child: Text('500 MB')),
-                        DropdownMenuItem(value: 2000, child: Text('2 GB')),
-                        DropdownMenuItem(value: 10000, child: Text('10 GB')),
+                      items: [
+                        DropdownMenuItem(
+                            value: 0, child: Text(AppTexte.of(context).einstUnbegrenzt)),
+                        const DropdownMenuItem(value: 500, child: Text('500 MB')),
+                        const DropdownMenuItem(value: 2000, child: Text('2 GB')),
+                        const DropdownMenuItem(value: 10000, child: Text('10 GB')),
                       ],
                       onChanged: (v) async {
                         if (v == null) return;
@@ -1206,20 +1522,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.history),
-                    title: const Text('Letzter Lauf'),
+                    title: Text(AppTexte.of(context).einstLetzterLauf),
                     subtitle: Text(lastRun == null
-                        ? 'Noch nie ausgeführt.'
-                        : '${lastRun.day}.${lastRun.month}.${lastRun.year} – '
-                            '${lastRun.hour.toString().padLeft(2, '0')}:'
-                            '${lastRun.minute.toString().padLeft(2, '0')}'),
+                        ? AppTexte.of(context).einstNieAusgefuehrt
+                        : _datumZeit(lastRun)),
                   ),
                   if (enabled && !keyReady)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xs),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xs),
                       child: Text(
-                        'Backup-Passphrase muss für diese Sitzung noch entsperrt werden, bevor '
-                        'das automatische Backup laufen kann – z.B. über "Jetzt synchronisieren".',
-                        style: TextStyle(fontSize: 12, color: Colors.orange),
+                        AppTexte.of(context).einstBackupPassphraseGesperrt,
+                        style: TextStyle(fontSize: 12, color: context.semantik.warnung),
                       ),
                     ),
                   Padding(
@@ -1229,7 +1542,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: FilledButton.icon(
                         onPressed: destination == null ? null : _runAutoBackupNow,
                         icon: const Icon(Icons.sync),
-                        label: const Text('Jetzt synchronisieren'),
+                        label: Text(AppTexte.of(context).einstJetztSynchronisieren),
                       ),
                     ),
                   ),
@@ -1239,13 +1552,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text('Papierkorb automatisch leeren', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).einstAbschnittPapierkorb, style: Theme.of(context).textTheme.titleMedium),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            'Löscht in den Papierkorb verschobene Fotos/Videos nach Ablauf der '
-            'gewählten Frist endgültig – unwiderruflich, auch aus dem PIN-geschützten '
-            'Papierkorb des gesperrten Ordners. Standardmäßig deaktiviert.',
+            AppTexte.of(context).einstPapierkorbText,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
           ),
         ),
@@ -1266,21 +1577,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       await widget.library.db.setTrashAutoDeleteConfig(enabled: v);
                       if (mounted) _reloadTrashSettings();
                     },
-                    title: const Text('Aktiv'),
-                    subtitle: const Text('Papierkorb-Ablauf ist standardmäßig ausgeschaltet.'),
+                    title: Text(AppTexte.of(context).allgAktiv),
+                    subtitle: Text(AppTexte.of(context).einstPapierkorbAus),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.timelapse_outlined),
-                    title: const Text('Nach'),
+                    title: Text(AppTexte.of(context).einstNachTagen),
                     trailing: DropdownButton<int>(
                       value: afterDays,
-                      items: const [
-                        DropdownMenuItem(value: 7, child: Text('7 Tagen')),
-                        DropdownMenuItem(value: 14, child: Text('14 Tagen')),
-                        DropdownMenuItem(value: 30, child: Text('30 Tagen')),
-                        DropdownMenuItem(value: 60, child: Text('60 Tagen')),
-                        DropdownMenuItem(value: 90, child: Text('90 Tagen')),
+                      items: [
+                        for (final tage in [7, 14, 30, 60, 90])
+                          DropdownMenuItem(
+                              value: tage,
+                              child: Text(AppTexte.of(context).einstTageDropdown(tage))),
                       ],
                       onChanged: (v) async {
                         if (v == null) return;
@@ -1292,12 +1602,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.history),
-                    title: const Text('Letzter Lauf'),
+                    title: Text(AppTexte.of(context).einstLetzterLauf),
                     subtitle: Text(lastRun == null
-                        ? 'Noch nie ausgeführt.'
-                        : '${lastRun.day}.${lastRun.month}.${lastRun.year} – '
-                            '${lastRun.hour.toString().padLeft(2, '0')}:'
-                            '${lastRun.minute.toString().padLeft(2, '0')}'),
+                        ? AppTexte.of(context).einstNieAusgefuehrt
+                        : _datumZeit(lastRun)),
                   ),
                 ],
               );
@@ -1305,14 +1613,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
         const SizedBox(height: 28),
-        Text('Gefahrenzone',
+        Text(AppTexte.of(context).einstAbschnittGefahrenzone,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.error)),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
-            'Löscht unwiderruflich ALLE Fotos, Videos und die gesamte Datenbank dieser '
-            'Bibliothek und beginnt danach mit einer leeren Bibliothek neu. Heruntergeladene '
-            'KI-Modelle und Geodaten bleiben erhalten (kein erneuter Download nötig).',
+            AppTexte.of(context).einstResetText,
             style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
           ),
         ),
@@ -1323,16 +1629,163 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           child: ListTile(
             leading: Icon(Icons.warning_amber_outlined, color: Theme.of(context).colorScheme.error),
-            title: const Text('Datenbank zurücksetzen'),
-            subtitle: const Text('Löscht alle Medien und Metadaten – nicht rückgängig zu machen.'),
+            title: Text(AppTexte.of(context).einstResetTitel),
+            subtitle: Text(AppTexte.of(context).einstResetKurz),
             trailing: OutlinedButton(
               style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
               onPressed: _resetDatabase,
-              child: const Text('Zurücksetzen…'),
+              child: Text(AppTexte.of(context).einstResetKnopf),
             ),
           ),
         ),
+        const SizedBox(height: 20),
+        Text(AppTexte.of(context).einstUeberTitel, style: Theme.of(context).textTheme.titleMedium),
+        Card(
+          child: FutureBuilder<PackageInfo>(
+            future: _versionFuture,
+            builder: (context, snapshot) {
+              final info = snapshot.data;
+              final version = info?.version ?? '…';
+              final modelle = ModelCatalog.all
+                  .where((e) => widget.library.isModelInstalled(e))
+                  .toList();
+              return Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.info_outline),
+                    title: Text('Photo Vault $version'),
+                    subtitle: Text(info == null
+                        ? ''
+                        : AppTexte.of(context).einstBauZeile(
+                            info.buildNumber,
+                            Platform.operatingSystem,
+                            Platform.operatingSystemVersion)),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.storage_outlined),
+                    title: Text(AppTexte.of(context).einstDatenbank),
+                    subtitle: Text(AppTexte.of(context)
+                        .einstDatenbankStand(widget.library.db.schemaVersion)),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.memory_outlined),
+                    title: Text(modelle.isEmpty
+                        ? AppTexte.of(context).einstKeineModelle
+                        : AppTexte.of(context).einstModelleGeladen(modelle.length, ModelCatalog.all.length)),
+                    subtitle: Text(modelle.isEmpty
+                        ? AppTexte.of(context).einstModelleUnbenutzt
+                        : modelle
+                            .map((e) => modellTitel(AppTexte.of(context), e.id))
+                            .join(' · ')),
+                    isThreeLine: modelle.isNotEmpty,
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+                    child: Text(
+                      AppTexte.of(context).einstAktualisierungHinweis,
+                      style: TextStyle(
+                          fontSize: 12, color: Theme.of(context).colorScheme.outline),
+                    ),
+                  ),
+                  if (_aktualisierungsstand != null)
+                    ListTile(
+                      leading: Icon(
+                        _aktualisierungsstand!.istNeuereVerfuegbar
+                            ? Icons.new_releases_outlined
+                            : Icons.check_circle_outline,
+                        color: _aktualisierungsstand!.istNeuereVerfuegbar
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.green,
+                      ),
+                      title: Text(_aktualisierungsstand!.istNeuereVerfuegbar
+                          ? AppTexte.of(context).einstAktualisierungNeuer(_aktualisierungsstand!.neueste)
+                          : AppTexte.of(context).einstAktualisierungAktuell),
+                      subtitle: _aktualisierungsstand!.istNeuereVerfuegbar
+                          ? Text(_aktualisierungsstand!.seitenUrl ?? '')
+                          : null,
+                    ),
+                  if (_aktualisierungsfehler != null)
+                    ListTile(
+                      leading: const Icon(Icons.cloud_off_outlined),
+                      title: Text(_aktualisierungsfehler!),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: (_pruefeAktualisierung || info == null)
+                                ? null
+                                : () => _sucheAktualisierung(version),
+                            icon: _pruefeAktualisierung
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.system_update_alt_outlined),
+                            label: Text(AppTexte.of(context).einstNachAktualisierungSuchen),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+
       ],
+    );
+  }
+
+  /// Ein Schalter für eine Übersetzungsrichtung.
+  ///
+  /// Ohne das zugehörige Modell bleibt er sichtbar, aber abgeschaltet, und
+  /// sagt warum – ein Schalter, der ohne Erklärung nichts tut, ist
+  /// schlimmer als keiner. Die Modellkarte dazu steht direkt darunter.
+  Widget _uebersetzungsSchalter({
+    required IconData icon,
+    required String titel,
+    required String beschreibung,
+    required bool installiert,
+    required Future<bool> Function() lesen,
+    required Future<void> Function(bool) schreiben,
+  }) {
+    return FutureBuilder<bool>(
+      key: ValueKey('uebersetzung-$titel'),
+      future: lesen(),
+      builder: (context, snapshot) {
+        final an = snapshot.data ?? false;
+        return Card(
+          child: SwitchListTile(
+            value: an && installiert,
+            onChanged: installiert
+                ? (v) async {
+                    await schreiben(v);
+                    if (mounted) setState(() {});
+                  }
+                : null,
+            secondary: Icon(icon),
+            isThreeLine: true,
+            title: Text(titel),
+            subtitle: Text(
+              installiert
+                  ? beschreibung
+                  : AppTexte.of(context).einstModellNichtGeladen(beschreibung),
+              style: TextStyle(
+                fontSize: 12,
+                color: installiert ? null : Theme.of(context).colorScheme.outline,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1365,19 +1818,23 @@ class _ModelCard extends StatelessWidget {
           installed ? Icons.check_circle : Icons.cloud_download_outlined,
           color: installed ? Colors.green : null,
         ),
-        title: Text(entry.title),
-        subtitle: Text('${entry.description}\nLizenz: ${entry.license}'
-            '${groesse != null ? ' · $groesse' : ''}'),
+        title: Text(modellTitel(AppTexte.of(context), entry.id)),
+        subtitle: Text([
+          modellBeschreibung(AppTexte.of(context), entry.id),
+          AppTexte.of(context)
+                  .einstModellLizenzZeile(modellLizenz(AppTexte.of(context), entry.id)) +
+              (groesse != null ? ' · $groesse' : ''),
+        ].join('\n')),
         isThreeLine: true,
         trailing: downloading
             ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
             : installed
                 ? IconButton(
                     icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Modell löschen',
+                    tooltip: AppTexte.of(context).einstModellLoeschen,
                     onPressed: onDelete,
                   )
-                : FilledButton(onPressed: onDownload, child: const Text('Herunterladen')),
+                : FilledButton(onPressed: onDownload, child: Text(AppTexte.of(context).allgHerunterladen)),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../services/xmp_reader.dart';
 import '../state/library_state.dart';
@@ -173,16 +175,16 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('XMP-Sidecars einlesen'),
+        title: Text(AppTexte.of(context).werkzXmpLesenTitel),
         actions: [
           if (_diffs.isNotEmpty)
             TextButton(
               onPressed: _applyAll,
-              child: const Text('Alle übernehmen', style: TextStyle(color: Colors.white)),
+              child: Text(AppTexte.of(context).xmpAlleUebernehmen, style: const TextStyle(color: Colors.white)),
             ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Erneut einlesen',
+            tooltip: AppTexte.of(context).xmpErneutEinlesen,
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -213,7 +215,7 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
               Text(
                 _sidecarsFound == 0
                     ? 'Keine XMP-Sidecars gefunden.'
-                    : '$_sidecarsFound Sidecar(s) geprüft – keine Abweichungen zur Datenbank gefunden.',
+                    : AppTexte.of(context).xmpKeineAbweichungen(_sidecarsFound),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -232,7 +234,7 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
             subtitle: Text('${_fieldLabel(diff.field)}: "${diff.currentValueDisplay}" → "${diff.xmpValueDisplay}"'),
             trailing: TextButton(
               onPressed: () => _apply(diff),
-              child: const Text('Übernehmen'),
+              child: Text(AppTexte.of(context).allgUebernehmen),
             ),
           ),
         );

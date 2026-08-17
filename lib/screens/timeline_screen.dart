@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/month_grouped_asset_grid.dart';
@@ -126,13 +127,15 @@ class _TimelineScreenState extends State<TimelineScreen> {
     final ids = _selected.toList();
     final confirmed = await confirmDialog(
       context,
-      '${ids.length} Foto(s) löschen?',
-      'Diese Fotos werden in den Papierkorb verschoben.',
+      AppTexte.of(context).loeschenTitel(ids.length),
+      AppTexte.of(context).loeschenHinweis(ids.length),
     );
     if (!confirmed) return;
     await widget.library.db.moveToTrash(ids);
     if (mounted) setState(_selected.clear);
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -145,8 +148,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
         if (assets.isEmpty) {
           return EmptyState(
             icon: Icons.photo_outlined,
-            message: 'Noch keine Fotos in der Bibliothek.',
-            actionLabel: 'Fotos/Videos importieren',
+            message: AppTexte.of(context).timelineLeer,
+            actionLabel: AppTexte.of(context).importierenTooltip,
             onAction: () => showImportSheet(context, widget.library),
           );
         }
@@ -167,6 +170,15 @@ class _TimelineScreenState extends State<TimelineScreen> {
               SelectionActionBar(
                 count: _selected.length,
                 onClear: () => setState(_selected.clear),
+                // Nur sichtbar, wenn tatsächlich Einstellungen kopiert
+                // wurden – ein Knopf, der meistens nichts tun kann, wäre
+                // in einer Leiste mit neun Symbolen nur Rauschen.
+                onPasteDevelop: widget.library.hatKopierteEntwicklung
+                    ? () async {
+                        await runBatchPasteDevelop(context, widget.library, _selected.toList());
+                        if (mounted) setState(_selected.clear);
+                      }
+                    : null,
                 onFavorite: () async {
                   await runBatchFavorite(widget.library, _selected.toList());
                   if (mounted) setState(_selected.clear);

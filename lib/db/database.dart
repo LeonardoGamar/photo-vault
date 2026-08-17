@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../services/ai_tagging_service.dart' show defaultAiTagVocabulary;
 import '../services/embedding_codec.dart';
 import '../services/exif_camera.dart';
+import '../services/face_threshold.dart';
 import '../services/library_location.dart';
 import '../services/library_stats.dart';
 import '../services/search_filters.dart';
@@ -121,6 +122,14 @@ class Assets extends Table {
   /// CaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
   TextColumn get aiCaption => text().nullable()();
+
+  /// Deutsche Fassung von [aiCaption] (siehe TranslationService).
+  ///
+  /// Als eigene Spalte, nicht als Ersatz: Das englische Original bleibt
+  /// erhalten, damit ein Abschalten der Übersetzung nicht bedeutet, das
+  /// Beschreibungsmodell über die ganze Bibliothek erneut laufen zu
+  /// lassen. Die Suche durchsucht beide.
+  TextColumn get aiCaptionDe => text().nullable()();
 
   /// Eigenes Flag statt "aiCaption == null" als "noch nicht erzeugt"-Signal,
   /// analog zu [ocrScanned].
@@ -292,6 +301,18 @@ class DevelopSettings extends Table {
   RealColumn get sharpness => real().withDefault(const Constant(0))(); // 0..1
   RealColumn get noiseReduction => real().withDefault(const Constant(0))(); // 0..1
   BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
+
+  /// JSON-kodierte [ToneCurve] bzw. [ColorMixer] (siehe develop_color.dart).
+  ///
+  /// Anders als die Regler darüber sind das keine einzelnen Zahlen, sondern
+  /// eine Punktfolge je Kanal bzw. acht Bänder mit je drei Werten – als
+  /// Spalten flachgeklopft wären das über dreissig zusätzliche Felder, die
+  /// in [DevelopHistory] noch einmal aufträten. `null` bedeutet neutral;
+  /// damit brauchen vorhandene Zeilen keine Migration und der Normalfall
+  /// kostet zur Laufzeit nichts (siehe `ToneCurve.istNeutral`).
+  TextColumn get toneCurveJson => text().nullable()();
+  TextColumn get colorMixerJson => text().nullable()();
+
   DateTimeColumn get updatedAt => dateTime()();
 
   @override
@@ -334,6 +355,13 @@ class DevelopHistory extends Table {
   RealColumn get sharpness => real()();
   RealColumn get noiseReduction => real()();
   BoolColumn get lensCorrectionEnabled => boolean()();
+
+  /// Wie in [DevelopSettings] – ohne diese beiden Spalten liesse ein
+  /// Verlaufs-Eintrag Kurve und Mischer stillschweigend fallen, und
+  /// "Zurück zu diesem Stand" führte zu einem anderen Bild als damals.
+  TextColumn get toneCurveJson => text().nullable()();
+  TextColumn get colorMixerJson => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
 }
 
@@ -405,8 +433,42 @@ class People extends Table {
   TextColumn get name => text()();
   TextColumn get coverFaceCropPath => text().nullable()();
 
+  /// Persönliche Wiedererkennungs-Schwelle, abgeleitet aus den bisherigen
+  /// Entscheidungen des Nutzers (siehe [FaceMatchFeedback] und
+  /// face_threshold.dart). `null` = die allgemeine Schwelle gilt.
+  ///
+  /// Als gespeicherter Wert statt bei jedem Vorschlag neu gerechnet, damit
+  /// die Zahl im Personen-Bildschirm dieselbe ist, nach der tatsächlich
+  /// entschieden wurde – eine Schwelle, die sich zwischen Anzeige und
+  /// Anwendung unterscheidet, wäre nicht erklärbar.
+  RealColumn get similarityThreshold => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Eine festgehaltene Entscheidung über einen Wiedererkennungs-Vorschlag.
+///
+/// Bisher wurden Zuordnungen zwar übernommen, aber nicht ausgewertet: Wer
+/// einen Vorschlag korrigierte, bekam beim nächsten Lauf denselben erneut.
+/// Diese Tabelle ist das Gedächtnis dafür.
+///
+/// [similarity] ist der Wert **zum Entscheidungszeitpunkt** und der
+/// eigentliche Grund für die Tabelle. Dass ein Gesicht zu einer Person
+/// gehört, steht schon in [Faces.personId]; woran die Erkennung das hätte
+/// merken können, steht nur hier.
+///
+/// Bewusst NICHT festgehalten wird das Überspringen eines Vorschlags:
+/// "nicht jetzt" ist keine Aussage darüber, ob der Vorschlag richtig war,
+/// und als Ablehnung gewertet würde es die Schwelle verderben.
+@DataClassName('FaceMatchFeedbackData')
+class FaceMatchFeedback extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get personId => text()();
+  TextColumn get faceId => text()();
+  BoolColumn get accepted => boolean()();
+  RealColumn get similarity => real()();
+  DateTimeColumn get createdAt => dateTime()();
 }
 
 /// Ein einzelnes erkanntes Gesicht innerhalb eines Assets (Bounding Box,
@@ -545,12 +607,51 @@ class AppSettings extends Table {
   IntColumn get id => integer()();
   TextColumn get themeMode => text().withDefault(const Constant('system'))();
 
+  /// Oberflächensprache: `'system'`, `'de'` oder `'en'`.
+  ///
+  /// Dasselbe Muster wie [themeMode], und aus demselben Grund als Text
+  /// statt als Aufzählung: Eine unbekannte Angabe (etwa aus einer
+  /// neueren Fassung) fällt beim Lesen auf den Standard zurück, statt
+  /// den Start zu verhindern.
+  TextColumn get sprache => text().withDefault(const Constant('system'))();
+
   /// Ob die rechenintensiven KI-Auswertungen (Gesichter, Texterkennung,
   /// CLIP, Bildbeschreibung, Unschärfe) nach einem Import automatisch als
   /// Hintergrundaufgabe nachlaufen. Standard an – sonst blieben frisch
   /// importierte Fotos ohne Suche und ohne Personenzuordnung, bis jemand
   /// die Werkzeuge von Hand anstößt.
   BoolColumn get autoAnalyzeAfterImport => boolean().withDefault(const Constant(true))();
+
+  /// Ordner, der laufend auf neue Dateien geprüft wird (siehe
+  /// LibraryState.pruefeUeberwachtenOrdner). Null = keiner eingerichtet.
+  ///
+  /// Der Zugriff braucht unter macOS zusätzlich das Sandbox-Merkmal aus der
+  /// Ordnerauswahl, sonst erlischt er beim nächsten Programmstart – deshalb
+  /// beide Angaben zusammen, wie bei den Bibliotheksorten auch.
+  TextColumn get watchedFolderPath => text().nullable()();
+  TextColumn get watchedFolderToken => text().nullable()();
+
+  /// Allgemeine Schwelle für "dasselbe Gesicht" (Kosinus-Ähnlichkeit).
+  ///
+  /// 0,363 ist der von OpenCV Zoo für SFace dokumentierte Wert. Die
+  /// Einstellung lag bisher nur im Speicher – der Regler unter "Werkzeuge"
+  /// war bei jedem Programmstart wieder auf dem Ausgangswert, ohne dass
+  /// das irgendwo stand.
+  RealColumn get faceSimilarityThreshold => real().withDefault(const Constant(0.363))();
+
+  /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
+  BoolColumn get translateCaptions => boolean().withDefault(const Constant(false))();
+
+  /// Deutsche Suchanfragen und Schlagwörter vor der KI-Bildsuche ins
+  /// Englische übersetzen (Modell `translation_de_en`).
+  ///
+  /// Standard aus, und zwar bewusst: An 103 Fotos der Testbibliothek
+  /// gemessen trennt die englische Fassung eines Vokabelbegriffs bei 33
+  /// von 56 Begriffen schärfer, bei 19 schlechter. Der Gewinn ist real,
+  /// aber weder gross noch durchgängig – und die Zahl vergebener Tags
+  /// sinkt bei gleicher Schwelle von 402 auf 248. Eine solche Änderung
+  /// gehört nicht stillschweigend eingeschaltet.
+  BoolColumn get translateSearchAndTags => boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -593,6 +694,7 @@ class SavedSearches extends Table {
   AssetTags,
   People,
   Faces,
+  FaceMatchFeedback,
   ImageEmbeddings,
   BackupRecords,
   PrivacySettings,
@@ -624,7 +726,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 31;
+  int get schemaVersion => 36;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -827,6 +929,53 @@ class AppDatabase extends _$AppDatabase {
           if (from < 31) {
             await _addColumnIfMissing(
                 m, assets, assets.aiTagsScanned, 'assets', 'ai_tags_scanned');
+          }
+          if (from < 32) {
+            await _addColumnIfMissing(m, appSettings, appSettings.watchedFolderPath,
+                'app_settings', 'watched_folder_path');
+            await _addColumnIfMissing(m, appSettings, appSettings.watchedFolderToken,
+                'app_settings', 'watched_folder_token');
+          }
+          if (from < 33) {
+            // Tonwertkurve und Farbmischer. Beide nullable, `null` = neutral
+            // – vorhandene Entwicklungen bleiben dadurch unverändert
+            // gültig, es ist nichts nachzutragen.
+            await _addColumnIfMissing(m, developSettings, developSettings.toneCurveJson,
+                'develop_settings', 'tone_curve_json');
+            await _addColumnIfMissing(m, developSettings, developSettings.colorMixerJson,
+                'develop_settings', 'color_mixer_json');
+            await _addColumnIfMissing(m, developHistory, developHistory.toneCurveJson,
+                'develop_history', 'tone_curve_json');
+            await _addColumnIfMissing(m, developHistory, developHistory.colorMixerJson,
+                'develop_history', 'color_mixer_json');
+          }
+          if (from < 34) {
+            // Lernende Gesichtserkennung. Ohne Rückmeldungen verhält sich
+            // alles wie bisher: Die persönliche Schwelle bleibt null, es
+            // gilt die allgemeine.
+            await m.createTable(faceMatchFeedback);
+            await _addColumnIfMissing(
+                m, people, people.similarityThreshold, 'people', 'similarity_threshold');
+            await _addColumnIfMissing(m, appSettings, appSettings.faceSimilarityThreshold,
+                'app_settings', 'face_similarity_threshold');
+          }
+          if (from < 35) {
+            // Übersetzung. Beide Schalter stehen auf aus, vorhandene
+            // englische Beschreibungen bleiben unangetastet – erst wer die
+            // Modelle installiert und den Schalter umlegt, bekommt Deutsch.
+            await _addColumnIfMissing(
+                m, assets, assets.aiCaptionDe, 'assets', 'ai_caption_de');
+            await _addColumnIfMissing(m, appSettings, appSettings.translateCaptions,
+                'app_settings', 'translate_captions');
+            await _addColumnIfMissing(m, appSettings, appSettings.translateSearchAndTags,
+                'app_settings', 'translate_search_and_tags');
+          }
+          if (from < 36) {
+            // Oberflächensprache. Standard 'system' – für bestehende
+            // Installationen ändert sich damit nichts, solange das System
+            // auf Deutsch steht.
+            await _addColumnIfMissing(
+                m, appSettings, appSettings.sprache, 'app_settings', 'sprache');
           }
         },
       );
@@ -1142,6 +1291,14 @@ class AppDatabase extends _$AppDatabase {
       (update(assets)..where((t) => t.id.equals(assetId)))
           .write(AssetsCompanion(colorLabel: Value(colorLabel)));
 
+  /// Setzt den Favoriten-Status für mehrere Assets in EINER Anweisung.
+  ///
+  /// Die Auswahlleiste lief vorher in einer Schleife über die Auswahl – bei
+  /// 500 markierten Fotos also 500 einzelne Schreibvorgänge statt einem.
+  Future<void> setFavoriteBulk(List<String> assetIds, bool value) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(AssetsCompanion(isFavorite: Value(value)));
+
   Future<void> setColorLabelBulk(List<String> assetIds, String? colorLabel) =>
       (update(assets)..where((t) => t.id.isIn(assetIds)))
           .write(AssetsCompanion(colorLabel: Value(colorLabel)));
@@ -1221,9 +1378,149 @@ class AppDatabase extends _$AppDatabase {
 
   /// Einmalig gelesen (nicht als Stream): wird direkt nach einem Import
   /// abgefragt, um zu entscheiden, ob die Analyse anlaufen soll.
+  /// Der überwachte Ordner samt Sandbox-Merkmal, oder null.
+  Future<({String pfad, String? token})?> ueberwachterOrdner() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final pfad = row?.watchedFolderPath;
+    if (pfad == null || pfad.isEmpty) return null;
+    return (pfad: pfad, token: row?.watchedFolderToken);
+  }
+
+  /// Setzt den überwachten Ordner; [pfad] = null schaltet die Überwachung ab.
+  Future<void> setzeUeberwachtenOrdner({String? pfad, String? token}) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        watchedFolderPath: Value(pfad),
+        watchedFolderToken: Value(token),
+      ));
+
+  /// Allgemeine Gesichts-Ähnlichkeitsschwelle. Beim Schreiben werden die
+  /// persönlichen Schwellen mitgezogen – sie hängen an dieser (siehe
+  /// [rechneAlleSchwellenNeu]), sonst hätte der Regler für bereits
+  /// gelernte Personen keine Wirkung mehr.
+  Future<void> setFaceSimilarityThreshold(double wert) => transaction(() async {
+        await into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+          id: const Value(0),
+          faceSimilarityThreshold: Value(wert),
+        ));
+        await rechneAlleSchwellenNeu(wert);
+      });
+
+  Future<double> faceSimilarityThresholdWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    return row?.faceSimilarityThreshold ?? 0.363;
+  }
+
   Future<bool> autoAnalyzeAfterImportEnabled() async {
     final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
     return row?.autoAnalyzeAfterImport ?? true;
+  }
+
+  /// Benennt Vokabelbegriffe und die zugehörigen Schlagwörter um – für das
+  /// Angebot beim Sprachwechsel.
+  ///
+  /// [zuordnung] bildet alt auf neu ab und enthält **nur** Begriffe, die
+  /// tatsächlich im Vokabular stehen; selbst hinzugefügte bleiben
+  /// unangetastet.
+  ///
+  /// Drei Tabellen sind betroffen, und die dritte ist die, die man
+  /// übersieht:
+  ///
+  ///  1. [AiTagVocabulary.term] – der Vokabeleintrag
+  ///  2. [Tags.name] – der Schlagwort-Name. Alle Zuordnungen hängen an
+  ///     [Tags.id] und wandern deshalb von selbst mit; es ist ein reines
+  ///     Umbenennen, kein Umhängen.
+  ///  3. [AutomationRules.aiTagTerm] – eine Textspalte, die exakt einem
+  ///     Vokabelbegriff entsprechen muss. Bliebe sie stehen, hörte eine
+  ///     Regel „wenn Hund erkannt" lautlos auf zu feuern.
+  ///
+  /// **Namenskollisionen** sind der Fall, an dem eine naive Fassung
+  /// scheitert: Beide Namensspalten sind `unique`. Gibt es das Ziel schon
+  /// (etwa ein von Hand angelegtes „Dog"), wird nicht umbenannt, sondern
+  /// **verschmolzen** – die Zuordnungen des alten Schlagworts wandern auf
+  /// das bestehende, das alte wird gelöscht. Ohne diesen Zweig bräche die
+  /// ganze Umstellung mit einem Constraint-Fehler ab.
+  ///
+  /// Gibt die Anzahl tatsächlich umbenannter Begriffe zurück.
+  Future<int> uebersetzeVokabular(Map<String, String> zuordnung) async {
+    var geaendert = 0;
+    await transaction(() async {
+      for (final eintrag in zuordnung.entries) {
+        final alt = eintrag.key;
+        final neu = eintrag.value;
+        if (alt == neu) continue;
+
+        // --- Vokabular ---
+        final vorhandenesVokabel = await (select(aiTagVocabulary)
+              ..where((t) => t.term.equals(alt)))
+            .getSingleOrNull();
+        if (vorhandenesVokabel == null) continue;
+
+        final zielVokabel = await (select(aiTagVocabulary)
+              ..where((t) => t.term.equals(neu)))
+            .getSingleOrNull();
+        if (zielVokabel != null) {
+          // Ziel gibt es schon – der alte Eintrag ist damit überflüssig.
+          await (delete(aiTagVocabulary)..where((t) => t.id.equals(vorhandenesVokabel.id))).go();
+        } else {
+          await (update(aiTagVocabulary)..where((t) => t.id.equals(vorhandenesVokabel.id)))
+              .write(AiTagVocabularyCompanion(term: Value(neu)));
+        }
+
+        // --- Schlagwort samt Zuordnungen ---
+        final altesTag =
+            await (select(tags)..where((t) => t.name.equals(alt))).getSingleOrNull();
+        if (altesTag != null) {
+          final zielTag =
+              await (select(tags)..where((t) => t.name.equals(neu))).getSingleOrNull();
+          if (zielTag == null) {
+            await (update(tags)..where((t) => t.id.equals(altesTag.id)))
+                .write(TagsCompanion(name: Value(neu)));
+          } else {
+            // Verschmelzen: Zuordnungen umhängen, dabei bereits
+            // bestehende Paare nicht doppelt anlegen.
+            final betroffene = await (select(assetTags)
+                  ..where((t) => t.tagId.equals(altesTag.id)))
+                .get();
+            for (final zuweisung in betroffene) {
+              await into(assetTags).insertOnConflictUpdate(AssetTagsCompanion.insert(
+                assetId: zuweisung.assetId,
+                tagId: zielTag.id,
+              ));
+            }
+            await (delete(assetTags)..where((t) => t.tagId.equals(altesTag.id))).go();
+            await (delete(automationRuleTags)..where((t) => t.tagId.equals(altesTag.id))).go();
+            await (delete(tags)..where((t) => t.id.equals(altesTag.id))).go();
+          }
+        }
+
+        // --- Automatisierungsregeln ---
+        await (update(automationRules)..where((t) => t.aiTagTerm.equals(alt)))
+            .write(AutomationRulesCompanion(aiTagTerm: Value(neu)));
+
+        geaendert++;
+      }
+    });
+    return geaendert;
+  }
+
+  /// Begriffe im Vokabular, die NICHT aus der mitgelieferten
+  /// Startbestückung stammen – sie bleiben beim Sprachwechsel unverändert
+  /// und werden im Dialog gezählt.
+  Future<int> zaehleEigeneVokabelbegriffe(Set<String> bekannte) async {
+    final alle = await select(aiTagVocabulary).get();
+    return alle.where((v) => !bekannte.contains(v.term)).length;
+  }
+
+  Future<void> setSprache(String sprache) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        sprache: Value(sprache),
+      ));
+
+  Future<String> spracheWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    return row?.sprache ?? 'system';
   }
 
   Future<void> setThemeMode(String mode) =>
@@ -1332,10 +1629,37 @@ class AppDatabase extends _$AppDatabase {
 
   /// Setzt das Ergebnis der KI-Bildbeschreibung (siehe CaptioningService) –
   /// analog zu [setOcrResult].
-  Future<void> setAiCaption(String assetId, String caption) =>
+  ///
+  /// [deutsch] ist die übersetzte Fassung, sofern das Übersetzungsmodell
+  /// installiert und eingeschaltet ist. Das englische Original bleibt in
+  /// jedem Fall stehen.
+  Future<void> setAiCaption(String assetId, String caption, {String? deutsch}) =>
       (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
         aiCaption: Value(caption),
+        aiCaptionDe: Value(deutsch),
         aiCaptionScanned: const Value(true),
+      ));
+
+  Future<bool> uebersetzeBeschreibungen() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    return row?.translateCaptions ?? false;
+  }
+
+  Future<bool> uebersetzeSucheUndTags() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    return row?.translateSearchAndTags ?? false;
+  }
+
+  Future<void> setzeUebersetzeBeschreibungen(bool an) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        translateCaptions: Value(an),
+      ));
+
+  Future<void> setzeUebersetzeSucheUndTags(bool an) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        translateSearchAndTags: Value(an),
       ));
 
   /// Bild-Assets ohne KI-Bildbeschreibung – für den nachträglichen Lauf in
@@ -1714,6 +2038,8 @@ class AppDatabase extends _$AppDatabase {
             sharpness: previous.sharpness,
             noiseReduction: previous.noiseReduction,
             lensCorrectionEnabled: previous.lensCorrectionEnabled,
+            toneCurveJson: Value(previous.toneCurveJson),
+            colorMixerJson: Value(previous.colorMixerJson),
             createdAt: DateTime.now(),
           ));
           await _pruneDevelopHistory(assetId);
@@ -1998,6 +2324,20 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Hängt denselben Tag an mehrere Assets. Der Tag wird einmal angelegt
+  /// (statt je Foto nachgeschlagen), die Zuordnungen gehen als ein Stapel
+  /// in einer Transaktion hinaus.
+  Future<void> tagAssetsBulk(List<String> assetIds, String tagName) async {
+    final tagId = await ensureTag(tagName);
+    await batch((b) => b.insertAllOnConflictUpdate(
+          assetTags,
+          [
+            for (final id in assetIds)
+              AssetTagsCompanion.insert(assetId: id, tagId: tagId),
+          ],
+        ));
+  }
+
   Future<void> untagAsset(String assetId, String tagId) => (delete(assetTags)
         ..where((t) => t.assetId.equals(assetId) & t.tagId.equals(tagId)))
       .go();
@@ -2232,7 +2572,10 @@ class AppDatabase extends _$AppDatabase {
     } else if (text.isNotEmpty && filters.textMode == SearchTextMode.ocr) {
       query.where((t) => t.ocrText.like('%$text%'));
     } else if (text.isNotEmpty && filters.textMode == SearchTextMode.caption) {
-      query.where((t) => t.aiCaption.like('%$text%'));
+      // Beide Fassungen: Wer die Übersetzung erst später einschaltet, hat
+      // Fotos mit nur englischer und Fotos mit beiden Beschreibungen. Nur
+      // in einer zu suchen liesse einen Teil der Bibliothek unauffindbar.
+      query.where((t) => t.aiCaption.like('%$text%') | t.aiCaptionDe.like('%$text%'));
     }
 
     if (filters.cameraMake != null) {
@@ -2507,6 +2850,78 @@ class AppDatabase extends _$AppDatabase {
     final withCrop = assignedFaces.where((f) => f.cropRelativePath != null);
     if (withCrop.isNotEmpty) {
       await setPersonCoverIfUnset(personId, withCrop.first.cropRelativePath!);
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Lernende Wiedererkennung (siehe face_threshold.dart)
+  // -----------------------------------------------------------------------
+
+  /// Hält Entscheidungen über Wiedererkennungs-Vorschläge fest und führt
+  /// die persönliche Schwelle der Person in einem Zug nach.
+  ///
+  /// Beides zusammen in einer Transaktion, damit die gespeicherte Schwelle
+  /// nie zu einem anderen Satz Rückmeldungen gehört als dem, der in der
+  /// Oberfläche als Begründung angezeigt wird.
+  Future<void> merkeGesichtsEntscheidungen(
+    String personId,
+    List<({String faceId, bool accepted, double similarity})> entscheidungen, {
+    required double allgemeineSchwelle,
+  }) async {
+    if (entscheidungen.isEmpty) return;
+    await transaction(() async {
+      final jetzt = DateTime.now();
+      await batch((b) => b.insertAll(faceMatchFeedback, [
+            for (final e in entscheidungen)
+              FaceMatchFeedbackCompanion.insert(
+                personId: personId,
+                faceId: e.faceId,
+                accepted: e.accepted,
+                similarity: e.similarity,
+                createdAt: jetzt,
+              ),
+          ]));
+      await _aktualisiereSchwelle(personId, allgemeineSchwelle);
+    });
+  }
+
+  Future<void> _aktualisiereSchwelle(String personId, double allgemein) async {
+    final rueckmeldungen = await gesichtsRueckmeldungen(personId);
+    final abgeleitet = leiteSchwelleAb(rueckmeldungen, allgemein);
+    await (update(people)..where((t) => t.id.equals(personId))).write(
+      // Genau die allgemeine Schwelle wird als "nichts Eigenes" gespeichert
+      // – sonst wanderte sie nicht mit, wenn der Nutzer die allgemeine
+      // später in den Werkzeugen ändert.
+      PeopleCompanion(similarityThreshold: Value(abgeleitet == allgemein ? null : abgeleitet)),
+    );
+  }
+
+  Future<List<GesichtsRueckmeldung>> gesichtsRueckmeldungen(String personId) async {
+    final rows = await (select(faceMatchFeedback)..where((t) => t.personId.equals(personId))).get();
+    return [
+      for (final r in rows)
+        GesichtsRueckmeldung(bestaetigt: r.accepted, aehnlichkeit: r.similarity),
+    ];
+  }
+
+  /// Verwirft alles Gelernte zu einer Person – der Ausweg, wenn die
+  /// Anpassung einmal danebenliegt und der Nutzer nicht nachvollziehen
+  /// kann, warum.
+  Future<void> vergissGesichtsEntscheidungen(String personId) => transaction(() async {
+        await (delete(faceMatchFeedback)..where((t) => t.personId.equals(personId))).go();
+        await (update(people)..where((t) => t.id.equals(personId)))
+            .write(const PeopleCompanion(similarityThreshold: Value(null)));
+      });
+
+  /// Rechnet die persönlichen Schwellen aller Personen neu.
+  ///
+  /// Nötig, wenn der Nutzer die allgemeine Schwelle ändert: Die
+  /// persönlichen sind daran gebunden (Ausgangspunkt und Deckel), sonst
+  /// hätte der Regler in den Werkzeugen für gelernte Personen keine
+  /// Wirkung mehr.
+  Future<void> rechneAlleSchwellenNeu(double allgemein) async {
+    for (final person in await select(people).get()) {
+      await _aktualisiereSchwelle(person.id, allgemein);
     }
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import 'albums_screen.dart';
@@ -36,14 +37,14 @@ class _RestoreQueueBanner extends StatelessWidget {
         final queuedCount = jobs.where((j) => j.status == 'queued').length;
         if (running == null && queuedCount == 0) return const SizedBox.shrink();
 
+        final t = AppTexte.of(context);
         final text = switch ((running, queuedCount)) {
           (final r?, 0) when r.tilesTotal > 0 =>
-            'KI-Restaurierung läuft – Kachel ${r.tilesDone}/${r.tilesTotal}',
+            t.restaurierungLaeuft(r.tilesDone, r.tilesTotal),
           (final r?, final q) when r.tilesTotal > 0 =>
-            'KI-Restaurierung läuft – Kachel ${r.tilesDone}/${r.tilesTotal} · $q in Warteschlange',
-          (null, final q) =>
-            '$q Foto(s) in der Warteschlange für KI-Restaurierung',
-          _ => 'KI-Restaurierung wird vorbereitet …',
+            t.restaurierungLaeuftMitWarteschlange(r.tilesDone, r.tilesTotal, q),
+          (null, final q) => t.restaurierungWartend(q),
+          _ => t.restaurierungWirdVorbereitet,
         };
 
         return Material(
@@ -103,15 +104,18 @@ class _AnalyseBanner extends StatelessWidget {
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(
-                '${a.stufe} wird berechnet '
-                '(Schritt ${a.stufeNummer} von ${a.stufenGesamt}'
-                '${a.gesamt > 0 ? ", ${a.erledigt}/${a.gesamt}" : ""})',
+                AppTexte.of(context).analyseLaeuft(
+                  analysestufeName(AppTexte.of(context), a.stufe),
+                  a.stufeNummer,
+                  a.stufenGesamt,
+                  a.gesamt > 0 ? ', ${a.erledigt}/${a.gesamt}' : '',
+                ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ),
             TextButton(
               onPressed: library.brichHintergrundanalyseAb,
-              child: const Text('Abbrechen'),
+              child: Text(AppTexte.of(context).allgAbbrechen),
             ),
           ],
         ),
@@ -179,7 +183,8 @@ class _HomeShellState extends State<HomeShell> {
   // hohen Fenster winzig oben zusammengedrängt, mit viel ungenutztem Platz
   // darunter bis zum Import-Button.
   List<NavigationRailDestination> _buildDestinations(
-      double iconSize, double itemPadding) {
+      AppTexte t, double iconSize, double itemPadding) {
+    final labels = _destinationLabels(t);
     NavigationRailDestination dest(
         IconData outlined, IconData filled, String label) {
       return NavigationRailDestination(
@@ -191,26 +196,30 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     return [
-      for (var i = 0; i < _destinationLabels.length; i++)
-        dest(_destinationIconsOutlined[i], _destinationIconsFilled[i],
-            _destinationLabels[i]),
+      for (var i = 0; i < labels.length; i++)
+        dest(_destinationIconsOutlined[i], _destinationIconsFilled[i], labels[i]),
     ];
   }
 
   /// Reihenfolge = Tab-Index = ⌘1…⌘9 (siehe [_handleKeyEvent]) = Reihenfolge
   /// der [NavigationBar]-Ziele unten – eine einzige Quelle der Wahrheit statt
   /// dreier parallel gepflegter Listen.
-  static const _destinationLabels = [
-    'Timeline',
-    'Erkunden',
-    'Kalender',
-    'Karte',
-    'Suche',
-    'Personen',
-    'Alben',
-    'Werkzeuge',
-    'Einstellungen',
-  ];
+  ///
+  /// Nicht mehr `const`, seit die Oberfläche übersetzbar ist: Die
+  /// Beschriftungen hängen jetzt an der aktiven Sprache und müssen bei
+  /// jedem Aufbau neu geholt werden – die Reihenfolge bleibt aber genau
+  /// die eine Quelle der Wahrheit, die sie vorher war.
+  static List<String> _destinationLabels(AppTexte t) => [
+        t.navTimeline,
+        t.navErkunden,
+        t.navKalender,
+        t.navKarte,
+        t.navSuche,
+        t.navPersonen,
+        t.navAlben,
+        t.navWerkzeuge,
+        t.navEinstellungen,
+      ];
   static const _destinationIconsOutlined = [
     Icons.photo_outlined,
     Icons.explore_outlined,
@@ -297,6 +306,8 @@ class _HomeShellState extends State<HomeShell> {
     ];
 
     final wide = MediaQuery.of(context).size.width >= 700;
+    final t = AppTexte.of(context);
+    final navLabels = _destinationLabels(t);
 
     return Focus(
       autofocus: true,
@@ -350,7 +361,7 @@ class _HomeShellState extends State<HomeShell> {
                                   width: 72,
                                   child: Tooltip(
                                     message:
-                                        'Geöffnete Bibliothek: ${widget.library.aktiveBibliothek}',
+                                        t.geoeffneteBibliothek(widget.library.aktiveBibliothek!),
                                     child: Text(
                                       widget.library.aktiveBibliothek!,
                                       textAlign: TextAlign.center,
@@ -372,7 +383,7 @@ class _HomeShellState extends State<HomeShell> {
                           ),
                         ),
                         destinations:
-                            _buildDestinations(railIconSize, railItemPadding),
+                            _buildDestinations(t, railIconSize, railItemPadding),
                         trailing: Expanded(
                           child: Align(
                             alignment: Alignment.bottomCenter,
@@ -381,7 +392,7 @@ class _HomeShellState extends State<HomeShell> {
                                   const EdgeInsets.only(bottom: AppSpacing.lg),
                               child: FloatingActionButton(
                                 heroTag: 'import-rail',
-                                tooltip: 'Fotos/Videos importieren',
+                                tooltip: t.importierenTooltip,
                                 onPressed: () =>
                                     showImportSheet(context, widget.library),
                                 child: const Icon(
@@ -405,7 +416,7 @@ class _HomeShellState extends State<HomeShell> {
                 selectedIndex: _index,
                 onDestinationSelected: (i) => setState(() => _index = i),
                 destinations: [
-                  for (var i = 0; i < _destinationLabels.length; i++)
+                  for (var i = 0; i < navLabels.length; i++)
                     NavigationDestination(
                       icon: Icon(_destinationIconsOutlined[i]),
                       selectedIcon: Icon(_destinationIconsFilled[i]),
@@ -413,9 +424,9 @@ class _HomeShellState extends State<HomeShell> {
                       // NavigationBar, damit der letzte Eintrag nicht wie eine
                       // reine Einstellungen-Seite wirkt, obwohl er (wie auf der
                       // breiten Rail) alles rund um App-Konfiguration bündelt.
-                      label: i == _destinationLabels.length - 1
-                          ? 'Mehr'
-                          : _destinationLabels[i],
+                      label: i == navLabels.length - 1
+                          ? t.allgMehr
+                          : navLabels[i],
                     ),
                 ],
               ),
@@ -441,34 +452,32 @@ class _ShortcutsOverviewDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
     return AlertDialog(
-      title: const Text('Tastaturkürzel'),
-      content: const SizedBox(
+      title: Text(t.kuerzelTitel),
+      content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _ShortcutSection(title: 'Navigation', shortcuts: [
-                ('⌘1 – ⌘9', 'Zwischen den Hauptbereichen wechseln'),
-                ('?', 'Diese Übersicht öffnen'),
+              _ShortcutSection(title: t.kuerzelNavigation, shortcuts: [
+                ('⌘1 – ⌘9', t.kuerzelBereicheWechseln),
+                ('?', t.kuerzelUebersichtOeffnen),
               ]),
-              SizedBox(height: 16),
-              _ShortcutSection(title: 'Vollbildansicht', shortcuts: [
-                ('← / →', 'Vorheriges / nächstes Foto'),
-                ('Leertaste', 'Nächstes Foto'),
-                ('0 – 5', 'Sternebewertung setzen'),
-                ('F', 'Favorit umschalten'),
-                (
-                  '⌫ / Delete',
-                  'In den Papierkorb verschieben (mit Bestätigung)'
-                ),
-                ('Esc', 'Schließen'),
+              const SizedBox(height: 16),
+              _ShortcutSection(title: t.kuerzelVollbild, shortcuts: [
+                ('← / →', t.kuerzelVorherigesNaechstes),
+                (t.kuerzelLeertaste, t.kuerzelNaechstesFoto),
+                ('0 – 5', t.kuerzelBewertungSetzen),
+                ('F', t.kuerzelFavoritUmschalten),
+                ('⌫ / Delete', t.kuerzelPapierkorbMitBestaetigung),
+                ('Esc', t.allgSchliessen),
               ]),
-              SizedBox(height: 16),
-              _ShortcutSection(title: 'Sichtungs-Modus (Culling)', shortcuts: [
-                ('⌫ / Delete', 'Sofort ablehnen und weiter (ohne Bestätigung)'),
+              const SizedBox(height: 16),
+              _ShortcutSection(title: t.kuerzelSichtung, shortcuts: [
+                ('⌫ / Delete', t.kuerzelSofortAblehnen),
               ]),
             ],
           ),
@@ -477,7 +486,7 @@ class _ShortcutsOverviewDialog extends StatelessWidget {
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Schließen')),
+            child: Text(t.allgSchliessen)),
       ],
     );
   }

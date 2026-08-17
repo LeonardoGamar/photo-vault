@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
+import '../services/face_threshold.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
@@ -21,8 +24,8 @@ class PersonDetailScreen extends StatelessWidget {
         .toList();
     if (faces.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Keine Gesichter dieser Person vorhanden.'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppTexte.of(context).personKeineGesichter),
         ));
       }
       return;
@@ -31,7 +34,7 @@ class PersonDetailScreen extends StatelessWidget {
     final chosen = await showDialog<FaceData>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Profilbild auswählen'),
+        title: Text(AppTexte.of(context).personProfilbildWaehlen),
         content: SizedBox(
           width: 360,
           height: 360,
@@ -58,7 +61,7 @@ class PersonDetailScreen extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
         ],
       ),
     );
@@ -96,27 +99,28 @@ class PersonDetailScreen extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => _pickProfilePicture(context),
                     icon: const Icon(Icons.image_outlined),
-                    label: const Text('Profilbild ändern'),
+                    label: Text(AppTexte.of(context).personProfilbildAendern),
                   ),
                 ),
               ],
             ),
           ),
+          _ErkennungsStand(library: library, person: person),
           Expanded(
             child: StreamBuilder<List<AssetData>>(
               stream: library.db.watchAssetsForPerson(person.id),
               builder: (context, snapshot) {
                 final assets = snapshot.data ?? [];
                 if (assets.isEmpty) {
-                  return const Center(child: Text('Noch keine Fotos für diese Person.'));
+                  return Center(child: Text(AppTexte.of(context).personKeineFotos));
                 }
                 return Column(
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                       child: Text(
-                        'Doppelklick auf ein Foto öffnet es zur Kontrolle mit allen erkannten Gesichtern.',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                        AppTexte.of(context).personDoppelklickHinweis,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                     ),
                     Expanded(
@@ -160,6 +164,102 @@ class PersonDetailScreen extends StatelessWidget {
                 );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Zeigt im Klartext, nach welcher Schwelle diese Person wiedererkannt wird
+/// und warum.
+///
+/// Eine Schwelle, die sich hinter dem Rücken des Nutzers verstellt, wäre in
+/// einem Programm unangebracht, das KI-Schritte sonst durchgehend auslösen
+/// UND bestätigen lässt. Deshalb steht hier nicht nur die Zahl, sondern
+/// auch, woraus sie stammt – und ein Weg zurück.
+class _ErkennungsStand extends StatefulWidget {
+  final LibraryState library;
+  final PersonData person;
+
+  const _ErkennungsStand({required this.library, required this.person});
+
+  @override
+  State<_ErkennungsStand> createState() => _ErkennungsStandState();
+}
+
+class _ErkennungsStandState extends State<_ErkennungsStand> {
+  List<GesichtsRueckmeldung>? _rueckmeldungen;
+
+  @override
+  void initState() {
+    super.initState();
+    _lade();
+  }
+
+  Future<void> _lade() async {
+    final r = await widget.library.db.gesichtsRueckmeldungen(widget.person.id);
+    if (mounted) setState(() => _rueckmeldungen = r);
+  }
+
+  Future<void> _vergessen() async {
+    await widget.library.db.vergissGesichtsEntscheidungen(widget.person.id);
+    await _lade();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppTexte.of(context).personGelerntesVerworfen),
+      ));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rueckmeldungen = _rueckmeldungen;
+    if (rueckmeldungen == null || rueckmeldungen.isEmpty) return const SizedBox.shrink();
+
+    final allgemein = widget.library.faceSimilarityThreshold;
+    final schwelle = leiteSchwelleAb(rueckmeldungen, allgemein);
+    final woher = herkunft(rueckmeldungen, allgemein);
+    final bestaetigt = rueckmeldungen.where((r) => r.bestaetigt).length;
+    final abgelehnt = rueckmeldungen.length - bestaetigt;
+
+    final t = AppTexte.of(context);
+    final erklaerung = switch (woher) {
+      SchwellenHerkunft.angepasst => t.personSchwelleAngepasst(
+          schwelle.toStringAsFixed(2), allgemein.toStringAsFixed(2)),
+      SchwellenHerkunft.widerspruch =>
+        t.personSchwelleWiderspruch(allgemein.toStringAsFixed(2)),
+      SchwellenHerkunft.zuWenigDaten =>
+        t.personSchwelleWirdAngepasst(mindestEntscheidungen),
+      SchwellenHerkunft.wieAllgemein =>
+        t.personSchwelleWieAllgemein(allgemein.toStringAsFixed(2)),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+      child: Row(
+        children: [
+          Icon(
+            woher == SchwellenHerkunft.angepasst
+                ? Icons.auto_awesome_outlined
+                : Icons.info_outline,
+            size: 16,
+            color: Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              t.personWiedererkennung(erklaerung, bestaetigt, abgelehnt),
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: _vergessen,
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(AppTexte.of(context).personVerwerfen, style: const TextStyle(fontSize: 11)),
           ),
         ],
       ),

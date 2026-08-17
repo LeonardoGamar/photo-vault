@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/widgets/asset_thumbnail_tile.dart';
 import 'package:photo_vault/widgets/color_label_picker.dart';
@@ -15,7 +16,9 @@ import 'package:photo_vault/widgets/star_rating.dart';
 /// AssetThumbnailTile, StarRating, ColorLabelPicker.
 void main() {
   setUpAll(() async {
-    await initializeDateFormatting('de_DE');
+    // Ohne Argument, weil die Labels seit dem Sprach-Durchgang über die
+    // aktive Locale formatiert werden und nicht mehr über ein festes 'de_DE'.
+    await initializeDateFormatting();
   });
 
   group('AssetThumbnailTile Semantics', () {
@@ -65,6 +68,9 @@ void main() {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(
           body: AssetThumbnailTile(asset: buildAsset(type: 'IMAGE'), paths: paths, onTap: () {}),
         ),
@@ -78,6 +84,9 @@ void main() {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(
           body: AssetThumbnailTile(
             asset: buildAsset(type: 'IMAGE', isFavorite: true, rating: 4),
@@ -100,6 +109,9 @@ void main() {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(
           body: AssetThumbnailTile(
             asset: buildAsset(type: 'VIDEO', durationSeconds: 95),
@@ -119,6 +131,9 @@ void main() {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(body: StarRating(value: 3, onChanged: (_) {})),
       ));
 
@@ -132,6 +147,9 @@ void main() {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(const MaterialApp(
+        locale: Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(body: StarRating(value: 2)),
       ));
 
@@ -147,6 +165,9 @@ void main() {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(body: ColorLabelPicker(value: 'green', onChanged: (_) {})),
       ));
 

@@ -425,15 +425,16 @@
 <div class="page">
 
   <header class="hero">
-    <p class="eyebrow">Wettbewerbsanalyse · Aktualisiert August 2026</p>
+    <p class="eyebrow">Wettbewerbsanalyse · Dritte Auflage · Version 0.4.0</p>
     <h1>Wo Photo Vault jetzt steht</h1>
     <p class="lede">
-      Zweite Auflage des Vergleichs, nachdem alle 13 Punkte des letzten Feature-Fahrplans umgesetzt
-      wurden: Photo Vault gegen acht etablierte Foto-Verwaltungen — von Apple&nbsp;Photos bis
-      Adobe&nbsp;Lightroom, jetzt inklusive PhotoPrism — anhand von 17 Kriterien, die über den Alltag
-      mit der eigenen Foto-Bibliothek entscheiden.
+      Dritte Auflage, zur Version 0.4.0. Photo Vault gegen acht etablierte Foto-Verwaltungen — von
+      Apple&nbsp;Photos bis Adobe&nbsp;Lightroom — anhand von 18 Kriterien. Neu bewertet ist allein
+      die eigene Spalte: Dazwischen liegen fünfzig Commits, fünf Prüfrunden und der Sprung von
+      0.1.0 auf 0.4.0. Die Einstufungen der Wettbewerber sind unverändert übernommen.
     </p>
     <div class="tags-line">
+      <span class="tag-chip">Version 0.4.0</span>
       <span class="tag-chip">privates Archiv</span>
       <span class="tag-chip">lokale KI</span>
       <span class="tag-chip">kein Server</span>
@@ -443,20 +444,20 @@
   </header>
 
   <div class="update-banner">
-    <span class="num">6→0</span>
+    <span class="num">4→1</span>
     <p>
-      <strong>Von sechs "✗"-Zeilen im ersten Vergleich sind vier jetzt "✓"</strong>: automatisches
-      Gesichts-Clustering, breite RAW-Formatunterstützung (25 Herstellerendungen statt nur DNG),
-      nicht-destruktive RAW-Entwicklung mit KI-Objektmasken, und ein echtes Video-Werkzeug (Zuschnitt).
-      Blau markierte Zeilen unten zeigen, wo sich Photo Vaults Einstufung seit der ersten Auflage
-      verändert hat.
+      <strong>Von den sechs Lücken der zweiten Auflage sind vier geschlossen.</strong> Das feste
+      Schlagwort-Vokabular ist frei bearbeitbar geworden, XMP kann jetzt auch <em>lesen</em>, neben
+      den KI-Masken stehen editierbare Vektorformen, und mehrere Bibliotheken lassen sich
+      nebeneinander führen. Geblieben sind: kein Sync, keine mobile App, Bildbeschreibung nur auf
+      Englisch — und weiterhin nur macOS.
     </p>
   </div>
 
   <section class="matrix-section">
     <div class="section-head">
       <h2>Der Gesamtvergleich</h2>
-      <p class="section-sub">17 Kriterien · 9 Programme</p>
+      <p class="section-sub">18 Kriterien · 9 Programme</p>
     </div>
     <div class="table-scroll">
       <table>
@@ -500,6 +501,19 @@
             <td><div class="cell"><span class="cell-text">macOS / Windows</span></div></td>
             <td><div class="cell"><span class="cell-text">macOS</span></div></td>
             <td><div class="cell"><span class="cell-text">Win / Mac / Mobil / Web</span></div></td>
+          </tr>
+
+          <tr class="new-row">
+            <th>Mehrere Bibliotheken nebeneinander<span class="up-flag">neu in 0.4.0</span></th>
+            <td class="pv-col"><div class="cell"><span class="dot good">✓</span><span class="cell-text">Wechsel ohne Datenbewegung</span></div></td>
+            <td><div class="cell"><span class="dot good">✓</span><span class="cell-text">Mehrere Sammlungen</span></div></td>
+            <td><div class="cell"><span class="dot gap">✗</span><span class="cell-text">Eine Instanz, ein Bestand</span></div></td>
+            <td><div class="cell"><span class="dot gap">✗</span><span class="cell-text">Ein Index je Instanz</span></div></td>
+            <td><div class="cell"><span class="dot good">✓</span><span class="cell-text">Mehrere Mediatheken (Wahltaste)</span></div></td>
+            <td><div class="cell"><span class="dot partial">◐</span><span class="cell-text">Eine Bibliothek über viele Geräte</span></div></td>
+            <td><div class="cell"><span class="dot good">✓</span><span class="cell-text">Mehrere Datenbanken</span></div></td>
+            <td><div class="cell"><span class="dot good">✓</span><span class="cell-text">Mehrere Kataloge</span></div></td>
+            <td><div class="cell"><span class="dot good">✓</span><span class="cell-text">Mehrere Kataloge</span></div></td>
           </tr>
 
           <tr>
@@ -594,8 +608,8 @@
           </tr>
 
           <tr class="new-row">
-            <th>Objektbezogene lokale Anpassungen (Masken)<span class="up-flag">neues Kriterium</span></th>
-            <td class="pv-col"><div class="cell"><span class="dot good">✓</span><span class="cell-text">SAM-basiert, Punkt-Prompt</span></div></td>
+            <th>Objektbezogene lokale Anpassungen (Masken)<span class="up-flag">erweitert</span></th>
+            <td class="pv-col"><div class="cell"><span class="dot good">✓</span><span class="cell-text">SAM-Punkt-Prompt <em>plus</em> editierbare Vektorformen</span></div></td>
             <td><div class="cell"><span class="dot gap">✗</span></div></td>
             <td><div class="cell"><span class="dot gap">✗</span></div></td>
             <td><div class="cell"><span class="dot gap">✗</span></div></td>
@@ -685,8 +699,8 @@
           </tr>
 
           <tr class="new-row">
-            <th>XMP-Interoperabilität<span class="up-flag">neues Kriterium</span></th>
-            <td class="pv-col"><div class="cell"><span class="dot partial">◐</span><span class="cell-text">Export an 3 Stellen, kein Import</span></div></td>
+            <th>XMP-Interoperabilität<span class="up-flag">jetzt ✓</span></th>
+            <td class="pv-col"><div class="cell"><span class="dot good">✓</span><span class="cell-text">Export <em>und</em> Import (eigener Dialog)</span></div></td>
             <td><div class="cell"><span class="dot good">✓</span><span class="cell-text">Import + Export</span></div></td>
             <td><div class="cell"><span class="dot gap">✗</span></div></td>
             <td><div class="cell"><span class="dot good">✓</span><span class="cell-text">Import (GPS, Gesichter) + Export</span></div></td>
@@ -711,8 +725,9 @@
       (Docker/NAS) im Dauerbetrieb; PhotoPrism bietet zusätzlich eine optionale, kostenpflichtige
       "Plus"-Mitgliedschaft für Server-Support/Beta-Features. Die Angaben zu den acht Wettbewerbern
       stammen von öffentlichen Produktseiten, Release Notes und aktuellen Reviews (Stand August 2026),
-      nicht aus eigenem Praxistest. Die Photo-Vault-Spalte ist direkt aus dem Quellcode (Schema-Version
-      22, 229 Tests) abgeleitet. darktable und Photo Mechanic fehlen in dieser Matrix bewusst — siehe
+      nicht aus eigenem Praxistest; sie sind gegenüber der zweiten Auflage unverändert übernommen. Die
+      Photo-Vault-Spalte ist direkt aus dem Quellcode der Version 0.4.0 (Schema-Version 31, 424 Tests)
+      abgeleitet. darktable und Photo Mechanic fehlen in dieser Matrix bewusst — siehe
       "Spezialisierte Werkzeuge" unten, warum ein direkter Zeilenvergleich dort irreführend wäre.
     </p>
   </section>
@@ -820,7 +835,25 @@
         <h3>Kostenlos ohne Abo-Falle</h3>
         <p>Gegen Mylio, Peakto und Lightroom (alle im Abo) und selbst gegen Excire Foto (Einmalkauf)
         steht hier: kein laufender Preis, keine Funktionssperre nach Vertragsende.</p>
+            <div class="card">
+        <p class="kicker">Stärke</p>
+        <h3>Mehrere Bibliotheken ohne Umzug</h3>
+        <p>
+          Beliebig viele Bibliotheken nebeneinander, der Wechsel biegt nur einen Zeiger um und bewegt
+          keine Daten. Damit zieht Photo Vault mit den Katalogprogrammen gleich und liegt vor den
+          serverbasierten Immich und PhotoPrism, die je Instanz einen einzigen Bestand führen.
+        </p>
       </div>
+      <div class="card">
+        <p class="kicker">Stärke</p>
+        <h3>Sparsam im Leerlauf</h3>
+        <p>
+          Die KI-Modelle werden erst bei Gebrauch geladen und nach Leerlauf wieder freigegeben: rund
+          210 MB nach dem Start statt der 1538 MB, die alle Modelle zusammen belegen. Für ein Programm,
+          das neben Lightroom offen bleiben soll, ist das keine Nebensache.
+        </p>
+      </div>
+</div>
     </div>
   </section>
 
@@ -837,36 +870,23 @@
         Mac, ohne Server-Abhängigkeit.</p>
       </div>
       <div class="card">
-        <p class="kicker">KI-Tags</p>
-        <h3>Weiterhin festes 48-Begriffe-Vokabular</h3>
-        <p>Automatische Verschlagwortung nur gegen ein hartcodiertes, deutsches Vokabular — nicht
-        durch die App selbst erweiterbar, anders als Excire Fotos freiere Objekt-/Szenenerkennung.</p>
-      </div>
-      <div class="card">
-        <p class="kicker">Interoperabilität</p>
-        <h3>XMP nur Export, kein Import</h3>
-        <p>Wer Fotos zusätzlich in Lightroom/darktable/digiKam pflegt, bekommt deren Änderungen nicht
-        zurück in Photo Vault — anders als digiKam, PhotoPrism, Peakto und Lightroom.</p>
-      </div>
-      <div class="card">
         <p class="kicker">Sprache</p>
         <h3>KI-Bildbeschreibung nur Englisch</h3>
         <p>Einzige real verfügbare, klein genug gebündelte Option (siehe Umsetzung) — im Gegensatz zu
         PhotoPrisms Ollama-Anbindung, die je nach gewähltem Modell mehrsprachig arbeiten kann.</p>
       </div>
       <div class="card">
-        <p class="kicker">Masken</p>
-        <h3>Raster- statt Vektormasken</h3>
-        <p>Die KI-Objektmaske wird als Graustufen-PNG gespeichert, nicht als editierbare Vektorform wie
-        bei darktable 5.6 — nachträgliches Verfeinern der Maskenkante ist nicht möglich.</p>
-      </div>
-      <div class="card">
         <p class="kicker">Reife</p>
-        <h3>Einzelentwickler-Projekt, v0.1.0</h3>
-        <p>Kein Team, keine Community, kein Support-Kanal. Die Testabdeckung ist inzwischen mit 229
-        Einzeltests aber deutlich gewachsen.</p>
+        <h3>Einzelprojekt, jetzt v0.4.0</h3>
+        <p>Fünf Prüfrunden und über vierhundert Tests ändern nichts daran, dass hinter digiKam eine Gemeinschaft und hinter Lightroom ein Konzern steht. Wer eine Bibliothek über zwanzig Jahre führen will, sollte das mitbedenken — wobei die Fotos als gewöhnliche Dateien im Dateisystem liegen und XMP inzwischen in beide Richtungen geht, ein Ausstieg also offensteht.</p>
       </div>
-    </div>
+    
+      <div class="card">
+        <p class="kicker">Lücke</p>
+        <h3>Nur macOS</h3>
+        <p>Alle Abhängigkeiten sind seit dem Umstieg auf media_kit plattformfähig, und die Ordnerauswahl liegt hinter einer Abstraktion. Was fehlt, sind die sechs nativen Bildfunktionen, die heute über Core Image laufen. Ein Linux-Bau ist vorbereitet, aber nicht ausgeliefert — digiKam und darktable laufen überall.</p>
+      </div>
+</div>
   </section>
 
   <section class="conclusion">
@@ -883,7 +903,15 @@
       konkreter geworden — und, anders als beim ersten Vergleich, bereits Gegenstand eines neuen
       Fahrplans statt einer offenen Frage.
     </p>
-  </section>
+  
+      <p>
+        Gegenüber der zweiten Auflage hat sich der Charakter der offenen Punkte verschoben. Es fehlen
+        keine Grundfunktionen mehr — was bleibt, sind Architekturentscheidungen: kein Server, also kein
+        Sync; macOS-native Bildverarbeitung, also vorerst keine anderen Plattformen; ein englisches
+        Beschreibungsmodell. Das ist die angenehmere Sorte offener Punkte, weil sie bewusst getroffen
+        wurden und nicht übersehen.
+      </p>
+</section>
 
   <footer>
     <span>Photo Vault · interne Wettbewerbsanalyse, 2. Auflage</span>
@@ -894,3 +922,4 @@
   </footer>
 
 </div>
+

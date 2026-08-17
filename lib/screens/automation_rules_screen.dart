@@ -1,18 +1,24 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 
-const _triggerLabels = {
-  'location': 'Ort (Umkreis)',
-  'aiTag': 'KI-Tag',
-  'dateRange': 'Datumsbereich',
-};
+/// Der Name eines Auslösers in der Oberflächensprache.
+String _ausloeserName(AppTexte t, String art) => switch (art) {
+      'location' => t.regelAusloeserOrt,
+      'aiTag' => t.regelAusloeserTag,
+      'dateRange' => t.regelAusloeserDatum,
+      _ => art,
+    };
 
-String _formatDate(DateTime d) => '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+String _formatDate(BuildContext context, DateTime d) =>
+    DateFormat.yMd(Localizations.localeOf(context).toString()).format(d);
 
 /// Verwaltung des Automatisierungs-Regelwerks: pro Regel eine Bedingung
 /// (Ort/KI-Tag/Datumsbereich) und Aktionen (Zielalbum, Tags, automatisches
@@ -83,11 +89,11 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Regel löschen?'),
-        content: Text('Die Regel "${rule.name}" wirklich löschen? Bereits angewendete Aktionen bleiben erhalten.'),
+        title: Text(AppTexte.of(context).regelLoeschenTitel),
+        content: Text(AppTexte.of(context).regelLoeschenText(rule.name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Löschen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgLoeschen)),
         ],
       ),
     );
@@ -100,15 +106,18 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
     switch (rule.triggerType) {
       case 'location':
         if (rule.regionCenterLat == null || rule.regionCenterLon == null || rule.regionRadiusKm == null) {
-          return 'Ort: unvollständig konfiguriert';
+          return AppTexte.of(context).regelOrtUnvollstaendig;
         }
-        return 'Umkreis ${rule.regionRadiusKm!.toStringAsFixed(0)} km um '
-            '${rule.regionCenterLat!.toStringAsFixed(2)}, ${rule.regionCenterLon!.toStringAsFixed(2)}';
+        return AppTexte.of(context).regelUmkreisUm(
+            rule.regionRadiusKm!.toStringAsFixed(0),
+            rule.regionCenterLat!.toStringAsFixed(2),
+            rule.regionCenterLon!.toStringAsFixed(2));
       case 'aiTag':
-        return 'KI-Tag: ${rule.aiTagTerm ?? '–'}';
+        return AppTexte.of(context).regelTagWert(rule.aiTagTerm ?? '–');
       case 'dateRange':
-        if (rule.dateFrom == null || rule.dateTo == null) return 'Datumsbereich: unvollständig konfiguriert';
-        return '${_formatDate(rule.dateFrom!)} – ${_formatDate(rule.dateTo!)}';
+        if (rule.dateFrom == null || rule.dateTo == null) return AppTexte.of(context).regelDatumUnvollstaendig;
+        return AppTexte.of(context).regelDatumBereich(
+            _formatDate(context, rule.dateFrom!), _formatDate(context, rule.dateTo!));
       default:
         return rule.triggerType;
     }
@@ -117,10 +126,10 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Automatisierungsregeln')),
+      appBar: AppBar(title: Text(AppTexte.of(context).regelTitel)),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _editRule(),
-        tooltip: 'Neue Regel',
+        tooltip: AppTexte.of(context).regelNeu,
         child: const Icon(Icons.add),
       ),
       body: StreamBuilder<List<AutomationRuleData>>(
@@ -131,14 +140,11 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
           }
           final rules = ruleSnap.data!;
           if (rules.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(AppSpacing.xxxl),
+                padding: const EdgeInsets.all(AppSpacing.xxxl),
                 child: Text(
-                  'Noch keine Automatisierungsregeln.\n\n'
-                  'Lege eine Regel an, um Fotos automatisch anhand von Ort, '
-                  'KI-Tag oder Aufnahmedatum einem Album/Tag zuzuordnen oder zu '
-                  'favorisieren – wie Kamera-Presets, nur für andere Bedingungen.',
+                  AppTexte.of(context).regelLeer,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -164,10 +170,13 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
                           final rule = rules[index];
                           final actionParts = <String>[
                             if (rule.targetAlbumId != null && albumNames[rule.targetAlbumId] != null)
-                              'Album: ${albumNames[rule.targetAlbumId]}',
-                            if (rule.autoFavorite) 'Automatisch favorisieren',
+                              AppTexte.of(context).regelAlbumTeil(albumNames[rule.targetAlbumId]!),
+                            if (rule.autoFavorite) AppTexte.of(context).presetFavorisieren,
                             if ((ruleTagIds[rule.id] ?? const []).isNotEmpty)
-                              'Tags: ${[for (final id in ruleTagIds[rule.id]!) if (tagNames[id] != null) tagNames[id]!].join(', ')}',
+                              AppTexte.of(context).regelTagsTeil([
+                                for (final id in ruleTagIds[rule.id]!)
+                                  if (tagNames[id] != null) tagNames[id]!
+                              ].join(', ')),
                           ];
                           return Card(
                             child: ListTile(
@@ -179,7 +188,8 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
                               }),
                               title: Text(rule.name),
                               subtitle: Text(
-                                '${_triggerLabels[rule.triggerType] ?? rule.triggerType} · ${_conditionSummary(rule)}'
+                                '${_ausloeserName(AppTexte.of(context), rule.triggerType)}'
+                                ' · ${_conditionSummary(rule)}'
                                 '${actionParts.isEmpty ? '' : '\n${actionParts.join(' · ')}'}',
                               ),
                               isThreeLine: actionParts.isNotEmpty,
@@ -188,12 +198,12 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
                                 children: [
                                   IconButton(
                                     icon: const Icon(Icons.edit_outlined),
-                                    tooltip: 'Bearbeiten',
+                                    tooltip: AppTexte.of(context).allgBearbeiten,
                                     onPressed: () => _editRule(existing: rule),
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline),
-                                    tooltip: 'Löschen',
+                                    tooltip: AppTexte.of(context).allgLoeschen,
                                     onPressed: () => _deleteRule(rule),
                                   ),
                                 ],
@@ -314,7 +324,7 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
   void _save() {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Ein Name für die Regel ist erforderlich.');
+      setState(() => _error = AppTexte.of(context).regelNameNoetig);
       return;
     }
 
@@ -327,34 +337,34 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
         lat = double.tryParse(_latCtrl.text.trim().replaceAll(',', '.'));
         lon = double.tryParse(_lonCtrl.text.trim().replaceAll(',', '.'));
         if (lat == null || lon == null) {
-          setState(() => _error = 'Breiten- und Längengrad müssen gültige Zahlen sein.');
+          setState(() => _error = AppTexte.of(context).regelKoordinatenUngueltig);
           return;
         }
         // Ohne diese Prüfung speicherte die Regel klaglos einen unmöglichen
         // Wert (z.B. vertauschte Ziffern) und traf danach einfach nie zu,
         // ohne dass der Nutzer je einen Hinweis bekäme (Audit-Fund).
         if (lat < -90 || lat > 90) {
-          setState(() => _error = 'Der Breitengrad muss zwischen -90 und 90 liegen.');
+          setState(() => _error = AppTexte.of(context).regelBreitengradBereich);
           return;
         }
         if (lon < -180 || lon > 180) {
-          setState(() => _error = 'Der Längengrad muss zwischen -180 und 180 liegen.');
+          setState(() => _error = AppTexte.of(context).regelLaengengradBereich);
           return;
         }
         radius = _radiusKm;
       case 'aiTag':
         if (_aiTagTerm == null) {
-          setState(() => _error = 'Bitte einen KI-Tag-Begriff wählen.');
+          setState(() => _error = AppTexte.of(context).regelTagWaehlen);
           return;
         }
         aiTagTerm = _aiTagTerm;
       case 'dateRange':
         if (_dateFrom == null || _dateTo == null) {
-          setState(() => _error = 'Bitte Start- und Enddatum wählen.');
+          setState(() => _error = AppTexte.of(context).regelDatumWaehlen);
           return;
         }
         if (_dateFrom!.isAfter(_dateTo!)) {
-          setState(() => _error = 'Das Startdatum muss vor dem Enddatum liegen.');
+          setState(() => _error = AppTexte.of(context).regelDatumReihenfolge);
           return;
         }
         dateFrom = _dateFrom;
@@ -392,7 +402,7 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                 Expanded(
                   child: TextField(
                     controller: _latCtrl,
-                    decoration: const InputDecoration(labelText: 'Breitengrad'),
+                    decoration: InputDecoration(labelText: AppTexte.of(context).regelBreitengrad),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                   ),
                 ),
@@ -400,14 +410,14 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                 Expanded(
                   child: TextField(
                     controller: _lonCtrl,
-                    decoration: const InputDecoration(labelText: 'Längengrad'),
+                    decoration: InputDecoration(labelText: AppTexte.of(context).regelLaengengrad),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            Text('Umkreis: ${_radiusKm.toStringAsFixed(0)} km'),
+            Text(AppTexte.of(context).regelUmkreis(_radiusKm.toStringAsFixed(0))),
             Slider(
               value: _radiusKm,
               min: 1,
@@ -420,11 +430,11 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
         );
       case 'aiTag':
         return widget.vocabulary.isEmpty
-            ? const Text('Kein KI-Tag-Vokabular vorhanden (Einstellungen → KI-Tagging-Vokabular).')
+            ? Text(AppTexte.of(context).regelKeinVokabular)
             : DropdownButtonFormField<String>(
                 initialValue: _aiTagTerm,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'KI-Tag-Begriff'),
+                decoration: InputDecoration(labelText: AppTexte.of(context).regelTagBegriff),
                 items: [
                   for (final term in widget.vocabulary) DropdownMenuItem(value: term, child: Text(term)),
                 ],
@@ -436,14 +446,18 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
             Expanded(
               child: OutlinedButton(
                 onPressed: () => _pickDate(isFrom: true),
-                child: Text(_dateFrom == null ? 'Startdatum' : _formatDate(_dateFrom!)),
+                child: Text(_dateFrom == null
+                    ? AppTexte.of(context).suchoptAnfangsdatum
+                    : _formatDate(context, _dateFrom!)),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
                 onPressed: () => _pickDate(isFrom: false),
-                child: Text(_dateTo == null ? 'Enddatum' : _formatDate(_dateTo!)),
+                child: Text(_dateTo == null
+                    ? AppTexte.of(context).suchoptEnddatum
+                    : _formatDate(context, _dateTo!)),
               ),
             ),
           ],
@@ -471,16 +485,18 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
               ],
               TextField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name (z.B. "Urlaub Italien")'),
+                decoration: InputDecoration(labelText: AppTexte.of(context).regelNameFeld),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _triggerType,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Bedingung'),
+                decoration: InputDecoration(labelText: AppTexte.of(context).regelBedingung),
                 items: [
-                  for (final entry in _triggerLabels.entries)
-                    DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                  for (final art in const ['location', 'aiTag', 'dateRange'])
+                    DropdownMenuItem(
+                        value: art,
+                        child: Text(_ausloeserName(AppTexte.of(context), art))),
                 ],
                 onChanged: (v) {
                   if (v == null) return;
@@ -493,9 +509,9 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
               DropdownButtonFormField<AlbumData?>(
                 initialValue: _selectedAlbum,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Zielalbum (optional)'),
+                decoration: InputDecoration(labelText: AppTexte.of(context).presetZielalbum),
                 items: [
-                  const DropdownMenuItem<AlbumData?>(value: null, child: Text('Kein Album')),
+                  DropdownMenuItem<AlbumData?>(value: null, child: Text(AppTexte.of(context).presetKeinAlbum)),
                   for (final a in widget.albums) DropdownMenuItem<AlbumData?>(value: a, child: Text(a.name)),
                 ],
                 // Beide Felder meinen dasselbe Ziel (Zielalbum) – ohne das
@@ -510,7 +526,7 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
               const SizedBox(height: 4),
               TextField(
                 controller: _newAlbumCtrl,
-                decoration: const InputDecoration(labelText: 'oder: neues Album anlegen'),
+                decoration: InputDecoration(labelText: AppTexte.of(context).presetNeuesAlbum),
                 onChanged: (text) {
                   if (text.trim().isNotEmpty && _selectedAlbum != null) {
                     setState(() => _selectedAlbum = null);
@@ -520,12 +536,12 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
               const SizedBox(height: 16),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Automatisch favorisieren'),
+                title: Text(AppTexte.of(context).presetFavorisieren),
                 value: _autoFavorite,
                 onChanged: (v) => setState(() => _autoFavorite = v),
               ),
               const SizedBox(height: 8),
-              Text('Tags', style: Theme.of(context).textTheme.titleSmall),
+              Text(AppTexte.of(context).suchoptTagsTitel, style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 4),
               InkWell(
                 onTap: () async {
@@ -539,7 +555,7 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                             ? widget.allTags
                             : widget.allTags.where((t) => t.name.toLowerCase().contains(filter.toLowerCase())).toList();
                         return AlertDialog(
-                          title: const Text('Tags auswählen'),
+                          title: Text(AppTexte.of(context).suchoptTagsWaehlen),
                           content: SizedBox(
                             width: 360,
                             height: 420,
@@ -547,9 +563,9 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                               children: [
                                 TextField(
                                   autofocus: true,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Tags filtern …',
-                                    prefixIcon: Icon(Icons.search),
+                                  decoration: InputDecoration(
+                                    hintText: AppTexte.of(context).suchoptTagsFiltern,
+                                    prefixIcon: const Icon(Icons.search),
                                     isDense: true,
                                   ),
                                   onChanged: (v) => setDialogState(() => filter = v),
@@ -557,7 +573,7 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                                 const SizedBox(height: 8),
                                 Expanded(
                                   child: visible.isEmpty
-                                      ? const Center(child: Text('Keine Tags vorhanden.'))
+                                      ? Center(child: Text(AppTexte.of(context).presetKeineTags))
                                       : ListView(
                                           children: [
                                             for (final tag in visible)
@@ -575,9 +591,9 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                             ),
                           ),
                           actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+                            TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
                             FilledButton(
-                                onPressed: () => Navigator.pop(context, selection), child: const Text('Übernehmen')),
+                                onPressed: () => Navigator.pop(context, selection), child: Text(AppTexte.of(context).allgUebernehmen)),
                           ],
                         );
                       },
@@ -586,10 +602,10 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                   if (result != null) setState(() => _tagIds = result);
                 },
                 child: InputDecorator(
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: 'Tags auswählen …',
-                    suffixIcon: Icon(Icons.arrow_drop_down),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    hintText: AppTexte.of(context).presetTagsWaehlenPlatzhalter,
+                    suffixIcon: const Icon(Icons.arrow_drop_down),
                     isDense: true,
                   ),
                   child: selectedTags.isEmpty
@@ -612,8 +628,8 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-        FilledButton(onPressed: _save, child: const Text('Speichern')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
+        FilledButton(onPressed: _save, child: Text(AppTexte.of(context).allgSpeichern)),
       ],
     );
   }

@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:image/image.dart' as img;
 import 'package:photo_vault/services/histogram.dart';
 import 'package:photo_vault/widgets/histogram_view.dart';
@@ -52,6 +53,9 @@ Future<({int nonBlack, int colored, int total})> _measure(
 Future<void> _pumpView(WidgetTester tester, GlobalKey key, HistogramData? data) async {
   await tester.pumpWidget(
     MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
       home: Scaffold(
         backgroundColor: Colors.black,
         body: Center(
@@ -137,6 +141,9 @@ void main() {
   testWidgets('zeigt den Ladehinweis nur bei isStale', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(body: HistogramView(data: _sampleData(), isStale: true)),
       ),
     );
@@ -145,6 +152,9 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(body: HistogramView(data: _sampleData())),
       ),
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 
 class AlbumChoice {
@@ -15,11 +17,15 @@ class AlbumChoice {
 Future<AlbumChoice?> showAlbumPickerDialog(
   BuildContext context,
   List<AlbumData> existingAlbums, {
-  String title = 'Zu Album hinzufügen',
+  String? title,
 }) {
   return showDialog<AlbumChoice>(
     context: context,
-    builder: (context) => _AlbumPickerDialog(existingAlbums: existingAlbums, title: title),
+    builder: (context) => _AlbumPickerDialog(
+        existingAlbums: existingAlbums,
+        // Der Vorgabewert kann nicht im Kopf stehen: Ein übersetzter Text
+        // braucht den Kontext, den es dort noch nicht gibt.
+        title: title ?? AppTexte.of(context).auswZuAlbum),
   );
 }
 
@@ -54,24 +60,26 @@ class _AlbumPickerDialogState extends State<_AlbumPickerDialog> {
             DropdownButtonFormField<AlbumData>(
               initialValue: _selectedExisting,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Bestehendes Album'),
+              decoration: InputDecoration(labelText: AppTexte.of(context).albumBestehendes),
               items: widget.existingAlbums
                   .map((a) => DropdownMenuItem(value: a, child: Text(a.name)))
                   .toList(),
               onChanged: (a) => setState(() => _selectedExisting = a),
             ),
             const SizedBox(height: 12),
-            const Text('— oder —', style: TextStyle(color: Colors.grey)),
+            Text(AppTexte.of(context).allgOder, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 12),
           ],
           TextField(
             controller: _nameCtrl,
-            decoration: const InputDecoration(labelText: 'Neues Album anlegen'),
+            decoration: InputDecoration(labelText: AppTexte.of(context).albumNeuAnlegen),
           ),
         ],
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
         FilledButton(
           onPressed: () {
             if (_nameCtrl.text.trim().isNotEmpty) {
@@ -80,7 +88,7 @@ class _AlbumPickerDialogState extends State<_AlbumPickerDialog> {
               Navigator.pop(context, AlbumChoice.existing(_selectedExisting!.id));
             }
           },
-          child: const Text('Hinzufügen'),
+          child: Text(AppTexte.of(context).allgHinzufuegen),
         ),
       ],
     );

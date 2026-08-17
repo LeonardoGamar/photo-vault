@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -131,10 +133,9 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     final unassigned = faces.where((f) => f.personId == null).toList();
     if (unassigned.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-            'Keine unbenannten Gesichter auf diesem Foto gefunden – falls noch keine '
-            'Gesichtserkennung gelaufen ist, siehe Werkzeuge → Gesichter scannen.',
+            AppTexte.of(context).infoKeineUnbenannten,
           ),
         ));
       }
@@ -142,7 +143,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     }
     final people = await widget.db.select(widget.db.people).get();
     if (!mounted) return;
-    final choice = await showPersonPickerDialog(context, people, title: 'Person zuordnen');
+    final choice = await showPersonPickerDialog(context, people, title: AppTexte.of(context).personZuordnenTitel);
     if (choice == null) return;
 
     String personId;
@@ -267,6 +268,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     ];
 
     final hasLocation = asset.latitude != null && asset.longitude != null;
+    final sprache = Localizations.localeOf(context).toString();
     final regionParts = [asset.locationState, asset.locationCountry]
         .whereType<String>()
         .where((s) => s.isNotEmpty)
@@ -279,9 +281,9 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
           padding: const EdgeInsets.fromLTRB(AppSpacing.xs, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
           child: Row(
             children: [
-              IconButton(icon: const Icon(Icons.close), tooltip: 'Schließen', onPressed: widget.onClose),
+              IconButton(icon: const Icon(Icons.close), tooltip: AppTexte.of(context).allgSchliessen, onPressed: widget.onClose),
               const SizedBox(width: 4),
-              Text('Info', style: Theme.of(context).textTheme.titleLarge),
+              Text(AppTexte.of(context).infoTitel, style: Theme.of(context).textTheme.titleLarge),
             ],
           ),
         ),
@@ -300,16 +302,16 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                         controller: _descriptionController,
                         focusNode: _descriptionFocusNode,
                         maxLines: null,
-                        decoration: const InputDecoration(
-                          hintText: 'Beschreibung hinzufügen',
-                          border: UnderlineInputBorder(),
+                        decoration: InputDecoration(
+                          hintText: AppTexte.of(context).infoBeschreibungHinzufuegen,
+                          border: const UnderlineInputBorder(),
                           isDense: true,
                         ),
                       ),
                       if ((_asset.aiCaption ?? '').trim().isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Text(
-                          'KI-Beschreibung · Englisch',
+                          AppTexte.of(context).infoKiBeschreibung,
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                 color: Theme.of(context).colorScheme.outline,
                               ),
@@ -328,13 +330,13 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                         children: [
                           Semantics(
                             container: true,
-                            label: 'Bewertung',
+                            label: AppTexte.of(context).infoBewertung,
                             child: StarRating(value: _asset.rating, onChanged: _setRating),
                           ),
                           const Spacer(),
                           Semantics(
                             container: true,
-                            label: 'Farbmarkierung',
+                            label: AppTexte.of(context).suchoptFarbmarkierung,
                             child: ColorLabelPicker(value: _asset.colorLabel, onChanged: _setColorLabel),
                           ),
                         ],
@@ -343,10 +345,10 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
 
                       Row(
                         children: [
-                          const Expanded(child: _SectionLabel('Personen')),
+                          Expanded(child: _SectionLabel(AppTexte.of(context).navPersonen)),
                           IconButton(
                             icon: const Icon(Icons.add),
-                            tooltip: 'Person zuordnen',
+                            tooltip: AppTexte.of(context).personZuordnenTitel,
                             onPressed: _addPerson,
                           ),
                         ],
@@ -357,7 +359,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                             ? Align(
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  'Noch niemand zugeordnet.',
+                                  AppTexte.of(context).infoNiemandZugeordnet,
                                   style: TextStyle(color: onSurfaceVariant, fontSize: 13),
                                 ),
                               )
@@ -405,12 +407,15 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                       ),
                       const SizedBox(height: 16),
 
-                      const _SectionLabel('Details'),
+                      _SectionLabel(AppTexte.of(context).infoDetails),
                       const SizedBox(height: 4),
                       _IconDetailRow(
                         icon: Icons.calendar_today_outlined,
-                        title: DateFormat('d. MMM. y', 'de_DE').format(asset.fileCreatedAt),
-                        subtitle: DateFormat('EEE, HH:mm:ss', 'de_DE').format(asset.fileCreatedAt),
+                        title: DateFormat.yMMMd(sprache).format(asset.fileCreatedAt),
+                        subtitle: DateFormat.E(sprache)
+                            .addPattern(', ')
+                            .add_Hms()
+                            .format(asset.fileCreatedAt),
                         onEdit: _pickDate,
                       ),
                       _IconDetailRow(
@@ -432,26 +437,26 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                       if (hasLocation)
                         _IconDetailRow(
                           icon: Icons.location_on_outlined,
-                          title: asset.locationCity ?? 'Standort bekannt',
+                          title: asset.locationCity ?? AppTexte.of(context).infoStandortBekannt,
                           subtitle: asset.locationCity != null
                               ? (regionParts.isEmpty ? null : regionParts.join(', '))
-                              : 'Ort noch nicht aufgelöst (Werkzeuge → Orte)',
+                              : AppTexte.of(context).infoOrtNichtAufgeloest,
                           onEdit: _clearLocation,
                           editIcon: Icons.close,
-                          editTooltip: 'Ort entfernen',
+                          editTooltip: AppTexte.of(context).infoOrtEntfernen,
                         ),
                       if (asset.isStackCover && asset.stackSize != null)
                         _IconDetailRow(
                           icon: Icons.filter_none_outlined,
-                          title: 'Serie: ${asset.stackSize} Fotos',
-                          subtitle: 'Nur das Titelbild ist in der Übersicht sichtbar',
+                          title: AppTexte.of(context).infoSerie(asset.stackSize!),
+                          subtitle: AppTexte.of(context).infoNurTitelbild,
                           onEdit: _unstack,
                           editIcon: Icons.close,
-                          editTooltip: 'Serie auflösen',
+                          editTooltip: AppTexte.of(context).infoSerieAufloesen,
                         ),
                       const SizedBox(height: 16),
 
-                      const _SectionLabel('Tags'),
+                      _SectionLabel(AppTexte.of(context).suchoptTagsTitel),
                       const SizedBox(height: 8),
                       if (_tags.isNotEmpty)
                         Padding(
@@ -473,15 +478,15 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           Expanded(
                             child: TextField(
                               controller: _tagController,
-                              decoration: const InputDecoration(
-                                hintText: 'Tag hinzufügen …',
+                              decoration: InputDecoration(
+                                hintText: AppTexte.of(context).infoTagHinzufuegenPlatzhalter,
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
                               onSubmitted: (_) => _addTag(),
                             ),
                           ),
-                          IconButton(icon: const Icon(Icons.add), tooltip: 'Tag hinzufügen', onPressed: _addTag),
+                          IconButton(icon: const Icon(Icons.add), tooltip: AppTexte.of(context).auswTagHinzufuegen, onPressed: _addTag),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -568,7 +573,7 @@ class _IconDetailRow extends StatelessWidget {
           if (onEdit != null)
             IconButton(
               icon: Icon(editIcon, size: 18),
-              tooltip: editTooltip ?? 'Bearbeiten',
+              tooltip: editTooltip ?? AppTexte.of(context).allgBearbeiten,
               visualDensity: VisualDensity.compact,
               onPressed: onEdit,
             ),

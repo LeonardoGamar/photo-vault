@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/clip_service.dart';
 import '../services/search_filters.dart';
 import '../state/library_state.dart';
@@ -62,8 +63,8 @@ class _SearchScreenState extends State<SearchScreen> {
     final ids = _selected.toList();
     final confirmed = await confirmDialog(
       context,
-      '${ids.length} Foto(s) löschen?',
-      'Diese Fotos werden in den Papierkorb verschoben.',
+      AppTexte.of(context).loeschenTitel(ids.length),
+      AppTexte.of(context).loeschenHinweis(ids.length),
     );
     if (!confirmed) return;
     await widget.library.db.moveToTrash(ids);
@@ -79,15 +80,15 @@ class _SearchScreenState extends State<SearchScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Suche speichern'),
+        title: Text(AppTexte.of(context).sucheSpeichernTitel),
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          decoration: const InputDecoration(labelText: 'Name'),
+          decoration: InputDecoration(labelText: AppTexte.of(context).allgName),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Speichern')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: Text(AppTexte.of(context).allgSpeichern)),
         ],
       ),
     );
@@ -142,17 +143,20 @@ class _SearchScreenState extends State<SearchScreen> {
           // Suche ohne Suchbegriff zurück und lieferte einfach die
           // neuesten Fotos – für den Nutzer nicht von einem Treffer zu
           // unterscheiden (Audit-Fund).
-          setState(() => _error = 'Für die Kontext-Suche fehlt das Bildsuche-Modell. '
-              'Es lässt sich in den Einstellungen unter "KI-Modelle" laden.');
+          setState(() => _error = AppTexte.of(context).sucheModellFehlt);
           return;
         }
         // Beim ersten Mal wird ein mehrere hundert MB grosses Modell
         // geladen; das dauert spürbar und soll nicht wie eine langsame
         // Suche aussehen.
         if (!halter.istGeladen) {
-          setState(() => _statusText = 'Modell für die Bildsuche wird geladen …');
+          setState(() => _statusText = AppTexte.of(context).sucheModellLaedt);
         }
-        queryVector = await halter.mit((c) => c.embedText(query));
+        // Der Text-Encoder versteht nur Englisch. Ist das Übersetzungs-
+        // modell installiert und eingeschaltet, geht die Anfrage vorher
+        // hindurch – sonst unverändert (siehe LibraryState.insEnglische).
+        final anfrage = await widget.library.insEnglische(query);
+        queryVector = await halter.mit((c) => c.embedText(anfrage));
         if (mounted) setState(() => _statusText = null);
       }
 
@@ -181,7 +185,7 @@ class _SearchScreenState extends State<SearchScreen> {
       }
       setState(() => _results = results);
     } catch (e) {
-      setState(() => _error = 'Suche fehlgeschlagen: $e');
+      setState(() => _error = AppTexte.of(context).sucheFehlgeschlagen('$e'));
     } finally {
       if (mounted) {
         setState(() {
@@ -208,11 +212,11 @@ class _SearchScreenState extends State<SearchScreen> {
             controller: _queryCtrl,
             decoration: InputDecoration(
               hintText: switch (_filters.textMode) {
-                SearchTextMode.context => 'z.B. "Sonnenuntergang am Meer", "Hund im Schnee" …',
-                SearchTextMode.filename => 'Dateiname …',
-                SearchTextMode.description => 'Beschreibung …',
-                SearchTextMode.ocr => 'Text im Foto …',
-                SearchTextMode.caption => 'z.B. "dog", "sunset" (Englisch) …',
+                SearchTextMode.context => AppTexte.of(context).suchePlatzhalterKontext,
+                SearchTextMode.filename => AppTexte.of(context).suchePlatzhalterDateiname,
+                SearchTextMode.description => AppTexte.of(context).suchePlatzhalterBeschreibung,
+                SearchTextMode.ocr => AppTexte.of(context).suchePlatzhalterText,
+                SearchTextMode.caption => AppTexte.of(context).suchePlatzhalterBildunterschrift,
               },
               prefixIcon: const Icon(Icons.search),
               border: const OutlineInputBorder(),
@@ -222,17 +226,17 @@ class _SearchScreenState extends State<SearchScreen> {
                   if (!_filters.isEmpty)
                     IconButton(
                       icon: const Icon(Icons.bookmark_add_outlined),
-                      tooltip: 'Suche speichern',
+                      tooltip: AppTexte.of(context).sucheSpeichernTitel,
                       onPressed: _saveCurrentSearch,
                     ),
                   IconButton(
                     icon: Badge(isLabelVisible: !_filters.isEmpty, child: const Icon(Icons.tune)),
-                    tooltip: 'Suchoptionen',
+                    tooltip: AppTexte.of(context).sucheOptionen,
                     onPressed: _openSearchOptions,
                   ),
                   IconButton(
                     icon: const Icon(Icons.arrow_forward),
-                    tooltip: 'Suchen',
+                    tooltip: AppTexte.of(context).sucheAusloesen,
                     onPressed: _loading ? null : _runSearch,
                   ),
                 ],
@@ -284,9 +288,9 @@ class _SearchScreenState extends State<SearchScreen> {
         if (_error != null) Padding(padding: const EdgeInsets.all(AppSpacing.sm), child: Text(_error!)),
         Expanded(
           child: !_searched
-              ? const Center(child: Text('Gib einen Suchbegriff ein oder wähle Suchoptionen.'))
+              ? Center(child: Text(AppTexte.of(context).sucheAnleitung))
               : _results.isEmpty && !_loading
-                  ? const Center(child: Text('Keine Treffer.'))
+                  ? Center(child: Text(AppTexte.of(context).sucheKeineTreffer))
                   : Stack(
                       children: [
                         GridView.builder(
@@ -312,6 +316,18 @@ class _SearchScreenState extends State<SearchScreen> {
                           SelectionActionBar(
                             count: _selected.length,
                             onClear: () => setState(_selected.clear),
+
+                            onPasteDevelop: widget.library.hatKopierteEntwicklung
+
+                                ? () async {
+
+                                    await runBatchPasteDevelop(context, widget.library, _selected.toList());
+
+                                    if (mounted) setState(_selected.clear);
+
+                                  }
+
+                                : null,
                             onFavorite: () async {
                               await runBatchFavorite(widget.library, _selected.toList());
                               if (mounted) setState(_selected.clear);

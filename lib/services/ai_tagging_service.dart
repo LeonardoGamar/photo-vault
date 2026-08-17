@@ -24,6 +24,83 @@ const List<String> defaultAiTagVocabulary = [
   'Bildschirmfoto', 'Dokument', 'Bauwerk', 'Kunst', 'Gruppenfoto',
 ];
 
+/// Englische Entsprechung jedes Begriffs aus [defaultAiTagVocabulary] – für
+/// das Angebot, das Vokabular beim Sprachwechsel mitzuziehen.
+///
+/// **Von Hand geprüft, nicht maschinell übersetzt.** Eine Datenmigration
+/// darf nicht davon abhängen, ob ein 100-MB-Übersetzungsmodell installiert
+/// ist, und sie muss vorhersagbar sein: „Aufnahme" oder „Bauwerk" kann eine
+/// Maschine plausibel, aber unbrauchbar übersetzen.
+///
+/// Zwei Wörter sind bewusst gewählt und nicht die erste Wörterbuch-Antwort:
+/// „Urlaub" wird zu *Vacation* statt *Holiday* und „Herbst" zu *Autumn*
+/// statt *Fall* – die Begriffe werden am Ende gegen einen überwiegend
+/// US-englisch trainierten Bildsuche-Encoder gerechnet, ausser bei *Fall*,
+/// das dort mit „fallen" kollidiert.
+const Map<String, String> aiTagVocabularyEnglisch = {
+  'Baby': 'Baby',
+  'Kleinkind': 'Toddler',
+  'Kind': 'Child',
+  'Familie': 'Family',
+  'Gruppe von Menschen': 'Group of people',
+  'Porträt': 'Portrait',
+  'Selfie': 'Selfie',
+  'Draußen': 'Outdoors',
+  'Drinnen': 'Indoors',
+  'Natur': 'Nature',
+  'Wald': 'Forest',
+  'Berge': 'Mountains',
+  'Strand': 'Beach',
+  'Meer': 'Sea',
+  'See': 'Lake',
+  'Fluss': 'River',
+  'Garten': 'Garden',
+  'Spielplatz': 'Playground',
+  'Stadt': 'City',
+  'Straße': 'Street',
+  'Zuhause': 'Home',
+  'Essen': 'Food',
+  'Kuchen': 'Cake',
+  'Geburtstagstorte': 'Birthday cake',
+  'Restaurant': 'Restaurant',
+  'Tier': 'Animal',
+  'Hund': 'Dog',
+  'Katze': 'Cat',
+  'Vogel': 'Bird',
+  'Auto': 'Car',
+  'Fahrrad': 'Bicycle',
+  'Zug': 'Train',
+  'Flugzeug': 'Airplane',
+  'Boot': 'Boat',
+  'Feier': 'Celebration',
+  'Geburtstag': 'Birthday',
+  'Weihnachten': 'Christmas',
+  'Ostern': 'Easter',
+  'Urlaub': 'Vacation',
+  'Hochzeit': 'Wedding',
+  'Schnee': 'Snow',
+  'Winter': 'Winter',
+  'Sommer': 'Summer',
+  'Herbst': 'Autumn',
+  'Frühling': 'Spring',
+  'Sonnenuntergang': 'Sunset',
+  'Nacht': 'Night',
+  'Blumen': 'Flowers',
+  'Sport': 'Sports',
+  'Schwimmen': 'Swimming',
+  'Wasser': 'Water',
+  'Bildschirmfoto': 'Screenshot',
+  'Dokument': 'Document',
+  'Bauwerk': 'Building',
+  'Kunst': 'Art',
+  'Gruppenfoto': 'Group photo',
+};
+
+/// Die Startbestückung in der gewünschten Sprache.
+List<String> vokabularFuerSprache(String sprachcode) => sprachcode == 'en'
+    ? [for (final t in defaultAiTagVocabulary) aiTagVocabularyEnglisch[t] ?? t]
+    : defaultAiTagVocabulary;
+
 /// Ordnet einem Foto (über sein bereits berechnetes CLIP-Bild-Embedding)
 /// automatisch Tags aus dem in den Einstellungen editierbaren Vokabular
 /// (Tabelle `AiTagVocabulary`, siehe `AppDatabase.aiTagVocabularyTerms`) zu –
@@ -64,19 +141,38 @@ class AiTaggingService {
   /// fest zu stehen. Gebraucht wird hier ausschliesslich der TEXT-Encoder:
   /// Das Bild-Embedding kommt fertig als [imageEmbedding] herein, nur die
   /// Vokabelbegriffe müssen noch eingebettet werden.
+  /// [insEnglische] übersetzt einen Vokabelbegriff, bevor er eingebettet
+  /// wird – das Vokabular ist deutsch, der Text-Encoder versteht aber nur
+  /// Englisch. Fehlt die Funktion, bleibt es beim bisherigen Verhalten.
+  ///
+  /// Der Cache hängt weiterhin am **deutschen** Begriff: Er ist der
+  /// Schlüssel, unter dem der Tag am Ende vergeben wird, und eine
+  /// Übersetzung je Begriff genügt für die ganze Sitzung.
   Future<List<String>> suggestTags(
     ClipService clipText,
     Float32List imageEmbedding,
     List<String> vocabulary, {
     double threshold = 0.24,
+    Future<String> Function(String)? insEnglische,
   }) async {
     final matches = <String>[];
     for (final term in vocabulary) {
-      final embedding = _termEmbeddingCache[term] ??= await clipText.embedText(term);
+      var embedding = _termEmbeddingCache[term];
+      if (embedding == null) {
+        final fuerModell = insEnglische == null ? term : await insEnglische(term);
+        embedding = _termEmbeddingCache[term] = await clipText.embedText(fuerModell);
+      }
       if (_cosine(imageEmbedding, embedding) >= threshold) matches.add(term);
     }
     return matches;
   }
+
+  /// Verwirft die zwischengespeicherten Begriffs-Vektoren.
+  ///
+  /// Nötig, wenn die Übersetzungs-Einstellung umgelegt wird: Die Vektoren
+  /// im Cache stammen dann von der jeweils anderen Sprache und würden die
+  /// Umstellung bis zum nächsten Programmstart wirkungslos machen.
+  void leereBegriffsCache() => _termEmbeddingCache.clear();
 
   double _cosine(Float32List a, Float32List b) {
     var dot = 0.0;

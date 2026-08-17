@@ -1,11 +1,47 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
 import '../state/library_state.dart';
+import 'native_image_converter.dart';
 import 'storage_paths.dart';
+import '../l10n/app_localizations.dart';
 import 'xmp_writer.dart';
+
+/// Größe und Format, in denen exportiert wird.
+///
+/// [Exportgroesse.original] kopiert die Datei unverändert – der bisherige
+/// und weiterhin voreingestellte Fall, und der einzige, der RAW, Videos und
+/// alle übrigen Formate unangetastet lässt. Die übrigen Stufen rendern nach
+/// JPEG mit begrenzter langer Kante, für Versand und Hochladen.
+///
+/// Bewusst eine feste, kurze Liste statt frei benannter Voreinstellungen:
+/// Die drei Grössen decken die üblichen Fälle ab, und eine Verwaltung
+/// eigener Voreinstellungen wäre ein eigenes Stück Oberfläche.
+enum Exportgroesse {
+  original(null),
+  gross(4096),
+  web(2048),
+  email(1024);
+
+  const Exportgroesse(this.maxKante);
+  final int? maxKante;
+}
+
+/// Die Beschriftung einer Ausgabegrösse in der Oberflächensprache.
+///
+/// Wie beim Modellkatalog steht sie nicht im Enum selbst: Enum-Werte sind
+/// `const`, ein übersetzter Text braucht den Kontext. Und zwei Fassungen
+/// desselben Textes – eine hier, eine in den Sprachdateien – laufen
+/// verlässlich auseinander.
+String exportgroesseBezeichnung(AppTexte t, Exportgroesse g) => switch (g) {
+      Exportgroesse.original => t.exportOriginal,
+      Exportgroesse.gross => t.exportGross,
+      Exportgroesse.web => t.exportWeb,
+      Exportgroesse.email => t.exportEmail,
+    };
 
 /// Exportiert Original-Dateien aus der verwalteten Bibliothek zurück in
 /// einen normalen Ordner – z.B. um ein Foto extern weiterzubearbeiten oder zu
@@ -38,10 +74,38 @@ class ExportService {
   /// – anders als beim Bulk-Export/Backup werden hier bewusst AUCH gesperrte
   /// Assets mit einbezogen: der Nutzer hat das Entschlüsseln/Exportieren an
   /// dieser Stelle bereits aktiv angestoßen (siehe [resolveSourceFile]).
-  Future<String> exportAsset(AssetData asset, String destinationDir) async {
+  ///
+  /// Mit [groesse] ungleich [Exportgroesse.original] wird das Foto nach JPEG
+  /// gerendert. Videos und alles, was sich nicht konvertieren lässt, werden
+  /// dabei unverändert kopiert statt übersprungen – ein Export soll nichts
+  /// auslassen, nur weil eine Grössenvorgabe darauf nicht anwendbar ist.
+  Future<String> exportAsset(
+    AssetData asset,
+    String destinationDir, {
+    Exportgroesse groesse = Exportgroesse.original,
+    double qualitaet = 0.9,
+  }) async {
     final sourceFile = await resolveSourceFile(asset);
-    final targetPath = _uniqueDestinationPath(destinationDir, asset.originalFileName);
-    await sourceFile.copy(targetPath);
+
+    final kante = groesse.maxKante;
+    Uint8List? verkleinert;
+    if (kante != null && asset.type == 'IMAGE') {
+      verkleinert = await NativeImageConverter.convertToJpegBytes(
+        sourceFile,
+        maxDimension: kante,
+        quality: qualitaet,
+      );
+    }
+
+    final zielName = verkleinert != null
+        ? '${p.basenameWithoutExtension(asset.originalFileName)}.jpg'
+        : asset.originalFileName;
+    final targetPath = _uniqueDestinationPath(destinationDir, zielName);
+    if (verkleinert != null) {
+      await File(targetPath).writeAsBytes(verkleinert);
+    } else {
+      await sourceFile.copy(targetPath);
+    }
 
     final tagNames = _library != null
         ? (await _library.db.tagsForAsset(asset.id)).map((t) => t.name).toList()

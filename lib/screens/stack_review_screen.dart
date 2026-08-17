@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
@@ -45,7 +47,7 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
     try {
       if (!widget.library.clipAvailable) {
         setState(() {
-          _error = 'Benötigt das CLIP-Modell (Einstellungen → KI-Modelle).';
+          _error = AppTexte.of(context).allgClipNoetigKurz;
           _groups = [];
         });
         return;
@@ -131,16 +133,14 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Serienbilder gruppieren')),
+      appBar: AppBar(title: Text(AppTexte.of(context).werkzStapelTitel)),
       body: Column(
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
             child: Text(
-              'Fotos, die sich ähneln UND innerhalb weniger Sekunden aufgenommen wurden, werden hier '
-              'als Serie vorgeschlagen. "Übernehmen" fasst eine Gruppe zu einem Stapel zusammen – nur '
-              'das Titelbild bleibt danach in der Übersicht sichtbar, nichts wird gelöscht.',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              AppTexte.of(context).stapelErklaerung,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
           const Divider(height: 16),
@@ -161,10 +161,10 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
       );
     }
     if (_groups.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(AppSpacing.xxl),
-          child: Text('Keine Serienbilder gefunden.', textAlign: TextAlign.center),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Text(AppTexte.of(context).stapelKeine, textAlign: TextAlign.center),
         ),
       );
     }
@@ -182,16 +182,16 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: Text('Serie ${groupIndex + 1} · ${group.length} Fotos',
+                    child: Text(AppTexte.of(context).stapelSerie(groupIndex + 1, group.length),
                         style: Theme.of(context).textTheme.titleSmall),
                   ),
                   TextButton(
                     onPressed: () => _discardGroup(groupIndex),
-                    child: const Text('Verwerfen'),
+                    child: Text(AppTexte.of(context).allgVerwerfen),
                   ),
                   FilledButton(
                     onPressed: () => _applyStack(groupIndex),
-                    child: const Text('Übernehmen'),
+                    child: Text(AppTexte.of(context).allgUebernehmen),
                   ),
                 ],
               ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../db/database.dart';
@@ -108,7 +110,9 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
     });
   }
 
-  String _labelFor(int key) => DateFormat('MMM yyyy', 'de_DE').format(widget.groups[key]!.first.fileCreatedAt);
+  String _labelFor(int key) =>
+      DateFormat.yMMM(Localizations.localeOf(context).toString())
+          .format(widget.groups[key]!.first.fileCreatedAt);
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +139,7 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
         }
 
         return Semantics(
-          label: 'Schnellnavigation zum Datum',
+          label: AppTexte.of(context).scrubberTooltip,
           value: _dragFraction != null ? _labelFor(widget.orderedKeys[_hoveredKeyIndex]) : null,
           child: GestureDetector(
           behavior: HitTestBehavior.translucent,

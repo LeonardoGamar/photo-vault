@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../services/integrity_check_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 import '../widgets/selection_action_bar.dart' show confirmDialog;
 import 'asset_viewer_screen.dart';
 
@@ -72,7 +75,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
         _error = null;
       });
     } catch (e) {
-      setState(() => _error = 'Prüfung fehlgeschlagen: $e');
+      setState(() => _error = AppTexte.of(context).integPruefungFehlgeschlagen('$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -84,12 +87,11 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
       'Aus Datenbank entfernen?',
       switch (issue.kind) {
         MissingFileKind.original =>
-          'Das Original fehlt auf der Platte – das gesamte Foto/Video wird aus der Bibliothek entfernt.',
-        MissingFileKind.mask => 'Die Maskendatei fehlt – der Maskeneintrag wird entfernt.',
+          AppTexte.of(context).integOriginalFehlt,
+        MissingFileKind.mask => AppTexte.of(context).integMaskeFehlt,
         MissingFileKind.faceCrop =>
-          'Der Gesichts-Crop fehlt – nur die Vorschau wird entfernt, die Zuordnung zur Person bleibt erhalten.',
-        _ => 'Der Datei-Pfad wird aus der Datenbank entfernt – die Datei lässt sich über '
-            '"Werkzeuge → Vorschaubilder neu erstellen" wieder herstellen.',
+          AppTexte.of(context).integCropFehlt,
+        _ => AppTexte.of(context).integPfadEntfernt,
       },
     );
     if (!confirmed) return;
@@ -119,8 +121,8 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   Future<void> _deleteOrphanedFile(OrphanedFileIssue issue) async {
     final confirmed = await confirmDialog(
       context,
-      'Datei löschen?',
-      '${issue.relativePath} wird unwiderruflich von der Platte gelöscht.',
+      AppTexte.of(context).integDateiLoeschenTitel,
+      AppTexte.of(context).integDateiLoeschenText(issue.relativePath),
     );
     if (!confirmed) return;
     await widget.library.paths.deletePermanently(issue.relativePath);
@@ -175,11 +177,11 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bibliotheks-Integritätsprüfung'),
+        title: Text(AppTexte.of(context).werkzIntegritaetTitel),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Erneut prüfen',
+            tooltip: AppTexte.of(context).integErneutPruefen,
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -190,11 +192,9 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
             child: CheckboxListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Prüfsummen prüfen'),
-              subtitle: const Text(
-                'Liest jede Originaldatei komplett ein und vergleicht sie mit der beim Import '
-                'gespeicherten Prüfsumme – bei großen Bibliotheken deutlich langsamer als die '
-                'reine Existenz-/Verwaisten-Prüfung.',
+              title: Text(AppTexte.of(context).integPruefsummen),
+              subtitle: Text(
+                AppTexte.of(context).integPruefsummenHinweis,
               ),
               value: _verifyChecksums,
               onChanged: _loading
@@ -233,7 +233,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
             children: [
               Icon(Icons.check_circle_outline, size: 56, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 16),
-              Text('Keine Probleme gefunden (${report.filesScanned} Dateien geprüft).'),
+              Text(AppTexte.of(context).integKeineProbleme(report.filesScanned)),
             ],
           ),
         ),
@@ -244,61 +244,61 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
       children: [
         if (report.missingFiles.isNotEmpty)
           _Section(
-            title: 'Fehlende Dateien (${report.missingFiles.length})',
+            title: AppTexte.of(context).integFehlendeDateien(report.missingFiles.length),
             children: [
               for (final issue in report.missingFiles)
                 ListTile(
-                  leading: const Icon(Icons.error_outline, color: Colors.orange),
+                  leading: Icon(Icons.error_outline, color: context.semantik.warnung),
                   title: Text(issue.relativePath),
                   subtitle: Text(_kindLabel(issue.kind)),
                   trailing: TextButton(
                     onPressed: () => _removeMissingFromDb(issue),
-                    child: const Text('Aus DB entfernen'),
+                    child: Text(AppTexte.of(context).integAusDbEntfernen),
                   ),
                 ),
             ],
           ),
         if (report.orphanedFiles.isNotEmpty)
           _Section(
-            title: 'Verwaiste Dateien (${report.orphanedFiles.length})',
+            title: AppTexte.of(context).integVerwaisteDateien(report.orphanedFiles.length),
             children: [
               for (final issue in report.orphanedFiles)
                 ListTile(
-                  leading: const Icon(Icons.help_outline, color: Colors.orange),
+                  leading: Icon(Icons.help_outline, color: context.semantik.warnung),
                   title: Text(issue.relativePath),
                   subtitle: Text('${(issue.sizeBytes / 1024).round()} KB'),
                   trailing: TextButton(
                     onPressed: () => _deleteOrphanedFile(issue),
-                    child: const Text('Datei löschen'),
+                    child: Text(AppTexte.of(context).integDateiLoeschen),
                   ),
                 ),
             ],
           ),
         if (report.checksumMismatches.isNotEmpty)
           _Section(
-            title: 'Prüfsummen-Abweichungen (${report.checksumMismatches.length})',
+            title: AppTexte.of(context).integAbweichungen(report.checksumMismatches.length),
             children: [
               for (final issue in report.checksumMismatches)
                 ListTile(
-                  leading: const Icon(Icons.warning_amber, color: Colors.red),
+                  leading: Icon(Icons.warning_amber, color: Theme.of(context).colorScheme.error),
                   title: Text(issue.relativePath),
-                  subtitle: const Text('Inhalt hat sich seit dem Import geändert'),
+                  subtitle: Text(AppTexte.of(context).integInhaltGeaendert),
                   trailing: TextButton(
                     onPressed: () => _openAsset(issue.assetId),
-                    child: const Text('Foto öffnen'),
+                    child: Text(AppTexte.of(context).integFotoOeffnen),
                   ),
                 ),
             ],
           ),
         if (report.encryptedHeaderIssues.isNotEmpty)
           _Section(
-            title: 'Verschlüsselte Dateien mit ungültigem Header (${report.encryptedHeaderIssues.length})',
+            title: AppTexte.of(context).integHeaderProbleme(report.encryptedHeaderIssues.length),
             children: [
               for (final issue in report.encryptedHeaderIssues)
                 ListTile(
-                  leading: const Icon(Icons.warning_amber, color: Colors.red),
+                  leading: Icon(Icons.warning_amber, color: Theme.of(context).colorScheme.error),
                   title: Text(issue.relativePath),
-                  subtitle: const Text('Datei ist evtl. beschädigt – keine gültige verschlüsselte Datei'),
+                  subtitle: Text(AppTexte.of(context).integBeschaedigt),
                 ),
             ],
           ),

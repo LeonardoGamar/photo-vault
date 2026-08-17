@@ -7,6 +7,26 @@ import 'package:path/path.dart' as p;
 
 import 'geo_data_catalog.dart';
 
+/// Warum der Standortdaten-Download gescheitert ist – siehe
+/// [ModellDownloadFehler] für die Begründung, warum hier kein fertiger Satz
+/// steht.
+class GeoDownloadFehler implements Exception {
+  final String datei;
+  final String? ursache;
+
+  /// true, wenn das Entpacken fehlschlug (nicht der Download selbst).
+  final bool beimEntpacken;
+
+  const GeoDownloadFehler.uebertragung(this.datei, this.ursache)
+      : beimEntpacken = false;
+  const GeoDownloadFehler.entpacken(this.datei, this.ursache)
+      : beimEntpacken = true;
+  const GeoDownloadFehler.nichtImZip(this.datei)
+      : ursache = null,
+        beimEntpacken = true;
+}
+
+
 class GeoDataDownloadProgress {
   final String fileName;
   final int receivedBytes;
@@ -56,7 +76,7 @@ class GeoDataDownloadService {
         } catch (e) {
           final partial = File(tmpPath);
           if (await partial.exists()) await partial.delete();
-          controller.addError(Exception('Download von ${file.fileName} fehlgeschlagen: $e'));
+          controller.addError(GeoDownloadFehler.uebertragung(file.fileName, '$e'));
           await controller.close();
           return;
         }
@@ -65,7 +85,8 @@ class GeoDataDownloadService {
       try {
         await _extractCitiesZip();
       } catch (e) {
-        controller.addError(Exception('Entpacken von ${GeoDataCatalog.citiesZipFileName} fehlgeschlagen: $e'));
+        controller.addError(GeoDownloadFehler.entpacken(
+            GeoDataCatalog.citiesZipFileName, '$e'));
         await controller.close();
         return;
       }
@@ -84,7 +105,8 @@ class GeoDataDownloadService {
     final archive = ZipDecoder().decodeBytes(bytes);
     final entry = archive.files.firstWhere(
       (f) => f.isFile && p.basename(f.name) == GeoDataCatalog.citiesFileName,
-      orElse: () => throw StateError('${GeoDataCatalog.citiesFileName} nicht im Zip gefunden.'),
+      orElse: () =>
+          throw const GeoDownloadFehler.nichtImZip(GeoDataCatalog.citiesFileName),
     );
     final targetFile = File(p.join(geoDataDir, GeoDataCatalog.citiesFileName));
     await targetFile.writeAsBytes(entry.content as List<int>);

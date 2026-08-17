@@ -1,0 +1,1828 @@
+{
+  "@@locale": "de",
+  "allgAbbrechen": "Abbrechen",
+  "@allgAbbrechen": {
+    "description": "Verwirft einen Dialog, ohne etwas zu ändern."
+  },
+  "allgSpeichern": "Speichern",
+  "allgSchliessen": "Schließen",
+  "allgErstellen": "Erstellen",
+  "allgStarten": "Starten",
+  "allgName": "Name",
+  "allgMehr": "Mehr",
+  "allgAlleAnzeigen": "Alle anzeigen",
+  "navTimeline": "Timeline",
+  "navErkunden": "Erkunden",
+  "navKalender": "Kalender",
+  "navKarte": "Karte",
+  "navSuche": "Suche",
+  "navPersonen": "Personen",
+  "navAlben": "Alben",
+  "navWerkzeuge": "Werkzeuge",
+  "navEinstellungen": "Einstellungen",
+  "importierenTooltip": "Fotos/Videos importieren",
+  "geoeffneteBibliothek": "Geöffnete Bibliothek: {name}",
+  "@geoeffneteBibliothek": {
+    "description": "Nur sichtbar, wenn mehr als eine Bibliothek bekannt ist.",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "restaurierungLaeuft": "KI-Restaurierung läuft – Kachel {fertig}/{gesamt}",
+  "@restaurierungLaeuft": {
+    "placeholders": {
+      "fertig": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "restaurierungLaeuftMitWarteschlange": "KI-Restaurierung läuft – Kachel {fertig}/{gesamt} · {wartend} in Warteschlange",
+  "@restaurierungLaeuftMitWarteschlange": {
+    "placeholders": {
+      "fertig": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      },
+      "wartend": {
+        "type": "int"
+      }
+    }
+  },
+  "restaurierungWirdVorbereitet": "KI-Restaurierung wird vorbereitet …",
+  "restaurierungWartend": "{anzahl, plural, =1{1 Foto in der Warteschlange für die KI-Restaurierung} other{{anzahl} Fotos in der Warteschlange für die KI-Restaurierung}}",
+  "@restaurierungWartend": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "analyseLaeuft": "{stufe} wird berechnet (Schritt {nummer} von {gesamt}{fortschritt})",
+  "@analyseLaeuft": {
+    "description": "fortschritt ist entweder leer oder etwa ', 12/340' – als fertiger Text übergeben, weil er nur bei bekannter Gesamtzahl erscheint.",
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      },
+      "nummer": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      },
+      "fortschritt": {
+        "type": "String"
+      }
+    }
+  },
+  "kuerzelTitel": "Tastaturkürzel",
+  "kuerzelNavigation": "Navigation",
+  "kuerzelVollbild": "Vollbildansicht",
+  "kuerzelSichtung": "Sichtungs-Modus (Culling)",
+  "kuerzelBereicheWechseln": "Zwischen den Hauptbereichen wechseln",
+  "kuerzelUebersichtOeffnen": "Diese Übersicht öffnen",
+  "kuerzelVorherigesNaechstes": "Vorheriges / nächstes Foto",
+  "kuerzelLeertaste": "Leertaste",
+  "kuerzelNaechstesFoto": "Nächstes Foto",
+  "kuerzelBewertungSetzen": "Sternebewertung setzen",
+  "kuerzelFavoritUmschalten": "Favorit umschalten",
+  "kuerzelPapierkorbMitBestaetigung": "In den Papierkorb verschieben (mit Bestätigung)",
+  "kuerzelSofortAblehnen": "Sofort ablehnen und weiter (ohne Bestätigung)",
+  "timelineLeer": "Noch keine Fotos in der Bibliothek.",
+  "loeschenTitel": "{anzahl, plural, =1{Foto löschen?} other{{anzahl} Fotos löschen?}}",
+  "@loeschenTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "loeschenHinweis": "{anzahl, plural, =1{Wird in den Papierkorb verschoben.} other{Diese Fotos werden in den Papierkorb verschoben.}}",
+  "@loeschenHinweis": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "albumNeu": "Neues Album",
+  "albumName": "Albumname",
+  "albenLeer": "Noch keine Alben vorhanden.",
+  "erkundenPersonen": "Personen",
+  "erkundenOrte": "Orte",
+  "erkundenLetzteAlben": "Zuletzt hinzugefügte Alben",
+  "erkundenLetzteFotos": "Zuletzt hinzugefügte Fotos",
+  "erkundenErinnerungen": "Erinnerungen",
+  "ohneOrtLeer": "Noch keine Fotos mit bekanntem Ort.",
+  "karteTitel": "Karte",
+  "karteAnsicht": "Kartenansicht",
+  "karteTexturNachweis": "Erd-/Sternentextur: Solar System Scope (CC BY 4.0)",
+  "kalenderLeer": "Noch keine Fotos für eine Jahresübersicht.",
+  "kalenderJahrLeer": "Keine Fotos in diesem Jahr.",
+  "kalenderAnzahlFotos": "{anzahl, plural, =1{{anzahl} Foto/Video} other{{anzahl} Fotos/Videos}}",
+  "@kalenderAnzahlFotos": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "sucheSpeichernTitel": "Suche speichern",
+  "sucheModellFehlt": "Für die Kontext-Suche fehlt das Bildsuche-Modell. Es lässt sich in den Einstellungen unter „KI-Modelle“ laden.",
+  "sucheModellLaedt": "Modell für die Bildsuche wird geladen …",
+  "sucheFehlgeschlagen": "Suche fehlgeschlagen: {fehler}",
+  "@sucheFehlgeschlagen": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "suchePlatzhalterKontext": "z.B. „Sonnenuntergang am Meer“, „Hund im Schnee“ …",
+  "suchePlatzhalterDateiname": "Dateiname …",
+  "suchePlatzhalterBeschreibung": "Beschreibung …",
+  "suchePlatzhalterText": "Text im Foto …",
+  "suchePlatzhalterBildunterschrift": "z.B. „dog“, „sunset“ …",
+  "sucheOptionen": "Suchoptionen",
+  "sucheAusloesen": "Suchen",
+  "sucheAnleitung": "Gib einen Suchbegriff ein oder wähle Suchoptionen.",
+  "sucheKeineTreffer": "Keine Treffer.",
+  "viewerInfo": "Info",
+  "viewerTeilen": "Teilen",
+  "viewerExportieren": "Exportieren",
+  "viewerEntwickeln": "Entwickeln",
+  "viewerBearbeiten": "Bearbeiten",
+  "viewerZuschneiden": "Zuschneiden",
+  "viewerDiaschauStarten": "Diaschau starten",
+  "viewerDiaschauStoppen": "Diaschau stoppen",
+  "viewerFavoritSetzen": "Als Favorit markieren (F)",
+  "viewerFavoritEntfernen": "Favorit entfernen (F)",
+  "viewerInGesperrtenOrdner": "In gesperrten Ordner verschieben (verschlüsselt)",
+  "viewerInPapierkorb": "In den Papierkorb verschieben (⌫)",
+  "viewerVorherigesFoto": "Vorheriges Foto",
+  "viewerNaechstesFoto": "Nächstes Foto",
+  "viewerInTimelineZeigen": "Foto in der Timeline anzeigen",
+  "viewerAehnlicheZeigen": "Ähnliche Bilder anzeigen",
+  "viewerMetadatenBearbeiten": "Metadaten bearbeiten",
+  "viewerGesichterBearbeiten": "Gesichter bearbeiten",
+  "viewerEntwicklungAnwenden": "Kopierte Entwicklung anwenden",
+  "viewerEntwicklungAnwendenLang": "Kopierte Entwicklung auf dieses Foto anwenden",
+  "viewerGeschlosseneAugen": "Mindestens ein Gesicht mit geschlossenen Augen erkannt",
+  "viewerFokusPeaking": "Fokus-Peaking (scharfe Kanten hervorheben)",
+  "viewerFlachesSchwenken": "Flaches Schwenken statt 3D-Kugel",
+  "viewerFlacheVorschau": "Flache Vorschau statt 360°-Ansicht",
+  "viewerExportZielordner": "Zielordner zum Exportieren wählen",
+  "viewerExportiert": "Exportiert: {dateien}",
+  "@viewerExportiert": {
+    "placeholders": {
+      "dateien": {
+        "type": "String"
+      }
+    }
+  },
+  "viewerExportFehlgeschlagen": "Export fehlgeschlagen: {fehler}",
+  "@viewerExportFehlgeschlagen": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "viewerTeilenFehlgeschlagen": "Teilen fehlgeschlagen: {fehler}",
+  "@viewerTeilenFehlgeschlagen": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "personenTab": "Personen",
+  "personenUnbenannteTab": "Unbenannte Gesichter",
+  "personenLeer": "Noch keine Personen angelegt. Wechsle zum Tab „Unbenannte Gesichter“, wähle ein paar Gesichter aus und ordne sie einer neuen Person zu.",
+  "personenLangeDruecken": "lange drücken: zusammenführen",
+  "personenKeineUnbenannten": "Keine unbenannten Gesichter (mehr). Neue Gesichter erscheinen hier automatisch, sobald du weitere Fotos importierst.",
+  "personenSchwellenHinweis": "Ähnlichkeitsschwelle einstellbar unter Werkzeuge → Gesichtserkennung.",
+  "personenDoppelklickHinweis": "Doppelklick auf ein Gesicht öffnet das ganze Foto zur Kontrolle.",
+  "personenAutomatischGruppieren": "Automatisch gruppieren",
+  "personenAehnlicheAuswaehlen": "Ähnliche mit auswählen",
+  "personenAehnlicheAbwaehlen": "Ähnliche abwählen",
+  "personenZuordnen": "{anzahl, plural, =1{Gesicht zuordnen} other{{anzahl} Gesichter zuordnen}}",
+  "@personenZuordnen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "personenModellFehlt": "Für die Ähnlichkeitssuche wird das SFace-Modell benötigt (siehe Einstellungen → Modelle).",
+  "personenKeineAehnlichen": "Keine ähnlichen Gesichter über der Schwelle {schwelle} gefunden.",
+  "@personenKeineAehnlichen": {
+    "placeholders": {
+      "schwelle": {
+        "type": "String"
+      }
+    }
+  },
+  "personenZuWenigeFuerClustering": "Nicht genug unbenannte Gesichter mit Embedding für ein Clustering.",
+  "personenKeineGruppen": "Keine ähnlichen Gruppen gefunden.",
+  "personenDauertTitel": "Das kann etwas dauern",
+  "personenDauertText": "{anzahl} unbenannte Gesichter gefunden. Die automatische Gruppierung vergleicht jedes mit jedem und kann bei so vielen Gesichtern einige Zeit dauern (die App bleibt währenddessen bedienbar). Trotzdem starten?",
+  "@personenDauertText": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "personenZusammenfuehrenMit": "„{name}“ zusammenführen mit …",
+  "@personenZusammenfuehrenMit": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "personenZusammenfuehrenTitel": "Zusammenführen bestätigen",
+  "personenZusammenfuehrenText": "Alle Fotos von „{quelle}“ werden „{ziel}“ zugeordnet. „{quelle}“ wird danach gelöscht. Das lässt sich nicht rückgängig machen.",
+  "@personenZusammenfuehrenText": {
+    "placeholders": {
+      "quelle": {
+        "type": "String"
+      },
+      "ziel": {
+        "type": "String"
+      }
+    }
+  },
+  "personenZusammenfuehren": "Zusammenführen",
+  "spracheTitel": "Sprache",
+  "spracheSystem": "Systemsprache",
+  "spracheDeutsch": "Deutsch",
+  "spracheEnglisch": "English",
+  "spracheHinweis": "Betrifft nur die Oberfläche. Deine Alben, Schlagwörter und Personennamen bleiben, wie sie sind.",
+  "spracheVokabularTitel": "Schlagwort-Vokabular mitübersetzen?",
+  "spracheVokabularText": "{bekannt} der {gesamt} Begriffe im Vokabular stammen aus der mitgelieferten Startbestückung und lassen sich zuverlässig übersetzen. Bereits vergebene Schlagwörter wandern mit, es geht nichts verloren.",
+  "@spracheVokabularText": {
+    "placeholders": {
+      "bekannt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "spracheVokabularSelbstAngelegt": "{anzahl, plural, =0{} =1{Ein selbst hinzugefügter Begriff bleibt unverändert.} other{{anzahl} selbst hinzugefügte Begriffe bleiben unverändert.}}",
+  "@spracheVokabularSelbstAngelegt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "spracheVokabularUebersetzen": "Übersetzen",
+  "spracheVokabularBehalten": "Unverändert lassen",
+  "spracheVokabularFertig": "{anzahl, plural, =1{Ein Begriff übersetzt.} other{{anzahl} Begriffe übersetzt.}}",
+  "@spracheVokabularFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "erkundenKeinePersonen": "Noch keine Personen benannt.",
+  "erkundenKeineOrte": "Noch keine Orte aufgelöst (siehe Werkzeuge → Orte).",
+  "erkundenKeineFotos": "Noch keine Fotos importiert.",
+  "karteKeineOrteLang": "Noch keine Fotos mit bekanntem Ort.\n\nDer Ort wird beim Import automatisch aus den GPS-Daten eines Fotos übernommen (falls vorhanden) oder lässt sich in der Info-Ansicht eines Fotos/Videos (Vollbildvorschau → ⓘ) manuell festlegen.",
+  "einstOrdnerNichtGeoeffnet": "Ordner konnte nicht geöffnet werden: {pfad}",
+  "@einstOrdnerNichtGeoeffnet": {
+    "placeholders": {
+      "pfad": {
+        "type": "String"
+      }
+    }
+  },
+  "einstBibWechselnTitel": "Zu „{name}“ wechseln?",
+  "@einstBibWechselnTitel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstBibWechselnText": "Die App wird danach geschlossen und öffnet beim nächsten Start die gewählte Bibliothek.\n\nEs werden keine Fotos verschoben oder gelöscht – beide Bibliotheken bleiben unverändert an ihrem Ort.",
+  "einstBibGewechselt": "Die Bibliothek wurde gewechselt. Es wurden keine Daten verschoben. Die App wird jetzt geschlossen – bitte danach manuell neu öffnen.",
+  "einstBibHinzufuegenAuswahl": "Ordner einer bestehenden Bibliothek wählen – oder einen leeren Ordner für eine neue. Es wird nichts verschoben.",
+  "einstBibBestehendHinzugefuegt": "Bestehende Bibliothek hinzugefügt.",
+  "einstBibLeerHinzugefuegt": "Leerer Ordner hinzugefügt – beim Wechseln dorthin entsteht eine neue, leere Bibliothek.",
+  "einstBibEntfernenTitel": "„{name}“ aus der Liste entfernen?",
+  "@einstBibEntfernenTitel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstBibEntfernenText": "Die Bibliothek verschwindet nur aus dieser Liste. Fotos, Datenbank und Ordner bleiben unverändert erhalten und lassen sich jederzeit wieder hinzufügen.",
+  "einstBibNichtEntfernbar": "Dieser Eintrag lässt sich nicht entfernen.",
+  "einstBibListe": "Bibliotheken",
+  "einstBibHinzufuegen": "Bibliothek hinzufügen…",
+  "einstBibAusListeEntfernen": "Aus der Liste entfernen (löscht keine Fotos)",
+  "einstBibNichtGefunden": "Ordner nicht gefunden – Laufwerk eingebunden?",
+  "einstBibWechselHinweis": "Ein Wechsel biegt nur um, welche Bibliothek geöffnet wird – es werden keine Fotos verschoben. Zum Verlegen der aktuellen Bibliothek an einen anderen Ort dient „Speicherort ändern\" weiter unten.",
+  "einstSpeicherortTitel": "Speicherort der aktiven Bibliothek",
+  "einstSpeicherortWaehlen": "Fotos, Videos, Thumbnails und die Datenbank werden in diesen Ordner verschoben. Bitte einen bereits vorhandenen Ordner wählen (falls nötig vorher im Finder anlegen).",
+  "einstSpeicherortZuruecksetzenTitel": "Speicherort zurücksetzen?",
+  "einstSpeicherortZuruecksetzenText": "Die Bibliothek wird zurück in den Standard-App-Support-Ordner verschoben. Die App wird danach automatisch geschlossen – bitte anschließend neu öffnen.",
+  "einstSpeicherortZuruecksetzenLaeuft": "Setze Speicherort zurück …",
+  "einstSpeicherortGeaendert": "Der Speicherort wurde geändert. Die App wird jetzt geschlossen – bitte danach manuell neu öffnen, damit sie die Bibliothek am neuen Ort lädt.",
+  "einstImFinderAnzeigen": "Im Finder anzeigen",
+  "einstAendern": "Ändern…",
+  "einstZuruecksetzen": "Zurücksetzen",
+  "einstWirdBerechnet": "wird berechnet …",
+  "einstUeberwachtTitel": "Überwachter Ordner",
+  "einstUeberwachtKeiner": "Kein Ordner eingerichtet",
+  "einstUeberwachtErklaerung": "Was in einem gewählten Ordner auftaucht, wird von selbst in die Bibliothek aufgenommen – alle fünf Minuten und bei jedem Start.",
+  "einstUeberwachtAktiv": "Wird alle fünf Minuten geprüft. Die Dateien bleiben dort liegen.",
+  "einstUeberwachtWaehlen": "Ordner wählen…",
+  "einstUeberwachtAndererWaehlen": "Anderen Ordner…",
+  "einstUeberwachtBeenden": "Nicht mehr überwachen",
+  "einstUeberwachtAuswahl": "Ordner wählen, der laufend auf neue Fotos geprüft werden soll. Die Dateien bleiben dort liegen; sie werden nur zusätzlich in die Bibliothek aufgenommen.",
+  "einstUeberwachtUebernommen": "{anzahl, plural, =1{1 neues Foto aus dem Ordner übernommen.} other{{anzahl} neue Fotos aus dem Ordner übernommen.}}",
+  "@einstUeberwachtUebernommen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "einstKiHinweis": "Wie bei digiKam laufen alle KI-Funktionen offline auf diesem Rechner. Die Modelldateien werden nicht mitgeliefert, sondern bei Bedarf aus offiziellen Open-Source-Quellen heruntergeladen (einmalig, danach komplett offline nutzbar).",
+  "einstAutoAnalyseTitel": "KI-Auswertung nach dem Import automatisch nachholen",
+  "einstAutoAnalyseText": "Der Import legt die Fotos nur ab und bleibt dadurch schnell. Gesichter, Texterkennung, Bildsuche und Bildbeschreibung laufen danach im Hintergrund nach. Ausgeschaltet lässt sich das jederzeit unter Werkzeuge von Hand anstoßen.",
+  "einstNurErkennung": "Nur Erkennung aktiv (Wiedererkennung: SFace-Modell fehlt noch)",
+  "einstAufgabenTitel": "Aufgaben-Übersicht",
+  "einstAufgabenText": "Alle Auswertungen mit Anzahl noch offener Fotos, einzeln anstoßbar",
+  "einstModellLoeschen": "Modell löschen",
+  "einstModellNichtGeladen": "{beschreibung}\n\nDas zugehörige Modell ist noch nicht geladen.",
+  "@einstModellNichtGeladen": {
+    "placeholders": {
+      "beschreibung": {
+        "type": "String"
+      }
+    }
+  },
+  "einstVokabularText": "Begriffe, die automatisch per KI-Bildsuche-Modell (CLIP) auf neu importierte Fotos angewendet werden. Änderungen hier gelten nur für künftige Fotos – um sie rückwirkend auf die vorhandene Bibliothek anzuwenden, siehe Werkzeuge → \"KI-Tags berechnen\" → \"Alle Fotos\".",
+  "einstBegriffHinzufuegenFeld": "Begriff hinzufügen …",
+  "einstBegriffHinzufuegen": "Begriff hinzufügen",
+  "einstOrteText": "Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu – komplett lokal über die nächstgelegene bekannte Stadt (GeoNames-Datensatz), ohne Anfrage an einen Online-Kartendienst. Für die Land-/Bundesland-/Stadt-Filter in den Suchoptionen nötig.",
+  "einstGeoTitel": "GeoNames – Städte, Länder, Bundesländer",
+  "einstGeoText": "Städte ab 1000 Einwohnern weltweit (~10 MB). Lizenz: {lizenz}.",
+  "@einstGeoText": {
+    "placeholders": {
+      "lizenz": {
+        "type": "String"
+      }
+    }
+  },
+  "einstGeoLoeschen": "GeoNames-Datensatz löschen",
+  "einstGesperrtText": "Verschlüsselt private Fotos mit AES-256 (echte Verschlüsselung, nicht nur ein Anzeige-Filter) und blendet sie überall sonst (Timeline, Suche, Alben, Personen, Karte, Backup) aus. Ohne den PIN gibt es keine Wiederherstellung.",
+  "einstGesperrtEntsperrt": "PIN eingerichtet – für diese Sitzung bereits entsperrt.",
+  "einstGesperrtOeffnen": "Öffnen",
+  "einstPinAendern": "PIN ändern",
+  "einstGesperrtAufloesenText": "Alle Fotos im gesperrten Ordner werden entschlüsselt und wieder normal sichtbar (Timeline, Suche, Alben, Personen, Karte, Backup). Das lässt sich nicht rückgängig machen.",
+  "einstBackupVerschluesselungTitel": "Backup-Verschlüsselung",
+  "einstBackupVerschluesselungText": "Ermöglicht, manuelle und automatische Backups mit AES-256 zu verschlüsseln. Eigene Passphrase, unabhängig vom PIN des gesperrten Ordners – ein Backup landet oft extern und muss auch ohne diesen Rechner entschlüsselbar sein.",
+  "einstBackupEntsperrt": "Eingerichtet – für diese Sitzung bereits entsperrt.",
+  "einstBackupGesperrt": "Eingerichtet – wird beim nächsten Backup abgefragt.",
+  "einstBackupAendern": "Ändern",
+  "einstBackupNieGesichert": "Noch nie gesichert.",
+  "einstBackupVerschluesseln": "Backup verschlüsseln",
+  "einstBackupPassphraseAbfrage": "Fragt bei Bedarf die Backup-Passphrase von oben ab.",
+  "einstBackupZielWaehlen": "Backup-Ziel wählen (z.B. dein Dropbox- oder Google-Drive-Ordner)",
+  "einstBackupOrdnerWaehlen": "Backup-Ordner wählen (enthält \"PhotoVault-Backup\" bzw. \"originals\")",
+  "einstBackupEntschluesselnTitel": "Backup-Verschlüsselung entfernen?",
+  "einstBackupEntschluesselnText": "Neue Backups werden danach nicht mehr verschlüsselt. Bereits bestehende verschlüsselte Backups am Zielort bleiben unverändert und weiterhin nur mit der bisherigen Passphrase entschlüsselbar.",
+  "einstBackupLaeuft": "Automatisches Backup läuft …",
+  "einstBackupKeineNeuen": "Keine neuen Dateien – Datenbank-Schnappschuss wird aktualisiert.",
+  "einstBackupZielHinweis": "Wähle als Ziel z.B. deinen lokalen Dropbox- oder Google-Drive-Ordner – die Desktop-App des jeweiligen Anbieters lädt die Dateien dann automatisch in die Cloud hoch.",
+  "einstBackupAutoHinweis": "Läuft nur, während die App geöffnet ist (kein Hintergrunddienst) – prüft beim Start und danach alle 30 Minuten, ob das Intervall abgelaufen ist. Sichert immer verschlüsselt, zusätzlich zu den Originaldateien auch einen Schnappschuss der gesamten Datenbank (Gesichter, Orte, Tags, Alben, Favoriten, …), damit sich bei Datenverlust der komplette Zustand wiederherstellen lässt. Löscht am Zielort nie etwas – lokale Löschungen werden bewusst nicht nachvollzogen.",
+  "einstBackupZuerstZiel": "Zuerst einen Zielordner wählen.",
+  "einstBackupKeinOrdner": "Kein Ordner gewählt.",
+  "einstBackupAutoZielWaehlen": "Zielordner für automatisches Backup wählen",
+  "einstWaehlen": "Wählen…",
+  "einstStuendlich": "Stündlich",
+  "einstTaeglich": "Täglich",
+  "einstWoechentlich": "Wöchentlich",
+  "einstBackupGrenzeText": "Begrenzt, wie viel pro Durchlauf ins Ziel geschrieben wird. Sinnvoll bei Cloud-Ordnern: Der Upload kommt sonst tagelang nicht hinterher. Der Rest folgt beim nächsten Intervall.",
+  "einstNieAusgefuehrt": "Noch nie ausgeführt.",
+  "einstBackupPassphraseGesperrt": "Backup-Passphrase muss für diese Sitzung noch entsperrt werden, bevor das automatische Backup laufen kann – z.B. über \"Jetzt synchronisieren\".",
+  "einstPapierkorbText": "Löscht in den Papierkorb verschobene Fotos/Videos nach Ablauf der gewählten Frist endgültig – unwiderruflich, auch aus dem PIN-geschützten Papierkorb des gesperrten Ordners. Standardmäßig deaktiviert.",
+  "einstPapierkorbAus": "Papierkorb-Ablauf ist standardmäßig ausgeschaltet.",
+  "einstResetText": "Löscht unwiderruflich ALLE Fotos, Videos und die gesamte Datenbank dieser Bibliothek und beginnt danach mit einer leeren Bibliothek neu. Heruntergeladene KI-Modelle und Geodaten bleiben erhalten (kein erneuter Download nötig).",
+  "einstResetTitel": "Datenbank zurücksetzen",
+  "einstResetKurz": "Löscht alle Medien und Metadaten – nicht rückgängig zu machen.",
+  "einstResetKnopf": "Zurücksetzen…",
+  "einstResetBestaetigenTitel": "Datenbank wirklich zurücksetzen?",
+  "einstResetBestaetigenText": "Löscht UNWIDERRUFLICH alle Fotos, Videos, Thumbnails und die gesamte Datenbank dieser Bibliothek (Alben, Personen, Tags, Orte, Favoriten, gesperrter Ordner, Papierkorb, gespeicherte Suchen, …). Heruntergeladene KI-Modelle und Geodaten bleiben erhalten. Erstelle vorher ein Backup, falls du dir nicht sicher bist – diese Aktion lässt sich NICHT rückgängig machen.",
+  "einstResetWort": "ZURÜCKSETZEN",
+  "einstResetEndgueltig": "Endgültig zurücksetzen",
+  "einstResetLaeuft": "Lösche Bibliothek …",
+  "einstResetFertig": "Die Bibliothek wurde vollständig gelöscht. Die App wird jetzt geschlossen – bitte danach manuell neu öffnen, um mit einer leeren Bibliothek neu zu beginnen.",
+  "einstResetFehlgeschlagen": "Zurücksetzen fehlgeschlagen",
+  "einstUeberTitel": "Über diese App",
+  "einstKeineModelle": "Keine KI-Modelle geladen",
+  "einstModelleGeladen": "{geladen} von {gesamt} KI-Modellen geladen",
+  "@einstModelleGeladen": {
+    "placeholders": {
+      "geladen": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "einstModelleUnbenutzt": "Die KI-Funktionen bleiben ohne sie unbenutzt.",
+  "einstAktualisierungHinweis": "Die Prüfung fragt einmalig beim öffentlichen Veröffentlichungsverzeichnis nach der neuesten Versionsnummer. Es wird nichts über die Bibliothek übertragen, und es geschieht nur auf diesen Knopfdruck – nie von selbst.",
+  "einstAktualisierungNeuer": "Neuere Fassung verfügbar: {version}",
+  "@einstAktualisierungNeuer": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "einstAktualisierungAktuell": "Diese Fassung ist aktuell.",
+  "einstAktualisierungFehler": "Prüfung fehlgeschlagen: {fehler}",
+  "@einstAktualisierungFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "einstVerschiebenFehlgeschlagen": "Verschieben fehlgeschlagen",
+  "einstWechselnFehlgeschlagen": "Wechseln fehlgeschlagen",
+  "einstNeustartTitel": "Neustart erforderlich",
+  "einstUebersetzeBeschreibungTitel": "Bildbeschreibungen in die Oberflächensprache übersetzen",
+  "einstUebersetzeBeschreibungText": "Das Beschreibungsmodell liefert nur Englisch – es gibt kein vergleichbar kleines deutsches. Ist das Modell „Übersetzung Englisch → Deutsch“ geladen, wird jede neue Beschreibung zusätzlich übersetzt. Das englische Original bleibt erhalten, die Suche findet beide.",
+  "einstUebersetzeSucheTitel": "Suche und Schlagwörter übersetzen",
+  "einstUebersetzeSucheText": "Der Text-Teil des Bildsuche-Modells versteht nur Englisch, das Schlagwort-Vokabular ist aber deutsch. Eingeschaltet wandern Suchanfrage und Vokabelbegriffe vorher durch die Übersetzung. An 103 Fotos gemessen trifft das bei 33 von 56 Begriffen genauer, bei 19 schlechter – und es vergibt deutlich weniger Schlagwörter. Deshalb zum Ausprobieren, nicht als Vorgabe.",
+  "allgEntfernen": "Entfernen",
+  "allgEinrichten": "Einrichten",
+  "allgHerunterladen": "Herunterladen",
+  "allgAktiv": "Aktiv",
+  "einstAbschnittErscheinungsbild": "Erscheinungsbild",
+  "einstAbschnittModelle": "KI-Modelle (lokal & quelloffen)",
+  "einstAbschnittHintergrund": "Hintergrundaufgaben",
+  "einstAbschnittVokabular": "KI-Tagging-Vokabular",
+  "einstAbschnittStandortdaten": "Standortdaten (lokal & quelloffen)",
+  "einstAbschnittGesperrterOrdner": "Gesperrter Ordner",
+  "einstAbschnittManuellesBackup": "Manuelles Cloud-Backup",
+  "einstAbschnittAutoBackup": "Automatisches Backup",
+  "einstAbschnittPapierkorb": "Papierkorb automatisch leeren",
+  "einstAbschnittGefahrenzone": "Gefahrenzone",
+  "einstDesign": "Design",
+  "einstDesignHell": "Hell",
+  "einstDesignDunkel": "Dunkel",
+  "einstDesignSystem": "System",
+  "einstUeberwachtNichtsNeues": "Ordner eingerichtet – nichts Neues gefunden.",
+  "einstBibWechselnAktion": "Wechseln",
+  "einstBibWechselnLaeuft": "Wechsle Bibliothek …",
+  "einstBibAktiv": "aktiv",
+  "einstBibImmerVorhanden": "immer vorhanden",
+  "einstSpeicherort": "Speicherort",
+  "einstSpeicherortVerschiebenLaeuft": "Verschiebe Bibliothek …",
+  "einstSpeicherbedarf": "Speicherbedarf (Originale)",
+  "einstModellLaedt": "Lade „{titel}“ herunter …",
+  "@einstModellLaedt": {
+    "placeholders": {
+      "titel": {
+        "type": "String"
+      }
+    }
+  },
+  "einstModelleBelegterPlatz": "Belegter Platz aller Modelle: {groesse}",
+  "@einstModelleBelegterPlatz": {
+    "placeholders": {
+      "groesse": {
+        "type": "String"
+      }
+    }
+  },
+  "einstModellLizenzZeile": "Lizenz: {lizenz}",
+  "@einstModellLizenzZeile": {
+    "placeholders": {
+      "lizenz": {
+        "type": "String"
+      }
+    }
+  },
+  "einstGesichtserkennungAktiv": "Gesichtserkennung aktiv",
+  "einstGesichtserkennungBeides": "Erkennung + Wiedererkennungs-Embeddings aktiv",
+  "einstGesichtserkennungInaktiv": "Inaktiv – YuNet-Modell oben herunterladen",
+  "einstGeoLaedt": "Lade Standortdaten herunter …",
+  "einstPinEinrichten": "PIN einrichten",
+  "einstGesperrterOrdner": "Gesperrter Ordner",
+  "einstPinEingerichtet": "PIN eingerichtet.",
+  "einstPinEntfernen": "PIN entfernen",
+  "einstGesperrtAufloesenTitel": "PIN-Schutz entfernen?",
+  "einstSitzungSperren": "Sitzung jetzt sperren",
+  "einstPassphraseEinrichten": "Passphrase einrichten",
+  "einstBackupPassphrase": "Backup-Passphrase",
+  "einstBackupPassphraseEingeben": "Backup-Passphrase eingeben",
+  "einstBackupSichertLaeuft": "Sichere Bibliothek …",
+  "einstBackupWiederherstellenLaeuft": "Stelle Bibliothek wieder her …",
+  "einstLetztesBackup": "Letztes Backup",
+  "einstBackupZusammenfassung": "{datum} – {anzahl} Datei(en) nach {ziel}",
+  "@einstBackupZusammenfassung": {
+    "placeholders": {
+      "datum": {
+        "type": "String"
+      },
+      "anzahl": {
+        "type": "int"
+      },
+      "ziel": {
+        "type": "String"
+      }
+    }
+  },
+  "einstJetztSichern": "Jetzt sichern",
+  "einstWiederherstellen": "Wiederherstellen",
+  "einstZielordner": "Zielordner",
+  "einstIntervall": "Intervall",
+  "einstIntervallSechsStunden": "Alle 6 Stunden",
+  "einstMengeJeLauf": "Menge je Lauf",
+  "einstUnbegrenzt": "Unbegrenzt",
+  "einstLetzterLauf": "Letzter Lauf",
+  "einstJetztSynchronisieren": "Jetzt synchronisieren",
+  "einstNachTagen": "Nach",
+  "einstTageDropdown": "{tage} Tagen",
+  "@einstTageDropdown": {
+    "placeholders": {
+      "tage": {
+        "type": "int"
+      }
+    }
+  },
+  "einstDatenbank": "Datenbank",
+  "einstDatenbankStand": "Stand {version}",
+  "@einstDatenbankStand": {
+    "placeholders": {
+      "version": {
+        "type": "int"
+      }
+    }
+  },
+  "einstBauZeile": "Bau {bau} · {system} {systemversion}",
+  "@einstBauZeile": {
+    "placeholders": {
+      "bau": {
+        "type": "String"
+      },
+      "system": {
+        "type": "String"
+      },
+      "systemversion": {
+        "type": "String"
+      }
+    }
+  },
+  "einstNachAktualisierungSuchen": "Nach Aktualisierung suchen",
+  "modellYunetTitel": "Gesichtserkennung – YuNet",
+  "modellYunetText": "Erkennt Gesichter (Bounding Boxes) in Fotos. Leichtgewichtiges CNN, Teil von OpenCV Zoo.",
+  "modellYunetLizenz": "Apache-2.0",
+  "modellSfaceTitel": "Gesichts-Wiedererkennung – SFace",
+  "modellSfaceText": "Berechnet ein Embedding pro Gesicht, um ähnliche/gleiche Gesichter beim manuellen Zuordnen leichter zu gruppieren. Teil von OpenCV Zoo.",
+  "modellSfaceLizenz": "Apache-2.0",
+  "modellClipTitel": "KI-Bildsuche – CLIP ViT-B/32",
+  "modellClipText": "Ermöglicht die Suche nach Fotos in natürlicher Sprache (z.B. \"Sonnenuntergang am Meer\"). OpenAI-Originalgewichte, als separate Bild-/Text-Encoder-ONNX-Graphen exportiert.",
+  "modellClipLizenz": "MIT (Gewichte: OpenAI CLIP, siehe Quelle)",
+  "modellSamTitel": "KI-Objektmasken – SAM ViT-Base",
+  "modellSamText": "Erlaubt gezielte Anpassungen nur auf einem ausgewählten Bereich (z.B. nur den Himmel aufhellen) im Entwickeln-Screen, statt jede Anpassung auf das ganze Bild anzuwenden. Nutzer setzt Vordergrund-/Hintergrund-Punkte, ein promptbares Segmentierungsmodell schlägt die passende Maske vor.",
+  "modellSamLizenz": "Apache-2.0 (Gewichte: Meta Segment Anything, siehe Quelle)",
+  "modellCaptionTitel": "KI-Bildbeschreibung – ViT-GPT2 (Englisch)",
+  "modellCaptionText": "Erzeugt automatisch eine kurze, englische Bildunterschrift pro Foto (z.B. für die Suche oder als schnelle Übersicht). Es gibt aktuell kein vergleichbar kleines deutsches Modell – Ausgabe ist immer Englisch.",
+  "modellCaptionLizenz": "Apache-2.0 (Basis: nlpconnect/vit-gpt2-image-captioning, ONNX-Port: Xenova)",
+  "modellOcecTitel": "Geschlossene-Augen-Erkennung – OCEC",
+  "modellOcecText": "Markiert Gesichter mit geschlossenen Augen in der Sichtung – schnelleres Aussortieren von Fotos mit Blinzlern in Porträt-/Gruppenserien.",
+  "modellOcecLizenz": "MIT",
+  "modellEsrganTitel": "KI-Restaurierung – Real-ESRGAN x4",
+  "modellEsrganText": "Skaliert ein Foto um Faktor 4 hoch und entrauscht dabei. Läuft als Hintergrund-Warteschlange (Einstellungen/Entwickeln) und dauert je nach Fotogröße mehrere Minuten.",
+  "modellEsrganLizenz": "BSD-3-Clause (Real-ESRGAN-Originalgewichte)",
+  "modellEnDeTitel": "Übersetzung Englisch → Deutsch – OPUS-MT",
+  "modellEnDeText": "Übersetzt die automatisch erzeugten Bildbeschreibungen ins Deutsche. Das Beschreibungsmodell selbst liefert nur Englisch; ohne diese Ergänzung muss man auf Englisch suchen, was man auf Deutsch sieht. Rund 100 MB.",
+  "modellEnDeLizenz": "Apache-2.0 (Basis: Helsinki-NLP/opus-mt-en-de, ONNX-Port: Xenova)",
+  "modellDeEnTitel": "Übersetzung Deutsch → Englisch – OPUS-MT",
+  "modellDeEnText": "Übersetzt deutsche Suchanfragen und Schlagwörter, bevor sie an die KI-Bildsuche gehen – deren Text-Encoder versteht nur Englisch. Rund 100 MB.",
+  "modellDeEnLizenz": "Apache-2.0 (Basis: Helsinki-NLP/opus-mt-de-en, ONNX-Port: Xenova)",
+  "werkzKeineUnbewerteten": "Keine unbewerteten Fotos gefunden.",
+  "werkzYunetNoetig": "Dafür wird zuerst das YuNet-Modell benötigt (Einstellungen → KI-Modelle).",
+  "werkzClipNoetig": "Dafür wird zuerst das CLIP-Modell benötigt (Einstellungen → KI-Modelle).",
+  "werkzBeschreibungsmodellNoetig": "Dafür wird zuerst das Bildbeschreibungs-Modell benötigt (Einstellungen → KI-Modelle).",
+  "werkzGeoNoetig": "Dafür wird zuerst der GeoNames-Datensatz benötigt (Einstellungen → Standortdaten).",
+  "werkzKeinePassenden": "Keine passenden Fotos gefunden.",
+  "werkzGesichterScannenTitel": "Gesichter scannen",
+  "werkzGesichterScannenFrage": "Nur neue Fotos scannen: schnell, überspringt bereits gescannte Fotos.\n\nAlle Fotos erneut scannen: prüft die komplette Bibliothek neu (z.B. sinnvoll nach einem Update der Gesichtserkennung, oder um die Geschlossene-Augen-Erkennung nachträglich für bereits gescannte Fotos zu berechnen) – dauert bei großen Bibliotheken entsprechend länger. Bereits manuell zugeordnete Gesichter bleiben dabei erhalten.",
+  "werkzNurNeueFotos": "Nur neue Fotos",
+  "werkzAlleErneutScannen": "Alle erneut scannen",
+  "werkzScanneNeue": "Scanne neue Fotos …",
+  "werkzScanneAlle": "Scanne alle Fotos erneut …",
+  "werkzVorschauNeuTitel": "Vorschaubilder neu erstellen",
+  "werkzVorschauNeuFrage": "Nur fehlende: verarbeitet nur Fotos/Videos, die aktuell kein Thumbnail haben (z.B. HEIC-Fotos, die vor Einrichtung der nativen Bildkonvertierung importiert wurden, oder Videos, die vor Einführung der Video-Thumbnail-Erzeugung importiert wurden).\n\nAlle neu erstellen: erzeugt für die komplette Bibliothek neue Thumbnails/Vorschauen – sinnvoll z.B. nach einem Update der Bild- oder Videokonvertierung. Dauert bei großen Bibliotheken entsprechend länger.",
+  "werkzNurFehlende": "Nur fehlende",
+  "werkzAlleNeuErstellen": "Alle neu erstellen",
+  "werkzErstelleFehlende": "Erstelle fehlende Vorschaubilder …",
+  "werkzErstelleAlle": "Erstelle alle Vorschaubilder neu …",
+  "werkzRendereNeu": "Rendere entwickelte Fotos neu …",
+  "werkzKeineEntwickelten": "Keine entwickelten Fotos gefunden.",
+  "werkzPruefeLivePhotos": "Prüfe auf Live-Photo-Paare …",
+  "werkzKeineUnverknuepften": "Keine unverknüpften Fotos gefunden.",
+  "werkzBerechneEmbeddings": "Berechne CLIP-Embeddings …",
+  "werkzAlleHabenEmbedding": "Alle Fotos haben bereits ein Embedding.",
+  "werkzKiTagsTitel": "KI-Tags berechnen",
+  "werkzKiTagsFrage": "Nur ungetaggte Fotos: schnell, überspringt Fotos, die schon mindestens einen Tag haben (manuell oder automatisch).\n\nAlle Fotos: prüft die komplette Bibliothek neu und ergänzt zusätzlich passende KI-Tags bei bereits getaggten Fotos – vorhandene Tags bleiben dabei erhalten.",
+  "werkzNurUngetaggte": "Nur ungetaggte",
+  "werkzAlleFotos": "Alle Fotos",
+  "werkzBerechneKiTags": "Berechne KI-Tags …",
+  "werkzLeseOrte": "Lese Orte aus Fotos ein …",
+  "werkzAlleHabenOrt": "Alle Fotos haben bereits einen Ort (oder keine EXIF-GPS-Daten).",
+  "werkzLoeseOrteAuf": "Löse Land/Bundesland/Stadt auf …",
+  "werkzAlleAufgeloest": "Alle Fotos mit bekanntem Ort sind bereits aufgelöst.",
+  "werkzLeseKameradaten": "Lese Kameradaten aus Fotos ein …",
+  "werkzAlleHabenKameradaten": "Alle Fotos haben bereits Kameradaten (oder keine passenden EXIF-Daten).",
+  "werkzSchreibeXmp": "Schreibe XMP-Sidecars …",
+  "werkzKeineFotosGesperrt": "Keine Fotos gefunden (gesperrte Fotos werden übersprungen).",
+  "werkzErkenneText": "Erkenne Text in Fotos …",
+  "werkzAlleTextDurchsucht": "Alle Fotos wurden bereits nach Text durchsucht.",
+  "werkzErzeugeBeschreibungen": "Erzeuge Bildbeschreibungen …",
+  "werkzAlleHabenBeschreibung": "Alle Fotos haben bereits eine KI-Beschreibung.",
+  "werkzBerechneUnschaerfe": "Berechne Unschärfe-Scores …",
+  "werkzAlleHabenUnschaerfe": "Für alle Fotos wurde bereits ein Unschärfe-Score berechnet.",
+  "werkzAbschnittStatistik": "Statistik",
+  "werkzAnalyseseiteTitel": "Analyseseite",
+  "werkzAnalyseseiteText": "Anzahl Fotos/Videos, Speicherplatz, Aufnahmen pro Jahr/Monat, häufigste Kameras",
+  "werkzAbschnittGesichtserkennung": "Gesichtserkennung",
+  "werkzGesichterScannenUntertitel": "Manuell auslösen – neue oder alle Fotos",
+  "werkzSchwelleLabel": "Ähnlichkeitsschwelle für\n\"Ähnliche mit auswählen\"",
+  "werkzSchwelleErklaerung": "Höhere Werte = strengerer Abgleich (weniger, aber sicherere Treffer). Gilt für den Button \"Ähnliche mit auswählen\" im Personen-Tab bei \"Unbenannte Gesichter\".",
+  "werkzAbschnittVorschau": "Vorschaubilder",
+  "werkzHeicTitel": "HEIC/HEIF & RAW-Unterstützung",
+  "werkzHeicAktiv": "Aktiv – iPhone-Fotos (HEIC) und RAW-Dateien (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2 & Co.) werden über die native macOS-Bildkonvertierung unterstützt.",
+  "werkzHeicInaktiv": "Inaktiv – native Swift-Datei muss noch ins Xcode-Projekt eingebunden werden (siehe README). JPG/PNG/WebP/GIF/BMP/TIFF funktionieren auch ohne das.",
+  "werkzVorschauNeuUntertitel": "Für alle Fotos oder nur für noch fehlende",
+  "werkzAbschnittEntwicklung": "Entwicklung",
+  "werkzNeuRendernTitel": "Entwickelte Fotos neu rendern",
+  "werkzNeuRendernText": "Rendert alle Fotos mit gespeicherten Entwicklungs-Anpassungen (Belichtung, Weißabgleich & Co.) mit unveränderten Einstellungen neu – z.B. sinnvoll nach einem Update der nativen Bildverarbeitung.",
+  "werkzAbschnittLivePhotos": "Live Photos",
+  "werkzLivePhotoTitel": "Live-Photo-Paare erneut prüfen",
+  "werkzLivePhotoText": "Für Fotos/Videos, die vor dieser Funktion importiert wurden – verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos.",
+  "werkzAbschnittOrte": "Orte",
+  "werkzOrteEinlesenTitel": "Orte aus Fotos einlesen",
+  "werkzOrteEinlesenText": "Für Fotos, die vor Einführung der Kartenansicht importiert wurden – liest EXIF-GPS-Daten nachträglich ein.",
+  "werkzOrteAufloesenTitel": "Land/Bundesland/Stadt auflösen",
+  "werkzOrteAufloesenText": "Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu – komplett lokal/offline über den GeoNames-Datensatz (siehe Einstellungen → Standortdaten). Für die Land-/Bundesland-/Stadt-Filter in den Suchoptionen nötig.",
+  "werkzAbschnittKamera": "Kamera",
+  "werkzKameradatenTitel": "Kameradaten aus Fotos einlesen",
+  "werkzKameradatenText": "Für Fotos, die vor Einführung der Kamera-Anzeige importiert wurden – liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus den EXIF-Daten nachträglich ein.",
+  "werkzPresetsTitel": "Kamera-Presets verwalten",
+  "werkzPresetsText": "Fotos einer bestimmten Kamera automatisch beim Import einem Album/Tag zuordnen oder favorisieren – analog zu Digikams \"Kamera für den Import voreinstellen\".",
+  "werkzRegelnTitel": "Automatisierungsregeln verwalten",
+  "werkzRegelnText": "Fotos automatisch anhand von Ort, KI-Tag oder Aufnahmedatum einem Album/Tag zuordnen oder favorisieren – wie Kamera-Presets, nur für andere Bedingungen.",
+  "werkzAbschnittQualitaet": "Fotoqualität",
+  "werkzOcrTitel": "Text in Fotos erkennen",
+  "werkzOcrText": "Für Fotos, die vor Einführung der Textsuche importiert wurden – erkennt sichtbaren Text (z.B. Schilder, Dokumente) nachträglich, rein lokal über Apples Vision-Framework.",
+  "werkzBeschreibungenTitel": "Bildbeschreibungen erzeugen",
+  "werkzBeschreibungenText": "Für Fotos, die vor Installation des Bildbeschreibungs-Modells importiert wurden – erzeugt eine kurze, englische Bildunterschrift pro Foto, rein lokal.",
+  "werkzUnschaerfeTitel": "Unschärfe neu berechnen",
+  "werkzUnschaerfeText": "Für Fotos, die vor Einführung der Unschärfe-Erkennung importiert wurden – ermöglicht den Suchfilter \"Nur unscharfe Fotos anzeigen\".",
+  "werkzAbschnittBildsuche": "KI-Bildsuche",
+  "werkzAllesNachholenTitel": "Alle Auswertungen jetzt nachholen",
+  "werkzAllesNachholenText": "Startet alle rechenintensiven Schritte nacheinander im Hintergrund: Unschärfe, Gesichter, Texterkennung, Bildsuche, Schlagwörter und Bildbeschreibung. Jeder Schritt überspringt, was er schon hat – die App bleibt bedienbar.",
+  "werkzAnalyseGestartet": "Auswertung läuft im Hintergrund – Fortschritt oben in der Leiste.",
+  "werkzEmbeddingsTitel": "CLIP-Embeddings berechnen",
+  "werkzEmbeddingsText": "Für Fotos, die vor Installation des CLIP-Modells importiert wurden – ohne Embedding tauchen sie in der KI-Bildsuche und der Duplikatsuche nicht auf.",
+  "werkzKiTagsKarteText": "Ordnet Fotos automatisch passende Tags aus einer festen Begriffsliste zu (z.B. \"Kind\", \"Draußen\", \"Geburtstag\") – auf Basis des CLIP-Modells, ohne zusätzlichen Download. Tags lassen sich in der Info-Ansicht eines Fotos jederzeit anpassen.",
+  "werkzAbschnittBibliothek": "Bibliothek",
+  "werkzSichtenTitel": "Unbewertete Fotos sichten",
+  "werkzSichtenText": "Öffnet alle noch unbewerteten Fotos/Videos im Vollbild-Sichtungs-Modus, zum schnellen Durchgehen und Bewerten.",
+  "werkzDuplikateTitel": "Duplikate & ähnliche Fotos suchen",
+  "werkzDuplikateText": "Auf Basis der CLIP-Bild-Embeddings",
+  "werkzStapelTitel": "Serienbilder gruppieren",
+  "werkzStapelText": "Findet zeitlich nahe, ähnliche Fotos (z.B. Serienbilder) und fasst sie auf Wunsch zu einem Stapel mit einem Titelbild zusammen.",
+  "werkzIntegritaetTitel": "Bibliotheks-Integritätsprüfung",
+  "werkzIntegritaetText": "Gleicht die Datenbank gegen die tatsächlichen Dateien auf der Platte ab: fehlende Dateien, verwaiste Dateien, optional Prüfsummen-Abweichungen.",
+  "werkzAbschnittInterop": "Interoperabilität",
+  "werkzXmpSchreibenTitel": "XMP-Sidecars schreiben",
+  "werkzXmpSchreibenText": "Legt für jedes Foto eine .xmp-Datei mit Bewertung, Farbmarkierung, Beschreibung, Tags und Kamera-Daten daneben ab – für Lightroom, darktable oder digiKam. Gesperrte Fotos werden übersprungen. Passiert automatisch auch beim Exportieren und bei unverschlüsselten Backups.",
+  "werkzXmpLesenTitel": "XMP-Sidecars einlesen",
+  "werkzXmpLesenText": "Liest vorhandene .xmp-Dateien (z.B. extern in Lightroom/darktable/digiKam bearbeitet) und zeigt Abweichungen zur Datenbank – Bewertung, Farbmarkierung, Beschreibung, Tags, Standort.",
+  "sichtungHilfeleiste": "{aktuell} / {gesamt}   ·   0–5 Bewertung   ·   ⌫ Ablehnen   ·   ← → weiter",
+  "@sichtungHilfeleiste": {
+    "placeholders": {
+      "aktuell": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "ansicht360": "360°-Ansicht",
+  "personenZuordnenKnopf": "{anzahl} zuordnen",
+  "@personenZuordnenKnopf": {
+    "description": "Knopf unter den ausgewählten Gesichtern – knapper als der Dialogtitel.",
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aufgStatus": "Status",
+  "aufgBereit": "Bereit",
+  "aufgLaeuft": "Auswertung läuft im Hintergrund.",
+  "aufgJetztStarten": "Jetzt starten",
+  "aufgWartend": "Wartend",
+  "aufgBetrifft": "Betrifft",
+  "aufgStufe": "{stufe} ({erledigt}/{gesamt}) – Stufe {nummer}/{stufenGesamt}",
+  "@aufgStufe": {
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      },
+      "erledigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      },
+      "nummer": {
+        "type": "int"
+      },
+      "stufenGesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "aufgModellNoetig": "Dafür wird zuerst {modell} benötigt ({wo}).",
+  "@aufgModellNoetig": {
+    "placeholders": {
+      "modell": {
+        "type": "String"
+      },
+      "wo": {
+        "type": "String"
+      }
+    }
+  },
+  "aufgYunetModell": "das YuNet-Modell",
+  "aufgClipModell": "das CLIP-Modell",
+  "aufgBeschreibungsmodell": "das Bildbeschreibungs-Modell",
+  "aufgGeoDatensatz": "der GeoNames-Datensatz",
+  "aufgWoModelle": "Einstellungen → KI-Modelle",
+  "aufgWoStandortdaten": "Einstellungen → Standortdaten",
+  "aufgGesichterText": "Erkennt und ordnet Gesichter zu, sofern das YuNet-Modell installiert ist.",
+  "aufgNeueFotos": "Neue Fotos",
+  "aufgAlleErneut": "Alle erneut",
+  "aufgVorschauText": "Erzeugt Thumbnails/Vorschauen für Fotos und Videos.",
+  "aufgFehlende": "Fehlende",
+  "aufgAlleNeu": "Alle neu",
+  "aufgOcrTitel": "Text erkennen (OCR)",
+  "aufgOcrText": "Erkennt sichtbaren Text in Fotos, rein lokal über Apples Vision-Framework.",
+  "aufgStarten": "Starten",
+  "aufgBeschreibungenTitel": "Bildbeschreibungen",
+  "aufgBeschreibungenText": "Erzeugt eine kurze, englische KI-Bildunterschrift pro Foto.",
+  "aufgEmbeddingsTitel": "CLIP-Embeddings",
+  "aufgEmbeddingsText": "Grundlage für KI-Bildsuche und Duplikatsuche.",
+  "aufgKiTagsTitel": "KI-Tags",
+  "aufgKiTagsText": "Ordnet Fotos automatisch passende Tags aus dem Vokabular zu (auf CLIP-Basis).",
+  "aufgUngetaggte": "Ungetaggte",
+  "aufgUnschaerfeTitel": "Unschärfe",
+  "aufgUnschaerfeText": "Ermöglicht den Suchfilter \"Nur unscharfe Fotos anzeigen\".",
+  "aufgOrteTitel": "Orte einlesen",
+  "aufgOrteText": "Liest EXIF-GPS-Daten aus Fotos nachträglich ein.",
+  "aufgOrteAufloesenText": "Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu.",
+  "aufgKameraTitel": "Kameradaten einlesen",
+  "aufgKameraText": "Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein.",
+  "aufgLivePhotoTitel": "Live-Photo-Paare prüfen",
+  "aufgLivePhotoText": "Verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos.",
+  "aufgRendernText": "Rendert Fotos mit gespeicherten Entwicklungs-Anpassungen unverändert neu.",
+  "aufgXmpText": "Legt für jedes Foto eine .xmp-Datei für Lightroom/darktable/digiKam daneben ab.",
+  "auswAufheben": "Auswahl aufheben",
+  "auswAnzahl": "{anzahl} ausgewählt",
+  "@auswAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswFavorisieren": "Favorisieren",
+  "auswZuAlbum": "Zu Album hinzufügen",
+  "auswTagHinzufuegen": "Tag hinzufügen",
+  "auswBewertungSetzen": "Bewertung setzen",
+  "auswFarbeSetzen": "Farbmarkierung setzen",
+  "auswMetadaten": "Metadaten bearbeiten",
+  "auswEntwicklungUebertragen": "Kopierte Entwicklung übertragen",
+  "auswExportieren": "Exportieren",
+  "allgLoeschen": "Löschen",
+  "allgHinzufuegen": "Hinzufügen",
+  "allgWaehlen": "Wählen",
+  "auswBewertungTitel": "Bewertung für {anzahl} Foto(s)",
+  "@auswBewertungTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswKeineBewertung": "Keine Bewertung",
+  "auswFarbeTitel": "Farbmarkierung für {anzahl} Foto(s)",
+  "@auswFarbeTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswKeineFarbe": "Keine Farbe",
+  "auswMetadatenTitel": "Metadaten für {anzahl} Foto(s) bearbeiten",
+  "@auswMetadatenTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswBeschreibungFeld": "Beschreibung (überschreibt bestehende)",
+  "auswDatumUnveraendert": "Datum unverändert lassen",
+  "auswDatumGesetzt": "Datum: {datum}",
+  "@auswDatumGesetzt": {
+    "placeholders": {
+      "datum": {
+        "type": "String"
+      }
+    }
+  },
+  "auswOrtHinweis": "Ort (unverändert lassen: nicht antippen)",
+  "auswTagTitel": "Tag zu {anzahl} Foto(s) hinzufügen",
+  "@auswTagTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswTagFeld": "Tag",
+  "auswExportTitel": "{anzahl} Foto(s) exportieren",
+  "@auswExportTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswUebertragenTitel": "Entwicklung auf {anzahl} Foto(s) übertragen?",
+  "@auswUebertragenTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswUebertragenText": "Die kopierten Werte für Belichtung, Weissabgleich, Kontrast und Schatten werden übernommen; jedes Foto wird dabei neu gerendert.\n\nMasken werden nicht übertragen. Der bisherige Stand jedes Fotos bleibt in dessen Verlauf erhalten.",
+  "auswUebertragen": "Übertragen",
+  "auswUebertrageLaeuft": "Übertrage Entwicklung …",
+  "auswKeineGeeigneten": "Keine geeigneten Fotos – gesperrte Fotos und Videos bleiben aussen vor.",
+  "auswZielordner": "Zielordner für {anzahl} Foto(s) wählen",
+  "@auswZielordner": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswExportiereLaeuft": "Exportiere … ({erledigt} / {gesamt})",
+  "@auswExportiereLaeuft": {
+    "placeholders": {
+      "erledigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "auswExportFertig": "{erledigt} von {gesamt} Foto(s) exportiert nach {ziel}",
+  "@auswExportFertig": {
+    "placeholders": {
+      "erledigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      },
+      "ziel": {
+        "type": "String"
+      }
+    }
+  },
+  "exportOriginal": "Original",
+  "exportGross": "Gross – 4096 px",
+  "exportWeb": "Web – 2048 px",
+  "exportEmail": "E-Mail – 1024 px",
+  "exportUnveraendert": "Datei unverändert, mit XMP-Datei daneben",
+  "exportJpegKante": "Als JPEG, lange Kante höchstens {kante} px",
+  "@exportJpegKante": {
+    "placeholders": {
+      "kante": {
+        "type": "int"
+      }
+    }
+  },
+  "allgUebernehmen": "Übernehmen",
+  "allgAlle": "Alle",
+  "suchoptTagsWaehlen": "Tags auswählen",
+  "suchoptTagsFiltern": "Tags filtern …",
+  "suchoptKeineTags": "Keine Tags gefunden.",
+  "suchoptTitel": "Suchoptionen",
+  "suchoptKeineTreffer": "Keine Fotos gefunden – diese Filterkombination liefert 0 Treffer.",
+  "suchoptAllesLeeren": "Alles leeren",
+  "suchoptSuchen": "Suche",
+  "suchoptPersonenFiltern": "Personen filtern",
+  "suchoptKeinePersonenBenannt": "Noch keine Personen benannt.",
+  "suchoptKeinePersonenGefunden": "Keine Personen gefunden.",
+  "suchoptTypTitel": "Suche nach Typ",
+  "suchoptTypKontext": "Kontext",
+  "suchoptTypDateiname": "Dateiname",
+  "suchoptTypBeschreibung": "Beschreibung",
+  "suchoptTypOcr": "Text im Foto (OCR)",
+  "suchoptTypCaption": "KI-Beschreibung (Englisch)",
+  "suchoptNachKontext": "Suche nach Kontext",
+  "suchoptNachDateiname": "Suche nach Dateiname",
+  "suchoptNachBeschreibung": "Suche nach Beschreibung",
+  "suchoptNachOcr": "Suche nach erkanntem Text im Foto",
+  "suchoptNachCaption": "Suche nach KI-Beschreibung (Englisch)",
+  "suchoptHintKontext": "z.B. \"Sonnenaufgang am Strand\", \"Hund im Schnee\" …",
+  "suchoptHintDateiname": "Dateiname …",
+  "suchoptHintBeschreibung": "Beschreibung …",
+  "suchoptHintOcr": "Text im Foto …",
+  "suchoptHintCaption": "z.B. \"dog\", \"sunset\" (Englisch) …",
+  "suchoptClipFehlt": "KI-Bildsuche nicht verfügbar – Modell fehlt (siehe Einstellungen → KI-Modelle).",
+  "suchoptCaptionFehlt": "KI-Bildbeschreibung nicht verfügbar – Modell fehlt (siehe Einstellungen → KI-Modelle).",
+  "suchoptTagsTitel": "Tags",
+  "suchoptTagsHint": "Suche nach Tags …",
+  "suchoptOhneTag": "Ohne Tag",
+  "suchoptMindestbewertung": "Mindestbewertung",
+  "suchoptFarbmarkierung": "Farbmarkierung",
+  "farbeRot": "Rot",
+  "farbeGelb": "Gelb",
+  "farbeGruen": "Grün",
+  "farbeBlau": "Blau",
+  "farbeLila": "Lila",
+  "suchoptAufnahmewerte": "Aufnahmewerte",
+  "suchoptIsoVon": "ISO von",
+  "suchoptIsoBis": "ISO bis",
+  "suchoptBlendeVon": "Blende von (f/…)",
+  "suchoptBlendeBis": "Blende bis (f/…)",
+  "suchoptBrennweiteVon": "Brennweite von (mm)",
+  "suchoptBrennweiteBis": "Brennweite bis (mm)",
+  "suchoptNurUnscharfe": "Nur unscharfe Fotos anzeigen",
+  "suchoptMarke": "Marke",
+  "suchoptModell": "Modell",
+  "suchoptObjektiv": "Objektiv",
+  "suchoptOrtTitel": "Ort",
+  "suchoptLand": "Land",
+  "suchoptBundesland": "Bundesland",
+  "suchoptStadt": "Stadt",
+  "suchoptGeoFehlt": "Noch keine Orte aufgelöst – GeoNames-Datensatz herunterladen und Fotos auflösen (siehe Einstellungen → Standortdaten, Werkzeuge → Orte).",
+  "suchoptAnfangsdatum": "Anfangsdatum",
+  "suchoptEnddatum": "Enddatum",
+  "suchoptDatumEntfernen": "Datum entfernen",
+  "suchoptDatumPlatzhalter": "tt.mm.jjjj",
+  "suchoptMedientyp": "Medientyp",
+  "suchoptBild": "Bild",
+  "suchoptVideo": "Video",
+  "suchoptAnzeigeoptionen": "Anzeigeoptionen",
+  "suchoptInKeinemAlbum": "In keinem Album",
+  "suchoptFavoriten": "Favoriten",
+  "entwTitel": "Entwickeln",
+  "entwKeinVerlauf": "Noch kein Verlauf vorhanden – ein Eintrag entsteht, sobald du nach einer ersten Anpassung erneut speicherst.",
+  "entwKopiert": "Einstellungen kopiert. Sie lassen sich jetzt auf andere Fotos übertragen – auch ohne dieses hier zu speichern.",
+  "entwEingesetzt": "Kopierte Einstellungen eingesetzt – noch nicht gespeichert.",
+  "entwSpeichernFehlgeschlagen": "Speichern fehlgeschlagen: Bild konnte nicht gerendert werden.",
+  "entwRestaurierungEingereiht": "Zur Warteschlange für KI-Restaurierung hinzugefügt.",
+  "entwRestaurierungFehler": "Konnte nicht zur Warteschlange hinzugefügt werden: {fehler}",
+  "@entwRestaurierungFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "entwKiAuswahlLadefehler": "KI-Auswahl konnte nicht geladen werden: {fehler}",
+  "@entwKiAuswahlLadefehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "entwVorschauNichtDekodiert": "Vorschaubild konnte nicht für die Maskierung dekodiert werden.",
+  "entwKiAuswahlFehler": "KI-Auswahl fehlgeschlagen: {fehler}",
+  "@entwKiAuswahlFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "entwMaskeNummer": "Maske {nummer}",
+  "@entwMaskeNummer": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "entwAufloesungUnbekannt": "Bildauflösung unbekannt – Maske kann nicht gespeichert werden.",
+  "entwRestaurierungEntfernen": "KI-Restaurierung entfernen",
+  "entwRestaurierungModellFehlt": "Benötigt das Restaurierungs-Modell (Einstellungen → KI-Modelle)",
+  "entwRestaurierungAnwenden": "KI-Restaurierung anwenden (läuft im Hintergrund, dauert mehrere Minuten)",
+  "entwMaskeHinzufuegen": "Maske hinzufügen",
+  "entwVerlauf": "Verlauf",
+  "entwEinstellungenKopieren": "Einstellungen kopieren (zum Übertragen auf andere Fotos)",
+  "entwEinstellungenEinsetzen": "Kopierte Einstellungen in die Regler setzen",
+  "entwOriginal": "Original",
+  "entwVergleichen": "Zum Vergleichen gedrückt halten",
+  "entwMaskeErstellen": "Maske erstellen",
+  "entwFormKi": "KI",
+  "entwFormPinsel": "Pinsel",
+  "entwFormEllipse": "Ellipse",
+  "entwFormVerlauf": "Verlauf",
+  "allgFertig": "Fertig",
+  "entwKiHinweis": "Auf den Bereich tippen, den du anpassen möchtest. Mehrere Tipps verfeinern die Auswahl.",
+  "entwPunktHinzufuegen": "Hinzufügen",
+  "entwPunktEntfernen": "Entfernen",
+  "entwLetztenPunktEntfernen": "Letzten Punkt entfernen",
+  "entwPinselHinweis": "Über den Bereich ziehen, den du anpassen möchtest.",
+  "entwNeuZeichnen": "Neu zeichnen",
+  "entwEllipseHinweis": "Über den Bereich ziehen, um die Ellipse aufzuziehen.",
+  "entwVerlaufHinweis": "Von einer Kante zur anderen ziehen, um den Verlauf festzulegen.",
+  "entwAnpassungFuer": "Anpassung für",
+  "entwGanzesBild": "Ganzes Bild",
+  "entwFormBearbeiten": "Form bearbeiten",
+  "entwAutoWeissabgleich": "Automatischer Weißabgleich",
+  "entwObjektivkorrektur": "Objektivkorrektur",
+  "entwObjektivkorrekturHinweis": "Nur wirksam für RAW-Fotos, deren Kamera/Objektiv unterstützt wird.",
+  "entwMaskenHinweis": "Diese Anpassungen wirken nur innerhalb der ausgewählten Maske.",
+  "entwBelichtung": "Belichtung",
+  "entwTemperatur": "Temperatur (K)",
+  "entwTint": "Tint",
+  "entwKontrast": "Kontrast",
+  "entwSchatten": "Schatten",
+  "entwSchaerfe": "Schärfe",
+  "entwRauschunterdrueckung": "Rauschunterdrückung",
+  "entwStrichbreite": "Strichbreite",
+  "entwRotation": "Rotation (°)",
+  "entwWeichzeichnung": "Weichzeichnung",
+  "entwGesperrt": "Entwickeln ist für Fotos im gesperrten Ordner nicht verfügbar.",
+  "entwVorschauFehlt": "Vorschau konnte nicht erzeugt werden – native Bildkonvertierung nicht verfügbar?",
+  "entwModellLaedt": "Modell für die KI-Auswahl wird geladen …",
+  "entwBildWirdVorbereitet": "Bild wird für die Maskierung vorbereitet …",
+  "allgOder": "— oder —",
+  "albumBestehendes": "Bestehendes Album",
+  "albumNeuAnlegen": "Neues Album anlegen",
+  "personZuordnenTitel": "Person zuordnen",
+  "personAktuell": "Aktuell: {name}",
+  "@personAktuell": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "personBestehende": "Bestehende Person",
+  "personNeuAnlegen": "Neue Person anlegen",
+  "personZuordnenAktion": "Zuordnen",
+  "bestaetigEndgueltigLoeschen": "Endgültig löschen",
+  "bestaetigTippeVor": "Tippe zur Bestätigung ",
+  "bestaetigTippeNach": " ein:",
+  "fortschrittFehlgeschlagen": "Fehlgeschlagen: {fehler}",
+  "@fortschrittFehlgeschlagen": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "sterneStern": "Stern {nummer} von 5",
+  "@sterneStern": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "sterneSternVoll": "Stern {nummer} von 5, ausgefüllt",
+  "@sterneSternVoll": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "sterneSetzen": "Bewertung: {nummer} von 5 Sternen setzen",
+  "@sterneSetzen": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "sterneBewertungAnzeige": "Bewertung {nummer} von 5 Sternen",
+  "@sterneBewertungAnzeige": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "scrubberTooltip": "Schnellnavigation zum Datum",
+  "farbeViolett": "Violett",
+  "farbeAusgewaehlt": "{farbe}, ausgewählt",
+  "@farbeAusgewaehlt": {
+    "placeholders": {
+      "farbe": {
+        "type": "String"
+      }
+    }
+  },
+  "farbeSetzen": "Farbmarkierung {farbe} setzen",
+  "@farbeSetzen": {
+    "placeholders": {
+      "farbe": {
+        "type": "String"
+      }
+    }
+  },
+  "histogrammTitel": "Histogramm",
+  "histogrammKeineVorschau": "Noch keine Vorschau",
+  "histogrammHelligkeit": "Helligkeit",
+  "livePhotoHalten": "Gedrückt halten zum Abspielen",
+  "metaBelichtungBeispiel": "z.B. 1/125 oder 0.5",
+  "karteTippenFuerOrt": "Tippen, um einen Ort festzulegen",
+  "rasterFotoNichtGefunden": "Foto nicht in der Timeline gefunden.",
+  "kameraImportTitel": "Von Kamera/SD-Karte importieren",
+  "kameraKeinDatentraeger": "Kein Datenträger mit Fotos/Videos gefunden. Kamera oder SD-Karte per USB einstecken – die Liste aktualisiert sich automatisch, sobald sie erkannt wird.",
+  "mischerTitel": "Farbmischer",
+  "mischerFarbton": "Farbton",
+  "mischerSaettigung": "Sättigung",
+  "mischerHelligkeit": "Helligkeit",
+  "mischerHinweis": "Wirkt nur auf farbige Bildbereiche – Graustufen bleiben unberührt.",
+  "bandRot": "Rot",
+  "bandOrange": "Orange",
+  "bandGelb": "Gelb",
+  "bandGruen": "Grün",
+  "bandAqua": "Aqua",
+  "bandBlau": "Blau",
+  "bandViolett": "Violett",
+  "bandMagenta": "Magenta",
+  "kurveTitel": "Tonwertkurve",
+  "kurveHinweis": "Ziehen setzt oder verschiebt einen Punkt, langes Drücken entfernt ihn.",
+  "pinFeld": "PIN",
+  "pinFestlegenTitel": "PIN festlegen",
+  "pinNeuFeld": "Neuer PIN (8-10 Ziffern)",
+  "pinWiederholen": "PIN wiederholen",
+  "pinWarnung": "Wichtig: Fotos im gesperrten Ordner werden echt verschlüsselt (AES-256). Ohne diesen PIN gibt es KEINE Möglichkeit, sie wiederherzustellen – auch nicht durch Zurücksetzen der App.",
+  "pinZiffernFehler": "PIN muss aus 8-10 Ziffern bestehen.",
+  "pinUngleich": "PINs stimmen nicht überein.",
+  "allgFestlegen": "Festlegen",
+  "pinEingebenTitel": "PIN eingeben",
+  "pinFalsch": "Falscher PIN.",
+  "passphraseFeld": "Passphrase",
+  "passphraseFestlegenTitel": "Backup-Passphrase festlegen",
+  "passphraseNeuFeld": "Neue Passphrase (mind. 8 Zeichen)",
+  "passphraseWiederholen": "Passphrase wiederholen",
+  "passphraseWarnung": "Wichtig: Backups werden echt verschlüsselt (AES-256). Ohne diese Passphrase gibt es KEINE Möglichkeit, sie wiederherzustellen – auch nicht auf einem anderen Rechner. Am besten zusätzlich an einem sicheren Ort notieren.",
+  "passphraseUngleich": "Passphrasen stimmen nicht überein.",
+  "passphraseFalsch": "Falsche Passphrase.",
+  "allgFoto": "Foto",
+  "allgVideo": "Video",
+  "kachelFavorisiert": "favorisiert",
+  "kachelBeschreibung": "{typ} {name}, {datum}",
+  "@kachelBeschreibung": {
+    "placeholders": {
+      "typ": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      },
+      "datum": {
+        "type": "String"
+      }
+    }
+  },
+  "albumFotosLoeschenTitel": "{anzahl} Foto(s) löschen?",
+  "@albumFotosLoeschenTitel": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "albumFotosLoeschenText": "Diese Fotos werden aus dem Album entfernt und in den Papierkorb verschoben.",
+  "albumZielordner": "Zielordner für \"{album}\" wählen",
+  "@albumZielordner": {
+    "placeholders": {
+      "album": {
+        "type": "String"
+      }
+    }
+  },
+  "albumExportieren": "Album exportieren",
+  "albumLeer": "Dieses Album enthält noch keine Fotos.",
+  "regelLoeschenTitel": "Regel löschen?",
+  "regelLoeschenText": "Die Regel \"{name}\" wirklich löschen? Bereits angewendete Aktionen bleiben erhalten.",
+  "@regelLoeschenText": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "regelOrtUnvollstaendig": "Ort: unvollständig konfiguriert",
+  "regelDatumUnvollstaendig": "Datumsbereich: unvollständig konfiguriert",
+  "regelTitel": "Automatisierungsregeln",
+  "regelNeu": "Neue Regel",
+  "regelLeer": "Noch keine Automatisierungsregeln.\n\nLege eine Regel an, um Fotos automatisch anhand von Ort, KI-Tag oder Aufnahmedatum einem Album/Tag zuzuordnen oder zu favorisieren – wie Kamera-Presets, nur für andere Bedingungen.",
+  "allgBearbeiten": "Bearbeiten",
+  "regelNameNoetig": "Ein Name für die Regel ist erforderlich.",
+  "regelKoordinatenUngueltig": "Breiten- und Längengrad müssen gültige Zahlen sein.",
+  "regelBreitengradBereich": "Der Breitengrad muss zwischen -90 und 90 liegen.",
+  "regelLaengengradBereich": "Der Längengrad muss zwischen -180 und 180 liegen.",
+  "regelTagWaehlen": "Bitte einen KI-Tag-Begriff wählen.",
+  "regelDatumWaehlen": "Bitte Start- und Enddatum wählen.",
+  "regelDatumReihenfolge": "Das Startdatum muss vor dem Enddatum liegen.",
+  "regelBreitengrad": "Breitengrad",
+  "regelLaengengrad": "Längengrad",
+  "regelKeinVokabular": "Kein KI-Tag-Vokabular vorhanden (Einstellungen → KI-Tagging-Vokabular).",
+  "regelTagBegriff": "KI-Tag-Begriff",
+  "regelNameFeld": "Name (z.B. \"Urlaub Italien\")",
+  "regelBedingung": "Bedingung",
+  "presetZielalbum": "Zielalbum (optional)",
+  "presetKeinAlbum": "Kein Album",
+  "presetNeuesAlbum": "oder: neues Album anlegen",
+  "presetFavorisieren": "Automatisch favorisieren",
+  "presetTagsWaehlenPlatzhalter": "Tags auswählen …",
+  "presetKeineTags": "Keine Tags vorhanden.",
+  "presetLoeschenTitel": "Preset löschen?",
+  "presetLoeschenText": "Das Kamera-Preset für \"{kamera}\" wirklich löschen? Bereits importierte Fotos bleiben unverändert.",
+  "@presetLoeschenText": {
+    "placeholders": {
+      "kamera": {
+        "type": "String"
+      }
+    }
+  },
+  "presetTitel": "Kamera-Presets",
+  "presetNeu": "Neues Preset",
+  "presetLeer": "Noch keine Kamera-Presets.\n\nLege ein Preset für eine bestimmte Kamera an, um künftig importierte Fotos dieser Kamera automatisch einem Album/Tag zuzuordnen – auch schon bevor das erste Foto dieser Kamera importiert wurde.",
+  "presetHerstellerModellNoetig": "Hersteller und Modell sind beide erforderlich.",
+  "presetBekannteKamera": "Bekannte Kamera übernehmen (optional)",
+  "presetHersteller": "Hersteller (z.B. Canon, Apple)",
+  "presetModell": "Modell (z.B. EOS R5, iPhone 15 Pro)",
+  "allgClipNoetigKurz": "Benötigt das CLIP-Modell (Einstellungen → KI-Modelle).",
+  "duplNichtsLoeschbar": "Nichts automatisch löschbar: In allen Gruppen sind mehrere Fotos favorisiert oder bewertet – die bitte von Hand durchsehen.",
+  "duplNichtsZuLoeschen": "Nichts zu löschen.",
+  "duplPapierkorbTitel": "Kopien in den Papierkorb?",
+  "duplPapierkorbAnzahl": "{fotos} Foto(s) aus {gruppen} Gruppe(n) werden in den Papierkorb verschoben.",
+  "@duplPapierkorbAnzahl": {
+    "placeholders": {
+      "fotos": {
+        "type": "int"
+      },
+      "gruppen": {
+        "type": "int"
+      }
+    }
+  },
+  "duplBehaltenRegel": "Behalten wird je Gruppe: Favorit, sonst höchste Bewertung, sonst das schärfste, sonst das mit der höchsten Auflösung.",
+  "duplUebersprungen": "{anzahl} Gruppe(n) bleiben unangetastet, weil dort mehrere Fotos favorisiert oder bewertet sind.",
+  "@duplUebersprungen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "duplRueckgaengig": "Rückgängig: über den Papierkorb wiederherstellbar.",
+  "duplInPapierkorb": "In den Papierkorb",
+  "duplVerschoben": "{anzahl} Foto(s) in den Papierkorb verschoben.",
+  "@duplVerschoben": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "duplTitel": "Duplikate & ähnliche Fotos",
+  "duplZweiteBibliothek": "Zweite Bibliothek",
+  "duplAlleKopienLoeschen": "Alle Kopien löschen",
+  "duplAehnlichkeit": "Ähnlichkeit:",
+  "duplSchwelleHinweis": "Höhere Werte = nur sehr ähnliche Fotos werden als Gruppe erkannt. Niedrigere Werte finden mehr, aber auch weniger sichere Treffer.",
+  "duplKeineGruppen": "Keine ähnlichen Fotogruppen gefunden.",
+  "duplVerschiebenTooltip": "In den Papierkorb verschieben",
+  "clusterTitel": "Vorschläge prüfen",
+  "clusterFertig": "Alle Vorschläge durchgesehen.",
+  "clusterAehnlichZu": "Ähnlich zu: {name}",
+  "@clusterAehnlichZu": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "clusterUeberspringen": "Überspringen",
+  "gesichtUmbenennen": "Person umbenennen/ändern",
+  "gesichtNeuBenennen": "Neues Gesicht benennen",
+  "gesichtGesperrt": "Gesichts-Bearbeitung ist für Fotos im gesperrten Ordner nicht verfügbar.",
+  "gesichtManuellHinzufuegen": "Gesicht manuell hinzufügen",
+  "gesichtHinzufuegenBeenden": "Hinzufügen beenden",
+  "gesichtRechteckHinweis": "Ziehe ein Rechteck über ein Gesicht, um es manuell zu markieren.",
+  "bearbBildNichtLesbar": "Bild konnte nicht gelesen werden.",
+  "bearbBildNichtLesbarFehler": "Bild konnte nicht gelesen werden: {fehler}",
+  "@bearbBildNichtLesbarFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "bearbSpeichernTitel": "Änderungen speichern?",
+  "bearbSpeichernText": "Die Originaldatei wird durch die bearbeitete Version ersetzt. Das lässt sich nicht rückgängig machen.",
+  "bearbNichtFinalisiert": "Bild konnte nicht finalisiert werden.",
+  "bearbZuschneidenAnwenden": "Zuschneiden anwenden",
+  "bearbTitel": "Bearbeiten",
+  "importWasTitel": "Was möchtest du importieren?",
+  "importWasText": "Wähle einzelne Fotos/Videos aus, importiere einen kompletten Ordner (inkl. aller Unterordner), oder importiere direkt von einer angeschlossenen Kamera/SD-Karte.",
+  "importEinzelneDateien": "Einzelne Dateien wählen",
+  "importGanzerOrdner": "Ganzen Ordner wählen",
+  "importVonKamera": "Von Kamera/SD-Karte",
+  "importOrdnerWaehlen": "Ordner zum Importieren wählen",
+  "importNichtsImOrdner": "Keine unterstützten Fotos/Videos in diesem Ordner gefunden.",
+  "importNichtsAufDatentraeger": "Keine unterstützten Fotos/Videos auf diesem Datenträger gefunden.",
+  "importAbgeschlossen": "Import abgeschlossen",
+  "importLaeuft": "Importiere Fotos & Videos …",
+  "importJetztSichten": "Jetzt sichten",
+  "integPruefungFehlgeschlagen": "Prüfung fehlgeschlagen: {fehler}",
+  "@integPruefungFehlgeschlagen": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "integOriginalFehlt": "Das Original fehlt auf der Platte – das gesamte Foto/Video wird aus der Bibliothek entfernt.",
+  "integMaskeFehlt": "Die Maskendatei fehlt – der Maskeneintrag wird entfernt.",
+  "integCropFehlt": "Der Gesichts-Crop fehlt – nur die Vorschau wird entfernt, die Zuordnung zur Person bleibt erhalten.",
+  "integPfadEntfernt": "Der Datei-Pfad wird aus der Datenbank entfernt – die Datei lässt sich über \"Werkzeuge → Vorschaubilder neu erstellen\" wieder herstellen.",
+  "integDateiLoeschenTitel": "Datei löschen?",
+  "integDateiLoeschenText": "{pfad} wird unwiderruflich von der Platte gelöscht.",
+  "@integDateiLoeschenText": {
+    "placeholders": {
+      "pfad": {
+        "type": "String"
+      }
+    }
+  },
+  "integErneutPruefen": "Erneut prüfen",
+  "integPruefsummen": "Prüfsummen prüfen",
+  "integPruefsummenHinweis": "Liest jede Originaldatei komplett ein und vergleicht sie mit der beim Import gespeicherten Prüfsumme – bei großen Bibliotheken deutlich langsamer als die reine Existenz-/Verwaisten-Prüfung.",
+  "integKeineProbleme": "Keine Probleme gefunden ({anzahl} Dateien geprüft).",
+  "@integKeineProbleme": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "integAusDbEntfernen": "Aus DB entfernen",
+  "integDateiLoeschen": "Datei löschen",
+  "integAbweichungen": "Prüfsummen-Abweichungen ({anzahl})",
+  "@integAbweichungen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "integInhaltGeaendert": "Inhalt hat sich seit dem Import geändert",
+  "integFotoOeffnen": "Foto öffnen",
+  "integHeaderProbleme": "Verschlüsselte Dateien mit ungültigem Header ({anzahl})",
+  "@integHeaderProbleme": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "integBeschaedigt": "Datei ist evtl. beschädigt – keine gültige verschlüsselte Datei",
+  "gesperrtLeer": "Keine gesperrten Fotos. In der Vollbildansicht eines Fotos lässt es sich über das Schloss-Symbol oben rechts hierher verschieben (dabei verschlüsselt).",
+  "gesperrtEntfernen": "Aus dem gesperrten Ordner entfernen (entschlüsseln)",
+  "gesperrtEndgueltigTitel": "Endgültig löschen?",
+  "gesperrtEndgueltigText": "Die Datei wird unwiderruflich gelöscht – auch mit dem richtigen PIN gibt es danach keine Wiederherstellung mehr.",
+  "gesperrtPapierkorbLeer": "Der gesperrte Papierkorb ist leer.\n\nAus dem gesperrten Ordner gelöschte Fotos landen hier statt im normalen (ungeschützten) Papierkorb.",
+  "gesperrtWiederherstellen": "Wiederherstellen (bleibt gesperrt)",
+  "personKeineGesichter": "Keine Gesichter dieser Person vorhanden.",
+  "personProfilbildWaehlen": "Profilbild auswählen",
+  "personProfilbildAendern": "Profilbild ändern",
+  "personKeineFotos": "Noch keine Fotos für diese Person.",
+  "personDoppelklickHinweis": "Doppelklick auf ein Foto öffnet es zur Kontrolle mit allen erkannten Gesichtern.",
+  "personGelerntesVerworfen": "Gelerntes verworfen – es gilt wieder die allgemeine Schwelle.",
+  "personSchwelleAngepasst": "angepasst auf {schwelle} statt {allgemein}",
+  "@personSchwelleAngepasst": {
+    "placeholders": {
+      "schwelle": {
+        "type": "String"
+      },
+      "allgemein": {
+        "type": "String"
+      }
+    }
+  },
+  "personSchwelleWiderspruch": "weiterhin {allgemein} – die Entscheidungen widersprechen sich, ein abgelehntes Gesicht war ähnlicher als ein bestätigtes",
+  "@personSchwelleWiderspruch": {
+    "placeholders": {
+      "allgemein": {
+        "type": "String"
+      }
+    }
+  },
+  "personSchwelleWirdAngepasst": "ab {anzahl} Entscheidungen wird angepasst",
+  "@personSchwelleWirdAngepasst": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "personVerwerfen": "Verwerfen",
+  "restaurWartet": "Wartet in der Warteschlange",
+  "restaurLaeuft": "Läuft – Kachel {erledigt} von {gesamt}",
+  "@restaurLaeuft": {
+    "placeholders": {
+      "erledigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "restaurTitel": "KI-Restaurierung – Warteschlange",
+  "restaurLeer": "Keine Restaurierungs-Aufträge vorhanden.\nIm Entwickeln-Screen eines Fotos lässt sich eine KI-Restaurierung anstoßen.",
+  "restaurAusListe": "Aus der Liste entfernen",
+  "restaurFehlgeschlagen": "Fehlgeschlagen: {grund}",
+  "@restaurFehlgeschlagen": {
+    "placeholders": {
+      "grund": {
+        "type": "String"
+      }
+    }
+  },
+  "restaurFehlgeschlagenKurz": "Fehlgeschlagen",
+  "zweitOrdnerWaehlen": "Ordner der zweiten PhotoVault-Bibliothek wählen",
+  "zweitTitel": "Zweite Bibliothek vergleichen",
+  "allgErneutVersuchen": "Erneut versuchen",
+  "zweitErklaerung": "Vergleicht die eigene Bibliothek gegen eine zweite, unabhängige PhotoVault-Bibliothek (z.B. auf einer externen Platte oder einem alten Rechner) per KI-Bildähnlichkeit – findet Fotos, die dort schon liegen, bevor du sie erneut importierst.\n\nGesperrte Fotos der zweiten Bibliothek werden dabei nie einbezogen, ohne dass deren PIN gebraucht wird.",
+  "zweitOrdnerKnopf": "Ordner der zweiten Bibliothek wählen",
+  "zweitSchwelleHinweis": "Höhere Werte = nur sehr ähnliche Fotos gelten als Übereinstimmung.",
+  "zweitKeineTreffer": "Keine ähnlichen Fotos in der zweiten Bibliothek gefunden.",
+  "zweitTreffer": "{anzahl} mögliche Übereinstimmung(en)",
+  "@zweitTreffer": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "zweitAndererOrdner": "Anderer Ordner",
+  "zweitAehnlichProzent": "{prozent} % ähnlich",
+  "@zweitAehnlichProzent": {
+    "placeholders": {
+      "prozent": {
+        "type": "String"
+      }
+    }
+  },
+  "zweitBibliothek": "zweite Bibliothek",
+  "aehnlTitel": "Ähnliche Fotos",
+  "aehnlClipFehlt": "KI-Bildsuche nicht verfügbar – CLIP-Modell fehlt (siehe Einstellungen → KI-Modelle).",
+  "aehnlKeineTreffer": "Für dieses Foto liegt noch kein KI-Embedding vor (siehe Werkzeuge → KI-Bildsuche → CLIP-Embeddings berechnen) oder es gibt keine ähnlichen Fotos in der Bibliothek.",
+  "stapelErklaerung": "Fotos, die sich ähneln UND innerhalb weniger Sekunden aufgenommen wurden, werden hier als Serie vorgeschlagen. \"Übernehmen\" fasst eine Gruppe zu einem Stapel zusammen – nur das Titelbild bleibt danach in der Übersicht sichtbar, nichts wird gelöscht.",
+  "stapelKeine": "Keine Serienbilder gefunden.",
+  "allgVerwerfen": "Verwerfen",
+  "statTitel": "Statistik",
+  "allgAktualisieren": "Aktualisieren",
+  "statLeer": "Noch keine Fotos oder Videos in der Bibliothek.",
+  "statProJahr": "Fotos & Videos pro Jahr",
+  "statSaisonalitaet": "Saisonalität – Aufnahmen pro Monat",
+  "statKameras": "Häufigste Kameras",
+  "statInsgesamt": "Medien insgesamt",
+  "statFotos": "Fotos",
+  "statVideos": "Videos",
+  "statSpeicherplatz": "Speicherplatz",
+  "statImPapierkorb": "Im Papierkorb",
+  "statDiagrammJahr": "Balkendiagramm, Fotos und Videos pro Jahr: {werte}",
+  "@statDiagrammJahr": {
+    "placeholders": {
+      "werte": {
+        "type": "String"
+      }
+    }
+  },
+  "statDiagrammMonat": "Balkendiagramm, Saisonalität pro Monat: {werte}",
+  "@statDiagrammMonat": {
+    "placeholders": {
+      "werte": {
+        "type": "String"
+      }
+    }
+  },
+  "papierkorbTitel": "Papierkorb",
+  "papierkorbEndgueltigTitel": "Endgültig löschen?",
+  "papierkorbEndgueltigText": "{anzahl} Datei(en) unwiderruflich löschen.",
+  "@papierkorbEndgueltigText": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "papierkorbLeer": "Der Papierkorb ist leer.",
+  "videoNichtGeoeffnet": "Video konnte nicht geöffnet werden.",
+  "videoZuschneidenFehler": "Zuschneiden fehlgeschlagen.",
+  "videoZuschneiden": "Zuschneiden",
+  "xmpAlleUebernehmen": "Alle übernehmen",
+  "xmpErneutEinlesen": "Erneut einlesen",
+  "xmpKeineAbweichungen": "{anzahl} Sidecar(s) geprüft – keine Abweichungen zur Datenbank gefunden.",
+  "@xmpKeineAbweichungen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "restaurWirdGestartet": "Wird gestartet …",
+  "restaurAbgebrochen": "Abgebrochen",
+  "restaurGrundModellLaedtNicht": "Das Restaurierungs-Modell liess sich nicht laden.",
+  "restaurGrundModellWeg": "Modell nicht mehr verfügbar.",
+  "restaurGrundFotoWeg": "Foto wurde inzwischen gelöscht.",
+  "restaurGrundGesperrt": "KI-Restaurierung ist für gesperrte Fotos nicht verfügbar.",
+  "restaurGrundAufloesung": "Bildauflösung unbekannt.",
+  "restaurGrundNichtGerendert": "Bild konnte nicht gerendert werden.",
+  "restaurGrundNichtDekodiert": "Gerendertes Bild konnte nicht dekodiert werden.",
+  "restaurNichtVerfuegbar": "KI-Restaurierung ist nicht verfügbar – Modell nicht installiert.",
+  "personSchwelleWieAllgemein": "weiterhin {allgemein}",
+  "@personSchwelleWieAllgemein": {
+    "placeholders": {
+      "allgemein": {
+        "type": "String"
+      }
+    }
+  },
+  "personWiedererkennung": "Wiedererkennung: {erklaerung}. Aus {bestaetigt, plural, =1{einer Bestätigung} other{{bestaetigt} Bestätigungen}} und {abgelehnt, plural, =1{einer Korrektur} other{{abgelehnt} Korrekturen}}.",
+  "@personWiedererkennung": {
+    "placeholders": {
+      "erklaerung": {
+        "type": "String"
+      },
+      "bestaetigt": {
+        "type": "int"
+      },
+      "abgelehnt": {
+        "type": "int"
+      }
+    }
+  },
+  "infoKeineUnbenannten": "Keine unbenannten Gesichter auf diesem Foto gefunden – falls noch keine Gesichtserkennung gelaufen ist, siehe Werkzeuge → Gesichter scannen.",
+  "infoTitel": "Info",
+  "infoBeschreibungHinzufuegen": "Beschreibung hinzufügen",
+  "infoKiBeschreibung": "KI-Beschreibung · Englisch",
+  "infoBewertung": "Bewertung",
+  "infoNiemandZugeordnet": "Noch niemand zugeordnet.",
+  "infoDetails": "Details",
+  "infoStandortBekannt": "Standort bekannt",
+  "infoOrtNichtAufgeloest": "Ort noch nicht aufgelöst (Werkzeuge → Orte)",
+  "infoOrtEntfernen": "Ort entfernen",
+  "infoSerie": "Serie: {anzahl} Fotos",
+  "@infoSerie": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "infoNurTitelbild": "Nur das Titelbild ist in der Übersicht sichtbar",
+  "infoSerieAufloesen": "Serie auflösen",
+  "infoTagHinzufuegenPlatzhalter": "Tag hinzufügen …",
+  "stufeBildanalyse": "Bildanalyse",
+  "stufeTexterkennung": "Texterkennung",
+  "stufeSchlagwoerter": "Schlagwörter",
+  "stufeBildbeschreibung": "Bildbeschreibung",
+  "aktualisierungKeineVeroeffentlichungen": "Keine Veröffentlichungen gefunden.",
+  "aktualisierungKeineVersion": "Keine Versionsangabe in der Antwort gefunden.",
+  "backupGrenzeErreicht": "Grenze erreicht – {anzahl} Datei(en) folgen beim nächsten Lauf",
+  "@backupGrenzeErreicht": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "backupPassphraseNoetig": "Dieses Backup ist verschlüsselt – eine Passphrase wird benötigt.",
+  "downloadPruefsummeFehler": "Prüfsumme von {datei} stimmt nicht mit der erwarteten SHA-256 überein (erhalten {erhalten}, erwartet {erwartet}) – Download verworfen. Die Datei am Server hat sich möglicherweise geändert oder wurde beim Transfer verändert.",
+  "@downloadPruefsummeFehler": {
+    "placeholders": {
+      "datei": {
+        "type": "String"
+      },
+      "erhalten": {
+        "type": "String"
+      },
+      "erwartet": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadFehlgeschlagen": "Download von {datei} fehlgeschlagen: {fehler}",
+  "@downloadFehlgeschlagen": {
+    "placeholders": {
+      "datei": {
+        "type": "String"
+      },
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadEntpackenFehler": "Entpacken von {datei} fehlgeschlagen: {fehler}",
+  "@downloadEntpackenFehler": {
+    "placeholders": {
+      "datei": {
+        "type": "String"
+      },
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "downloadNichtImZip": "{datei} nicht im Zip gefunden.",
+  "@downloadNichtImZip": {
+    "placeholders": {
+      "datei": {
+        "type": "String"
+      }
+    }
+  },
+  "regelAusloeserOrt": "Ort (Umkreis)",
+  "regelAusloeserTag": "KI-Tag",
+  "regelAusloeserDatum": "Datumsbereich",
+  "regelUmkreisUm": "Umkreis {km} km um {breite}, {laenge}",
+  "@regelUmkreisUm": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "breite": {
+        "type": "String"
+      },
+      "laenge": {
+        "type": "String"
+      }
+    }
+  },
+  "regelTagWert": "KI-Tag: {begriff}",
+  "@regelTagWert": {
+    "placeholders": {
+      "begriff": {
+        "type": "String"
+      }
+    }
+  },
+  "regelDatumBereich": "{von} – {bis}",
+  "@regelDatumBereich": {
+    "placeholders": {
+      "von": {
+        "type": "String"
+      },
+      "bis": {
+        "type": "String"
+      }
+    }
+  },
+  "regelUmkreis": "Umkreis: {km} km",
+  "@regelUmkreis": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "regelAlbumTeil": "Album: {name}",
+  "@regelAlbumTeil": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "regelTagsTeil": "Tags: {namen}",
+  "@regelTagsTeil": {
+    "placeholders": {
+      "namen": {
+        "type": "String"
+      }
+    }
+  },
+  "duplGruppe": "Gruppe {nummer} · {anzahl} Fotos",
+  "@duplGruppe": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      },
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "stapelSerie": "Serie {nummer} · {anzahl} Fotos",
+  "@stapelSerie": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      },
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "clusterGesichterZuordnen": "{anzahl} Gesichter zuordnen",
+  "@clusterGesichterZuordnen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "clusterGesichterAnzahl": "{anzahl} Gesichter",
+  "@clusterGesichterAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gesichtEmbeddingFehler": "Wiedererkennungs-Embedding fehlgeschlagen: {fehler}",
+  "@gesichtEmbeddingFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "bearbSpeichernFehler": "Speichern fehlgeschlagen: {fehler}",
+  "@bearbSpeichernFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "integFehlendeDateien": "Fehlende Dateien ({anzahl})",
+  "@integFehlendeDateien": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "integVerwaisteDateien": "Verwaiste Dateien ({anzahl})",
+  "@integVerwaisteDateien": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  }
+}

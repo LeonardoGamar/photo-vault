@@ -290,6 +290,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
   late final GeneratedColumn<String> aiCaption = GeneratedColumn<String>(
       'ai_caption', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _aiCaptionDeMeta =
+      const VerificationMeta('aiCaptionDe');
+  @override
+  late final GeneratedColumn<String> aiCaptionDe = GeneratedColumn<String>(
+      'ai_caption_de', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _aiCaptionScannedMeta =
       const VerificationMeta('aiCaptionScanned');
   @override
@@ -382,6 +388,7 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         ocrText,
         ocrScanned,
         aiCaption,
+        aiCaptionDe,
         aiCaptionScanned,
         aiTagsScanned,
         sharpnessScore,
@@ -630,6 +637,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
       context.handle(_aiCaptionMeta,
           aiCaption.isAcceptableOrUnknown(data['ai_caption']!, _aiCaptionMeta));
     }
+    if (data.containsKey('ai_caption_de')) {
+      context.handle(
+          _aiCaptionDeMeta,
+          aiCaptionDe.isAcceptableOrUnknown(
+              data['ai_caption_de']!, _aiCaptionDeMeta));
+    }
     if (data.containsKey('ai_caption_scanned')) {
       context.handle(
           _aiCaptionScannedMeta,
@@ -758,6 +771,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.bool, data['${effectivePrefix}ocr_scanned'])!,
       aiCaption: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ai_caption']),
+      aiCaptionDe: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ai_caption_de']),
       aiCaptionScanned: attachedDatabase.typeMapping.read(
           DriftSqlType.bool, data['${effectivePrefix}ai_caption_scanned'])!,
       aiTagsScanned: attachedDatabase.typeMapping
@@ -882,6 +897,14 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
   final String? aiCaption;
 
+  /// Deutsche Fassung von [aiCaption] (siehe TranslationService).
+  ///
+  /// Als eigene Spalte, nicht als Ersatz: Das englische Original bleibt
+  /// erhalten, damit ein Abschalten der Übersetzung nicht bedeutet, das
+  /// Beschreibungsmodell über die ganze Bibliothek erneut laufen zu
+  /// lassen. Die Suche durchsucht beide.
+  final String? aiCaptionDe;
+
   /// Eigenes Flag statt "aiCaption == null" als "noch nicht erzeugt"-Signal,
   /// analog zu [ocrScanned].
   final bool aiCaptionScanned;
@@ -956,6 +979,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       this.ocrText,
       required this.ocrScanned,
       this.aiCaption,
+      this.aiCaptionDe,
       required this.aiCaptionScanned,
       required this.aiTagsScanned,
       this.sharpnessScore,
@@ -1058,6 +1082,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
     map['ocr_scanned'] = Variable<bool>(ocrScanned);
     if (!nullToAbsent || aiCaption != null) {
       map['ai_caption'] = Variable<String>(aiCaption);
+    }
+    if (!nullToAbsent || aiCaptionDe != null) {
+      map['ai_caption_de'] = Variable<String>(aiCaptionDe);
     }
     map['ai_caption_scanned'] = Variable<bool>(aiCaptionScanned);
     map['ai_tags_scanned'] = Variable<bool>(aiTagsScanned);
@@ -1168,6 +1195,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       aiCaption: aiCaption == null && nullToAbsent
           ? const Value.absent()
           : Value(aiCaption),
+      aiCaptionDe: aiCaptionDe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(aiCaptionDe),
       aiCaptionScanned: Value(aiCaptionScanned),
       aiTagsScanned: Value(aiTagsScanned),
       sharpnessScore: sharpnessScore == null && nullToAbsent
@@ -1235,6 +1265,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrText: serializer.fromJson<String?>(json['ocrText']),
       ocrScanned: serializer.fromJson<bool>(json['ocrScanned']),
       aiCaption: serializer.fromJson<String?>(json['aiCaption']),
+      aiCaptionDe: serializer.fromJson<String?>(json['aiCaptionDe']),
       aiCaptionScanned: serializer.fromJson<bool>(json['aiCaptionScanned']),
       aiTagsScanned: serializer.fromJson<bool>(json['aiTagsScanned']),
       sharpnessScore: serializer.fromJson<double?>(json['sharpnessScore']),
@@ -1291,6 +1322,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'ocrText': serializer.toJson<String?>(ocrText),
       'ocrScanned': serializer.toJson<bool>(ocrScanned),
       'aiCaption': serializer.toJson<String?>(aiCaption),
+      'aiCaptionDe': serializer.toJson<String?>(aiCaptionDe),
       'aiCaptionScanned': serializer.toJson<bool>(aiCaptionScanned),
       'aiTagsScanned': serializer.toJson<bool>(aiTagsScanned),
       'sharpnessScore': serializer.toJson<double?>(sharpnessScore),
@@ -1343,6 +1375,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           Value<String?> ocrText = const Value.absent(),
           bool? ocrScanned,
           Value<String?> aiCaption = const Value.absent(),
+          Value<String?> aiCaptionDe = const Value.absent(),
           bool? aiCaptionScanned,
           bool? aiTagsScanned,
           Value<double?> sharpnessScore = const Value.absent(),
@@ -1412,6 +1445,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         ocrText: ocrText.present ? ocrText.value : this.ocrText,
         ocrScanned: ocrScanned ?? this.ocrScanned,
         aiCaption: aiCaption.present ? aiCaption.value : this.aiCaption,
+        aiCaptionDe: aiCaptionDe.present ? aiCaptionDe.value : this.aiCaptionDe,
         aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
         aiTagsScanned: aiTagsScanned ?? this.aiTagsScanned,
         sharpnessScore:
@@ -1507,6 +1541,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrScanned:
           data.ocrScanned.present ? data.ocrScanned.value : this.ocrScanned,
       aiCaption: data.aiCaption.present ? data.aiCaption.value : this.aiCaption,
+      aiCaptionDe:
+          data.aiCaptionDe.present ? data.aiCaptionDe.value : this.aiCaptionDe,
       aiCaptionScanned: data.aiCaptionScanned.present
           ? data.aiCaptionScanned.value
           : this.aiCaptionScanned,
@@ -1569,6 +1605,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('ocrText: $ocrText, ')
           ..write('ocrScanned: $ocrScanned, ')
           ..write('aiCaption: $aiCaption, ')
+          ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
           ..write('aiTagsScanned: $aiTagsScanned, ')
           ..write('sharpnessScore: $sharpnessScore, ')
@@ -1623,6 +1660,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         ocrText,
         ocrScanned,
         aiCaption,
+        aiCaptionDe,
         aiCaptionScanned,
         aiTagsScanned,
         sharpnessScore,
@@ -1676,6 +1714,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.ocrText == this.ocrText &&
           other.ocrScanned == this.ocrScanned &&
           other.aiCaption == this.aiCaption &&
+          other.aiCaptionDe == this.aiCaptionDe &&
           other.aiCaptionScanned == this.aiCaptionScanned &&
           other.aiTagsScanned == this.aiTagsScanned &&
           other.sharpnessScore == this.sharpnessScore &&
@@ -1727,6 +1766,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<String?> ocrText;
   final Value<bool> ocrScanned;
   final Value<String?> aiCaption;
+  final Value<String?> aiCaptionDe;
   final Value<bool> aiCaptionScanned;
   final Value<bool> aiTagsScanned;
   final Value<double?> sharpnessScore;
@@ -1777,6 +1817,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.ocrText = const Value.absent(),
     this.ocrScanned = const Value.absent(),
     this.aiCaption = const Value.absent(),
+    this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
     this.aiTagsScanned = const Value.absent(),
     this.sharpnessScore = const Value.absent(),
@@ -1828,6 +1869,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.ocrText = const Value.absent(),
     this.ocrScanned = const Value.absent(),
     this.aiCaption = const Value.absent(),
+    this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
     this.aiTagsScanned = const Value.absent(),
     this.sharpnessScore = const Value.absent(),
@@ -1885,6 +1927,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<String>? ocrText,
     Expression<bool>? ocrScanned,
     Expression<String>? aiCaption,
+    Expression<String>? aiCaptionDe,
     Expression<bool>? aiCaptionScanned,
     Expression<bool>? aiTagsScanned,
     Expression<double>? sharpnessScore,
@@ -1942,6 +1985,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       if (ocrText != null) 'ocr_text': ocrText,
       if (ocrScanned != null) 'ocr_scanned': ocrScanned,
       if (aiCaption != null) 'ai_caption': aiCaption,
+      if (aiCaptionDe != null) 'ai_caption_de': aiCaptionDe,
       if (aiCaptionScanned != null) 'ai_caption_scanned': aiCaptionScanned,
       if (aiTagsScanned != null) 'ai_tags_scanned': aiTagsScanned,
       if (sharpnessScore != null) 'sharpness_score': sharpnessScore,
@@ -1995,6 +2039,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<String?>? ocrText,
       Value<bool>? ocrScanned,
       Value<String?>? aiCaption,
+      Value<String?>? aiCaptionDe,
       Value<bool>? aiCaptionScanned,
       Value<bool>? aiTagsScanned,
       Value<double?>? sharpnessScore,
@@ -2047,6 +2092,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       ocrText: ocrText ?? this.ocrText,
       ocrScanned: ocrScanned ?? this.ocrScanned,
       aiCaption: aiCaption ?? this.aiCaption,
+      aiCaptionDe: aiCaptionDe ?? this.aiCaptionDe,
       aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
       aiTagsScanned: aiTagsScanned ?? this.aiTagsScanned,
       sharpnessScore: sharpnessScore ?? this.sharpnessScore,
@@ -2192,6 +2238,9 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     if (aiCaption.present) {
       map['ai_caption'] = Variable<String>(aiCaption.value);
     }
+    if (aiCaptionDe.present) {
+      map['ai_caption_de'] = Variable<String>(aiCaptionDe.value);
+    }
     if (aiCaptionScanned.present) {
       map['ai_caption_scanned'] = Variable<bool>(aiCaptionScanned.value);
     }
@@ -2261,6 +2310,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('ocrText: $ocrText, ')
           ..write('ocrScanned: $ocrScanned, ')
           ..write('aiCaption: $aiCaption, ')
+          ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
           ..write('aiTagsScanned: $aiTagsScanned, ')
           ..write('sharpnessScore: $sharpnessScore, ')
@@ -3140,8 +3190,15 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
   late final GeneratedColumn<String> coverFaceCropPath =
       GeneratedColumn<String>('cover_face_crop_path', aliasedName, true,
           type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _similarityThresholdMeta =
+      const VerificationMeta('similarityThreshold');
   @override
-  List<GeneratedColumn> get $columns => [id, name, coverFaceCropPath];
+  late final GeneratedColumn<double> similarityThreshold =
+      GeneratedColumn<double>('similarity_threshold', aliasedName, true,
+          type: DriftSqlType.double, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, name, coverFaceCropPath, similarityThreshold];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3169,6 +3226,12 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
           coverFaceCropPath.isAcceptableOrUnknown(
               data['cover_face_crop_path']!, _coverFaceCropPathMeta));
     }
+    if (data.containsKey('similarity_threshold')) {
+      context.handle(
+          _similarityThresholdMeta,
+          similarityThreshold.isAcceptableOrUnknown(
+              data['similarity_threshold']!, _similarityThresholdMeta));
+    }
     return context;
   }
 
@@ -3184,6 +3247,8 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
           .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
       coverFaceCropPath: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}cover_face_crop_path']),
+      similarityThreshold: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}similarity_threshold']),
     );
   }
 
@@ -3197,8 +3262,21 @@ class PersonData extends DataClass implements Insertable<PersonData> {
   final String id;
   final String name;
   final String? coverFaceCropPath;
+
+  /// Persönliche Wiedererkennungs-Schwelle, abgeleitet aus den bisherigen
+  /// Entscheidungen des Nutzers (siehe [FaceMatchFeedback] und
+  /// face_threshold.dart). `null` = die allgemeine Schwelle gilt.
+  ///
+  /// Als gespeicherter Wert statt bei jedem Vorschlag neu gerechnet, damit
+  /// die Zahl im Personen-Bildschirm dieselbe ist, nach der tatsächlich
+  /// entschieden wurde – eine Schwelle, die sich zwischen Anzeige und
+  /// Anwendung unterscheidet, wäre nicht erklärbar.
+  final double? similarityThreshold;
   const PersonData(
-      {required this.id, required this.name, this.coverFaceCropPath});
+      {required this.id,
+      required this.name,
+      this.coverFaceCropPath,
+      this.similarityThreshold});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3206,6 +3284,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
     map['name'] = Variable<String>(name);
     if (!nullToAbsent || coverFaceCropPath != null) {
       map['cover_face_crop_path'] = Variable<String>(coverFaceCropPath);
+    }
+    if (!nullToAbsent || similarityThreshold != null) {
+      map['similarity_threshold'] = Variable<double>(similarityThreshold);
     }
     return map;
   }
@@ -3217,6 +3298,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       coverFaceCropPath: coverFaceCropPath == null && nullToAbsent
           ? const Value.absent()
           : Value(coverFaceCropPath),
+      similarityThreshold: similarityThreshold == null && nullToAbsent
+          ? const Value.absent()
+          : Value(similarityThreshold),
     );
   }
 
@@ -3228,6 +3312,8 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       name: serializer.fromJson<String>(json['name']),
       coverFaceCropPath:
           serializer.fromJson<String?>(json['coverFaceCropPath']),
+      similarityThreshold:
+          serializer.fromJson<double?>(json['similarityThreshold']),
     );
   }
   @override
@@ -3237,19 +3323,24 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'coverFaceCropPath': serializer.toJson<String?>(coverFaceCropPath),
+      'similarityThreshold': serializer.toJson<double?>(similarityThreshold),
     };
   }
 
   PersonData copyWith(
           {String? id,
           String? name,
-          Value<String?> coverFaceCropPath = const Value.absent()}) =>
+          Value<String?> coverFaceCropPath = const Value.absent(),
+          Value<double?> similarityThreshold = const Value.absent()}) =>
       PersonData(
         id: id ?? this.id,
         name: name ?? this.name,
         coverFaceCropPath: coverFaceCropPath.present
             ? coverFaceCropPath.value
             : this.coverFaceCropPath,
+        similarityThreshold: similarityThreshold.present
+            ? similarityThreshold.value
+            : this.similarityThreshold,
       );
   PersonData copyWithCompanion(PeopleCompanion data) {
     return PersonData(
@@ -3258,6 +3349,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       coverFaceCropPath: data.coverFaceCropPath.present
           ? data.coverFaceCropPath.value
           : this.coverFaceCropPath,
+      similarityThreshold: data.similarityThreshold.present
+          ? data.similarityThreshold.value
+          : this.similarityThreshold,
     );
   }
 
@@ -3266,37 +3360,43 @@ class PersonData extends DataClass implements Insertable<PersonData> {
     return (StringBuffer('PersonData(')
           ..write('id: $id, ')
           ..write('name: $name, ')
-          ..write('coverFaceCropPath: $coverFaceCropPath')
+          ..write('coverFaceCropPath: $coverFaceCropPath, ')
+          ..write('similarityThreshold: $similarityThreshold')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, coverFaceCropPath);
+  int get hashCode =>
+      Object.hash(id, name, coverFaceCropPath, similarityThreshold);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is PersonData &&
           other.id == this.id &&
           other.name == this.name &&
-          other.coverFaceCropPath == this.coverFaceCropPath);
+          other.coverFaceCropPath == this.coverFaceCropPath &&
+          other.similarityThreshold == this.similarityThreshold);
 }
 
 class PeopleCompanion extends UpdateCompanion<PersonData> {
   final Value<String> id;
   final Value<String> name;
   final Value<String?> coverFaceCropPath;
+  final Value<double?> similarityThreshold;
   final Value<int> rowid;
   const PeopleCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.coverFaceCropPath = const Value.absent(),
+    this.similarityThreshold = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PeopleCompanion.insert({
     required String id,
     required String name,
     this.coverFaceCropPath = const Value.absent(),
+    this.similarityThreshold = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         name = Value(name);
@@ -3304,12 +3404,15 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? coverFaceCropPath,
+    Expression<double>? similarityThreshold,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (coverFaceCropPath != null) 'cover_face_crop_path': coverFaceCropPath,
+      if (similarityThreshold != null)
+        'similarity_threshold': similarityThreshold,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3318,11 +3421,13 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
       {Value<String>? id,
       Value<String>? name,
       Value<String?>? coverFaceCropPath,
+      Value<double?>? similarityThreshold,
       Value<int>? rowid}) {
     return PeopleCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       coverFaceCropPath: coverFaceCropPath ?? this.coverFaceCropPath,
+      similarityThreshold: similarityThreshold ?? this.similarityThreshold,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3339,6 +3444,9 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     if (coverFaceCropPath.present) {
       map['cover_face_crop_path'] = Variable<String>(coverFaceCropPath.value);
     }
+    if (similarityThreshold.present) {
+      map['similarity_threshold'] = Variable<double>(similarityThreshold.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3351,6 +3459,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('coverFaceCropPath: $coverFaceCropPath, ')
+          ..write('similarityThreshold: $similarityThreshold, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3873,6 +3982,351 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
           ..write('embedding: $embedding, ')
           ..write('eyeOpenScore: $eyeOpenScore, ')
           ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $FaceMatchFeedbackTable extends FaceMatchFeedback
+    with TableInfo<$FaceMatchFeedbackTable, FaceMatchFeedbackData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $FaceMatchFeedbackTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _personIdMeta =
+      const VerificationMeta('personId');
+  @override
+  late final GeneratedColumn<String> personId = GeneratedColumn<String>(
+      'person_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _faceIdMeta = const VerificationMeta('faceId');
+  @override
+  late final GeneratedColumn<String> faceId = GeneratedColumn<String>(
+      'face_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _acceptedMeta =
+      const VerificationMeta('accepted');
+  @override
+  late final GeneratedColumn<bool> accepted = GeneratedColumn<bool>(
+      'accepted', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: true,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("accepted" IN (0, 1))'));
+  static const VerificationMeta _similarityMeta =
+      const VerificationMeta('similarity');
+  @override
+  late final GeneratedColumn<double> similarity = GeneratedColumn<double>(
+      'similarity', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, personId, faceId, accepted, similarity, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'face_match_feedback';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<FaceMatchFeedbackData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('person_id')) {
+      context.handle(_personIdMeta,
+          personId.isAcceptableOrUnknown(data['person_id']!, _personIdMeta));
+    } else if (isInserting) {
+      context.missing(_personIdMeta);
+    }
+    if (data.containsKey('face_id')) {
+      context.handle(_faceIdMeta,
+          faceId.isAcceptableOrUnknown(data['face_id']!, _faceIdMeta));
+    } else if (isInserting) {
+      context.missing(_faceIdMeta);
+    }
+    if (data.containsKey('accepted')) {
+      context.handle(_acceptedMeta,
+          accepted.isAcceptableOrUnknown(data['accepted']!, _acceptedMeta));
+    } else if (isInserting) {
+      context.missing(_acceptedMeta);
+    }
+    if (data.containsKey('similarity')) {
+      context.handle(
+          _similarityMeta,
+          similarity.isAcceptableOrUnknown(
+              data['similarity']!, _similarityMeta));
+    } else if (isInserting) {
+      context.missing(_similarityMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  FaceMatchFeedbackData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return FaceMatchFeedbackData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      personId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}person_id'])!,
+      faceId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}face_id'])!,
+      accepted: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}accepted'])!,
+      similarity: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}similarity'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $FaceMatchFeedbackTable createAlias(String alias) {
+    return $FaceMatchFeedbackTable(attachedDatabase, alias);
+  }
+}
+
+class FaceMatchFeedbackData extends DataClass
+    implements Insertable<FaceMatchFeedbackData> {
+  final int id;
+  final String personId;
+  final String faceId;
+  final bool accepted;
+  final double similarity;
+  final DateTime createdAt;
+  const FaceMatchFeedbackData(
+      {required this.id,
+      required this.personId,
+      required this.faceId,
+      required this.accepted,
+      required this.similarity,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['person_id'] = Variable<String>(personId);
+    map['face_id'] = Variable<String>(faceId);
+    map['accepted'] = Variable<bool>(accepted);
+    map['similarity'] = Variable<double>(similarity);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  FaceMatchFeedbackCompanion toCompanion(bool nullToAbsent) {
+    return FaceMatchFeedbackCompanion(
+      id: Value(id),
+      personId: Value(personId),
+      faceId: Value(faceId),
+      accepted: Value(accepted),
+      similarity: Value(similarity),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory FaceMatchFeedbackData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return FaceMatchFeedbackData(
+      id: serializer.fromJson<int>(json['id']),
+      personId: serializer.fromJson<String>(json['personId']),
+      faceId: serializer.fromJson<String>(json['faceId']),
+      accepted: serializer.fromJson<bool>(json['accepted']),
+      similarity: serializer.fromJson<double>(json['similarity']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'personId': serializer.toJson<String>(personId),
+      'faceId': serializer.toJson<String>(faceId),
+      'accepted': serializer.toJson<bool>(accepted),
+      'similarity': serializer.toJson<double>(similarity),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  FaceMatchFeedbackData copyWith(
+          {int? id,
+          String? personId,
+          String? faceId,
+          bool? accepted,
+          double? similarity,
+          DateTime? createdAt}) =>
+      FaceMatchFeedbackData(
+        id: id ?? this.id,
+        personId: personId ?? this.personId,
+        faceId: faceId ?? this.faceId,
+        accepted: accepted ?? this.accepted,
+        similarity: similarity ?? this.similarity,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  FaceMatchFeedbackData copyWithCompanion(FaceMatchFeedbackCompanion data) {
+    return FaceMatchFeedbackData(
+      id: data.id.present ? data.id.value : this.id,
+      personId: data.personId.present ? data.personId.value : this.personId,
+      faceId: data.faceId.present ? data.faceId.value : this.faceId,
+      accepted: data.accepted.present ? data.accepted.value : this.accepted,
+      similarity:
+          data.similarity.present ? data.similarity.value : this.similarity,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FaceMatchFeedbackData(')
+          ..write('id: $id, ')
+          ..write('personId: $personId, ')
+          ..write('faceId: $faceId, ')
+          ..write('accepted: $accepted, ')
+          ..write('similarity: $similarity, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, personId, faceId, accepted, similarity, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is FaceMatchFeedbackData &&
+          other.id == this.id &&
+          other.personId == this.personId &&
+          other.faceId == this.faceId &&
+          other.accepted == this.accepted &&
+          other.similarity == this.similarity &&
+          other.createdAt == this.createdAt);
+}
+
+class FaceMatchFeedbackCompanion
+    extends UpdateCompanion<FaceMatchFeedbackData> {
+  final Value<int> id;
+  final Value<String> personId;
+  final Value<String> faceId;
+  final Value<bool> accepted;
+  final Value<double> similarity;
+  final Value<DateTime> createdAt;
+  const FaceMatchFeedbackCompanion({
+    this.id = const Value.absent(),
+    this.personId = const Value.absent(),
+    this.faceId = const Value.absent(),
+    this.accepted = const Value.absent(),
+    this.similarity = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  FaceMatchFeedbackCompanion.insert({
+    this.id = const Value.absent(),
+    required String personId,
+    required String faceId,
+    required bool accepted,
+    required double similarity,
+    required DateTime createdAt,
+  })  : personId = Value(personId),
+        faceId = Value(faceId),
+        accepted = Value(accepted),
+        similarity = Value(similarity),
+        createdAt = Value(createdAt);
+  static Insertable<FaceMatchFeedbackData> custom({
+    Expression<int>? id,
+    Expression<String>? personId,
+    Expression<String>? faceId,
+    Expression<bool>? accepted,
+    Expression<double>? similarity,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (personId != null) 'person_id': personId,
+      if (faceId != null) 'face_id': faceId,
+      if (accepted != null) 'accepted': accepted,
+      if (similarity != null) 'similarity': similarity,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  FaceMatchFeedbackCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? personId,
+      Value<String>? faceId,
+      Value<bool>? accepted,
+      Value<double>? similarity,
+      Value<DateTime>? createdAt}) {
+    return FaceMatchFeedbackCompanion(
+      id: id ?? this.id,
+      personId: personId ?? this.personId,
+      faceId: faceId ?? this.faceId,
+      accepted: accepted ?? this.accepted,
+      similarity: similarity ?? this.similarity,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (personId.present) {
+      map['person_id'] = Variable<String>(personId.value);
+    }
+    if (faceId.present) {
+      map['face_id'] = Variable<String>(faceId.value);
+    }
+    if (accepted.present) {
+      map['accepted'] = Variable<bool>(accepted.value);
+    }
+    if (similarity.present) {
+      map['similarity'] = Variable<double>(similarity.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('FaceMatchFeedbackCompanion(')
+          ..write('id: $id, ')
+          ..write('personId: $personId, ')
+          ..write('faceId: $faceId, ')
+          ..write('accepted: $accepted, ')
+          ..write('similarity: $similarity, ')
+          ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
@@ -6440,6 +6894,18 @@ class $DevelopSettingsTable extends DevelopSettings
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("lens_correction_enabled" IN (0, 1))'),
           defaultValue: const Constant(true));
+  static const VerificationMeta _toneCurveJsonMeta =
+      const VerificationMeta('toneCurveJson');
+  @override
+  late final GeneratedColumn<String> toneCurveJson = GeneratedColumn<String>(
+      'tone_curve_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _colorMixerJsonMeta =
+      const VerificationMeta('colorMixerJson');
+  @override
+  late final GeneratedColumn<String> colorMixerJson = GeneratedColumn<String>(
+      'color_mixer_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _updatedAtMeta =
       const VerificationMeta('updatedAt');
   @override
@@ -6457,6 +6923,8 @@ class $DevelopSettingsTable extends DevelopSettings
         sharpness,
         noiseReduction,
         lensCorrectionEnabled,
+        toneCurveJson,
+        colorMixerJson,
         updatedAt
       ];
   @override
@@ -6514,6 +6982,18 @@ class $DevelopSettingsTable extends DevelopSettings
           lensCorrectionEnabled.isAcceptableOrUnknown(
               data['lens_correction_enabled']!, _lensCorrectionEnabledMeta));
     }
+    if (data.containsKey('tone_curve_json')) {
+      context.handle(
+          _toneCurveJsonMeta,
+          toneCurveJson.isAcceptableOrUnknown(
+              data['tone_curve_json']!, _toneCurveJsonMeta));
+    }
+    if (data.containsKey('color_mixer_json')) {
+      context.handle(
+          _colorMixerJsonMeta,
+          colorMixerJson.isAcceptableOrUnknown(
+              data['color_mixer_json']!, _colorMixerJsonMeta));
+    }
     if (data.containsKey('updated_at')) {
       context.handle(_updatedAtMeta,
           updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
@@ -6548,6 +7028,10 @@ class $DevelopSettingsTable extends DevelopSettings
       lensCorrectionEnabled: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}lens_correction_enabled'])!,
+      toneCurveJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tone_curve_json']),
+      colorMixerJson: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}color_mixer_json']),
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
     );
@@ -6570,6 +7054,17 @@ class DevelopSettingsData extends DataClass
   final double sharpness;
   final double noiseReduction;
   final bool lensCorrectionEnabled;
+
+  /// JSON-kodierte [ToneCurve] bzw. [ColorMixer] (siehe develop_color.dart).
+  ///
+  /// Anders als die Regler darüber sind das keine einzelnen Zahlen, sondern
+  /// eine Punktfolge je Kanal bzw. acht Bänder mit je drei Werten – als
+  /// Spalten flachgeklopft wären das über dreissig zusätzliche Felder, die
+  /// in [DevelopHistory] noch einmal aufträten. `null` bedeutet neutral;
+  /// damit brauchen vorhandene Zeilen keine Migration und der Normalfall
+  /// kostet zur Laufzeit nichts (siehe `ToneCurve.istNeutral`).
+  final String? toneCurveJson;
+  final String? colorMixerJson;
   final DateTime updatedAt;
   const DevelopSettingsData(
       {required this.assetId,
@@ -6581,6 +7076,8 @@ class DevelopSettingsData extends DataClass
       required this.sharpness,
       required this.noiseReduction,
       required this.lensCorrectionEnabled,
+      this.toneCurveJson,
+      this.colorMixerJson,
       required this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6598,6 +7095,12 @@ class DevelopSettingsData extends DataClass
     map['sharpness'] = Variable<double>(sharpness);
     map['noise_reduction'] = Variable<double>(noiseReduction);
     map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
+    if (!nullToAbsent || toneCurveJson != null) {
+      map['tone_curve_json'] = Variable<String>(toneCurveJson);
+    }
+    if (!nullToAbsent || colorMixerJson != null) {
+      map['color_mixer_json'] = Variable<String>(colorMixerJson);
+    }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -6615,6 +7118,12 @@ class DevelopSettingsData extends DataClass
       sharpness: Value(sharpness),
       noiseReduction: Value(noiseReduction),
       lensCorrectionEnabled: Value(lensCorrectionEnabled),
+      toneCurveJson: toneCurveJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(toneCurveJson),
+      colorMixerJson: colorMixerJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorMixerJson),
       updatedAt: Value(updatedAt),
     );
   }
@@ -6633,6 +7142,8 @@ class DevelopSettingsData extends DataClass
       noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
       lensCorrectionEnabled:
           serializer.fromJson<bool>(json['lensCorrectionEnabled']),
+      toneCurveJson: serializer.fromJson<String?>(json['toneCurveJson']),
+      colorMixerJson: serializer.fromJson<String?>(json['colorMixerJson']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -6649,6 +7160,8 @@ class DevelopSettingsData extends DataClass
       'sharpness': serializer.toJson<double>(sharpness),
       'noiseReduction': serializer.toJson<double>(noiseReduction),
       'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
+      'toneCurveJson': serializer.toJson<String?>(toneCurveJson),
+      'colorMixerJson': serializer.toJson<String?>(colorMixerJson),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -6663,6 +7176,8 @@ class DevelopSettingsData extends DataClass
           double? sharpness,
           double? noiseReduction,
           bool? lensCorrectionEnabled,
+          Value<String?> toneCurveJson = const Value.absent(),
+          Value<String?> colorMixerJson = const Value.absent(),
           DateTime? updatedAt}) =>
       DevelopSettingsData(
         assetId: assetId ?? this.assetId,
@@ -6675,6 +7190,10 @@ class DevelopSettingsData extends DataClass
         noiseReduction: noiseReduction ?? this.noiseReduction,
         lensCorrectionEnabled:
             lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+        toneCurveJson:
+            toneCurveJson.present ? toneCurveJson.value : this.toneCurveJson,
+        colorMixerJson:
+            colorMixerJson.present ? colorMixerJson.value : this.colorMixerJson,
         updatedAt: updatedAt ?? this.updatedAt,
       );
   DevelopSettingsData copyWithCompanion(DevelopSettingsCompanion data) {
@@ -6693,6 +7212,12 @@ class DevelopSettingsData extends DataClass
       lensCorrectionEnabled: data.lensCorrectionEnabled.present
           ? data.lensCorrectionEnabled.value
           : this.lensCorrectionEnabled,
+      toneCurveJson: data.toneCurveJson.present
+          ? data.toneCurveJson.value
+          : this.toneCurveJson,
+      colorMixerJson: data.colorMixerJson.present
+          ? data.colorMixerJson.value
+          : this.colorMixerJson,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -6709,6 +7234,8 @@ class DevelopSettingsData extends DataClass
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('toneCurveJson: $toneCurveJson, ')
+          ..write('colorMixerJson: $colorMixerJson, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -6725,6 +7252,8 @@ class DevelopSettingsData extends DataClass
       sharpness,
       noiseReduction,
       lensCorrectionEnabled,
+      toneCurveJson,
+      colorMixerJson,
       updatedAt);
   @override
   bool operator ==(Object other) =>
@@ -6739,6 +7268,8 @@ class DevelopSettingsData extends DataClass
           other.sharpness == this.sharpness &&
           other.noiseReduction == this.noiseReduction &&
           other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
+          other.toneCurveJson == this.toneCurveJson &&
+          other.colorMixerJson == this.colorMixerJson &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -6752,6 +7283,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
   final Value<double> sharpness;
   final Value<double> noiseReduction;
   final Value<bool> lensCorrectionEnabled;
+  final Value<String?> toneCurveJson;
+  final Value<String?> colorMixerJson;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const DevelopSettingsCompanion({
@@ -6764,6 +7297,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
+    this.toneCurveJson = const Value.absent(),
+    this.colorMixerJson = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -6777,6 +7312,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
+    this.toneCurveJson = const Value.absent(),
+    this.colorMixerJson = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   })  : assetId = Value(assetId),
@@ -6791,6 +7328,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     Expression<double>? sharpness,
     Expression<double>? noiseReduction,
     Expression<bool>? lensCorrectionEnabled,
+    Expression<String>? toneCurveJson,
+    Expression<String>? colorMixerJson,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -6805,6 +7344,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       if (noiseReduction != null) 'noise_reduction': noiseReduction,
       if (lensCorrectionEnabled != null)
         'lens_correction_enabled': lensCorrectionEnabled,
+      if (toneCurveJson != null) 'tone_curve_json': toneCurveJson,
+      if (colorMixerJson != null) 'color_mixer_json': colorMixerJson,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -6820,6 +7361,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       Value<double>? sharpness,
       Value<double>? noiseReduction,
       Value<bool>? lensCorrectionEnabled,
+      Value<String?>? toneCurveJson,
+      Value<String?>? colorMixerJson,
       Value<DateTime>? updatedAt,
       Value<int>? rowid}) {
     return DevelopSettingsCompanion(
@@ -6833,6 +7376,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       noiseReduction: noiseReduction ?? this.noiseReduction,
       lensCorrectionEnabled:
           lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+      toneCurveJson: toneCurveJson ?? this.toneCurveJson,
+      colorMixerJson: colorMixerJson ?? this.colorMixerJson,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -6869,6 +7414,12 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       map['lens_correction_enabled'] =
           Variable<bool>(lensCorrectionEnabled.value);
     }
+    if (toneCurveJson.present) {
+      map['tone_curve_json'] = Variable<String>(toneCurveJson.value);
+    }
+    if (colorMixerJson.present) {
+      map['color_mixer_json'] = Variable<String>(colorMixerJson.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -6890,6 +7441,8 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('toneCurveJson: $toneCurveJson, ')
+          ..write('colorMixerJson: $colorMixerJson, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6968,6 +7521,18 @@ class $DevelopHistoryTable extends DevelopHistory
           requiredDuringInsert: true,
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("lens_correction_enabled" IN (0, 1))'));
+  static const VerificationMeta _toneCurveJsonMeta =
+      const VerificationMeta('toneCurveJson');
+  @override
+  late final GeneratedColumn<String> toneCurveJson = GeneratedColumn<String>(
+      'tone_curve_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _colorMixerJsonMeta =
+      const VerificationMeta('colorMixerJson');
+  @override
+  late final GeneratedColumn<String> colorMixerJson = GeneratedColumn<String>(
+      'color_mixer_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -6986,6 +7551,8 @@ class $DevelopHistoryTable extends DevelopHistory
         sharpness,
         noiseReduction,
         lensCorrectionEnabled,
+        toneCurveJson,
+        colorMixerJson,
         createdAt
       ];
   @override
@@ -7057,6 +7624,18 @@ class $DevelopHistoryTable extends DevelopHistory
     } else if (isInserting) {
       context.missing(_lensCorrectionEnabledMeta);
     }
+    if (data.containsKey('tone_curve_json')) {
+      context.handle(
+          _toneCurveJsonMeta,
+          toneCurveJson.isAcceptableOrUnknown(
+              data['tone_curve_json']!, _toneCurveJsonMeta));
+    }
+    if (data.containsKey('color_mixer_json')) {
+      context.handle(
+          _colorMixerJsonMeta,
+          colorMixerJson.isAcceptableOrUnknown(
+              data['color_mixer_json']!, _colorMixerJsonMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -7093,6 +7672,10 @@ class $DevelopHistoryTable extends DevelopHistory
       lensCorrectionEnabled: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}lens_correction_enabled'])!,
+      toneCurveJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tone_curve_json']),
+      colorMixerJson: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}color_mixer_json']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
     );
@@ -7116,6 +7699,12 @@ class DevelopHistoryData extends DataClass
   final double sharpness;
   final double noiseReduction;
   final bool lensCorrectionEnabled;
+
+  /// Wie in [DevelopSettings] – ohne diese beiden Spalten liesse ein
+  /// Verlaufs-Eintrag Kurve und Mischer stillschweigend fallen, und
+  /// "Zurück zu diesem Stand" führte zu einem anderen Bild als damals.
+  final String? toneCurveJson;
+  final String? colorMixerJson;
   final DateTime createdAt;
   const DevelopHistoryData(
       {required this.id,
@@ -7128,6 +7717,8 @@ class DevelopHistoryData extends DataClass
       required this.sharpness,
       required this.noiseReduction,
       required this.lensCorrectionEnabled,
+      this.toneCurveJson,
+      this.colorMixerJson,
       required this.createdAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -7146,6 +7737,12 @@ class DevelopHistoryData extends DataClass
     map['sharpness'] = Variable<double>(sharpness);
     map['noise_reduction'] = Variable<double>(noiseReduction);
     map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
+    if (!nullToAbsent || toneCurveJson != null) {
+      map['tone_curve_json'] = Variable<String>(toneCurveJson);
+    }
+    if (!nullToAbsent || colorMixerJson != null) {
+      map['color_mixer_json'] = Variable<String>(colorMixerJson);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -7164,6 +7761,12 @@ class DevelopHistoryData extends DataClass
       sharpness: Value(sharpness),
       noiseReduction: Value(noiseReduction),
       lensCorrectionEnabled: Value(lensCorrectionEnabled),
+      toneCurveJson: toneCurveJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(toneCurveJson),
+      colorMixerJson: colorMixerJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorMixerJson),
       createdAt: Value(createdAt),
     );
   }
@@ -7183,6 +7786,8 @@ class DevelopHistoryData extends DataClass
       noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
       lensCorrectionEnabled:
           serializer.fromJson<bool>(json['lensCorrectionEnabled']),
+      toneCurveJson: serializer.fromJson<String?>(json['toneCurveJson']),
+      colorMixerJson: serializer.fromJson<String?>(json['colorMixerJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -7200,6 +7805,8 @@ class DevelopHistoryData extends DataClass
       'sharpness': serializer.toJson<double>(sharpness),
       'noiseReduction': serializer.toJson<double>(noiseReduction),
       'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
+      'toneCurveJson': serializer.toJson<String?>(toneCurveJson),
+      'colorMixerJson': serializer.toJson<String?>(colorMixerJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -7215,6 +7822,8 @@ class DevelopHistoryData extends DataClass
           double? sharpness,
           double? noiseReduction,
           bool? lensCorrectionEnabled,
+          Value<String?> toneCurveJson = const Value.absent(),
+          Value<String?> colorMixerJson = const Value.absent(),
           DateTime? createdAt}) =>
       DevelopHistoryData(
         id: id ?? this.id,
@@ -7228,6 +7837,10 @@ class DevelopHistoryData extends DataClass
         noiseReduction: noiseReduction ?? this.noiseReduction,
         lensCorrectionEnabled:
             lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+        toneCurveJson:
+            toneCurveJson.present ? toneCurveJson.value : this.toneCurveJson,
+        colorMixerJson:
+            colorMixerJson.present ? colorMixerJson.value : this.colorMixerJson,
         createdAt: createdAt ?? this.createdAt,
       );
   DevelopHistoryData copyWithCompanion(DevelopHistoryCompanion data) {
@@ -7247,6 +7860,12 @@ class DevelopHistoryData extends DataClass
       lensCorrectionEnabled: data.lensCorrectionEnabled.present
           ? data.lensCorrectionEnabled.value
           : this.lensCorrectionEnabled,
+      toneCurveJson: data.toneCurveJson.present
+          ? data.toneCurveJson.value
+          : this.toneCurveJson,
+      colorMixerJson: data.colorMixerJson.present
+          ? data.colorMixerJson.value
+          : this.colorMixerJson,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -7264,6 +7883,8 @@ class DevelopHistoryData extends DataClass
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('toneCurveJson: $toneCurveJson, ')
+          ..write('colorMixerJson: $colorMixerJson, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -7281,6 +7902,8 @@ class DevelopHistoryData extends DataClass
       sharpness,
       noiseReduction,
       lensCorrectionEnabled,
+      toneCurveJson,
+      colorMixerJson,
       createdAt);
   @override
   bool operator ==(Object other) =>
@@ -7296,6 +7919,8 @@ class DevelopHistoryData extends DataClass
           other.sharpness == this.sharpness &&
           other.noiseReduction == this.noiseReduction &&
           other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
+          other.toneCurveJson == this.toneCurveJson &&
+          other.colorMixerJson == this.colorMixerJson &&
           other.createdAt == this.createdAt);
 }
 
@@ -7310,6 +7935,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
   final Value<double> sharpness;
   final Value<double> noiseReduction;
   final Value<bool> lensCorrectionEnabled;
+  final Value<String?> toneCurveJson;
+  final Value<String?> colorMixerJson;
   final Value<DateTime> createdAt;
   const DevelopHistoryCompanion({
     this.id = const Value.absent(),
@@ -7322,6 +7949,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
+    this.toneCurveJson = const Value.absent(),
+    this.colorMixerJson = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   DevelopHistoryCompanion.insert({
@@ -7335,6 +7964,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     required double sharpness,
     required double noiseReduction,
     required bool lensCorrectionEnabled,
+    this.toneCurveJson = const Value.absent(),
+    this.colorMixerJson = const Value.absent(),
     required DateTime createdAt,
   })  : assetId = Value(assetId),
         exposure = Value(exposure),
@@ -7355,6 +7986,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     Expression<double>? sharpness,
     Expression<double>? noiseReduction,
     Expression<bool>? lensCorrectionEnabled,
+    Expression<String>? toneCurveJson,
+    Expression<String>? colorMixerJson,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -7369,6 +8002,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       if (noiseReduction != null) 'noise_reduction': noiseReduction,
       if (lensCorrectionEnabled != null)
         'lens_correction_enabled': lensCorrectionEnabled,
+      if (toneCurveJson != null) 'tone_curve_json': toneCurveJson,
+      if (colorMixerJson != null) 'color_mixer_json': colorMixerJson,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -7384,6 +8019,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       Value<double>? sharpness,
       Value<double>? noiseReduction,
       Value<bool>? lensCorrectionEnabled,
+      Value<String?>? toneCurveJson,
+      Value<String?>? colorMixerJson,
       Value<DateTime>? createdAt}) {
     return DevelopHistoryCompanion(
       id: id ?? this.id,
@@ -7397,6 +8034,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       noiseReduction: noiseReduction ?? this.noiseReduction,
       lensCorrectionEnabled:
           lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+      toneCurveJson: toneCurveJson ?? this.toneCurveJson,
+      colorMixerJson: colorMixerJson ?? this.colorMixerJson,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -7435,6 +8074,12 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       map['lens_correction_enabled'] =
           Variable<bool>(lensCorrectionEnabled.value);
     }
+    if (toneCurveJson.present) {
+      map['tone_curve_json'] = Variable<String>(toneCurveJson.value);
+    }
+    if (colorMixerJson.present) {
+      map['color_mixer_json'] = Variable<String>(colorMixerJson.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -7454,6 +8099,8 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('toneCurveJson: $toneCurveJson, ')
+          ..write('colorMixerJson: $colorMixerJson, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -8892,6 +9539,14 @@ class $AppSettingsTable extends AppSettings
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('system'));
+  static const VerificationMeta _spracheMeta =
+      const VerificationMeta('sprache');
+  @override
+  late final GeneratedColumn<String> sprache = GeneratedColumn<String>(
+      'sprache', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('system'));
   static const VerificationMeta _autoAnalyzeAfterImportMeta =
       const VerificationMeta('autoAnalyzeAfterImport');
   @override
@@ -8902,8 +9557,58 @@ class $AppSettingsTable extends AppSettings
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("auto_analyze_after_import" IN (0, 1))'),
           defaultValue: const Constant(true));
+  static const VerificationMeta _watchedFolderPathMeta =
+      const VerificationMeta('watchedFolderPath');
   @override
-  List<GeneratedColumn> get $columns => [id, themeMode, autoAnalyzeAfterImport];
+  late final GeneratedColumn<String> watchedFolderPath =
+      GeneratedColumn<String>('watched_folder_path', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _watchedFolderTokenMeta =
+      const VerificationMeta('watchedFolderToken');
+  @override
+  late final GeneratedColumn<String> watchedFolderToken =
+      GeneratedColumn<String>('watched_folder_token', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _faceSimilarityThresholdMeta =
+      const VerificationMeta('faceSimilarityThreshold');
+  @override
+  late final GeneratedColumn<double> faceSimilarityThreshold =
+      GeneratedColumn<double>('face_similarity_threshold', aliasedName, false,
+          type: DriftSqlType.double,
+          requiredDuringInsert: false,
+          defaultValue: const Constant(0.363));
+  static const VerificationMeta _translateCaptionsMeta =
+      const VerificationMeta('translateCaptions');
+  @override
+  late final GeneratedColumn<bool> translateCaptions = GeneratedColumn<bool>(
+      'translate_captions', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("translate_captions" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _translateSearchAndTagsMeta =
+      const VerificationMeta('translateSearchAndTags');
+  @override
+  late final GeneratedColumn<bool> translateSearchAndTags =
+      GeneratedColumn<bool>('translate_search_and_tags', aliasedName, false,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintIsAlways(
+              'CHECK ("translate_search_and_tags" IN (0, 1))'),
+          defaultValue: const Constant(false));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        themeMode,
+        sprache,
+        autoAnalyzeAfterImport,
+        watchedFolderPath,
+        watchedFolderToken,
+        faceSimilarityThreshold,
+        translateCaptions,
+        translateSearchAndTags
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -8921,11 +9626,46 @@ class $AppSettingsTable extends AppSettings
       context.handle(_themeModeMeta,
           themeMode.isAcceptableOrUnknown(data['theme_mode']!, _themeModeMeta));
     }
+    if (data.containsKey('sprache')) {
+      context.handle(_spracheMeta,
+          sprache.isAcceptableOrUnknown(data['sprache']!, _spracheMeta));
+    }
     if (data.containsKey('auto_analyze_after_import')) {
       context.handle(
           _autoAnalyzeAfterImportMeta,
           autoAnalyzeAfterImport.isAcceptableOrUnknown(
               data['auto_analyze_after_import']!, _autoAnalyzeAfterImportMeta));
+    }
+    if (data.containsKey('watched_folder_path')) {
+      context.handle(
+          _watchedFolderPathMeta,
+          watchedFolderPath.isAcceptableOrUnknown(
+              data['watched_folder_path']!, _watchedFolderPathMeta));
+    }
+    if (data.containsKey('watched_folder_token')) {
+      context.handle(
+          _watchedFolderTokenMeta,
+          watchedFolderToken.isAcceptableOrUnknown(
+              data['watched_folder_token']!, _watchedFolderTokenMeta));
+    }
+    if (data.containsKey('face_similarity_threshold')) {
+      context.handle(
+          _faceSimilarityThresholdMeta,
+          faceSimilarityThreshold.isAcceptableOrUnknown(
+              data['face_similarity_threshold']!,
+              _faceSimilarityThresholdMeta));
+    }
+    if (data.containsKey('translate_captions')) {
+      context.handle(
+          _translateCaptionsMeta,
+          translateCaptions.isAcceptableOrUnknown(
+              data['translate_captions']!, _translateCaptionsMeta));
+    }
+    if (data.containsKey('translate_search_and_tags')) {
+      context.handle(
+          _translateSearchAndTagsMeta,
+          translateSearchAndTags.isAcceptableOrUnknown(
+              data['translate_search_and_tags']!, _translateSearchAndTagsMeta));
     }
     return context;
   }
@@ -8940,9 +9680,23 @@ class $AppSettingsTable extends AppSettings
           .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
       themeMode: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}theme_mode'])!,
+      sprache: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sprache'])!,
       autoAnalyzeAfterImport: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}auto_analyze_after_import'])!,
+      watchedFolderPath: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}watched_folder_path']),
+      watchedFolderToken: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}watched_folder_token']),
+      faceSimilarityThreshold: attachedDatabase.typeMapping.read(
+          DriftSqlType.double,
+          data['${effectivePrefix}face_similarity_threshold'])!,
+      translateCaptions: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}translate_captions'])!,
+      translateSearchAndTags: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool,
+          data['${effectivePrefix}translate_search_and_tags'])!,
     );
   }
 
@@ -8956,22 +9710,78 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   final int id;
   final String themeMode;
 
+  /// Oberflächensprache: `'system'`, `'de'` oder `'en'`.
+  ///
+  /// Dasselbe Muster wie [themeMode], und aus demselben Grund als Text
+  /// statt als Aufzählung: Eine unbekannte Angabe (etwa aus einer
+  /// neueren Fassung) fällt beim Lesen auf den Standard zurück, statt
+  /// den Start zu verhindern.
+  final String sprache;
+
   /// Ob die rechenintensiven KI-Auswertungen (Gesichter, Texterkennung,
   /// CLIP, Bildbeschreibung, Unschärfe) nach einem Import automatisch als
   /// Hintergrundaufgabe nachlaufen. Standard an – sonst blieben frisch
   /// importierte Fotos ohne Suche und ohne Personenzuordnung, bis jemand
   /// die Werkzeuge von Hand anstößt.
   final bool autoAnalyzeAfterImport;
+
+  /// Ordner, der laufend auf neue Dateien geprüft wird (siehe
+  /// LibraryState.pruefeUeberwachtenOrdner). Null = keiner eingerichtet.
+  ///
+  /// Der Zugriff braucht unter macOS zusätzlich das Sandbox-Merkmal aus der
+  /// Ordnerauswahl, sonst erlischt er beim nächsten Programmstart – deshalb
+  /// beide Angaben zusammen, wie bei den Bibliotheksorten auch.
+  final String? watchedFolderPath;
+  final String? watchedFolderToken;
+
+  /// Allgemeine Schwelle für "dasselbe Gesicht" (Kosinus-Ähnlichkeit).
+  ///
+  /// 0,363 ist der von OpenCV Zoo für SFace dokumentierte Wert. Die
+  /// Einstellung lag bisher nur im Speicher – der Regler unter "Werkzeuge"
+  /// war bei jedem Programmstart wieder auf dem Ausgangswert, ohne dass
+  /// das irgendwo stand.
+  final double faceSimilarityThreshold;
+
+  /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
+  final bool translateCaptions;
+
+  /// Deutsche Suchanfragen und Schlagwörter vor der KI-Bildsuche ins
+  /// Englische übersetzen (Modell `translation_de_en`).
+  ///
+  /// Standard aus, und zwar bewusst: An 103 Fotos der Testbibliothek
+  /// gemessen trennt die englische Fassung eines Vokabelbegriffs bei 33
+  /// von 56 Begriffen schärfer, bei 19 schlechter. Der Gewinn ist real,
+  /// aber weder gross noch durchgängig – und die Zahl vergebener Tags
+  /// sinkt bei gleicher Schwelle von 402 auf 248. Eine solche Änderung
+  /// gehört nicht stillschweigend eingeschaltet.
+  final bool translateSearchAndTags;
   const AppSettingsData(
       {required this.id,
       required this.themeMode,
-      required this.autoAnalyzeAfterImport});
+      required this.sprache,
+      required this.autoAnalyzeAfterImport,
+      this.watchedFolderPath,
+      this.watchedFolderToken,
+      required this.faceSimilarityThreshold,
+      required this.translateCaptions,
+      required this.translateSearchAndTags});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['theme_mode'] = Variable<String>(themeMode);
+    map['sprache'] = Variable<String>(sprache);
     map['auto_analyze_after_import'] = Variable<bool>(autoAnalyzeAfterImport);
+    if (!nullToAbsent || watchedFolderPath != null) {
+      map['watched_folder_path'] = Variable<String>(watchedFolderPath);
+    }
+    if (!nullToAbsent || watchedFolderToken != null) {
+      map['watched_folder_token'] = Variable<String>(watchedFolderToken);
+    }
+    map['face_similarity_threshold'] =
+        Variable<double>(faceSimilarityThreshold);
+    map['translate_captions'] = Variable<bool>(translateCaptions);
+    map['translate_search_and_tags'] = Variable<bool>(translateSearchAndTags);
     return map;
   }
 
@@ -8979,7 +9789,17 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     return AppSettingsCompanion(
       id: Value(id),
       themeMode: Value(themeMode),
+      sprache: Value(sprache),
       autoAnalyzeAfterImport: Value(autoAnalyzeAfterImport),
+      watchedFolderPath: watchedFolderPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(watchedFolderPath),
+      watchedFolderToken: watchedFolderToken == null && nullToAbsent
+          ? const Value.absent()
+          : Value(watchedFolderToken),
+      faceSimilarityThreshold: Value(faceSimilarityThreshold),
+      translateCaptions: Value(translateCaptions),
+      translateSearchAndTags: Value(translateSearchAndTags),
     );
   }
 
@@ -8989,8 +9809,18 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     return AppSettingsData(
       id: serializer.fromJson<int>(json['id']),
       themeMode: serializer.fromJson<String>(json['themeMode']),
+      sprache: serializer.fromJson<String>(json['sprache']),
       autoAnalyzeAfterImport:
           serializer.fromJson<bool>(json['autoAnalyzeAfterImport']),
+      watchedFolderPath:
+          serializer.fromJson<String?>(json['watchedFolderPath']),
+      watchedFolderToken:
+          serializer.fromJson<String?>(json['watchedFolderToken']),
+      faceSimilarityThreshold:
+          serializer.fromJson<double>(json['faceSimilarityThreshold']),
+      translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
+      translateSearchAndTags:
+          serializer.fromJson<bool>(json['translateSearchAndTags']),
     );
   }
   @override
@@ -8999,25 +9829,68 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'themeMode': serializer.toJson<String>(themeMode),
+      'sprache': serializer.toJson<String>(sprache),
       'autoAnalyzeAfterImport': serializer.toJson<bool>(autoAnalyzeAfterImport),
+      'watchedFolderPath': serializer.toJson<String?>(watchedFolderPath),
+      'watchedFolderToken': serializer.toJson<String?>(watchedFolderToken),
+      'faceSimilarityThreshold':
+          serializer.toJson<double>(faceSimilarityThreshold),
+      'translateCaptions': serializer.toJson<bool>(translateCaptions),
+      'translateSearchAndTags': serializer.toJson<bool>(translateSearchAndTags),
     };
   }
 
   AppSettingsData copyWith(
-          {int? id, String? themeMode, bool? autoAnalyzeAfterImport}) =>
+          {int? id,
+          String? themeMode,
+          String? sprache,
+          bool? autoAnalyzeAfterImport,
+          Value<String?> watchedFolderPath = const Value.absent(),
+          Value<String?> watchedFolderToken = const Value.absent(),
+          double? faceSimilarityThreshold,
+          bool? translateCaptions,
+          bool? translateSearchAndTags}) =>
       AppSettingsData(
         id: id ?? this.id,
         themeMode: themeMode ?? this.themeMode,
+        sprache: sprache ?? this.sprache,
         autoAnalyzeAfterImport:
             autoAnalyzeAfterImport ?? this.autoAnalyzeAfterImport,
+        watchedFolderPath: watchedFolderPath.present
+            ? watchedFolderPath.value
+            : this.watchedFolderPath,
+        watchedFolderToken: watchedFolderToken.present
+            ? watchedFolderToken.value
+            : this.watchedFolderToken,
+        faceSimilarityThreshold:
+            faceSimilarityThreshold ?? this.faceSimilarityThreshold,
+        translateCaptions: translateCaptions ?? this.translateCaptions,
+        translateSearchAndTags:
+            translateSearchAndTags ?? this.translateSearchAndTags,
       );
   AppSettingsData copyWithCompanion(AppSettingsCompanion data) {
     return AppSettingsData(
       id: data.id.present ? data.id.value : this.id,
       themeMode: data.themeMode.present ? data.themeMode.value : this.themeMode,
+      sprache: data.sprache.present ? data.sprache.value : this.sprache,
       autoAnalyzeAfterImport: data.autoAnalyzeAfterImport.present
           ? data.autoAnalyzeAfterImport.value
           : this.autoAnalyzeAfterImport,
+      watchedFolderPath: data.watchedFolderPath.present
+          ? data.watchedFolderPath.value
+          : this.watchedFolderPath,
+      watchedFolderToken: data.watchedFolderToken.present
+          ? data.watchedFolderToken.value
+          : this.watchedFolderToken,
+      faceSimilarityThreshold: data.faceSimilarityThreshold.present
+          ? data.faceSimilarityThreshold.value
+          : this.faceSimilarityThreshold,
+      translateCaptions: data.translateCaptions.present
+          ? data.translateCaptions.value
+          : this.translateCaptions,
+      translateSearchAndTags: data.translateSearchAndTags.present
+          ? data.translateSearchAndTags.value
+          : this.translateSearchAndTags,
     );
   }
 
@@ -9026,58 +9899,126 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     return (StringBuffer('AppSettingsData(')
           ..write('id: $id, ')
           ..write('themeMode: $themeMode, ')
-          ..write('autoAnalyzeAfterImport: $autoAnalyzeAfterImport')
+          ..write('sprache: $sprache, ')
+          ..write('autoAnalyzeAfterImport: $autoAnalyzeAfterImport, ')
+          ..write('watchedFolderPath: $watchedFolderPath, ')
+          ..write('watchedFolderToken: $watchedFolderToken, ')
+          ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
+          ..write('translateCaptions: $translateCaptions, ')
+          ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, themeMode, autoAnalyzeAfterImport);
+  int get hashCode => Object.hash(
+      id,
+      themeMode,
+      sprache,
+      autoAnalyzeAfterImport,
+      watchedFolderPath,
+      watchedFolderToken,
+      faceSimilarityThreshold,
+      translateCaptions,
+      translateSearchAndTags);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppSettingsData &&
           other.id == this.id &&
           other.themeMode == this.themeMode &&
-          other.autoAnalyzeAfterImport == this.autoAnalyzeAfterImport);
+          other.sprache == this.sprache &&
+          other.autoAnalyzeAfterImport == this.autoAnalyzeAfterImport &&
+          other.watchedFolderPath == this.watchedFolderPath &&
+          other.watchedFolderToken == this.watchedFolderToken &&
+          other.faceSimilarityThreshold == this.faceSimilarityThreshold &&
+          other.translateCaptions == this.translateCaptions &&
+          other.translateSearchAndTags == this.translateSearchAndTags);
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<int> id;
   final Value<String> themeMode;
+  final Value<String> sprache;
   final Value<bool> autoAnalyzeAfterImport;
+  final Value<String?> watchedFolderPath;
+  final Value<String?> watchedFolderToken;
+  final Value<double> faceSimilarityThreshold;
+  final Value<bool> translateCaptions;
+  final Value<bool> translateSearchAndTags;
   const AppSettingsCompanion({
     this.id = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.sprache = const Value.absent(),
     this.autoAnalyzeAfterImport = const Value.absent(),
+    this.watchedFolderPath = const Value.absent(),
+    this.watchedFolderToken = const Value.absent(),
+    this.faceSimilarityThreshold = const Value.absent(),
+    this.translateCaptions = const Value.absent(),
+    this.translateSearchAndTags = const Value.absent(),
   });
   AppSettingsCompanion.insert({
     this.id = const Value.absent(),
     this.themeMode = const Value.absent(),
+    this.sprache = const Value.absent(),
     this.autoAnalyzeAfterImport = const Value.absent(),
+    this.watchedFolderPath = const Value.absent(),
+    this.watchedFolderToken = const Value.absent(),
+    this.faceSimilarityThreshold = const Value.absent(),
+    this.translateCaptions = const Value.absent(),
+    this.translateSearchAndTags = const Value.absent(),
   });
   static Insertable<AppSettingsData> custom({
     Expression<int>? id,
     Expression<String>? themeMode,
+    Expression<String>? sprache,
     Expression<bool>? autoAnalyzeAfterImport,
+    Expression<String>? watchedFolderPath,
+    Expression<String>? watchedFolderToken,
+    Expression<double>? faceSimilarityThreshold,
+    Expression<bool>? translateCaptions,
+    Expression<bool>? translateSearchAndTags,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (themeMode != null) 'theme_mode': themeMode,
+      if (sprache != null) 'sprache': sprache,
       if (autoAnalyzeAfterImport != null)
         'auto_analyze_after_import': autoAnalyzeAfterImport,
+      if (watchedFolderPath != null) 'watched_folder_path': watchedFolderPath,
+      if (watchedFolderToken != null)
+        'watched_folder_token': watchedFolderToken,
+      if (faceSimilarityThreshold != null)
+        'face_similarity_threshold': faceSimilarityThreshold,
+      if (translateCaptions != null) 'translate_captions': translateCaptions,
+      if (translateSearchAndTags != null)
+        'translate_search_and_tags': translateSearchAndTags,
     });
   }
 
   AppSettingsCompanion copyWith(
       {Value<int>? id,
       Value<String>? themeMode,
-      Value<bool>? autoAnalyzeAfterImport}) {
+      Value<String>? sprache,
+      Value<bool>? autoAnalyzeAfterImport,
+      Value<String?>? watchedFolderPath,
+      Value<String?>? watchedFolderToken,
+      Value<double>? faceSimilarityThreshold,
+      Value<bool>? translateCaptions,
+      Value<bool>? translateSearchAndTags}) {
     return AppSettingsCompanion(
       id: id ?? this.id,
       themeMode: themeMode ?? this.themeMode,
+      sprache: sprache ?? this.sprache,
       autoAnalyzeAfterImport:
           autoAnalyzeAfterImport ?? this.autoAnalyzeAfterImport,
+      watchedFolderPath: watchedFolderPath ?? this.watchedFolderPath,
+      watchedFolderToken: watchedFolderToken ?? this.watchedFolderToken,
+      faceSimilarityThreshold:
+          faceSimilarityThreshold ?? this.faceSimilarityThreshold,
+      translateCaptions: translateCaptions ?? this.translateCaptions,
+      translateSearchAndTags:
+          translateSearchAndTags ?? this.translateSearchAndTags,
     );
   }
 
@@ -9090,9 +10031,29 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (themeMode.present) {
       map['theme_mode'] = Variable<String>(themeMode.value);
     }
+    if (sprache.present) {
+      map['sprache'] = Variable<String>(sprache.value);
+    }
     if (autoAnalyzeAfterImport.present) {
       map['auto_analyze_after_import'] =
           Variable<bool>(autoAnalyzeAfterImport.value);
+    }
+    if (watchedFolderPath.present) {
+      map['watched_folder_path'] = Variable<String>(watchedFolderPath.value);
+    }
+    if (watchedFolderToken.present) {
+      map['watched_folder_token'] = Variable<String>(watchedFolderToken.value);
+    }
+    if (faceSimilarityThreshold.present) {
+      map['face_similarity_threshold'] =
+          Variable<double>(faceSimilarityThreshold.value);
+    }
+    if (translateCaptions.present) {
+      map['translate_captions'] = Variable<bool>(translateCaptions.value);
+    }
+    if (translateSearchAndTags.present) {
+      map['translate_search_and_tags'] =
+          Variable<bool>(translateSearchAndTags.value);
     }
     return map;
   }
@@ -9102,7 +10063,13 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     return (StringBuffer('AppSettingsCompanion(')
           ..write('id: $id, ')
           ..write('themeMode: $themeMode, ')
-          ..write('autoAnalyzeAfterImport: $autoAnalyzeAfterImport')
+          ..write('sprache: $sprache, ')
+          ..write('autoAnalyzeAfterImport: $autoAnalyzeAfterImport, ')
+          ..write('watchedFolderPath: $watchedFolderPath, ')
+          ..write('watchedFolderToken: $watchedFolderToken, ')
+          ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
+          ..write('translateCaptions: $translateCaptions, ')
+          ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
         .toString();
   }
@@ -10083,6 +11050,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AssetTagsTable assetTags = $AssetTagsTable(this);
   late final $PeopleTable people = $PeopleTable(this);
   late final $FacesTable faces = $FacesTable(this);
+  late final $FaceMatchFeedbackTable faceMatchFeedback =
+      $FaceMatchFeedbackTable(this);
   late final $ImageEmbeddingsTable imageEmbeddings =
       $ImageEmbeddingsTable(this);
   late final $BackupRecordsTable backupRecords = $BackupRecordsTable(this);
@@ -10119,6 +11088,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         assetTags,
         people,
         faces,
+        faceMatchFeedback,
         imageEmbeddings,
         backupRecords,
         privacySettings,
@@ -10182,6 +11152,7 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<String?> ocrText,
   Value<bool> ocrScanned,
   Value<String?> aiCaption,
+  Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
   Value<bool> aiTagsScanned,
   Value<double?> sharpnessScore,
@@ -10233,6 +11204,7 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<String?> ocrText,
   Value<bool> ocrScanned,
   Value<String?> aiCaption,
+  Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
   Value<bool> aiTagsScanned,
   Value<double?> sharpnessScore,
@@ -10385,6 +11357,9 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get aiCaptionDe => $composableBuilder(
+      column: $table.aiCaptionDe, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get aiCaptionScanned => $composableBuilder(
       column: $table.aiCaptionScanned,
@@ -10560,6 +11535,9 @@ class $$AssetsTableOrderingComposer
   ColumnOrderings<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get aiCaptionDe => $composableBuilder(
+      column: $table.aiCaptionDe, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get aiCaptionScanned => $composableBuilder(
       column: $table.aiCaptionScanned,
       builder: (column) => ColumnOrderings(column));
@@ -10718,6 +11696,9 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<String> get aiCaption =>
       $composableBuilder(column: $table.aiCaption, builder: (column) => column);
 
+  GeneratedColumn<String> get aiCaptionDe => $composableBuilder(
+      column: $table.aiCaptionDe, builder: (column) => column);
+
   GeneratedColumn<bool> get aiCaptionScanned => $composableBuilder(
       column: $table.aiCaptionScanned, builder: (column) => column);
 
@@ -10802,6 +11783,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> ocrText = const Value.absent(),
             Value<bool> ocrScanned = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
+            Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
             Value<bool> aiTagsScanned = const Value.absent(),
             Value<double?> sharpnessScore = const Value.absent(),
@@ -10853,6 +11835,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             ocrText: ocrText,
             ocrScanned: ocrScanned,
             aiCaption: aiCaption,
+            aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
             aiTagsScanned: aiTagsScanned,
             sharpnessScore: sharpnessScore,
@@ -10904,6 +11887,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> ocrText = const Value.absent(),
             Value<bool> ocrScanned = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
+            Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
             Value<bool> aiTagsScanned = const Value.absent(),
             Value<double?> sharpnessScore = const Value.absent(),
@@ -10955,6 +11939,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             ocrText: ocrText,
             ocrScanned: ocrScanned,
             aiCaption: aiCaption,
+            aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
             aiTagsScanned: aiTagsScanned,
             sharpnessScore: sharpnessScore,
@@ -11497,12 +12482,14 @@ typedef $$PeopleTableCreateCompanionBuilder = PeopleCompanion Function({
   required String id,
   required String name,
   Value<String?> coverFaceCropPath,
+  Value<double?> similarityThreshold,
   Value<int> rowid,
 });
 typedef $$PeopleTableUpdateCompanionBuilder = PeopleCompanion Function({
   Value<String> id,
   Value<String> name,
   Value<String?> coverFaceCropPath,
+  Value<double?> similarityThreshold,
   Value<int> rowid,
 });
 
@@ -11524,6 +12511,10 @@ class $$PeopleTableFilterComposer
   ColumnFilters<String> get coverFaceCropPath => $composableBuilder(
       column: $table.coverFaceCropPath,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get similarityThreshold => $composableBuilder(
+      column: $table.similarityThreshold,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$PeopleTableOrderingComposer
@@ -11544,6 +12535,10 @@ class $$PeopleTableOrderingComposer
   ColumnOrderings<String> get coverFaceCropPath => $composableBuilder(
       column: $table.coverFaceCropPath,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get similarityThreshold => $composableBuilder(
+      column: $table.similarityThreshold,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$PeopleTableAnnotationComposer
@@ -11563,6 +12558,9 @@ class $$PeopleTableAnnotationComposer
 
   GeneratedColumn<String> get coverFaceCropPath => $composableBuilder(
       column: $table.coverFaceCropPath, builder: (column) => column);
+
+  GeneratedColumn<double> get similarityThreshold => $composableBuilder(
+      column: $table.similarityThreshold, builder: (column) => column);
 }
 
 class $$PeopleTableTableManager extends RootTableManager<
@@ -11591,24 +12589,28 @@ class $$PeopleTableTableManager extends RootTableManager<
             Value<String> id = const Value.absent(),
             Value<String> name = const Value.absent(),
             Value<String?> coverFaceCropPath = const Value.absent(),
+            Value<double?> similarityThreshold = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PeopleCompanion(
             id: id,
             name: name,
             coverFaceCropPath: coverFaceCropPath,
+            similarityThreshold: similarityThreshold,
             rowid: rowid,
           ),
           createCompanionCallback: ({
             required String id,
             required String name,
             Value<String?> coverFaceCropPath = const Value.absent(),
+            Value<double?> similarityThreshold = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PeopleCompanion.insert(
             id: id,
             name: name,
             coverFaceCropPath: coverFaceCropPath,
+            similarityThreshold: similarityThreshold,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -11871,6 +12873,192 @@ typedef $$FacesTableProcessedTableManager = ProcessedTableManager<
     $$FacesTableUpdateCompanionBuilder,
     (FaceData, BaseReferences<_$AppDatabase, $FacesTable, FaceData>),
     FaceData,
+    PrefetchHooks Function()>;
+typedef $$FaceMatchFeedbackTableCreateCompanionBuilder
+    = FaceMatchFeedbackCompanion Function({
+  Value<int> id,
+  required String personId,
+  required String faceId,
+  required bool accepted,
+  required double similarity,
+  required DateTime createdAt,
+});
+typedef $$FaceMatchFeedbackTableUpdateCompanionBuilder
+    = FaceMatchFeedbackCompanion Function({
+  Value<int> id,
+  Value<String> personId,
+  Value<String> faceId,
+  Value<bool> accepted,
+  Value<double> similarity,
+  Value<DateTime> createdAt,
+});
+
+class $$FaceMatchFeedbackTableFilterComposer
+    extends Composer<_$AppDatabase, $FaceMatchFeedbackTable> {
+  $$FaceMatchFeedbackTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get personId => $composableBuilder(
+      column: $table.personId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get faceId => $composableBuilder(
+      column: $table.faceId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get accepted => $composableBuilder(
+      column: $table.accepted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get similarity => $composableBuilder(
+      column: $table.similarity, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$FaceMatchFeedbackTableOrderingComposer
+    extends Composer<_$AppDatabase, $FaceMatchFeedbackTable> {
+  $$FaceMatchFeedbackTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get personId => $composableBuilder(
+      column: $table.personId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get faceId => $composableBuilder(
+      column: $table.faceId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get accepted => $composableBuilder(
+      column: $table.accepted, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get similarity => $composableBuilder(
+      column: $table.similarity, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$FaceMatchFeedbackTableAnnotationComposer
+    extends Composer<_$AppDatabase, $FaceMatchFeedbackTable> {
+  $$FaceMatchFeedbackTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get personId =>
+      $composableBuilder(column: $table.personId, builder: (column) => column);
+
+  GeneratedColumn<String> get faceId =>
+      $composableBuilder(column: $table.faceId, builder: (column) => column);
+
+  GeneratedColumn<bool> get accepted =>
+      $composableBuilder(column: $table.accepted, builder: (column) => column);
+
+  GeneratedColumn<double> get similarity => $composableBuilder(
+      column: $table.similarity, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$FaceMatchFeedbackTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $FaceMatchFeedbackTable,
+    FaceMatchFeedbackData,
+    $$FaceMatchFeedbackTableFilterComposer,
+    $$FaceMatchFeedbackTableOrderingComposer,
+    $$FaceMatchFeedbackTableAnnotationComposer,
+    $$FaceMatchFeedbackTableCreateCompanionBuilder,
+    $$FaceMatchFeedbackTableUpdateCompanionBuilder,
+    (
+      FaceMatchFeedbackData,
+      BaseReferences<_$AppDatabase, $FaceMatchFeedbackTable,
+          FaceMatchFeedbackData>
+    ),
+    FaceMatchFeedbackData,
+    PrefetchHooks Function()> {
+  $$FaceMatchFeedbackTableTableManager(
+      _$AppDatabase db, $FaceMatchFeedbackTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$FaceMatchFeedbackTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$FaceMatchFeedbackTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$FaceMatchFeedbackTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> personId = const Value.absent(),
+            Value<String> faceId = const Value.absent(),
+            Value<bool> accepted = const Value.absent(),
+            Value<double> similarity = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              FaceMatchFeedbackCompanion(
+            id: id,
+            personId: personId,
+            faceId: faceId,
+            accepted: accepted,
+            similarity: similarity,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String personId,
+            required String faceId,
+            required bool accepted,
+            required double similarity,
+            required DateTime createdAt,
+          }) =>
+              FaceMatchFeedbackCompanion.insert(
+            id: id,
+            personId: personId,
+            faceId: faceId,
+            accepted: accepted,
+            similarity: similarity,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$FaceMatchFeedbackTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $FaceMatchFeedbackTable,
+    FaceMatchFeedbackData,
+    $$FaceMatchFeedbackTableFilterComposer,
+    $$FaceMatchFeedbackTableOrderingComposer,
+    $$FaceMatchFeedbackTableAnnotationComposer,
+    $$FaceMatchFeedbackTableCreateCompanionBuilder,
+    $$FaceMatchFeedbackTableUpdateCompanionBuilder,
+    (
+      FaceMatchFeedbackData,
+      BaseReferences<_$AppDatabase, $FaceMatchFeedbackTable,
+          FaceMatchFeedbackData>
+    ),
+    FaceMatchFeedbackData,
     PrefetchHooks Function()>;
 typedef $$ImageEmbeddingsTableCreateCompanionBuilder = ImageEmbeddingsCompanion
     Function({
@@ -13234,6 +14422,8 @@ typedef $$DevelopSettingsTableCreateCompanionBuilder = DevelopSettingsCompanion
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
+  Value<String?> toneCurveJson,
+  Value<String?> colorMixerJson,
   required DateTime updatedAt,
   Value<int> rowid,
 });
@@ -13248,6 +14438,8 @@ typedef $$DevelopSettingsTableUpdateCompanionBuilder = DevelopSettingsCompanion
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
+  Value<String?> toneCurveJson,
+  Value<String?> colorMixerJson,
   Value<DateTime> updatedAt,
   Value<int> rowid,
 });
@@ -13288,6 +14480,13 @@ class $$DevelopSettingsTableFilterComposer
 
   ColumnFilters<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
@@ -13332,6 +14531,14 @@ class $$DevelopSettingsTableOrderingComposer
       column: $table.lensCorrectionEnabled,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 }
@@ -13371,6 +14578,12 @@ class $$DevelopSettingsTableAnnotationComposer
 
   GeneratedColumn<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled, builder: (column) => column);
+
+  GeneratedColumn<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson, builder: (column) => column);
+
+  GeneratedColumn<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -13412,6 +14625,8 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<String?> toneCurveJson = const Value.absent(),
+            Value<String?> colorMixerJson = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -13425,6 +14640,8 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            toneCurveJson: toneCurveJson,
+            colorMixerJson: colorMixerJson,
             updatedAt: updatedAt,
             rowid: rowid,
           ),
@@ -13438,6 +14655,8 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<String?> toneCurveJson = const Value.absent(),
+            Value<String?> colorMixerJson = const Value.absent(),
             required DateTime updatedAt,
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -13451,6 +14670,8 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            toneCurveJson: toneCurveJson,
+            colorMixerJson: colorMixerJson,
             updatedAt: updatedAt,
             rowid: rowid,
           ),
@@ -13488,6 +14709,8 @@ typedef $$DevelopHistoryTableCreateCompanionBuilder = DevelopHistoryCompanion
   required double sharpness,
   required double noiseReduction,
   required bool lensCorrectionEnabled,
+  Value<String?> toneCurveJson,
+  Value<String?> colorMixerJson,
   required DateTime createdAt,
 });
 typedef $$DevelopHistoryTableUpdateCompanionBuilder = DevelopHistoryCompanion
@@ -13502,6 +14725,8 @@ typedef $$DevelopHistoryTableUpdateCompanionBuilder = DevelopHistoryCompanion
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
+  Value<String?> toneCurveJson,
+  Value<String?> colorMixerJson,
   Value<DateTime> createdAt,
 });
 
@@ -13544,6 +14769,13 @@ class $$DevelopHistoryTableFilterComposer
 
   ColumnFilters<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
@@ -13591,6 +14823,14 @@ class $$DevelopHistoryTableOrderingComposer
       column: $table.lensCorrectionEnabled,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 }
@@ -13634,6 +14874,12 @@ class $$DevelopHistoryTableAnnotationComposer
   GeneratedColumn<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled, builder: (column) => column);
 
+  GeneratedColumn<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson, builder: (column) => column);
+
+  GeneratedColumn<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 }
@@ -13675,6 +14921,8 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<String?> toneCurveJson = const Value.absent(),
+            Value<String?> colorMixerJson = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
           }) =>
               DevelopHistoryCompanion(
@@ -13688,6 +14936,8 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            toneCurveJson: toneCurveJson,
+            colorMixerJson: colorMixerJson,
             createdAt: createdAt,
           ),
           createCompanionCallback: ({
@@ -13701,6 +14951,8 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             required double sharpness,
             required double noiseReduction,
             required bool lensCorrectionEnabled,
+            Value<String?> toneCurveJson = const Value.absent(),
+            Value<String?> colorMixerJson = const Value.absent(),
             required DateTime createdAt,
           }) =>
               DevelopHistoryCompanion.insert(
@@ -13714,6 +14966,8 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            toneCurveJson: toneCurveJson,
+            colorMixerJson: colorMixerJson,
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0
@@ -14428,13 +15682,25 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
     Function({
   Value<int> id,
   Value<String> themeMode,
+  Value<String> sprache,
   Value<bool> autoAnalyzeAfterImport,
+  Value<String?> watchedFolderPath,
+  Value<String?> watchedFolderToken,
+  Value<double> faceSimilarityThreshold,
+  Value<bool> translateCaptions,
+  Value<bool> translateSearchAndTags,
 });
 typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
     Function({
   Value<int> id,
   Value<String> themeMode,
+  Value<String> sprache,
   Value<bool> autoAnalyzeAfterImport,
+  Value<String?> watchedFolderPath,
+  Value<String?> watchedFolderToken,
+  Value<double> faceSimilarityThreshold,
+  Value<bool> translateCaptions,
+  Value<bool> translateSearchAndTags,
 });
 
 class $$AppSettingsTableFilterComposer
@@ -14452,8 +15718,31 @@ class $$AppSettingsTableFilterComposer
   ColumnFilters<String> get themeMode => $composableBuilder(
       column: $table.themeMode, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get sprache => $composableBuilder(
+      column: $table.sprache, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<bool> get autoAnalyzeAfterImport => $composableBuilder(
       column: $table.autoAnalyzeAfterImport,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get watchedFolderPath => $composableBuilder(
+      column: $table.watchedFolderPath,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get watchedFolderToken => $composableBuilder(
+      column: $table.watchedFolderToken,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get faceSimilarityThreshold => $composableBuilder(
+      column: $table.faceSimilarityThreshold,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get translateCaptions => $composableBuilder(
+      column: $table.translateCaptions,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get translateSearchAndTags => $composableBuilder(
+      column: $table.translateSearchAndTags,
       builder: (column) => ColumnFilters(column));
 }
 
@@ -14472,8 +15761,31 @@ class $$AppSettingsTableOrderingComposer
   ColumnOrderings<String> get themeMode => $composableBuilder(
       column: $table.themeMode, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get sprache => $composableBuilder(
+      column: $table.sprache, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get autoAnalyzeAfterImport => $composableBuilder(
       column: $table.autoAnalyzeAfterImport,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get watchedFolderPath => $composableBuilder(
+      column: $table.watchedFolderPath,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get watchedFolderToken => $composableBuilder(
+      column: $table.watchedFolderToken,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get faceSimilarityThreshold => $composableBuilder(
+      column: $table.faceSimilarityThreshold,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get translateCaptions => $composableBuilder(
+      column: $table.translateCaptions,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get translateSearchAndTags => $composableBuilder(
+      column: $table.translateSearchAndTags,
       builder: (column) => ColumnOrderings(column));
 }
 
@@ -14492,8 +15804,26 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<String> get themeMode =>
       $composableBuilder(column: $table.themeMode, builder: (column) => column);
 
+  GeneratedColumn<String> get sprache =>
+      $composableBuilder(column: $table.sprache, builder: (column) => column);
+
   GeneratedColumn<bool> get autoAnalyzeAfterImport => $composableBuilder(
       column: $table.autoAnalyzeAfterImport, builder: (column) => column);
+
+  GeneratedColumn<String> get watchedFolderPath => $composableBuilder(
+      column: $table.watchedFolderPath, builder: (column) => column);
+
+  GeneratedColumn<String> get watchedFolderToken => $composableBuilder(
+      column: $table.watchedFolderToken, builder: (column) => column);
+
+  GeneratedColumn<double> get faceSimilarityThreshold => $composableBuilder(
+      column: $table.faceSimilarityThreshold, builder: (column) => column);
+
+  GeneratedColumn<bool> get translateCaptions => $composableBuilder(
+      column: $table.translateCaptions, builder: (column) => column);
+
+  GeneratedColumn<bool> get translateSearchAndTags => $composableBuilder(
+      column: $table.translateSearchAndTags, builder: (column) => column);
 }
 
 class $$AppSettingsTableTableManager extends RootTableManager<
@@ -14524,22 +15854,46 @@ class $$AppSettingsTableTableManager extends RootTableManager<
           updateCompanionCallback: ({
             Value<int> id = const Value.absent(),
             Value<String> themeMode = const Value.absent(),
+            Value<String> sprache = const Value.absent(),
             Value<bool> autoAnalyzeAfterImport = const Value.absent(),
+            Value<String?> watchedFolderPath = const Value.absent(),
+            Value<String?> watchedFolderToken = const Value.absent(),
+            Value<double> faceSimilarityThreshold = const Value.absent(),
+            Value<bool> translateCaptions = const Value.absent(),
+            Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
               AppSettingsCompanion(
             id: id,
             themeMode: themeMode,
+            sprache: sprache,
             autoAnalyzeAfterImport: autoAnalyzeAfterImport,
+            watchedFolderPath: watchedFolderPath,
+            watchedFolderToken: watchedFolderToken,
+            faceSimilarityThreshold: faceSimilarityThreshold,
+            translateCaptions: translateCaptions,
+            translateSearchAndTags: translateSearchAndTags,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             Value<String> themeMode = const Value.absent(),
+            Value<String> sprache = const Value.absent(),
             Value<bool> autoAnalyzeAfterImport = const Value.absent(),
+            Value<String?> watchedFolderPath = const Value.absent(),
+            Value<String?> watchedFolderToken = const Value.absent(),
+            Value<double> faceSimilarityThreshold = const Value.absent(),
+            Value<bool> translateCaptions = const Value.absent(),
+            Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
               AppSettingsCompanion.insert(
             id: id,
             themeMode: themeMode,
+            sprache: sprache,
             autoAnalyzeAfterImport: autoAnalyzeAfterImport,
+            watchedFolderPath: watchedFolderPath,
+            watchedFolderToken: watchedFolderToken,
+            faceSimilarityThreshold: faceSimilarityThreshold,
+            translateCaptions: translateCaptions,
+            translateSearchAndTags: translateSearchAndTags,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -15105,6 +16459,8 @@ class $AppDatabaseManager {
       $$PeopleTableTableManager(_db, _db.people);
   $$FacesTableTableManager get faces =>
       $$FacesTableTableManager(_db, _db.faces);
+  $$FaceMatchFeedbackTableTableManager get faceMatchFeedback =>
+      $$FaceMatchFeedbackTableTableManager(_db, _db.faceMatchFeedback);
   $$ImageEmbeddingsTableTableManager get imageEmbeddings =>
       $$ImageEmbeddingsTableTableManager(_db, _db.imageEmbeddings);
   $$BackupRecordsTableTableManager get backupRecords =>

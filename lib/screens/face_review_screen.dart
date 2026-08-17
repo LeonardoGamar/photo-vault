@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 
@@ -87,7 +89,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     final choice = await showPersonPickerDialog(
       context,
       people,
-      title: currentName != null ? 'Person umbenennen/ändern' : 'Gesicht benennen',
+      title: currentName != null ? AppTexte.of(context).gesichtUmbenennen : 'Gesicht benennen',
       currentName: currentName,
     );
     if (choice == null) return;
@@ -106,7 +108,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   Future<void> _finishManualBox(Rect normalizedRect) async {
     final people = await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
-    final choice = await showPersonPickerDialog(context, people, title: 'Neues Gesicht benennen');
+    final choice = await showPersonPickerDialog(context, people, title: AppTexte.of(context).gesichtNeuBenennen);
     if (choice == null) return;
 
     String personId;
@@ -141,7 +143,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Wiedererkennungs-Embedding fehlgeschlagen: $e')),
+          SnackBar(content: Text(AppTexte.of(context).gesichtEmbeddingFehler('$e'))),
         );
       }
     }
@@ -182,12 +184,12 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
           foregroundColor: Colors.white,
           title: Text(widget.asset.originalFileName, overflow: TextOverflow.ellipsis),
         ),
-        body: const Center(
+        body: Center(
           child: Padding(
-            padding: EdgeInsets.all(AppSpacing.xxl),
+            padding: const EdgeInsets.all(AppSpacing.xxl),
             child: Text(
-              'Gesichts-Bearbeitung ist für Fotos im gesperrten Ordner nicht verfügbar.',
-              style: TextStyle(color: Colors.white70),
+              AppTexte.of(context).gesichtGesperrt,
+              style: const TextStyle(color: Colors.white70),
               textAlign: TextAlign.center,
             ),
           ),
@@ -202,7 +204,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
         title: Text(widget.asset.originalFileName, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
-            tooltip: _addMode ? 'Hinzufügen beenden' : 'Gesicht manuell hinzufügen',
+            tooltip: _addMode ? AppTexte.of(context).gesichtHinzufuegenBeenden : AppTexte.of(context).gesichtManuellHinzufuegen,
             icon: Icon(_addMode ? Icons.close : Icons.add_a_photo_outlined),
             onPressed: () => setState(() {
               _addMode = !_addMode;
@@ -303,9 +305,9 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
           ? Container(
               color: Colors.black87,
               padding: const EdgeInsets.all(AppSpacing.md),
-              child: const Text(
-                'Ziehe ein Rechteck über ein Gesicht, um es manuell zu markieren.',
-                style: TextStyle(color: Colors.white70),
+              child: Text(
+                AppTexte.of(context).gesichtRechteckHinweis,
+                style: const TextStyle(color: Colors.white70),
                 textAlign: TextAlign.center,
               ),
             )

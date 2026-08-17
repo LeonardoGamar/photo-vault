@@ -38,11 +38,23 @@ class BibliothekMitZustand {
     required this.eintrag,
     required this.erreichbar,
     required this.istAktiv,
+    required this.istStandard,
   });
 
   final Bibliothekseintrag eintrag;
   final bool erreichbar;
   final bool istAktiv;
+
+  /// Der Standardordner im Programmbereich. Er wird von
+  /// [LibraryLocation.bekannte] erzeugt und steht NICHT in der
+  /// gespeicherten Liste – er lässt sich deshalb auch nicht daraus
+  /// entfernen, und es gibt ihn immer.
+  final bool istStandard;
+
+  /// Ob sich dieser Eintrag aus der Liste streichen lässt. Der
+  /// Standardordner nicht (es gibt ihn immer), die aktive Bibliothek auch
+  /// nicht (der Zeiger zeigte sonst ins Leere).
+  bool get entfernbar => !istStandard && !istAktiv;
 }
 
 /// Verwaltet, WO die eigentlichen Bibliotheksdaten (`library.sqlite` +
@@ -191,6 +203,7 @@ class LibraryLocation {
         eintrag: e,
         erreichbar: erreichbar,
         istAktiv: p.equals(e.path, aktiv),
+        istStandard: p.equals(e.path, standard.path),
       ));
     }
     return ergebnis;
@@ -241,14 +254,20 @@ class LibraryLocation {
 
   /// Streicht einen Eintrag aus der Liste. **Löscht keine Daten** – die
   /// Fotos bleiben, wo sie sind, die Bibliothek lässt sich jederzeit
-  /// wieder hinzufügen. Die aktive Bibliothek lässt sich nicht entfernen.
-  static Future<void> entferneAusListe(String pfad) async {
+  /// wieder hinzufügen.
+  ///
+  /// Liefert `false`, wenn nichts zu entfernen war: bei der aktiven
+  /// Bibliothek (der Zeiger zeigte sonst ins Leere) und beim
+  /// Standardordner, den [bekannte] erzeugt statt ihn zu speichern. Ohne
+  /// diese Rückmeldung zeigte die Oberfläche einen Knopf, der
+  /// stillschweigend nichts tut (Fehlerbericht).
+  static Future<bool> entferneAusListe(String pfad) async {
     final konfig = await _leseKonfig();
-    if (konfig.aktiv != null && p.equals(konfig.aktiv!, pfad)) return;
-    await _schreibeKonfig(
-      konfig.aktiv,
-      konfig.liste.where((e) => !p.equals(e.path, pfad)).toList(),
-    );
+    if (konfig.aktiv != null && p.equals(konfig.aktiv!, pfad)) return false;
+    final rest = konfig.liste.where((e) => !p.equals(e.path, pfad)).toList();
+    if (rest.length == konfig.liste.length) return false;
+    await _schreibeKonfig(konfig.aktiv, rest);
+    return true;
   }
 
   /// Ob aktuell ein vom Standard abweichender Speicherort konfiguriert ist.

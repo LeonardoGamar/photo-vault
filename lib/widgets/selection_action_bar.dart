@@ -1,9 +1,12 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/export_service.dart';
+import 'progress_dialog.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import 'album_picker_dialog.dart';
@@ -30,6 +33,12 @@ class SelectionActionBar extends StatelessWidget {
   final VoidCallback onExport;
   final VoidCallback onDelete;
 
+  /// Überträgt zuvor kopierte Entwicklungseinstellungen auf die Auswahl.
+  /// Optional, weil der Knopf nur dort erscheinen soll, wo tatsächlich
+  /// etwas in der Zwischenablage liegt – und weil die übrigen Ansichten,
+  /// die diese Leiste benutzen, unverändert bleiben sollen.
+  final VoidCallback? onPasteDevelop;
+
   const SelectionActionBar({
     super.key,
     required this.count,
@@ -42,10 +51,12 @@ class SelectionActionBar extends StatelessWidget {
     required this.onEditMetadata,
     required this.onExport,
     required this.onDelete,
+    this.onPasteDevelop,
   });
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
     return Positioned(
       left: 0,
       right: 0,
@@ -61,22 +72,27 @@ class SelectionActionBar extends StatelessWidget {
               children: [
                 IconButton(
                   icon: const Icon(Icons.close),
-                  tooltip: 'Auswahl aufheben',
+                  tooltip: t.auswAufheben,
                   onPressed: onClear,
                 ),
-                Text('$count ausgewählt'),
+                Text(t.auswAnzahl(count)),
                 const Spacer(),
-                IconButton(icon: const Icon(Icons.favorite_border), tooltip: 'Favorisieren', onPressed: onFavorite),
+                IconButton(icon: const Icon(Icons.favorite_border), tooltip: t.auswFavorisieren, onPressed: onFavorite),
                 IconButton(
-                    icon: const Icon(Icons.playlist_add), tooltip: 'Zu Album hinzufügen', onPressed: onAddToAlbum),
-                IconButton(icon: const Icon(Icons.label_outline), tooltip: 'Tag hinzufügen', onPressed: onTag),
-                IconButton(icon: const Icon(Icons.star_outline), tooltip: 'Bewertung setzen', onPressed: onSetRating),
+                    icon: const Icon(Icons.playlist_add), tooltip: t.auswZuAlbum, onPressed: onAddToAlbum),
+                IconButton(icon: const Icon(Icons.label_outline), tooltip: t.auswTagHinzufuegen, onPressed: onTag),
+                IconButton(icon: const Icon(Icons.star_outline), tooltip: t.auswBewertungSetzen, onPressed: onSetRating),
                 IconButton(
-                    icon: const Icon(Icons.circle_outlined), tooltip: 'Farbmarkierung setzen', onPressed: onSetColorLabel),
+                    icon: const Icon(Icons.circle_outlined), tooltip: t.auswFarbeSetzen, onPressed: onSetColorLabel),
                 IconButton(
-                    icon: const Icon(Icons.edit_note_outlined), tooltip: 'Metadaten bearbeiten', onPressed: onEditMetadata),
-                IconButton(icon: const Icon(Icons.ios_share), tooltip: 'Exportieren', onPressed: onExport),
-                IconButton(icon: const Icon(Icons.delete_outline), tooltip: 'Löschen', onPressed: onDelete),
+                    icon: const Icon(Icons.edit_note_outlined), tooltip: t.auswMetadaten, onPressed: onEditMetadata),
+                if (onPasteDevelop != null)
+                  IconButton(
+                      icon: const Icon(Icons.auto_fix_high_outlined),
+                      tooltip: t.auswEntwicklungUebertragen,
+                      onPressed: onPasteDevelop),
+                IconButton(icon: const Icon(Icons.ios_share), tooltip: t.auswExportieren, onPressed: onExport),
+                IconButton(icon: const Icon(Icons.delete_outline), tooltip: t.allgLoeschen, onPressed: onDelete),
               ],
             ),
           ),
@@ -95,11 +111,13 @@ Future<bool> confirmDialog(BuildContext context, String title, String message) a
       title: Text(title),
       content: Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: Colors.red),
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Löschen'),
+          child: Text(AppTexte.of(context).allgLoeschen),
         ),
       ],
     ),
@@ -111,11 +129,8 @@ Future<bool> confirmDialog(BuildContext context, String title, String message) a
 /// gemischter Auswahl (manche schon favorisiert, manche nicht) wäre ein
 /// Umschalten mehrdeutig; "als Favorit markieren" ist wie in Google Fotos
 /// die einzige Sammelaktion.
-Future<void> runBatchFavorite(LibraryState library, List<String> assetIds) async {
-  for (final id in assetIds) {
-    await library.db.setFavorite(id, true);
-  }
-}
+Future<void> runBatchFavorite(LibraryState library, List<String> assetIds) =>
+    library.db.setFavoriteBulk(assetIds, true);
 
 /// Zeigt eine Sternereihe zur Auswahl einer gemeinsamen Bewertung für alle
 /// übergebenen Fotos ("Keine Bewertung" setzt explizit auf 0 zurück statt
@@ -124,11 +139,15 @@ Future<void> runBatchSetRating(BuildContext context, LibraryState library, List<
   final rating = await showDialog<int>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text('Bewertung für ${assetIds.length} Foto(s)'),
+      title: Text(AppTexte.of(context).auswBewertungTitel(assetIds.length)),
       content: StarRating(value: 0, size: 32, onChanged: (v) => Navigator.pop(context, v)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, 0), child: const Text('Keine Bewertung')),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, 0),
+            child: Text(AppTexte.of(context).auswKeineBewertung)),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
       ],
     ),
   );
@@ -145,11 +164,15 @@ Future<void> runBatchSetColorLabel(BuildContext context, LibraryState library, L
   final result = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text('Farbmarkierung für ${assetIds.length} Foto(s)'),
+      title: Text(AppTexte.of(context).auswFarbeTitel(assetIds.length)),
       content: ColorLabelPicker(value: null, size: 32, onChanged: (c) => Navigator.pop(context, c ?? '')),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context, ''), child: const Text('Keine Farbe')),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
+        TextButton(
+            onPressed: () => Navigator.pop(context, ''),
+            child: Text(AppTexte.of(context).auswKeineFarbe)),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
       ],
     ),
   );
@@ -231,7 +254,7 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('Metadaten für ${widget.count} Foto(s) bearbeiten'),
+      title: Text(AppTexte.of(context).auswMetadatenTitel(widget.count)),
       content: SizedBox(
         width: 360,
         child: SingleChildScrollView(
@@ -241,21 +264,26 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
             children: [
               TextField(
                 controller: _descriptionCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Beschreibung (überschreibt bestehende)',
+                decoration: InputDecoration(
+                  labelText: AppTexte.of(context).auswBeschreibungFeld,
                   isDense: true,
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
                 maxLines: 2,
               ),
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(_date == null ? 'Datum unverändert lassen' : 'Datum: ${_date!.toLocal()}'.split('.').first),
-                trailing: TextButton(onPressed: _pickDate, child: const Text('Wählen')),
+                title: Text(_date == null
+                    ? AppTexte.of(context).auswDatumUnveraendert
+                    : AppTexte.of(context).auswDatumGesetzt(
+                        DateFormat.yMd(Localizations.localeOf(context).toString())
+                            .format(_date!))),
+                trailing: TextButton(
+                    onPressed: _pickDate, child: Text(AppTexte.of(context).allgWaehlen)),
               ),
               const SizedBox(height: 12),
-              const Text('Ort (unverändert lassen: nicht antippen)'),
+              Text(AppTexte.of(context).auswOrtHinweis),
               const SizedBox(height: 8),
               MiniLocationMap(
                 latitude: _latitude,
@@ -270,8 +298,10 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-        FilledButton(onPressed: _save, child: const Text('Speichern')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
+        FilledButton(onPressed: _save, child: Text(AppTexte.of(context).allgSpeichern)),
       ],
     );
   }
@@ -284,19 +314,24 @@ Future<void> runBatchTagDialog(BuildContext context, LibraryState library, List<
   final tag = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Text('Tag zu ${assetIds.length} Foto(s) hinzufügen'),
-      content: TextField(controller: ctrl, autofocus: true, decoration: const InputDecoration(labelText: 'Tag')),
+      title: Text(AppTexte.of(context).auswTagTitel(assetIds.length)),
+      content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(labelText: AppTexte.of(context).auswTagFeld)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-        FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: const Text('Hinzufügen')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
+        FilledButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            child: Text(AppTexte.of(context).allgHinzufuegen)),
       ],
     ),
   );
   ctrl.dispose();
   if (tag == null || tag.isEmpty) return;
-  for (final id in assetIds) {
-    await library.db.tagAsset(id, tag);
-  }
+  await library.db.tagAssetsBulk(assetIds, tag);
 }
 
 /// Zeigt den Album-Auswahl-Dialog und fügt die übergebenen Fotos danach dem
@@ -323,9 +358,79 @@ Future<void> runBatchAddToAlbumDialog(BuildContext context, LibraryState library
 /// mit Fortschrittsanzeige – dieselbe Logik wie der bisherige, nur an ein
 /// Album gebundene "Album exportieren"-Button in AlbumDetailScreen, jetzt
 /// für eine beliebige Auswahl nutzbar.
+/// Fragt die Ausgabegrösse ab. `null` bedeutet Abbruch.
+Future<Exportgroesse?> _frageExportgroesse(BuildContext context, int anzahl) {
+  return showDialog<Exportgroesse>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(AppTexte.of(context).auswExportTitel(anzahl)),
+      children: [
+        for (final g in Exportgroesse.values)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, g),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(exportgroesseBezeichnung(AppTexte.of(context), g)),
+              subtitle: Text(g.maxKante == null
+                  ? AppTexte.of(context).exportUnveraendert
+                  : AppTexte.of(context).exportJpegKante(g.maxKante!)),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+/// Überträgt die zuvor kopierten Entwicklungseinstellungen auf [assets].
+///
+/// Als gemeinsame Funktion neben [runBatchExport], damit alle Ansichten mit
+/// Mehrfachauswahl dasselbe tun – die erste Fassung hatte das nur in der
+/// Übersicht, und dort suchte es niemand (Fehlerbericht).
+Future<void> runBatchPasteDevelop(
+    BuildContext context, LibraryState library, List<String> assetIds) async {
+  final quelle = library.kopierteEntwicklung;
+  if (quelle == null) return;
+
+  final bestaetigt = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(AppTexte.of(context).auswUebertragenTitel(assetIds.length)),
+      content: Text(AppTexte.of(context).auswUebertragenText),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(AppTexte.of(context).allgAbbrechen)),
+        FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(AppTexte.of(context).auswUebertragen)),
+      ],
+    ),
+  );
+  if (bestaetigt != true || !context.mounted) return;
+
+  // Vor dem Dialog auflösen: Der Mapper unten läuft bei jedem Ereignis, also
+  // lange nachdem dieser Kontext gültig war.
+  final keineGeeigneten = AppTexte.of(context).auswKeineGeeigneten;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => ProgressDialog(
+      title: AppTexte.of(context).auswUebertrageLaeuft,
+      stream: library.uebertrageEntwicklung(assetIds).map(
+            (p) => p.total == 0
+                ? keineGeeigneten
+                : '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}',
+          ),
+    ),
+  );
+}
+
 Future<void> runBatchExport(BuildContext context, LibraryState library, List<AssetData> assets) async {
+  final groesse = await _frageExportgroesse(context, assets.length);
+  if (groesse == null || !context.mounted) return;
+
   final destination = await FilePicker.platform.getDirectoryPath(
-    dialogTitle: 'Zielordner für ${assets.length} Foto(s) wählen',
+    dialogTitle: AppTexte.of(context).auswZielordner(assets.length),
   );
   if (destination == null || !context.mounted) return;
 
@@ -343,7 +448,9 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
           children: [
             const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             const SizedBox(width: 16),
-            Expanded(child: Text('Exportiere … ($done / ${assets.length})')),
+            Expanded(
+                child: Text(AppTexte.of(context)
+                    .auswExportiereLaeuft(done, assets.length))),
           ],
         ),
       );
@@ -353,7 +460,7 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
   var exported = 0;
   for (final asset in assets) {
     try {
-      await exporter.exportAsset(asset, destination);
+      await exporter.exportAsset(asset, destination, groesse: groesse);
       exported++;
     } catch (_) {
       // Einzelne fehlgeschlagene Datei überspringen, Rest weiter exportieren.
@@ -365,7 +472,9 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
   if (context.mounted) {
     Navigator.of(context).pop();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$exported von ${assets.length} Foto(s) exportiert nach $destination')),
+      SnackBar(
+          content: Text(AppTexte.of(context)
+              .auswExportFertig(exported, assets.length, destination))),
     );
   }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../db/database.dart';
@@ -134,7 +136,7 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId);
     if (offset == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Foto nicht in der Timeline gefunden.')),
+        SnackBar(content: Text(AppTexte.of(context).rasterFotoNichtGefunden)),
       );
       return;
     }
@@ -181,7 +183,9 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                   for (final key in orderedKeys) ...[
                     SliverToBoxAdapter(
                       child: _MonthHeader(
-                        label: DateFormat('MMMM yyyy', 'de_DE').format(groups[key]!.first.fileCreatedAt),
+                        label: DateFormat.yMMMM(
+                                Localizations.localeOf(context).toString())
+                            .format(groups[key]!.first.fileCreatedAt),
                         groupAssets: groups[key]!,
                         selectedIds: widget.selectedIds,
                         onTap: widget.onHeaderTap,

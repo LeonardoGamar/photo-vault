@@ -186,33 +186,41 @@
 <div class="page">
 
   <header class="hero">
-    <p class="eyebrow">Feature-Fahrplan · 2. Auflage · August 2026</p>
+    <p class="eyebrow">Feature-Fahrplan · 3. Auflage · Version 0.4.0</p>
     <h1>Was als Nächstes sinnvoll wäre</h1>
     <p class="lede">
-      Der erste Fahrplan ist komplett abgearbeitet — alle 13 Vorschläge sind umgesetzt. Diese Auflage
-      basiert auf einer erneuten Recherche der zehn Vergleichsprogramme (inklusive ihrer 2026er-Updates:
-      darktable&nbsp;5.6, digiKam&nbsp;9, PhotoPrism Juli 2026, Excire&nbsp;Foto&nbsp;2027, Immich&nbsp;3.0)
-      sowie einer code-verifizierten Bestandsaufnahme, was seit der ersten Auflage tatsächlich gebaut wurde.
+      Auch die zweite Auflage ist vollständig abgearbeitet — alle sieben Vorschläge sind umgesetzt,
+      der aufwändigste (Vektormasken und ML-Restaurierung) gleich doppelt. Diese Auflage benennt,
+      was danach übrig bleibt: geprüft am Quellstand der Version 0.4.0, nicht geraten.
     </p>
     <div class="done-block">
       <div class="done-head">
-        <strong>Erste Auflage: 13/13 umgesetzt</strong>
-        <span>Stufe 1-3, August 2026</span>
+        <strong>Zweite Auflage: 7/7 umgesetzt</strong>
+        <span>zwischen 0.1.0 und 0.4.0</span>
       </div>
       <div class="done-strip">
-        <span class="done-chip"><span class="dot"></span>Sternebewertung + Farbmarkierungen</span>
-        <span class="done-chip"><span class="dot"></span>Batch-Metadaten-Bearbeitung</span>
-        <span class="done-chip"><span class="dot"></span>Texterkennung (OCR)</span>
-        <span class="done-chip"><span class="dot"></span>Unschärfe-Erkennung</span>
-        <span class="done-chip"><span class="dot"></span>Numerische Bereichsfilter</span>
-        <span class="done-chip"><span class="dot"></span>Sichtungs-Modus (Culling)</span>
-        <span class="done-chip"><span class="dot"></span>Vorher/Nachher + Verlauf</span>
-        <span class="done-chip"><span class="dot"></span>Video-Trimmen</span>
-        <span class="done-chip"><span class="dot"></span>Serien-/Burst-Gruppierung</span>
-        <span class="done-chip"><span class="dot"></span>Panorama-Ansicht</span>
-        <span class="done-chip"><span class="dot"></span>KI-Bildbeschreibung</span>
-        <span class="done-chip"><span class="dot"></span>KI-Objektmasken</span>
-        <span class="done-chip"><span class="dot"></span>XMP-Sidecar-Export</span>
+        <span class="done-chip"><span class="dot"></span>Bibliotheks-Integritätsprüfung</span>
+        <span class="done-chip"><span class="dot"></span>Fokus-Peaking</span>
+        <span class="done-chip"><span class="dot"></span>Vokabular bearbeitbar</span>
+        <span class="done-chip"><span class="dot"></span>Geschlossene-Augen-Erkennung</span>
+        <span class="done-chip"><span class="dot"></span>XMP-Import</span>
+        <span class="done-chip"><span class="dot"></span>360°-Kugelansicht</span>
+        <span class="done-chip"><span class="dot"></span>Vektormasken</span>
+        <span class="done-chip"><span class="dot"></span>ML-Restaurierung</span>
+      </div>
+    </div>
+    <div class="done-block" style="background:var(--surface);border-color:var(--border)">
+      <div class="done-head">
+        <strong style="color:var(--accent-ink)">Ausserdem seit der letzten Auflage entstanden</strong>
+        <span>nicht aus dem Fahrplan</span>
+      </div>
+      <div class="done-strip">
+        <span class="done-chip" style="border-color:var(--border)"><span class="dot" style="background:var(--accent)"></span>Mehrere Bibliotheken</span>
+        <span class="done-chip" style="border-color:var(--border)"><span class="dot" style="background:var(--accent)"></span>Automatisierungsregeln</span>
+        <span class="done-chip" style="border-color:var(--border)"><span class="dot" style="background:var(--accent)"></span>Zweite Bibliothek vergleichen</span>
+        <span class="done-chip" style="border-color:var(--border)"><span class="dot" style="background:var(--accent)"></span>AVIF</span>
+        <span class="done-chip" style="border-color:var(--border)"><span class="dot" style="background:var(--accent)"></span>Hintergrundaufgaben-Übersicht</span>
+        <span class="done-chip" style="border-color:var(--border)"><span class="dot" style="background:var(--accent)"></span>Modelle erst bei Gebrauch laden</span>
       </div>
     </div>
   </header>
@@ -222,34 +230,39 @@
       <span class="tier-badge t1">Stufe 1</span>
       <h2>Klein, hoher Nutzen</h2>
     </div>
-    <p class="tier-sub">Baut auf bereits vorhandenen Bausteinen auf (Sichtungs-Modus, Unschärfe-Score, KI-Tag-Vokabular) — keine neue Architektur nötig.</p>
+    <p class="tier-sub">Nutzt Bausteine, die schon da sind — Import-Pfad, Export-Dienst, Entwicklungsverlauf. Keine neue Architektur, kein neues Modell.</p>
     <div class="card-grid">
 
       <div class="card">
-        <span class="inspired">Immich (Server-Integritätsprüfungen)</span>
-        <h3 class="card-title">Bibliotheks-Integritätsprüfung</h3>
-        <p>Ein Werkzeug, das DB-Zeilen gegen tatsächliche Dateien auf der Platte abgleicht: fehlende
-        Dateien, verwaiste Dateien ohne DB-Zeile, Checksummen-Abweichungen. Genau die Klasse von Fehlern,
-        die der jüngste Sicherheits-Audit dieser Sitzung von Hand fand (vergessene Zusatzdateien beim
-        Sperren/Löschen) — als wiederkehrendes Werkzeug statt nur einmaligem Code-Fix.</p>
+        <span class="inspired">digiKam, Lightroom, Immich</span>
+        <h3 class="card-title">Überwachte Ordner</h3>
+        <p>Einen Ordner benennen, der laufend beobachtet wird: Was dort auftaucht, wandert von selbst
+        in die Bibliothek. Heute ist jeder Import ein bewusster Griff — bei einer Kamera, die in denselben
+        Ordner entlädt, ist das unnötige Handarbeit.</p>
+        <p>Der Import-Pfad samt Dublettenprüfung und Automatisierungsregeln existiert vollständig; es
+        fehlt nur die Beobachtung des Ordners und eine Entscheidung, was bei Namenskollisionen gilt.</p>
         <span class="free-badge">keine neue Abhängigkeit</span>
       </div>
 
       <div class="card">
-        <span class="inspired">Excire Foto 2027</span>
-        <h3 class="card-title">Fokus-Peaking im Sichtungs-Modus</h3>
-        <p>Scharfe Kanten farbig hervorheben, während man durch frisch importierte Fotos blättert —
-        ergänzt den bereits vorhandenen Unschärfe-Score um eine visuelle, ortsaufgelöste Rückmeldung
-        (wo genau ist das Bild scharf?), klassische Bildverarbeitung, kein neues Modell.</p>
-        <span class="free-badge">kein Modell nötig</span>
+        <span class="inspired">Lightroom, Capture One, digiKam</span>
+        <h3 class="card-title">Export-Voreinstellungen</h3>
+        <p>Der Export kopiert heute ausschliesslich die Originaldatei. Was fehlt, ist der häufigste
+        Fall: „dieselben zwanzig Fotos, aber 2000 px lange Kante, JPEG, Qualität 85“ — zum Verschicken
+        oder Hochladen, ohne den Umweg über ein zweites Programm.</p>
+        <p>Die native Bildkonvertierung kann Grösse und Format bereits (sie erzeugt damit die
+        Vorschauen); es braucht die Voreinstellungen und ihre Verwaltung.</p>
+        <span class="free-badge">Konvertierung vorhanden</span>
       </div>
 
       <div class="card">
-        <span class="inspired">Excire Foto (freies Vokabular)</span>
-        <h3 class="card-title">KI-Tag-Vokabular in den Einstellungen bearbeitbar</h3>
-        <p>Das feste 48-Begriffe-Vokabular (ai_tagging_service.dart) über eine Einstellungsseite
-        erweiterbar machen, statt nur durch Code-Änderung — nutzt die bereits vorhandene CLIP-Zero-Shot-
-        Logik unverändert weiter, nur die Begriffsliste wird nutzerseitig veränderbar.</p>
+        <span class="inspired">Lightroom („Einstellungen synchronisieren“)</span>
+        <h3 class="card-title">Entwicklung auf andere Fotos übertragen</h3>
+        <p>Eine Belichtungs- und Weissabgleich-Korrektur, die für ein Foto einer Serie stimmt, stimmt
+        meist für die ganze Serie. Heute muss jedes Foto einzeln nachgezogen werden.</p>
+        <p>Die Einstellungen liegen bereits als eigener Datensatz je Foto vor, mitsamt Verlauf — sie
+        auf eine Auswahl zu übertragen ist im Kern ein Kopiervorgang, kein neuer Rechenweg.</p>
+        <span class="free-badge">Datenmodell vorhanden</span>
       </div>
 
     </div>
@@ -260,32 +273,38 @@
       <span class="tier-badge t2">Stufe 2</span>
       <h2>Mittlerer Aufwand</h2>
     </div>
-    <p class="tier-sub">Neue kleine Modelle oder ein neuer Lese-Pfad für bereits geschriebene Daten — überschaubar, aber kein Nachmittagsprojekt.</p>
+    <p class="tier-sub">Ein neues Modell oder ein spürbarer Ausbau bestehender Werkzeuge — überschaubar, aber kein Nachmittag.</p>
     <div class="card-grid">
 
       <div class="card">
-        <span class="inspired">AI-Culling-Trend 2026 (Imagen, FilterPixel, Narrative Select)</span>
-        <h3 class="card-title">Geschlossene-Augen-Erkennung in der Sichtung</h3>
-        <p>Gesichter mit geschlossenen Augen automatisch markieren, um Porträt-/Gruppenserien schneller
-        zu sichten — die bereits gebündelte Gesichtserkennung (YuNet) liefert nur Bounding-Boxen, kein
-        Augen-Status; bräuchte entweder Landmark-Punkte oder einen kleinen zusätzlichen Klassifikator.</p>
-        <span class="effort-badge">neues (kleines) Modell nötig</span>
+        <span class="inspired">Lightroom, darktable, Capture One</span>
+        <h3 class="card-title">Tonwertkurve und Farbmischer</h3>
+        <p>Die grösste verbliebene Lücke im Entwickeln. Belichtung, Kontrast, Schatten und Weissabgleich
+        sind da; was fehlt, ist die gezielte Arbeit an einzelnen Tonwertbereichen und Farben — genau das,
+        wofür man sonst doch wieder Lightroom öffnet.</p>
+        <p>Der Fragment-Shader für die Live-Vorschau existiert bereits und rechnet im linearen Farbraum;
+        eine Kurve käme als weitere Stufe hinzu, kein neuer Unterbau.</p>
+        <span class="effort-badge">Shader + native Seite doppelt zu pflegen</span>
       </div>
 
       <div class="card">
-        <span class="inspired">PhotoPrism (Juli 2026)</span>
-        <h3 class="card-title">XMP-Import</h3>
-        <p>Ergänzt den bestehenden Export: GPS-Koordinaten, Bewertung, Tags und Gesichts-Regionen aus
-        vorhandenen .xmp-Sidecars einlesen — für Fotos, die zwischenzeitlich in Lightroom/darktable/
-        digiKam bearbeitet wurden. Reiner Lese-Pfad, die Bibliothek bleibt weiterhin führend.</p>
+        <span class="inspired">PhotoPrism (mehrsprachig über Ollama)</span>
+        <h3 class="card-title">Bildbeschreibung in der eigenen Sprache</h3>
+        <p>Das Beschreibungsmodell erzeugt englische Sätze, die Suche danach verlangt also englische
+        Begriffe — in einer deutschsprachigen Oberfläche ein Bruch, der bei jeder Benutzung auffällt.</p>
+        <p>Der Modellkatalog samt Download, Prüfsummenkontrolle und bedarfsweisem Laden trägt bereits
+        alles Nötige; auszutauschen ist das Modell selbst. Abzuwägen: mehrsprachige Modelle sind
+        deutlich grösser, und der Ordner liegt schon bei gut einem Gigabyte.</p>
+        <span class="effort-badge">grösserer Download</span>
       </div>
 
       <div class="card">
-        <span class="inspired">PhotoPrism (Juli 2026, 360°-Ansicht)</span>
-        <h3 class="card-title">Echter 360°/Kugelpanorama-Viewer</h3>
-        <p>Die heutige Panorama-Ansicht behandelt sehr breite Fotos als schwenkbaren Streifen —
-        equirechteckige 360°-Aufnahmen (von 360°-Kameras) bräuchten stattdessen eine echte
-        Kugelprojektion. Nur relevant, falls solche Kameras tatsächlich genutzt werden.</p>
+        <span class="inspired">digiKam (trainierbare Gesichtserkennung)</span>
+        <h3 class="card-title">Gesichtserkennung, die dazulernt</h3>
+        <p>Zuordnungen werden heute übernommen, aber nicht ausgewertet: Wer ein vorgeschlagenes Gesicht
+        ablehnt, korrigiert einmal — beim nächsten Lauf schlägt dasselbe Modell dasselbe wieder vor.</p>
+        <p>Bestätigungen und Ablehnungen festzuhalten und die Schwelle je Person daraus abzuleiten,
+        wäre der kleine Schritt; ein echtes Nachtrainieren der Einbettungen der grosse.</p>
       </div>
 
     </div>
@@ -296,24 +315,53 @@
       <span class="tier-badge t3">Stufe 3</span>
       <h2>Großes, eigenständiges Unterfangen</h2>
     </div>
-    <p class="tier-sub">In der Größenordnung der ursprünglichen KI-Objektmasken-Einführung — hier bewusst nur skizziert.</p>
+    <p class="tier-sub">Verändert die Reichweite des Programms, nicht nur seinen Funktionsumfang.</p>
     <div class="card-grid">
 
       <div class="card">
-        <span class="inspired">darktable 5.6 (Juni 2026)</span>
-        <h3 class="card-title">Vektor-Masken + ML-Entrauschen/Hochskalieren</h3>
-        <p>Zwei separate, große Bausteine: (1) die heutigen Raster-Alphamasken (Graustufen-PNG) durch
-        editierbare Vektorformen ersetzen, die sich nachträglich verfeinern lassen; (2) ein
-        "Neural Restore"-Modul für ML-basiertes Entrauschen/Hochskalieren als eigene, neue
-        Modellkategorie neben Erkennung/Suche/Segmentierung. Jedes für sich ein Projekt in der
-        Größenordnung der ursprünglichen SAM-Integration.</p>
+        <span class="inspired">digiKam, darktable (überall lauffähig)</span>
+        <h3 class="card-title">Die Linux-Fassung fertigstellen</h3>
+        <p>Die grösste Einschränkung im Vergleich, und die einzige der drei verbliebenen, die sich ohne
+        Bruch mit der Grundhaltung beheben lässt — anders als Sync und mobile App, die einen Server
+        verlangen würden.</p>
+        <p>Die Vorarbeit steht: Alle Abhängigkeiten sind plattformfähig, die Ordnerauswahl liegt hinter
+        einer Abstraktion, die Entwicklungsregler laufen als Shader auf jeder Plattform gleich. Was
+        bleibt, sind die nativen Bildfunktionen, die heute über Core Image gehen — Bildkonvertierung,
+        RAW-Entwicklung, Texterkennung. Für jede gibt es eine offene Entsprechung, aber jede ist
+        einzeln zu prüfen und gegen die macOS-Fassung abzugleichen.</p>
+        <span class="effort-badge">sechs native Funktionen zu ersetzen</span>
       </div>
 
     </div>
   </section>
 
+  <section>
+    <div class="tier-head">
+      <span class="tier-badge t3" style="background:var(--gap-bg);color:var(--gap)">Bewusst nicht</span>
+      <h2>Was nicht auf den Fahrplan gehört</h2>
+    </div>
+    <p class="tier-sub">Vollständigkeitshalber genannt, damit die Auslassung als Entscheidung erkennbar ist und nicht als Vergessen.</p>
+    <div class="card-grid">
+      <div class="card">
+        <h3 class="card-title">Sync und mobile App</h3>
+        <p>Der grösste Abstand zu Immich und Lightroom — und der einzige, der die Grundhaltung des
+        Programms umkehren würde. Kein Server, keine Cloud, alles auf einem Rechner: Daraus folgt die
+        Verschlüsselung ebenso wie die Unabhängigkeit von einem Anbieter. Wer Sync braucht, ist bei
+        Immich richtig; das ist keine Schwäche, sondern eine andere Antwort auf dieselbe Frage.</p>
+      </div>
+      <div class="card">
+        <h3 class="card-title">Cloud-KI für bessere Erkennung</h3>
+        <p>Grössere Modelle über eine Programmierschnittstelle würden Beschreibung und Verschlagwortung
+        spürbar verbessern. Sie würden aber jedes Foto an einen fremden Rechner senden — bei einem
+        Programm, dessen Kern ein verschlüsselter privater Bereich ist, ein Widerspruch.</p>
+      </div>
+    </div>
+  </section>
+
   <footer>
-    Photo Vault · Feature-Fahrplan, 2. Auflage, Fortsetzung von "Photo Vault im Vergleich" · Quellen: digiKam 9.1, Immich 3.0/3.1, PhotoPrism (März/Mai/Juli 2026), Apple Photos, Mylio, Excire Foto 2027, Peakto 2.7, Adobe Lightroom, darktable 5.6, Photo Mechanic Plus, plus allgemeine AI-Culling-Recherche (Imagen, FilterPixel, Narrative Select)
+    Photo Vault · Feature-Fahrplan, 3. Auflage zur Version 0.4.0 · Fortsetzung von „Photo Vault im Vergleich“ ·
+    Der Stand der eigenen Funktionen ist am Quellcode geprüft, die Einordnung der Vergleichsprogramme
+    stammt aus der Recherche zur zweiten Auflage.
   </footer>
 
 </div>

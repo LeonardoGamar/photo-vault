@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/embedding_codec.dart';
 import '../services/face_clustering_service.dart';
 import '../services/face_engine_service.dart';
@@ -37,6 +38,14 @@ class PeopleScreen extends StatefulWidget {
 class _PeopleScreenState extends State<PeopleScreen> {
   final Set<String> _selectedFaceIds = {};
   final Set<String> _autoSelectedIds = {}; // von "Ähnliche mit auswählen" hinzugefügt
+
+  /// Die Ähnlichkeit, mit der ein Gesicht automatisch mit ausgewählt wurde.
+  ///
+  /// Ohne sie liesse sich später nichts lernen: Dass der Nutzer ein
+  /// vorgeschlagenes Gesicht behalten oder wieder abgewählt hat, sagt erst
+  /// dann etwas aus, wenn man weiss, bei welchem Wert die Erkennung
+  /// zugegriffen hatte.
+  final Map<String, double> _autoAehnlichkeit = {};
   List<FaceData> _unassignedFaces = [];
 
   @override
@@ -63,6 +72,10 @@ class _PeopleScreenState extends State<PeopleScreen> {
       setState(() {
         _selectedFaceIds.removeAll(_autoSelectedIds);
         _autoSelectedIds.clear();
+        // Ein Toggle ist kein Urteil über die einzelnen Gesichter, sondern
+        // ein Rückgängigmachen der ganzen Aktion – dabei ist nichts zu
+        // lernen.
+        _autoAehnlichkeit.clear();
       });
       return;
     }
@@ -75,9 +88,9 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
     if (referenceVectors.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-              'Für die Ähnlichkeitssuche wird das SFace-Modell benötigt (siehe Einstellungen → Modelle).'),
+              AppTexte.of(context).personenModellFehlt),
         ));
       }
       return;
@@ -93,6 +106,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
         if (bestSim >= widget.library.faceSimilarityThreshold) {
           _selectedFaceIds.add(face.id);
           newlyAdded.add(face.id);
+          _autoAehnlichkeit[face.id] = bestSim;
         }
       }
       _autoSelectedIds.addAll(newlyAdded);
@@ -100,8 +114,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
     if (newlyAdded.isEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Keine ähnlichen Gesichter über der Schwelle '
-            '${widget.library.faceSimilarityThreshold.toStringAsFixed(2)} gefunden.'),
+        content: Text(AppTexte.of(context).personenKeineAehnlichen(
+            widget.library.faceSimilarityThreshold.toStringAsFixed(2))),
       ));
     }
   }
@@ -111,7 +125,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
     final people = await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
 
-    final choice = await showPersonPickerDialog(context, people, title: 'Gesicht(ern) zuordnen');
+    final choice = await showPersonPickerDialog(context, people, title: AppTexte.of(context).personenZuordnen(_selectedFaceIds.length));
     if (choice == null) return;
 
     String personId;
@@ -125,9 +139,31 @@ class _PeopleScreenState extends State<PeopleScreen> {
     }
 
     await widget.library.db.assignFacesToPerson(_selectedFaceIds.toList(), personId);
+
+    // Was "Ähnliche mit auswählen" vorgeschlagen hat, ist damit beurteilt:
+    // noch ausgewählt heisst bestätigt, wieder abgewählt heisst abgelehnt.
+    // Beides steht schon in der Oberfläche – es wurde bisher nur nicht
+    // ausgewertet, weshalb beim nächsten Lauf derselbe Fehlvorschlag kam.
+    final entscheidungen = [
+      for (final e in _autoAehnlichkeit.entries)
+        (
+          faceId: e.key,
+          accepted: _selectedFaceIds.contains(e.key),
+          similarity: e.value,
+        ),
+    ];
+    if (entscheidungen.isNotEmpty) {
+      await widget.library.db.merkeGesichtsEntscheidungen(
+        personId,
+        entscheidungen,
+        allgemeineSchwelle: widget.library.faceSimilarityThreshold,
+      );
+    }
+
     setState(() {
       _selectedFaceIds.clear();
       _autoSelectedIds.clear();
+      _autoAehnlichkeit.clear();
     });
     _loadUnassigned();
   }
@@ -144,8 +180,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
     };
     if (embeddingsByFaceId.length < 2) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Nicht genug unbenannte Gesichter mit Embedding für ein Clustering.'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppTexte.of(context).personenZuWenigeFuerClustering),
         ));
       }
       return;
@@ -161,15 +197,12 @@ class _PeopleScreenState extends State<PeopleScreen> {
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Das kann etwas dauern'),
+          title: Text(AppTexte.of(context).personenDauertTitel),
           content: Text(
-            '${embeddingsByFaceId.length} unbenannte Gesichter gefunden. Die automatische '
-            'Gruppierung vergleicht jedes mit jedem und kann bei so vielen Gesichtern einige '
-            'Zeit dauern (die App bleibt währenddessen bedienbar). Trotzdem starten?',
-          ),
+              AppTexte.of(context).personenDauertText(embeddingsByFaceId.length)),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Starten')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgStarten)),
           ],
         ),
       );
@@ -181,8 +214,8 @@ class _PeopleScreenState extends State<PeopleScreen> {
     final clusters = await compute(clusterFaces, FaceClusterInput(embeddingsByFaceId, threshold));
     if (clusters.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Keine ähnlichen Gruppen gefunden.'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppTexte.of(context).personenKeineGruppen),
         ));
       }
       return;
@@ -214,9 +247,16 @@ class _PeopleScreenState extends State<PeopleScreen> {
           bestMatch = entry.key;
         }
       }
+      // Die persönliche Schwelle der jeweils ähnlichsten Person, nicht die
+      // allgemeine: Genau darin steckt das Gelernte – wer bisher zu oft
+      // fälschlich vorgeschlagen wurde, braucht jetzt mehr Ähnlichkeit.
+      final personenSchwelle =
+          bestMatch == null ? threshold : widget.library.schwelleFuerPerson(bestMatch);
+      final trifft = bestMatch != null && bestSim >= personenSchwelle;
       suggestions.add(FaceClusterSuggestion(
         faces: clusterFacesData,
-        suggestedPerson: bestSim >= threshold ? bestMatch : null,
+        suggestedPerson: trifft ? bestMatch : null,
+        similarity: trifft ? bestSim : null,
       ));
     }
 
@@ -242,7 +282,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
       length: 2,
       child: Column(
         children: [
-          const TabBar(tabs: [Tab(text: 'Personen'), Tab(text: 'Unbenannte Gesichter')]),
+          TabBar(tabs: [Tab(text: AppTexte.of(context).personenTab), Tab(text: AppTexte.of(context).personenUnbenannteTab)]),
           Expanded(
             child: TabBarView(
               children: [
@@ -282,7 +322,7 @@ class _PeopleGrid extends StatelessWidget {
     final target = await showDialog<PersonData>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: Text('"${source.name}" zusammenführen mit …'),
+        title: Text(AppTexte.of(context).personenZusammenfuehrenMit(source.name)),
         children: candidates
             .map((p) => SimpleDialogOption(
                   onPressed: () => Navigator.pop(context, p),
@@ -296,14 +336,12 @@ class _PeopleGrid extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Zusammenführen bestätigen'),
-        content: Text(
-          'Alle Fotos von "${source.name}" werden "${target.name}" zugeordnet. '
-          '"${source.name}" wird danach gelöscht. Das lässt sich nicht rückgängig machen.',
-        ),
+        title: Text(AppTexte.of(context).personenZusammenfuehrenTitel),
+        content: Text(AppTexte.of(context)
+            .personenZusammenfuehrenText(source.name, target.name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Zusammenführen')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).personenZusammenfuehren)),
         ],
       ),
     );
@@ -319,13 +357,11 @@ class _PeopleGrid extends StatelessWidget {
       builder: (context, snapshot) {
         final people = snapshot.data ?? [];
         if (people.isEmpty) {
-          return const Center(
+          return Center(
             child: Padding(
-              padding: EdgeInsets.all(AppSpacing.xxl),
+              padding: const EdgeInsets.all(AppSpacing.xxl),
               child: Text(
-                'Noch keine Personen angelegt. Wechsle zum Tab '
-                '"Unbenannte Gesichter", wähle ein paar Gesichter aus und '
-                'ordne sie einer neuen Person zu.',
+                AppTexte.of(context).personenLeer,
                 textAlign: TextAlign.center,
               ),
             ),
@@ -365,7 +401,7 @@ class _PeopleGrid extends StatelessWidget {
                   Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                   // maxLines/ellipsis verhindern, dass ein langer Hinweis die
                   // Kachelhöhe sprengt (siehe childAspectRatio oben).
-                  Text('lange drücken: zusammenführen',
+                  Text(AppTexte.of(context).personenLangeDruecken,
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -409,12 +445,11 @@ class _UnassignedFacesGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (faces.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(AppSpacing.xxl),
+          padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Text(
-            'Keine unbenannten Gesichter (mehr). Neue Gesichter erscheinen '
-            'hier automatisch, sobald du weitere Fotos importierst.',
+            AppTexte.of(context).personenKeineUnbenannten,
             textAlign: TextAlign.center,
           ),
         ),
@@ -428,14 +463,14 @@ class _UnassignedFacesGrid extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Ähnlichkeitsschwelle einstellbar unter Werkzeuge → Gesichtserkennung.',
+                  AppTexte.of(context).personenSchwellenHinweis,
                   style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
                 ),
               ),
               OutlinedButton.icon(
                 onPressed: onAutoCluster,
                 icon: const Icon(Icons.group_work_outlined, size: 18),
-                label: const Text('Automatisch gruppieren'),
+                label: Text(AppTexte.of(context).personenAutomatischGruppieren),
               ),
             ],
           ),
@@ -479,7 +514,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  'Doppelklick auf ein Gesicht öffnet das ganze Foto zur Kontrolle.',
+                  AppTexte.of(context).personenDoppelklickHinweis,
                   style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
                 ),
                 const SizedBox(height: 8),
@@ -489,7 +524,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: onSelectSimilar,
                         icon: Icon(autoSelected.isNotEmpty ? Icons.remove_done : Icons.auto_awesome_outlined),
-                        label: Text(autoSelected.isNotEmpty ? 'Ähnliche abwählen' : 'Ähnliche mit auswählen'),
+                        label: Text(autoSelected.isNotEmpty ? AppTexte.of(context).personenAehnlicheAbwaehlen : AppTexte.of(context).personenAehnlicheAuswaehlen),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -497,7 +532,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: onAssign,
                         icon: const Icon(Icons.person_add_alt_1),
-                        label: Text('${selected.length} zuordnen'),
+                        label: Text(AppTexte.of(context).personenZuordnenKnopf(selected.length)),
                       ),
                     ),
                   ],

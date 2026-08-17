@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/search_filters.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -39,7 +40,7 @@ class ExploreScreen extends StatelessWidget {
         _MemoriesSection(library: library),
         const SizedBox(height: 28),
         _SectionHeader(
-          title: 'Personen',
+          title: AppTexte.of(context).erkundenPersonen,
           onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => PeopleScreen(library: library),
           )),
@@ -48,7 +49,7 @@ class ExploreScreen extends StatelessWidget {
         _PeopleStrip(library: library),
         const SizedBox(height: 28),
         _SectionHeader(
-          title: 'Orte',
+          title: AppTexte.of(context).erkundenOrte,
           onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => MapScreen(library: library),
           )),
@@ -59,7 +60,7 @@ class ExploreScreen extends StatelessWidget {
         _LocationGroupsStrip(library: library),
         const SizedBox(height: 28),
         _SectionHeader(
-          title: 'Zuletzt hinzugefügte Alben',
+          title: AppTexte.of(context).erkundenLetzteAlben,
           onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => AlbumsScreen(library: library),
           )),
@@ -68,7 +69,7 @@ class ExploreScreen extends StatelessWidget {
         _RecentAlbumsStrip(library: library),
         const SizedBox(height: 28),
         _SectionHeader(
-          title: 'Zuletzt hinzugefügte Fotos',
+          title: AppTexte.of(context).erkundenLetzteFotos,
           onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => TimelineScreen(library: library),
           )),
@@ -91,7 +92,7 @@ class _SectionHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(title, style: Theme.of(context).textTheme.titleMedium),
-        TextButton(onPressed: onShowAll, child: const Text('Alle anzeigen')),
+        TextButton(onPressed: onShowAll, child: Text(AppTexte.of(context).allgAlleAnzeigen)),
       ],
     );
   }
@@ -124,7 +125,7 @@ class _PeopleStrip extends StatelessWidget {
         builder: (context, snapshot) {
           final people = snapshot.data ?? [];
           if (people.isEmpty) {
-            return const _EmptyHint(text: 'Noch keine Personen benannt.', height: 96);
+            return _EmptyHint(text: AppTexte.of(context).erkundenKeinePersonen, height: 96);
           }
           final shown = people.take(_previewPeopleCount).toList();
           return ListView.separated(
@@ -216,7 +217,7 @@ class _LocationsPreviewState extends State<_LocationsPreview> {
                       color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       alignment: Alignment.center,
                       child: Text(
-                        'Noch keine Fotos mit bekanntem Ort.',
+                        AppTexte.of(context).ohneOrtLeer,
                         style: TextStyle(color: Theme.of(context).colorScheme.outline),
                       ),
                     )
@@ -307,8 +308,8 @@ class _LocationGroupsStripState extends State<_LocationGroupsStrip> {
         builder: (context, snapshot) {
           final assets = snapshot.data ?? [];
           if (assets.isEmpty) {
-            return const _EmptyHint(
-              text: 'Noch keine Orte aufgelöst (siehe Werkzeuge → Orte).',
+            return _EmptyHint(
+              text: AppTexte.of(context).erkundenKeineOrte,
               height: 150,
             );
           }
@@ -416,7 +417,7 @@ class _RecentAlbumsStrip extends StatelessWidget {
         builder: (context, snapshot) {
           final albums = snapshot.data ?? [];
           if (albums.isEmpty) {
-            return const _EmptyHint(text: 'Noch keine Alben vorhanden.', height: 150);
+            return _EmptyHint(text: AppTexte.of(context).albenLeer, height: 150);
           }
           final shown = albums.take(_previewAlbumCount).toList();
           return ListView.separated(
@@ -513,7 +514,7 @@ class _RecentPhotosStrip extends StatelessWidget {
         builder: (context, snapshot) {
           final shown = snapshot.data ?? [];
           if (shown.isEmpty) {
-            return const _EmptyHint(text: 'Noch keine Fotos importiert.', height: 140);
+            return _EmptyHint(text: AppTexte.of(context).erkundenKeineFotos, height: 140);
           }
           return ListView.separated(
             scrollDirection: Axis.horizontal,
@@ -618,7 +619,7 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Erinnerungen', style: Theme.of(context).textTheme.titleMedium),
+            Text(AppTexte.of(context).erkundenErinnerungen, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             for (final yearsAgo in orderedYearsAgo) ...[
               Padding(

@@ -12,11 +12,61 @@ import 'package:flutter/material.dart';
 /// Material-3-Standard (Roboto-Fallback).
 const _fontFamily = '.AppleSystemUIFont';
 
+/// Farben für Warnung und Erfolg.
+///
+/// Sie fehlen im Material-Farbschema, das nur `error` kennt – und genau
+/// deshalb standen vorher überall `Colors.orange` und `Colors.green` im
+/// Quelltext. Die sind für den dunklen Modus gemacht: Gegen die helle
+/// Oberfläche dieser App gemessen kommt `Colors.orange` auf 2,05:1 und
+/// `Colors.green` auf 2,65:1, wo die Zugänglichkeitsrichtlinie 4,5:1
+/// verlangt. Die Werte hier sind je Helligkeit eigens gewählt.
+class AppSemantik extends ThemeExtension<AppSemantik> {
+  /// Für Hinweise, die etwas verhindern oder einschränken – fehlendes
+  /// Modell, gesperrte Passphrase, unvollständige Bedingung.
+  final Color warnung;
+
+  /// Für gelungene Abschlüsse.
+  final Color erfolg;
+
+  const AppSemantik({required this.warnung, required this.erfolg});
+
+  static const _hell = AppSemantik(
+    warnung: Color(0xFF8A5000), // 5,9:1 auf heller Oberfläche
+    erfolg: Color(0xFF1B5E20), // 8,3:1
+  );
+
+  static const _dunkel = AppSemantik(
+    warnung: Color(0xFFFFB74D),
+    erfolg: Color(0xFF81C784),
+  );
+
+  @override
+  AppSemantik copyWith({Color? warnung, Color? erfolg}) => AppSemantik(
+        warnung: warnung ?? this.warnung,
+        erfolg: erfolg ?? this.erfolg,
+      );
+
+  @override
+  AppSemantik lerp(covariant AppSemantik? other, double t) => other == null
+      ? this
+      : AppSemantik(
+          warnung: Color.lerp(warnung, other.warnung, t)!,
+          erfolg: Color.lerp(erfolg, other.erfolg, t)!,
+        );
+}
+
+/// Kurzer Weg zu [AppSemantik] – `Theme.of(context).extension<…>()!` an
+/// jeder Aufrufstelle wäre nur Lärm.
+extension AppSemantikZugriff on BuildContext {
+  AppSemantik get semantik => Theme.of(this).extension<AppSemantik>()!;
+}
+
 ThemeData buildLightTheme() => ThemeData(
       useMaterial3: true,
       colorSchemeSeed: Colors.teal,
       brightness: Brightness.light,
       fontFamily: _fontFamily,
+      extensions: const [AppSemantik._hell],
     );
 
 ThemeData buildDarkTheme() => ThemeData(
@@ -24,6 +74,7 @@ ThemeData buildDarkTheme() => ThemeData(
       colorSchemeSeed: Colors.teal,
       brightness: Brightness.dark,
       fontFamily: _fontFamily,
+      extensions: const [AppSemantik._dunkel],
     );
 
 /// Wandelt den in [AppSettings.themeMode] gespeicherten String
@@ -37,6 +88,27 @@ ThemeMode themeModeFromString(String? value) {
       return ThemeMode.dark;
     default:
       return ThemeMode.system;
+  }
+}
+
+/// Wandelt den in [AppSettings.sprache] gespeicherten String
+/// ('system'|'de'|'en') in eine [Locale] um.
+///
+/// `null` als Rückgabe ist kein Fehlerfall, sondern die Antwort auf
+/// „Systemsprache": Flutter wählt dann selbst aus [supportedLocales] die
+/// passende aus. Es braucht dafür also keinen Sonderfall im Aufrufer.
+///
+/// Unbekannte Angaben – etwa aus einer neueren Fassung, die schon mehr
+/// Sprachen kennt – gelten ebenfalls als Systemsprache, statt den Start
+/// zu verhindern.
+Locale? localeFromString(String? value) {
+  switch (value) {
+    case 'de':
+      return const Locale('de');
+    case 'en':
+      return const Locale('en');
+    default:
+      return null;
   }
 }
 

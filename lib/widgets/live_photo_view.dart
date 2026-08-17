@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../theme/app_spacing.dart';
 import 'video_playback.dart';
 
@@ -146,11 +148,11 @@ class _LivePhotoViewState extends State<LivePhotoView> {
               ),
             ),
           if (!_playing)
-            const Positioned(
+            Positioned(
               bottom: 24,
               child: Text(
-                'Gedrückt halten zum Abspielen',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                AppTexte.of(context).livePhotoHalten,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
             ),
           Positioned(

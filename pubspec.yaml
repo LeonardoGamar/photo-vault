@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 0.4.0
+version: 0.5.0
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -9,6 +9,12 @@ environment:
 
 dependencies:
   flutter:
+    sdk: flutter
+  # Übersetzte Texte der Material-Bausteine (Datumsauswahl, Kontextmenü in
+  # Textfeldern, Vorlese-Beschriftungen). Ohne dieses Paket fällt Flutter
+  # dort auf Englisch zurück – die App war deshalb bisher gemischt:
+  # eigener Text deutsch, Systembausteine englisch.
+  flutter_localizations:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
@@ -53,7 +59,7 @@ dependencies:
   media_kit_libs_video: ^1.0.7 # native Bibliotheken je Plattform
 
   # Datum, IDs
-  intl: ^0.19.0
+  intl: ^0.20.2
   uuid: ^4.5.1
 
   # @visibleForTesting (StoragePaths.forTesting, siehe test/)
@@ -102,6 +108,9 @@ dependencies:
   # auf macOS) – ergänzt den bestehenden "Exportieren"-Button (Kopie in einen
   # gewählten Ordner) um direktes Teilen ohne Umweg über den Finder.
   share_plus: ^12.0.2
+  # Liefert die Version aus dem App-Bundle (CFBundleShortVersionString)
+  # statt einer Konstante im Code, die man beim Versionssprung vergisst.
+  package_info_plus: ^8.0.0
 
   # Balkendiagramme für die Analyseseite (Fotos pro Jahr/Monat, Kameras) –
   # reiner Flutter-Widget-Code, kein Cloud-Dienst.
@@ -121,6 +130,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Erzeugt AppLocalizations aus lib/l10n/*.arb (siehe l10n.yaml).
+  generate: true
   assets:
     - assets/icon/app_icon.png
     - assets/globe/2k_earth_daymap.jpg

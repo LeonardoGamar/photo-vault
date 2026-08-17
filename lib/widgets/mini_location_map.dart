@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
@@ -102,16 +104,17 @@ class MiniLocationMap extends StatelessWidget {
               ],
             ),
             if (!_hasLocation && editable)
-              const Positioned.fill(
+              Positioned.fill(
                 child: IgnorePointer(
                   child: ColoredBox(
                     color: Colors.black45,
                     child: Center(
                       child: Padding(
-                        padding: EdgeInsets.all(AppSpacing.md),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: Text(
-                          'Tippen, um einen Ort festzulegen',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          AppTexte.of(context).karteTippenFuerOrt,
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w600),
                           textAlign: TextAlign.center,
                         ),
                       ),

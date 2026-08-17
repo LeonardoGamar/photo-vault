@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 import '../widgets/progress_dialog.dart';
 
 /// Eine Aktion innerhalb einer [_TaskCard] – öffnet [ProgressDialog] gegen
@@ -24,8 +26,8 @@ class _TaskAction {
 /// Einheitlicher Hinweistext für ein fehlendes KI-Modell/Datenset – dieselbe
 /// Formulierung wie in ToolsScreen (Werkzeuge), damit beide Einstiegspunkte
 /// nicht auseinanderdriften.
-String? _modelHint(bool available, String model, String where) =>
-    available ? null : 'Dafür wird zuerst $model benötigt ($where).';
+String? _modelHint(AppTexte t, bool available, String model, String where) =>
+    available ? null : t.aufgModellNoetig(model, where);
 
 Future<void> _showProgress(BuildContext context, _TaskAction action) {
   return showDialog<void>(
@@ -78,14 +80,17 @@ class _TaskCard extends StatefulWidget {
   final String title;
   final String description;
   final Future<int> Function() pendingCount;
-  final String pendingLabel;
+
+  /// null heisst „Wartend" – der übersetzte Vorgabewert kann nicht im Kopf
+  /// stehen, dort gibt es noch keinen Kontext.
+  final String? pendingLabel;
   final String? unavailableReason;
   final List<_TaskAction> actions;
   const _TaskCard({
     required this.title,
     required this.description,
     required this.pendingCount,
-    this.pendingLabel = 'Wartend',
+    this.pendingLabel,
     this.unavailableReason,
     required this.actions,
   });
@@ -130,12 +135,13 @@ class _TaskCardState extends State<_TaskCard> {
                 style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.outline)),
             const SizedBox(height: 12),
             if (reason != null)
-              Text(reason, style: const TextStyle(fontSize: 12, color: Colors.orange))
+              Text(reason,
+                  style: TextStyle(fontSize: 12, color: context.semantik.warnung))
             else ...[
               FutureBuilder<int>(
                 future: _countFuture,
                 builder: (context, snapshot) => _StatusRow(
-                  label: widget.pendingLabel,
+                  label: widget.pendingLabel ?? AppTexte.of(context).aufgWartend,
                   value: snapshot.hasData ? '${snapshot.data}' : '…',
                 ),
               ),
@@ -174,6 +180,7 @@ class _CombinedAnalysisCard extends StatelessWidget {
     return ListenableBuilder(
       listenable: library,
       builder: (context, _) {
+        final t = AppTexte.of(context);
         final analyse = library.analyse;
         final laeuft = library.analyseLaeuft;
         return Card(
@@ -182,26 +189,23 @@ class _CombinedAnalysisCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Alle Auswertungen jetzt nachholen',
+                Text(t.werkzAllesNachholenTitel,
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
                         ?.copyWith(color: Theme.of(context).colorScheme.primary)),
                 const SizedBox(height: 4),
                 Text(
-                  'Startet alle rechenintensiven Schritte nacheinander im Hintergrund: '
-                  'Unschärfe, Gesichter, Texterkennung, Bildsuche, Schlagwörter und '
-                  'Bildbeschreibung. Jeder Schritt überspringt, was er schon hat – die '
-                  'App bleibt bedienbar.',
+                  t.werkzAllesNachholenText,
                   style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.outline),
                 ),
                 const SizedBox(height: 12),
                 _StatusRow(
-                  label: 'Status',
+                  label: t.aufgStatus,
                   value: laeuft && analyse != null
-                      ? '${analyse.stufe} (${analyse.erledigt}/${analyse.gesamt}) – '
-                          'Stufe ${analyse.stufeNummer}/${analyse.stufenGesamt}'
-                      : 'Bereit',
+                      ? t.aufgStufe(analysestufeName(t, analyse.stufe), analyse.erledigt, analyse.gesamt,
+                          analyse.stufeNummer, analyse.stufenGesamt)
+                      : t.aufgBereit,
                   color: laeuft ? Theme.of(context).colorScheme.primaryContainer : null,
                 ),
                 const SizedBox(height: 12),
@@ -211,11 +215,11 @@ class _CombinedAnalysisCard extends StatelessWidget {
                       : () {
                           library.starteHintergrundanalyse();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Auswertung läuft im Hintergrund.')),
+                            SnackBar(content: Text(t.aufgLaeuft)),
                           );
                         },
                   icon: const Icon(Icons.play_circle_outline, size: 18),
-                  label: const Text('Jetzt starten'),
+                  label: Text(t.aufgJetztStarten),
                 ),
               ],
             ),
@@ -238,222 +242,225 @@ class BackgroundTasksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Hintergrundaufgaben')),
+      appBar: AppBar(title: Text(t.einstAbschnittHintergrund)),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           _CombinedAnalysisCard(library: library),
           const SizedBox(height: AppSpacing.md),
           _TaskCard(
-            title: 'Gesichter scannen',
-            description: 'Erkennt und ordnet Gesichter zu, sofern das YuNet-Modell installiert ist.',
+            title: t.werkzGesichterScannenTitel,
+            description: t.aufgGesichterText,
             pendingCount: () => library.db.countFaceScan(onlyNew: true),
-            unavailableReason:
-                _modelHint(library.faceDetectionAvailable, 'das YuNet-Modell', 'Einstellungen → KI-Modelle'),
+            unavailableReason: _modelHint(
+                t, library.faceDetectionAvailable, t.aufgYunetModell, t.aufgWoModelle),
             actions: [
               _TaskAction(
-                label: 'Neue Fotos',
+                label: t.aufgNeueFotos,
                 icon: Icons.search,
-                dialogTitle: 'Scanne neue Fotos …',
-                emptyMessage: 'Keine passenden Fotos gefunden.',
+                dialogTitle: t.werkzScanneNeue,
+                emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.rescanFaces(onlyNewPhotos: true),
               ),
               _TaskAction(
-                label: 'Alle erneut',
+                label: t.aufgAlleErneut,
                 icon: Icons.all_inclusive,
-                dialogTitle: 'Scanne alle Fotos erneut …',
-                emptyMessage: 'Keine passenden Fotos gefunden.',
+                dialogTitle: t.werkzScanneAlle,
+                emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.rescanFaces(onlyNewPhotos: false),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Vorschaubilder',
-            description: 'Erzeugt Thumbnails/Vorschauen für Fotos und Videos.',
+            title: t.werkzAbschnittVorschau,
+            description: t.aufgVorschauText,
             pendingCount: () => library.db.countThumbnailRegen(onlyMissing: true),
             actions: [
               _TaskAction(
-                label: 'Fehlende',
+                label: t.aufgFehlende,
                 icon: Icons.search,
-                dialogTitle: 'Erstelle fehlende Vorschaubilder …',
-                emptyMessage: 'Keine passenden Fotos gefunden.',
+                dialogTitle: t.werkzErstelleFehlende,
+                emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.regenerateThumbnails(onlyMissing: true),
               ),
               _TaskAction(
-                label: 'Alle neu',
+                label: t.aufgAlleNeu,
                 icon: Icons.all_inclusive,
-                dialogTitle: 'Erstelle alle Vorschaubilder neu …',
-                emptyMessage: 'Keine passenden Fotos gefunden.',
+                dialogTitle: t.werkzErstelleAlle,
+                emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.regenerateThumbnails(onlyMissing: false),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Text erkennen (OCR)',
-            description: 'Erkennt sichtbaren Text in Fotos, rein lokal über Apples Vision-Framework.',
+            title: t.aufgOcrTitel,
+            description: t.aufgOcrText,
             pendingCount: () => library.db.countOcrBackfill(),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Erkenne Text in Fotos …',
-                emptyMessage: 'Alle Fotos wurden bereits nach Text durchsucht.',
+                dialogTitle: t.werkzErkenneText,
+                emptyMessage: t.werkzAlleTextDurchsucht,
                 stream: () => library.backfillOcrText(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Bildbeschreibungen',
-            description: 'Erzeugt eine kurze, englische KI-Bildunterschrift pro Foto.',
+            title: t.aufgBeschreibungenTitel,
+            description: t.aufgBeschreibungenText,
             pendingCount: () => library.db.countCaptionBackfill(),
             unavailableReason: _modelHint(
-                library.captioningAvailable, 'das Bildbeschreibungs-Modell', 'Einstellungen → KI-Modelle'),
+                t, library.captioningAvailable, t.aufgBeschreibungsmodell, t.aufgWoModelle),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Erzeuge Bildbeschreibungen …',
-                emptyMessage: 'Alle Fotos haben bereits eine KI-Beschreibung.',
+                dialogTitle: t.werkzErzeugeBeschreibungen,
+                emptyMessage: t.werkzAlleHabenBeschreibung,
                 stream: () => library.backfillCaptions(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'CLIP-Embeddings',
-            description: 'Grundlage für KI-Bildsuche und Duplikatsuche.',
+            title: t.aufgEmbeddingsTitel,
+            description: t.aufgEmbeddingsText,
             pendingCount: () => library.db.countEmbeddingBackfill(),
-            unavailableReason: _modelHint(library.clipAvailable, 'das CLIP-Modell', 'Einstellungen → KI-Modelle'),
+            unavailableReason:
+                _modelHint(t, library.clipAvailable, t.aufgClipModell, t.aufgWoModelle),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Berechne CLIP-Embeddings …',
-                emptyMessage: 'Alle Fotos haben bereits ein Embedding.',
+                dialogTitle: t.werkzBerechneEmbeddings,
+                emptyMessage: t.werkzAlleHabenEmbedding,
                 stream: () => library.backfillClipEmbeddings(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'KI-Tags',
-            description: 'Ordnet Fotos automatisch passende Tags aus dem Vokabular zu (auf CLIP-Basis).',
+            title: t.aufgKiTagsTitel,
+            description: t.aufgKiTagsText,
             pendingCount: () => library.db.countAiTagging(onlyUntagged: true),
-            unavailableReason: _modelHint(library.clipAvailable, 'das CLIP-Modell', 'Einstellungen → KI-Modelle'),
+            unavailableReason:
+                _modelHint(t, library.clipAvailable, t.aufgClipModell, t.aufgWoModelle),
             actions: [
               _TaskAction(
-                label: 'Ungetaggte',
+                label: t.aufgUngetaggte,
                 icon: Icons.search,
-                dialogTitle: 'Berechne KI-Tags …',
-                emptyMessage: 'Keine passenden Fotos gefunden.',
+                dialogTitle: t.werkzBerechneKiTags,
+                emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.backfillAiTags(onlyUntagged: true),
               ),
               _TaskAction(
-                label: 'Alle Fotos',
+                label: t.werkzAlleFotos,
                 icon: Icons.all_inclusive,
-                dialogTitle: 'Berechne KI-Tags …',
-                emptyMessage: 'Keine passenden Fotos gefunden.',
+                dialogTitle: t.werkzBerechneKiTags,
+                emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.backfillAiTags(onlyUntagged: false),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Unschärfe',
-            description: 'Ermöglicht den Suchfilter "Nur unscharfe Fotos anzeigen".',
+            title: t.aufgUnschaerfeTitel,
+            description: t.aufgUnschaerfeText,
             pendingCount: () => library.db.countBlurBackfill(),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Berechne Unschärfe-Scores …',
-                emptyMessage: 'Für alle Fotos wurde bereits ein Unschärfe-Score berechnet.',
+                dialogTitle: t.werkzBerechneUnschaerfe,
+                emptyMessage: t.werkzAlleHabenUnschaerfe,
                 stream: () => library.backfillBlurScores(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Orte einlesen',
-            description: 'Liest EXIF-GPS-Daten aus Fotos nachträglich ein.',
+            title: t.aufgOrteTitel,
+            description: t.aufgOrteText,
             pendingCount: () => library.db.countLocationBackfill(),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Lese Orte aus Fotos ein …',
-                emptyMessage: 'Alle Fotos haben bereits einen Ort (oder keine EXIF-GPS-Daten).',
+                dialogTitle: t.werkzLeseOrte,
+                emptyMessage: t.werkzAlleHabenOrt,
                 stream: () => library.backfillLocations(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Land/Bundesland/Stadt auflösen',
-            description: 'Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu.',
+            title: t.werkzOrteAufloesenTitel,
+            description: t.aufgOrteAufloesenText,
             pendingCount: () => library.db.countLocationNameBackfill(),
-            unavailableReason:
-                _modelHint(library.geoDataAvailable, 'der GeoNames-Datensatz', 'Einstellungen → Standortdaten'),
+            unavailableReason: _modelHint(
+                t, library.geoDataAvailable, t.aufgGeoDatensatz, t.aufgWoStandortdaten),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Löse Land/Bundesland/Stadt auf …',
-                emptyMessage: 'Alle Fotos mit bekanntem Ort sind bereits aufgelöst.',
+                dialogTitle: t.werkzLoeseOrteAuf,
+                emptyMessage: t.werkzAlleAufgeloest,
                 stream: () => library.backfillLocationNames(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Kameradaten einlesen',
-            description: 'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein.',
+            title: t.aufgKameraTitel,
+            description: t.aufgKameraText,
             pendingCount: () => library.db.countCameraMetadataBackfill(),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Lese Kameradaten aus Fotos ein …',
-                emptyMessage: 'Alle Fotos haben bereits Kameradaten (oder keine passenden EXIF-Daten).',
+                dialogTitle: t.werkzLeseKameradaten,
+                emptyMessage: t.werkzAlleHabenKameradaten,
                 stream: () => library.backfillCameraMetadata(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Live-Photo-Paare prüfen',
-            description: 'Verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos.',
+            title: t.aufgLivePhotoTitel,
+            description: t.aufgLivePhotoText,
             pendingCount: () => library.db.countUnlinkedAssetsOfType('IMAGE'),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Prüfe auf Live-Photo-Paare …',
-                emptyMessage: 'Keine unverknüpften Fotos gefunden.',
+                dialogTitle: t.werkzPruefeLivePhotos,
+                emptyMessage: t.werkzKeineUnverknuepften,
                 stream: () => library.relinkLivePhotos(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'Entwickelte Fotos neu rendern',
-            description: 'Rendert Fotos mit gespeicherten Entwicklungs-Anpassungen unverändert neu.',
-            pendingLabel: 'Betrifft',
+            title: t.werkzNeuRendernTitel,
+            description: t.aufgRendernText,
+            pendingLabel: t.aufgBetrifft,
             pendingCount: () => library.db.countAssetsWithDevelopSettings(),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Rendere entwickelte Fotos neu …',
-                emptyMessage: 'Keine entwickelten Fotos gefunden.',
+                dialogTitle: t.werkzRendereNeu,
+                emptyMessage: t.werkzKeineEntwickelten,
                 stream: () => library.redevelopAll(),
               ),
             ],
           ),
           _TaskCard(
-            title: 'XMP-Sidecars schreiben',
-            description: 'Legt für jedes Foto eine .xmp-Datei für Lightroom/darktable/digiKam daneben ab.',
-            pendingLabel: 'Betrifft',
+            title: t.werkzXmpSchreibenTitel,
+            description: t.aufgXmpText,
+            pendingLabel: t.aufgBetrifft,
             pendingCount: () => library.db.countXmpExport(),
             actions: [
               _TaskAction(
-                label: 'Starten',
+                label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: 'Schreibe XMP-Sidecars …',
-                emptyMessage: 'Keine Fotos gefunden (gesperrte Fotos werden übersprungen).',
+                dialogTitle: t.werkzSchreibeXmp,
+                emptyMessage: t.werkzKeineFotosGesperrt,
                 stream: () => library.writeXmpSidecars(),
               ),
             ],

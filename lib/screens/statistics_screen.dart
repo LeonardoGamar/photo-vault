@@ -1,5 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
+import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../services/library_stats.dart';
@@ -32,11 +34,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Statistik'),
+        title: Text(AppTexte.of(context).statTitel),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Aktualisieren',
+            tooltip: AppTexte.of(context).allgAktualisieren,
             onPressed: _reload,
           ),
         ],
@@ -49,7 +51,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           }
           final stats = snapshot.data!;
           if (stats.totalCount == 0) {
-            return const Center(child: Text('Noch keine Fotos oder Videos in der Bibliothek.'));
+            return Center(child: Text(AppTexte.of(context).statLeer));
           }
           return RefreshIndicator(
             onRefresh: _reload,
@@ -59,7 +61,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 _SummaryGrid(stats: stats),
                 if (stats.countsByYear.isNotEmpty) ...[
                   const SizedBox(height: 28),
-                  Text('Fotos & Videos pro Jahr', style: Theme.of(context).textTheme.titleMedium),
+                  Text(AppTexte.of(context).statProJahr, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Card(
                     child: Padding(
@@ -69,7 +71,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                 ],
                 const SizedBox(height: 28),
-                Text('Saisonalität – Aufnahmen pro Monat', style: Theme.of(context).textTheme.titleMedium),
+                Text(AppTexte.of(context).statSaisonalitaet, style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 8),
                 Card(
                   child: Padding(
@@ -79,7 +81,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 ),
                 if (stats.topCameras.isNotEmpty) ...[
                   const SizedBox(height: 28),
-                  Text('Häufigste Kameras', style: Theme.of(context).textTheme.titleMedium),
+                  Text(AppTexte.of(context).statKameras, style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
                   _CameraList(cameras: stats.topCameras),
                 ],
@@ -97,7 +99,6 @@ class _SummaryGrid extends StatelessWidget {
   final LibraryStats stats;
   const _SummaryGrid({required this.stats});
 
-  static final _numberFormat = NumberFormat.decimalPattern('de_DE');
 
   static String _formatSize(int bytes) {
     const kb = 1024;
@@ -110,44 +111,47 @@ class _SummaryGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tausendertrennung nach der aktiven Sprache: 1.234 gegen 1,234.
+    final zahl = NumberFormat.decimalPattern(
+        Localizations.localeOf(context).toString());
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
         _StatCard(
           icon: Icons.photo_library_outlined,
-          label: 'Medien insgesamt',
-          value: _numberFormat.format(stats.totalCount),
+          label: AppTexte.of(context).statInsgesamt,
+          value: zahl.format(stats.totalCount),
         ),
         _StatCard(
           icon: Icons.image_outlined,
-          label: 'Fotos',
-          value: _numberFormat.format(stats.imageCount),
+          label: AppTexte.of(context).statFotos,
+          value: zahl.format(stats.imageCount),
         ),
         _StatCard(
           icon: Icons.videocam_outlined,
-          label: 'Videos',
-          value: _numberFormat.format(stats.videoCount),
+          label: AppTexte.of(context).statVideos,
+          value: zahl.format(stats.videoCount),
         ),
         _StatCard(
           icon: Icons.favorite_outline,
-          label: 'Favoriten',
-          value: _numberFormat.format(stats.favoriteCount),
+          label: AppTexte.of(context).suchoptFavoriten,
+          value: zahl.format(stats.favoriteCount),
         ),
         _StatCard(
           icon: Icons.sd_storage_outlined,
-          label: 'Speicherplatz',
+          label: AppTexte.of(context).statSpeicherplatz,
           value: _formatSize(stats.totalSizeBytes),
         ),
         _StatCard(
           icon: Icons.delete_outline,
-          label: 'Im Papierkorb',
-          value: _numberFormat.format(stats.trashedCount),
+          label: AppTexte.of(context).statImPapierkorb,
+          value: zahl.format(stats.trashedCount),
         ),
         _StatCard(
           icon: Icons.lock_outline,
-          label: 'Gesperrter Ordner',
-          value: _numberFormat.format(stats.lockedCount),
+          label: AppTexte.of(context).einstGesperrterOrdner,
+          value: zahl.format(stats.lockedCount),
         ),
       ],
     );
@@ -206,8 +210,8 @@ class _YearBarChart extends StatelessWidget {
     final labelStep = (years.length / 12).ceil().clamp(1, years.length);
 
     return Semantics(
-      label: 'Balkendiagramm, Fotos und Videos pro Jahr: '
-          '${years.map((y) => '$y: ${countsByYear[y]}').join(', ')}',
+      label: AppTexte.of(context).statDiagrammJahr(
+          years.map((y) => '$y: ${countsByYear[y]}').join(', ')),
       child: ExcludeSemantics(
         child: SizedBox(
       height: 220,
@@ -272,11 +276,14 @@ class _MonthBarChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.secondary;
     final maxCount = countsByMonth.values.fold(0, (a, b) => a > b ? a : b);
-    final monthFormat = DateFormat('MMM', 'de_DE');
+    final monthFormat =
+        DateFormat.MMM(Localizations.localeOf(context).toString());
 
     return Semantics(
-      label: 'Balkendiagramm, Saisonalität pro Monat: '
-          '${[for (var m = 1; m <= 12; m++) '${monthFormat.format(DateTime(2000, m))}: ${countsByMonth[m] ?? 0}'].join(', ')}',
+      label: AppTexte.of(context).statDiagrammMonat([
+        for (var m = 1; m <= 12; m++)
+          '${monthFormat.format(DateTime(2000, m))}: ${countsByMonth[m] ?? 0}'
+      ].join(', ')),
       child: ExcludeSemantics(
         child: SizedBox(
       height: 220,
@@ -339,7 +346,8 @@ class _CameraList extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxCount = cameras.map((c) => c.count).fold(0, (a, b) => a > b ? a : b);
     final color = Theme.of(context).colorScheme.primary;
-    final numberFormat = NumberFormat.decimalPattern('de_DE');
+    final numberFormat =
+        NumberFormat.decimalPattern(Localizations.localeOf(context).toString());
 
     return Card(
       child: Padding(

@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../services/blur_detection.dart';
 import '../services/search_filters.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 import 'color_label_picker.dart';
 import 'star_rating.dart';
 
@@ -256,7 +258,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
               ? allTags
               : allTags.where((t) => t.name.toLowerCase().contains(filter.toLowerCase())).toList();
           return AlertDialog(
-            title: const Text('Tags auswählen'),
+            title: Text(AppTexte.of(context).suchoptTagsWaehlen),
             content: SizedBox(
               width: 360,
               height: 420,
@@ -264,9 +266,9 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                 children: [
                   TextField(
                     autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Tags filtern …',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: AppTexte.of(context).suchoptTagsFiltern,
+                      prefixIcon: const Icon(Icons.search),
                       isDense: true,
                     ),
                     onChanged: (v) => setDialogState(() => filter = v),
@@ -274,7 +276,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                   const SizedBox(height: 8),
                   Expanded(
                     child: visible.isEmpty
-                        ? const Center(child: Text('Keine Tags gefunden.'))
+                        ? Center(child: Text(AppTexte.of(context).suchoptKeineTags))
                         : ListView(
                             children: [
                               for (final tag in visible)
@@ -292,8 +294,12 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Abbrechen')),
-              FilledButton(onPressed: () => Navigator.pop(context, selection), child: const Text('Übernehmen')),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(AppTexte.of(context).allgAbbrechen)),
+              FilledButton(
+                  onPressed: () => Navigator.pop(context, selection),
+                  child: Text(AppTexte.of(context).allgUebernehmen)),
             ],
           );
         },
@@ -320,11 +326,12 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                   const Icon(Icons.tune),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text('Suchoptionen', style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(AppTexte.of(context).suchoptTitel,
+                        style: Theme.of(context).textTheme.titleLarge),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
-                    tooltip: 'Schließen',
+                    tooltip: AppTexte.of(context).allgSchliessen,
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
@@ -363,11 +370,11 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                 builder: (context, snapshot) {
                   final count = snapshot.data;
                   if (count != 0) return const SizedBox.shrink();
-                  return const Padding(
-                    padding: EdgeInsets.fromLTRB(AppSpacing.lg, 10, AppSpacing.lg, 0),
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 10, AppSpacing.lg, 0),
                     child: Text(
-                      'Keine Fotos gefunden – diese Filterkombination liefert 0 Treffer.',
-                      style: TextStyle(fontSize: 12, color: Colors.orange),
+                      AppTexte.of(context).suchoptKeineTreffer,
+                      style: TextStyle(fontSize: 12, color: context.semantik.warnung),
                     ),
                   );
                 },
@@ -377,11 +384,13 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
               child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(onPressed: _clearAll, child: const Text('Alles leeren')),
+                    child: OutlinedButton(
+                        onPressed: _clearAll, child: Text(AppTexte.of(context).suchoptAllesLeeren)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: FilledButton(onPressed: _search, child: const Text('Suche')),
+                    child: FilledButton(
+                        onPressed: _search, child: Text(AppTexte.of(context).suchoptSuchen)),
                   ),
                 ],
               ),
@@ -407,18 +416,18 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           children: [
             Row(
               children: [
-                Text('Personen', style: Theme.of(context).textTheme.titleMedium),
+                Text(AppTexte.of(context).navPersonen, style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
                 if (people.length > 6)
                   SizedBox(
                     width: 220,
                     child: TextField(
                       controller: _peopleFilterController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         isDense: true,
-                        prefixIcon: Icon(Icons.search, size: 18),
-                        hintText: 'Personen filtern',
-                        border: OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        hintText: AppTexte.of(context).suchoptPersonenFiltern,
+                        border: const OutlineInputBorder(),
                       ),
                       onChanged: (v) => setState(() => _peopleFilterText = v),
                     ),
@@ -427,9 +436,11 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
             ),
             const SizedBox(height: 12),
             if (people.isEmpty)
-              Text('Noch keine Personen benannt.', style: TextStyle(color: Theme.of(context).colorScheme.outline))
+              Text(AppTexte.of(context).suchoptKeinePersonenBenannt,
+                  style: TextStyle(color: Theme.of(context).colorScheme.outline))
             else if (filtered.isEmpty)
-              Text('Keine Personen gefunden.', style: TextStyle(color: Theme.of(context).colorScheme.outline))
+              Text(AppTexte.of(context).suchoptKeinePersonenGefunden,
+                  style: TextStyle(color: Theme.of(context).colorScheme.outline))
             else
               SizedBox(
                 height: 96,
@@ -498,57 +509,50 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
     );
   }
 
-  String _textModeSectionLabel() {
-    switch (_textMode) {
-      case SearchTextMode.context:
-        return 'Suche nach Kontext';
-      case SearchTextMode.filename:
-        return 'Suche nach Dateiname';
-      case SearchTextMode.description:
-        return 'Suche nach Beschreibung';
-      case SearchTextMode.ocr:
-        return 'Suche nach erkanntem Text im Foto';
-      case SearchTextMode.caption:
-        return 'Suche nach KI-Beschreibung (Englisch)';
-    }
-  }
+  String _textModeSectionLabel() => switch (_textMode) {
+        SearchTextMode.context => AppTexte.of(context).suchoptNachKontext,
+        SearchTextMode.filename => AppTexte.of(context).suchoptNachDateiname,
+        SearchTextMode.description => AppTexte.of(context).suchoptNachBeschreibung,
+        SearchTextMode.ocr => AppTexte.of(context).suchoptNachOcr,
+        SearchTextMode.caption => AppTexte.of(context).suchoptNachCaption,
+      };
 
   Widget _buildTextModeSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Suche nach Typ', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).suchoptTypTitel, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Wrap(
           children: [
             _InlineRadio(
               value: SearchTextMode.context,
               groupValue: _textMode,
-              label: 'Kontext',
+              label: AppTexte.of(context).suchoptTypKontext,
               onChanged: (v) => setState(() => _textMode = v),
             ),
             _InlineRadio(
               value: SearchTextMode.filename,
               groupValue: _textMode,
-              label: 'Dateiname',
+              label: AppTexte.of(context).suchoptTypDateiname,
               onChanged: (v) => setState(() => _textMode = v),
             ),
             _InlineRadio(
               value: SearchTextMode.description,
               groupValue: _textMode,
-              label: 'Beschreibung',
+              label: AppTexte.of(context).suchoptTypBeschreibung,
               onChanged: (v) => setState(() => _textMode = v),
             ),
             _InlineRadio(
               value: SearchTextMode.ocr,
               groupValue: _textMode,
-              label: 'Text im Foto (OCR)',
+              label: AppTexte.of(context).suchoptTypOcr,
               onChanged: (v) => setState(() => _textMode = v),
             ),
             _InlineRadio(
               value: SearchTextMode.caption,
               groupValue: _textMode,
-              label: 'KI-Beschreibung (Englisch)',
+              label: AppTexte.of(context).suchoptTypCaption,
               onChanged: (v) => setState(() => _textMode = v),
             ),
           ],
@@ -562,28 +566,28 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
             border: const OutlineInputBorder(),
             isDense: true,
             hintText: switch (_textMode) {
-              SearchTextMode.context => 'z.B. "Sonnenaufgang am Strand", "Hund im Schnee" …',
-              SearchTextMode.filename => 'Dateiname …',
-              SearchTextMode.description => 'Beschreibung …',
-              SearchTextMode.ocr => 'Text im Foto …',
-              SearchTextMode.caption => 'z.B. "dog", "sunset" (Englisch) …',
+              SearchTextMode.context => AppTexte.of(context).suchoptHintKontext,
+              SearchTextMode.filename => AppTexte.of(context).suchoptHintDateiname,
+              SearchTextMode.description => AppTexte.of(context).suchoptHintBeschreibung,
+              SearchTextMode.ocr => AppTexte.of(context).suchoptHintOcr,
+              SearchTextMode.caption => AppTexte.of(context).suchoptHintCaption,
             },
           ),
         ),
         if (_textMode == SearchTextMode.context && !widget.library.clipAvailable)
-          const Padding(
-            padding: EdgeInsets.only(top: AppSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
             child: Text(
-              'KI-Bildsuche nicht verfügbar – Modell fehlt (siehe Einstellungen → KI-Modelle).',
-              style: TextStyle(fontSize: 12, color: Colors.orange),
+              AppTexte.of(context).suchoptClipFehlt,
+              style: TextStyle(fontSize: 12, color: context.semantik.warnung),
             ),
           ),
         if (_textMode == SearchTextMode.caption && !widget.library.captioningAvailable)
-          const Padding(
-            padding: EdgeInsets.only(top: AppSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
             child: Text(
-              'KI-Bildbeschreibung nicht verfügbar – Modell fehlt (siehe Einstellungen → KI-Modelle).',
-              style: TextStyle(fontSize: 12, color: Colors.orange),
+              AppTexte.of(context).suchoptCaptionFehlt,
+              style: TextStyle(fontSize: 12, color: context.semantik.warnung),
             ),
           ),
       ],
@@ -599,15 +603,15 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Tags', style: Theme.of(context).textTheme.titleMedium),
+            Text(AppTexte.of(context).suchoptTagsTitel, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             InkWell(
               onTap: _noTag || allTags.isEmpty ? null : () => _openTagPicker(allTags),
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'Suche nach Tags …',
-                  suffixIcon: Icon(Icons.arrow_drop_down),
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  hintText: AppTexte.of(context).suchoptTagsHint,
+                  suffixIcon: const Icon(Icons.arrow_drop_down),
                   isDense: true,
                 ),
                 child: selectedTags.isEmpty
@@ -635,7 +639,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
               controlAffinity: ListTileControlAffinity.leading,
               contentPadding: EdgeInsets.zero,
               dense: true,
-              title: const Text('Ohne Tag'),
+              title: Text(AppTexte.of(context).suchoptOhneTag),
             ),
           ],
         );
@@ -651,7 +655,8 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mindestbewertung', style: Theme.of(context).textTheme.titleMedium),
+              Text(AppTexte.of(context).suchoptMindestbewertung,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               StarRating(
                 value: _minRating ?? 0,
@@ -665,7 +670,8 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Farbmarkierung', style: Theme.of(context).textTheme.titleMedium),
+              Text(AppTexte.of(context).suchoptFarbmarkierung,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
@@ -689,53 +695,47 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
     );
   }
 
-  String _colorLabelName(String key) {
-    switch (key) {
-      case 'red':
-        return 'Rot';
-      case 'yellow':
-        return 'Gelb';
-      case 'green':
-        return 'Grün';
-      case 'blue':
-        return 'Blau';
-      case 'purple':
-        return 'Lila';
-      default:
-        return key;
-    }
-  }
+  String _colorLabelName(String key) => switch (key) {
+        'red' => AppTexte.of(context).farbeRot,
+        'yellow' => AppTexte.of(context).farbeGelb,
+        'green' => AppTexte.of(context).farbeGruen,
+        'blue' => AppTexte.of(context).farbeBlau,
+        'purple' => AppTexte.of(context).farbeLila,
+        _ => key,
+      };
 
   Widget _buildRangeFiltersSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Aufnahmewerte', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).suchoptAufnahmewerte, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _numberField('ISO von', _minIsoController)),
+            Expanded(child: _numberField(AppTexte.of(context).suchoptIsoVon, _minIsoController)),
             const SizedBox(width: 12),
-            Expanded(child: _numberField('ISO bis', _maxIsoController)),
+            Expanded(child: _numberField(AppTexte.of(context).suchoptIsoBis, _maxIsoController)),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _numberField('Blende von (f/…)', _minFNumberController)),
+            Expanded(child: _numberField(AppTexte.of(context).suchoptBlendeVon, _minFNumberController)),
             const SizedBox(width: 12),
-            Expanded(child: _numberField('Blende bis (f/…)', _maxFNumberController)),
+            Expanded(child: _numberField(AppTexte.of(context).suchoptBlendeBis, _maxFNumberController)),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _numberField('Brennweite von (mm)', _minFocalLengthController)),
+            Expanded(
+                child: _numberField(AppTexte.of(context).suchoptBrennweiteVon, _minFocalLengthController)),
             const SizedBox(width: 12),
-            Expanded(child: _numberField('Brennweite bis (mm)', _maxFocalLengthController)),
+            Expanded(
+                child: _numberField(AppTexte.of(context).suchoptBrennweiteBis, _maxFocalLengthController)),
           ],
         ),
         const SizedBox(height: 4),
@@ -745,7 +745,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           controlAffinity: ListTileControlAffinity.leading,
           contentPadding: EdgeInsets.zero,
           dense: true,
-          title: const Text('Nur unscharfe Fotos anzeigen'),
+          title: Text(AppTexte.of(context).suchoptNurUnscharfe),
         ),
       ],
     );
@@ -763,24 +763,24 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Kamera', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).werkzAbschnittKamera, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _cameraDropdown(
-                  'Marke', _cameraMakesFuture, _cameraMake, (v) => setState(() => _cameraMake = v)),
+              child: _cameraDropdown(AppTexte.of(context).suchoptMarke, _cameraMakesFuture,
+                  _cameraMake, (v) => setState(() => _cameraMake = v)),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _cameraDropdown('Modell', _cameraModelsFuture, _cameraModel,
-                  (v) => setState(() => _cameraModel = v)),
+              child: _cameraDropdown(AppTexte.of(context).suchoptModell, _cameraModelsFuture,
+                  _cameraModel, (v) => setState(() => _cameraModel = v)),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _cameraDropdown(
-                  'Objektiv', _lensModelsFuture, _lensModel, (v) => setState(() => _lensModel = v)),
+              child: _cameraDropdown(AppTexte.of(context).suchoptObjektiv, _lensModelsFuture,
+                  _lensModel, (v) => setState(() => _lensModel = v)),
             ),
           ],
         ),
@@ -811,7 +811,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
             isDense: true,
           ),
           items: [
-            const DropdownMenuItem(value: null, child: Text('Alle')),
+            DropdownMenuItem(value: null, child: Text(AppTexte.of(context).allgAlle)),
             for (final v in items) DropdownMenuItem(value: v, child: Text(v, overflow: TextOverflow.ellipsis)),
           ],
           onChanged: onChanged,
@@ -824,33 +824,33 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Ort', style: Theme.of(context).textTheme.titleMedium),
+        Text(AppTexte.of(context).suchoptOrtTitel, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              child: _cameraDropdown('Land', _countriesFuture, _locationCountry, _onCountryChanged),
+              child: _cameraDropdown(
+                  AppTexte.of(context).suchoptLand, _countriesFuture, _locationCountry, _onCountryChanged),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _cameraDropdown('Bundesland', _statesFuture, _locationState,
-                  _locationCountry == null ? null : _onStateChanged),
+              child: _cameraDropdown(AppTexte.of(context).suchoptBundesland, _statesFuture,
+                  _locationState, _locationCountry == null ? null : _onStateChanged),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _cameraDropdown('Stadt', _citiesFuture, _locationCity,
+              child: _cameraDropdown(AppTexte.of(context).suchoptStadt, _citiesFuture, _locationCity,
                   _locationState == null ? null : (v) => setState(() => _locationCity = v)),
             ),
           ],
         ),
         if (!widget.library.geoDataAvailable)
-          const Padding(
-            padding: EdgeInsets.only(top: AppSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.sm),
             child: Text(
-              'Noch keine Orte aufgelöst – GeoNames-Datensatz herunterladen und Fotos '
-              'auflösen (siehe Einstellungen → Standortdaten, Werkzeuge → Orte).',
-              style: TextStyle(fontSize: 12, color: Colors.orange),
+              AppTexte.of(context).suchoptGeoFehlt,
+              style: TextStyle(fontSize: 12, color: context.semantik.warnung),
             ),
           ),
       ],
@@ -862,13 +862,13 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _dateField('Anfangsdatum', _startDate, () => _pickDate(isStart: true),
-              () => setState(() => _startDate = null)),
+          child: _dateField(AppTexte.of(context).suchoptAnfangsdatum, _startDate,
+              () => _pickDate(isStart: true), () => setState(() => _startDate = null)),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _dateField('Enddatum', _endDate, () => _pickDate(isStart: false),
-              () => setState(() => _endDate = null)),
+          child: _dateField(AppTexte.of(context).suchoptEnddatum, _endDate,
+              () => _pickDate(isStart: false), () => setState(() => _endDate = null)),
         ),
       ],
     );
@@ -889,12 +889,14 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
               suffixIcon: value != null
                   ? IconButton(
                       icon: const Icon(Icons.close, size: 18),
-                      tooltip: 'Datum entfernen',
+                      tooltip: AppTexte.of(context).suchoptDatumEntfernen,
                       onPressed: onClear,
                     )
                   : const Icon(Icons.calendar_today_outlined, size: 18),
             ),
-            child: Text(value != null ? DateFormat('dd.MM.yyyy', 'de_DE').format(value) : 'tt.mm.jjjj'),
+            child: Text(value != null
+                ? DateFormat.yMd(Localizations.localeOf(context).toString()).format(value)
+                : AppTexte.of(context).suchoptDatumPlatzhalter),
           ),
         ),
       ],
@@ -909,26 +911,26 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Medientyp', style: Theme.of(context).textTheme.titleMedium),
+              Text(AppTexte.of(context).suchoptMedientyp, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               Wrap(
                 children: [
                   _InlineRadio(
                     value: MediaTypeFilter.all,
                     groupValue: _mediaType,
-                    label: 'Alle',
+                    label: AppTexte.of(context).allgAlle,
                     onChanged: (v) => setState(() => _mediaType = v),
                   ),
                   _InlineRadio(
                     value: MediaTypeFilter.image,
                     groupValue: _mediaType,
-                    label: 'Bild',
+                    label: AppTexte.of(context).suchoptBild,
                     onChanged: (v) => setState(() => _mediaType = v),
                   ),
                   _InlineRadio(
                     value: MediaTypeFilter.video,
                     groupValue: _mediaType,
-                    label: 'Video',
+                    label: AppTexte.of(context).suchoptVideo,
                     onChanged: (v) => setState(() => _mediaType = v),
                   ),
                 ],
@@ -941,7 +943,8 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Anzeigeoptionen', style: Theme.of(context).textTheme.titleMedium),
+              Text(AppTexte.of(context).suchoptAnzeigeoptionen,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               CheckboxListTile(
                 value: _notInAnyAlbum,
@@ -949,7 +952,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('In keinem Album'),
+                title: Text(AppTexte.of(context).suchoptInKeinemAlbum),
               ),
               CheckboxListTile(
                 value: _favoritesOnly,
@@ -957,7 +960,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                 controlAffinity: ListTileControlAffinity.leading,
                 contentPadding: EdgeInsets.zero,
                 dense: true,
-                title: const Text('Favoriten'),
+                title: Text(AppTexte.of(context).suchoptFavoriten),
               ),
             ],
           ),

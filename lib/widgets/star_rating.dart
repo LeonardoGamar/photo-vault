@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 /// Reihe von 5 antippbaren Sternen (0-5) – für die Bewertung eines einzelnen
 /// Assets (Info-Panel), als "Mindestbewertung"-Schwellenwert im
 /// Suchoptionen-Panel, und in der Auswahlleiste für Mehrfachauswahlen.
@@ -20,8 +22,8 @@ class StarRating extends StatelessWidget {
         for (var i = 1; i <= 5; i++)
           Semantics(
             label: onChanged == null
-                ? 'Stern $i von 5${i <= value ? ', ausgefüllt' : ''}'
-                : 'Bewertung: $i von 5 Sternen setzen',
+                ? (i <= value ? AppTexte.of(context).sterneSternVoll(i) : AppTexte.of(context).sterneStern(i))
+                : AppTexte.of(context).sterneSetzen(i),
             button: onChanged != null,
             excludeSemantics: true,
             child: InkWell(

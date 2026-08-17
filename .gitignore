@@ -65,3 +65,7 @@ app.*.map.json
 # Heruntergeladene Kamera-Beispieldateien (tool/fetch_format_samples.sh) –
 # groß und je Datei unterschiedlich lizenziert, daher bewusst nicht versioniert.
 test/fixtures/samples/
+
+# Ausgabe von gen-l10n: wird bei jedem Lauf neu geschrieben und ist nur ein
+# Prüfmittel, kein Quelltext (siehe test/uebersetzungen_vollstaendig_test.dart).
+lib/l10n/fehlende_uebersetzungen.txt

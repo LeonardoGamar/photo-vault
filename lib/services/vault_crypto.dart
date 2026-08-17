@@ -12,7 +12,14 @@ const int _chunkSize = 1 << 20; // 1 MiB
 /// Länge des AES-256-GCM-Authentifizierungs-Tags in Bytes.
 const int _macLength = 16;
 
-const List<int> _magic = [0x50, 0x56, 0x45, 0x31]; // "PVE1"
+/// Erste Fassung des Dateiformats: jeder Block für sich authentifiziert,
+/// aber nichts sichert ihre Reihenfolge. Wird nur noch gelesen.
+const List<int> _magicV1 = [0x50, 0x56, 0x45, 0x31]; // "PVE1"
+
+/// Zweite Fassung: jeder Block trägt seine laufende Nummer als
+/// mitauthentifizierte Zusatzdaten, und ein Abschlussblock hält fest, wie
+/// viele es waren.
+const List<int> _magicV2 = [0x50, 0x56, 0x45, 0x32]; // "PVE2"
 
 /// Ergebnis von [VaultCrypto.createMasterKey]/[VaultCrypto.wrapMasterKey]:
 /// alles, was zusätzlich zum Master-Key selbst in [PrivacySettings]
@@ -112,26 +119,53 @@ class VaultCrypto {
     return SecretKey(masterKeyBytes);
   }
 
-  /// Verschlüsselt [source] chunkweise nach [destination]. Dateiformat:
-  /// 4 Bytes Magic, danach beliebig viele Chunks aus je
+  /// Die laufende Nummer eines Blocks als mitauthentifizierte Zusatzdaten.
+  ///
+  /// Sie steht nicht in der Datei – beide Seiten zählen mit. Dadurch passt
+  /// ein an eine andere Stelle geschobener Block nicht mehr: Die
+  /// Authentifizierung schlägt fehl, obwohl der Block selbst unverändert
+  /// ist.
+  static Uint8List _blockNummer(int nummer) =>
+      (ByteData(8)..setUint64(0, nummer, Endian.big)).buffer.asUint8List();
+
+  /// Verschlüsselt [source] blockweise nach [destination].
+  ///
+  /// Dateiformat: 4 Bytes Magic ("PVE2"), danach Blöcke aus je
   /// [4 Bytes Klartextlänge][12 Bytes Nonce][Chiffretext][16 Bytes GCM-Tag].
-  /// Jeder Chunk ist unabhängig authentifiziert.
+  /// Jeder Block ist für sich authentifiziert UND an seine laufende Nummer
+  /// gebunden; den Schluss bildet ein leerer Abschlussblock, dessen Nummer
+  /// die Anzahl der Datenblöcke ist.
+  ///
+  /// Der Abschlussblock ist der Grund für das neue Format: Ohne ihn liess
+  /// sich eine Datei am Ende kürzen, ohne dass es beim Entschlüsseln
+  /// auffiel – jeder verbliebene Block war ja gültig. Er wird auch für eine
+  /// leere Quelldatei geschrieben, damit „gar keine Blöcke" nie ein
+  /// gültiger Zustand ist.
   static Future<void> encryptFile(File source, File destination, SecretKey masterKey) async {
     final input = await source.open(mode: FileMode.read);
     final sink = destination.openWrite();
     try {
-      sink.add(_magic);
-      while (true) {
-        final chunk = await input.read(_chunkSize);
-        if (chunk.isEmpty) break;
+      sink.add(_magicV2);
+
+      Future<void> schreibe(List<int> klartext, int nummer) async {
         final nonce = _cipher.newNonce();
-        final box = await _cipher.encrypt(chunk, secretKey: masterKey, nonce: nonce);
-        final header = ByteData(4)..setUint32(0, chunk.length, Endian.big);
+        final box = await _cipher.encrypt(klartext,
+            secretKey: masterKey, nonce: nonce, aad: _blockNummer(nummer));
+        final header = ByteData(4)..setUint32(0, klartext.length, Endian.big);
         sink.add(header.buffer.asUint8List());
         sink.add(nonce);
         sink.add(box.cipherText);
         sink.add(box.mac.bytes);
       }
+
+      var nummer = 0;
+      while (true) {
+        final chunk = await input.read(_chunkSize);
+        if (chunk.isEmpty) break;
+        await schreibe(chunk, nummer);
+        nummer++;
+      }
+      await schreibe(const <int>[], nummer);
       await sink.flush();
     } finally {
       await input.close();
@@ -147,20 +181,60 @@ class VaultCrypto {
     final input = await source.open(mode: FileMode.read);
     final sink = destination.openWrite();
     try {
-      final magic = await input.read(_magic.length);
-      if (magic.length != _magic.length || !_bytesEqual(magic, _magic)) {
+      final magic = await input.read(4);
+      final istV2 = magic.length == 4 && _bytesEqual(magic, _magicV2);
+      final istV1 = magic.length == 4 && _bytesEqual(magic, _magicV1);
+      if (!istV1 && !istV2) {
         throw const FormatException('Keine gültige verschlüsselte Vault-Datei.');
       }
+
+      var nummer = 0;
       while (true) {
         final header = await input.read(4);
-        if (header.isEmpty) break;
-        final plainLength = ByteData.sublistView(Uint8List.fromList(header)).getUint32(0, Endian.big);
+        if (header.isEmpty) {
+          // Vor der Umstellung gab es keinen Abschlussblock; dort ist das
+          // Dateiende das Ende. Bei PVE2 fehlt hier etwas.
+          if (istV1) break;
+          throw const FormatException(
+              'Die Datei endet vor dem Abschlussblock – sie wurde abgeschnitten.');
+        }
+        if (header.length != 4) {
+          throw const FormatException('Unvollständiger Blockkopf.');
+        }
+        final plainLength =
+            ByteData.sublistView(Uint8List.fromList(header)).getUint32(0, Endian.big);
+        // Die Länge steht unverschlüsselt in der Datei und ist damit das
+        // einzige Feld, das ein Angreifer frei setzen kann. Ohne diese
+        // Schranke ginge sie ungeprüft an read() – bis zu 4 GiB für einen
+        // Block, der höchstens _chunkSize gross sein darf.
+        if (plainLength > _chunkSize) {
+          throw const FormatException('Unplausible Blocklänge.');
+        }
         final nonce = await input.read(12);
         final cipherText = await input.read(plainLength);
         final macBytes = await input.read(_macLength);
+        if (nonce.length != 12 ||
+            cipherText.length != plainLength ||
+            macBytes.length != _macLength) {
+          throw const FormatException('Unvollständiger Block.');
+        }
         final box = SecretBox(cipherText, nonce: nonce, mac: Mac(macBytes));
-        final plain = await _cipher.decrypt(box, secretKey: masterKey);
+        final plain = await _cipher.decrypt(
+          box,
+          secretKey: masterKey,
+          aad: istV2 ? _blockNummer(nummer) : const <int>[],
+        );
+
+        if (istV2 && plainLength == 0) {
+          // Abschlussblock: Seine Nummer ist die Anzahl der Datenblöcke,
+          // und sie ist mitauthentifiziert – ein Kürzen fällt damit auf.
+          if ((await input.read(1)).isNotEmpty) {
+            throw const FormatException('Daten hinter dem Abschlussblock.');
+          }
+          break;
+        }
         sink.add(plain);
+        nummer++;
       }
       await sink.flush();
     } finally {
@@ -177,8 +251,9 @@ class VaultCrypto {
   static Future<bool> hasValidEncryptedHeader(File file) async {
     final raf = await file.open(mode: FileMode.read);
     try {
-      final magic = await raf.read(_magic.length);
-      return magic.length == _magic.length && _bytesEqual(magic, _magic);
+      final magic = await raf.read(4);
+      if (magic.length != 4) return false;
+      return _bytesEqual(magic, _magicV2) || _bytesEqual(magic, _magicV1);
     } finally {
       await raf.close();
     }

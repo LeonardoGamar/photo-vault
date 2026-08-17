@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../services/export_service.dart';
 import '../state/library_state.dart';
@@ -62,8 +64,8 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
     final ids = _selected.toList();
     final confirmed = await confirmDialog(
       context,
-      '${ids.length} Foto(s) löschen?',
-      'Diese Fotos werden aus dem Album entfernt und in den Papierkorb verschoben.',
+      AppTexte.of(context).albumFotosLoeschenTitel(ids.length),
+      AppTexte.of(context).albumFotosLoeschenText,
     );
     if (!confirmed) return;
     for (final id in ids) {
@@ -75,7 +77,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
 
   Future<void> _exportAlbum(BuildContext context, List<AssetData> assets) async {
     final destination = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Zielordner für "${widget.albumName}" wählen',
+      dialogTitle: AppTexte.of(context).albumZielordner(widget.albumName),
     );
     if (destination == null || !context.mounted) return;
 
@@ -93,7 +95,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
             children: [
               const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               const SizedBox(width: 16),
-              Expanded(child: Text('Exportiere … ($done / ${assets.length})')),
+              Expanded(child: Text(AppTexte.of(context).auswExportiereLaeuft(done, assets.length))),
             ],
           ),
         );
@@ -115,7 +117,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
     if (context.mounted) {
       Navigator.of(context).pop(); // Ladeanzeige schließen
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$exported von ${assets.length} Foto(s) exportiert nach $destination')),
+        SnackBar(content: Text(AppTexte.of(context).auswExportFertig(exported, assets.length, destination))),
       );
     }
   }
@@ -133,13 +135,13 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
               if (assets.isNotEmpty)
                 IconButton(
                   icon: const Icon(Icons.ios_share),
-                  tooltip: 'Album exportieren',
+                  tooltip: AppTexte.of(context).albumExportieren,
                   onPressed: () => _exportAlbum(context, assets),
                 ),
             ],
           ),
           body: assets.isEmpty
-              ? const Center(child: Text('Dieses Album enthält noch keine Fotos.'))
+              ? Center(child: Text(AppTexte.of(context).albumLeer))
               : Stack(
                   children: [
                     GridView.builder(
@@ -165,6 +167,18 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                       SelectionActionBar(
                         count: _selected.length,
                         onClear: () => setState(_selected.clear),
+
+                        onPasteDevelop: widget.library.hatKopierteEntwicklung
+
+                            ? () async {
+
+                                await runBatchPasteDevelop(context, widget.library, _selected.toList());
+
+                                if (mounted) setState(_selected.clear);
+
+                              }
+
+                            : null,
                         onFavorite: () async {
                           await runBatchFavorite(widget.library, _selected.toList());
                           if (mounted) setState(_selected.clear);

@@ -12,11 +12,27 @@ import 'storage_paths.dart';
 import 'vault_crypto.dart';
 import 'xmp_writer.dart';
 
+/// Geworfen, wenn ein verschlüsseltes Backup ohne Passphrase geöffnet werden
+/// soll – der Aufrufer zeigt seinen eigenen, übersetzten Hinweis.
+class BackupBrauchtPassphrase implements Exception {
+  const BackupBrauchtPassphrase();
+}
+
+
 class BackupProgress {
   final int done;
   final int total;
   final String? currentFile;
-  BackupProgress(this.done, this.total, {this.currentFile});
+
+  /// Wie viele Dateien beim nächsten Lauf folgen, weil die Mengenbegrenzung
+  /// gegriffen hat – sonst null.
+  ///
+  /// Als Zahl statt als fertigem Satz: Der Dienst kennt keine
+  /// Oberflächensprache, und der Satz stünde sonst in `currentFile`, wo
+  /// eigentlich ein Dateiname erwartet wird.
+  final int? grenzeOffen;
+
+  BackupProgress(this.done, this.total, {this.currentFile, this.grenzeOffen});
 }
 
 /// Kopiert die Bibliothek manuell in einen vom Nutzer gewählten Ordner.
@@ -160,8 +176,7 @@ class BackupService {
       yield BackupProgress(
         done,
         pending.length,
-        currentFile: 'Grenze erreicht – ${pending.length - done} Datei(en) folgen '
-            'beim nächsten Lauf',
+        grenzeOffen: pending.length - done,
       );
     }
   }
@@ -271,7 +286,7 @@ class BackupService {
     SecretKey? decryptionKey;
     if (await keyFile.exists()) {
       if (passphrase == null) {
-        throw StateError('Dieses Backup ist verschlüsselt – eine Passphrase wird benötigt.');
+        throw const BackupBrauchtPassphrase();
       }
       final envelope = jsonDecode(await keyFile.readAsString()) as Map<String, dynamic>;
       decryptionKey = await VaultCrypto.unwrapMasterKey(
@@ -549,8 +564,7 @@ class BackupService {
 
     if (abgebrochenWegenLimit) {
       yield BackupProgress(done, pending.length,
-          currentFile: 'Grenze erreicht – ${pending.length - done} Datei(en) folgen '
-              'beim nächsten Lauf');
+          grenzeOffen: pending.length - done);
     }
   }
 

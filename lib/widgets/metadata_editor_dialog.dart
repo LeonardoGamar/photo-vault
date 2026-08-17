@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
+
 import '../db/database.dart';
 import '../services/asset_format.dart';
 import '../services/exif_camera.dart';
@@ -81,7 +83,7 @@ class _MetadataEditorDialogState extends State<MetadataEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Metadaten bearbeiten'),
+      title: Text(AppTexte.of(context).auswMetadaten),
       content: SizedBox(
         width: 360,
         child: SingleChildScrollView(
@@ -105,7 +107,7 @@ class _MetadataEditorDialogState extends State<MetadataEditorDialog> {
                 children: [
                   Expanded(child: _field('ISO', _isoCtrl)),
                   const SizedBox(width: 12),
-                  Expanded(child: _field('Belichtungszeit', _exposureCtrl, hint: 'z.B. 1/125 oder 0.5')),
+                  Expanded(child: _field('Belichtungszeit', _exposureCtrl, hint: AppTexte.of(context).metaBelichtungBeispiel)),
                 ],
               ),
             ],
@@ -115,13 +117,13 @@ class _MetadataEditorDialogState extends State<MetadataEditorDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.pop(context, false),
-          child: const Text('Abbrechen'),
+          child: Text(AppTexte.of(context).allgAbbrechen),
         ),
         FilledButton(
           onPressed: _saving ? null : _save,
           child: _saving
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Speichern'),
+              : Text(AppTexte.of(context).allgSpeichern),
         ),
       ],
     );

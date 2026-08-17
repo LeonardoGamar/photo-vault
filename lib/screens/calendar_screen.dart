@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/month_grouped_asset_grid.dart';
@@ -23,7 +24,7 @@ class CalendarScreen extends StatelessWidget {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final countByYear = snapshot.data!;
         if (countByYear.isEmpty) {
-          return const Center(child: Text('Noch keine Fotos für eine Jahresübersicht.'));
+          return Center(child: Text(AppTexte.of(context).kalenderLeer));
         }
 
         final years = countByYear.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -132,7 +133,7 @@ class _YearCardState extends State<_YearCard> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${widget.assetCount} ${widget.assetCount == 1 ? 'Foto/Video' : 'Fotos/Videos'}',
+                    AppTexte.of(context).kalenderAnzahlFotos(widget.assetCount),
                     style: const TextStyle(color: Colors.white70, fontSize: 13),
                   ),
                 ],
@@ -199,8 +200,8 @@ class _YearDetailScreenState extends State<YearDetailScreen> {
     final ids = _selected.toList();
     final confirmed = await confirmDialog(
       context,
-      '${ids.length} Foto(s) löschen?',
-      'Diese Fotos werden in den Papierkorb verschoben.',
+      AppTexte.of(context).loeschenTitel(ids.length),
+      AppTexte.of(context).loeschenHinweis(ids.length),
     );
     if (!confirmed) return;
     await widget.library.db.moveToTrash(ids);
@@ -217,7 +218,7 @@ class _YearDetailScreenState extends State<YearDetailScreen> {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final yearAssets = snapshot.data!;
           if (yearAssets.isEmpty) {
-            return const Center(child: Text('Keine Fotos in diesem Jahr.'));
+            return Center(child: Text(AppTexte.of(context).kalenderJahrLeer));
           }
           return Stack(
             children: [
@@ -233,6 +234,18 @@ class _YearDetailScreenState extends State<YearDetailScreen> {
                 SelectionActionBar(
                   count: _selected.length,
                   onClear: () => setState(_selected.clear),
+
+                  onPasteDevelop: widget.library.hatKopierteEntwicklung
+
+                      ? () async {
+
+                          await runBatchPasteDevelop(context, widget.library, _selected.toList());
+
+                          if (mounted) setState(_selected.clear);
+
+                        }
+
+                      : null,
                   onFavorite: () async {
                     await runBatchFavorite(widget.library, _selected.toList());
                     if (mounted) setState(_selected.clear);

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:photo_vault/services/develop_color.dart';
 import 'package:photo_vault/services/native_image_converter.dart';
 import 'package:photo_vault/widgets/develop_preview.dart';
 
@@ -9,10 +10,12 @@ void main() {
   test('neutrale Einstellungen ergeben neutrale Uniforms', () {
     final u = developUniforms(DevelopAdjustments.neutral);
 
-    expect(u, hasLength(6));
+    expect(u, hasLength(9));
     expect(u[0], 0.0, reason: 'Belichtung');
     expect(u[3], 0.0, reason: 'Kontrast');
     expect(u[4], 0.0, reason: 'Schatten');
+    expect(u[6], 0.0, reason: 'Tonwertkurve aus');
+    expect(u[7], 0.0, reason: 'Farbmischer aus');
   });
 
   test('automatischer Weißabgleich schaltet den Shader-Weißabgleich ab', () {
@@ -86,6 +89,42 @@ void main() {
     ));
 
     expect(mit, ohne, reason: 'dürfen die Uniforms nicht verändern');
+  });
+
+  test('Tonwertkurve und Farbmischer schalten sich einzeln ein', () {
+    // Die Schalter entscheiden, ob der Shader überhaupt nachschlägt. Steht
+    // einer fälschlich auf 1, liest er einen 1×1-Platzhalter und das Bild
+    // würde einfarbig.
+    final nurKurve = developUniforms(const DevelopAdjustments(
+      toneCurve: ToneCurve(rot: [CurvePoint(0, 0), CurvePoint(1, 0.5)]),
+    ));
+    expect(nurKurve[6], 1.0, reason: 'Kurve an');
+    expect(nurKurve[7], 0.0, reason: 'Mischer bleibt aus');
+
+    final nurMischer = developUniforms(const DevelopAdjustments(
+      colorMixer: ColorMixer({ColorBand.gruen: BandAnpassung(saettigung: 0.5)}),
+    ));
+    expect(nurMischer[6], 0.0, reason: 'Kurve bleibt aus');
+    expect(nurMischer[7], 1.0, reason: 'Mischer an');
+  });
+
+  test('ein Band mit lauter Nullen schaltet den Mischer nicht ein', () {
+    // Sonst liefe der Farbwürfel für eine Anpassung, die nichts tut.
+    final u = developUniforms(const DevelopAdjustments(
+      colorMixer: ColorMixer({ColorBand.blau: BandAnpassung()}),
+    ));
+    expect(u[7], 0.0);
+  });
+
+  test('die Kantenlänge des Würfels geht an den Shader', () {
+    // Der Shader rechnet die Scheibenanordnung daraus aus; ein Wert, der
+    // nicht zur hochgeladenen Textur passt, ergäbe verschobene Farben.
+    expect(developUniforms(DevelopAdjustments.neutral)[8],
+        colorCubePreviewSize.toDouble());
+    expect(
+      developUniforms(DevelopAdjustments.neutral, wuerfelKante: colorCubeSize)[8],
+      colorCubeSize.toDouble(),
+    );
   });
 
   test('Grenzwerte werden unverändert weitergegeben', () {
