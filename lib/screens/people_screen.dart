@@ -123,6 +123,101 @@ class _PeopleScreenState extends State<PeopleScreen> {
     ));
   }
 
+  /// Das Kontextmenü der Gesichts-Raster (Rechtsklick).
+  ///
+  /// Beide Einträge sind Massenaktionen für den Fall, dass die Erkennung
+  /// überwiegend Unbrauchbares gefunden hat. Der Gedanke dahinter: erst
+  /// alles wegräumen, dann in Ruhe die wenigen Gesichter herausholen, die
+  /// man wirklich benennen will.
+  Future<void> _kontextmenue(Offset position) async {
+    final t = AppTexte.of(context);
+    final offen = await widget.library.db.unassignedFacesCount();
+    if (!mounted) return;
+
+    final wo = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final wahl = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(position & Size.zero, Offset.zero & wo.size),
+      items: [
+        PopupMenuItem(
+          value: 'ignorieren',
+          enabled: offen > 0,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.visibility_off_outlined),
+            title: Text(t.personenAlleIgnorieren),
+            subtitle: Text(t.personenAlleIgnorierenHinweis(offen)),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'loeschen',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.delete_outline),
+            title: Text(t.personenAlleErkennungenLoeschen),
+            subtitle: Text(t.personenAlleErkennungenLoeschenHinweis),
+          ),
+        ),
+      ],
+    );
+    if (!mounted || wahl == null) return;
+    if (wahl == 'ignorieren') return _alleIgnorieren();
+    return _alleErkennungenLoeschen();
+  }
+
+  Future<void> _alleIgnorieren() async {
+    final anzahl = await widget.library.db.ignoriereAlleUnbenannten();
+    if (!mounted) return;
+    setState(() {
+      _selectedFaceIds.clear();
+      _autoSelectedIds.clear();
+      _autoAehnlichkeit.clear();
+    });
+    await _neuLaden();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppTexte.of(context).personenAlleIgnoriertMeldung(anzahl)),
+    ));
+  }
+
+  Future<void> _alleErkennungenLoeschen() async {
+    final t = AppTexte.of(context);
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.personenErkennungenLoeschenTitel),
+        // Der Text nennt ausdrücklich, dass Löschen NICHT dauerhaft ist:
+        // Der nächste Scan findet dieselben Stellen wieder. Wer die
+        // Erkennungen loswerden will, ist mit dem Beiseitelegen besser
+        // bedient – das steht hier, weil man es sonst erst nach dem
+        // nächsten Scan merkt.
+        content: Text(t.personenErkennungenLoeschenText),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(t.allgLoeschen)),
+        ],
+      ),
+    );
+    if (ja != true) return;
+
+    final anzahl = await widget.library.loescheAlleUnbenanntenErkennungen();
+    if (!mounted) return;
+    setState(() {
+      _selectedFaceIds.clear();
+      _autoSelectedIds.clear();
+      _autoAehnlichkeit.clear();
+    });
+    await _neuLaden();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppTexte.of(context).personenErkennungenGeloeschtMeldung(anzahl)),
+    ));
+  }
+
   Future<void> _holeZurueck() async {
     if (_ausgewaehlteIgnorierte.isEmpty) return;
     await widget.library.db.setFacesIgnored(_ausgewaehlteIgnorierte.toList(), false);
@@ -507,6 +602,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
               children: [
                 _PeopleGrid(library: widget.library),
                 _UnassignedFacesGrid(
+                  onKontextmenue: _kontextmenue,
                   faces: _unassignedFaces,
                   paths: widget.library.paths,
                   selected: _selectedFaceIds,
@@ -524,6 +620,7 @@ class _PeopleScreenState extends State<PeopleScreen> {
                   onAutoCluster: _autoCluster,
                 ),
                 _IgnorierteGesichter(
+                  onKontextmenue: _kontextmenue,
                   faces: _ignorierteFaces,
                   gesamt: _ignorierteAnzahl,
                   paths: widget.library.paths,
@@ -653,6 +750,8 @@ class _PeopleGrid extends StatelessWidget {
 }
 
 class _UnassignedFacesGrid extends StatelessWidget {
+  /// Rechtsklick irgendwo im Raster – die Massenaktionen.
+  final void Function(Offset position) onKontextmenue;
   final List<FaceData> faces;
   final StoragePaths paths;
   final Set<String> selected;
@@ -665,6 +764,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
   final VoidCallback onAutoCluster;
 
   const _UnassignedFacesGrid({
+    required this.onKontextmenue,
     required this.faces,
     required this.paths,
     required this.selected,
@@ -679,6 +779,17 @@ class _UnassignedFacesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Der Rechtsklick gilt für das ganze Raster, auch für die leere
+    // Fläche und den leeren Zustand: „Alle Erkennungen löschen" ist gerade
+    // dann gefragt, wenn im Raster nichts Brauchbares mehr steht.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTapDown: (d) => onKontextmenue(d.globalPosition),
+      child: _inhalt(context),
+    );
+  }
+
+  Widget _inhalt(BuildContext context) {
     if (faces.isEmpty) {
       return Center(
         child: Padding(
@@ -797,6 +908,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
 /// versehentlich weggeräumtes Gesicht wäre nirgends mehr zu finden, weil es
 /// aus dem Raster und aus der Gruppierung zugleich verschwindet.
 class _IgnorierteGesichter extends StatelessWidget {
+  final void Function(Offset position) onKontextmenue;
   final List<FaceData> faces;
   final int gesamt;
   final StoragePaths paths;
@@ -806,6 +918,7 @@ class _IgnorierteGesichter extends StatelessWidget {
   final VoidCallback onRestore;
 
   const _IgnorierteGesichter({
+    required this.onKontextmenue,
     required this.faces,
     required this.gesamt,
     required this.paths,
@@ -817,6 +930,17 @@ class _IgnorierteGesichter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Der Rechtsklick gilt für das ganze Raster, auch für die leere
+    // Fläche und den leeren Zustand: „Alle Erkennungen löschen" ist gerade
+    // dann gefragt, wenn im Raster nichts Brauchbares mehr steht.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onSecondaryTapDown: (d) => onKontextmenue(d.globalPosition),
+      child: _inhalt(context),
+    );
+  }
+
+  Widget _inhalt(BuildContext context) {
     if (faces.isEmpty) {
       return Center(
         child: Padding(

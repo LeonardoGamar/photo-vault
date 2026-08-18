@@ -1620,6 +1620,21 @@ class LibraryState extends ChangeNotifier {
     await eraseLibraryDataAt(root);
   }
 
+  /// Löscht alle unbenannten Gesichts-Erkennungen samt ihrer Ausschnitte
+  /// auf der Platte und liefert, wie viele es waren.
+  ///
+  /// Die Dateien mitzunehmen ist der eigentliche Grund, warum das hier
+  /// steht und nicht in der Datenbankschicht: Blieben die Ausschnitte
+  /// liegen, wäre der Platz nicht frei – und genau der ist der einzige
+  /// Vorteil des Löschens gegenüber dem Beiseitelegen.
+  Future<int> loescheAlleUnbenanntenErkennungen() async {
+    final ergebnis = await db.loescheAlleUnbenanntenErkennungen();
+    for (final pfad in ergebnis.pfade) {
+      await paths.deletePermanently(pfad);
+    }
+    return ergebnis.anzahl;
+  }
+
   /// Löscht `library.sqlite` (+ WAL/SHM-Nebendateien) und den `library/`-
   /// Ordner unter [root] – die eigentliche Löschlogik hinter
   /// [eraseLibraryCompletely], hier als eigene, mit einem beliebigen

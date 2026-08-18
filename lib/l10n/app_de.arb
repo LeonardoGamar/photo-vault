@@ -207,7 +207,7 @@
   "personenUnbenannteTab": "Unbenannte Gesichter",
   "personenLeer": "Noch keine Personen angelegt. Wechsle zum Tab „Unbenannte Gesichter“, wähle ein paar Gesichter aus und ordne sie einer neuen Person zu.",
   "personenLangeDruecken": "lange drücken: zusammenführen",
-  "personenKeineUnbenannten": "Keine unbenannten Gesichter (mehr). Neue Gesichter erscheinen hier automatisch, sobald du weitere Fotos importierst.",
+  "personenKeineUnbenannten": "Keine unbenannten Gesichter (mehr). Neue erscheinen hier automatisch, sobald du weitere Fotos importierst oder erneut nach Gesichtern suchst. Einzelne kannst du auch selbst markieren: Foto öffnen, Rechtsklick → „Gesichter bearbeiten“, dann oben rechts auf „Gesicht manuell hinzufügen“.",
   "personenSchwellenHinweis": "Ähnlichkeitsschwelle einstellbar unter Werkzeuge → Gesichtserkennung.",
   "personenDoppelklickHinweis": "Doppelklick auf ein Gesicht öffnet das ganze Foto zur Kontrolle.",
   "personenAutomatischGruppieren": "Automatisch gruppieren",
@@ -2041,5 +2041,22 @@
   "aufgStufeKurz": "Stufe {nummer}/{gesamt}",
   "@aufgStufeKurz": {
     "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "personenAlleIgnorieren": "Alle unbenannten Gesichter ignorieren",
+  "personenAlleIgnorierenHinweis": "{anzahl, plural, =0{Nichts mehr offen} =1{Ein Gesicht wandert nach „Ignoriert“} other{{anzahl} Gesichter wandern nach „Ignoriert“}}",
+  "@personenAlleIgnorierenHinweis": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenAlleIgnoriertMeldung": "{anzahl, plural, =0{Es war nichts zu ignorieren.} =1{Ein Gesicht ignoriert. Unter „Ignoriert“ holst du einzelne zurück.} other{{anzahl} Gesichter ignoriert. Unter „Ignoriert“ holst du einzelne zurück.}}",
+  "@personenAlleIgnoriertMeldung": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenAlleErkennungenLoeschen": "Alle unbenannten Erkennungen löschen",
+  "personenAlleErkennungenLoeschenHinweis": "Gibt Platz frei, kommt beim nächsten Scan aber wieder",
+  "personenErkennungenLoeschenTitel": "Erkennungen wirklich löschen?",
+  "personenErkennungenLoeschenText": "Alle unbenannten Erkennungen werden samt ihrer Ausschnitte von der Platte gelöscht – auch die bereits ignorierten. Benannte Personen bleiben unberührt.\n\nDas ist nicht dauerhaft: Der nächste Gesichts-Scan findet dieselben Stellen wieder. Wenn du sie dauerhaft loswerden willst, nimm stattdessen „Alle unbenannten Gesichter ignorieren“ – das überlebt auch einen erneuten Scan.",
+  "personenErkennungenGeloeschtMeldung": "{anzahl, plural, =0{Es gab keine Erkennungen zum Löschen.} =1{Eine Erkennung gelöscht.} other{{anzahl} Erkennungen gelöscht.}}",
+  "@personenErkennungenGeloeschtMeldung": {
+    "placeholders": { "anzahl": { "type": "int" } }
   }
 }

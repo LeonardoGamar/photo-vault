@@ -30,6 +30,73 @@ const double _punktSpalte = 14;
 /// bleibt – gegen diesen Grund gelten die Werte aus [DunkleFlaeche].
 const Color _leistenGrund = Color(0xD9000000);
 
+/// Platz, den eine Jahreszahl senkrecht braucht, samt Luft nach oben und
+/// unten. Massgeblich dafür, welche Jahre überhaupt geschrieben werden.
+const double _zeilenhoehe = 15;
+
+/// Ab welchem Abstand zur aktuellen Position nichts mehr hervorgehoben wird.
+///
+/// Innerhalb dieses Bandes wachsen die Monatspunkte und die Jahreszahlen
+/// werden heller – die Leiste öffnet sich dort, wo man hinsieht, ohne dass
+/// sich irgendetwas verschiebt. Das ist der Unterschied zu einer Lupe, die
+/// die Positionen dehnt: Hier bleibt jeder Punkt genau an der Stelle, zu
+/// der ein Klick auch springt.
+const double _naehe = 56;
+
+/// Wie stark bei [abstand] Pixeln Abstand hervorgehoben wird: 1 direkt an
+/// der Position, 0 ab [_naehe]. Quadratisch, weil der Übergang linear zu
+/// abrupt einsetzt.
+double _naehegrad(double abstand) {
+  if (abstand >= _naehe) return 0;
+  final t = 1 - abstand / _naehe;
+  return t * t;
+}
+
+/// Welche Jahreszahlen tatsächlich geschrieben werden.
+///
+/// [obenNachUnten] sind die Y-Positionen aller Jahresanfänge in der
+/// Reihenfolge der Leiste, [gesperrt] das Band, das die aktive Beschriftung
+/// belegt. Zurück kommen die Indizes in [obenNachUnten], die Platz haben.
+///
+/// Ohne diese Auswahl schreiben sich Jahre mit wenigen Fotos gegenseitig
+/// zu: Eine Bibliothek mit einem Schwerpunkt in den letzten Jahren drängt
+/// 2006 bis 2014 auf wenige Pixel zusammen, und dort stand dann ein
+/// schwarzer Klumpen statt sieben Zahlen. Die Punkte bleiben trotzdem alle
+/// stehen – die Gliederung geht also nicht verloren, nur die Beschriftung
+/// dünnt aus.
+///
+/// Als freie Funktion, weil genau hier die Rechnung sitzt, die man prüfen
+/// will, ohne einen Bildschirm aufzubauen.
+@visibleForTesting
+List<int> sichtbareJahresbeschriftungen(
+  List<double> obenNachUnten, {
+  required double von,
+  required double bis,
+  ({double oben, double unten})? gesperrt,
+}) {
+  final behalten = <int>[];
+  // Vor dem ersten Eintrag: so weit oben, dass die erste Zahl immer passt.
+  var letztesUnten = double.negativeInfinity;
+
+  for (var i = 0; i < obenNachUnten.length; i++) {
+    final oben = obenNachUnten[i] - _zeilenhoehe / 2;
+    final unten = oben + _zeilenhoehe;
+
+    // Aus der Leiste heraus gerutscht.
+    if (unten < von || oben > bis) continue;
+    // Die aktive Beschriftung hat Vorrang – sie sagt Monat UND Jahr und ist
+    // damit ohnehin die genauere Angabe.
+    if (gesperrt != null && oben < gesperrt.unten && unten > gesperrt.oben) {
+      continue;
+    }
+    if (oben < letztesUnten) continue;
+
+    behalten.add(i);
+    letztesUnten = unten;
+  }
+  return behalten;
+}
+
 class TimelineScrubber extends StatefulWidget {
   /// Jahr*100+Monat-Schlüssel, absteigend sortiert (neueste zuerst) – exakt
   /// wie in [MonthGroupedAssetGrid] verwendet.
@@ -167,9 +234,33 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
           return fraction * trackHeight;
         }
 
+        final aktiv = _aktiverIndex(trackHeight);
+        final aktivY =
+            ((_dragFraction ?? _scrollFraction) * trackHeight).clamp(0.0, trackHeight);
+
+        // Erst die Jahresanfänge sammeln, dann auswählen, was hineinpasst.
+        final jahresIndizes = [
+          for (var i = 0; i < widget.orderedKeys.length; i++)
+            if (_istJahresbeginn(i)) i,
+        ];
+        final beschriftet = sichtbareJahresbeschriftungen(
+          [for (final i in jahresIndizes) topFor(i)],
+          von: 0,
+          bis: trackHeight,
+          // Das Band der aktiven Beschriftung: Sie sitzt über der Linie.
+          gesperrt: (oben: aktivY - 18, unten: aktivY + 4),
+        ).map((n) => jahresIndizes[n]).toSet();
+
+        // Beim Ziehen soll die Marke am Finger kleben; beim Scrollen mit
+        // dem Rad darf sie gleiten. Eine Animation während des Ziehens
+        // fühlt sich an, als hinge die App hinterher.
+        final dauer = _dragFraction != null
+            ? Duration.zero
+            : const Duration(milliseconds: 140);
+
         return Semantics(
           label: AppTexte.of(context).scrubberTooltip,
-          value: _labelFor(widget.orderedKeys[_aktiverIndex(trackHeight)]),
+          value: _labelFor(widget.orderedKeys[aktiv]),
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onVerticalDragStart: (d) => _handleDrag(d.localPosition.dy, trackHeight),
@@ -193,44 +284,59 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
                     ),
                   ),
                   for (var i = 0; i < widget.orderedKeys.length; i++) ...[
-                    Positioned(
-                      right: _punktSpalte - (_istJahresbeginn(i) ? 2 : 1),
-                      top: (topFor(i) - (_istJahresbeginn(i) ? 2.5 : 1.5))
-                          .clamp(0.0, trackHeight - 5),
-                      child: Container(
-                        width: _istJahresbeginn(i) ? 5 : 3,
-                        height: _istJahresbeginn(i) ? 5 : 3,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _istJahresbeginn(i)
-                              ? DunkleFlaeche.text
-                              : DunkleFlaeche.inaktiv,
+                    () {
+                      final y = topFor(i);
+                      final nah = _naehegrad((y - aktivY).abs());
+                      final jahr = _istJahresbeginn(i);
+                      // Nur die Grösse wächst, die Mitte bleibt: Ein Punkt,
+                      // der zur Position hin wandert, zeigte auf einen
+                      // anderen Monat als den, zu dem ein Klick springt.
+                      final groesse = (jahr ? 5.0 : 3.0) + 3.0 * nah;
+                      final farbe = Color.lerp(
+                        jahr ? DunkleFlaeche.text : DunkleFlaeche.inaktiv,
+                        DunkleFlaeche.text,
+                        nah,
+                      )!;
+                      return Positioned(
+                        right: _punktSpalte + 0.5 - groesse / 2,
+                        top: (y - groesse / 2).clamp(0.0, trackHeight - groesse),
+                        child: Container(
+                          width: groesse,
+                          height: groesse,
+                          decoration: BoxDecoration(shape: BoxShape.circle, color: farbe),
                         ),
-                      ),
-                    ),
-                    if (_istJahresbeginn(i))
-                      Positioned(
-                        right: _punktSpalte + 8,
-                        top: (topFor(i) - 7).clamp(0.0, trackHeight - 14),
-                        child: Text(
-                          '${widget.orderedKeys[i] ~/ 100}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            height: 1.1,
-                            color: DunkleFlaeche.hinweis,
-                            fontWeight: FontWeight.w500,
+                      );
+                    }(),
+                    if (beschriftet.contains(i))
+                      () {
+                        final y = topFor(i);
+                        final nah = _naehegrad((y - aktivY).abs());
+                        return Positioned(
+                          right: _punktSpalte + 8,
+                          top: (y - _zeilenhoehe / 2).clamp(0.0, trackHeight - _zeilenhoehe),
+                          child: Text(
+                            '${widget.orderedKeys[i] ~/ 100}',
+                            style: TextStyle(
+                              fontSize: 11 + nah,
+                              height: 1.1,
+                              // In der Nähe der Position heller – die
+                              // Leiste öffnet sich dort, wo man hinsieht.
+                              color: Color.lerp(
+                                  DunkleFlaeche.hinweis, DunkleFlaeche.text, nah)!,
+                              fontWeight: nah > 0.5 ? FontWeight.w700 : FontWeight.w500,
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }(),
                   ],
                   // Die aktuelle Position: eine Linie quer über die ganze
-                  // Leiste, mit dem Monat direkt darüber. Beim Ziehen folgt
-                  // sie dem Finger, sonst der Scroll-Position.
-                  Positioned(
+                  // Leiste, mit dem Monat direkt darüber.
+                  AnimatedPositioned(
+                    duration: dauer,
+                    curve: Curves.easeOut,
                     left: 0,
                     right: 0,
-                    top: ((_dragFraction ?? _scrollFraction) * trackHeight)
-                        .clamp(0.0, trackHeight - 1),
+                    top: aktivY.clamp(0.0, trackHeight - 1),
                     child: const SizedBox(
                       height: 1,
                       child: ColoredBox(color: DunkleFlaeche.text),
@@ -239,13 +345,14 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
                   // Die aktive Beschriftung darf weiter nach rechts als die
                   // Jahreszahlen – "Nov. 2025" ist breiter als "2025", und
                   // sie liegt ohnehin obenauf.
-                  Positioned(
+                  AnimatedPositioned(
+                    duration: dauer,
+                    curve: Curves.easeOut,
                     right: 4,
                     left: 2,
-                    top: (((_dragFraction ?? _scrollFraction) * trackHeight) - 16)
-                        .clamp(0.0, trackHeight - 16),
+                    top: (aktivY - 16).clamp(0.0, trackHeight - 16),
                     child: Text(
-                      _labelFor(widget.orderedKeys[_aktiverIndex(trackHeight)]),
+                      _labelFor(widget.orderedKeys[aktiv]),
                       textAlign: TextAlign.right,
                       maxLines: 1,
                       overflow: TextOverflow.clip,

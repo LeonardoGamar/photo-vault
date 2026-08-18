@@ -241,4 +241,99 @@ void main() {
 
     expect(indizes, contains('idx_faces_ignored'));
   });
+
+  group('Massenaktionen aus dem Kontextmenü', () {
+    test('alle ignorieren lässt benannte Gesichter unberührt', () async {
+      // Der Sinn der Sache: Wer hunderte Fehlerkennungen wegräumt, darf
+      // dabei nicht die Arbeit verlieren, die er schon investiert hat.
+      await asset('a1');
+      await db.createPerson(PeopleCompanion.insert(id: 'p1', name: 'Anna'));
+      await gesicht('f1', 'a1', person: 'p1');
+      await gesicht('f2', 'a1');
+      await gesicht('f3', 'a1');
+
+      expect(await db.ignoriereAlleUnbenannten(), 2);
+
+      expect((await db.facesForPerson('p1')).map((f) => f.id), ['f1']);
+      expect(await db.unassignedFaces(), isEmpty);
+      expect(await db.ignoredFacesCount(), 2);
+    });
+
+    test('alle ignorieren meldet 0, wenn nichts offen ist', () async {
+      await asset('a1');
+      expect(await db.ignoriereAlleUnbenannten(), 0);
+    });
+
+    test('Erkennungen löschen nimmt auch die schon ignorierten mit', () async {
+      // „Alle Erkennungen löschen" heisst alle – auch die, die vorher
+      // aussortiert wurden. Sonst bliebe der Reiter „Ignoriert" nach dem
+      // Löschen voll stehen.
+      await asset('a1');
+      await gesicht('f1', 'a1');
+      await gesicht('f2', 'a1');
+      await db.setFacesIgnored(['f1'], true);
+
+      final ergebnis = await db.loescheAlleUnbenanntenErkennungen();
+
+      expect(ergebnis.anzahl, 2);
+      expect(await db.facesForAsset('a1'), isEmpty);
+    });
+
+    test('Erkennungen löschen lässt benannte Gesichter stehen', () async {
+      await asset('a1');
+      await db.createPerson(PeopleCompanion.insert(id: 'p1', name: 'Anna'));
+      await gesicht('f1', 'a1', person: 'p1');
+      await gesicht('f2', 'a1');
+
+      final ergebnis = await db.loescheAlleUnbenanntenErkennungen();
+
+      expect(ergebnis.anzahl, 1);
+      expect((await db.facesForAsset('a1')).map((f) => f.id), ['f1']);
+    });
+
+    test('gezählt werden Erkennungen, geliefert nur vorhandene Ausschnitte',
+        () async {
+      // Ohne Embedding-Modell entsteht eine Zeile ohne Ausschnitt. Würde
+      // der Aufrufer die Pfade zählen, meldete er zu wenige gelöschte
+      // Erkennungen.
+      await asset('a1');
+      await gesicht('f1', 'a1');
+      await db.insertFace(FacesCompanion.insert(
+        id: 'f2',
+        assetId: 'a1',
+        boxX: 0.5,
+        boxY: 0.5,
+        boxW: 0.2,
+        boxH: 0.2,
+      ));
+
+      final ergebnis = await db.loescheAlleUnbenanntenErkennungen();
+
+      expect(ergebnis.anzahl, 2);
+      expect(ergebnis.pfade, hasLength(1));
+    });
+
+    test('gesperrte und gelöschte Fotos bleiben von beidem verschont', () async {
+      // Sonst räumte eine Massenaktion im gesperrten Ordner auf, ohne dass
+      // dieser überhaupt entsperrt wäre.
+      await asset('a1', gesperrt: true);
+      await asset('a2', geloescht: true);
+      await gesicht('f1', 'a1');
+      await gesicht('f2', 'a2');
+
+      expect(await db.ignoriereAlleUnbenannten(), 0);
+      expect((await db.loescheAlleUnbenanntenErkennungen()).anzahl, 0);
+      expect(await db.facesForAsset('a1'), hasLength(1));
+      expect(await db.facesForAsset('a2'), hasLength(1));
+    });
+
+    test('die Zahl für die Rückfrage geht über das Anzeigelimit hinaus', () async {
+      await asset('a1');
+      for (var i = 0; i < 250; i++) {
+        await gesicht('f$i', 'a1');
+      }
+      expect(await db.unassignedFaces(), hasLength(200));
+      expect(await db.unassignedFacesCount(), 250);
+    });
+  });
 }

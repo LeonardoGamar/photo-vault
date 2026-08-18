@@ -702,7 +702,7 @@ abstract class AppTexte {
   /// No description provided for @personenKeineUnbenannten.
   ///
   /// In de, this message translates to:
-  /// **'Keine unbenannten Gesichter (mehr). Neue Gesichter erscheinen hier automatisch, sobald du weitere Fotos importierst.'**
+  /// **'Keine unbenannten Gesichter (mehr). Neue erscheinen hier automatisch, sobald du weitere Fotos importierst oder erneut nach Gesichtern suchst. Einzelne kannst du auch selbst markieren: Foto öffnen, Rechtsklick → „Gesichter bearbeiten“, dann oben rechts auf „Gesicht manuell hinzufügen“.'**
   String get personenKeineUnbenannten;
 
   /// No description provided for @personenSchwellenHinweis.
@@ -6365,6 +6365,54 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Stufe {nummer}/{gesamt}'**
   String aufgStufeKurz(int nummer, int gesamt);
+
+  /// No description provided for @personenAlleIgnorieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle unbenannten Gesichter ignorieren'**
+  String get personenAlleIgnorieren;
+
+  /// No description provided for @personenAlleIgnorierenHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Nichts mehr offen} =1{Ein Gesicht wandert nach „Ignoriert“} other{{anzahl} Gesichter wandern nach „Ignoriert“}}'**
+  String personenAlleIgnorierenHinweis(int anzahl);
+
+  /// No description provided for @personenAlleIgnoriertMeldung.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Es war nichts zu ignorieren.} =1{Ein Gesicht ignoriert. Unter „Ignoriert“ holst du einzelne zurück.} other{{anzahl} Gesichter ignoriert. Unter „Ignoriert“ holst du einzelne zurück.}}'**
+  String personenAlleIgnoriertMeldung(int anzahl);
+
+  /// No description provided for @personenAlleErkennungenLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle unbenannten Erkennungen löschen'**
+  String get personenAlleErkennungenLoeschen;
+
+  /// No description provided for @personenAlleErkennungenLoeschenHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Gibt Platz frei, kommt beim nächsten Scan aber wieder'**
+  String get personenAlleErkennungenLoeschenHinweis;
+
+  /// No description provided for @personenErkennungenLoeschenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Erkennungen wirklich löschen?'**
+  String get personenErkennungenLoeschenTitel;
+
+  /// No description provided for @personenErkennungenLoeschenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle unbenannten Erkennungen werden samt ihrer Ausschnitte von der Platte gelöscht – auch die bereits ignorierten. Benannte Personen bleiben unberührt.\n\nDas ist nicht dauerhaft: Der nächste Gesichts-Scan findet dieselben Stellen wieder. Wenn du sie dauerhaft loswerden willst, nimm stattdessen „Alle unbenannten Gesichter ignorieren“ – das überlebt auch einen erneuten Scan.'**
+  String get personenErkennungenLoeschenText;
+
+  /// No description provided for @personenErkennungenGeloeschtMeldung.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Es gab keine Erkennungen zum Löschen.} =1{Eine Erkennung gelöscht.} other{{anzahl} Erkennungen gelöscht.}}'**
+  String personenErkennungenGeloeschtMeldung(int anzahl);
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

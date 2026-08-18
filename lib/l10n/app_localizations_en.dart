@@ -367,7 +367,7 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get personenKeineUnbenannten =>
-      'No unnamed faces left. New ones appear here automatically as you import more photos.';
+      'No unnamed faces (left). New ones appear here automatically as you import more photos or run another face scan. You can also mark individual ones yourself: open a photo, right-click → “Edit faces”, then use “Add face manually” at the top right.';
 
   @override
   String get personenSchwellenHinweis =>
@@ -3702,5 +3702,60 @@ class AppTexteEn extends AppTexte {
   @override
   String aufgStufeKurz(int nummer, int gesamt) {
     return 'Step $nummer/$gesamt';
+  }
+
+  @override
+  String get personenAlleIgnorieren => 'Ignore all unnamed faces';
+
+  @override
+  String personenAlleIgnorierenHinweis(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl faces move to “Ignored”',
+      one: 'One face moves to “Ignored”',
+      zero: 'Nothing left',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String personenAlleIgnoriertMeldung(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other:
+          '$anzahl faces ignored. Bring individual ones back under “Ignored”.',
+      one: 'One face ignored. Bring individual ones back under “Ignored”.',
+      zero: 'There was nothing to ignore.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get personenAlleErkennungenLoeschen => 'Delete all unnamed detections';
+
+  @override
+  String get personenAlleErkennungenLoeschenHinweis =>
+      'Frees space, but comes back on the next scan';
+
+  @override
+  String get personenErkennungenLoeschenTitel =>
+      'Really delete the detections?';
+
+  @override
+  String get personenErkennungenLoeschenText =>
+      'All unnamed detections and their crops are deleted from disk – including the ones already ignored. Named people are left untouched.\n\nThis is not permanent: the next face scan finds the same spots again. To be rid of them for good, use “Ignore all unnamed faces” instead – that survives another scan.';
+
+  @override
+  String personenErkennungenGeloeschtMeldung(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl detections deleted.',
+      one: 'One detection deleted.',
+      zero: 'There were no detections to delete.',
+    );
+    return '$_temp0';
   }
 }

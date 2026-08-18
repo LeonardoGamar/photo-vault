@@ -100,7 +100,7 @@
   "personenUnbenannteTab": "Unnamed faces",
   "personenLeer": "No people yet. Switch to the “Unnamed faces” tab, pick a few faces and assign them to a new person.",
   "personenLangeDruecken": "press and hold: merge",
-  "personenKeineUnbenannten": "No unnamed faces left. New ones appear here automatically as you import more photos.",
+  "personenKeineUnbenannten": "No unnamed faces (left). New ones appear here automatically as you import more photos or run another face scan. You can also mark individual ones yourself: open a photo, right-click → “Edit faces”, then use “Add face manually” at the top right.",
   "personenSchwellenHinweis": "The similarity threshold lives in Tools → Face recognition.",
   "personenDoppelklickHinweis": "Double-click a face to open the whole photo and check it.",
   "personenAutomatischGruppieren": "Group automatically",
@@ -1064,5 +1064,22 @@
   "aufgStufeKurz": "Step {nummer}/{gesamt}",
   "@aufgStufeKurz": {
     "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "personenAlleIgnorieren": "Ignore all unnamed faces",
+  "personenAlleIgnorierenHinweis": "{anzahl, plural, =0{Nothing left} =1{One face moves to “Ignored”} other{{anzahl} faces move to “Ignored”}}",
+  "@personenAlleIgnorierenHinweis": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenAlleIgnoriertMeldung": "{anzahl, plural, =0{There was nothing to ignore.} =1{One face ignored. Bring individual ones back under “Ignored”.} other{{anzahl} faces ignored. Bring individual ones back under “Ignored”.}}",
+  "@personenAlleIgnoriertMeldung": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenAlleErkennungenLoeschen": "Delete all unnamed detections",
+  "personenAlleErkennungenLoeschenHinweis": "Frees space, but comes back on the next scan",
+  "personenErkennungenLoeschenTitel": "Really delete the detections?",
+  "personenErkennungenLoeschenText": "All unnamed detections and their crops are deleted from disk – including the ones already ignored. Named people are left untouched.\n\nThis is not permanent: the next face scan finds the same spots again. To be rid of them for good, use “Ignore all unnamed faces” instead – that survives another scan.",
+  "personenErkennungenGeloeschtMeldung": "{anzahl, plural, =0{There were no detections to delete.} =1{One detection deleted.} other{{anzahl} detections deleted.}}",
+  "@personenErkennungenGeloeschtMeldung": {
+    "placeholders": { "anzahl": { "type": "int" } }
   }
 }

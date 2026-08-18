@@ -371,7 +371,7 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get personenKeineUnbenannten =>
-      'Keine unbenannten Gesichter (mehr). Neue Gesichter erscheinen hier automatisch, sobald du weitere Fotos importierst.';
+      'Keine unbenannten Gesichter (mehr). Neue erscheinen hier automatisch, sobald du weitere Fotos importierst oder erneut nach Gesichtern suchst. Einzelne kannst du auch selbst markieren: Foto öffnen, Rechtsklick → „Gesichter bearbeiten“, dann oben rechts auf „Gesicht manuell hinzufügen“.';
 
   @override
   String get personenSchwellenHinweis =>
@@ -3728,5 +3728,61 @@ class AppTexteDe extends AppTexte {
   @override
   String aufgStufeKurz(int nummer, int gesamt) {
     return 'Stufe $nummer/$gesamt';
+  }
+
+  @override
+  String get personenAlleIgnorieren => 'Alle unbenannten Gesichter ignorieren';
+
+  @override
+  String personenAlleIgnorierenHinweis(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Gesichter wandern nach „Ignoriert“',
+      one: 'Ein Gesicht wandert nach „Ignoriert“',
+      zero: 'Nichts mehr offen',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String personenAlleIgnoriertMeldung(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other:
+          '$anzahl Gesichter ignoriert. Unter „Ignoriert“ holst du einzelne zurück.',
+      one: 'Ein Gesicht ignoriert. Unter „Ignoriert“ holst du einzelne zurück.',
+      zero: 'Es war nichts zu ignorieren.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get personenAlleErkennungenLoeschen =>
+      'Alle unbenannten Erkennungen löschen';
+
+  @override
+  String get personenAlleErkennungenLoeschenHinweis =>
+      'Gibt Platz frei, kommt beim nächsten Scan aber wieder';
+
+  @override
+  String get personenErkennungenLoeschenTitel =>
+      'Erkennungen wirklich löschen?';
+
+  @override
+  String get personenErkennungenLoeschenText =>
+      'Alle unbenannten Erkennungen werden samt ihrer Ausschnitte von der Platte gelöscht – auch die bereits ignorierten. Benannte Personen bleiben unberührt.\n\nDas ist nicht dauerhaft: Der nächste Gesichts-Scan findet dieselben Stellen wieder. Wenn du sie dauerhaft loswerden willst, nimm stattdessen „Alle unbenannten Gesichter ignorieren“ – das überlebt auch einen erneuten Scan.';
+
+  @override
+  String personenErkennungenGeloeschtMeldung(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Erkennungen gelöscht.',
+      one: 'Eine Erkennung gelöscht.',
+      zero: 'Es gab keine Erkennungen zum Löschen.',
+    );
+    return '$_temp0';
   }
 }

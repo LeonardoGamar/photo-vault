@@ -2943,6 +2943,73 @@ class AppDatabase extends _$AppDatabase {
     return row.read(anzahl) ?? 0;
   }
 
+  /// Legt alle noch unbenannten Gesichter auf einen Schlag beiseite und
+  /// liefert, wie viele es waren.
+  ///
+  /// Für den Fall, dass die Erkennung überwiegend Unbrauchbares gefunden
+  /// hat – Plakate, Statuen, Passanten. Von Hand wären das hunderte Klicks;
+  /// danach holt man sich unter „Ignoriert" die wenigen zurück, die man
+  /// wirklich benennen will.
+  ///
+  /// Bereits benannte Gesichter bleiben unberührt: Sie sind ja gerade das
+  /// Ergebnis der Arbeit, die hier nicht verloren gehen darf.
+  Future<int> ignoriereAlleUnbenannten() async {
+    final betroffen = await allUnassignedFaces();
+    if (betroffen.isEmpty) return 0;
+    await setFacesIgnored([for (final f in betroffen) f.id], true);
+    return betroffen.length;
+  }
+
+  /// Löscht alle unbenannten Erkennungen und liefert ihre Zahl sowie die
+  /// Pfade ihrer Ausschnitte, damit der Aufrufer auch die Dateien wegräumen
+  /// kann.
+  ///
+  /// Beides getrennt, weil es nicht dasselbe ist: Ein Gesicht ohne
+  /// Embedding-Modell bekommt zwar eine Zeile, aber nicht zwangsläufig
+  /// einen Ausschnitt. Die Pfade zu zählen und das Ergebnis als Zahl der
+  /// gelöschten Erkennungen zu melden, ergäbe eine zu kleine Zahl.
+  ///
+  /// Anders als das Beiseitelegen ist das **nicht dauerhaft**: Der nächste
+  /// Gesichts-Scan findet dieselben Stellen wieder und legt sie neu an.
+  /// Dafür wird der Platz auf der Platte frei. Wer die Erkennungen
+  /// endgültig loswerden will, legt sie beiseite – siehe
+  /// [ignoriereAlleUnbenannten].
+  ///
+  /// Beiseitegelegte werden mitgelöscht: Wer „alle Erkennungen löschen"
+  /// wählt, meint auch die, die schon aussortiert waren.
+  Future<({int anzahl, List<String> pfade})> loescheAlleUnbenanntenErkennungen() async {
+    final query = select(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])..where(faces.personId.isNull() &
+        assets.isTrashed.equals(false) &
+        assets.isLocked.equals(false));
+    final betroffen = (await query.get()).map((r) => r.readTable(faces)).toList();
+    if (betroffen.isEmpty) return (anzahl: 0, pfade: const <String>[]);
+    await (delete(faces)..where((t) => t.id.isIn([for (final f in betroffen) f.id]))).go();
+    return (
+      anzahl: betroffen.length,
+      pfade: [
+        for (final f in betroffen)
+          if (f.cropRelativePath != null) f.cropRelativePath!,
+      ],
+    );
+  }
+
+  /// Wie viele unbenannte Erkennungen es insgesamt gibt – für die Zahlen in
+  /// der Rückfrage, die über das Anzeigelimit von 200 hinausgeht.
+  Future<int> unassignedFacesCount() async {
+    final anzahl = faces.id.count();
+    final query = selectOnly(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+      ..addColumns([anzahl])
+      ..where(faces.personId.isNull() &
+          faces.isIgnored.equals(false) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false));
+    return (await query.getSingle()).read(anzahl) ?? 0;
+  }
+
   /// Legt Gesichter beiseite bzw. holt sie zurück.
   ///
   /// Beim Beiseitelegen wird eine bestehende Personen-Zuordnung entfernt:
