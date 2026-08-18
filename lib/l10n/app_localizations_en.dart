@@ -3895,4 +3895,102 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get histogrammParade => 'Parade';
+
+  @override
+  String get entwFormRechteck => 'Rectangle';
+
+  @override
+  String get entwFormFarbe => 'Colour';
+
+  @override
+  String get entwRechteckHinweis =>
+      'Drag out a rectangle. Rotation and soft edge are set below.';
+
+  @override
+  String get entwFarbauswahlHinweis =>
+      'Tap a colour in the photo. Everything close enough to it is selected – lighter and darker too, because colour counts for more than brightness.';
+
+  @override
+  String entwFarbeAufgenommen(int rot, int gruen, int blau) {
+    return 'R $rot · G $gruen · B $blau';
+  }
+
+  @override
+  String get entwToleranz => 'Tolerance';
+
+  @override
+  String get vergleichTitel => 'Compare two photos';
+
+  @override
+  String get vergleichNebeneinander => 'Side by side';
+
+  @override
+  String get vergleichUebereinander => 'Stacked';
+
+  @override
+  String get vergleichKoppeln => 'Link views';
+
+  @override
+  String get vergleichEntkoppeln => 'Unlink views';
+
+  @override
+  String get vergleichZuruecksetzen => 'Reset zoom';
+
+  @override
+  String get auswVergleichen => 'Compare the two selected photos';
+
+  @override
+  String get listeOhneKamera => 'No camera information';
+
+  @override
+  String get ansichtRaster => 'Grid';
+
+  @override
+  String get ansichtListe => 'List';
+
+  @override
+  String get gruppeMonat => 'By month';
+
+  @override
+  String get gruppeKamera => 'By camera';
+
+  @override
+  String get gruppeKeine => 'No grouping';
+
+  @override
+  String get bearbGeradeziehen => 'Straighten';
+
+  @override
+  String get bearbPerspektive => 'Perspective';
+
+  @override
+  String get bearbPerspektiveAnwenden => 'Correct';
+
+  @override
+  String get modellLamaTitel => 'Object removal (LaMa)';
+
+  @override
+  String get modellLamaText =>
+      'Fills a marked area from its surroundings – for dust spots, passers-by or the bin at the edge of the frame. At 208 MB the largest model here; one pass takes about a second.';
+
+  @override
+  String get modellLamaLizenz =>
+      'Apache 2.0 (Samsung Research), ONNX export by Carve';
+
+  @override
+  String get bearbRetusche => 'Remove object';
+
+  @override
+  String get bearbRetuscheAnwenden => 'Remove';
+
+  @override
+  String get bearbRetuscheZurueck => 'Undo last stroke';
+
+  @override
+  String get bearbPinselbreite => 'Brush width';
+
+  @override
+  String bearbRetuscheFehler(String fehler) {
+    return 'Removal failed: $fehler';
+  }
 }

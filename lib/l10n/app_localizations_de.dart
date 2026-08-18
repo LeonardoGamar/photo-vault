@@ -3922,4 +3922,102 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get histogrammParade => 'Parade';
+
+  @override
+  String get entwFormRechteck => 'Rechteck';
+
+  @override
+  String get entwFormFarbe => 'Farbe';
+
+  @override
+  String get entwRechteckHinweis =>
+      'Ziehe ein Rechteck auf. Drehung und weiche Kante stellst du darunter ein.';
+
+  @override
+  String get entwFarbauswahlHinweis =>
+      'Tippe auf eine Farbe im Bild. Ausgewählt wird alles, was ihr ähnlich genug ist – auch heller oder dunkler, denn Farbe zählt mehr als Helligkeit.';
+
+  @override
+  String entwFarbeAufgenommen(int rot, int gruen, int blau) {
+    return 'R $rot · G $gruen · B $blau';
+  }
+
+  @override
+  String get entwToleranz => 'Toleranz';
+
+  @override
+  String get vergleichTitel => 'Zwei Fotos vergleichen';
+
+  @override
+  String get vergleichNebeneinander => 'Nebeneinander';
+
+  @override
+  String get vergleichUebereinander => 'Übereinander';
+
+  @override
+  String get vergleichKoppeln => 'Ansichten koppeln';
+
+  @override
+  String get vergleichEntkoppeln => 'Ansichten entkoppeln';
+
+  @override
+  String get vergleichZuruecksetzen => 'Zoom zurücksetzen';
+
+  @override
+  String get auswVergleichen => 'Die zwei ausgewählten Fotos vergleichen';
+
+  @override
+  String get listeOhneKamera => 'Ohne Kameraangabe';
+
+  @override
+  String get ansichtRaster => 'Raster';
+
+  @override
+  String get ansichtListe => 'Liste';
+
+  @override
+  String get gruppeMonat => 'Nach Monat';
+
+  @override
+  String get gruppeKamera => 'Nach Kamera';
+
+  @override
+  String get gruppeKeine => 'Ohne Gliederung';
+
+  @override
+  String get bearbGeradeziehen => 'Geradeziehen';
+
+  @override
+  String get bearbPerspektive => 'Perspektive';
+
+  @override
+  String get bearbPerspektiveAnwenden => 'Entzerren';
+
+  @override
+  String get modellLamaTitel => 'Objektentfernung (LaMa)';
+
+  @override
+  String get modellLamaText =>
+      'Füllt eine markierte Stelle aus der Umgebung neu auf – für Staubflecken, Passanten oder den Mülleimer am Bildrand. Mit 208 MB das grösste Modell hier; ein Durchgang dauert rund eine Sekunde.';
+
+  @override
+  String get modellLamaLizenz =>
+      'Apache 2.0 (Samsung Research), ONNX-Export von Carve';
+
+  @override
+  String get bearbRetusche => 'Objekt entfernen';
+
+  @override
+  String get bearbRetuscheAnwenden => 'Entfernen';
+
+  @override
+  String get bearbRetuscheZurueck => 'Letzten Strich zurücknehmen';
+
+  @override
+  String get bearbPinselbreite => 'Pinselbreite';
+
+  @override
+  String bearbRetuscheFehler(String fehler) {
+    return 'Das Entfernen ist fehlgeschlagen: $fehler';
+  }
 }

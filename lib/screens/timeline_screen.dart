@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../services/asset_grouping.dart';
+import '../theme/app_spacing.dart';
 import '../state/library_state.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/asset_list_view.dart';
 import '../widgets/month_grouped_asset_grid.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/selection_action_bar.dart';
@@ -39,6 +42,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
   bool _resolvingHighlight = false;
 
   final Set<String> _selected = {};
+
+  /// Raster oder Liste, und wonach die Liste gegliedert wird.
+  ///
+  /// Nur für diese Sitzung: In den Einstellungen abgelegt wäre es eine
+  /// Datenbankspalte für eine Wahl, die man im Lauf einer Sichtung
+  /// mehrfach umlegt.
+  bool _alsListe = false;
+  ListenGruppierung _gruppierung = ListenGruppierung.monat;
 
   @override
   void initState() {
@@ -137,6 +148,63 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
 
 
+  /// Die schmale Leiste über der Ansicht: Raster oder Liste, und – nur bei
+  /// der Liste – wonach gegliedert wird.
+  ///
+  /// Die Gliederung erscheint erst mit der Liste, weil das Raster
+  /// grundsätzlich nach Monaten gegliedert ist; ein Wahlfeld daneben, das
+  /// nichts bewirkt, wäre irreführend.
+  Widget _ansichtsLeiste(BuildContext context) {
+    final t = AppTexte.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.xs, AppSpacing.md, 0),
+      child: Row(
+        children: [
+          SegmentedButton<bool>(
+            style: const ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            segments: [
+              ButtonSegment(
+                value: false,
+                icon: const Icon(Icons.grid_view, size: 16),
+                tooltip: t.ansichtRaster,
+              ),
+              ButtonSegment(
+                value: true,
+                icon: const Icon(Icons.view_list_outlined, size: 16),
+                tooltip: t.ansichtListe,
+              ),
+            ],
+            selected: {_alsListe},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => setState(() => _alsListe = s.first),
+          ),
+          if (_alsListe) ...[
+            const SizedBox(width: AppSpacing.md),
+            DropdownButton<ListenGruppierung>(
+              value: _gruppierung,
+              isDense: true,
+              underline: const SizedBox.shrink(),
+              items: [
+                DropdownMenuItem(
+                    value: ListenGruppierung.monat, child: Text(t.gruppeMonat)),
+                DropdownMenuItem(
+                    value: ListenGruppierung.kamera, child: Text(t.gruppeKamera)),
+                DropdownMenuItem(
+                    value: ListenGruppierung.keine, child: Text(t.gruppeKeine)),
+              ],
+              onChanged: (wahl) =>
+                  setState(() => _gruppierung = wahl ?? ListenGruppierung.monat),
+            ),
+          ],
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_resolvingHighlight) return const Center(child: CircularProgressIndicator());
@@ -156,20 +224,42 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
         return Stack(
           children: [
-            MonthGroupedAssetGrid(
-              assets: assets,
-              paths: widget.library.paths,
-              highlightAssetId: widget.highlightAssetId,
-              selectedIds: _selected,
-              onLongPress: (asset) => _toggle(asset.id),
-              onHeaderTap: _toggleGroup,
-              onTap: (asset) => _selected.isNotEmpty ? _toggle(asset.id) : _openViewer(assets, asset),
-              onScrollNearEnd: () => _maybeGrowWindow(assets.length),
+            Column(
+              children: [
+                _ansichtsLeiste(context),
+                Expanded(
+                  child: _alsListe
+                      ? AssetListView(
+                          assets: assets,
+                          paths: widget.library.paths,
+                          gruppierung: _gruppierung,
+                          selectedIds: _selected,
+                          highlightAssetId: widget.highlightAssetId,
+                          onLongPress: (asset) => _toggle(asset.id),
+                          onTap: (asset) => _selected.isNotEmpty
+                              ? _toggle(asset.id)
+                              : _openViewer(assets, asset),
+                        )
+                      : MonthGroupedAssetGrid(
+                          assets: assets,
+                          paths: widget.library.paths,
+                          highlightAssetId: widget.highlightAssetId,
+                          selectedIds: _selected,
+                          onLongPress: (asset) => _toggle(asset.id),
+                          onHeaderTap: _toggleGroup,
+                          onTap: (asset) => _selected.isNotEmpty
+                              ? _toggle(asset.id)
+                              : _openViewer(assets, asset),
+                          onScrollNearEnd: () => _maybeGrowWindow(assets.length),
+                        ),
+                ),
+              ],
             ),
             if (_selected.isNotEmpty)
               SelectionActionBar(
                 count: _selected.length,
                 onClear: () => setState(_selected.clear),
+                onCompare: vergleichsAktion(context, widget.library, _selected.toList()),
                 // Nur sichtbar, wenn tatsächlich Einstellungen kopiert
                 // wurden – ein Knopf, der meistens nichts tun kann, wäre
                 // in einer Leiste mit neun Symbolen nur Rauschen.

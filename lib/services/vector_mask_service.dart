@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' show Offset;
@@ -20,6 +21,8 @@ sealed class MaskShapeDefinition {
         'freehand' => FreehandShape.fromJson(json),
         'ellipse' => EllipseShape.fromJson(json),
         'gradient' => GradientShape.fromJson(json),
+        'rectangle' => RectangleShape.fromJson(json),
+        'colorRange' => ColorRangeShape.fromJson(json),
         _ => throw ArgumentError('Unbekannter Maskenform-Typ: ${json['type']}'),
       };
 
@@ -106,6 +109,123 @@ class EllipseShape extends MaskShapeDefinition {
       );
 }
 
+/// Rechteck mit optionaler Rotation und Randweichzeichnung.
+///
+/// Das Gegenstück zur Ellipse, und aus demselben Grund da: Fensterrahmen,
+/// Bildkanten, Schilder – alles, was gerade Kanten hat, liesse sich mit
+/// einer Ellipse nur umständlich einfassen.
+class RectangleShape extends MaskShapeDefinition {
+  final double centerX;
+  final double centerY;
+
+  /// Halbe Breite und Höhe, wie bei der Ellipse die Radien – so bleibt die
+  /// Rechnung beim Drehen dieselbe.
+  final double halfWidth;
+  final double halfHeight;
+
+  /// Rotation in Radiant.
+  final double rotation;
+
+  /// Weichzeichnung am Rand: 0 = harte Kante, 1 = Verlauf von der Mitte bis
+  /// zum Rand.
+  ///
+  /// Anteilig, nicht in Pixeln – genau wie bei der Ellipse. Bei einem
+  /// langgezogenen Rechteck ist der weiche Saum an den langen Seiten
+  /// dadurch breiter als an den kurzen. Das ist sichtbar und Absicht: Ein
+  /// gleich breiter Saum verhielte sich anders als die Ellipse daneben,
+  /// und zwei Werkzeuge mit gleich benanntem Regler sollten gleich
+  /// reagieren.
+  final double feather;
+
+  const RectangleShape({
+    required this.centerX,
+    required this.centerY,
+    required this.halfWidth,
+    required this.halfHeight,
+    this.rotation = 0,
+    this.feather = 0.2,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'rectangle',
+        'cx': centerX,
+        'cy': centerY,
+        'hw': halfWidth,
+        'hh': halfHeight,
+        'rotation': rotation,
+        'feather': feather,
+      };
+
+  factory RectangleShape.fromJson(Map<String, dynamic> json) => RectangleShape(
+        centerX: (json['cx'] as num).toDouble(),
+        centerY: (json['cy'] as num).toDouble(),
+        halfWidth: (json['hw'] as num).toDouble(),
+        halfHeight: (json['hh'] as num).toDouble(),
+        rotation: (json['rotation'] as num?)?.toDouble() ?? 0,
+        feather: ((json['feather'] as num?)?.toDouble() ?? 0.2).clamp(0.0, 1.0),
+      );
+}
+
+/// Auswahl nach Farbähnlichkeit – „alles, was so aussieht wie hier".
+///
+/// Die einzige Form, die das Bild selbst braucht: Alle anderen sind reine
+/// Geometrie und lassen sich ohne einen einzigen Bildpunkt rasterisieren.
+/// Deshalb nimmt [rasterizeMaskShape] eine Quelle entgegen; fehlt sie,
+/// bleibt diese Maske leer, statt etwas Falsches zu liefern.
+///
+/// Gespeichert wird die **aufgenommene Farbe**, nicht nur der Punkt: Sonst
+/// hinge das Ergebnis daran, in welcher Auflösung gerade gerastert wird –
+/// die Vorschau und das Original liefern an derselben Stelle leicht
+/// verschiedene Werte.
+class ColorRangeShape extends MaskShapeDefinition {
+  /// Wo aufgenommen wurde – nur für die Marke in der Bearbeitung.
+  final double pointX;
+  final double pointY;
+
+  final int red;
+  final int green;
+  final int blue;
+
+  /// Wie weit eine Farbe abweichen darf, 0..1.
+  final double tolerance;
+
+  /// Wie weich der Übergang am Rand der Toleranz verläuft, 0..1.
+  final double feather;
+
+  const ColorRangeShape({
+    required this.pointX,
+    required this.pointY,
+    required this.red,
+    required this.green,
+    required this.blue,
+    this.tolerance = 0.25,
+    this.feather = 0.3,
+  });
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'type': 'colorRange',
+        'px': pointX,
+        'py': pointY,
+        'r': red,
+        'g': green,
+        'b': blue,
+        'tolerance': tolerance,
+        'feather': feather,
+      };
+
+  factory ColorRangeShape.fromJson(Map<String, dynamic> json) => ColorRangeShape(
+        pointX: (json['px'] as num).toDouble(),
+        pointY: (json['py'] as num).toDouble(),
+        red: (json['r'] as num).toInt(),
+        green: (json['g'] as num).toInt(),
+        blue: (json['b'] as num).toInt(),
+        tolerance: ((json['tolerance'] as num?)?.toDouble() ?? 0.25).clamp(0.0, 1.0),
+        feather: ((json['feather'] as num?)?.toDouble() ?? 0.3).clamp(0.0, 1.0),
+      );
+}
+
 /// Linearer Verlauf zwischen zwei Punkten – für Himmel-/Horizont-Korrekturen
 /// (Muster: Verlaufsfilter eines klassischen RAW-Entwicklers).
 class GradientShape extends MaskShapeDefinition {
@@ -156,9 +276,26 @@ double _smoothstep(double t) {
 /// renderMaskPngBytes in segmentation_service.dart – so kann der komplette
 /// Rasterisierungs-/Kodierungsaufwand beim Bestätigen einer Vektor-Maske
 /// (develop_screen.dart) vom Haupt-Isolate weg verlagert werden.
-Uint8List rasterizeMaskShapeToPngBytes((MaskShapeDefinition shape, int width, int height) args) {
-  final (shape, width, height) = args;
-  return Uint8List.fromList(img.encodePng(rasterizeMaskShape(shape, width, height)));
+/// [quellPfad] ist die Bilddatei, aus der [ColorRangeShape] ihre Farben
+/// liest – für alle anderen Formen wird sie nicht angefasst und darf `null`
+/// sein.
+///
+/// Die Datei wird ERST im Isolat gelesen, nicht vorher: Ein dekodiertes
+/// Foto über die Isolatgrenze zu schicken hiesse, es zu kopieren, und bei
+/// einem 24-Megapixel-Bild sind das rund 100 MB.
+Uint8List rasterizeMaskShapeToPngBytes(
+    (MaskShapeDefinition shape, int width, int height, String? quellPfad) args) {
+  final (shape, width, height, quellPfad) = args;
+  img.Image? quelle;
+  if (shape is ColorRangeShape && quellPfad != null) {
+    try {
+      quelle = img.decodeImage(File(quellPfad).readAsBytesSync());
+    } catch (_) {
+      quelle = null;
+    }
+  }
+  return Uint8List.fromList(
+      img.encodePng(rasterizeMaskShape(shape, width, height, quelle: quelle)));
 }
 
 /// Rasterisiert eine [MaskShapeDefinition] als Graustufen-Alphamaske (weiß =
@@ -168,7 +305,8 @@ Uint8List rasterizeMaskShapeToPngBytes((MaskShapeDefinition shape, int width, in
 /// dieselbe Rasterisierung sowohl für die native Kompositierung
 /// (DevelopMasks.maskRelativePath) als auch für das Live-Overlay im
 /// Entwickeln-Screen genutzt wird.
-img.Image rasterizeMaskShape(MaskShapeDefinition shape, int width, int height) {
+img.Image rasterizeMaskShape(MaskShapeDefinition shape, int width, int height,
+    {img.Image? quelle}) {
   final mask = img.Image(width: width, height: height);
   switch (shape) {
     case FreehandShape():
@@ -177,6 +315,12 @@ img.Image rasterizeMaskShape(MaskShapeDefinition shape, int width, int height) {
       _rasterizeEllipse(mask, shape, width, height);
     case GradientShape():
       _rasterizeGradient(mask, shape, width, height);
+    case RectangleShape():
+      _rasterizeRectangle(mask, shape, width, height);
+    case ColorRangeShape():
+      // Ohne Quelle bleibt die Maske schwarz. Eine Farbauswahl ohne Bild zu
+      // raten wäre schlimmer als nichts: Sie sähe nach einer Auswahl aus.
+      if (quelle != null) _rasterizeColorRange(mask, shape, width, height, quelle);
   }
   return mask;
 }
@@ -261,6 +405,111 @@ void _rasterizeEllipse(img.Image mask, EllipseShape shape, int width, int height
         value = 255;
       } else {
         final t = (d - featherStart) / feather;
+        value = (255 * (1 - _smoothstep(t))).round();
+      }
+      if (value > 0) mask.setPixelRgb(x, y, value, value, value);
+    }
+  }
+}
+
+/// Wie [_rasterizeEllipse], nur mit der Chebyshev-Norm statt der
+/// euklidischen: Statt „wie weit vom Mittelpunkt" zählt „wie weit auf der
+/// grösseren der beiden Achsen" – und genau das ergibt ein Rechteck.
+void _rasterizeRectangle(img.Image mask, RectangleShape shape, int width, int height) {
+  final cx = shape.centerX * width;
+  final cy = shape.centerY * height;
+  final hw = math.max(1.0, shape.halfWidth * width);
+  final hh = math.max(1.0, shape.halfHeight * height);
+  final cosR = math.cos(shape.rotation);
+  final sinR = math.sin(shape.rotation);
+  final feather = shape.feather;
+  final featherStart = 1 - feather;
+
+  for (var y = 0; y < height; y++) {
+    for (var x = 0; x < width; x++) {
+      final dx = x + 0.5 - cx;
+      final dy = y + 0.5 - cy;
+      final rdx = dx * cosR + dy * sinR;
+      final rdy = -dx * sinR + dy * cosR;
+      final d = math.max((rdx / hw).abs(), (rdy / hh).abs());
+      int value;
+      if (d >= 1) {
+        value = 0;
+      } else if (feather <= 0 || d <= featherStart) {
+        value = 255;
+      } else {
+        final t = (d - featherStart) / feather;
+        value = (255 * (1 - _smoothstep(t))).round();
+      }
+      if (value > 0) mask.setPixelRgb(x, y, value, value, value);
+    }
+  }
+}
+
+/// Wählt aus, was der aufgenommenen Farbe ähnlich genug ist.
+///
+/// **Farbe zählt mehr als Helligkeit.** Der Abstand wird nicht schlicht in
+/// RGB gemessen, sondern in Helligkeit und Farbanteil getrennt, und die
+/// Helligkeit geht nur zu einem Viertel ein. Das ist der Unterschied
+/// zwischen brauchbar und nutzlos: Wer den Himmel anklickt, meint auch
+/// dessen helle und dunkle Stellen. In reinem RGB gemessen wäre ein
+/// Verlauf von Hellblau nach Dunkelblau weiter auseinander als Hellblau
+/// und Hellgrau.
+///
+/// [quelle] darf eine andere Auflösung haben als die Maske – abgetastet
+/// wird über die anteilige Position. Eine Vorschau als Quelle macht die
+/// Farbkanten eine Spur weicher und spart das Dekodieren des Originals.
+void _rasterizeColorRange(
+    img.Image mask, ColorRangeShape shape, int width, int height, img.Image quelle) {
+  // Rec.-601-Zerlegung, dieselbe Gewichtung wie im Histogramm.
+  (double, double, double) zerlege(double r, double g, double b) {
+    final y = 0.299 * r + 0.587 * g + 0.114 * b;
+    return (y, b - y, r - y);
+  }
+
+  final (zielY, zielCb, zielCr) =
+      zerlege(shape.red.toDouble(), shape.green.toDouble(), shape.blue.toDouble());
+
+  // Der Abstand wird auf 0..1 gebracht: 255 ist der grösstmögliche
+  // Einzelabstand in jedem der drei Anteile.
+  //
+  // Das Gewicht wirkt auf den QUADRIERTEN Helligkeitsabstand, zählt also
+  // schwächer, als die Zahl vermuten lässt. Nachgerechnet an Hellblau
+  // (120,170,230) als aufgenommener Farbe: Bei 0,25 liegt Dunkelblau
+  // (40,60,110) bei 0,229 und neutrales Grau bei 0,314 – nur 0,085
+  // auseinander, und keine Toleranz trennt die beiden zuverlässig. Bei 0,1
+  // sind es 0,169 gegen 0,314. Deshalb dieser Wert und nicht der zuerst
+  // gewählte.
+  const helligkeitsAnteil = 0.1;
+  final grenze = math.max(1e-6, shape.tolerance);
+  final feather = shape.feather;
+  final weichAb = grenze * (1 - feather);
+
+  final qb = quelle.width;
+  final qh = quelle.height;
+
+  for (var y = 0; y < height; y++) {
+    final sy = (y * qh ~/ height).clamp(0, qh - 1);
+    for (var x = 0; x < width; x++) {
+      final sx = (x * qb ~/ width).clamp(0, qb - 1);
+      final pixel = quelle.getPixel(sx, sy);
+      final maxWert = pixel.maxChannelValue;
+      final faktor = maxWert > 0 ? 255.0 / maxWert : 1.0;
+      final (py, pcb, pcr) = zerlege(
+          pixel.r * faktor, pixel.g * faktor, pixel.b * faktor);
+
+      final dy2 = (py - zielY) * (py - zielY) * helligkeitsAnteil;
+      final dcb = pcb - zielCb;
+      final dcr = pcr - zielCr;
+      final abstand = math.sqrt(dy2 + dcb * dcb + dcr * dcr) / 255.0;
+
+      int value;
+      if (abstand >= grenze) {
+        value = 0;
+      } else if (feather <= 0 || abstand <= weichAb) {
+        value = 255;
+      } else {
+        final t = (abstand - weichAb) / (grenze - weichAb);
         value = (255 * (1 - _smoothstep(t))).round();
       }
       if (value > 0) mask.setPixelRgb(x, y, value, value, value);

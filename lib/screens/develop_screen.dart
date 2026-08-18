@@ -37,7 +37,7 @@ import '../theme/app_theme.dart';
 /// Welche Art von Maske gerade erstellt/bearbeitet wird – KI-Auswahl (SAM-
 /// Punkt-Prompts, siehe SegmentationService) oder eine der drei editierbaren
 /// Vektorformen (siehe vector_mask_service.dart).
-enum _MaskFormType { aiSelect, freehand, ellipse, gradient }
+enum _MaskFormType { aiSelect, freehand, ellipse, rectangle, gradient, colorRange }
 
 /// Nicht-destruktive Bildentwicklung (Belichtung, Weißabgleich, Kontrast,
 /// Schatten, Schärfe, Rauschunterdrückung, Objektivkorrektur) – anders als
@@ -867,7 +867,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
     final formType = switch (shape) {
       FreehandShape() => _MaskFormType.freehand,
       EllipseShape() => _MaskFormType.ellipse,
+      RectangleShape() => _MaskFormType.rectangle,
       GradientShape() => _MaskFormType.gradient,
+      ColorRangeShape() => _MaskFormType.colorRange,
       null => (widget.segmentation?.installiert ?? false) ? _MaskFormType.aiSelect : _MaskFormType.freehand,
     };
     setState(() {
@@ -1048,6 +1050,40 @@ class _DevelopScreenState extends State<DevelopScreen> {
     _runMaskPrediction();
   }
 
+  /// Nimmt die Farbe unter dem Finger auf und legt daraus eine
+  /// Farbauswahl-Form an.
+  ///
+  /// Gelesen wird aus der Vorschau, die ohnehin im Speicher liegt – das
+  /// Original dafür zu dekodieren wäre für drei Zahlen zu teuer, und für
+  /// eine Farbe ist die Vorschau genau genug.
+  void _handleFarbeAufnehmen(Offset local, Size widgetSize) {
+    if (_maskFormType != _MaskFormType.colorRange) return;
+    final decoded = _decodedForMasking;
+    if (decoded == null) return;
+    final punkt = _widgetPointToNormalizedImagePoint(local, widgetSize);
+    if (punkt == null) return;
+
+    final x = (punkt.dx * decoded.width).floor().clamp(0, decoded.width - 1);
+    final y = (punkt.dy * decoded.height).floor().clamp(0, decoded.height - 1);
+    final pixel = decoded.getPixel(x, y);
+    final maxWert = pixel.maxChannelValue;
+    final faktor = maxWert > 0 ? 255.0 / maxWert : 1.0;
+
+    final vorher = _draftShape;
+    setState(() => _draftShape = ColorRangeShape(
+          pointX: punkt.dx,
+          pointY: punkt.dy,
+          red: (pixel.r * faktor).round().clamp(0, 255),
+          green: (pixel.g * faktor).round().clamp(0, 255),
+          blue: (pixel.b * faktor).round().clamp(0, 255),
+          // Toleranz und Weichzeichnung überleben ein erneutes Aufnehmen:
+          // Wer die Werte eingestellt hat und dann daneben getroffen hat,
+          // will nicht von vorn anfangen.
+          tolerance: vorher is ColorRangeShape ? vorher.tolerance : 0.25,
+          feather: vorher is ColorRangeShape ? vorher.feather : 0.3,
+        ));
+  }
+
   void _undoLastMaskPoint() {
     if (_maskPoints.isEmpty) return;
     setState(() => _maskPoints.removeLast());
@@ -1135,12 +1171,16 @@ class _DevelopScreenState extends State<DevelopScreen> {
               strokeWidth: (_draftShape as FreehandShape?)?.strokeWidth ?? 0.03,
             ));
       case _MaskFormType.ellipse:
+      case _MaskFormType.rectangle:
+        // Beide werden gleich aufgezogen: von Ecke zu Ecke.
         setState(() => _ellipseDragAnchor = point);
       case _MaskFormType.gradient:
         final feather = (_draftShape as GradientShape?)?.feather ?? 0.3;
         setState(() => _draftShape =
             GradientShape(startX: point.dx, startY: point.dy, endX: point.dx, endY: point.dy, feather: feather));
       case _MaskFormType.aiSelect:
+      case _MaskFormType.colorRange:
+        // Beide entstehen aus einem Tipp, nicht aus einer Zieh-Geste.
         break;
     }
   }
@@ -1168,6 +1208,20 @@ class _DevelopScreenState extends State<DevelopScreen> {
               rotation: rotation,
               feather: feather,
             ));
+      case _MaskFormType.rectangle:
+        final anchor = _ellipseDragAnchor;
+        if (anchor == null) return;
+        final previous = _draftShape;
+        final rotation = previous is RectangleShape ? previous.rotation : 0.0;
+        final feather = previous is RectangleShape ? previous.feather : 0.2;
+        setState(() => _draftShape = RectangleShape(
+              centerX: (anchor.dx + point.dx) / 2,
+              centerY: (anchor.dy + point.dy) / 2,
+              halfWidth: math.max(0.01, (point.dx - anchor.dx).abs() / 2),
+              halfHeight: math.max(0.01, (point.dy - anchor.dy).abs() / 2),
+              rotation: rotation,
+              feather: feather,
+            ));
       case _MaskFormType.gradient:
         final current = _draftShape;
         if (current is! GradientShape) return;
@@ -1179,6 +1233,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
               feather: current.feather,
             ));
       case _MaskFormType.aiSelect:
+      case _MaskFormType.colorRange:
         break;
     }
   }
@@ -1187,7 +1242,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
         _MaskFormType.aiSelect => _pendingMaskResult != null,
         _MaskFormType.freehand => _draftShape is FreehandShape,
         _MaskFormType.ellipse => _draftShape is EllipseShape,
+        _MaskFormType.rectangle => _draftShape is RectangleShape,
         _MaskFormType.gradient => _draftShape is GradientShape,
+        _MaskFormType.colorRange => _draftShape is ColorRangeShape,
       };
 
   Future<void> _commitCurrentMask() =>
@@ -1214,7 +1271,15 @@ class _DevelopScreenState extends State<DevelopScreen> {
     }
     final name = AppTexte.of(context).entwMaskeNummer(_masks.length + 1);
     setState(() => _computingMask = true);
-    final pngBytes = await compute(rasterizeMaskShapeToPngBytes, (shape, width, height));
+    // Der Quellpfad wird nur von der Farbauswahl gebraucht; die anderen
+    // Formen fassen die Datei gar nicht an.
+    final quellPfad = shape is ColorRangeShape
+        ? widget.paths
+            .absolute(widget.asset.previewRelativePath ?? widget.asset.relativePath)
+            .path
+        : null;
+    final pngBytes =
+        await compute(rasterizeMaskShapeToPngBytes, (shape, width, height, quellPfad));
     var editingId = _editingMaskId;
 
     // Verteidigung gegen eine seit dem Öffnen des Editors zwischenzeitlich
@@ -1547,6 +1612,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
         return GestureDetector(
           onPanStart: (details) => _handleShapePanStart(details, widgetSize),
           onPanUpdate: (details) => _handleShapePanUpdate(details, widgetSize),
+          // Die Farbauswahl entsteht durch Tippen, nicht durch Ziehen.
+          onTapUp: (details) => _handleFarbeAufnehmen(details.localPosition, widgetSize),
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1585,33 +1652,60 @@ class _DevelopScreenState extends State<DevelopScreen> {
               style: const TextStyle(
                   color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          SegmentedButton<_MaskFormType>(
-            segments: [
-              ButtonSegment(
-                value: _MaskFormType.aiSelect,
-                label: Text(AppTexte.of(context).entwFormKi),
-                icon: const Icon(Icons.auto_awesome_outlined, size: 16),
-                enabled: widget.segmentation?.installiert ?? false,
-              ),
-              ButtonSegment(
-                value: _MaskFormType.freehand,
-                label: Text(AppTexte.of(context).entwFormPinsel),
-                icon: const Icon(Icons.brush_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: _MaskFormType.ellipse,
-                label: Text(AppTexte.of(context).entwFormEllipse),
-                icon: const Icon(Icons.circle_outlined, size: 16),
-              ),
-              ButtonSegment(
-                value: _MaskFormType.gradient,
-                label: Text(AppTexte.of(context).entwFormVerlauf),
-                icon: const Icon(Icons.gradient_outlined, size: 16),
-              ),
+          // Umbrechende Chips statt einer Segmentleiste: Sechs Werkzeuge
+          // nebeneinander passen nicht in ein 300 Punkte breites Bedienfeld,
+          // dort bliebe von jeder Beschriftung ein Buchstabe übrig.
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final (typ, beschriftung, symbol, bedienbar) in [
+                (
+                  _MaskFormType.aiSelect,
+                  AppTexte.of(context).entwFormKi,
+                  Icons.auto_awesome_outlined,
+                  widget.segmentation?.installiert ?? false
+                ),
+                (
+                  _MaskFormType.freehand,
+                  AppTexte.of(context).entwFormPinsel,
+                  Icons.brush_outlined,
+                  true
+                ),
+                (
+                  _MaskFormType.ellipse,
+                  AppTexte.of(context).entwFormEllipse,
+                  Icons.circle_outlined,
+                  true
+                ),
+                (
+                  _MaskFormType.rectangle,
+                  AppTexte.of(context).entwFormRechteck,
+                  Icons.crop_square,
+                  true
+                ),
+                (
+                  _MaskFormType.gradient,
+                  AppTexte.of(context).entwFormVerlauf,
+                  Icons.gradient_outlined,
+                  true
+                ),
+                (
+                  _MaskFormType.colorRange,
+                  AppTexte.of(context).entwFormFarbe,
+                  Icons.colorize_outlined,
+                  true
+                ),
+              ])
+                ChoiceChip(
+                  label: Text(beschriftung, style: const TextStyle(fontSize: 12)),
+                  avatar: Icon(symbol, size: 15),
+                  selected: _maskFormType == typ,
+                  visualDensity: VisualDensity.compact,
+                  onSelected:
+                      bedienbar ? (_) => _switchMaskFormType(typ) : null,
+                ),
             ],
-            selected: {_maskFormType},
-            showSelectedIcon: false,
-            onSelectionChanged: (s) => _switchMaskFormType(s.first),
           ),
           const SizedBox(height: 16),
           Expanded(child: _buildMaskFormTypePanel()),
@@ -1639,7 +1733,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
         _MaskFormType.aiSelect => _buildAiSelectPanel(),
         _MaskFormType.freehand => _buildFreehandPanel(),
         _MaskFormType.ellipse => _buildEllipsePanel(),
+        _MaskFormType.rectangle => _buildRectanglePanel(),
         _MaskFormType.gradient => _buildGradientPanel(),
+        _MaskFormType.colorRange => _buildColorRangePanel(),
       };
 
   Widget _buildAiSelectPanel() {
@@ -1699,6 +1795,108 @@ class _DevelopScreenState extends State<DevelopScreen> {
           icon: const Icon(Icons.undo, color: Colors.white70, size: 18),
           label: Text(AppTexte.of(context).entwNeuZeichnen, style: const TextStyle(color: Colors.white70)),
         ),
+      ],
+    );
+  }
+
+  Widget _buildRectanglePanel() {
+    final shape = _draftShape;
+    final rotationDeg = shape is RectangleShape ? shape.rotation * 180 / math.pi : 0.0;
+    final feather = shape is RectangleShape ? shape.feather : 0.2;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          AppTexte.of(context).entwRechteckHinweis,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        const SizedBox(height: 16),
+        _shapeSlider(AppTexte.of(context).entwRotation, rotationDeg, -180, 180, (v) {
+          if (shape is! RectangleShape) return;
+          setState(() => _draftShape = RectangleShape(
+                centerX: shape.centerX,
+                centerY: shape.centerY,
+                halfWidth: shape.halfWidth,
+                halfHeight: shape.halfHeight,
+                rotation: v * math.pi / 180,
+                feather: shape.feather,
+              ));
+        }, enabled: shape is RectangleShape),
+        _shapeSlider(AppTexte.of(context).entwWeichzeichnung, feather, 0, 1, (v) {
+          if (shape is! RectangleShape) return;
+          setState(() => _draftShape = RectangleShape(
+                centerX: shape.centerX,
+                centerY: shape.centerY,
+                halfWidth: shape.halfWidth,
+                halfHeight: shape.halfHeight,
+                rotation: shape.rotation,
+                feather: v,
+              ));
+        }, enabled: shape is RectangleShape),
+      ],
+    );
+  }
+
+  Widget _buildColorRangePanel() {
+    final shape = _draftShape;
+    final gewaehlt = shape is ColorRangeShape ? shape : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          AppTexte.of(context).entwFarbauswahlHinweis,
+          style: const TextStyle(color: Colors.white70, fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        if (gewaehlt != null)
+          Row(
+            children: [
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: Color.fromARGB(255, gewaehlt.red, gewaehlt.green, gewaehlt.blue),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: DunkleFlaeche.linie),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                AppTexte.of(context)
+                    .entwFarbeAufgenommen(gewaehlt.red, gewaehlt.green, gewaehlt.blue),
+                style: const TextStyle(color: DunkleFlaeche.zweitText, fontSize: 12),
+              ),
+            ],
+          ),
+        const SizedBox(height: 8),
+        _shapeSlider(AppTexte.of(context).entwToleranz, gewaehlt?.tolerance ?? 0.25, 0.01, 1,
+            (v) {
+          if (gewaehlt == null) return;
+          setState(() => _draftShape = ColorRangeShape(
+                pointX: gewaehlt.pointX,
+                pointY: gewaehlt.pointY,
+                red: gewaehlt.red,
+                green: gewaehlt.green,
+                blue: gewaehlt.blue,
+                tolerance: v,
+                feather: gewaehlt.feather,
+              ));
+        }, enabled: gewaehlt != null),
+        _shapeSlider(AppTexte.of(context).entwWeichzeichnung, gewaehlt?.feather ?? 0.3, 0, 1,
+            (v) {
+          if (gewaehlt == null) return;
+          setState(() => _draftShape = ColorRangeShape(
+                pointX: gewaehlt.pointX,
+                pointY: gewaehlt.pointY,
+                red: gewaehlt.red,
+                green: gewaehlt.green,
+                blue: gewaehlt.blue,
+                tolerance: gewaehlt.tolerance,
+                feather: v,
+              ));
+        }, enabled: gewaehlt != null),
       ],
     );
   }
@@ -2092,6 +2290,26 @@ class _ShapeDraftPainter extends CustomPainter {
         canvas.drawOval(rect, Paint()..color = fillColor);
         canvas.drawOval(rect, strokePaint);
         canvas.restore();
+      case RectangleShape():
+        final center = _toWidget(s.centerX, s.centerY);
+        final w = s.halfWidth * 2 * displayRect.width;
+        final h = s.halfHeight * 2 * displayRect.height;
+        canvas.save();
+        canvas.translate(center.dx, center.dy);
+        canvas.rotate(s.rotation);
+        final rect = Rect.fromCenter(center: Offset.zero, width: w, height: h);
+        canvas.drawRect(rect, Paint()..color = fillColor);
+        canvas.drawRect(rect, strokePaint);
+        canvas.restore();
+      case ColorRangeShape():
+        // Nur die Marke, wo aufgenommen wurde: Welche Bildpunkte die
+        // Auswahl trifft, hängt vom Foto ab und lässt sich hier nicht
+        // ohne die Bilddaten zeichnen. Ein erfundener Umriss wäre
+        // irreführend.
+        final punkt = _toWidget(s.pointX, s.pointY);
+        canvas.drawCircle(punkt, 9, strokePaint);
+        canvas.drawCircle(
+            punkt, 7, Paint()..color = Color.fromARGB(255, s.red, s.green, s.blue));
       case GradientShape():
         final start = _toWidget(s.startX, s.startY);
         final end = _toWidget(s.endX, s.endY);

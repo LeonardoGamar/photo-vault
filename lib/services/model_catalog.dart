@@ -63,6 +63,7 @@ String modellTitel(AppTexte t, String id) => switch (id) {
       'captioning_vit_gpt2' => t.modellCaptionTitel,
       'eye_state_ocec' => t.modellOcecTitel,
       'neural_restore_real_esrgan_x4' => t.modellEsrganTitel,
+      'inpainting_lama' => t.modellLamaTitel,
       'translation_en_de' => t.modellEnDeTitel,
       'translation_de_en' => t.modellDeEnTitel,
       // Lieber die Kennung als eine leere Karte: Ein neu aufgenommenes
@@ -78,6 +79,7 @@ String modellBeschreibung(AppTexte t, String id) => switch (id) {
       'captioning_vit_gpt2' => t.modellCaptionText,
       'eye_state_ocec' => t.modellOcecText,
       'neural_restore_real_esrgan_x4' => t.modellEsrganText,
+      'inpainting_lama' => t.modellLamaText,
       'translation_en_de' => t.modellEnDeText,
       'translation_de_en' => t.modellDeEnText,
       _ => '',
@@ -91,6 +93,7 @@ String modellLizenz(AppTexte t, String id) => switch (id) {
       'captioning_vit_gpt2' => t.modellCaptionLizenz,
       'eye_state_ocec' => t.modellOcecLizenz,
       'neural_restore_real_esrgan_x4' => t.modellEsrganLizenz,
+      'inpainting_lama' => t.modellLamaLizenz,
       'translation_en_de' => t.modellEnDeLizenz,
       'translation_de_en' => t.modellDeEnLizenz,
       _ => '',
@@ -356,6 +359,29 @@ class ModelCatalog {
     ],
   );
 
+  /// LaMa (Large Mask Inpainting), fp32 – füllt eine markierte Stelle aus
+  /// der Umgebung neu auf, für die Objektentfernung im Bildeditor.
+  ///
+  /// **Fest auf 512×512.** Der Export nimmt `image` [1,3,512,512] in 0..1
+  /// und `mask` [1,1,512,512] entgegen und liefert `output` in **0..255** –
+  /// nachgemessen, nicht angenommen. Weil die Grösse fest ist, arbeitet
+  /// [InpaintingService] auf einem Ausschnitt um die markierte Stelle.
+  ///
+  /// Mit 208 MB das grösste Modell im Katalog und das einzige, das NICHT
+  /// quantisiert vorliegt; eine quantisierte Fassung dieses Exports gibt es
+  /// beim selben Anbieter nicht.
+  static const inpainting = ModelCatalogEntry(
+    id: 'inpainting_lama',
+    sourceUrl: 'https://huggingface.co/Carve/LaMa-ONNX',
+    files: [
+      ModelFile(
+        'lama_fp32.onnx',
+        'https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx',
+        '1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6',
+      ),
+    ],
+  );
+
   static const all = [
     faceDetection,
     faceRecognition,
@@ -364,6 +390,7 @@ class ModelCatalog {
     captioning,
     eyeState,
     neuralRestore,
+    inpainting,
     translationEnDe,
     translationDeEn,
   ];

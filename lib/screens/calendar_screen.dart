@@ -234,6 +234,7 @@ class _YearDetailScreenState extends State<YearDetailScreen> {
                 SelectionActionBar(
                   count: _selected.length,
                   onClear: () => setState(_selected.clear),
+                  onCompare: vergleichsAktion(context, widget.library, _selected.toList()),
 
                   onPasteDevelop: widget.library.hatKopierteEntwicklung
 

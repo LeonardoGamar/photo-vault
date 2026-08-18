@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
@@ -6,6 +7,9 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import 'package:image/image.dart' as img;
+
+import '../services/geometry_edits.dart';
+import '../services/inpainting_service.dart';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
@@ -51,6 +55,31 @@ _ImageEditResult? _flipImageVerticalIsolate(Uint8List bytes) {
   return decoded == null ? null : _encodeResult(img.flipVertical(decoded));
 }
 
+typedef _StraightenArgs = ({Uint8List bytes, double grad});
+
+_ImageEditResult? _straightenImageIsolate(_StraightenArgs args) {
+  final decoded = img.decodeImage(args.bytes);
+  return decoded == null ? null : _encodeResult(geradeziehen(decoded, args.grad));
+}
+
+typedef _PerspectiveArgs = ({Uint8List bytes, List<Offset> ecken});
+
+_ImageEditResult? _perspectiveImageIsolate(_PerspectiveArgs args) {
+  final decoded = img.decodeImage(args.bytes);
+  if (decoded == null) return null;
+  // Die Zielgrösse aus dem Viereck ableiten: die längere der beiden
+  // gegenüberliegenden Seiten. Fest auf die Bildgrösse zu gehen streckte
+  // ein hochkant stehendes Motiv in die Breite.
+  double laenge(Offset a, Offset b) => (a - b).distance;
+  final breite = math.max(laenge(args.ecken[0], args.ecken[1]),
+      laenge(args.ecken[3], args.ecken[2]));
+  final hoehe = math.max(laenge(args.ecken[0], args.ecken[3]),
+      laenge(args.ecken[1], args.ecken[2]));
+  final entzerrt = perspektivischEntzerren(
+      decoded, args.ecken, breite.round().clamp(1, 20000), hoehe.round().clamp(1, 20000));
+  return entzerrt == null ? null : _encodeResult(entzerrt);
+}
+
 typedef _CropArgs = ({Uint8List bytes, int x, int y, int width, int height});
 
 _ImageEditResult? _cropImageIsolate(_CropArgs args) {
@@ -82,7 +111,17 @@ class ImageEditorScreen extends StatefulWidget {
   final AppDatabase db;
   final StoragePaths paths;
 
-  const ImageEditorScreen({super.key, required this.asset, required this.db, required this.paths});
+  /// Wo die KI-Modelle liegen – nur für die Objektentfernung. `null` heisst
+  /// „nicht verfügbar"; das Werkzeug wird dann gar nicht erst angeboten.
+  final String? modelsDir;
+
+  const ImageEditorScreen({
+    super.key,
+    required this.asset,
+    required this.db,
+    required this.paths,
+    this.modelsDir,
+  });
 
   @override
   State<ImageEditorScreen> createState() => _ImageEditorScreenState();
@@ -101,6 +140,20 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
   String? _error;
 
   bool _cropping = false;
+
+  /// Geradeziehen: der Winkel, solange der Regler gezogen wird. `null`
+  /// heisst „Werkzeug nicht offen".
+  double? _straightenGrad;
+
+  /// Perspektive: die vier Ecken in Anzeigekoordinaten, im Uhrzeigersinn ab
+  /// oben links. `null` heisst „Werkzeug nicht offen".
+  List<Offset>? _perspektiveEcken;
+  int? _gezogeneEcke;
+
+  /// Objektentfernung: die gemalten Striche in Anzeigekoordinaten. `null`
+  /// heisst „Werkzeug nicht offen".
+  List<List<Offset>>? _retuscheStriche;
+  double _pinselbreite = 24;
   Rect? _cropRect; // In lokalen Koordinaten des angezeigten (skalierten) Bilds.
   double? _displayScale; // Bild-Pixel * _displayScale = angezeigte Koordinaten.
 
@@ -156,6 +209,10 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       }
       _cropping = false;
       _cropRect = null;
+      _straightenGrad = null;
+      _perspektiveEcken = null;
+      _gezogeneEcke = null;
+      _retuscheStriche = null;
       _processing = false;
     });
   }
@@ -166,6 +223,113 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
   void _flipVertical() => _runEdit(() => compute(_flipImageVerticalIsolate, _currentBytes!));
 
   void _startCrop() => setState(() => _cropping = true);
+
+  void _startStraighten() => setState(() => _straightenGrad = 0);
+
+  void _applyStraighten() {
+    final grad = _straightenGrad;
+    final bytes = _currentBytes;
+    if (grad == null || bytes == null) return;
+    if (grad == 0) {
+      setState(() => _straightenGrad = null);
+      return;
+    }
+    _runEdit(() => compute(_straightenImageIsolate, (bytes: bytes, grad: grad)));
+  }
+
+  /// Öffnet die Perspektivkorrektur mit vier Ecken leicht innerhalb des
+  /// Bildrands.
+  ///
+  /// Nicht genau in den Ecken: Dort liessen sie sich mit dem Zeiger kaum
+  /// fassen, und der erste Griff ginge daneben.
+  void _startPerspektive() {
+    final scale = _displayScale;
+    final w = _currentWidth, h = _currentHeight;
+    if (scale == null || w == null || h == null) return;
+    final bw = w * scale, bh = h * scale;
+    const rand = 0.12;
+    setState(() => _perspektiveEcken = [
+          Offset(bw * rand, bh * rand),
+          Offset(bw * (1 - rand), bh * rand),
+          Offset(bw * (1 - rand), bh * (1 - rand)),
+          Offset(bw * rand, bh * (1 - rand)),
+        ]);
+  }
+
+  void _startRetusche() => setState(() => _retuscheStriche = []);
+
+  /// Führt die Objektentfernung aus.
+  ///
+  /// Läuft NICHT über `compute()`: Die ONNX-Anbindung geht über einen
+  /// Plattformkanal und ist in einem Hintergrund-Isolat nicht erreichbar –
+  /// dasselbe gilt für alle Modelle dieser App. Der Durchgang dauert
+  /// gemessen rund 1,3 Sekunden; solange zeigt die Fläche ihren
+  /// Warte-Schleier.
+  Future<void> _applyRetusche() async {
+    final striche = _retuscheStriche;
+    final scale = _displayScale;
+    final bytes = _currentBytes;
+    final w = _currentWidth, h = _currentHeight;
+    final modelle = widget.modelsDir;
+    if (striche == null || striche.isEmpty || scale == null || bytes == null ||
+        w == null || h == null || modelle == null) {
+      return;
+    }
+
+    setState(() => _processing = true);
+    InpaintingService? dienst;
+    try {
+      final decoded = img.decodeImage(bytes);
+      if (decoded == null) throw StateError('nicht dekodierbar');
+
+      // Die Striche als Graustufenmaske in Bildauflösung.
+      final maske = img.Image(width: w, height: h);
+      final radius = (_pinselbreite / 2 / scale).clamp(1.0, 400.0);
+      for (final strich in striche) {
+        for (final punkt in strich) {
+          img.fillCircle(maske,
+              x: (punkt.dx / scale).round(),
+              y: (punkt.dy / scale).round(),
+              radius: radius.round(),
+              color: img.ColorRgb8(255, 255, 255));
+        }
+      }
+
+      dienst = await InpaintingService.load(modelle);
+      final ergebnis = await dienst.entferne(decoded, maske);
+      if (ergebnis == null) {
+        if (mounted) setState(() => _processing = false);
+        return;
+      }
+      final kodiert = _encodeResult(ergebnis)!;
+      if (!mounted) return;
+      setState(() {
+        _currentBytes = kodiert.bytes;
+        _currentWidth = kodiert.width;
+        _currentHeight = kodiert.height;
+        _retuscheStriche = null;
+        _processing = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _processing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppTexte.of(context).bearbRetuscheFehler('$e'))),
+      );
+    } finally {
+      await dienst?.dispose();
+    }
+  }
+
+  void _applyPerspektive() {
+    final ecken = _perspektiveEcken;
+    final scale = _displayScale;
+    final bytes = _currentBytes;
+    if (ecken == null || scale == null || bytes == null) return;
+    // Von Anzeige- in Bildkoordinaten.
+    final inBild = [for (final e in ecken) Offset(e.dx / scale, e.dy / scale)];
+    _runEdit(() => compute(_perspectiveImageIsolate, (bytes: bytes, ecken: inBild)));
+  }
   void _cancelCrop() => setState(() {
         _cropping = false;
         _cropRect = null;
@@ -287,6 +451,48 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
                   rect: _cropRect!,
                   onChanged: (r) => setState(() => _cropRect = r),
                 ),
+              // Beim Geradeziehen ein Gitter: Ein schiefer Horizont lässt
+              // sich nur gegen eine Bezugslinie ausrichten, nach Gefühl
+              // trifft man ihn nicht.
+              if (_straightenGrad != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(
+                        painter: _AusrichtGitter(winkelGrad: _straightenGrad!)),
+                  ),
+                ),
+              if (_retuscheStriche != null)
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanStart: (d) => setState(
+                        () => _retuscheStriche = [..._retuscheStriche!, [d.localPosition]]),
+                    onPanUpdate: (d) => setState(() {
+                      final alle = [..._retuscheStriche!];
+                      alle[alle.length - 1] = [...alle.last, d.localPosition];
+                      _retuscheStriche = alle;
+                    }),
+                    child: CustomPaint(
+                      painter: _RetuscheMaler(_retuscheStriche!, _pinselbreite),
+                    ),
+                  ),
+                ),
+              if (_perspektiveEcken != null)
+                _EckenUeberlagerung(
+                  ecken: _perspektiveEcken!,
+                  groesse: Size(displayW, displayH),
+                  gezogen: _gezogeneEcke,
+                  onGriff: (i) => setState(() => _gezogeneEcke = i),
+                  onZieht: (i, punkt) => setState(() {
+                    final neu = [..._perspektiveEcken!];
+                    neu[i] = Offset(
+                      punkt.dx.clamp(0.0, displayW),
+                      punkt.dy.clamp(0.0, displayH),
+                    );
+                    _perspektiveEcken = neu;
+                  }),
+                  onLoslassen: () => setState(() => _gezogeneEcke = null),
+                ),
               if (_processing)
                 const Positioned.fill(
                   child: ColoredBox(
@@ -302,6 +508,90 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
   }
 
   Widget _buildToolbar() {
+    final tt = AppTexte.of(context);
+    if (_straightenGrad != null) {
+      return Row(
+        children: [
+          TextButton(
+            onPressed: _processing ? null : () => setState(() => _straightenGrad = null),
+            child: Text(tt.allgAbbrechen, style: const TextStyle(color: Colors.white70)),
+          ),
+          Expanded(
+            child: Slider(
+              value: _straightenGrad!,
+              min: -15,
+              max: 15,
+              divisions: 300,
+              label: '${_straightenGrad!.toStringAsFixed(1)}°',
+              onChanged: _processing
+                  ? null
+                  : (v) => setState(() => _straightenGrad = v),
+            ),
+          ),
+          SizedBox(
+            width: 52,
+            child: Text('${_straightenGrad!.toStringAsFixed(1)}°',
+                style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          ),
+          FilledButton(
+            onPressed: _processing ? null : _applyStraighten,
+            child: Text(tt.allgUebernehmen),
+          ),
+        ],
+      );
+    }
+    if (_retuscheStriche != null) {
+      return Row(
+        children: [
+          TextButton(
+            onPressed: _processing ? null : () => setState(() => _retuscheStriche = null),
+            child: Text(tt.allgAbbrechen, style: const TextStyle(color: Colors.white70)),
+          ),
+          IconButton(
+            tooltip: tt.bearbRetuscheZurueck,
+            color: Colors.white70,
+            icon: const Icon(Icons.undo),
+            onPressed: _processing || _retuscheStriche!.isEmpty
+                ? null
+                : () => setState(() =>
+                    _retuscheStriche = _retuscheStriche!.sublist(0, _retuscheStriche!.length - 1)),
+          ),
+          Expanded(
+            child: Slider(
+              value: _pinselbreite,
+              min: 6,
+              max: 120,
+              label: tt.bearbPinselbreite,
+              onChanged: _processing ? null : (v) => setState(() => _pinselbreite = v),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed:
+                _processing || _retuscheStriche!.isEmpty ? null : _applyRetusche,
+            icon: const Icon(Icons.auto_fix_high),
+            label: Text(tt.bearbRetuscheAnwenden),
+          ),
+        ],
+      );
+    }
+    if (_perspektiveEcken != null) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          TextButton.icon(
+            onPressed: _processing ? null : () => setState(() => _perspektiveEcken = null),
+            icon: const Icon(Icons.close, color: Colors.white70),
+            label: Text(tt.allgAbbrechen, style: const TextStyle(color: Colors.white70)),
+          ),
+          const SizedBox(width: 24),
+          FilledButton.icon(
+            onPressed: _processing ? null : _applyPerspektive,
+            icon: const Icon(Icons.check),
+            label: Text(tt.bearbPerspektiveAnwenden),
+          ),
+        ],
+      );
+    }
     if (_cropping) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -325,6 +615,13 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         _toolButton(Icons.crop_outlined, t.bearbZuschneiden, _startCrop),
+        _toolButton(Icons.straighten, t.bearbGeradeziehen, _startStraighten),
+        _toolButton(Icons.transform, t.bearbPerspektive, _startPerspektive),
+        // Nur, wenn das Modell überhaupt da sein kann – ein Werkzeug, das
+        // beim Antippen nur meldet „geht nicht", ist schlechter als keines.
+        if (widget.modelsDir != null &&
+            InpaintingService.isAvailable(widget.modelsDir!))
+          _toolButton(Icons.auto_fix_high, t.bearbRetusche, _startRetusche),
         _toolButton(Icons.rotate_left, t.bearbLinksDrehen, _rotateLeft),
         _toolButton(Icons.rotate_right, t.bearbRechtsDrehen, _rotateRight),
         _toolButton(Icons.flip, t.bearbHorizontalSpiegeln, _flipHorizontal),
@@ -486,4 +783,167 @@ class _CropMaskPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CropMaskPainter oldDelegate) => oldDelegate.hole != hole;
+}
+
+/// Ein mitgedrehtes Gitter über dem Bild.
+///
+/// Ohne Bezugslinie trifft man einen schiefen Horizont nicht: Das Auge
+/// gleicht die Neigung des ganzen Bildes aus. Erst gegen ein Gitter sieht
+/// man, wann eine Kante wirklich waagerecht steht.
+class _AusrichtGitter extends CustomPainter {
+  final double winkelGrad;
+  const _AusrichtGitter({required this.winkelGrad});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stift = Paint()
+      ..color = Colors.white.withValues(alpha: 0.35)
+      ..strokeWidth = 1;
+
+    canvas.save();
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.rotate(winkelGrad * math.pi / 180);
+    // Über die Diagonale hinaus zeichnen, damit die Linien beim Drehen
+    // nicht vor dem Bildrand enden.
+    final reichweite = math.sqrt(size.width * size.width + size.height * size.height);
+    const linien = 9;
+    for (var i = 1; i < linien; i++) {
+      final anteil = i / linien - 0.5;
+      canvas.drawLine(Offset(-reichweite / 2, anteil * reichweite),
+          Offset(reichweite / 2, anteil * reichweite), stift);
+      canvas.drawLine(Offset(anteil * reichweite, -reichweite / 2),
+          Offset(anteil * reichweite, reichweite / 2), stift);
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _AusrichtGitter old) => old.winkelGrad != winkelGrad;
+}
+
+/// Die vier ziehbaren Ecken der Perspektivkorrektur.
+class _EckenUeberlagerung extends StatelessWidget {
+  final List<Offset> ecken;
+  final Size groesse;
+  final int? gezogen;
+  final void Function(int index) onGriff;
+  final void Function(int index, Offset punkt) onZieht;
+  final VoidCallback onLoslassen;
+
+  const _EckenUeberlagerung({
+    required this.ecken,
+    required this.groesse,
+    required this.gezogen,
+    required this.onGriff,
+    required this.onZieht,
+    required this.onLoslassen,
+  });
+
+  /// Wie nah man an eine Ecke muss, um sie zu fassen.
+  static const _fangradius = 28.0;
+
+  int? _naechsteEcke(Offset punkt) {
+    var beste = -1;
+    var abstand = _fangradius;
+    for (var i = 0; i < ecken.length; i++) {
+      final d = (ecken[i] - punkt).distance;
+      if (d < abstand) {
+        abstand = d;
+        beste = i;
+      }
+    }
+    return beste < 0 ? null : beste;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanStart: (d) {
+          final i = _naechsteEcke(d.localPosition);
+          if (i != null) onGriff(i);
+        },
+        onPanUpdate: (d) {
+          final i = gezogen;
+          if (i != null) onZieht(i, d.localPosition);
+        },
+        onPanEnd: (_) => onLoslassen(),
+        child: CustomPaint(painter: _EckenMaler(ecken)),
+      ),
+    );
+  }
+}
+
+class _EckenMaler extends CustomPainter {
+  final List<Offset> ecken;
+  const _EckenMaler(this.ecken);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pfad = Path()..addPolygon(ecken, true);
+    canvas.drawPath(
+        pfad,
+        Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2);
+    // Der Bereich ausserhalb des Vierecks wird abgedunkelt – so sieht man,
+    // was nach dem Entzerren übrig bleibt.
+    final aussen = Path.combine(
+      PathOperation.difference,
+      Path()..addRect(Offset.zero & size),
+      pfad,
+    );
+    canvas.drawPath(aussen, Paint()..color = Colors.black54);
+
+    for (final ecke in ecken) {
+      canvas.drawCircle(ecke, 8, Paint()..color = Colors.white);
+      canvas.drawCircle(ecke, 8,
+          Paint()
+            ..color = Colors.black54
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _EckenMaler old) => old.ecken != ecken;
+}
+
+/// Zeichnet die gemalten Retusche-Striche über dem Bild.
+class _RetuscheMaler extends CustomPainter {
+  final List<List<Offset>> striche;
+  final double breite;
+  const _RetuscheMaler(this.striche, this.breite);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stift = Paint()
+      // Halbdurchsichtig, damit man sieht, was darunter liegt – man muss
+      // beim Malen erkennen können, ob man das Objekt schon ganz erwischt
+      // hat.
+      ..color = const Color(0x99FF5252)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = breite
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    for (final strich in striche) {
+      if (strich.isEmpty) continue;
+      if (strich.length == 1) {
+        canvas.drawCircle(strich.first, breite / 2, Paint()..color = const Color(0x99FF5252));
+        continue;
+      }
+      final pfad = Path()..moveTo(strich.first.dx, strich.first.dy);
+      for (final p in strich.skip(1)) {
+        pfad.lineTo(p.dx, p.dy);
+      }
+      canvas.drawPath(pfad, stift);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RetuscheMaler old) =>
+      old.striche != striche || old.breite != breite;
 }

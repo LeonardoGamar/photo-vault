@@ -6599,6 +6599,186 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Parade'**
   String get histogrammParade;
+
+  /// No description provided for @entwFormRechteck.
+  ///
+  /// In de, this message translates to:
+  /// **'Rechteck'**
+  String get entwFormRechteck;
+
+  /// No description provided for @entwFormFarbe.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbe'**
+  String get entwFormFarbe;
+
+  /// No description provided for @entwRechteckHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Ziehe ein Rechteck auf. Drehung und weiche Kante stellst du darunter ein.'**
+  String get entwRechteckHinweis;
+
+  /// No description provided for @entwFarbauswahlHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Tippe auf eine Farbe im Bild. Ausgewählt wird alles, was ihr ähnlich genug ist – auch heller oder dunkler, denn Farbe zählt mehr als Helligkeit.'**
+  String get entwFarbauswahlHinweis;
+
+  /// No description provided for @entwFarbeAufgenommen.
+  ///
+  /// In de, this message translates to:
+  /// **'R {rot} · G {gruen} · B {blau}'**
+  String entwFarbeAufgenommen(int rot, int gruen, int blau);
+
+  /// No description provided for @entwToleranz.
+  ///
+  /// In de, this message translates to:
+  /// **'Toleranz'**
+  String get entwToleranz;
+
+  /// No description provided for @vergleichTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Zwei Fotos vergleichen'**
+  String get vergleichTitel;
+
+  /// No description provided for @vergleichNebeneinander.
+  ///
+  /// In de, this message translates to:
+  /// **'Nebeneinander'**
+  String get vergleichNebeneinander;
+
+  /// No description provided for @vergleichUebereinander.
+  ///
+  /// In de, this message translates to:
+  /// **'Übereinander'**
+  String get vergleichUebereinander;
+
+  /// No description provided for @vergleichKoppeln.
+  ///
+  /// In de, this message translates to:
+  /// **'Ansichten koppeln'**
+  String get vergleichKoppeln;
+
+  /// No description provided for @vergleichEntkoppeln.
+  ///
+  /// In de, this message translates to:
+  /// **'Ansichten entkoppeln'**
+  String get vergleichEntkoppeln;
+
+  /// No description provided for @vergleichZuruecksetzen.
+  ///
+  /// In de, this message translates to:
+  /// **'Zoom zurücksetzen'**
+  String get vergleichZuruecksetzen;
+
+  /// No description provided for @auswVergleichen.
+  ///
+  /// In de, this message translates to:
+  /// **'Die zwei ausgewählten Fotos vergleichen'**
+  String get auswVergleichen;
+
+  /// No description provided for @listeOhneKamera.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Kameraangabe'**
+  String get listeOhneKamera;
+
+  /// No description provided for @ansichtRaster.
+  ///
+  /// In de, this message translates to:
+  /// **'Raster'**
+  String get ansichtRaster;
+
+  /// No description provided for @ansichtListe.
+  ///
+  /// In de, this message translates to:
+  /// **'Liste'**
+  String get ansichtListe;
+
+  /// No description provided for @gruppeMonat.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Monat'**
+  String get gruppeMonat;
+
+  /// No description provided for @gruppeKamera.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach Kamera'**
+  String get gruppeKamera;
+
+  /// No description provided for @gruppeKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Gliederung'**
+  String get gruppeKeine;
+
+  /// No description provided for @bearbGeradeziehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Geradeziehen'**
+  String get bearbGeradeziehen;
+
+  /// No description provided for @bearbPerspektive.
+  ///
+  /// In de, this message translates to:
+  /// **'Perspektive'**
+  String get bearbPerspektive;
+
+  /// No description provided for @bearbPerspektiveAnwenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Entzerren'**
+  String get bearbPerspektiveAnwenden;
+
+  /// No description provided for @modellLamaTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Objektentfernung (LaMa)'**
+  String get modellLamaTitel;
+
+  /// No description provided for @modellLamaText.
+  ///
+  /// In de, this message translates to:
+  /// **'Füllt eine markierte Stelle aus der Umgebung neu auf – für Staubflecken, Passanten oder den Mülleimer am Bildrand. Mit 208 MB das grösste Modell hier; ein Durchgang dauert rund eine Sekunde.'**
+  String get modellLamaText;
+
+  /// No description provided for @modellLamaLizenz.
+  ///
+  /// In de, this message translates to:
+  /// **'Apache 2.0 (Samsung Research), ONNX-Export von Carve'**
+  String get modellLamaLizenz;
+
+  /// No description provided for @bearbRetusche.
+  ///
+  /// In de, this message translates to:
+  /// **'Objekt entfernen'**
+  String get bearbRetusche;
+
+  /// No description provided for @bearbRetuscheAnwenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernen'**
+  String get bearbRetuscheAnwenden;
+
+  /// No description provided for @bearbRetuscheZurueck.
+  ///
+  /// In de, this message translates to:
+  /// **'Letzten Strich zurücknehmen'**
+  String get bearbRetuscheZurueck;
+
+  /// No description provided for @bearbPinselbreite.
+  ///
+  /// In de, this message translates to:
+  /// **'Pinselbreite'**
+  String get bearbPinselbreite;
+
+  /// No description provided for @bearbRetuscheFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Entfernen ist fehlgeschlagen: {fehler}'**
+  String bearbRetuscheFehler(String fehler);
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

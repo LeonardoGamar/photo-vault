@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../screens/photo_compare_screen.dart';
 import '../screens/export_presets_screen.dart';
 import '../services/export_service.dart';
 import 'progress_dialog.dart';
@@ -40,6 +41,10 @@ class SelectionActionBar extends StatelessWidget {
   /// die diese Leiste benutzen, unverändert bleiben sollen.
   final VoidCallback? onPasteDevelop;
 
+  /// Zwei Fotos nebeneinander stellen. Nur bei genau zwei ausgewählten
+  /// gesetzt – bei drei wäre nicht zu erraten, welche zwei gemeint sind.
+  final VoidCallback? onCompare;
+
   const SelectionActionBar({
     super.key,
     required this.count,
@@ -52,6 +57,7 @@ class SelectionActionBar extends StatelessWidget {
     required this.onEditMetadata,
     required this.onExport,
     required this.onDelete,
+    this.onCompare,
     this.onPasteDevelop,
   });
 
@@ -92,6 +98,11 @@ class SelectionActionBar extends StatelessWidget {
                       icon: const Icon(Icons.auto_fix_high_outlined),
                       tooltip: t.auswEntwicklungUebertragen,
                       onPressed: onPasteDevelop),
+                if (onCompare != null)
+                  IconButton(
+                      icon: const Icon(Icons.compare_outlined),
+                      tooltip: t.auswVergleichen,
+                      onPressed: onCompare),
                 IconButton(icon: const Icon(Icons.ios_share), tooltip: t.auswExportieren, onPressed: onExport),
                 IconButton(icon: const Icon(Icons.delete_outline), tooltip: t.allgLoeschen, onPressed: onDelete),
               ],
@@ -130,6 +141,33 @@ Future<bool> confirmDialog(BuildContext context, String title, String message) a
 /// gemischter Auswahl (manche schon favorisiert, manche nicht) wäre ein
 /// Umschalten mehrdeutig; "als Favorit markieren" ist wie in Google Fotos
 /// die einzige Sammelaktion.
+/// Öffnet den Vergleich für genau zwei ausgewählte Fotos.
+///
+/// Als gemeinsame Funktion, weil vier Bildschirme dieselbe Auswahlleiste
+/// benutzen (Zeitleiste, Album, Suche, Kalender) und der Weg dorthin
+/// überall derselbe sein muss.
+///
+/// Gibt `null` zurück, wenn nicht genau zwei ausgewählt sind – der Knopf
+/// wird dann gar nicht erst angeboten.
+VoidCallback? vergleichsAktion(
+  BuildContext context,
+  LibraryState library,
+  List<String> ausgewaehlt,
+) {
+  if (ausgewaehlt.length != 2) return null;
+  return () async {
+    final assets = await library.db.assetsByIds(ausgewaehlt);
+    if (assets.length != 2 || !context.mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PhotoCompareScreen(
+        links: assets[0],
+        rechts: assets[1],
+        paths: library.paths,
+      ),
+    ));
+  };
+}
+
 Future<void> runBatchFavorite(LibraryState library, List<String> assetIds) =>
     library.db.setFavoriteBulk(assetIds, true);
 

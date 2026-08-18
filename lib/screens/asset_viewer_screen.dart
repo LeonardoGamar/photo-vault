@@ -440,7 +440,12 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
     final asset = _currentAsset;
     final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder: (_) =>
-          ImageEditorScreen(asset: asset, db: widget.db, paths: widget.paths),
+          ImageEditorScreen(
+            asset: asset,
+            db: widget.db,
+            paths: widget.paths,
+            modelsDir: widget.library?.modelsDir,
+          ),
     ));
     if (saved == true) await _refreshCurrentAsset();
   }
