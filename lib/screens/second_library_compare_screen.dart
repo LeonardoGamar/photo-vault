@@ -68,7 +68,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Vergleich fehlgeschlagen: ${_describeError(e)}';
+        _error = AppTexte.of(context).zweitVergleichFehlgeschlagen(_describeError(e));
         _phase = _Phase.error;
       });
     }
@@ -95,7 +95,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Vergleich fehlgeschlagen: ${_describeError(e)}';
+        _error = AppTexte.of(context).zweitVergleichFehlgeschlagen(_describeError(e));
         _phase = _Phase.error;
       });
     }
@@ -122,7 +122,8 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(_error ?? 'Unbekannter Fehler', textAlign: TextAlign.center),
+                Text(_error ?? AppTexte.of(context).allgUnbekannterFehler,
+                    textAlign: TextAlign.center),
                 const SizedBox(height: AppSpacing.lg),
                 OutlinedButton(onPressed: _pickAndScan, child: Text(AppTexte.of(context).allgErneutVersuchen)),
               ],

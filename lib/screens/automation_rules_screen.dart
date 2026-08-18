@@ -471,7 +471,9 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
   Widget build(BuildContext context) {
     final selectedTags = widget.allTags.where((t) => _tagIds.contains(t.id)).toList();
     return AlertDialog(
-      title: Text(widget.existing == null ? 'Neue Automatisierungsregel' : 'Regel bearbeiten'),
+      title: Text(widget.existing == null
+          ? AppTexte.of(context).regelNeuTitel
+          : AppTexte.of(context).regelBearbeitenTitel),
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(

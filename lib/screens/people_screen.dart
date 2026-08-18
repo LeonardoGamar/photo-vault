@@ -331,7 +331,7 @@ class _PeopleGrid extends StatelessWidget {
             .toList(),
       ),
     );
-    if (target == null) return;
+    if (target == null || !context.mounted) return;
 
     final confirm = await showDialog<bool>(
       context: context,

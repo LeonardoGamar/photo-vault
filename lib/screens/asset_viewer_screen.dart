@@ -1103,7 +1103,7 @@ class _AssetPageState extends State<_AssetPage> {
                       icon: isSphere ? Icons.panorama_horizontal : Icons.threed_rotation,
                       tooltip: isSphere
                           ? AppTexte.of(context).viewerFlachesSchwenken
-                          : '3D-Kugel statt flachem Schwenken',
+                          : AppTexte.of(context).viewerKugelSchwenken,
                       onPressed: () => setState(() {
                         _panoramaMode =
                             isSphere ? Panorama360Mode.flat : Panorama360Mode.sphere;

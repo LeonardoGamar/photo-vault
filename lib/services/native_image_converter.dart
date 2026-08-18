@@ -17,6 +17,32 @@ const heicAndRawExtensions = {'.heic', '.heif', '.avif', '.avifs', ...rawImageEx
 /// ImageIO (siehe native/macos_image_convert/ImageConverter.swift). Deckt
 /// Formate ab, die Flutter selbst nicht anzeigen kann: HEIC/HEIF (Apples
 /// Standardformat für iPhone-Fotos) und die meisten RAW-Formate wie DNG.
+/// Was die Objektivkorrektur für eine konkrete Datei leisten kann.
+///
+/// Ein eigener Typ statt eines `bool`, weil „hier gibt es nichts zu
+/// korrigieren" und „hier ginge etwas, aber wir können es nicht" für den
+/// Nutzer zwei verschiedene Nachrichten sind. Der Satz dazu entsteht erst
+/// im Bildschirm – dieselbe Regel wie bei `RestaurierungsGrund` und
+/// `ModellDownloadFehler`.
+enum Objektivkorrekturstand {
+  /// Kein RAW – die Kamera hat bereits korrigiert.
+  keinRaw,
+
+  /// Apples Kamera-/Objektivdatenbank kennt die Kombination.
+  verfuegbar,
+
+  /// Gültiges RAW, aber keine Profile. Bei Apples ProRAW ist das richtig
+  /// so: Die Korrektur steckt schon in der Datei.
+  nichtInDatenbank,
+
+  /// Die RAW-Daten lassen sich gar nicht öffnen. Dann greift auch der Rest
+  /// der RAW-Entwicklung nicht.
+  nichtLesbar,
+
+  /// Kein nativer Kanal (Linux, Windows) oder die Abfrage schlug fehl.
+  unbekannt,
+}
+
 class NativeImageConverter {
   static const _channel = MethodChannel('photo_vault/image_convert');
 
@@ -51,24 +77,61 @@ class NativeImageConverter {
   static Future<Map<String, bool>> verfuegbareWerkzeuge() async =>
       _linux ? await LinuxImageTools.pruefeWerkzeuge() : const <String, bool>{};
 
+  /// Was die Objektivkorrektur für eine bestimmte Datei leisten kann.
+  ///
+  /// Gemessen an der echten Bibliothek war die bisherige Auskunft („nur
+  /// wirksam für RAW-Fotos, deren Kamera unterstützt wird") für die meisten
+  /// Fotos irreführend: Von vier Kameras mit RAW-Dateien kannte Apples
+  /// Datenbank genau eine. Bei Apples ProRAW-DNGs ist das kein Mangel – die
+  /// Korrektur steckt bereits in der Datei –, bei einer nicht lesbaren
+  /// RAW-Datei dagegen schon.
+  static Future<Objektivkorrekturstand> lensCorrectionStatus(File file) async {
+    if (_linux || !await isSupported()) return Objektivkorrekturstand.unbekannt;
+    try {
+      final antwort = await _channel.invokeMethod<String>(
+          'lensCorrectionStatus', {'path': file.path});
+      return switch (antwort) {
+        'keinRaw' => Objektivkorrekturstand.keinRaw,
+        'verfuegbar' => Objektivkorrekturstand.verfuegbar,
+        'nichtInDatenbank' => Objektivkorrekturstand.nichtInDatenbank,
+        'nichtLesbar' => Objektivkorrekturstand.nichtLesbar,
+        _ => Objektivkorrekturstand.unbekannt,
+      };
+    } on PlatformException {
+      return Objektivkorrekturstand.unbekannt;
+    } on MissingPluginException {
+      return Objektivkorrekturstand.unbekannt;
+    }
+  }
+
+  /// Grenze, die keine ist – grösser als jeder existierende Bildsensor.
+  ///
+  /// Beide nativen Wege verkleinern nur (`downscale` gibt das Bild
+  /// unverändert zurück, wenn es ohnehin kleiner ist; der RAW-Weg deckelt
+  /// `scaleFactor` auf 1). Ein hinreichend grosser Wert heisst dort also
+  /// tatsächlich „nicht begrenzen", statt das Bild aufzublasen. Der Wert
+  /// steht hier, damit die Aufrufer schlicht `null` übergeben können.
+  static const _ohneBegrenzung = 1 << 20;
+
   /// Konvertiert eine Bilddatei (z.B. HEIC oder DNG) zu JPEG-Bytes, skaliert
-  /// auf maximal [maxDimension] Pixel an der längeren Seite. Gibt `null`
-  /// zurück, falls die native Anbindung fehlt oder die Datei nicht
-  /// dekodiert werden konnte.
+  /// auf maximal [maxDimension] Pixel an der längeren Seite; `null` rendert
+  /// in voller Auflösung. Gibt `null` zurück, falls die native Anbindung
+  /// fehlt oder die Datei nicht dekodiert werden konnte.
   static Future<Uint8List?> convertToJpegBytes(
     File file, {
-    int maxDimension = 2048,
+    int? maxDimension = 2048,
     double quality = 0.9,
   }) async {
+    final grenze = maxDimension ?? _ohneBegrenzung;
     if (_linux) {
       return LinuxImageTools.convertToJpeg(file,
-          maxDimension: maxDimension, quality: (quality * 100).round());
+          maxDimension: grenze, quality: (quality * 100).round());
     }
     if (!await isSupported()) return null;
     try {
       final result = await _channel.invokeMethod<Uint8List>('convertToJpeg', {
         'path': file.path,
-        'maxDimension': maxDimension,
+        'maxDimension': grenze,
         'quality': quality,
       });
       return result;

@@ -235,7 +235,7 @@ Future<String?> showSetPassphraseDialog(BuildContext context) async {
               final pass = passCtrl.text;
               final confirm = confirmCtrl.text;
               if (pass.length < 8) {
-                setState(() => error = 'Passphrase muss mindestens 8 Zeichen lang sein.');
+                setState(() => error = AppTexte.of(context).passphraseZuKurz);
                 return;
               }
               if (pass != confirm) {

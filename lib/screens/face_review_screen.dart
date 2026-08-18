@@ -89,7 +89,9 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     final choice = await showPersonPickerDialog(
       context,
       people,
-      title: currentName != null ? AppTexte.of(context).gesichtUmbenennen : 'Gesicht benennen',
+      title: currentName != null
+          ? AppTexte.of(context).gesichtUmbenennen
+          : AppTexte.of(context).gesichtBenennen,
       currentName: currentName,
     );
     if (choice == null) return;
@@ -278,7 +280,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                                     child: Text(
                                       face.personId != null
                                           ? (_personNames[face.personId] ?? '…')
-                                          : 'Unbenannt',
+                                          : AppTexte.of(context).gesichtUnbenannt,
                                       style: const TextStyle(color: Colors.white, fontSize: 11),
                                     ),
                                   ),

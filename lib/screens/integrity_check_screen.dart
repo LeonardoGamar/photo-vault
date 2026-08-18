@@ -84,7 +84,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   Future<void> _removeMissingFromDb(MissingFileIssue issue) async {
     final confirmed = await confirmDialog(
       context,
-      'Aus Datenbank entfernen?',
+      AppTexte.of(context).integAusDbEntfernenTitel,
       switch (issue.kind) {
         MissingFileKind.original =>
           AppTexte.of(context).integOriginalFehlt,
@@ -162,15 +162,18 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
     ));
   }
 
-  String _kindLabel(MissingFileKind kind) => switch (kind) {
-        MissingFileKind.original => 'Original',
-        MissingFileKind.thumbnail => 'Thumbnail',
-        MissingFileKind.preview => 'Vorschau',
-        MissingFileKind.developed => 'Entwickeltes Bild',
-        MissingFileKind.restored => 'KI-restauriertes Bild',
-        MissingFileKind.trimmed => 'Geschnittenes Video',
-        MissingFileKind.faceCrop => 'Gesichts-Crop',
-        MissingFileKind.mask => 'KI-Maske',
+  /// Die Art der fehlenden Datei in der Oberflächensprache. Wie beim
+  /// Modellkatalog wandert der Text nicht in die Aufzählung selbst –
+  /// `MissingFileKind` stammt aus dem Dienst und kennt keinen Kontext.
+  String _kindLabel(AppTexte t, MissingFileKind kind) => switch (kind) {
+        MissingFileKind.original => t.integArtOriginal,
+        MissingFileKind.thumbnail => t.integArtThumbnail,
+        MissingFileKind.preview => t.integArtVorschau,
+        MissingFileKind.developed => t.integArtEntwickelt,
+        MissingFileKind.restored => t.integArtRestauriert,
+        MissingFileKind.trimmed => t.integArtVideoZuschnitt,
+        MissingFileKind.faceCrop => t.integArtGesichtsCrop,
+        MissingFileKind.mask => t.integArtMaske,
       };
 
   @override
@@ -250,7 +253,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
                 ListTile(
                   leading: Icon(Icons.error_outline, color: context.semantik.warnung),
                   title: Text(issue.relativePath),
-                  subtitle: Text(_kindLabel(issue.kind)),
+                  subtitle: Text(_kindLabel(AppTexte.of(context), issue.kind)),
                   trailing: TextButton(
                     onPressed: () => _removeMissingFromDb(issue),
                     child: Text(AppTexte.of(context).integAusDbEntfernen),

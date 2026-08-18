@@ -995,10 +995,17 @@ class _InlineRadio<T> extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Radio<T>(
-              value: value,
+            // Seit Flutter 3.32 nimmt nicht mehr der Knopf selbst Wert und
+            // Rückruf entgegen, sondern eine [RadioGroup] darüber. Hier steht
+            // sie je Knopf, weil jeder [_InlineRadio] seinen Gruppenwert schon
+            // mitbringt – ein gemeinsamer Vorfahre über die ganze Zeile hinweg
+            // würde die Aufrufstellen umbauen, ohne etwas zu verbessern.
+            RadioGroup<T>(
               groupValue: groupValue,
-              onChanged: (v) => onChanged(v as T),
+              onChanged: (v) {
+                if (v != null) onChanged(v);
+              },
+              child: Radio<T>(value: value),
             ),
             Text(label),
           ],

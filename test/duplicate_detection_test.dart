@@ -127,33 +127,38 @@ void main() {
     expect(actualGroup.toSet(), referenceGroup);
   });
 
-  test('ist bei größeren Bibliotheken deutlich schneller als der volle Alle-gegen-alle-Vergleich', () {
-    final rand = math.Random(7);
-    const dim = 64;
-    const n = 5000;
-    final embeddings = <String, Float32List>{
-      for (var i = 0; i < n; i++) 'a_$i': _randomUnitVector(rand, dim),
-    };
-    const threshold = 0.92;
+  test('vergleicht bei größeren Bibliotheken nur einen Bruchteil aller Paare', () {
+    // Früher stoppte dieser Test die Zeit beider Verfahren und verlangte
+    // einen Faktor 3. Das misst aber nicht die Vorfilterung, sondern die
+    // Auslastung der Maschine – und schlug entsprechend sporadisch fehl.
+    // Gemessen wird jetzt die Arbeit selbst: wie viele Paare überhaupt zum
+    // Vergleich kommen. Diese Zahl ist bei festem Seed deterministisch.
+    // Der Bauplan gibt die Schranke vor: Jede der beiden Projektionen kann
+    // je Eintrag höchstens `_slidingWindow - 1` Nachbarn beisteuern. Mehr
+    // als 400 Paare je Foto sind also gar nicht möglich, solange die
+    // Vorfilterung tut, was sie soll – und das ist linear, während der
+    // Alle-gegen-alle-Vergleich quadratisch wächst. Genau diese Schranke
+    // prüfen wir, bei zwei Größen, damit das Wachstum sichtbar wird.
+    const proFoto = 400;
+    for (final n in [2500, 5000]) {
+      final rand = math.Random(7);
+      const dim = 64;
+      final vectors = [for (var i = 0; i < n; i++) _randomUnitVector(rand, dim)];
 
-    final filteredStopwatch = Stopwatch()..start();
-    findDuplicateGroups(DuplicateSearchParams(embeddings, threshold));
-    filteredStopwatch.stop();
+      final vorgefiltert = candidateIndexPairs(vectors).length;
+      final alleGegenAlle = n * (n - 1) ~/ 2;
 
-    final exhaustiveStopwatch = Stopwatch()..start();
-    _exhaustiveDuplicateGroups(embeddings, threshold);
-    exhaustiveStopwatch.stop();
+      // ignore: avoid_print
+      print('n=$n: Vorfilterung $vorgefiltert Paare, '
+          'Alle-gegen-alle $alleGegenAlle Paare '
+          '(Faktor ${(alleGegenAlle / vorgefiltert).toStringAsFixed(1)}, '
+          '${(vorgefiltert / n).round()} je Foto)');
 
-    // ignore: avoid_print
-    print('Vorfilterung: ${filteredStopwatch.elapsedMilliseconds} ms, '
-        'Alle-gegen-alle: ${exhaustiveStopwatch.elapsedMilliseconds} ms '
-        '(n=$n)');
-
-    // Konservativ nur mindestens 3x schneller verlangt (statt der in der
-    // Praxis deutlich größeren Differenz), um auf einer ausgelasteten
-    // CI-Maschine nicht flaky zu werden.
-    expect(filteredStopwatch.elapsedMilliseconds * 3,
-        lessThanOrEqualTo(exhaustiveStopwatch.elapsedMilliseconds));
+      expect(vorgefiltert, lessThanOrEqualTo(n * proFoto),
+          reason: 'die Vorfilterung wächst bei n=$n nicht mehr linear');
+      expect(vorgefiltert * 2, lessThan(alleGegenAlle),
+          reason: 'bei n=$n spart die Vorfilterung nichts mehr');
+    }
   });
 
   group('findBurstGroups', () {

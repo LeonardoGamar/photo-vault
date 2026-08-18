@@ -8,6 +8,7 @@ import '../widgets/progress_dialog.dart';
 import 'asset_viewer_screen.dart';
 import 'automation_rules_screen.dart';
 import 'camera_presets_screen.dart';
+import 'export_presets_screen.dart';
 import 'duplicates_screen.dart';
 import 'integrity_check_screen.dart';
 import 'stack_review_screen.dart';
@@ -469,6 +470,18 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => CameraPresetsScreen(library: widget.library)),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.photo_size_select_large_outlined),
+                  title: Text(t.werkzExportVorgabenTitel),
+                  subtitle: Text(t.werkzExportVorgabenText),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => ExportPresetsScreen(library: widget.library)),
                   ),
                 ),
                 const Divider(height: 1),

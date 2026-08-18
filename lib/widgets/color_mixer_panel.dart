@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 
 import '../services/develop_color.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 
 /// Anzeigename und Kennfarbe je Band. Die Kennfarbe entsteht nicht aus dem
 /// Mittelpunkt-Farbton gerechnet, sondern steht fest: Ein aus HSL bei voller
@@ -148,7 +149,7 @@ class _ColorMixerPanelState extends State<ColorMixerPanel> {
         ),
         Text(
           AppTexte.of(context).mischerHinweis,
-          style: const TextStyle(color: Colors.white38, fontSize: 11),
+          style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 11),
         ),
       ],
     );

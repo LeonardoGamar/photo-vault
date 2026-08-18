@@ -229,6 +229,42 @@ class CameraPresetTags extends Table {
   Set<Column> get primaryKey => {presetId, tagId};
 }
 
+/// Eine benannte Ausgabe-Vorgabe für den Export – Grösse, Format, Qualität,
+/// Dateibenennung und ob die XMP-Beistelldatei mitgeschrieben wird.
+///
+/// Bisher gab es dafür nur die feste Aufzählung `Exportgroesse` mit vier
+/// Stufen. Die deckt die häufigen Fälle ab, aber nicht die
+/// wiederkehrenden: „für den Fotoclub, lange Kante 2048, benannt nach
+/// Aufnahmedatum" tippt man sonst jedes Mal neu zusammen.
+///
+/// [nachJpeg] und [maxKante] sind bewusst getrennt: Ohne [nachJpeg] wird
+/// die Datei unverändert kopiert (der einzige Weg, der RAW und Videos
+/// unangetastet lässt); mit [nachJpeg] wird gerendert, und [maxKante]
+/// begrenzt dabei zusätzlich die längere Seite – `null` heisst dann
+/// „volle Auflösung, nur neu kodiert".
+@DataClassName('ExportPresetData')
+class ExportPresets extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Angezeigter Name. Eindeutig, damit die Auswahlliste eindeutig bleibt.
+  TextColumn get name => text().unique()();
+
+  BoolColumn get nachJpeg => boolean().withDefault(const Constant(false))();
+
+  /// Längere Bildkante in Pixeln; `null` = nicht begrenzen.
+  IntColumn get maxKante => integer().nullable()();
+
+  /// JPEG-Qualität 0,1 … 1,0. Ohne [nachJpeg] ohne Bedeutung.
+  RealColumn get qualitaet => real().withDefault(const Constant(0.9))();
+
+  /// Muster für den Dateinamen, siehe `export_naming.dart`.
+  TextColumn get namensmuster => text().withDefault(const Constant('{name}'))();
+
+  BoolColumn get xmpDaneben => boolean().withDefault(const Constant(true))();
+
+  DateTimeColumn get erstelltAm => dateTime()();
+}
+
 /// Verallgemeinerung von [CameraPresets] auf andere Bedingungen als die
 /// Kamera – bewusst eine eigene, zusätzliche Tabelle statt [CameraPresets]
 /// zu erweitern: Kamera-Presets bleiben unverändert nutzbar (kein
@@ -712,6 +748,7 @@ class SavedSearches extends Table {
   AiTagVocabulary,
   AutomationRules,
   AutomationRuleTags,
+  ExportPresets,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -726,7 +763,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 36;
+  int get schemaVersion => 37;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -976,6 +1013,12 @@ class AppDatabase extends _$AppDatabase {
             // auf Deutsch steht.
             await _addColumnIfMissing(
                 m, appSettings, appSettings.sprache, 'app_settings', 'sprache');
+          }
+          if (from < 37) {
+            // Export-Voreinstellungen. Eine neue, anfangs leere Tabelle –
+            // ohne eine einzige gespeicherte Vorgabe verhält sich der Export
+            // wie bisher, die vier festen Grössen bleiben erhalten.
+            await m.createTable(exportPresets);
           }
         },
       );
@@ -2353,6 +2396,40 @@ class AppDatabase extends _$AppDatabase {
   /// zusätzlichen Namens-Lookup.
   Future<void> tagAssetById(String assetId, String tagId) => into(assetTags)
       .insertOnConflictUpdate(AssetTagsCompanion.insert(assetId: assetId, tagId: tagId));
+
+  // -----------------------------------------------------------------------
+  // Export-Voreinstellungen (benannte Ausgabe-Vorgaben)
+  // -----------------------------------------------------------------------
+
+  Stream<List<ExportPresetData>> watchExportPresets() =>
+      (select(exportPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+
+  Future<List<ExportPresetData>> alleExportPresets() =>
+      (select(exportPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+
+  /// Legt eine Vorgabe an oder aktualisiert sie. Der Aufrufer setzt [id] nur
+  /// beim Bearbeiten; ohne [id] vergibt SQLite eine neue.
+  ///
+  /// Der Konflikt wird über die Nummer aufgelöst, nicht über den Namen: Ein
+  /// zweiter Eintrag mit belegtem Namen soll NICHT stillschweigend den
+  /// ersten überschreiben, sondern an der `unique`-Spalte scheitern. Wer
+  /// speichert, fragt vorher [exportPresetNameVergeben] und sagt es dem
+  /// Nutzer – siehe ExportPresetsScreen.
+  Future<void> upsertExportPreset(ExportPresetsCompanion vorgabe) =>
+      into(exportPresets).insertOnConflictUpdate(vorgabe);
+
+  /// Ob [name] schon vergeben ist – [ausserId] nimmt die gerade bearbeitete
+  /// Vorgabe aus, sonst kollidierte jede Vorgabe mit sich selbst.
+  Future<bool> exportPresetNameVergeben(String name, {int? ausserId}) async {
+    final abfrage = select(exportPresets)..where((t) => t.name.equals(name));
+    if (ausserId != null) {
+      abfrage.where((t) => t.id.equals(ausserId).not());
+    }
+    return (await abfrage.get()).isNotEmpty;
+  }
+
+  Future<void> deleteExportPreset(int id) =>
+      (delete(exportPresets)..where((t) => t.id.equals(id))).go();
 
   // -----------------------------------------------------------------------
   // Kamera-Presets (automatische Aktionen beim Import je erkannter Kamera)

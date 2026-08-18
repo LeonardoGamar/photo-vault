@@ -11040,6 +11040,446 @@ class AutomationRuleTagsCompanion extends UpdateCompanion<AutomationRuleTag> {
   }
 }
 
+class $ExportPresetsTable extends ExportPresets
+    with TableInfo<$ExportPresetsTable, ExportPresetData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ExportPresetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _nachJpegMeta =
+      const VerificationMeta('nachJpeg');
+  @override
+  late final GeneratedColumn<bool> nachJpeg = GeneratedColumn<bool>(
+      'nach_jpeg', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("nach_jpeg" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _maxKanteMeta =
+      const VerificationMeta('maxKante');
+  @override
+  late final GeneratedColumn<int> maxKante = GeneratedColumn<int>(
+      'max_kante', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _qualitaetMeta =
+      const VerificationMeta('qualitaet');
+  @override
+  late final GeneratedColumn<double> qualitaet = GeneratedColumn<double>(
+      'qualitaet', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0.9));
+  static const VerificationMeta _namensmusterMeta =
+      const VerificationMeta('namensmuster');
+  @override
+  late final GeneratedColumn<String> namensmuster = GeneratedColumn<String>(
+      'namensmuster', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('{name}'));
+  static const VerificationMeta _xmpDanebenMeta =
+      const VerificationMeta('xmpDaneben');
+  @override
+  late final GeneratedColumn<bool> xmpDaneben = GeneratedColumn<bool>(
+      'xmp_daneben', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("xmp_daneben" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _erstelltAmMeta =
+      const VerificationMeta('erstelltAm');
+  @override
+  late final GeneratedColumn<DateTime> erstelltAm = GeneratedColumn<DateTime>(
+      'erstellt_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        name,
+        nachJpeg,
+        maxKante,
+        qualitaet,
+        namensmuster,
+        xmpDaneben,
+        erstelltAm
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'export_presets';
+  @override
+  VerificationContext validateIntegrity(Insertable<ExportPresetData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('nach_jpeg')) {
+      context.handle(_nachJpegMeta,
+          nachJpeg.isAcceptableOrUnknown(data['nach_jpeg']!, _nachJpegMeta));
+    }
+    if (data.containsKey('max_kante')) {
+      context.handle(_maxKanteMeta,
+          maxKante.isAcceptableOrUnknown(data['max_kante']!, _maxKanteMeta));
+    }
+    if (data.containsKey('qualitaet')) {
+      context.handle(_qualitaetMeta,
+          qualitaet.isAcceptableOrUnknown(data['qualitaet']!, _qualitaetMeta));
+    }
+    if (data.containsKey('namensmuster')) {
+      context.handle(
+          _namensmusterMeta,
+          namensmuster.isAcceptableOrUnknown(
+              data['namensmuster']!, _namensmusterMeta));
+    }
+    if (data.containsKey('xmp_daneben')) {
+      context.handle(
+          _xmpDanebenMeta,
+          xmpDaneben.isAcceptableOrUnknown(
+              data['xmp_daneben']!, _xmpDanebenMeta));
+    }
+    if (data.containsKey('erstellt_am')) {
+      context.handle(
+          _erstelltAmMeta,
+          erstelltAm.isAcceptableOrUnknown(
+              data['erstellt_am']!, _erstelltAmMeta));
+    } else if (isInserting) {
+      context.missing(_erstelltAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ExportPresetData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ExportPresetData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      nachJpeg: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}nach_jpeg'])!,
+      maxKante: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}max_kante']),
+      qualitaet: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}qualitaet'])!,
+      namensmuster: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}namensmuster'])!,
+      xmpDaneben: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}xmp_daneben'])!,
+      erstelltAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}erstellt_am'])!,
+    );
+  }
+
+  @override
+  $ExportPresetsTable createAlias(String alias) {
+    return $ExportPresetsTable(attachedDatabase, alias);
+  }
+}
+
+class ExportPresetData extends DataClass
+    implements Insertable<ExportPresetData> {
+  final int id;
+
+  /// Angezeigter Name. Eindeutig, damit die Auswahlliste eindeutig bleibt.
+  final String name;
+  final bool nachJpeg;
+
+  /// Längere Bildkante in Pixeln; `null` = nicht begrenzen.
+  final int? maxKante;
+
+  /// JPEG-Qualität 0,1 … 1,0. Ohne [nachJpeg] ohne Bedeutung.
+  final double qualitaet;
+
+  /// Muster für den Dateinamen, siehe `export_naming.dart`.
+  final String namensmuster;
+  final bool xmpDaneben;
+  final DateTime erstelltAm;
+  const ExportPresetData(
+      {required this.id,
+      required this.name,
+      required this.nachJpeg,
+      this.maxKante,
+      required this.qualitaet,
+      required this.namensmuster,
+      required this.xmpDaneben,
+      required this.erstelltAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['nach_jpeg'] = Variable<bool>(nachJpeg);
+    if (!nullToAbsent || maxKante != null) {
+      map['max_kante'] = Variable<int>(maxKante);
+    }
+    map['qualitaet'] = Variable<double>(qualitaet);
+    map['namensmuster'] = Variable<String>(namensmuster);
+    map['xmp_daneben'] = Variable<bool>(xmpDaneben);
+    map['erstellt_am'] = Variable<DateTime>(erstelltAm);
+    return map;
+  }
+
+  ExportPresetsCompanion toCompanion(bool nullToAbsent) {
+    return ExportPresetsCompanion(
+      id: Value(id),
+      name: Value(name),
+      nachJpeg: Value(nachJpeg),
+      maxKante: maxKante == null && nullToAbsent
+          ? const Value.absent()
+          : Value(maxKante),
+      qualitaet: Value(qualitaet),
+      namensmuster: Value(namensmuster),
+      xmpDaneben: Value(xmpDaneben),
+      erstelltAm: Value(erstelltAm),
+    );
+  }
+
+  factory ExportPresetData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ExportPresetData(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      nachJpeg: serializer.fromJson<bool>(json['nachJpeg']),
+      maxKante: serializer.fromJson<int?>(json['maxKante']),
+      qualitaet: serializer.fromJson<double>(json['qualitaet']),
+      namensmuster: serializer.fromJson<String>(json['namensmuster']),
+      xmpDaneben: serializer.fromJson<bool>(json['xmpDaneben']),
+      erstelltAm: serializer.fromJson<DateTime>(json['erstelltAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'nachJpeg': serializer.toJson<bool>(nachJpeg),
+      'maxKante': serializer.toJson<int?>(maxKante),
+      'qualitaet': serializer.toJson<double>(qualitaet),
+      'namensmuster': serializer.toJson<String>(namensmuster),
+      'xmpDaneben': serializer.toJson<bool>(xmpDaneben),
+      'erstelltAm': serializer.toJson<DateTime>(erstelltAm),
+    };
+  }
+
+  ExportPresetData copyWith(
+          {int? id,
+          String? name,
+          bool? nachJpeg,
+          Value<int?> maxKante = const Value.absent(),
+          double? qualitaet,
+          String? namensmuster,
+          bool? xmpDaneben,
+          DateTime? erstelltAm}) =>
+      ExportPresetData(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        nachJpeg: nachJpeg ?? this.nachJpeg,
+        maxKante: maxKante.present ? maxKante.value : this.maxKante,
+        qualitaet: qualitaet ?? this.qualitaet,
+        namensmuster: namensmuster ?? this.namensmuster,
+        xmpDaneben: xmpDaneben ?? this.xmpDaneben,
+        erstelltAm: erstelltAm ?? this.erstelltAm,
+      );
+  ExportPresetData copyWithCompanion(ExportPresetsCompanion data) {
+    return ExportPresetData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      nachJpeg: data.nachJpeg.present ? data.nachJpeg.value : this.nachJpeg,
+      maxKante: data.maxKante.present ? data.maxKante.value : this.maxKante,
+      qualitaet: data.qualitaet.present ? data.qualitaet.value : this.qualitaet,
+      namensmuster: data.namensmuster.present
+          ? data.namensmuster.value
+          : this.namensmuster,
+      xmpDaneben:
+          data.xmpDaneben.present ? data.xmpDaneben.value : this.xmpDaneben,
+      erstelltAm:
+          data.erstelltAm.present ? data.erstelltAm.value : this.erstelltAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExportPresetData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('nachJpeg: $nachJpeg, ')
+          ..write('maxKante: $maxKante, ')
+          ..write('qualitaet: $qualitaet, ')
+          ..write('namensmuster: $namensmuster, ')
+          ..write('xmpDaneben: $xmpDaneben, ')
+          ..write('erstelltAm: $erstelltAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, nachJpeg, maxKante, qualitaet,
+      namensmuster, xmpDaneben, erstelltAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ExportPresetData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.nachJpeg == this.nachJpeg &&
+          other.maxKante == this.maxKante &&
+          other.qualitaet == this.qualitaet &&
+          other.namensmuster == this.namensmuster &&
+          other.xmpDaneben == this.xmpDaneben &&
+          other.erstelltAm == this.erstelltAm);
+}
+
+class ExportPresetsCompanion extends UpdateCompanion<ExportPresetData> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<bool> nachJpeg;
+  final Value<int?> maxKante;
+  final Value<double> qualitaet;
+  final Value<String> namensmuster;
+  final Value<bool> xmpDaneben;
+  final Value<DateTime> erstelltAm;
+  const ExportPresetsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.nachJpeg = const Value.absent(),
+    this.maxKante = const Value.absent(),
+    this.qualitaet = const Value.absent(),
+    this.namensmuster = const Value.absent(),
+    this.xmpDaneben = const Value.absent(),
+    this.erstelltAm = const Value.absent(),
+  });
+  ExportPresetsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.nachJpeg = const Value.absent(),
+    this.maxKante = const Value.absent(),
+    this.qualitaet = const Value.absent(),
+    this.namensmuster = const Value.absent(),
+    this.xmpDaneben = const Value.absent(),
+    required DateTime erstelltAm,
+  })  : name = Value(name),
+        erstelltAm = Value(erstelltAm);
+  static Insertable<ExportPresetData> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<bool>? nachJpeg,
+    Expression<int>? maxKante,
+    Expression<double>? qualitaet,
+    Expression<String>? namensmuster,
+    Expression<bool>? xmpDaneben,
+    Expression<DateTime>? erstelltAm,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (nachJpeg != null) 'nach_jpeg': nachJpeg,
+      if (maxKante != null) 'max_kante': maxKante,
+      if (qualitaet != null) 'qualitaet': qualitaet,
+      if (namensmuster != null) 'namensmuster': namensmuster,
+      if (xmpDaneben != null) 'xmp_daneben': xmpDaneben,
+      if (erstelltAm != null) 'erstellt_am': erstelltAm,
+    });
+  }
+
+  ExportPresetsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? name,
+      Value<bool>? nachJpeg,
+      Value<int?>? maxKante,
+      Value<double>? qualitaet,
+      Value<String>? namensmuster,
+      Value<bool>? xmpDaneben,
+      Value<DateTime>? erstelltAm}) {
+    return ExportPresetsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      nachJpeg: nachJpeg ?? this.nachJpeg,
+      maxKante: maxKante ?? this.maxKante,
+      qualitaet: qualitaet ?? this.qualitaet,
+      namensmuster: namensmuster ?? this.namensmuster,
+      xmpDaneben: xmpDaneben ?? this.xmpDaneben,
+      erstelltAm: erstelltAm ?? this.erstelltAm,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (nachJpeg.present) {
+      map['nach_jpeg'] = Variable<bool>(nachJpeg.value);
+    }
+    if (maxKante.present) {
+      map['max_kante'] = Variable<int>(maxKante.value);
+    }
+    if (qualitaet.present) {
+      map['qualitaet'] = Variable<double>(qualitaet.value);
+    }
+    if (namensmuster.present) {
+      map['namensmuster'] = Variable<String>(namensmuster.value);
+    }
+    if (xmpDaneben.present) {
+      map['xmp_daneben'] = Variable<bool>(xmpDaneben.value);
+    }
+    if (erstelltAm.present) {
+      map['erstellt_am'] = Variable<DateTime>(erstelltAm.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ExportPresetsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('nachJpeg: $nachJpeg, ')
+          ..write('maxKante: $maxKante, ')
+          ..write('qualitaet: $qualitaet, ')
+          ..write('namensmuster: $namensmuster, ')
+          ..write('xmpDaneben: $xmpDaneben, ')
+          ..write('erstelltAm: $erstelltAm')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -11076,6 +11516,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $AutomationRulesTable(this);
   late final $AutomationRuleTagsTable automationRuleTags =
       $AutomationRuleTagsTable(this);
+  late final $ExportPresetsTable exportPresets = $ExportPresetsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11105,7 +11546,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         appSettings,
         aiTagVocabulary,
         automationRules,
-        automationRuleTags
+        automationRuleTags,
+        exportPresets
       ];
 }
 
@@ -16442,6 +16884,219 @@ typedef $$AutomationRuleTagsTableProcessedTableManager = ProcessedTableManager<
     ),
     AutomationRuleTag,
     PrefetchHooks Function()>;
+typedef $$ExportPresetsTableCreateCompanionBuilder = ExportPresetsCompanion
+    Function({
+  Value<int> id,
+  required String name,
+  Value<bool> nachJpeg,
+  Value<int?> maxKante,
+  Value<double> qualitaet,
+  Value<String> namensmuster,
+  Value<bool> xmpDaneben,
+  required DateTime erstelltAm,
+});
+typedef $$ExportPresetsTableUpdateCompanionBuilder = ExportPresetsCompanion
+    Function({
+  Value<int> id,
+  Value<String> name,
+  Value<bool> nachJpeg,
+  Value<int?> maxKante,
+  Value<double> qualitaet,
+  Value<String> namensmuster,
+  Value<bool> xmpDaneben,
+  Value<DateTime> erstelltAm,
+});
+
+class $$ExportPresetsTableFilterComposer
+    extends Composer<_$AppDatabase, $ExportPresetsTable> {
+  $$ExportPresetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get nachJpeg => $composableBuilder(
+      column: $table.nachJpeg, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get maxKante => $composableBuilder(
+      column: $table.maxKante, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get qualitaet => $composableBuilder(
+      column: $table.qualitaet, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get namensmuster => $composableBuilder(
+      column: $table.namensmuster, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get xmpDaneben => $composableBuilder(
+      column: $table.xmpDaneben, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get erstelltAm => $composableBuilder(
+      column: $table.erstelltAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$ExportPresetsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ExportPresetsTable> {
+  $$ExportPresetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get nachJpeg => $composableBuilder(
+      column: $table.nachJpeg, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get maxKante => $composableBuilder(
+      column: $table.maxKante, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get qualitaet => $composableBuilder(
+      column: $table.qualitaet, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get namensmuster => $composableBuilder(
+      column: $table.namensmuster,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get xmpDaneben => $composableBuilder(
+      column: $table.xmpDaneben, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get erstelltAm => $composableBuilder(
+      column: $table.erstelltAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ExportPresetsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ExportPresetsTable> {
+  $$ExportPresetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<bool> get nachJpeg =>
+      $composableBuilder(column: $table.nachJpeg, builder: (column) => column);
+
+  GeneratedColumn<int> get maxKante =>
+      $composableBuilder(column: $table.maxKante, builder: (column) => column);
+
+  GeneratedColumn<double> get qualitaet =>
+      $composableBuilder(column: $table.qualitaet, builder: (column) => column);
+
+  GeneratedColumn<String> get namensmuster => $composableBuilder(
+      column: $table.namensmuster, builder: (column) => column);
+
+  GeneratedColumn<bool> get xmpDaneben => $composableBuilder(
+      column: $table.xmpDaneben, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get erstelltAm => $composableBuilder(
+      column: $table.erstelltAm, builder: (column) => column);
+}
+
+class $$ExportPresetsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $ExportPresetsTable,
+    ExportPresetData,
+    $$ExportPresetsTableFilterComposer,
+    $$ExportPresetsTableOrderingComposer,
+    $$ExportPresetsTableAnnotationComposer,
+    $$ExportPresetsTableCreateCompanionBuilder,
+    $$ExportPresetsTableUpdateCompanionBuilder,
+    (
+      ExportPresetData,
+      BaseReferences<_$AppDatabase, $ExportPresetsTable, ExportPresetData>
+    ),
+    ExportPresetData,
+    PrefetchHooks Function()> {
+  $$ExportPresetsTableTableManager(_$AppDatabase db, $ExportPresetsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ExportPresetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ExportPresetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ExportPresetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<bool> nachJpeg = const Value.absent(),
+            Value<int?> maxKante = const Value.absent(),
+            Value<double> qualitaet = const Value.absent(),
+            Value<String> namensmuster = const Value.absent(),
+            Value<bool> xmpDaneben = const Value.absent(),
+            Value<DateTime> erstelltAm = const Value.absent(),
+          }) =>
+              ExportPresetsCompanion(
+            id: id,
+            name: name,
+            nachJpeg: nachJpeg,
+            maxKante: maxKante,
+            qualitaet: qualitaet,
+            namensmuster: namensmuster,
+            xmpDaneben: xmpDaneben,
+            erstelltAm: erstelltAm,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String name,
+            Value<bool> nachJpeg = const Value.absent(),
+            Value<int?> maxKante = const Value.absent(),
+            Value<double> qualitaet = const Value.absent(),
+            Value<String> namensmuster = const Value.absent(),
+            Value<bool> xmpDaneben = const Value.absent(),
+            required DateTime erstelltAm,
+          }) =>
+              ExportPresetsCompanion.insert(
+            id: id,
+            name: name,
+            nachJpeg: nachJpeg,
+            maxKante: maxKante,
+            qualitaet: qualitaet,
+            namensmuster: namensmuster,
+            xmpDaneben: xmpDaneben,
+            erstelltAm: erstelltAm,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ExportPresetsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $ExportPresetsTable,
+    ExportPresetData,
+    $$ExportPresetsTableFilterComposer,
+    $$ExportPresetsTableOrderingComposer,
+    $$ExportPresetsTableAnnotationComposer,
+    $$ExportPresetsTableCreateCompanionBuilder,
+    $$ExportPresetsTableUpdateCompanionBuilder,
+    (
+      ExportPresetData,
+      BaseReferences<_$AppDatabase, $ExportPresetsTable, ExportPresetData>
+    ),
+    ExportPresetData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16495,4 +17150,6 @@ class $AppDatabaseManager {
       $$AutomationRulesTableTableManager(_db, _db.automationRules);
   $$AutomationRuleTagsTableTableManager get automationRuleTags =>
       $$AutomationRuleTagsTableTableManager(_db, _db.automationRuleTags);
+  $$ExportPresetsTableTableManager get exportPresets =>
+      $$ExportPresetsTableTableManager(_db, _db.exportPresets);
 }

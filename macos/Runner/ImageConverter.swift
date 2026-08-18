@@ -68,6 +68,23 @@ class ImageConverterChannel: NSObject {
                         }
                     }
                 }
+            case "lensCorrectionStatus":
+                // Sagt für EINE Datei, was der Objektivkorrektur-Schalter im
+                // Entwickeln-Bildschirm tatsächlich bewirken würde. Vorher
+                // stand dort für jedes Foto derselbe allgemeine Hinweis –
+                // auch für JPEGs, wo es nie etwas zu korrigieren gibt, und
+                // für RAWs, die Apples Datenbank nicht kennt.
+                guard
+                    let args = call.arguments as? [String: Any],
+                    let path = args["path"] as? String
+                else {
+                    result(FlutterError(code: "bad_args", message: "path fehlt", details: nil))
+                    return
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let status = lensCorrectionStatus(path: path)
+                    DispatchQueue.main.async { result(status) }
+                }
             case "developImage":
                 guard
                     let args = call.arguments as? [String: Any],
@@ -304,6 +321,38 @@ class ImageConverterChannel: NSObject {
         "rwl", "raw", // Leica
         "dxo", // DxO
     ]
+
+    /// Was die Objektivkorrektur für diese eine Datei leisten kann.
+    ///
+    /// Vier Antworten, weil sie zu vier verschiedenen Sätzen in der
+    /// Oberfläche führen – ein blosses Ja/Nein würde „ist kein RAW" und
+    /// „ist RAW, aber unbekannt" in denselben Topf werfen, obwohl das eine
+    /// erwartbar und das andere eine Einschränkung ist:
+    ///
+    /// - `keinRaw`: JPEG, HEIC, PNG. Da gibt es nichts zu korrigieren, die
+    ///   Kamera hat es längst getan.
+    /// - `verfuegbar`: Apples Kamera-/Objektivdatenbank kennt die Kombination.
+    /// - `nichtInDatenbank`: gültiges RAW, aber keine Profile dafür. Betrifft
+    ///   auch Apples ProRAW-DNGs – dort ist das richtig so, die Korrektur
+    ///   steckt schon in der Datei.
+    /// - `nichtLesbar`: `CIRAWFilter` bekommt die Datei gar nicht auf. Dann
+    ///   greift auch die übrige RAW-Entwicklung nicht, und der Nutzer sollte
+    ///   das erfahren, statt sich über wirkungslose Regler zu wundern.
+    @available(macOS 12.0, *)
+    private static func lensCorrectionStatus(path: String) -> String {
+        let url = URL(fileURLWithPath: path)
+        guard rawExtensions.contains(url.pathExtension.lowercased()) else {
+            return "keinRaw"
+        }
+        guard let filter = CIRAWFilter(imageURL: url) else { return "nichtLesbar" }
+        // Eine nativeSize von 0 heisst: Der Dekoder hat die Datei zwar
+        // angenommen, kann aber nichts damit anfangen (real beobachtet bei
+        // 96-MB-DNGs einer Canon EOS R10).
+        if filter.nativeSize.width <= 0 || filter.nativeSize.height <= 0 {
+            return "nichtLesbar"
+        }
+        return filter.isLensCorrectionSupported ? "verfuegbar" : "nichtInDatenbank"
+    }
 
     /// Dekodiert eine RAW-Datei über Apples `CIRAWFilter` statt der
     /// einfachen ImageIO-Vorschau weiter unten – dieselbe API, mit der z.B.

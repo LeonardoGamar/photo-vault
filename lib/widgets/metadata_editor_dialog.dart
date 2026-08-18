@@ -91,15 +91,15 @@ class _MetadataEditorDialogState extends State<MetadataEditorDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _field('Kamera-Hersteller', _makeCtrl),
-              _field('Kamera-Modell', _modelCtrl),
-              _field('Objektiv', _lensCtrl),
+              _field(AppTexte.of(context).metaHersteller, _makeCtrl),
+              _field(AppTexte.of(context).metaModell, _modelCtrl),
+              _field(AppTexte.of(context).metaObjektiv, _lensCtrl),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _field('Brennweite (mm)', _focalCtrl)),
+                  Expanded(child: _field(AppTexte.of(context).metaBrennweite, _focalCtrl)),
                   const SizedBox(width: 12),
-                  Expanded(child: _field('Blende (f/…)', _fNumberCtrl)),
+                  Expanded(child: _field(AppTexte.of(context).metaBlende, _fNumberCtrl)),
                 ],
               ),
               Row(
@@ -107,7 +107,7 @@ class _MetadataEditorDialogState extends State<MetadataEditorDialog> {
                 children: [
                   Expanded(child: _field('ISO', _isoCtrl)),
                   const SizedBox(width: 12),
-                  Expanded(child: _field('Belichtungszeit', _exposureCtrl, hint: AppTexte.of(context).metaBelichtungBeispiel)),
+                  Expanded(child: _field(AppTexte.of(context).metaBelichtungszeit, _exposureCtrl, hint: AppTexte.of(context).metaBelichtungBeispiel)),
                 ],
               ),
             ],

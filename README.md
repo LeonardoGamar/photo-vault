@@ -246,7 +246,7 @@ flutter run -d macos
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 36: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 37: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte

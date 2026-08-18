@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 
 import '../services/histogram.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 
 /// Welche Kanäle das Histogramm gerade zeigt.
 enum HistogramMode {
@@ -73,7 +74,7 @@ class _HistogramViewState extends State<HistogramView> {
               ? Center(
                   child: Text(
                     AppTexte.of(context).histogrammKeineVorschau,
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 11),
                   ),
                 )
               : CustomPaint(

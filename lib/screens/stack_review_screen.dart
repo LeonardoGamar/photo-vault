@@ -79,7 +79,8 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
           ..addEntries(groups.indexed.map((e) => MapEntry(e.$1, _defaultCoverIndex(e.$2))));
       });
     } catch (e) {
-      setState(() => _error = 'Suche fehlgeschlagen: $e');
+      if (!mounted) return;
+      setState(() => _error = AppTexte.of(context).allgSucheFehlgeschlagen('$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

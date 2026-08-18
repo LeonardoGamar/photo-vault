@@ -320,14 +320,15 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
         ],
       );
     }
+    final t = AppTexte.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _toolButton(Icons.crop_outlined, 'Zuschneiden', _startCrop),
-        _toolButton(Icons.rotate_left, 'Nach links drehen', _rotateLeft),
-        _toolButton(Icons.rotate_right, 'Nach rechts drehen', _rotateRight),
-        _toolButton(Icons.flip, 'Horizontal spiegeln', _flipHorizontal),
-        _toolButton(Icons.flip, 'Vertikal spiegeln', _flipVertical, quarterTurns: 1),
+        _toolButton(Icons.crop_outlined, t.bearbZuschneiden, _startCrop),
+        _toolButton(Icons.rotate_left, t.bearbLinksDrehen, _rotateLeft),
+        _toolButton(Icons.rotate_right, t.bearbRechtsDrehen, _rotateRight),
+        _toolButton(Icons.flip, t.bearbHorizontalSpiegeln, _flipHorizontal),
+        _toolButton(Icons.flip, t.bearbVertikalSpiegeln, _flipVertical, quarterTurns: 1),
       ],
     );
   }

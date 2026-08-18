@@ -187,21 +187,22 @@ class _CameraPresetTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
     final parts = <String>[
-      if (albumName != null) 'Album: $albumName',
-      if (preset.autoFavorite) AppTexte.of(context).presetFavorisieren,
-      if (tagLabels.isNotEmpty) 'Tags: ${tagLabels.join(', ')}',
+      if (albumName != null) t.presetZeileAlbum(albumName!),
+      if (preset.autoFavorite) t.presetFavorisieren,
+      if (tagLabels.isNotEmpty) t.presetZeileTags(tagLabels.join(', ')),
     ];
     return Card(
       child: ListTile(
         leading: const Icon(Icons.camera_alt_outlined),
         title: Text(_cameraDisplayName(preset.cameraMake, preset.cameraModel)),
-        subtitle: Text(parts.isEmpty ? 'Keine Aktion konfiguriert' : parts.join(' · ')),
+        subtitle: Text(parts.isEmpty ? t.presetKeineAktion : parts.join(' · ')),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(icon: const Icon(Icons.edit_outlined), tooltip: AppTexte.of(context).allgBearbeiten, onPressed: onEdit),
-            IconButton(icon: const Icon(Icons.delete_outline), tooltip: AppTexte.of(context).allgLoeschen, onPressed: onDelete),
+            IconButton(icon: const Icon(Icons.edit_outlined), tooltip: t.allgBearbeiten, onPressed: onEdit),
+            IconButton(icon: const Icon(Icons.delete_outline), tooltip: t.allgLoeschen, onPressed: onDelete),
           ],
         ),
       ),
@@ -355,7 +356,9 @@ class _CameraPresetEditorDialogState extends State<_CameraPresetEditorDialog> {
   Widget build(BuildContext context) {
     final selectedTags = widget.allTags.where((t) => _tagIds.contains(t.id)).toList();
     return AlertDialog(
-      title: Text(widget.existing == null ? 'Neues Kamera-Preset' : 'Kamera-Preset bearbeiten'),
+      title: Text(widget.existing == null
+          ? AppTexte.of(context).presetNeuTitel
+          : AppTexte.of(context).presetBearbeitenTitel),
       content: SizedBox(
         width: 440,
         child: SingleChildScrollView(

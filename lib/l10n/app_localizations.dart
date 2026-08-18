@@ -5627,6 +5627,492 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Verwaiste Dateien ({anzahl})'**
   String integVerwaisteDateien(int anzahl);
+
+  /// No description provided for @viewerKugelSchwenken.
+  ///
+  /// In de, this message translates to:
+  /// **'3D-Kugel statt flachem Schwenken'**
+  String get viewerKugelSchwenken;
+
+  /// No description provided for @regelNeuTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Automatisierungsregel'**
+  String get regelNeuTitel;
+
+  /// No description provided for @regelBearbeitenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Regel bearbeiten'**
+  String get regelBearbeitenTitel;
+
+  /// No description provided for @presetZeileAlbum.
+  ///
+  /// In de, this message translates to:
+  /// **'Album: {album}'**
+  String presetZeileAlbum(String album);
+
+  /// No description provided for @presetZeileTags.
+  ///
+  /// In de, this message translates to:
+  /// **'Tags: {tags}'**
+  String presetZeileTags(String tags);
+
+  /// No description provided for @presetKeineAktion.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Aktion konfiguriert'**
+  String get presetKeineAktion;
+
+  /// No description provided for @presetNeuTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Neues Kamera-Preset'**
+  String get presetNeuTitel;
+
+  /// No description provided for @presetBearbeitenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Kamera-Preset bearbeiten'**
+  String get presetBearbeitenTitel;
+
+  /// No description provided for @allgSucheFehlgeschlagen.
+  ///
+  /// In de, this message translates to:
+  /// **'Suche fehlgeschlagen: {fehler}'**
+  String allgSucheFehlgeschlagen(String fehler);
+
+  /// No description provided for @allgUnbekannterFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Unbekannter Fehler'**
+  String get allgUnbekannterFehler;
+
+  /// No description provided for @erkundenVorJahren.
+  ///
+  /// In de, this message translates to:
+  /// **'{jahre, plural, =1{Vor 1 Jahr} other{Vor {jahre} Jahren}}'**
+  String erkundenVorJahren(int jahre);
+
+  /// No description provided for @gesichtBenennen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesicht benennen'**
+  String get gesichtBenennen;
+
+  /// No description provided for @gesichtUnbenannt.
+  ///
+  /// In de, this message translates to:
+  /// **'Unbenannt'**
+  String get gesichtUnbenannt;
+
+  /// No description provided for @bearbZuschneiden.
+  ///
+  /// In de, this message translates to:
+  /// **'Zuschneiden'**
+  String get bearbZuschneiden;
+
+  /// No description provided for @bearbLinksDrehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach links drehen'**
+  String get bearbLinksDrehen;
+
+  /// No description provided for @bearbRechtsDrehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach rechts drehen'**
+  String get bearbRechtsDrehen;
+
+  /// No description provided for @bearbHorizontalSpiegeln.
+  ///
+  /// In de, this message translates to:
+  /// **'Horizontal spiegeln'**
+  String get bearbHorizontalSpiegeln;
+
+  /// No description provided for @bearbVertikalSpiegeln.
+  ///
+  /// In de, this message translates to:
+  /// **'Vertikal spiegeln'**
+  String get bearbVertikalSpiegeln;
+
+  /// No description provided for @integAusDbEntfernenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus Datenbank entfernen?'**
+  String get integAusDbEntfernenTitel;
+
+  /// No description provided for @integArtOriginal.
+  ///
+  /// In de, this message translates to:
+  /// **'Original'**
+  String get integArtOriginal;
+
+  /// No description provided for @integArtThumbnail.
+  ///
+  /// In de, this message translates to:
+  /// **'Thumbnail'**
+  String get integArtThumbnail;
+
+  /// No description provided for @integArtVorschau.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschau'**
+  String get integArtVorschau;
+
+  /// No description provided for @integArtEntwickelt.
+  ///
+  /// In de, this message translates to:
+  /// **'Entwickeltes Bild'**
+  String get integArtEntwickelt;
+
+  /// No description provided for @integArtRestauriert.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-restauriertes Bild'**
+  String get integArtRestauriert;
+
+  /// No description provided for @integArtVideoZuschnitt.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschnittenes Video'**
+  String get integArtVideoZuschnitt;
+
+  /// No description provided for @integArtGesichtsCrop.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichts-Crop'**
+  String get integArtGesichtsCrop;
+
+  /// No description provided for @integArtMaske.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-Maske'**
+  String get integArtMaske;
+
+  /// No description provided for @gesperrtTabFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos'**
+  String get gesperrtTabFotos;
+
+  /// No description provided for @gesperrtTabPapierkorb.
+  ///
+  /// In de, this message translates to:
+  /// **'Papierkorb'**
+  String get gesperrtTabPapierkorb;
+
+  /// No description provided for @karteHell.
+  ///
+  /// In de, this message translates to:
+  /// **'Hell'**
+  String get karteHell;
+
+  /// No description provided for @karteDunkel.
+  ///
+  /// In de, this message translates to:
+  /// **'Dunkel'**
+  String get karteDunkel;
+
+  /// No description provided for @karteGlobus.
+  ///
+  /// In de, this message translates to:
+  /// **'Globus'**
+  String get karteGlobus;
+
+  /// No description provided for @zweitVergleichFehlgeschlagen.
+  ///
+  /// In de, this message translates to:
+  /// **'Vergleich fehlgeschlagen: {fehler}'**
+  String zweitVergleichFehlgeschlagen(String fehler);
+
+  /// No description provided for @xmpEinlesenFehlgeschlagen.
+  ///
+  /// In de, this message translates to:
+  /// **'Einlesen fehlgeschlagen: {fehler}'**
+  String xmpEinlesenFehlgeschlagen(String fehler);
+
+  /// No description provided for @xmpFeldBewertung.
+  ///
+  /// In de, this message translates to:
+  /// **'Bewertung'**
+  String get xmpFeldBewertung;
+
+  /// No description provided for @xmpFeldFarbmarkierung.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbmarkierung'**
+  String get xmpFeldFarbmarkierung;
+
+  /// No description provided for @xmpFeldBeschreibung.
+  ///
+  /// In de, this message translates to:
+  /// **'Beschreibung'**
+  String get xmpFeldBeschreibung;
+
+  /// No description provided for @xmpFeldNeueTags.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Tags'**
+  String get xmpFeldNeueTags;
+
+  /// No description provided for @xmpFeldStandort.
+  ///
+  /// In de, this message translates to:
+  /// **'Standort'**
+  String get xmpFeldStandort;
+
+  /// No description provided for @xmpKeineSidecars.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine XMP-Sidecars gefunden.'**
+  String get xmpKeineSidecars;
+
+  /// No description provided for @liveWiedergabeStoppen.
+  ///
+  /// In de, this message translates to:
+  /// **'Wiedergabe stoppen'**
+  String get liveWiedergabeStoppen;
+
+  /// No description provided for @liveDauerschleife.
+  ///
+  /// In de, this message translates to:
+  /// **'In Dauerschleife abspielen'**
+  String get liveDauerschleife;
+
+  /// No description provided for @metaHersteller.
+  ///
+  /// In de, this message translates to:
+  /// **'Kamera-Hersteller'**
+  String get metaHersteller;
+
+  /// No description provided for @metaModell.
+  ///
+  /// In de, this message translates to:
+  /// **'Kamera-Modell'**
+  String get metaModell;
+
+  /// No description provided for @metaObjektiv.
+  ///
+  /// In de, this message translates to:
+  /// **'Objektiv'**
+  String get metaObjektiv;
+
+  /// No description provided for @metaBrennweite.
+  ///
+  /// In de, this message translates to:
+  /// **'Brennweite (mm)'**
+  String get metaBrennweite;
+
+  /// No description provided for @metaBlende.
+  ///
+  /// In de, this message translates to:
+  /// **'Blende (f/…)'**
+  String get metaBlende;
+
+  /// No description provided for @metaBelichtungszeit.
+  ///
+  /// In de, this message translates to:
+  /// **'Belichtungszeit'**
+  String get metaBelichtungszeit;
+
+  /// No description provided for @passphraseZuKurz.
+  ///
+  /// In de, this message translates to:
+  /// **'Passphrase muss mindestens 8 Zeichen lang sein.'**
+  String get passphraseZuKurz;
+
+  /// No description provided for @exportVorgabenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Export-Voreinstellungen'**
+  String get exportVorgabenTitel;
+
+  /// No description provided for @exportVorgabenLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Voreinstellung. Eine Voreinstellung merkt sich Grösse, Qualität und Dateibenennung – für alles, was Sie öfter als einmal exportieren.'**
+  String get exportVorgabenLeer;
+
+  /// No description provided for @exportVorgabeNeu.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Voreinstellung'**
+  String get exportVorgabeNeu;
+
+  /// No description provided for @exportVorgabeNeuTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Export-Voreinstellung'**
+  String get exportVorgabeNeuTitel;
+
+  /// No description provided for @exportVorgabeBearbeitenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Voreinstellung bearbeiten'**
+  String get exportVorgabeBearbeitenTitel;
+
+  /// No description provided for @exportVorgabeName.
+  ///
+  /// In de, this message translates to:
+  /// **'Name'**
+  String get exportVorgabeName;
+
+  /// No description provided for @exportVorgabeNameNoetig.
+  ///
+  /// In de, this message translates to:
+  /// **'Bitte einen Namen vergeben.'**
+  String get exportVorgabeNameNoetig;
+
+  /// No description provided for @exportVorgabeNachJpeg.
+  ///
+  /// In de, this message translates to:
+  /// **'Nach JPEG rendern'**
+  String get exportVorgabeNachJpeg;
+
+  /// No description provided for @exportVorgabeNachJpegHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne das wird die Datei unverändert kopiert – der einzige Weg, der RAW und Videos unangetastet lässt.'**
+  String get exportVorgabeNachJpegHinweis;
+
+  /// No description provided for @exportVorgabeKante.
+  ///
+  /// In de, this message translates to:
+  /// **'Längere Kante (Pixel)'**
+  String get exportVorgabeKante;
+
+  /// No description provided for @exportVorgabeKanteLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'leer = volle Auflösung'**
+  String get exportVorgabeKanteLeer;
+
+  /// No description provided for @exportVorgabeKanteUngueltig.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Kantenlänge muss zwischen 64 und 20000 liegen.'**
+  String get exportVorgabeKanteUngueltig;
+
+  /// No description provided for @exportVorgabeQualitaet.
+  ///
+  /// In de, this message translates to:
+  /// **'JPEG-Qualität: {prozent} %'**
+  String exportVorgabeQualitaet(int prozent);
+
+  /// No description provided for @exportVorgabeMuster.
+  ///
+  /// In de, this message translates to:
+  /// **'Namensmuster'**
+  String get exportVorgabeMuster;
+
+  /// No description provided for @exportVorgabeMusterNoetig.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Namensmuster darf nicht leer sein.'**
+  String get exportVorgabeMusterNoetig;
+
+  /// No description provided for @exportVorgabeMusterHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Endung wird immer selbst ergänzt. Die laufende Nummer zählt innerhalb eines Export-Laufs und wird vierstellig aufgefüllt.'**
+  String get exportVorgabeMusterHinweis;
+
+  /// No description provided for @exportVorgabeXmp.
+  ///
+  /// In de, this message translates to:
+  /// **'XMP-Beistelldatei mitschreiben'**
+  String get exportVorgabeXmp;
+
+  /// No description provided for @exportVorgabeXmpHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Bewertung, Schlagwörter und Ort für andere Programme – als eigene Datei neben dem Foto.'**
+  String get exportVorgabeXmpHinweis;
+
+  /// No description provided for @exportVorgabeJpegVoll.
+  ///
+  /// In de, this message translates to:
+  /// **'JPEG, volle Auflösung, {prozent} %'**
+  String exportVorgabeJpegVoll(int prozent);
+
+  /// No description provided for @exportVorgabeJpegKante.
+  ///
+  /// In de, this message translates to:
+  /// **'JPEG, lange Kante {kante} px, {prozent} %'**
+  String exportVorgabeJpegKante(int kante, int prozent);
+
+  /// No description provided for @exportVorgabeOhneXmp.
+  ///
+  /// In de, this message translates to:
+  /// **'ohne XMP'**
+  String get exportVorgabeOhneXmp;
+
+  /// No description provided for @exportVorgabeLoeschenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Voreinstellung löschen?'**
+  String get exportVorgabeLoeschenTitel;
+
+  /// No description provided for @exportVorgabeLoeschenText.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}\" wird entfernt. Bereits exportierte Dateien bleiben unberührt.'**
+  String exportVorgabeLoeschenText(String name);
+
+  /// No description provided for @exportEigeneVorgaben.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene Voreinstellungen'**
+  String get exportEigeneVorgaben;
+
+  /// No description provided for @exportVorgabenVerwalten.
+  ///
+  /// In de, this message translates to:
+  /// **'Voreinstellungen verwalten …'**
+  String get exportVorgabenVerwalten;
+
+  /// No description provided for @werkzExportVorgabenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Export-Voreinstellungen'**
+  String get werkzExportVorgabenTitel;
+
+  /// No description provided for @werkzExportVorgabenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Benannte Ausgabe-Vorgaben für den Export: Grösse, JPEG-Qualität, Dateibenennung und ob eine XMP-Beistelldatei mitgeschrieben wird.'**
+  String get werkzExportVorgabenText;
+
+  /// No description provided for @exportVorgabeNameVergeben.
+  ///
+  /// In de, this message translates to:
+  /// **'Diesen Namen gibt es schon.'**
+  String get exportVorgabeNameVergeben;
+
+  /// No description provided for @entwObjektivkorrekturKeinRaw.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein RAW – die Kamera hat Verzeichnung und Vignettierung bereits korrigiert.'**
+  String get entwObjektivkorrekturKeinRaw;
+
+  /// No description provided for @entwObjektivkorrekturVerfuegbar.
+  ///
+  /// In de, this message translates to:
+  /// **'Kamera und Objektiv sind bekannt: Verzeichnung und Vignettierung werden korrigiert.'**
+  String get entwObjektivkorrekturVerfuegbar;
+
+  /// No description provided for @entwObjektivkorrekturUnbekanntesObjektiv.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diese Kamera gibt es kein Profil. Bei ProRAW-Aufnahmen ist das kein Mangel – die Korrektur steckt schon in der Datei.'**
+  String get entwObjektivkorrekturUnbekanntesObjektiv;
+
+  /// No description provided for @entwObjektivkorrekturNichtLesbar.
+  ///
+  /// In de, this message translates to:
+  /// **'Die RAW-Daten dieser Datei lassen sich nicht öffnen. Auch die übrigen Regler wirken deshalb nur auf die eingebettete Vorschau.'**
+  String get entwObjektivkorrekturNichtLesbar;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

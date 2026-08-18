@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../screens/export_presets_screen.dart';
 import '../services/export_service.dart';
 import 'progress_dialog.dart';
 import '../state/library_state.dart';
@@ -358,26 +359,81 @@ Future<void> runBatchAddToAlbumDialog(BuildContext context, LibraryState library
 /// mit Fortschrittsanzeige – dieselbe Logik wie der bisherige, nur an ein
 /// Album gebundene "Album exportieren"-Button in AlbumDetailScreen, jetzt
 /// für eine beliebige Auswahl nutzbar.
-/// Fragt die Ausgabegrösse ab. `null` bedeutet Abbruch.
-Future<Exportgroesse?> _frageExportgroesse(BuildContext context, int anzahl) {
-  return showDialog<Exportgroesse>(
+/// Was der Export-Dialog zurückgibt: entweder eine fertige Vorgabe oder der
+/// Wunsch, erst die Voreinstellungen zu verwalten.
+///
+/// Ein eigener Typ statt `Exportvorgabe?`, weil „abgebrochen" und „zeig mir
+/// die Verwaltung" sonst beide als `null` zurückkämen und der Aufrufer sie
+/// nicht auseinanderhalten könnte.
+sealed class _Exportwahl {
+  const _Exportwahl();
+}
+
+class _WahlVorgabe extends _Exportwahl {
+  final Exportvorgabe vorgabe;
+  const _WahlVorgabe(this.vorgabe);
+}
+
+class _WahlVerwalten extends _Exportwahl {
+  const _WahlVerwalten();
+}
+
+/// Fragt die Ausgabe ab: die vier festen Grössen und, sofern angelegt, die
+/// eigenen Voreinstellungen. `null` bedeutet Abbruch.
+Future<_Exportwahl?> _frageExportgroesse(
+    BuildContext context, LibraryState library, int anzahl) async {
+  final vorgaben = await library.db.alleExportPresets();
+  if (!context.mounted) return null;
+
+  return showDialog<_Exportwahl>(
     context: context,
-    builder: (context) => SimpleDialog(
-      title: Text(AppTexte.of(context).auswExportTitel(anzahl)),
-      children: [
-        for (final g in Exportgroesse.values)
+    builder: (context) {
+      final t = AppTexte.of(context);
+      return SimpleDialog(
+        title: Text(t.auswExportTitel(anzahl)),
+        children: [
+          for (final g in Exportgroesse.values)
+            SimpleDialogOption(
+              onPressed: () =>
+                  Navigator.pop(context, _WahlVorgabe(Exportvorgabe.ausGroesse(g))),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(exportgroesseBezeichnung(t, g)),
+                subtitle: Text(g.maxKante == null
+                    ? t.exportUnveraendert
+                    : t.exportJpegKante(g.maxKante!)),
+              ),
+            ),
+          if (vorgaben.isNotEmpty) ...[
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: Text(t.exportEigeneVorgaben,
+                  style: Theme.of(context).textTheme.labelMedium),
+            ),
+            for (final v in vorgaben)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(
+                    context, _WahlVorgabe(Exportvorgabe.ausPreset(v))),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(v.name),
+                  subtitle: Text(vorgabeZusammenfassung(t, v)),
+                ),
+              ),
+          ],
+          const Divider(),
           SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, g),
+            onPressed: () => Navigator.pop(context, const _WahlVerwalten()),
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(exportgroesseBezeichnung(AppTexte.of(context), g)),
-              subtitle: Text(g.maxKante == null
-                  ? AppTexte.of(context).exportUnveraendert
-                  : AppTexte.of(context).exportJpegKante(g.maxKante!)),
+              leading: const Icon(Icons.tune_outlined),
+              title: Text(t.exportVorgabenVerwalten),
             ),
           ),
-      ],
-    ),
+        ],
+      );
+    },
   );
 }
 
@@ -426,8 +482,21 @@ Future<void> runBatchPasteDevelop(
 }
 
 Future<void> runBatchExport(BuildContext context, LibraryState library, List<AssetData> assets) async {
-  final groesse = await _frageExportgroesse(context, assets.length);
-  if (groesse == null || !context.mounted) return;
+  final wahl = await _frageExportgroesse(context, library, assets.length);
+  if (wahl == null || !context.mounted) return;
+
+  // „Verwalten" führt in die Verwaltung und danach zurück in die Auswahl.
+  // Ohne das zweite Öffnen stünde jemand, der gerade eine Voreinstellung
+  // angelegt hat, wieder vor der Übersicht – und müsste den Export neu
+  // anstossen, um sie zu benutzen.
+  if (wahl is _WahlVerwalten) {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ExportPresetsScreen(library: library),
+    ));
+    if (!context.mounted) return;
+    return runBatchExport(context, library, assets);
+  }
+  final vorgabe = (wahl as _WahlVorgabe).vorgabe;
 
   final destination = await FilePicker.platform.getDirectoryPath(
     dialogTitle: AppTexte.of(context).auswZielordner(assets.length),
@@ -460,7 +529,11 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
   var exported = 0;
   for (final asset in assets) {
     try {
-      await exporter.exportAsset(asset, destination, groesse: groesse);
+      // Die laufende Nummer zählt die Fotos des Laufs, nicht die
+      // erfolgreichen – sonst bekämen zwei Fotos dieselbe Nummer, sobald
+      // eines dazwischen fehlschlägt.
+      await exporter.exportAsset(asset, destination,
+          vorgabe: vorgabe, nummer: done + 1);
       exported++;
     } catch (_) {
       // Einzelne fehlgeschlagene Datei überspringen, Rest weiter exportieren.

@@ -52,7 +52,10 @@ class _LockedFolderScreenState extends State<LockedFolderScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(AppTexte.of(context).einstGesperrterOrdner),
-          bottom: const TabBar(tabs: [Tab(text: 'Fotos'), Tab(text: 'Papierkorb')]),
+          bottom: TabBar(tabs: [
+            Tab(text: AppTexte.of(context).gesperrtTabFotos),
+            Tab(text: AppTexte.of(context).gesperrtTabPapierkorb),
+          ]),
         ),
         body: TabBarView(
           children: [

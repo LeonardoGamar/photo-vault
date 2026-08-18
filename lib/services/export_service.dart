@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
 import '../state/library_state.dart';
+import 'export_naming.dart';
 import 'native_image_converter.dart';
 import 'storage_paths.dart';
 import '../l10n/app_localizations.dart';
@@ -43,6 +44,57 @@ String exportgroesseBezeichnung(AppTexte t, Exportgroesse g) => switch (g) {
       Exportgroesse.email => t.exportEmail,
     };
 
+/// Alles, was ein Export-Lauf über die Ausgabe wissen muss.
+///
+/// Steht zwischen den beiden Wegen, auf denen ein Export ausgelöst werden
+/// kann: der schnellen Auswahl einer der vier festen [Exportgroesse]n und
+/// einer gespeicherten Voreinstellung aus der Datenbank. Der Dienst kennt
+/// nur noch dieses eine Gebilde – sonst müsste jede neue Einstellung an
+/// zwei Stellen durchgereicht werden.
+class Exportvorgabe {
+  /// Nach JPEG rendern statt die Datei zu kopieren.
+  ///
+  /// Ohne das bleibt die Datei Bit für Bit, wie sie ist – der einzige Weg,
+  /// der RAW, Videos und alles Übrige unangetastet lässt.
+  final bool nachJpeg;
+
+  /// Längere Bildkante in Pixeln, `null` = nicht begrenzen. Ohne
+  /// [nachJpeg] ohne Bedeutung.
+  final int? maxKante;
+
+  final double qualitaet;
+
+  /// Siehe `export_naming.dart`. Der Vorgabewert übernimmt den bisherigen
+  /// Dateinamen unverändert.
+  final String namensmuster;
+
+  /// Die `.xmp`-Beistelldatei mitschreiben.
+  final bool xmpDaneben;
+
+  const Exportvorgabe({
+    this.nachJpeg = false,
+    this.maxKante,
+    this.qualitaet = 0.9,
+    this.namensmuster = '{name}',
+    this.xmpDaneben = true,
+  });
+
+  /// Die Entsprechung einer der vier festen Grössen – damit der schnelle
+  /// Weg und der Voreinstellungs-Weg denselben Code durchlaufen.
+  factory Exportvorgabe.ausGroesse(Exportgroesse g) => Exportvorgabe(
+        nachJpeg: g.maxKante != null,
+        maxKante: g.maxKante,
+      );
+
+  factory Exportvorgabe.ausPreset(ExportPresetData p) => Exportvorgabe(
+        nachJpeg: p.nachJpeg,
+        maxKante: p.maxKante,
+        qualitaet: p.qualitaet,
+        namensmuster: p.namensmuster,
+        xmpDaneben: p.xmpDaneben,
+      );
+}
+
 /// Exportiert Original-Dateien aus der verwalteten Bibliothek zurück in
 /// einen normalen Ordner – z.B. um ein Foto extern weiterzubearbeiten oder zu
 /// teilen. Bewusst von [BackupService] getrennt: ein Backup sichert die
@@ -79,39 +131,55 @@ class ExportService {
   /// gerendert. Videos und alles, was sich nicht konvertieren lässt, werden
   /// dabei unverändert kopiert statt übersprungen – ein Export soll nichts
   /// auslassen, nur weil eine Grössenvorgabe darauf nicht anwendbar ist.
+  /// [nummer] ist die laufende Nummer innerhalb des Export-Laufs (ab 1) und
+  /// wird nur gebraucht, wenn das Namensmuster `{nr}` enthält.
   Future<String> exportAsset(
     AssetData asset,
     String destinationDir, {
     Exportgroesse groesse = Exportgroesse.original,
-    double qualitaet = 0.9,
+    Exportvorgabe? vorgabe,
+    int nummer = 1,
   }) async {
+    final v = vorgabe ?? Exportvorgabe.ausGroesse(groesse);
     final sourceFile = await resolveSourceFile(asset);
 
-    final kante = groesse.maxKante;
-    Uint8List? verkleinert;
-    if (kante != null && asset.type == 'IMAGE') {
-      verkleinert = await NativeImageConverter.convertToJpegBytes(
+    // `maxDimension: null` heisst für den nativen Wandler „nicht
+    // begrenzen" – so lässt sich auch in voller Auflösung nach JPEG
+    // rendern, was mit der alten Aufzählung nicht ging.
+    Uint8List? gerendert;
+    if (v.nachJpeg && asset.type == 'IMAGE') {
+      gerendert = await NativeImageConverter.convertToJpegBytes(
         sourceFile,
-        maxDimension: kante,
-        quality: qualitaet,
+        maxDimension: v.maxKante,
+        quality: v.qualitaet,
       );
     }
 
-    final zielName = verkleinert != null
-        ? '${p.basenameWithoutExtension(asset.originalFileName)}.jpg'
-        : asset.originalFileName;
+    // Die Endung richtet sich danach, was WIRKLICH geschrieben wird: Ist
+    // das Rendern fehlgeschlagen (oder war es ein Video), wird kopiert –
+    // dann darf dort auch kein `.jpg` stehen.
+    final endung =
+        gerendert != null ? '.jpg' : p.extension(asset.originalFileName);
+    final zielName = dateiname(
+      v.namensmuster,
+      asset,
+      nummer: nummer,
+      endung: endung,
+    );
     final targetPath = _uniqueDestinationPath(destinationDir, zielName);
-    if (verkleinert != null) {
-      await File(targetPath).writeAsBytes(verkleinert);
+    if (gerendert != null) {
+      await File(targetPath).writeAsBytes(gerendert);
     } else {
       await sourceFile.copy(targetPath);
     }
 
-    final tagNames = _library != null
-        ? (await _library.db.tagsForAsset(asset.id)).map((t) => t.name).toList()
-        : const <String>[];
-    final xmp = buildXmpPacket(asset, tagNames);
-    await File(_paths.xmpSidecarPath(targetPath)).writeAsString(xmp);
+    if (v.xmpDaneben) {
+      final tagNames = _library != null
+          ? (await _library.db.tagsForAsset(asset.id)).map((t) => t.name).toList()
+          : const <String>[];
+      final xmp = buildXmpPacket(asset, tagNames);
+      await File(_paths.xmpSidecarPath(targetPath)).writeAsString(xmp);
+    }
 
     return p.basename(targetPath);
   }

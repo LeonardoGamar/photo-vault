@@ -55,6 +55,41 @@ class AppSemantik extends ThemeExtension<AppSemantik> {
         );
 }
 
+/// Farben für die dauerhaft dunklen Arbeitsflächen – Entwickeln, Betrachter,
+/// Histogramm, Kurve, Farbmischer.
+///
+/// Diese Bildschirme richten sich bewusst NICHT nach Hell/Dunkel: Ein Foto
+/// beurteilt man vor neutralem Schwarz, sonst färbt die Oberfläche das
+/// Urteil. Deshalb stehen die Werte hier fest und nicht in [AppSemantik].
+///
+/// Die Zahlen daneben sind gemessen (WCAG-Kontrastformel gegen [grund]),
+/// nicht geschätzt. Der Anlass: `Colors.white38` stand an sechs Stellen
+/// unter erklärendem Text in 11 px – bei 3,44:1, wo 4,5:1 gefordert sind.
+/// Als benannte Rolle ist schwerer zu übersehen, welcher Wert wofür gedacht
+/// ist.
+abstract final class DunkleFlaeche {
+  /// Der Grund, gegen den alles andere gemessen ist.
+  static const grund = Colors.black;
+
+  /// Beschriftungen und Werte, die man lesen muss. 21:1.
+  static const text = Colors.white;
+
+  /// Zweitrangiges, das noch gut lesbar bleibt. 10,0:1.
+  static const zweitText = Colors.white70;
+
+  /// Erklärende Hinweise unter Bedienelementen. 6,1:1 – der Material-übliche
+  /// Wert für sekundären Text auf dunklem Grund.
+  static const hinweis = Colors.white54;
+
+  /// NUR für abgeschaltete Bedienelemente. 3,4:1 – zu wenig für Text, den
+  /// jemand lesen soll, aber richtig für etwas, das gerade nicht gilt (die
+  /// Zugänglichkeitsrichtlinie nimmt inaktive Elemente ausdrücklich aus).
+  static const inaktiv = Colors.white38;
+
+  /// Trennlinien und Rahmen. Kein Text.
+  static const linie = Colors.white24;
+}
+
 /// Kurzer Weg zu [AppSemantik] – `Theme.of(context).extension<…>()!` an
 /// jeder Aufrufstelle wäre nur Lärm.
 extension AppSemantikZugriff on BuildContext {

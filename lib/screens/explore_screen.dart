@@ -625,7 +625,7 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: Text(
-                  yearsAgo == 1 ? 'Vor 1 Jahr' : 'Vor $yearsAgo Jahren',
+                  AppTexte.of(context).erkundenVorJahren(yearsAgo),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),

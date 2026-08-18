@@ -161,7 +161,9 @@ class _LivePhotoViewState extends State<LivePhotoView> {
             child: IconButton.filled(
               style: IconButton.styleFrom(backgroundColor: Colors.black54),
               icon: Icon(_loopMode ? Icons.pause : Icons.play_arrow, color: Colors.white),
-              tooltip: _loopMode ? 'Wiedergabe stoppen' : 'In Dauerschleife abspielen',
+              tooltip: _loopMode
+                  ? AppTexte.of(context).liveWiedergabeStoppen
+                  : AppTexte.of(context).liveDauerschleife,
               onPressed: _togglePlayButton,
             ),
           ),

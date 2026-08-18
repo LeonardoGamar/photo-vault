@@ -28,6 +28,7 @@ import '../widgets/color_mixer_panel.dart';
 import '../widgets/develop_preview.dart';
 import '../widgets/histogram_view.dart';
 import '../widgets/tone_curve_editor.dart';
+import '../theme/app_theme.dart';
 
 /// Welche Art von Maske gerade erstellt/bearbeitet wird – KI-Auswahl (SAM-
 /// Punkt-Prompts, siehe SegmentationService) oder eine der drei editierbaren
@@ -148,6 +149,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
   double _sharpness = 0;
   double _noiseReduction = 0;
   bool _lensCorrectionEnabled = true;
+
+  /// Was die Objektivkorrektur für DIESE Datei überhaupt leisten kann –
+  /// nativ erfragt, nicht an der Dateiendung geraten. Bis die Antwort da
+  /// ist, steht sie auf `unbekannt` und der Schalter verhält sich wie
+  /// bisher.
+  Objektivkorrekturstand _korrekturstand = Objektivkorrekturstand.unbekannt;
 
   /// Tonwertkurve und Farbmischer (siehe develop_color.dart). Anders als
   /// die Regler darüber tragen sie keinen einzelnen Zahlenwert, sondern
@@ -307,6 +314,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
     }
     _masks = await widget.db.masksForAsset(widget.asset.id);
     if (mounted) setState(() => _loading = false);
+
+    // Nach dem Anzeigen, nicht davor: Der Bildschirm soll nicht auf eine
+    // Auskunft warten, die nur eine Beschriftung betrifft.
+    final stand = await NativeImageConverter.lensCorrectionStatus(
+        widget.paths.absolute(widget.asset.relativePath));
+    if (mounted) setState(() => _korrekturstand = stand);
 
     if (settings == null && _masks.isEmpty) {
       // Unverändertes Foto: die bereits vorhandene Vorschau/Originaldatei
@@ -1152,10 +1165,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: TextStyle(color: enabled ? Colors.white : Colors.white38, fontSize: 13)),
+              Text(label, style: TextStyle(color: enabled ? DunkleFlaeche.text : DunkleFlaeche.inaktiv, fontSize: 13)),
               Text(
                 value.toStringAsFixed(min.abs() >= 100 ? 0 : 2),
-                style: TextStyle(color: enabled ? Colors.white70 : Colors.white24, fontSize: 12),
+                style: TextStyle(color: enabled ? DunkleFlaeche.zweitText : DunkleFlaeche.linie, fontSize: 12),
               ),
             ],
           ),
@@ -1313,7 +1326,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                           child: Text(
                                             AppTexte.of(context).entwVergleichen,
                                             style: const TextStyle(
-                                                color: Colors.white38, fontSize: 11),
+                                                color: DunkleFlaeche.hinweis, fontSize: 11),
                                           ),
                                         ),
                                       if (_rendering)
@@ -1644,10 +1657,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: TextStyle(color: enabled ? Colors.white : Colors.white38, fontSize: 13)),
+              Text(label, style: TextStyle(color: enabled ? DunkleFlaeche.text : DunkleFlaeche.inaktiv, fontSize: 13)),
               Text(
                 value.toStringAsFixed(min.abs() >= 100 ? 0 : 2),
-                style: TextStyle(color: enabled ? Colors.white70 : Colors.white24, fontSize: 12),
+                style: TextStyle(color: enabled ? DunkleFlaeche.zweitText : DunkleFlaeche.linie, fontSize: 12),
               ),
             ],
           ),
@@ -1778,21 +1791,44 @@ class _DevelopScreenState extends State<DevelopScreen> {
           title: Text(AppTexte.of(context).entwObjektivkorrektur,
               style: const TextStyle(color: Colors.white, fontSize: 13)),
           subtitle: Text(
-            AppTexte.of(context).entwObjektivkorrekturHinweis,
-            style: const TextStyle(color: Colors.white38, fontSize: 11),
+            _objektivkorrekturHinweis(AppTexte.of(context)),
+            style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 11),
           ),
+          // Ein Schalter, der nachweislich nichts bewirkt, wird
+          // ausgegraut statt still ins Leere zu greifen. Solange der
+          // Stand noch geladen wird, bleibt er bedienbar – die Abfrage
+          // dauert Millisekunden, aber ein kurz gesperrter Schalter wäre
+          // irritierender als einer, der einmal zu viel reagiert.
           value: _lensCorrectionEnabled,
-          onChanged: (v) {
-            setState(() => _lensCorrectionEnabled = v);
-            _scheduleRerender();
+          onChanged: switch (_korrekturstand) {
+            Objektivkorrekturstand.keinRaw ||
+            Objektivkorrekturstand.nichtInDatenbank ||
+            Objektivkorrekturstand.nichtLesbar =>
+              null,
+            _ => (v) {
+                setState(() => _lensCorrectionEnabled = v);
+                _scheduleRerender();
+              },
           },
         ),
       ];
 
+  /// Der Satz unter dem Objektivkorrektur-Schalter, passend zu dem, was für
+  /// diese Datei wirklich gilt.
+  String _objektivkorrekturHinweis(AppTexte t) => switch (_korrekturstand) {
+        Objektivkorrekturstand.keinRaw => t.entwObjektivkorrekturKeinRaw,
+        Objektivkorrekturstand.verfuegbar => t.entwObjektivkorrekturVerfuegbar,
+        Objektivkorrekturstand.nichtInDatenbank =>
+          t.entwObjektivkorrekturUnbekanntesObjektiv,
+        Objektivkorrekturstand.nichtLesbar =>
+          t.entwObjektivkorrekturNichtLesbar,
+        Objektivkorrekturstand.unbekannt => t.entwObjektivkorrekturHinweis,
+      };
+
   List<Widget> _buildMaskSliders() => [
         Text(
           AppTexte.of(context).entwMaskenHinweis,
-          style: const TextStyle(color: Colors.white38, fontSize: 11),
+          style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 11),
         ),
         const SizedBox(height: 8),
         _slider(AppTexte.of(context).entwBelichtung, _maskExposure, -3, 3, (v) => setState(() => _maskExposure = v)),

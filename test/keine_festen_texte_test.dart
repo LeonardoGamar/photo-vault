@@ -70,6 +70,20 @@ void main() {
     // Kürzel, die in beiden Sprachen gleich lauten.
     'RGB',
     'LIVE',
+    'ISO',
+    'Esc',
+    // Der Nachweis für die Kartenkacheln ist eine Lizenzauflage und muss
+    // wörtlich so dastehen – übersetzt wäre er nicht mehr gültig.
+    '© OpenStreetMap contributors',
+    '© OpenStreetMap contributors © CARTO',
+    // Bezeichner, die nie jemand liest: Dateiname im Bibliotheksordner,
+    // `heroTag` zweier Knöpfe, `ValueKey` dreier Bausteine.
+    'vault.key',
+    'import-rail',
+    'import-bottom',
+    'auto-analyse',
+    'tonwertkurve-raster',
+    r'uebersetzung-$titel',
   };
 
   /// Zeilen, deren Text nie ein Nutzer sieht.
@@ -223,6 +237,71 @@ void main() {
       }
     }
     expect(reste, isEmpty, reason: 'noch deutsch:\n${reste.join('\n')}');
+  });
+
+  test('in Bildschirmen und Bausteinen steht überhaupt kein lesbarer Text', () {
+    // Die beiden Prüfungen darüber haben zusammen einen blinden Fleck: Die
+    // erste sieht nur benannte Stellen, die zweite nur Text, den man an
+    // Umlauten oder deutschen Funktionswörtern erkennt. `'Zuschneiden'` als
+    // positionelles Argument hat beides nicht – und stand deshalb nach vier
+    // Durchgängen immer noch deutsch im Bildeditor.
+    //
+    // Diese Prüfung dreht die Beweislast um: Unter `lib/screens/` und
+    // `lib/widgets/` gibt es keinen Grund für eine lesbare Zeichenkette im
+    // Quelltext. Was dort steht, ist entweder Oberfläche (dann gehört es in
+    // die Sprachdateien) oder ein Bezeichner (dann steht es oben in
+    // [unbedenklich], mit Begründung). Absichtlich nur diese beiden Ordner:
+    // Unter `lib/services/` und `lib/db/` sind Zeichenketten normal – SQL,
+    // Pfade, Spaltennamen –, dort wäre dieselbe Regel nur Lärm.
+    final endungen = [
+      '.dart', '.png', '.jpg', '.jpeg', '.json', '.onnx', '.zip',
+      '.sqlite', '.txt', '.md', '.xmp', '.mp4', '.heic', '.svg', '.csv',
+    ];
+    final bezeichner = RegExp(r'^[a-z][A-Za-z0-9_]*$');
+    final schreimodus = RegExp(r'^[A-Z0-9_+.\-]{1,10}$');
+
+    /// Sieht die Zeichenkette aus, als läse ein Mensch sie?
+    bool lesbar(String roh) {
+      final text = ohneCode(roh).trim();
+      if (text.length < 3) return false;
+      if (text.startsWith('package:') ||
+          text.startsWith('dart:') ||
+          text.startsWith('assets/') ||
+          text.startsWith('http') ||
+          text.startsWith('com.') ||
+          text.contains('/') ||
+          text.contains('\\')) {
+        return false;
+      }
+      if (endungen.any(text.endsWith)) return false;
+      if (bezeichner.hasMatch(text) || schreimodus.hasMatch(text)) return false;
+      return RegExp(r'[A-Za-zÄÖÜäöüß]{3,}').hasMatch(text);
+    }
+
+    final reste = <String>[];
+    for (final pfad in fertig) {
+      if (!pfad.startsWith('lib/screens/') && !pfad.startsWith('lib/widgets/')) {
+        continue;
+      }
+      final quelltext = File(pfad).readAsStringSync();
+      final zeilen = quelltext.split('\n');
+      for (final (zeile, text) in alleLiterale(quelltext)) {
+        final quelle = zeilen[zeile - 1];
+        if (quelle.trimLeft().startsWith('import ') ||
+            quelle.trimLeft().startsWith('export ') ||
+            quelle.trimLeft().startsWith('part ')) {
+          continue;
+        }
+        if (nurFuerEntwickler(quelle) ||
+            (zeile > 1 && nurFuerEntwickler(zeilen[zeile - 2]))) {
+          continue;
+        }
+        if (unbedenklich.contains(text) || !lesbar(text)) continue;
+        reste.add('$pfad:$zeile  „$text"');
+      }
+    }
+    expect(reste, isEmpty,
+        reason: 'lesbarer Text fest im Quelltext:\n${reste.join('\n')}');
   });
 
   test('die ausgenommenen Dateien gibt es noch', () {

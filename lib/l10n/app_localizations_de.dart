@@ -3287,4 +3287,285 @@ class AppTexteDe extends AppTexte {
   String integVerwaisteDateien(int anzahl) {
     return 'Verwaiste Dateien ($anzahl)';
   }
+
+  @override
+  String get viewerKugelSchwenken => '3D-Kugel statt flachem Schwenken';
+
+  @override
+  String get regelNeuTitel => 'Neue Automatisierungsregel';
+
+  @override
+  String get regelBearbeitenTitel => 'Regel bearbeiten';
+
+  @override
+  String presetZeileAlbum(String album) {
+    return 'Album: $album';
+  }
+
+  @override
+  String presetZeileTags(String tags) {
+    return 'Tags: $tags';
+  }
+
+  @override
+  String get presetKeineAktion => 'Keine Aktion konfiguriert';
+
+  @override
+  String get presetNeuTitel => 'Neues Kamera-Preset';
+
+  @override
+  String get presetBearbeitenTitel => 'Kamera-Preset bearbeiten';
+
+  @override
+  String allgSucheFehlgeschlagen(String fehler) {
+    return 'Suche fehlgeschlagen: $fehler';
+  }
+
+  @override
+  String get allgUnbekannterFehler => 'Unbekannter Fehler';
+
+  @override
+  String erkundenVorJahren(int jahre) {
+    String _temp0 = intl.Intl.pluralLogic(
+      jahre,
+      locale: localeName,
+      other: 'Vor $jahre Jahren',
+      one: 'Vor 1 Jahr',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gesichtBenennen => 'Gesicht benennen';
+
+  @override
+  String get gesichtUnbenannt => 'Unbenannt';
+
+  @override
+  String get bearbZuschneiden => 'Zuschneiden';
+
+  @override
+  String get bearbLinksDrehen => 'Nach links drehen';
+
+  @override
+  String get bearbRechtsDrehen => 'Nach rechts drehen';
+
+  @override
+  String get bearbHorizontalSpiegeln => 'Horizontal spiegeln';
+
+  @override
+  String get bearbVertikalSpiegeln => 'Vertikal spiegeln';
+
+  @override
+  String get integAusDbEntfernenTitel => 'Aus Datenbank entfernen?';
+
+  @override
+  String get integArtOriginal => 'Original';
+
+  @override
+  String get integArtThumbnail => 'Thumbnail';
+
+  @override
+  String get integArtVorschau => 'Vorschau';
+
+  @override
+  String get integArtEntwickelt => 'Entwickeltes Bild';
+
+  @override
+  String get integArtRestauriert => 'KI-restauriertes Bild';
+
+  @override
+  String get integArtVideoZuschnitt => 'Geschnittenes Video';
+
+  @override
+  String get integArtGesichtsCrop => 'Gesichts-Crop';
+
+  @override
+  String get integArtMaske => 'KI-Maske';
+
+  @override
+  String get gesperrtTabFotos => 'Fotos';
+
+  @override
+  String get gesperrtTabPapierkorb => 'Papierkorb';
+
+  @override
+  String get karteHell => 'Hell';
+
+  @override
+  String get karteDunkel => 'Dunkel';
+
+  @override
+  String get karteGlobus => 'Globus';
+
+  @override
+  String zweitVergleichFehlgeschlagen(String fehler) {
+    return 'Vergleich fehlgeschlagen: $fehler';
+  }
+
+  @override
+  String xmpEinlesenFehlgeschlagen(String fehler) {
+    return 'Einlesen fehlgeschlagen: $fehler';
+  }
+
+  @override
+  String get xmpFeldBewertung => 'Bewertung';
+
+  @override
+  String get xmpFeldFarbmarkierung => 'Farbmarkierung';
+
+  @override
+  String get xmpFeldBeschreibung => 'Beschreibung';
+
+  @override
+  String get xmpFeldNeueTags => 'Neue Tags';
+
+  @override
+  String get xmpFeldStandort => 'Standort';
+
+  @override
+  String get xmpKeineSidecars => 'Keine XMP-Sidecars gefunden.';
+
+  @override
+  String get liveWiedergabeStoppen => 'Wiedergabe stoppen';
+
+  @override
+  String get liveDauerschleife => 'In Dauerschleife abspielen';
+
+  @override
+  String get metaHersteller => 'Kamera-Hersteller';
+
+  @override
+  String get metaModell => 'Kamera-Modell';
+
+  @override
+  String get metaObjektiv => 'Objektiv';
+
+  @override
+  String get metaBrennweite => 'Brennweite (mm)';
+
+  @override
+  String get metaBlende => 'Blende (f/…)';
+
+  @override
+  String get metaBelichtungszeit => 'Belichtungszeit';
+
+  @override
+  String get passphraseZuKurz =>
+      'Passphrase muss mindestens 8 Zeichen lang sein.';
+
+  @override
+  String get exportVorgabenTitel => 'Export-Voreinstellungen';
+
+  @override
+  String get exportVorgabenLeer =>
+      'Noch keine Voreinstellung. Eine Voreinstellung merkt sich Grösse, Qualität und Dateibenennung – für alles, was Sie öfter als einmal exportieren.';
+
+  @override
+  String get exportVorgabeNeu => 'Neue Voreinstellung';
+
+  @override
+  String get exportVorgabeNeuTitel => 'Neue Export-Voreinstellung';
+
+  @override
+  String get exportVorgabeBearbeitenTitel => 'Voreinstellung bearbeiten';
+
+  @override
+  String get exportVorgabeName => 'Name';
+
+  @override
+  String get exportVorgabeNameNoetig => 'Bitte einen Namen vergeben.';
+
+  @override
+  String get exportVorgabeNachJpeg => 'Nach JPEG rendern';
+
+  @override
+  String get exportVorgabeNachJpegHinweis =>
+      'Ohne das wird die Datei unverändert kopiert – der einzige Weg, der RAW und Videos unangetastet lässt.';
+
+  @override
+  String get exportVorgabeKante => 'Längere Kante (Pixel)';
+
+  @override
+  String get exportVorgabeKanteLeer => 'leer = volle Auflösung';
+
+  @override
+  String get exportVorgabeKanteUngueltig =>
+      'Die Kantenlänge muss zwischen 64 und 20000 liegen.';
+
+  @override
+  String exportVorgabeQualitaet(int prozent) {
+    return 'JPEG-Qualität: $prozent %';
+  }
+
+  @override
+  String get exportVorgabeMuster => 'Namensmuster';
+
+  @override
+  String get exportVorgabeMusterNoetig =>
+      'Das Namensmuster darf nicht leer sein.';
+
+  @override
+  String get exportVorgabeMusterHinweis =>
+      'Die Endung wird immer selbst ergänzt. Die laufende Nummer zählt innerhalb eines Export-Laufs und wird vierstellig aufgefüllt.';
+
+  @override
+  String get exportVorgabeXmp => 'XMP-Beistelldatei mitschreiben';
+
+  @override
+  String get exportVorgabeXmpHinweis =>
+      'Bewertung, Schlagwörter und Ort für andere Programme – als eigene Datei neben dem Foto.';
+
+  @override
+  String exportVorgabeJpegVoll(int prozent) {
+    return 'JPEG, volle Auflösung, $prozent %';
+  }
+
+  @override
+  String exportVorgabeJpegKante(int kante, int prozent) {
+    return 'JPEG, lange Kante $kante px, $prozent %';
+  }
+
+  @override
+  String get exportVorgabeOhneXmp => 'ohne XMP';
+
+  @override
+  String get exportVorgabeLoeschenTitel => 'Voreinstellung löschen?';
+
+  @override
+  String exportVorgabeLoeschenText(String name) {
+    return '„$name\" wird entfernt. Bereits exportierte Dateien bleiben unberührt.';
+  }
+
+  @override
+  String get exportEigeneVorgaben => 'Eigene Voreinstellungen';
+
+  @override
+  String get exportVorgabenVerwalten => 'Voreinstellungen verwalten …';
+
+  @override
+  String get werkzExportVorgabenTitel => 'Export-Voreinstellungen';
+
+  @override
+  String get werkzExportVorgabenText =>
+      'Benannte Ausgabe-Vorgaben für den Export: Grösse, JPEG-Qualität, Dateibenennung und ob eine XMP-Beistelldatei mitgeschrieben wird.';
+
+  @override
+  String get exportVorgabeNameVergeben => 'Diesen Namen gibt es schon.';
+
+  @override
+  String get entwObjektivkorrekturKeinRaw =>
+      'Kein RAW – die Kamera hat Verzeichnung und Vignettierung bereits korrigiert.';
+
+  @override
+  String get entwObjektivkorrekturVerfuegbar =>
+      'Kamera und Objektiv sind bekannt: Verzeichnung und Vignettierung werden korrigiert.';
+
+  @override
+  String get entwObjektivkorrekturUnbekanntesObjektiv =>
+      'Für diese Kamera gibt es kein Profil. Bei ProRAW-Aufnahmen ist das kein Mangel – die Korrektur steckt schon in der Datei.';
+
+  @override
+  String get entwObjektivkorrekturNichtLesbar =>
+      'Die RAW-Daten dieser Datei lassen sich nicht öffnen. Auch die übrigen Regler wirken deshalb nur auf die eingebettete Vorschau.';
 }

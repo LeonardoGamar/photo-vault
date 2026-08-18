@@ -131,7 +131,8 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
         _error = null;
       });
     } catch (e) {
-      setState(() => _error = 'Einlesen fehlgeschlagen: $e');
+      if (!mounted) return;
+      setState(() => _error = AppTexte.of(context).xmpEinlesenFehlgeschlagen('$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -163,12 +164,12 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
     }
   }
 
-  String _fieldLabel(_XmpDiffField field) => switch (field) {
-        _XmpDiffField.rating => 'Bewertung',
-        _XmpDiffField.colorLabel => 'Farbmarkierung',
-        _XmpDiffField.description => 'Beschreibung',
-        _XmpDiffField.tags => 'Neue Tags',
-        _XmpDiffField.location => 'Standort',
+  String _fieldLabel(AppTexte t, _XmpDiffField field) => switch (field) {
+        _XmpDiffField.rating => t.xmpFeldBewertung,
+        _XmpDiffField.colorLabel => t.xmpFeldFarbmarkierung,
+        _XmpDiffField.description => t.xmpFeldBeschreibung,
+        _XmpDiffField.tags => t.xmpFeldNeueTags,
+        _XmpDiffField.location => t.xmpFeldStandort,
       };
 
   @override
@@ -214,7 +215,7 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
               const SizedBox(height: 16),
               Text(
                 _sidecarsFound == 0
-                    ? 'Keine XMP-Sidecars gefunden.'
+                    ? AppTexte.of(context).xmpKeineSidecars
                     : AppTexte.of(context).xmpKeineAbweichungen(_sidecarsFound),
                 textAlign: TextAlign.center,
               ),
@@ -231,7 +232,8 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
         return Card(
           child: ListTile(
             title: Text(diff.asset.originalFileName),
-            subtitle: Text('${_fieldLabel(diff.field)}: "${diff.currentValueDisplay}" → "${diff.xmpValueDisplay}"'),
+            subtitle: Text('${_fieldLabel(AppTexte.of(context), diff.field)}: '
+                '"${diff.currentValueDisplay}" → "${diff.xmpValueDisplay}"'),
             trailing: TextButton(
               onPressed: () => _apply(diff),
               child: Text(AppTexte.of(context).allgUebernehmen),

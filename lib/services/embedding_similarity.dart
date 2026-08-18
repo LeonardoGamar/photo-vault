@@ -24,7 +24,7 @@ class BurstSearchParams {
 }
 
 /// Anzahl unabhängiger Zufalls-Projektionen für die Vorfilterung (siehe
-/// [_candidateIndexPairs]) – mehr Projektionen erhöhen die Trefferquote
+/// [candidateIndexPairs]) – mehr Projektionen erhöhen die Trefferquote
 /// (Recall) auf Kosten von etwas mehr Rechenzeit. 2 ist ein guter Kompromiss:
 /// sehr ähnliche Fotos liegen praktisch immer in mindestens einer der beiden
 /// projizierten Sortierungen nah beieinander.
@@ -43,7 +43,7 @@ const _slidingWindow = 200;
 
 /// Gruppiert Foto-IDs anhand paarweiser Kosinus-Ähnlichkeit ihrer
 /// CLIP-Embeddings (Union-Find über eine vorgefilterte Kandidatenliste, siehe
-/// [_candidateIndexPairs]). Bewusst als TOP-LEVEL-Funktion ausgelagert (statt
+/// [candidateIndexPairs]). Bewusst als TOP-LEVEL-Funktion ausgelagert (statt
 /// eine Methode auf einem State), damit sie über [compute] in einem eigenen
 /// Isolate laufen kann.
 ///
@@ -73,7 +73,7 @@ List<List<String>> findDuplicateGroups(DuplicateSearchParams params) {
     if (ra != rb) parent[ra] = rb;
   }
 
-  for (final packed in _candidateIndexPairs(vectors)) {
+  for (final packed in candidateIndexPairs(vectors)) {
     final i = packed ~/ n;
     final j = packed % n;
     if (_cosineSimilarity(vectors[i], vectors[j]) >= params.threshold) union(i, j);
@@ -107,7 +107,7 @@ List<List<String>> findBurstGroups(BurstSearchParams params) {
     if (ra != rb) parent[ra] = rb;
   }
 
-  for (final packed in _candidateIndexPairs(vectors)) {
+  for (final packed in candidateIndexPairs(vectors)) {
     final i = packed ~/ n;
     final j = packed % n;
     final ti = timestamps[i], tj = timestamps[j];
@@ -144,7 +144,13 @@ List<List<String>> _resolveClusters(List<int> parent, int n, List<String> ids) {
 /// [findDuplicateGroups] für die Begründung. Jedes Paar wird als einzelner
 /// `int` gepackt (`kleinerIndex * n + größerIndex`) statt als Tupel, damit
 /// das deduplizierende `Set` reine Integer- statt String-Hashes nutzt.
-Set<int> _candidateIndexPairs(List<Float32List> vectors) {
+///
+/// Öffentlich, weil die Grösse des Ergebnisses das eigentliche Mass der
+/// Vorfilterung ist: Genau so viele Paare werden anschliessend wirklich
+/// verglichen, gegenüber `n·(n-1)/2` beim Alle-gegen-alle-Durchlauf. Das
+/// lässt sich prüfen, ohne eine Uhr zu befragen – und eine Uhr auf einer
+/// ausgelasteten Maschine hat genau diesen Test unzuverlässig gemacht.
+Set<int> candidateIndexPairs(List<Float32List> vectors) {
   final n = vectors.length;
   if (n < 2) return {};
   final dim = vectors.first.length;
@@ -172,7 +178,7 @@ Set<int> _candidateIndexPairs(List<Float32List> vectors) {
 }
 
 /// Deterministische "Zufalls"-Richtung (fester Seed, siehe [_projectionSeeds])
-/// derselben Dimension wie die CLIP-Embeddings, für [_candidateIndexPairs].
+/// derselben Dimension wie die CLIP-Embeddings, für [candidateIndexPairs].
 Float32List _randomDirection(int dim, int seed) {
   final rand = math.Random(seed);
   final v = Float32List(dim);

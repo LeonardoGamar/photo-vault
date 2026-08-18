@@ -69,7 +69,8 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
         _error = null;
       });
     } catch (e) {
-      setState(() => _error = 'Suche fehlgeschlagen: $e');
+      if (!mounted) return;
+      setState(() => _error = AppTexte.of(context).allgSucheFehlgeschlagen('$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

@@ -6,6 +6,7 @@ import '../services/develop_color.dart';
 import '../services/histogram.dart';
 import '../theme/app_spacing.dart';
 import 'histogram_view.dart';
+import '../theme/app_theme.dart';
 
 /// Fangradius in Pixeln, innerhalb dessen ein Tipp einen vorhandenen Punkt
 /// greift statt einen neuen anzulegen. Grosszügig gewählt: Ein versehentlich
@@ -268,7 +269,7 @@ class _ToneCurveEditorState extends State<ToneCurveEditor> {
         const SizedBox(height: 4),
         Text(
           AppTexte.of(context).kurveHinweis,
-          style: const TextStyle(color: Colors.white38, fontSize: 11),
+          style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 11),
         ),
       ],
     );
