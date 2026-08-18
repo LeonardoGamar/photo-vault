@@ -3548,4 +3548,64 @@ class AppTexteEn extends AppTexte {
   @override
   String get entwObjektivkorrekturNichtLesbar =>
       'The RAW data in this file cannot be opened. The other sliders therefore only affect the embedded preview.';
+
+  @override
+  String get einstSuche => 'Search settings';
+
+  @override
+  String get einstNichtsGefunden => 'No setting matches that search.';
+
+  @override
+  String get einstBeschrErscheinungsbild => 'Light, dark, or follow the system';
+
+  @override
+  String get einstBeschrSprache =>
+      'Language of the interface and of the keywords';
+
+  @override
+  String get einstBeschrUeberwacht =>
+      'Folders that new photos come in from on their own';
+
+  @override
+  String get einstBeschrBibliotheken => 'Switch between several libraries';
+
+  @override
+  String get einstBeschrSpeicherort =>
+      'Where the library lives and how much room it takes';
+
+  @override
+  String get einstBeschrModelle => 'Download and remove the local models';
+
+  @override
+  String get einstBeschrHintergrund =>
+      'Whether analysis starts automatically after an import';
+
+  @override
+  String get einstBeschrVokabular => 'The terms photos are tagged with';
+
+  @override
+  String get einstBeschrStandortdaten =>
+      'Place names for GPS coordinates, offline';
+
+  @override
+  String get einstBeschrGesperrt => 'PIN, encryption and what is kept inside';
+
+  @override
+  String get einstBeschrBackupSchluessel => 'Passphrase for encrypted backups';
+
+  @override
+  String get einstBeschrBackupManuell => 'Start a backup by hand';
+
+  @override
+  String get einstBeschrBackupAuto =>
+      'Back up regularly without having to think about it';
+
+  @override
+  String get einstBeschrPapierkorb => 'When deleted photos disappear for good';
+
+  @override
+  String get einstBeschrGefahr => 'Steps that cannot be undone';
+
+  @override
+  String get einstBeschrUeber => 'Version, licences and updates';
 }

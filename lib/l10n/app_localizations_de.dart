@@ -3568,4 +3568,70 @@ class AppTexteDe extends AppTexte {
   @override
   String get entwObjektivkorrekturNichtLesbar =>
       'Die RAW-Daten dieser Datei lassen sich nicht öffnen. Auch die übrigen Regler wirken deshalb nur auf die eingebettete Vorschau.';
+
+  @override
+  String get einstSuche => 'Suche nach Einstellungen';
+
+  @override
+  String get einstNichtsGefunden => 'Keine Einstellung passt zu dieser Suche.';
+
+  @override
+  String get einstBeschrErscheinungsbild => 'Hell, dunkel oder wie das System';
+
+  @override
+  String get einstBeschrSprache =>
+      'Sprache der Oberfläche und der Schlagwörter';
+
+  @override
+  String get einstBeschrUeberwacht =>
+      'Ordner, aus denen neue Fotos von selbst hereinkommen';
+
+  @override
+  String get einstBeschrBibliotheken =>
+      'Zwischen mehreren Bibliotheken wechseln';
+
+  @override
+  String get einstBeschrSpeicherort =>
+      'Wo die Bibliothek liegt und wie viel Platz sie braucht';
+
+  @override
+  String get einstBeschrModelle =>
+      'Herunterladen und entfernen der lokalen Modelle';
+
+  @override
+  String get einstBeschrHintergrund =>
+      'Ob nach dem Import automatisch ausgewertet wird';
+
+  @override
+  String get einstBeschrVokabular =>
+      'Die Begriffe, nach denen Fotos beschlagwortet werden';
+
+  @override
+  String get einstBeschrStandortdaten =>
+      'Ortsnamen zu GPS-Koordinaten, offline';
+
+  @override
+  String get einstBeschrGesperrt => 'PIN, Verschlüsselung und was darin liegt';
+
+  @override
+  String get einstBeschrBackupSchluessel =>
+      'Passphrase für verschlüsselte Sicherungen';
+
+  @override
+  String get einstBeschrBackupManuell => 'Eine Sicherung von Hand anstoßen';
+
+  @override
+  String get einstBeschrBackupAuto =>
+      'Regelmäßig sichern, ohne daran zu denken';
+
+  @override
+  String get einstBeschrPapierkorb =>
+      'Wann gelöschte Fotos endgültig verschwinden';
+
+  @override
+  String get einstBeschrGefahr =>
+      'Schritte, die sich nicht rückgängig machen lassen';
+
+  @override
+  String get einstBeschrUeber => 'Version, Lizenzen und Aktualisierungen';
 }

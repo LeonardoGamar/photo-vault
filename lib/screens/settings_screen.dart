@@ -137,9 +137,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double _geoDataProgress = 0;
   final TextEditingController _aiTagVocabularyController = TextEditingController();
 
+  /// Sucheingabe über den Gruppen. Filtert nach Titel UND Beschreibung –
+  /// wer „Passphrase" eingibt, soll den gesperrten Ordner auch dann finden,
+  /// wenn das Wort nur in der Beschreibung steht.
+  final TextEditingController _suche = TextEditingController();
+
   @override
   void dispose() {
     _aiTagVocabularyController.dispose();
+    _suche.dispose();
     super.dispose();
   }
 
@@ -789,12 +795,163 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) _reloadBackupSettings();
   }
 
+  /// Alle Gruppen in ihrer Reihenfolge. Die Beschreibung ist nicht nur
+  /// Zierde: Sie ist das, wonach die Suche oben sucht, und der einzige
+  /// Hinweis darauf, was in einer zugeklappten Gruppe steckt.
+  List<_Gruppe> _gruppen(AppTexte t) => [
+        _Gruppe(
+          icon: Icons.contrast_outlined,
+          titel: t.einstAbschnittErscheinungsbild,
+          beschreibung: t.einstBeschrErscheinungsbild,
+          inhalt: _gruppeErscheinungsbild,
+        ),
+        _Gruppe(
+          icon: Icons.translate_outlined,
+          titel: t.spracheTitel,
+          beschreibung: t.einstBeschrSprache,
+          inhalt: _gruppeSprache,
+        ),
+        _Gruppe(
+          icon: Icons.folder_special_outlined,
+          titel: t.einstUeberwachtTitel,
+          beschreibung: t.einstBeschrUeberwacht,
+          inhalt: _gruppeUeberwacht,
+        ),
+        _Gruppe(
+          icon: Icons.photo_library_outlined,
+          titel: t.einstBibListe,
+          beschreibung: t.einstBeschrBibliotheken,
+          inhalt: _gruppeBibliotheken,
+        ),
+        _Gruppe(
+          icon: Icons.sd_storage_outlined,
+          titel: t.einstSpeicherortTitel,
+          beschreibung: t.einstBeschrSpeicherort,
+          inhalt: _gruppeSpeicherort,
+        ),
+        _Gruppe(
+          icon: Icons.memory_outlined,
+          titel: t.einstAbschnittModelle,
+          beschreibung: t.einstBeschrModelle,
+          inhalt: _gruppeModelle,
+        ),
+        _Gruppe(
+          icon: Icons.autorenew_outlined,
+          titel: t.einstAbschnittHintergrund,
+          beschreibung: t.einstBeschrHintergrund,
+          inhalt: _gruppeHintergrund,
+        ),
+        _Gruppe(
+          icon: Icons.sell_outlined,
+          titel: t.einstAbschnittVokabular,
+          beschreibung: t.einstBeschrVokabular,
+          inhalt: _gruppeVokabular,
+        ),
+        _Gruppe(
+          icon: Icons.public_outlined,
+          titel: t.einstAbschnittStandortdaten,
+          beschreibung: t.einstBeschrStandortdaten,
+          inhalt: _gruppeStandortdaten,
+        ),
+        _Gruppe(
+          icon: Icons.lock_outline,
+          titel: t.einstAbschnittGesperrterOrdner,
+          beschreibung: t.einstBeschrGesperrt,
+          inhalt: _gruppeGesperrt,
+        ),
+        _Gruppe(
+          icon: Icons.key_outlined,
+          titel: t.einstBackupVerschluesselungTitel,
+          beschreibung: t.einstBeschrBackupSchluessel,
+          inhalt: _gruppeBackupSchluessel,
+        ),
+        _Gruppe(
+          icon: Icons.cloud_upload_outlined,
+          titel: t.einstAbschnittManuellesBackup,
+          beschreibung: t.einstBeschrBackupManuell,
+          inhalt: _gruppeBackupManuell,
+        ),
+        _Gruppe(
+          icon: Icons.schedule_outlined,
+          titel: t.einstAbschnittAutoBackup,
+          beschreibung: t.einstBeschrBackupAuto,
+          inhalt: _gruppeBackupAuto,
+        ),
+        _Gruppe(
+          icon: Icons.delete_sweep_outlined,
+          titel: t.einstAbschnittPapierkorb,
+          beschreibung: t.einstBeschrPapierkorb,
+          inhalt: _gruppePapierkorb,
+        ),
+        _Gruppe(
+          icon: Icons.warning_amber_outlined,
+          titel: t.einstAbschnittGefahrenzone,
+          beschreibung: t.einstBeschrGefahr,
+          inhalt: _gruppeGefahr,
+        ),
+        _Gruppe(
+          icon: Icons.info_outline,
+          titel: t.einstUeberTitel,
+          beschreibung: t.einstBeschrUeber,
+          inhalt: _gruppeUeber,
+        ),
+      ];
+
   @override
   Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final suche = _suche.text.trim().toLowerCase();
+    final alle = _gruppen(t);
+    final sichtbar = suche.isEmpty
+        ? alle
+        : [
+            for (final g in alle)
+              if (g.titel.toLowerCase().contains(suche) ||
+                  g.beschreibung.toLowerCase().contains(suche))
+                g,
+          ];
+
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
-        Text(AppTexte.of(context).einstAbschnittErscheinungsbild, style: Theme.of(context).textTheme.titleMedium),
+        SearchBar(
+          controller: _suche,
+          hintText: t.einstSuche,
+          leading: const Icon(Icons.search),
+          trailing: [
+            if (suche.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: t.allgAbbrechen,
+                onPressed: () => setState(_suche.clear),
+              ),
+          ],
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (sichtbar.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.xxxl),
+            child: Text(t.einstNichtsGefunden, textAlign: TextAlign.center),
+          ),
+        for (final gruppe in sichtbar)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: _GruppenKarte(
+              // Der Schlüssel enthält, ob gesucht wird: Bei einem Treffer
+              // soll die Gruppe offen erscheinen, und das entscheidet sich
+              // beim Neuaufbau. Ohne diesen Teil im Schlüssel behielte sie
+              // ihren vorherigen Zustand bei.
+              key: ValueKey('${gruppe.titel}|${suche.isNotEmpty}'),
+              gruppe: gruppe,
+              anfangsOffen: suche.isNotEmpty,
+            ),
+          ),
+      ],
+    );
+  }
+
+  List<Widget> _gruppeErscheinungsbild() => [
         Card(
           child: StreamBuilder<AppSettingsData?>(
             stream: widget.library.db.watchAppSettings(),
@@ -826,9 +983,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).spracheTitel,
-            style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeSprache() => [
         Card(
           child: StreamBuilder<AppSettingsData?>(
             stream: widget.library.db.watchAppSettings(),
@@ -867,8 +1024,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstUeberwachtTitel, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeUeberwacht() => [
         Card(
           child: FutureBuilder<({String pfad, String? token})?>(
             future: _ueberwachterOrdnerFuture,
@@ -913,8 +1071,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstBibListe, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeBibliotheken() => [
         Card(
           child: FutureBuilder<List<BibliothekMitZustand>>(
             future: _bibliothekenFuture,
@@ -997,9 +1156,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstSpeicherortTitel,
-            style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeSpeicherort() => [
         Card(
           child: Column(
             children: [
@@ -1052,8 +1211,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittModelle, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeModelle() => [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
@@ -1148,8 +1308,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 : AppTexte.of(context).einstGesichtserkennungInaktiv),
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittHintergrund, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeHintergrund() => [
         Card(
           child: ListTile(
             leading: const Icon(Icons.pending_actions_outlined),
@@ -1161,8 +1322,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittVokabular, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeVokabular() => [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
@@ -1221,8 +1383,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittStandortdaten, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeStandortdaten() => [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
@@ -1251,8 +1414,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : FilledButton(onPressed: _downloadGeoData, child: Text(AppTexte.of(context).allgHerunterladen)),
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittGesperrterOrdner, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeGesperrt() => [
         Card(
           child: FutureBuilder<bool>(
             future: _hasPinSetFuture,
@@ -1316,8 +1480,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstBackupVerschluesselungTitel, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeBackupSchluessel() => [
         Card(
           child: FutureBuilder<bool>(
             future: _hasBackupKeyFuture,
@@ -1366,8 +1531,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittManuellesBackup, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeBackupManuell() => [
         Card(
           child: Column(
             children: [
@@ -1422,8 +1588,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittAutoBackup, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeBackupAuto() => [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
@@ -1551,8 +1718,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstAbschnittPapierkorb, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppePapierkorb() => [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
@@ -1612,9 +1780,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
-        const SizedBox(height: 28),
-        Text(AppTexte.of(context).einstAbschnittGefahrenzone,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.error)),
+      ];
+
+  List<Widget> _gruppeGefahr() => [
         Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
@@ -1638,8 +1806,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
-        Text(AppTexte.of(context).einstUeberTitel, style: Theme.of(context).textTheme.titleMedium),
+      ];
+
+  List<Widget> _gruppeUeber() => [
         Card(
           child: FutureBuilder<PackageInfo>(
             future: _versionFuture,
@@ -1739,10 +1908,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
+      ];
 
-      ],
-    );
-  }
 
   /// Ein Schalter für eine Übersetzungsrichtung.
   ///
@@ -1840,3 +2007,78 @@ class _ModelCard extends StatelessWidget {
   }
 }
 
+/// Eine zusammenklappbare Gruppe von Einstellungen.
+///
+/// Der Bildschirm hatte sechzehn Abschnitte hintereinander – über 900
+/// Zeilen Oberfläche, durch die man scrollen musste, um an die
+/// Gefahrenzone ganz unten zu kommen. Als Gruppen ist zugeklappt der
+/// Normalfall: Man sieht sechzehn Zeilen und öffnet die eine, die man
+/// braucht.
+class _Gruppe {
+  final IconData icon;
+  final String titel;
+  final String beschreibung;
+
+  /// Als Funktion, nicht als fertige Liste: Der Inhalt einer zugeklappten
+  /// Gruppe soll gar nicht erst gebaut werden. Bei sechzehn Gruppen mit
+  /// StreamBuildern, Dateigrössen-Abfragen und Modell-Listen ist das der
+  /// Unterschied zwischen „alles immer" und „nur das Geöffnete".
+  final List<Widget> Function() inhalt;
+
+  const _Gruppe({
+    required this.icon,
+    required this.titel,
+    required this.beschreibung,
+    required this.inhalt,
+  });
+}
+
+class _GruppenKarte extends StatelessWidget {
+  final _Gruppe gruppe;
+  final bool anfangsOffen;
+
+  const _GruppenKarte({
+    super.key,
+    required this.gruppe,
+    required this.anfangsOffen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    final rand = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      side: BorderSide(color: farben.outlineVariant),
+    );
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 0,
+      color: farben.surface,
+      shape: rand,
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        // Ohne diese beiden hat ExpansionTile im geöffneten Zustand eigene
+        // Trennlinien oben und unten, die quer zur Kartenkontur laufen.
+        shape: const Border(),
+        collapsedShape: const Border(),
+        initiallyExpanded: anfangsOffen,
+        leading: Icon(gruppe.icon, color: farben.primary),
+        title: Text(
+          gruppe.titel,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: farben.primary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        subtitle: Text(
+          gruppe.beschreibung,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        childrenPadding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        children: gruppe.inhalt(),
+      ),
+    );
+  }
+}

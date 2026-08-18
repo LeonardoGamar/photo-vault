@@ -6113,6 +6113,114 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Die RAW-Daten dieser Datei lassen sich nicht öffnen. Auch die übrigen Regler wirken deshalb nur auf die eingebettete Vorschau.'**
   String get entwObjektivkorrekturNichtLesbar;
+
+  /// No description provided for @einstSuche.
+  ///
+  /// In de, this message translates to:
+  /// **'Suche nach Einstellungen'**
+  String get einstSuche;
+
+  /// No description provided for @einstNichtsGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Einstellung passt zu dieser Suche.'**
+  String get einstNichtsGefunden;
+
+  /// No description provided for @einstBeschrErscheinungsbild.
+  ///
+  /// In de, this message translates to:
+  /// **'Hell, dunkel oder wie das System'**
+  String get einstBeschrErscheinungsbild;
+
+  /// No description provided for @einstBeschrSprache.
+  ///
+  /// In de, this message translates to:
+  /// **'Sprache der Oberfläche und der Schlagwörter'**
+  String get einstBeschrSprache;
+
+  /// No description provided for @einstBeschrUeberwacht.
+  ///
+  /// In de, this message translates to:
+  /// **'Ordner, aus denen neue Fotos von selbst hereinkommen'**
+  String get einstBeschrUeberwacht;
+
+  /// No description provided for @einstBeschrBibliotheken.
+  ///
+  /// In de, this message translates to:
+  /// **'Zwischen mehreren Bibliotheken wechseln'**
+  String get einstBeschrBibliotheken;
+
+  /// No description provided for @einstBeschrSpeicherort.
+  ///
+  /// In de, this message translates to:
+  /// **'Wo die Bibliothek liegt und wie viel Platz sie braucht'**
+  String get einstBeschrSpeicherort;
+
+  /// No description provided for @einstBeschrModelle.
+  ///
+  /// In de, this message translates to:
+  /// **'Herunterladen und entfernen der lokalen Modelle'**
+  String get einstBeschrModelle;
+
+  /// No description provided for @einstBeschrHintergrund.
+  ///
+  /// In de, this message translates to:
+  /// **'Ob nach dem Import automatisch ausgewertet wird'**
+  String get einstBeschrHintergrund;
+
+  /// No description provided for @einstBeschrVokabular.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Begriffe, nach denen Fotos beschlagwortet werden'**
+  String get einstBeschrVokabular;
+
+  /// No description provided for @einstBeschrStandortdaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Ortsnamen zu GPS-Koordinaten, offline'**
+  String get einstBeschrStandortdaten;
+
+  /// No description provided for @einstBeschrGesperrt.
+  ///
+  /// In de, this message translates to:
+  /// **'PIN, Verschlüsselung und was darin liegt'**
+  String get einstBeschrGesperrt;
+
+  /// No description provided for @einstBeschrBackupSchluessel.
+  ///
+  /// In de, this message translates to:
+  /// **'Passphrase für verschlüsselte Sicherungen'**
+  String get einstBeschrBackupSchluessel;
+
+  /// No description provided for @einstBeschrBackupManuell.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine Sicherung von Hand anstoßen'**
+  String get einstBeschrBackupManuell;
+
+  /// No description provided for @einstBeschrBackupAuto.
+  ///
+  /// In de, this message translates to:
+  /// **'Regelmäßig sichern, ohne daran zu denken'**
+  String get einstBeschrBackupAuto;
+
+  /// No description provided for @einstBeschrPapierkorb.
+  ///
+  /// In de, this message translates to:
+  /// **'Wann gelöschte Fotos endgültig verschwinden'**
+  String get einstBeschrPapierkorb;
+
+  /// No description provided for @einstBeschrGefahr.
+  ///
+  /// In de, this message translates to:
+  /// **'Schritte, die sich nicht rückgängig machen lassen'**
+  String get einstBeschrGefahr;
+
+  /// No description provided for @einstBeschrUeber.
+  ///
+  /// In de, this message translates to:
+  /// **'Version, Lizenzen und Aktualisierungen'**
+  String get einstBeschrUeber;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

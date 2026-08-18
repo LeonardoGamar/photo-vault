@@ -4,13 +4,32 @@ import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
 import '../db/database.dart';
+import '../theme/app_theme.dart';
 import 'timeline_grid_layout.dart';
 
 /// Vertikaler "Schnell-Scroll"-Regler am rechten Rand der Timeline/des
-/// Kalenders (analog zum Jahres-/Monats-Index in Apple Fotos): zeigt Jahre
-/// als Beschriftung, Monate als Punkte, und beim Ziehen eine Sprechblase mit
-/// dem exakten Monat/Jahr der Zielposition – zusätzlich eine dünne
-/// Positionsmarkierung, die immer die aktuelle Scroll-Position widerspiegelt.
+/// Kalenders: Jahre als Beschriftung, Monate als Punkte, und an der
+/// aktuellen Position eine Linie quer über die ganze Leiste mit dem Monat
+/// darüber.
+///
+/// Die Leiste hat einen eigenen, halbdurchsichtigen Grund. Das ist keine
+/// Zierde: Ohne ihn stünde weisse Schrift direkt auf den Fotos und wäre
+/// über einem hellen Bild unlesbar – und die Fotos darunter wechseln beim
+/// Scrollen ständig die Helligkeit. Mit dem Grund gilt derselbe Kontrast
+/// wie auf den übrigen dunklen Arbeitsflächen (siehe [DunkleFlaeche]),
+/// unabhängig davon, ob die App gerade hell oder dunkel läuft.
+///
+/// Statt einer Sprechblase neben dem Finger steht die Beschriftung IN der
+/// Leiste: Beim Ziehen liegt der Finger genau dort, wo die Sprechblase
+/// erschien, und verdeckte sie auf dem Trackpad-Bildschirm regelmässig.
+/// Wie weit die Punktspalte vom rechten Rand entfernt sitzt.
+const double _punktSpalte = 14;
+
+/// Grund der Leiste. Dunkel und halbdurchsichtig, damit die Fotos daneben
+/// durchscheinen, die Schrift darauf aber in jedem Helligkeitsmodus lesbar
+/// bleibt – gegen diesen Grund gelten die Werte aus [DunkleFlaeche].
+const Color _leistenGrund = Color(0xD9000000);
+
 class TimelineScrubber extends StatefulWidget {
   /// Jahr*100+Monat-Schlüssel, absteigend sortiert (neueste zuerst) – exakt
   /// wie in [MonthGroupedAssetGrid] verwendet.
@@ -37,8 +56,34 @@ class TimelineScrubber extends StatefulWidget {
 
 class _TimelineScrubberState extends State<TimelineScrubber> {
   double? _dragFraction;
-  int _hoveredKeyIndex = 0;
   double _scrollFraction = 0.0;
+
+  /// Die Monatsgruppe, die zur aktuell angezeigten Position gehört – beim
+  /// Ziehen die unter dem Finger, sonst die, in der die Ansicht gerade
+  /// steht. Wird beim Aufbau ausgerechnet statt mitgeführt: Sonst laufen
+  /// Marke und Beschriftung auseinander, sobald jemand mit dem Mausrad
+  /// scrollt statt zu ziehen.
+  int _aktiverIndex(double trackHeight) {
+    final offsets = _cumulativeOffsets;
+    final gesamt = offsets.last + timelineTrailingHeight;
+    final ziel = (_dragFraction ?? _scrollFraction) * gesamt;
+    var index = 0;
+    for (var i = 0; i < widget.orderedKeys.length; i++) {
+      if (offsets[i] <= ziel) {
+        index = i;
+      } else {
+        break;
+      }
+    }
+    return index;
+  }
+
+  /// Ob bei [index] ein neues Jahr beginnt – nur dort steht eine Jahreszahl.
+  bool _istJahresbeginn(int index) {
+    if (index == 0) return true;
+    return widget.orderedKeys[index] ~/ 100 !=
+        widget.orderedKeys[index - 1] ~/ 100;
+  }
 
   @override
   void initState() {
@@ -93,21 +138,11 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
     final totalHeight = offsets.last + timelineTrailingHeight;
     final targetPixels = fraction * totalHeight;
 
-    var index = 0;
-    for (var i = 0; i < widget.orderedKeys.length; i++) {
-      if (offsets[i] <= targetPixels) {
-        index = i;
-      } else {
-        break;
-      }
-    }
-
+    // Welche Monatsgruppe das ist, rechnet _aktiverIndex beim Aufbau aus –
+    // hier wird nur gesprungen.
     final maxScroll = widget.controller.position.maxScrollExtent;
     widget.controller.jumpTo(targetPixels.clamp(0.0, maxScroll));
-    setState(() {
-      _dragFraction = fraction;
-      _hoveredKeyIndex = index;
-    });
+    setState(() => _dragFraction = fraction);
   }
 
   String _labelFor(int key) =>
@@ -123,12 +158,6 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
     final offsets = _cumulativeOffsets;
     final totalHeight = offsets.last + timelineTrailingHeight;
 
-    final firstIndexOfYear = <int>{};
-    final seenYears = <int>{};
-    for (var i = 0; i < widget.orderedKeys.length; i++) {
-      if (seenYears.add(widget.orderedKeys[i] ~/ 100)) firstIndexOfYear.add(i);
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final trackHeight = constraints.maxHeight;
@@ -140,82 +169,100 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
 
         return Semantics(
           label: AppTexte.of(context).scrubberTooltip,
-          value: _dragFraction != null ? _labelFor(widget.orderedKeys[_hoveredKeyIndex]) : null,
+          value: _labelFor(widget.orderedKeys[_aktiverIndex(trackHeight)]),
           child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onVerticalDragStart: (d) => _handleDrag(d.localPosition.dy, trackHeight),
-          onVerticalDragUpdate: (d) => _handleDrag(d.localPosition.dy, trackHeight),
-          onVerticalDragEnd: (_) => setState(() => _dragFraction = null),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                right: 20,
-                top: 0,
-                bottom: 0,
-                child: Container(width: 1, color: Colors.white24),
-              ),
-              for (var i = 0; i < widget.orderedKeys.length; i++) ...[
-                Positioned(
-                  right: 17,
-                  top: (topFor(i) - 3).clamp(0.0, trackHeight - 6),
-                  child: Container(
-                    width: firstIndexOfYear.contains(i) ? 6 : 3,
-                    height: firstIndexOfYear.contains(i) ? 6 : 3,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: firstIndexOfYear.contains(i) ? 0.9 : 0.4),
+            behavior: HitTestBehavior.translucent,
+            onVerticalDragStart: (d) => _handleDrag(d.localPosition.dy, trackHeight),
+            onVerticalDragUpdate: (d) => _handleDrag(d.localPosition.dy, trackHeight),
+            onVerticalDragEnd: (_) => setState(() => _dragFraction = null),
+            onTapDown: (d) => _handleDrag(d.localPosition.dy, trackHeight),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(color: _leistenGrund),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Die Punktspalte: eine feine Linie, auf der die Monate
+                  // sitzen.
+                  const Positioned(
+                    right: _punktSpalte,
+                    top: 0,
+                    bottom: 0,
+                    child: SizedBox(
+                      width: 1,
+                      child: ColoredBox(color: DunkleFlaeche.linie),
                     ),
                   ),
-                ),
-                if (firstIndexOfYear.contains(i))
+                  for (var i = 0; i < widget.orderedKeys.length; i++) ...[
+                    Positioned(
+                      right: _punktSpalte - (_istJahresbeginn(i) ? 2 : 1),
+                      top: (topFor(i) - (_istJahresbeginn(i) ? 2.5 : 1.5))
+                          .clamp(0.0, trackHeight - 5),
+                      child: Container(
+                        width: _istJahresbeginn(i) ? 5 : 3,
+                        height: _istJahresbeginn(i) ? 5 : 3,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _istJahresbeginn(i)
+                              ? DunkleFlaeche.text
+                              : DunkleFlaeche.inaktiv,
+                        ),
+                      ),
+                    ),
+                    if (_istJahresbeginn(i))
+                      Positioned(
+                        right: _punktSpalte + 8,
+                        top: (topFor(i) - 7).clamp(0.0, trackHeight - 14),
+                        child: Text(
+                          '${widget.orderedKeys[i] ~/ 100}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            height: 1.1,
+                            color: DunkleFlaeche.hinweis,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                  ],
+                  // Die aktuelle Position: eine Linie quer über die ganze
+                  // Leiste, mit dem Monat direkt darüber. Beim Ziehen folgt
+                  // sie dem Finger, sonst der Scroll-Position.
                   Positioned(
-                    right: 28,
-                    top: (topFor(i) - 8).clamp(0.0, trackHeight - 16),
-                    child: Text(
-                      '${widget.orderedKeys[i] ~/ 100}',
-                      style: const TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
+                    left: 0,
+                    right: 0,
+                    top: ((_dragFraction ?? _scrollFraction) * trackHeight)
+                        .clamp(0.0, trackHeight - 1),
+                    child: const SizedBox(
+                      height: 1,
+                      child: ColoredBox(color: DunkleFlaeche.text),
                     ),
                   ),
-              ],
-              // Immer sichtbare, dünne Markierung der aktuellen Scroll-Position.
-              Positioned(
-                right: 0,
-                top: (_scrollFraction * trackHeight - 1).clamp(0.0, trackHeight - 2),
-                child: Container(width: 14, height: 2, color: Colors.white),
+                  // Die aktive Beschriftung darf weiter nach rechts als die
+                  // Jahreszahlen – "Nov. 2025" ist breiter als "2025", und
+                  // sie liegt ohnehin obenauf.
+                  Positioned(
+                    right: 4,
+                    left: 2,
+                    top: (((_dragFraction ?? _scrollFraction) * trackHeight) - 16)
+                        .clamp(0.0, trackHeight - 16),
+                    child: Text(
+                      _labelFor(widget.orderedKeys[_aktiverIndex(trackHeight)]),
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        height: 1.1,
+                        color: DunkleFlaeche.text,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              if (_dragFraction != null)
-                Positioned(
-                  right: 36,
-                  top: (_dragFraction! * trackHeight - 14).clamp(0.0, trackHeight - 28),
-                  child: _TooltipBubble(text: _labelFor(widget.orderedKeys[_hoveredKeyIndex])),
-                ),
-            ],
-          ),
+            ),
           ),
         );
       },
-    );
-  }
-}
-
-class _TooltipBubble extends StatelessWidget {
-  final String text;
-  const _TooltipBubble({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.black87,
-        borderRadius: BorderRadius.circular(6),
-        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 6)],
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-      ),
     );
   }
 }

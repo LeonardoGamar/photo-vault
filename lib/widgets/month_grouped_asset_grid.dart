@@ -10,7 +10,7 @@ import 'asset_thumbnail_tile.dart';
 import 'timeline_grid_layout.dart';
 import 'timeline_scrubber.dart';
 
-const double _scrubberWidth = 44.0;
+const double _scrubberWidth = 64.0;
 
 /// Rendert eine Liste von Assets gruppiert nach Monat (Überschrift + darunter
 /// ein Foto-Grid) – gemeinsame Darstellung für die Timeline und die
