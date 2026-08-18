@@ -246,12 +246,13 @@ flutter run -d macos
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 38: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 39: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
 Wiedererkennungs-Schwellen, Sprachwahl, Export-Voreinstellungen,
-ignorierte Gesichter, …). Drift migriert das automatisch beim
+ignorierte Gesichter, Klarheit/Vignettierung, importierte Farbtabellen,
+…). Drift migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
 

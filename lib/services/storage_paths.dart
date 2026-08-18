@@ -19,6 +19,7 @@ import 'library_location.dart';
 ///     restored/{assetId}.jpg         (nur mit KI-Restaurierung, siehe RestoreQueueService)
 ///     trimmed/{assetId}.mp4          (nur mit Video-Zuschnitt, siehe VideoTrimScreen)
 ///     masks/{maskId}.png             (KI-Objektmasken, siehe MaskEditor)
+///     luts/{name}.cube               (importierte Farbtabellen)
 ///     faces/{faceId}.jpg
 ///     trash/{assetId}.{ext}          (physisch verschoben bis "Papierkorb leeren")
 ///   library.sqlite
@@ -56,6 +57,7 @@ class StoragePaths {
       'trimmed',
       'masks',
       'faces',
+      'luts',
       'trash',
     ]) {
       await Directory(p.join(root.path, sub)).create(recursive: true);
@@ -69,6 +71,16 @@ class StoragePaths {
   Directory get developedDir => Directory(p.join(root.path, 'developed'));
   Directory get restoredDir => Directory(p.join(root.path, 'restored'));
   Directory get trimmedDir => Directory(p.join(root.path, 'trimmed'));
+  /// Importierte Farbtabellen (`.cube`).
+  ///
+  /// Sie werden in die Bibliothek kopiert statt nur verwiesen: Eine
+  /// Entwicklung, die auf eine Datei im Download-Ordner zeigt, sähe nach
+  /// dem nächsten Aufräumen anders aus – und ein Backup enthielte den Look
+  /// nicht.
+  Directory get lutsDir => Directory(p.join(root.path, 'luts'));
+
+  String lutRelativePath(String dateiname) => p.join('luts', dateiname);
+
   Directory get masksDir => Directory(p.join(root.path, 'masks'));
   Directory get facesDir => Directory(p.join(root.path, 'faces'));
   Directory get trashDir => Directory(p.join(root.path, 'trash'));

@@ -3758,4 +3758,141 @@ class AppTexteEn extends AppTexte {
     );
     return '$_temp0';
   }
+
+  @override
+  String get gesichtZuordnungLoesen => 'Remove assignment';
+
+  @override
+  String get gesichtNichtMehrIgnorieren => 'Stop ignoring';
+
+  @override
+  String get gesichtErkennungLoeschen => 'Delete detection';
+
+  @override
+  String gesichtAlleUnbenanntenIgnorieren(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: 'Ignore $anzahl unnamed faces',
+      one: 'Ignore unnamed face',
+      zero: 'No unnamed faces',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get personWeitereFotosSuchen => 'Find more photos';
+
+  @override
+  String vorschlagTitel(String name) {
+    return 'Suggestions for $name';
+  }
+
+  @override
+  String get vorschlagHinweis =>
+      'Everything is selected. Take out what is wrong – the recognition learns from that too: a rejection raises this person\'s threshold.';
+
+  @override
+  String get vorschlagAlleWaehlen => 'Select all';
+
+  @override
+  String get vorschlagKeineWaehlen => 'Select none';
+
+  @override
+  String vorschlagUebernehmen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: 'Assign $anzahl faces',
+      one: 'Assign one face',
+      zero: 'Nothing selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String vorschlagUebernommenMeldung(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos added.',
+      one: 'One photo added.',
+      zero: 'Nothing taken over – the feedback was still saved.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vorschlagKeineEmbeddings =>
+      'There is no recognition data for this person yet. It is created during the face scan once the SFace model is installed.';
+
+  @override
+  String get vorschlagKeineKandidaten =>
+      'There are no unnamed faces that could be suggested.';
+
+  @override
+  String vorschlagNichtsGefunden(String schwelle) {
+    return 'No unnamed face is above this person\'s threshold of $schwelle.';
+  }
+
+  @override
+  String get gesichtRahmenAusblenden => 'Hide boxes';
+
+  @override
+  String get gesichtRahmenEinblenden => 'Show boxes';
+
+  @override
+  String get entwKlarheit => 'Clarity';
+
+  @override
+  String get entwVignettierung => 'Vignette';
+
+  @override
+  String get entwLutKeine => 'No colour table';
+
+  @override
+  String get entwLutWaehlen => 'Choose colour table (.cube)';
+
+  @override
+  String get entwLutEntfernen => 'Remove colour table';
+
+  @override
+  String get entwLutStaerke => 'Strength';
+
+  @override
+  String entwLutFehlt(String name) {
+    return 'The colour table “$name” can no longer be read and was removed.';
+  }
+
+  @override
+  String entwLutNichtLesbar(String fehler) {
+    return 'The file cannot be read: $fehler';
+  }
+
+  @override
+  String get entwLutEindimensional =>
+      'This is a one-dimensional table – it describes a curve, not a colour space. Use the tone curve for that.';
+
+  @override
+  String get entwLutOhneGroesse => 'The file is missing the LUT_3D_SIZE entry.';
+
+  @override
+  String entwLutGroesse(int zeile) {
+    return 'The edge length in line $zeile is outside the allowed range (2 to 256).';
+  }
+
+  @override
+  String get entwLutZeilenzahl =>
+      'The file does not contain as many values as its edge length requires.';
+
+  @override
+  String entwLutZeile(int zeile) {
+    return 'Line $zeile cannot be read.';
+  }
+
+  @override
+  String get histogrammWaveform => 'Waveform';
+
+  @override
+  String get histogrammParade => 'Parade';
 }

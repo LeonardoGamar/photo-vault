@@ -6952,6 +6952,36 @@ class $DevelopSettingsTable extends DevelopSettings
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("lens_correction_enabled" IN (0, 1))'),
           defaultValue: const Constant(true));
+  static const VerificationMeta _clarityMeta =
+      const VerificationMeta('clarity');
+  @override
+  late final GeneratedColumn<double> clarity = GeneratedColumn<double>(
+      'clarity', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _vignetteMeta =
+      const VerificationMeta('vignette');
+  @override
+  late final GeneratedColumn<double> vignette = GeneratedColumn<double>(
+      'vignette', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lutPathMeta =
+      const VerificationMeta('lutPath');
+  @override
+  late final GeneratedColumn<String> lutPath = GeneratedColumn<String>(
+      'lut_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _lutStrengthMeta =
+      const VerificationMeta('lutStrength');
+  @override
+  late final GeneratedColumn<double> lutStrength = GeneratedColumn<double>(
+      'lut_strength', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
   static const VerificationMeta _toneCurveJsonMeta =
       const VerificationMeta('toneCurveJson');
   @override
@@ -6981,6 +7011,10 @@ class $DevelopSettingsTable extends DevelopSettings
         sharpness,
         noiseReduction,
         lensCorrectionEnabled,
+        clarity,
+        vignette,
+        lutPath,
+        lutStrength,
         toneCurveJson,
         colorMixerJson,
         updatedAt
@@ -7040,6 +7074,24 @@ class $DevelopSettingsTable extends DevelopSettings
           lensCorrectionEnabled.isAcceptableOrUnknown(
               data['lens_correction_enabled']!, _lensCorrectionEnabledMeta));
     }
+    if (data.containsKey('clarity')) {
+      context.handle(_clarityMeta,
+          clarity.isAcceptableOrUnknown(data['clarity']!, _clarityMeta));
+    }
+    if (data.containsKey('vignette')) {
+      context.handle(_vignetteMeta,
+          vignette.isAcceptableOrUnknown(data['vignette']!, _vignetteMeta));
+    }
+    if (data.containsKey('lut_path')) {
+      context.handle(_lutPathMeta,
+          lutPath.isAcceptableOrUnknown(data['lut_path']!, _lutPathMeta));
+    }
+    if (data.containsKey('lut_strength')) {
+      context.handle(
+          _lutStrengthMeta,
+          lutStrength.isAcceptableOrUnknown(
+              data['lut_strength']!, _lutStrengthMeta));
+    }
     if (data.containsKey('tone_curve_json')) {
       context.handle(
           _toneCurveJsonMeta,
@@ -7086,6 +7138,14 @@ class $DevelopSettingsTable extends DevelopSettings
       lensCorrectionEnabled: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}lens_correction_enabled'])!,
+      clarity: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}clarity'])!,
+      vignette: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vignette'])!,
+      lutPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}lut_path']),
+      lutStrength: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}lut_strength'])!,
       toneCurveJson: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}tone_curve_json']),
       colorMixerJson: attachedDatabase.typeMapping.read(
@@ -7113,6 +7173,22 @@ class DevelopSettingsData extends DataClass
   final double noiseReduction;
   final bool lensCorrectionEnabled;
 
+  /// Klarheit (lokaler Mikrokontrast) und Vignettierung, je -1..1.
+  ///
+  /// Beide sind reine Core-Image-Filter und wirken deshalb – wie Schärfe
+  /// und Rauschunterdrückung – erst im gerenderten Bild, nicht in der
+  /// Shader-Vorschau während des Ziehens.
+  final double clarity;
+  final double vignette;
+
+  /// Eine importierte Farbtabelle (`.cube`), relativ zur Bibliothek, und
+  /// wie stark sie wirkt.
+  ///
+  /// Der Pfad statt des Inhalts: Ein 33er-Würfel sind 36.000 Zahlen, die
+  /// sonst in jeder Zeile und noch einmal in jedem Verlaufseintrag lägen.
+  final String? lutPath;
+  final double lutStrength;
+
   /// JSON-kodierte [ToneCurve] bzw. [ColorMixer] (siehe develop_color.dart).
   ///
   /// Anders als die Regler darüber sind das keine einzelnen Zahlen, sondern
@@ -7134,6 +7210,10 @@ class DevelopSettingsData extends DataClass
       required this.sharpness,
       required this.noiseReduction,
       required this.lensCorrectionEnabled,
+      required this.clarity,
+      required this.vignette,
+      this.lutPath,
+      required this.lutStrength,
       this.toneCurveJson,
       this.colorMixerJson,
       required this.updatedAt});
@@ -7153,6 +7233,12 @@ class DevelopSettingsData extends DataClass
     map['sharpness'] = Variable<double>(sharpness);
     map['noise_reduction'] = Variable<double>(noiseReduction);
     map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
+    map['clarity'] = Variable<double>(clarity);
+    map['vignette'] = Variable<double>(vignette);
+    if (!nullToAbsent || lutPath != null) {
+      map['lut_path'] = Variable<String>(lutPath);
+    }
+    map['lut_strength'] = Variable<double>(lutStrength);
     if (!nullToAbsent || toneCurveJson != null) {
       map['tone_curve_json'] = Variable<String>(toneCurveJson);
     }
@@ -7176,6 +7262,12 @@ class DevelopSettingsData extends DataClass
       sharpness: Value(sharpness),
       noiseReduction: Value(noiseReduction),
       lensCorrectionEnabled: Value(lensCorrectionEnabled),
+      clarity: Value(clarity),
+      vignette: Value(vignette),
+      lutPath: lutPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lutPath),
+      lutStrength: Value(lutStrength),
       toneCurveJson: toneCurveJson == null && nullToAbsent
           ? const Value.absent()
           : Value(toneCurveJson),
@@ -7200,6 +7292,10 @@ class DevelopSettingsData extends DataClass
       noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
       lensCorrectionEnabled:
           serializer.fromJson<bool>(json['lensCorrectionEnabled']),
+      clarity: serializer.fromJson<double>(json['clarity']),
+      vignette: serializer.fromJson<double>(json['vignette']),
+      lutPath: serializer.fromJson<String?>(json['lutPath']),
+      lutStrength: serializer.fromJson<double>(json['lutStrength']),
       toneCurveJson: serializer.fromJson<String?>(json['toneCurveJson']),
       colorMixerJson: serializer.fromJson<String?>(json['colorMixerJson']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -7218,6 +7314,10 @@ class DevelopSettingsData extends DataClass
       'sharpness': serializer.toJson<double>(sharpness),
       'noiseReduction': serializer.toJson<double>(noiseReduction),
       'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
+      'clarity': serializer.toJson<double>(clarity),
+      'vignette': serializer.toJson<double>(vignette),
+      'lutPath': serializer.toJson<String?>(lutPath),
+      'lutStrength': serializer.toJson<double>(lutStrength),
       'toneCurveJson': serializer.toJson<String?>(toneCurveJson),
       'colorMixerJson': serializer.toJson<String?>(colorMixerJson),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -7234,6 +7334,10 @@ class DevelopSettingsData extends DataClass
           double? sharpness,
           double? noiseReduction,
           bool? lensCorrectionEnabled,
+          double? clarity,
+          double? vignette,
+          Value<String?> lutPath = const Value.absent(),
+          double? lutStrength,
           Value<String?> toneCurveJson = const Value.absent(),
           Value<String?> colorMixerJson = const Value.absent(),
           DateTime? updatedAt}) =>
@@ -7248,6 +7352,10 @@ class DevelopSettingsData extends DataClass
         noiseReduction: noiseReduction ?? this.noiseReduction,
         lensCorrectionEnabled:
             lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+        clarity: clarity ?? this.clarity,
+        vignette: vignette ?? this.vignette,
+        lutPath: lutPath.present ? lutPath.value : this.lutPath,
+        lutStrength: lutStrength ?? this.lutStrength,
         toneCurveJson:
             toneCurveJson.present ? toneCurveJson.value : this.toneCurveJson,
         colorMixerJson:
@@ -7270,6 +7378,11 @@ class DevelopSettingsData extends DataClass
       lensCorrectionEnabled: data.lensCorrectionEnabled.present
           ? data.lensCorrectionEnabled.value
           : this.lensCorrectionEnabled,
+      clarity: data.clarity.present ? data.clarity.value : this.clarity,
+      vignette: data.vignette.present ? data.vignette.value : this.vignette,
+      lutPath: data.lutPath.present ? data.lutPath.value : this.lutPath,
+      lutStrength:
+          data.lutStrength.present ? data.lutStrength.value : this.lutStrength,
       toneCurveJson: data.toneCurveJson.present
           ? data.toneCurveJson.value
           : this.toneCurveJson,
@@ -7292,6 +7405,10 @@ class DevelopSettingsData extends DataClass
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('clarity: $clarity, ')
+          ..write('vignette: $vignette, ')
+          ..write('lutPath: $lutPath, ')
+          ..write('lutStrength: $lutStrength, ')
           ..write('toneCurveJson: $toneCurveJson, ')
           ..write('colorMixerJson: $colorMixerJson, ')
           ..write('updatedAt: $updatedAt')
@@ -7310,6 +7427,10 @@ class DevelopSettingsData extends DataClass
       sharpness,
       noiseReduction,
       lensCorrectionEnabled,
+      clarity,
+      vignette,
+      lutPath,
+      lutStrength,
       toneCurveJson,
       colorMixerJson,
       updatedAt);
@@ -7326,6 +7447,10 @@ class DevelopSettingsData extends DataClass
           other.sharpness == this.sharpness &&
           other.noiseReduction == this.noiseReduction &&
           other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
+          other.clarity == this.clarity &&
+          other.vignette == this.vignette &&
+          other.lutPath == this.lutPath &&
+          other.lutStrength == this.lutStrength &&
           other.toneCurveJson == this.toneCurveJson &&
           other.colorMixerJson == this.colorMixerJson &&
           other.updatedAt == this.updatedAt);
@@ -7341,6 +7466,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
   final Value<double> sharpness;
   final Value<double> noiseReduction;
   final Value<bool> lensCorrectionEnabled;
+  final Value<double> clarity;
+  final Value<double> vignette;
+  final Value<String?> lutPath;
+  final Value<double> lutStrength;
   final Value<String?> toneCurveJson;
   final Value<String?> colorMixerJson;
   final Value<DateTime> updatedAt;
@@ -7355,6 +7484,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
+    this.clarity = const Value.absent(),
+    this.vignette = const Value.absent(),
+    this.lutPath = const Value.absent(),
+    this.lutStrength = const Value.absent(),
     this.toneCurveJson = const Value.absent(),
     this.colorMixerJson = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -7370,6 +7503,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
+    this.clarity = const Value.absent(),
+    this.vignette = const Value.absent(),
+    this.lutPath = const Value.absent(),
+    this.lutStrength = const Value.absent(),
     this.toneCurveJson = const Value.absent(),
     this.colorMixerJson = const Value.absent(),
     required DateTime updatedAt,
@@ -7386,6 +7523,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     Expression<double>? sharpness,
     Expression<double>? noiseReduction,
     Expression<bool>? lensCorrectionEnabled,
+    Expression<double>? clarity,
+    Expression<double>? vignette,
+    Expression<String>? lutPath,
+    Expression<double>? lutStrength,
     Expression<String>? toneCurveJson,
     Expression<String>? colorMixerJson,
     Expression<DateTime>? updatedAt,
@@ -7402,6 +7543,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       if (noiseReduction != null) 'noise_reduction': noiseReduction,
       if (lensCorrectionEnabled != null)
         'lens_correction_enabled': lensCorrectionEnabled,
+      if (clarity != null) 'clarity': clarity,
+      if (vignette != null) 'vignette': vignette,
+      if (lutPath != null) 'lut_path': lutPath,
+      if (lutStrength != null) 'lut_strength': lutStrength,
       if (toneCurveJson != null) 'tone_curve_json': toneCurveJson,
       if (colorMixerJson != null) 'color_mixer_json': colorMixerJson,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -7419,6 +7564,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       Value<double>? sharpness,
       Value<double>? noiseReduction,
       Value<bool>? lensCorrectionEnabled,
+      Value<double>? clarity,
+      Value<double>? vignette,
+      Value<String?>? lutPath,
+      Value<double>? lutStrength,
       Value<String?>? toneCurveJson,
       Value<String?>? colorMixerJson,
       Value<DateTime>? updatedAt,
@@ -7434,6 +7583,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       noiseReduction: noiseReduction ?? this.noiseReduction,
       lensCorrectionEnabled:
           lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+      clarity: clarity ?? this.clarity,
+      vignette: vignette ?? this.vignette,
+      lutPath: lutPath ?? this.lutPath,
+      lutStrength: lutStrength ?? this.lutStrength,
       toneCurveJson: toneCurveJson ?? this.toneCurveJson,
       colorMixerJson: colorMixerJson ?? this.colorMixerJson,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -7472,6 +7625,18 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       map['lens_correction_enabled'] =
           Variable<bool>(lensCorrectionEnabled.value);
     }
+    if (clarity.present) {
+      map['clarity'] = Variable<double>(clarity.value);
+    }
+    if (vignette.present) {
+      map['vignette'] = Variable<double>(vignette.value);
+    }
+    if (lutPath.present) {
+      map['lut_path'] = Variable<String>(lutPath.value);
+    }
+    if (lutStrength.present) {
+      map['lut_strength'] = Variable<double>(lutStrength.value);
+    }
     if (toneCurveJson.present) {
       map['tone_curve_json'] = Variable<String>(toneCurveJson.value);
     }
@@ -7499,6 +7664,10 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('clarity: $clarity, ')
+          ..write('vignette: $vignette, ')
+          ..write('lutPath: $lutPath, ')
+          ..write('lutStrength: $lutStrength, ')
           ..write('toneCurveJson: $toneCurveJson, ')
           ..write('colorMixerJson: $colorMixerJson, ')
           ..write('updatedAt: $updatedAt, ')
@@ -7579,6 +7748,36 @@ class $DevelopHistoryTable extends DevelopHistory
           requiredDuringInsert: true,
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("lens_correction_enabled" IN (0, 1))'));
+  static const VerificationMeta _clarityMeta =
+      const VerificationMeta('clarity');
+  @override
+  late final GeneratedColumn<double> clarity = GeneratedColumn<double>(
+      'clarity', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _vignetteMeta =
+      const VerificationMeta('vignette');
+  @override
+  late final GeneratedColumn<double> vignette = GeneratedColumn<double>(
+      'vignette', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lutPathMeta =
+      const VerificationMeta('lutPath');
+  @override
+  late final GeneratedColumn<String> lutPath = GeneratedColumn<String>(
+      'lut_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _lutStrengthMeta =
+      const VerificationMeta('lutStrength');
+  @override
+  late final GeneratedColumn<double> lutStrength = GeneratedColumn<double>(
+      'lut_strength', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
   static const VerificationMeta _toneCurveJsonMeta =
       const VerificationMeta('toneCurveJson');
   @override
@@ -7609,6 +7808,10 @@ class $DevelopHistoryTable extends DevelopHistory
         sharpness,
         noiseReduction,
         lensCorrectionEnabled,
+        clarity,
+        vignette,
+        lutPath,
+        lutStrength,
         toneCurveJson,
         colorMixerJson,
         createdAt
@@ -7682,6 +7885,24 @@ class $DevelopHistoryTable extends DevelopHistory
     } else if (isInserting) {
       context.missing(_lensCorrectionEnabledMeta);
     }
+    if (data.containsKey('clarity')) {
+      context.handle(_clarityMeta,
+          clarity.isAcceptableOrUnknown(data['clarity']!, _clarityMeta));
+    }
+    if (data.containsKey('vignette')) {
+      context.handle(_vignetteMeta,
+          vignette.isAcceptableOrUnknown(data['vignette']!, _vignetteMeta));
+    }
+    if (data.containsKey('lut_path')) {
+      context.handle(_lutPathMeta,
+          lutPath.isAcceptableOrUnknown(data['lut_path']!, _lutPathMeta));
+    }
+    if (data.containsKey('lut_strength')) {
+      context.handle(
+          _lutStrengthMeta,
+          lutStrength.isAcceptableOrUnknown(
+              data['lut_strength']!, _lutStrengthMeta));
+    }
     if (data.containsKey('tone_curve_json')) {
       context.handle(
           _toneCurveJsonMeta,
@@ -7730,6 +7951,14 @@ class $DevelopHistoryTable extends DevelopHistory
       lensCorrectionEnabled: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}lens_correction_enabled'])!,
+      clarity: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}clarity'])!,
+      vignette: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vignette'])!,
+      lutPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}lut_path']),
+      lutStrength: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}lut_strength'])!,
       toneCurveJson: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}tone_curve_json']),
       colorMixerJson: attachedDatabase.typeMapping.read(
@@ -7758,6 +7987,14 @@ class DevelopHistoryData extends DataClass
   final double noiseReduction;
   final bool lensCorrectionEnabled;
 
+  /// Wie in [DevelopSettings]. Ohne sie liesse ein Verlaufs-Eintrag diese
+  /// Werte stillschweigend fallen, und „Zurück zu diesem Stand" führte zu
+  /// einem anderen Bild als damals.
+  final double clarity;
+  final double vignette;
+  final String? lutPath;
+  final double lutStrength;
+
   /// Wie in [DevelopSettings] – ohne diese beiden Spalten liesse ein
   /// Verlaufs-Eintrag Kurve und Mischer stillschweigend fallen, und
   /// "Zurück zu diesem Stand" führte zu einem anderen Bild als damals.
@@ -7775,6 +8012,10 @@ class DevelopHistoryData extends DataClass
       required this.sharpness,
       required this.noiseReduction,
       required this.lensCorrectionEnabled,
+      required this.clarity,
+      required this.vignette,
+      this.lutPath,
+      required this.lutStrength,
       this.toneCurveJson,
       this.colorMixerJson,
       required this.createdAt});
@@ -7795,6 +8036,12 @@ class DevelopHistoryData extends DataClass
     map['sharpness'] = Variable<double>(sharpness);
     map['noise_reduction'] = Variable<double>(noiseReduction);
     map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
+    map['clarity'] = Variable<double>(clarity);
+    map['vignette'] = Variable<double>(vignette);
+    if (!nullToAbsent || lutPath != null) {
+      map['lut_path'] = Variable<String>(lutPath);
+    }
+    map['lut_strength'] = Variable<double>(lutStrength);
     if (!nullToAbsent || toneCurveJson != null) {
       map['tone_curve_json'] = Variable<String>(toneCurveJson);
     }
@@ -7819,6 +8066,12 @@ class DevelopHistoryData extends DataClass
       sharpness: Value(sharpness),
       noiseReduction: Value(noiseReduction),
       lensCorrectionEnabled: Value(lensCorrectionEnabled),
+      clarity: Value(clarity),
+      vignette: Value(vignette),
+      lutPath: lutPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lutPath),
+      lutStrength: Value(lutStrength),
       toneCurveJson: toneCurveJson == null && nullToAbsent
           ? const Value.absent()
           : Value(toneCurveJson),
@@ -7844,6 +8097,10 @@ class DevelopHistoryData extends DataClass
       noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
       lensCorrectionEnabled:
           serializer.fromJson<bool>(json['lensCorrectionEnabled']),
+      clarity: serializer.fromJson<double>(json['clarity']),
+      vignette: serializer.fromJson<double>(json['vignette']),
+      lutPath: serializer.fromJson<String?>(json['lutPath']),
+      lutStrength: serializer.fromJson<double>(json['lutStrength']),
       toneCurveJson: serializer.fromJson<String?>(json['toneCurveJson']),
       colorMixerJson: serializer.fromJson<String?>(json['colorMixerJson']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -7863,6 +8120,10 @@ class DevelopHistoryData extends DataClass
       'sharpness': serializer.toJson<double>(sharpness),
       'noiseReduction': serializer.toJson<double>(noiseReduction),
       'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
+      'clarity': serializer.toJson<double>(clarity),
+      'vignette': serializer.toJson<double>(vignette),
+      'lutPath': serializer.toJson<String?>(lutPath),
+      'lutStrength': serializer.toJson<double>(lutStrength),
       'toneCurveJson': serializer.toJson<String?>(toneCurveJson),
       'colorMixerJson': serializer.toJson<String?>(colorMixerJson),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -7880,6 +8141,10 @@ class DevelopHistoryData extends DataClass
           double? sharpness,
           double? noiseReduction,
           bool? lensCorrectionEnabled,
+          double? clarity,
+          double? vignette,
+          Value<String?> lutPath = const Value.absent(),
+          double? lutStrength,
           Value<String?> toneCurveJson = const Value.absent(),
           Value<String?> colorMixerJson = const Value.absent(),
           DateTime? createdAt}) =>
@@ -7895,6 +8160,10 @@ class DevelopHistoryData extends DataClass
         noiseReduction: noiseReduction ?? this.noiseReduction,
         lensCorrectionEnabled:
             lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+        clarity: clarity ?? this.clarity,
+        vignette: vignette ?? this.vignette,
+        lutPath: lutPath.present ? lutPath.value : this.lutPath,
+        lutStrength: lutStrength ?? this.lutStrength,
         toneCurveJson:
             toneCurveJson.present ? toneCurveJson.value : this.toneCurveJson,
         colorMixerJson:
@@ -7918,6 +8187,11 @@ class DevelopHistoryData extends DataClass
       lensCorrectionEnabled: data.lensCorrectionEnabled.present
           ? data.lensCorrectionEnabled.value
           : this.lensCorrectionEnabled,
+      clarity: data.clarity.present ? data.clarity.value : this.clarity,
+      vignette: data.vignette.present ? data.vignette.value : this.vignette,
+      lutPath: data.lutPath.present ? data.lutPath.value : this.lutPath,
+      lutStrength:
+          data.lutStrength.present ? data.lutStrength.value : this.lutStrength,
       toneCurveJson: data.toneCurveJson.present
           ? data.toneCurveJson.value
           : this.toneCurveJson,
@@ -7941,6 +8215,10 @@ class DevelopHistoryData extends DataClass
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('clarity: $clarity, ')
+          ..write('vignette: $vignette, ')
+          ..write('lutPath: $lutPath, ')
+          ..write('lutStrength: $lutStrength, ')
           ..write('toneCurveJson: $toneCurveJson, ')
           ..write('colorMixerJson: $colorMixerJson, ')
           ..write('createdAt: $createdAt')
@@ -7960,6 +8238,10 @@ class DevelopHistoryData extends DataClass
       sharpness,
       noiseReduction,
       lensCorrectionEnabled,
+      clarity,
+      vignette,
+      lutPath,
+      lutStrength,
       toneCurveJson,
       colorMixerJson,
       createdAt);
@@ -7977,6 +8259,10 @@ class DevelopHistoryData extends DataClass
           other.sharpness == this.sharpness &&
           other.noiseReduction == this.noiseReduction &&
           other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
+          other.clarity == this.clarity &&
+          other.vignette == this.vignette &&
+          other.lutPath == this.lutPath &&
+          other.lutStrength == this.lutStrength &&
           other.toneCurveJson == this.toneCurveJson &&
           other.colorMixerJson == this.colorMixerJson &&
           other.createdAt == this.createdAt);
@@ -7993,6 +8279,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
   final Value<double> sharpness;
   final Value<double> noiseReduction;
   final Value<bool> lensCorrectionEnabled;
+  final Value<double> clarity;
+  final Value<double> vignette;
+  final Value<String?> lutPath;
+  final Value<double> lutStrength;
   final Value<String?> toneCurveJson;
   final Value<String?> colorMixerJson;
   final Value<DateTime> createdAt;
@@ -8007,6 +8297,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
+    this.clarity = const Value.absent(),
+    this.vignette = const Value.absent(),
+    this.lutPath = const Value.absent(),
+    this.lutStrength = const Value.absent(),
     this.toneCurveJson = const Value.absent(),
     this.colorMixerJson = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -8022,6 +8316,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     required double sharpness,
     required double noiseReduction,
     required bool lensCorrectionEnabled,
+    this.clarity = const Value.absent(),
+    this.vignette = const Value.absent(),
+    this.lutPath = const Value.absent(),
+    this.lutStrength = const Value.absent(),
     this.toneCurveJson = const Value.absent(),
     this.colorMixerJson = const Value.absent(),
     required DateTime createdAt,
@@ -8044,6 +8342,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     Expression<double>? sharpness,
     Expression<double>? noiseReduction,
     Expression<bool>? lensCorrectionEnabled,
+    Expression<double>? clarity,
+    Expression<double>? vignette,
+    Expression<String>? lutPath,
+    Expression<double>? lutStrength,
     Expression<String>? toneCurveJson,
     Expression<String>? colorMixerJson,
     Expression<DateTime>? createdAt,
@@ -8060,6 +8362,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       if (noiseReduction != null) 'noise_reduction': noiseReduction,
       if (lensCorrectionEnabled != null)
         'lens_correction_enabled': lensCorrectionEnabled,
+      if (clarity != null) 'clarity': clarity,
+      if (vignette != null) 'vignette': vignette,
+      if (lutPath != null) 'lut_path': lutPath,
+      if (lutStrength != null) 'lut_strength': lutStrength,
       if (toneCurveJson != null) 'tone_curve_json': toneCurveJson,
       if (colorMixerJson != null) 'color_mixer_json': colorMixerJson,
       if (createdAt != null) 'created_at': createdAt,
@@ -8077,6 +8383,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       Value<double>? sharpness,
       Value<double>? noiseReduction,
       Value<bool>? lensCorrectionEnabled,
+      Value<double>? clarity,
+      Value<double>? vignette,
+      Value<String?>? lutPath,
+      Value<double>? lutStrength,
       Value<String?>? toneCurveJson,
       Value<String?>? colorMixerJson,
       Value<DateTime>? createdAt}) {
@@ -8092,6 +8402,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       noiseReduction: noiseReduction ?? this.noiseReduction,
       lensCorrectionEnabled:
           lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+      clarity: clarity ?? this.clarity,
+      vignette: vignette ?? this.vignette,
+      lutPath: lutPath ?? this.lutPath,
+      lutStrength: lutStrength ?? this.lutStrength,
       toneCurveJson: toneCurveJson ?? this.toneCurveJson,
       colorMixerJson: colorMixerJson ?? this.colorMixerJson,
       createdAt: createdAt ?? this.createdAt,
@@ -8132,6 +8446,18 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       map['lens_correction_enabled'] =
           Variable<bool>(lensCorrectionEnabled.value);
     }
+    if (clarity.present) {
+      map['clarity'] = Variable<double>(clarity.value);
+    }
+    if (vignette.present) {
+      map['vignette'] = Variable<double>(vignette.value);
+    }
+    if (lutPath.present) {
+      map['lut_path'] = Variable<String>(lutPath.value);
+    }
+    if (lutStrength.present) {
+      map['lut_strength'] = Variable<double>(lutStrength.value);
+    }
     if (toneCurveJson.present) {
       map['tone_curve_json'] = Variable<String>(toneCurveJson.value);
     }
@@ -8157,6 +8483,10 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('clarity: $clarity, ')
+          ..write('vignette: $vignette, ')
+          ..write('lutPath: $lutPath, ')
+          ..write('lutStrength: $lutStrength, ')
           ..write('toneCurveJson: $toneCurveJson, ')
           ..write('colorMixerJson: $colorMixerJson, ')
           ..write('createdAt: $createdAt')
@@ -14937,6 +15267,10 @@ typedef $$DevelopSettingsTableCreateCompanionBuilder = DevelopSettingsCompanion
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
+  Value<double> clarity,
+  Value<double> vignette,
+  Value<String?> lutPath,
+  Value<double> lutStrength,
   Value<String?> toneCurveJson,
   Value<String?> colorMixerJson,
   required DateTime updatedAt,
@@ -14953,6 +15287,10 @@ typedef $$DevelopSettingsTableUpdateCompanionBuilder = DevelopSettingsCompanion
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
+  Value<double> clarity,
+  Value<double> vignette,
+  Value<String?> lutPath,
+  Value<double> lutStrength,
   Value<String?> toneCurveJson,
   Value<String?> colorMixerJson,
   Value<DateTime> updatedAt,
@@ -14996,6 +15334,18 @@ class $$DevelopSettingsTableFilterComposer
   ColumnFilters<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get clarity => $composableBuilder(
+      column: $table.clarity, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vignette => $composableBuilder(
+      column: $table.vignette, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lutPath => $composableBuilder(
+      column: $table.lutPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get toneCurveJson => $composableBuilder(
       column: $table.toneCurveJson, builder: (column) => ColumnFilters(column));
@@ -15046,6 +15396,18 @@ class $$DevelopSettingsTableOrderingComposer
       column: $table.lensCorrectionEnabled,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get clarity => $composableBuilder(
+      column: $table.clarity, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vignette => $composableBuilder(
+      column: $table.vignette, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lutPath => $composableBuilder(
+      column: $table.lutPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get toneCurveJson => $composableBuilder(
       column: $table.toneCurveJson,
       builder: (column) => ColumnOrderings(column));
@@ -15094,6 +15456,18 @@ class $$DevelopSettingsTableAnnotationComposer
   GeneratedColumn<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled, builder: (column) => column);
 
+  GeneratedColumn<double> get clarity =>
+      $composableBuilder(column: $table.clarity, builder: (column) => column);
+
+  GeneratedColumn<double> get vignette =>
+      $composableBuilder(column: $table.vignette, builder: (column) => column);
+
+  GeneratedColumn<String> get lutPath =>
+      $composableBuilder(column: $table.lutPath, builder: (column) => column);
+
+  GeneratedColumn<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => column);
+
   GeneratedColumn<String> get toneCurveJson => $composableBuilder(
       column: $table.toneCurveJson, builder: (column) => column);
 
@@ -15140,6 +15514,10 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<double> clarity = const Value.absent(),
+            Value<double> vignette = const Value.absent(),
+            Value<String?> lutPath = const Value.absent(),
+            Value<double> lutStrength = const Value.absent(),
             Value<String?> toneCurveJson = const Value.absent(),
             Value<String?> colorMixerJson = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -15155,6 +15533,10 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            clarity: clarity,
+            vignette: vignette,
+            lutPath: lutPath,
+            lutStrength: lutStrength,
             toneCurveJson: toneCurveJson,
             colorMixerJson: colorMixerJson,
             updatedAt: updatedAt,
@@ -15170,6 +15552,10 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<double> clarity = const Value.absent(),
+            Value<double> vignette = const Value.absent(),
+            Value<String?> lutPath = const Value.absent(),
+            Value<double> lutStrength = const Value.absent(),
             Value<String?> toneCurveJson = const Value.absent(),
             Value<String?> colorMixerJson = const Value.absent(),
             required DateTime updatedAt,
@@ -15185,6 +15571,10 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            clarity: clarity,
+            vignette: vignette,
+            lutPath: lutPath,
+            lutStrength: lutStrength,
             toneCurveJson: toneCurveJson,
             colorMixerJson: colorMixerJson,
             updatedAt: updatedAt,
@@ -15224,6 +15614,10 @@ typedef $$DevelopHistoryTableCreateCompanionBuilder = DevelopHistoryCompanion
   required double sharpness,
   required double noiseReduction,
   required bool lensCorrectionEnabled,
+  Value<double> clarity,
+  Value<double> vignette,
+  Value<String?> lutPath,
+  Value<double> lutStrength,
   Value<String?> toneCurveJson,
   Value<String?> colorMixerJson,
   required DateTime createdAt,
@@ -15240,6 +15634,10 @@ typedef $$DevelopHistoryTableUpdateCompanionBuilder = DevelopHistoryCompanion
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
+  Value<double> clarity,
+  Value<double> vignette,
+  Value<String?> lutPath,
+  Value<double> lutStrength,
   Value<String?> toneCurveJson,
   Value<String?> colorMixerJson,
   Value<DateTime> createdAt,
@@ -15285,6 +15683,18 @@ class $$DevelopHistoryTableFilterComposer
   ColumnFilters<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get clarity => $composableBuilder(
+      column: $table.clarity, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vignette => $composableBuilder(
+      column: $table.vignette, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lutPath => $composableBuilder(
+      column: $table.lutPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get toneCurveJson => $composableBuilder(
       column: $table.toneCurveJson, builder: (column) => ColumnFilters(column));
@@ -15338,6 +15748,18 @@ class $$DevelopHistoryTableOrderingComposer
       column: $table.lensCorrectionEnabled,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get clarity => $composableBuilder(
+      column: $table.clarity, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vignette => $composableBuilder(
+      column: $table.vignette, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lutPath => $composableBuilder(
+      column: $table.lutPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get toneCurveJson => $composableBuilder(
       column: $table.toneCurveJson,
       builder: (column) => ColumnOrderings(column));
@@ -15389,6 +15811,18 @@ class $$DevelopHistoryTableAnnotationComposer
   GeneratedColumn<bool> get lensCorrectionEnabled => $composableBuilder(
       column: $table.lensCorrectionEnabled, builder: (column) => column);
 
+  GeneratedColumn<double> get clarity =>
+      $composableBuilder(column: $table.clarity, builder: (column) => column);
+
+  GeneratedColumn<double> get vignette =>
+      $composableBuilder(column: $table.vignette, builder: (column) => column);
+
+  GeneratedColumn<String> get lutPath =>
+      $composableBuilder(column: $table.lutPath, builder: (column) => column);
+
+  GeneratedColumn<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => column);
+
   GeneratedColumn<String> get toneCurveJson => $composableBuilder(
       column: $table.toneCurveJson, builder: (column) => column);
 
@@ -15436,6 +15870,10 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<double> clarity = const Value.absent(),
+            Value<double> vignette = const Value.absent(),
+            Value<String?> lutPath = const Value.absent(),
+            Value<double> lutStrength = const Value.absent(),
             Value<String?> toneCurveJson = const Value.absent(),
             Value<String?> colorMixerJson = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
@@ -15451,6 +15889,10 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            clarity: clarity,
+            vignette: vignette,
+            lutPath: lutPath,
+            lutStrength: lutStrength,
             toneCurveJson: toneCurveJson,
             colorMixerJson: colorMixerJson,
             createdAt: createdAt,
@@ -15466,6 +15908,10 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             required double sharpness,
             required double noiseReduction,
             required bool lensCorrectionEnabled,
+            Value<double> clarity = const Value.absent(),
+            Value<double> vignette = const Value.absent(),
+            Value<String?> lutPath = const Value.absent(),
+            Value<double> lutStrength = const Value.absent(),
             Value<String?> toneCurveJson = const Value.absent(),
             Value<String?> colorMixerJson = const Value.absent(),
             required DateTime createdAt,
@@ -15481,6 +15927,10 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
+            clarity: clarity,
+            vignette: vignette,
+            lutPath: lutPath,
+            lutStrength: lutStrength,
             toneCurveJson: toneCurveJson,
             colorMixerJson: colorMixerJson,
             createdAt: createdAt,

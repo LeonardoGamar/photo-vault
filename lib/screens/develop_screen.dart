@@ -1,18 +1,22 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:drift/drift.dart' show Value;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/asset_display_path.dart';
+import '../services/cube_lut.dart';
 import '../services/develop_color.dart';
 import '../services/histogram.dart';
 import '../services/modell_halter.dart';
@@ -133,6 +137,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
   /// Tonwertverteilung der aktuell angezeigten Vorschau (siehe
   /// [_recomputeHistogram]). `null`, solange noch nichts berechnet wurde.
   HistogramData? _histogram;
+  WaveformData? _waveform;
 
   /// Verwirft spät eintreffende Histogramm-Berechnungen, wenn inzwischen
   /// eine neuere Vorschau vorliegt – dasselbe Muster wie [_requestToken]
@@ -148,6 +153,18 @@ class _DevelopScreenState extends State<DevelopScreen> {
   double _shadows = 0;
   double _sharpness = 0;
   double _noiseReduction = 0;
+  double _clarity = 0;
+  double _vignette = 0;
+
+  /// Die importierte Farbtabelle: der Pfad in der Bibliothek, die bereits
+  /// eingelesene Tabelle und wie stark sie wirkt.
+  ///
+  /// Die eingelesene Fassung wird mitgeführt, damit nicht bei jedem
+  /// Reglerzug erneut eine Datei gelesen und geparst wird – bei einer
+  /// 64er-Tabelle sind das eine Viertelmillion Zahlen.
+  String? _lutPfad;
+  CubeLut? _lut;
+  double _lutStaerke = 1;
   bool _lensCorrectionEnabled = true;
 
   /// Was die Objektivkorrektur für DIESE Datei überhaupt leisten kann –
@@ -303,6 +320,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _shadows = settings.shadows;
       _sharpness = settings.sharpness;
       _noiseReduction = settings.noiseReduction;
+      _clarity = settings.clarity;
+      _vignette = settings.vignette;
+      _lutStaerke = settings.lutStrength;
+      await _ladeLut(settings.lutPath);
       _lensCorrectionEnabled = settings.lensCorrectionEnabled;
       _toneCurve = toneCurveAus(settings.toneCurveJson);
       _colorMixer = colorMixerAus(settings.colorMixerJson);
@@ -347,6 +368,90 @@ class _DevelopScreenState extends State<DevelopScreen> {
     }
   }
 
+  /// Liest die gespeicherte Farbtabelle ein.
+  ///
+  /// Eine fehlende oder beschädigte Datei darf den Bildschirm nicht
+  /// aufhalten: Der Look fällt dann weg, das Foto erscheint trotzdem, und
+  /// der Nutzer bekommt einen Hinweis. Ohne diesen Zweig bliebe das
+  /// Entwickeln für ein Foto dauerhaft unerreichbar, nur weil eine
+  /// Zusatzdatei fehlt.
+  Future<void> _ladeLut(String? relativerPfad) async {
+    if (relativerPfad == null) {
+      _lutPfad = null;
+      _lut = null;
+      return;
+    }
+    try {
+      final datei = widget.paths.absolute(relativerPfad);
+      _lut = parseCubeLut(await datei.readAsString());
+      _lutPfad = relativerPfad;
+    } catch (_) {
+      _lut = null;
+      _lutPfad = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppTexte.of(context).entwLutFehlt(p.basename(relativerPfad))),
+        ));
+      }
+    }
+  }
+
+  /// Wählt eine `.cube`-Datei, kopiert sie in die Bibliothek und aktiviert
+  /// sie.
+  ///
+  /// Kopiert statt verwiesen: Eine Entwicklung, die auf eine Datei im
+  /// Download-Ordner zeigt, sähe nach dem nächsten Aufräumen anders aus,
+  /// und ein Backup enthielte den Look nicht.
+  Future<void> _lutWaehlen() async {
+    final auswahl = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['cube'],
+      dialogTitle: AppTexte.of(context).entwLutWaehlen,
+    );
+    final quelle = auswahl?.files.single.path;
+    if (quelle == null) return;
+
+    try {
+      final inhalt = await File(quelle).readAsString();
+      final tabelle = parseCubeLut(inhalt);
+
+      final name = p.basename(quelle);
+      final ziel = widget.paths.absolute(widget.paths.lutRelativePath(name));
+      await ziel.parent.create(recursive: true);
+      await ziel.writeAsString(inhalt);
+
+      if (!mounted) return;
+      setState(() {
+        _lut = tabelle;
+        _lutPfad = widget.paths.lutRelativePath(name);
+        _lutStaerke = 1;
+        _dragging = false;
+      });
+      _scheduleRerender();
+    } on CubeAusnahme catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_lutFehlertext(AppTexte.of(context), e)),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppTexte.of(context).entwLutNichtLesbar('$e')),
+      ));
+    }
+  }
+
+  /// Übersetzt den Grund aus [CubeAusnahme] in einen Satz. Die Dienstschicht
+  /// liefert bewusst nur den Typ – welche Sprache gesprochen wird, weiss
+  /// erst die Oberfläche.
+  String _lutFehlertext(AppTexte t, CubeAusnahme e) => switch (e.grund) {
+        CubeFehler.nurEindimensional => t.entwLutEindimensional,
+        CubeFehler.keineGroesse => t.entwLutOhneGroesse,
+        CubeFehler.ungueltigeGroesse => t.entwLutGroesse(e.zeile),
+        CubeFehler.falscheZeilenzahl => t.entwLutZeilenzahl,
+        CubeFehler.unlesbareZeile => t.entwLutZeile(e.zeile),
+      };
+
   DevelopAdjustments _currentAdjustments() => DevelopAdjustments(
         exposure: _exposure,
         temperature: _autoWhiteBalance ? null : _temperature,
@@ -355,9 +460,13 @@ class _DevelopScreenState extends State<DevelopScreen> {
         shadows: _shadows,
         sharpness: _sharpness,
         noiseReduction: _noiseReduction,
+        clarity: _clarity,
+        vignette: _vignette,
         lensCorrectionEnabled: _lensCorrectionEnabled,
         toneCurve: _toneCurve,
         colorMixer: _colorMixer,
+        lut: _lut,
+        lutStrength: _lutStaerke,
       );
 
   /// Baut die Masken-Ebenen für den nativen Renderaufruf: für die gerade
@@ -439,10 +548,11 @@ class _DevelopScreenState extends State<DevelopScreen> {
     final token = ++_histogramToken;
     setState(() => _histogramPending = true);
     try {
-      final histogram = await compute(computeHistogramFromBytes, bytes);
+      final auswertung = await compute(computeBildAuswertung, bytes);
       if (token != _histogramToken || !mounted) return;
       setState(() {
-        _histogram = histogram;
+        _histogram = auswertung?.histogramm;
+        _waveform = auswertung?.waveform;
         _histogramPending = false;
       });
     } catch (_) {
@@ -481,6 +591,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _shadows = entry.shadows;
       _sharpness = entry.sharpness;
       _noiseReduction = entry.noiseReduction;
+      _clarity = entry.clarity;
+      _vignette = entry.vignette;
+      _lutStaerke = entry.lutStrength;
       _lensCorrectionEnabled = entry.lensCorrectionEnabled;
       _toneCurve = toneCurveAus(entry.toneCurveJson);
       _colorMixer = colorMixerAus(entry.colorMixerJson);
@@ -544,6 +657,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
       shadows: a.shadows,
       sharpness: a.sharpness,
       noiseReduction: a.noiseReduction,
+      clarity: a.clarity,
+      vignette: a.vignette,
+      lutPath: _lutPfad,
+      lutStrength: a.lutStrength,
       lensCorrectionEnabled: a.lensCorrectionEnabled,
       toneCurveJson: a.toneCurve.istNeutral ? null : a.toneCurve.encode(),
       colorMixerJson: a.colorMixer.istNeutral ? null : a.colorMixer.encode(),
@@ -570,6 +687,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _shadows = w.shadows;
       _sharpness = w.sharpness;
       _noiseReduction = w.noiseReduction;
+      _clarity = w.clarity;
+      _vignette = w.vignette;
+      _lutStaerke = w.lutStrength;
       _lensCorrectionEnabled = w.lensCorrectionEnabled;
       _toneCurve = toneCurveAus(w.toneCurveJson);
       _colorMixer = colorMixerAus(w.colorMixerJson);
@@ -618,6 +738,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
         shadows: Value(adjustments.shadows),
         sharpness: Value(adjustments.sharpness),
         noiseReduction: Value(adjustments.noiseReduction),
+        clarity: Value(adjustments.clarity),
+        vignette: Value(adjustments.vignette),
+        lutPath: Value(_lutPfad),
+        lutStrength: Value(adjustments.lutStrength),
         lensCorrectionEnabled: Value(adjustments.lensCorrectionEnabled),
         toneCurveJson: Value(
             adjustments.toneCurve.istNeutral ? null : adjustments.toneCurve.encode()),
@@ -1681,7 +1805,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
           // Ganz oben: das Histogramm zeigt immer die gesamte Vorschau, also
           // das Ergebnis aller Anpassungen zusammen – auch beim Bearbeiten
           // einer einzelnen Maske.
-          HistogramView(data: _histogram, isStale: _histogramPending || _rendering),
+          HistogramView(
+              data: _histogram,
+              waveform: _waveform,
+              isStale: _histogramPending || _rendering),
           const SizedBox(height: AppSpacing.lg),
           const Divider(color: Colors.white24),
           const SizedBox(height: AppSpacing.sm),
@@ -1742,6 +1869,52 @@ class _DevelopScreenState extends State<DevelopScreen> {
     ];
   }
 
+  /// Die Farbtabelle: auswählen, Stärke einstellen, entfernen.
+  Widget _lutBedienfeld() {
+    final t = AppTexte.of(context);
+    final name = _lutPfad == null ? null : p.basenameWithoutExtension(_lutPfad!);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                name ?? t.entwLutKeine,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: name == null ? DunkleFlaeche.hinweis : DunkleFlaeche.text,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            if (name != null)
+              IconButton(
+                tooltip: t.entwLutEntfernen,
+                icon: const Icon(Icons.close, size: 18, color: DunkleFlaeche.zweitText),
+                onPressed: () {
+                  setState(() {
+                    _lut = null;
+                    _lutPfad = null;
+                  });
+                  _scheduleRerender();
+                },
+              ),
+            IconButton(
+              tooltip: t.entwLutWaehlen,
+              icon: const Icon(Icons.folder_open, size: 18, color: DunkleFlaeche.zweitText),
+              onPressed: _lutWaehlen,
+            ),
+          ],
+        ),
+        if (name != null)
+          _slider(t.entwLutStaerke, _lutStaerke, 0, 1,
+              (v) => setState(() => _lutStaerke = v)),
+      ],
+    );
+  }
+
   List<Widget> _buildGlobalSliders() => [
         _slider(AppTexte.of(context).entwBelichtung, _exposure, -3, 3, (v) => setState(() => _exposure = v)),
         const Divider(color: Colors.white24),
@@ -1764,6 +1937,17 @@ class _DevelopScreenState extends State<DevelopScreen> {
         _slider(AppTexte.of(context).entwSchatten, _shadows, -1, 1, (v) => setState(() => _shadows = v)),
         _slider(AppTexte.of(context).entwSchaerfe, _sharpness, 0, 1, (v) => setState(() => _sharpness = v)),
         _slider(AppTexte.of(context).entwRauschunterdrueckung, _noiseReduction, 0, 1, (v) => setState(() => _noiseReduction = v)),
+        // Klarheit und Vignettierung sind reine Core-Image-Filter, wie
+        // Schärfe und Rauschunterdrückung darüber – der Shader kennt sie
+        // nicht. `liveVorschau: false` sorgt dafür, dass die Vorschau nicht
+        // während des Ziehens auf den Shader umschaltet und den Wert
+        // scheinbar zurücknimmt.
+        _slider(AppTexte.of(context).entwKlarheit, _clarity, -1, 1,
+            (v) => setState(() => _clarity = v), liveVorschau: false),
+        _slider(AppTexte.of(context).entwVignettierung, _vignette, -1, 1,
+            (v) => setState(() => _vignette = v), liveVorschau: false),
+        const Divider(color: Colors.white24),
+        _lutBedienfeld(),
         const Divider(color: Colors.white24),
         ToneCurveEditor(
           curve: _toneCurve,

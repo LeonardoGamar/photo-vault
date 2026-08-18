@@ -1620,6 +1620,12 @@ class LibraryState extends ChangeNotifier {
     await eraseLibraryDataAt(root);
   }
 
+  /// Löscht eine einzelne Erkennung samt ihrem Ausschnitt auf der Platte.
+  Future<void> loescheGesicht(String faceId) async {
+    final pfad = await db.loescheGesicht(faceId);
+    if (pfad != null) await paths.deletePermanently(pfad);
+  }
+
   /// Löscht alle unbenannten Gesichts-Erkennungen samt ihrer Ausschnitte
   /// auf der Platte und liefert, wie viele es waren.
   ///

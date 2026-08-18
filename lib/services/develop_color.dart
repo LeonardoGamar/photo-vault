@@ -25,6 +25,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'cube_lut.dart';
+
 /// Ein Kontrollpunkt der Tonwertkurve. Beide Achsen sind auf 0..1
 /// normalisiert – links unten ist Schwarz, rechts oben Weiß.
 class CurvePoint {
@@ -506,9 +508,27 @@ List<double> _blende(List<double> a, List<double> b, double t) =>
 /// – so und nicht anders erwartet `CIColorCube` seine Daten. Der Alphawert
 /// ist durchgehend 1; die Daten gelten damit zugleich als vorvervielfacht,
 /// was Core Image ebenfalls voraussetzt.
-Float32List buildColorCube(ColorMixer mixer, {int size = colorCubeSize}) {
+/// [lut] ist eine eingelesene `.cube`-Tabelle, die NACH dem Mischer wirkt,
+/// [lutStaerke] blendet sie von 0 (aus) bis 1 (voll) ein.
+///
+/// Die Reihenfolge ist nicht beliebig: Der Mischer ist eine Korrektur am
+/// Bild, der Look kommt darüber. Andersherum verschöbe eine
+/// Sättigungskorrektur die Farben, die der Look bereits gesetzt hat.
+///
+/// Dass der Look hier hineingerechnet wird und nicht als eigener Schritt in
+/// die Kette kommt, ist der ganze Trick: Beide Renderpfade – Shader wie
+/// Core Image – bekommen weiterhin genau einen Würfel und müssen nichts
+/// dazulernen.
+Float32List buildColorCube(
+  ColorMixer mixer, {
+  int size = colorCubeSize,
+  CubeLut? lut,
+  double lutStaerke = 1,
+}) {
   final wuerfel = Float32List(size * size * size * 4);
   final letzter = size - 1;
+  final staerke = lutStaerke.clamp(0.0, 1.0);
+  final lookAktiv = lut != null && staerke > 0;
   var i = 0;
 
   for (var bi = 0; bi < size; bi++) {
@@ -517,7 +537,11 @@ Float32List buildColorCube(ColorMixer mixer, {int size = colorCubeSize}) {
       final g = gi / letzter;
       for (var ri = 0; ri < size; ri++) {
         final r = ri / letzter;
-        final aus = applyColorMixer(mixer, r, g, b);
+        var aus = applyColorMixer(mixer, r, g, b);
+        if (lookAktiv) {
+          final look = lut.abtasten(aus[0], aus[1], aus[2]);
+          aus = staerke >= 1 ? look : _blende(aus, look, staerke);
+        }
         wuerfel[i++] = aus[0];
         wuerfel[i++] = aus[1];
         wuerfel[i++] = aus[2];

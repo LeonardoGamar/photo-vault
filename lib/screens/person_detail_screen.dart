@@ -8,13 +8,105 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/pin_dialogs.dart';
+import 'package:flutter/foundation.dart' show compute;
+
+import '../services/embedding_codec.dart';
+import '../services/face_suggestions.dart';
 import 'asset_viewer_screen.dart';
 import 'face_review_screen.dart';
+import 'person_suggestions_screen.dart';
 
-class PersonDetailScreen extends StatelessWidget {
+class PersonDetailScreen extends StatefulWidget {
   final LibraryState library;
   final PersonData person;
   const PersonDetailScreen({super.key, required this.library, required this.person});
+
+  @override
+  State<PersonDetailScreen> createState() => _PersonDetailScreenState();
+}
+
+class _PersonDetailScreenState extends State<PersonDetailScreen> {
+  LibraryState get library => widget.library;
+  PersonData get person => widget.person;
+
+  bool _sucheLaeuft = false;
+
+  /// Sucht unbenannte Gesichter, die dieser Person ähnlich genug sind, und
+  /// legt sie zur Bestätigung vor.
+  ///
+  /// Der Weg gab es bisher nur andersherum: Gesichter auswählen und einer
+  /// Person zuordnen. Wer wissen wollte, ob jemand noch auf weiteren Fotos
+  /// ist, musste das ganze Raster selbst durchsehen.
+  Future<void> _vorschlaegeSuchen() async {
+    setState(() => _sucheLaeuft = true);
+    try {
+      final bekannt = [
+        for (final f in await library.db.facesForPerson(person.id))
+          if (f.embedding != null) floatsFromEmbeddingBlob(f.embedding!),
+      ];
+      final offen = await library.db.allUnassignedFaces();
+      final kandidaten = {
+        for (final f in offen)
+          if (f.embedding != null) f.id: floatsFromEmbeddingBlob(f.embedding!),
+      };
+
+      if (bekannt.isEmpty || kandidaten.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(bekannt.isEmpty
+              ? AppTexte.of(context).vorschlagKeineEmbeddings
+              : AppTexte.of(context).vorschlagKeineKandidaten),
+        ));
+        return;
+      }
+
+      // In einem eigenen Isolat. Gemessen ist der Lauf schnell – 300
+      // bekannte Gesichter gegen 17.836 Kandidaten brauchen 52 ms, weil der
+      // Deckel in [vorschlaegeFuerPerson] die Referenzen auf 40 begrenzt.
+      // Das allein rechtfertigte kein Isolat. Es steht hier für den Fall,
+      // auf den diese App ausgelegt ist: Bei 100.000 Fotos sind es rund
+      // zehnmal so viele Kandidaten, und dann wären es ein halbe Sekunde
+      // stehendes Bild.
+      final roh = await compute(
+        vorschlaegeFuerPerson,
+        VorschlagsEingabe(
+          bekannt: bekannt,
+          kandidaten: kandidaten,
+          schwelle: library.schwelleFuerPerson(person),
+        ),
+      );
+
+      if (!mounted) return;
+      if (roh.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppTexte.of(context).vorschlagNichtsGefunden(
+              library.schwelleFuerPerson(person).toStringAsFixed(2))),
+        ));
+        return;
+      }
+
+      final nachId = {for (final f in offen) f.id: f};
+      final vorschlaege = [
+        for (final v in roh)
+          if (nachId.containsKey(v.faceId))
+            (gesicht: nachId[v.faceId]!, aehnlichkeit: v.aehnlichkeit),
+      ];
+
+      final uebernommen = await Navigator.of(context).push<int>(MaterialPageRoute(
+        builder: (_) => PersonSuggestionsScreen(
+          library: library,
+          person: person,
+          vorschlaege: vorschlaege,
+        ),
+      ));
+      if (!mounted || uebernommen == null) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppTexte.of(context).vorschlagUebernommenMeldung(uebernommen)),
+      ));
+    } finally {
+      if (mounted) setState(() => _sucheLaeuft = false);
+    }
+  }
 
   /// Zeigt alle Gesichter dieser Person zur Auswahl an und setzt das
   /// angetippte als neues Profilbild (überschreibt ein evtl. vorhandenes).
@@ -100,6 +192,19 @@ class PersonDetailScreen extends StatelessWidget {
                     onPressed: () => _pickProfilePicture(context),
                     icon: const Icon(Icons.image_outlined),
                     label: Text(AppTexte.of(context).personProfilbildAendern),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _sucheLaeuft ? null : _vorschlaegeSuchen,
+                    icon: _sucheLaeuft
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.person_search_outlined),
+                    label: Text(AppTexte.of(context).personWeitereFotosSuchen),
                   ),
                 ),
               ],

@@ -6413,6 +6413,192 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'{anzahl, plural, =0{Es gab keine Erkennungen zum Löschen.} =1{Eine Erkennung gelöscht.} other{{anzahl} Erkennungen gelöscht.}}'**
   String personenErkennungenGeloeschtMeldung(int anzahl);
+
+  /// No description provided for @gesichtZuordnungLoesen.
+  ///
+  /// In de, this message translates to:
+  /// **'Zuordnung lösen'**
+  String get gesichtZuordnungLoesen;
+
+  /// No description provided for @gesichtNichtMehrIgnorieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht mehr ignorieren'**
+  String get gesichtNichtMehrIgnorieren;
+
+  /// No description provided for @gesichtErkennungLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Erkennung löschen'**
+  String get gesichtErkennungLoeschen;
+
+  /// No description provided for @gesichtAlleUnbenanntenIgnorieren.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Keine unbenannten Gesichter} =1{Unbenanntes Gesicht ignorieren} other{{anzahl} unbenannte Gesichter ignorieren}}'**
+  String gesichtAlleUnbenanntenIgnorieren(int anzahl);
+
+  /// No description provided for @personWeitereFotosSuchen.
+  ///
+  /// In de, this message translates to:
+  /// **'Weitere Fotos suchen'**
+  String get personWeitereFotosSuchen;
+
+  /// No description provided for @vorschlagTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschläge für {name}'**
+  String vorschlagTitel(String name);
+
+  /// No description provided for @vorschlagHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Alles ist ausgewählt. Nimm heraus, was nicht stimmt – auch das lernt die Erkennung: Eine Ablehnung schiebt die Schwelle für diese Person nach oben.'**
+  String get vorschlagHinweis;
+
+  /// No description provided for @vorschlagAlleWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle wählen'**
+  String get vorschlagAlleWaehlen;
+
+  /// No description provided for @vorschlagKeineWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine wählen'**
+  String get vorschlagKeineWaehlen;
+
+  /// No description provided for @vorschlagUebernehmen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Nichts ausgewählt} =1{Ein Gesicht zuordnen} other{{anzahl} Gesichter zuordnen}}'**
+  String vorschlagUebernehmen(int anzahl);
+
+  /// No description provided for @vorschlagUebernommenMeldung.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Nichts übernommen – die Rückmeldung ist trotzdem gespeichert.} =1{Ein Foto hinzugefügt.} other{{anzahl} Fotos hinzugefügt.}}'**
+  String vorschlagUebernommenMeldung(int anzahl);
+
+  /// No description provided for @vorschlagKeineEmbeddings.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diese Person gibt es noch keine Wiedererkennungs-Daten. Sie entstehen beim Gesichts-Scan, sobald das SFace-Modell installiert ist.'**
+  String get vorschlagKeineEmbeddings;
+
+  /// No description provided for @vorschlagKeineKandidaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Es gibt keine unbenannten Gesichter, die vorgeschlagen werden könnten.'**
+  String get vorschlagKeineKandidaten;
+
+  /// No description provided for @vorschlagNichtsGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein unbenanntes Gesicht liegt über der Schwelle {schwelle} dieser Person.'**
+  String vorschlagNichtsGefunden(String schwelle);
+
+  /// No description provided for @gesichtRahmenAusblenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Rahmen ausblenden'**
+  String get gesichtRahmenAusblenden;
+
+  /// No description provided for @gesichtRahmenEinblenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Rahmen einblenden'**
+  String get gesichtRahmenEinblenden;
+
+  /// No description provided for @entwKlarheit.
+  ///
+  /// In de, this message translates to:
+  /// **'Klarheit'**
+  String get entwKlarheit;
+
+  /// No description provided for @entwVignettierung.
+  ///
+  /// In de, this message translates to:
+  /// **'Vignettierung'**
+  String get entwVignettierung;
+
+  /// No description provided for @entwLutKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Farbtabelle'**
+  String get entwLutKeine;
+
+  /// No description provided for @entwLutWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbtabelle wählen (.cube)'**
+  String get entwLutWaehlen;
+
+  /// No description provided for @entwLutEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbtabelle entfernen'**
+  String get entwLutEntfernen;
+
+  /// No description provided for @entwLutStaerke.
+  ///
+  /// In de, this message translates to:
+  /// **'Stärke'**
+  String get entwLutStaerke;
+
+  /// No description provided for @entwLutFehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Farbtabelle „{name}“ lässt sich nicht mehr lesen und wurde entfernt.'**
+  String entwLutFehlt(String name);
+
+  /// No description provided for @entwLutNichtLesbar.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Datei lässt sich nicht lesen: {fehler}'**
+  String entwLutNichtLesbar(String fehler);
+
+  /// No description provided for @entwLutEindimensional.
+  ///
+  /// In de, this message translates to:
+  /// **'Das ist eine eindimensionale Tabelle – sie beschreibt eine Kurve, keinen Farbraum. Dafür gibt es hier die Tonwertkurve.'**
+  String get entwLutEindimensional;
+
+  /// No description provided for @entwLutOhneGroesse.
+  ///
+  /// In de, this message translates to:
+  /// **'In der Datei fehlt die Angabe LUT_3D_SIZE.'**
+  String get entwLutOhneGroesse;
+
+  /// No description provided for @entwLutGroesse.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Kantenlänge in Zeile {zeile} liegt außerhalb des Erlaubten (2 bis 256).'**
+  String entwLutGroesse(int zeile);
+
+  /// No description provided for @entwLutZeilenzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Datei enthält nicht so viele Werte, wie ihre Kantenlänge verlangt.'**
+  String get entwLutZeilenzahl;
+
+  /// No description provided for @entwLutZeile.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeile {zeile} lässt sich nicht lesen.'**
+  String entwLutZeile(int zeile);
+
+  /// No description provided for @histogrammWaveform.
+  ///
+  /// In de, this message translates to:
+  /// **'Waveform'**
+  String get histogrammWaveform;
+
+  /// No description provided for @histogrammParade.
+  ///
+  /// In de, this message translates to:
+  /// **'Parade'**
+  String get histogrammParade;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

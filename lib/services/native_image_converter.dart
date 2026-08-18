@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import 'cube_lut.dart';
 import 'develop_color.dart';
 import 'platform/linux_image_tools.dart';
 import 'raw_formats.dart';
@@ -272,6 +273,14 @@ class DevelopAdjustments {
   final double shadows; // -1..1
   final double sharpness; // 0..1
   final double noiseReduction; // 0..1
+
+  /// Lokaler Mikrokontrast, -1..1. Negativ weicht auf, positiv arbeitet
+  /// Struktur heraus.
+  final double clarity;
+
+  /// Randabdunklung, -1..1. Negativ dunkelt ab, positiv hellt auf.
+  final double vignette;
+
   final bool lensCorrectionEnabled;
 
   /// Tonwertkurve und Farbmischer (siehe develop_color.dart). Anders als
@@ -281,6 +290,14 @@ class DevelopAdjustments {
   final ToneCurve toneCurve;
   final ColorMixer colorMixer;
 
+  /// Eine importierte Farbtabelle und wie stark sie wirkt.
+  ///
+  /// Sie geht nicht als eigener Schritt über den Kanal: [buildColorCube]
+  /// rechnet sie in denselben Würfel hinein, den der Mischer erzeugt.
+  /// Beide Renderpfade bekommen dadurch weiterhin genau einen Würfel.
+  final CubeLut? lut;
+  final double lutStrength;
+
   const DevelopAdjustments({
     this.exposure = 0,
     this.temperature,
@@ -289,10 +306,21 @@ class DevelopAdjustments {
     this.shadows = 0,
     this.sharpness = 0,
     this.noiseReduction = 0,
+    this.clarity = 0,
+    this.vignette = 0,
     this.lensCorrectionEnabled = true,
     this.toneCurve = ToneCurve.neutral,
     this.colorMixer = ColorMixer.neutral,
+    this.lut,
+    this.lutStrength = 1,
   });
+
+  /// Ob überhaupt ein Farbwürfel gebraucht wird.
+  ///
+  /// Ein Look allein genügt dafür – ohne diese Prüfung liesse ein neutraler
+  /// Mischer die Tabelle fallen, und die Datei hätte keine Wirkung.
+  bool get brauchtFarbwuerfel =>
+      !colorMixer.istNeutral || (lut != null && lutStrength > 0);
 
   /// Alle Regler auf "unverändert" – DevelopScreen zeigt bei fehlenden
   /// gespeicherten Einstellungen bewusst direkt die vorhandene Vorschau-/
@@ -311,10 +339,13 @@ class DevelopAdjustments {
         'shadows': shadows,
         'sharpness': sharpness,
         'noiseReduction': noiseReduction,
+        'clarity': clarity,
+        'vignette': vignette,
         'lensCorrectionEnabled': lensCorrectionEnabled,
         if (!toneCurve.istNeutral) 'toneCurveLut': buildCurveLut(toneCurve),
-        if (!colorMixer.istNeutral) ...{
-          'colorCube': buildColorCube(colorMixer),
+        if (brauchtFarbwuerfel) ...{
+          'colorCube':
+              buildColorCube(colorMixer, lut: lut, lutStaerke: lutStrength),
           'colorCubeSize': colorCubeSize,
         },
       };

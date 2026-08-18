@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui show PointMode;
 
 import 'package:flutter/material.dart';
 
@@ -16,6 +17,15 @@ enum HistogramMode {
 
   /// Rot, Grün und Blau getrennt, additiv übereinandergelegt.
   rgb,
+
+  /// Waveform: die Tonwertverteilung je Bildspalte. Die waagerechte Achse
+  /// ist die Bildbreite, die senkrechte der Tonwert – man sieht damit,
+  /// WO im Bild etwas ausfrisst, was ein Histogramm nicht zeigen kann.
+  waveform,
+
+  /// Dieselbe Darstellung, aber die drei Farbkanäle nebeneinander. Zeigt
+  /// Farbstiche, die in der Helligkeits-Waveform untergehen.
+  parade,
 }
 
 /// Zeigt die Tonwertverteilung eines Bildes, umschaltbar zwischen
@@ -28,12 +38,23 @@ enum HistogramMode {
 class HistogramView extends StatefulWidget {
   final HistogramData? data;
 
+  /// Die Datengrundlage für Waveform und Parade. Getrennt vom Histogramm,
+  /// weil es eine andere Auswertung ist und nicht bloss eine andere
+  /// Zeichnung: Ein Histogramm wirft die Bildposition weg, eine Waveform
+  /// braucht sie.
+  final WaveformData? waveform;
+
   /// Zeigt einen dezenten Ladehinweis, während im Hintergrund eine neue
   /// Vorschau berechnet wird – das bisherige Histogramm bleibt dabei
   /// sichtbar, statt auf einen leeren Kasten zu springen.
   final bool isStale;
 
-  const HistogramView({super.key, required this.data, this.isStale = false});
+  const HistogramView({
+    super.key,
+    required this.data,
+    this.waveform,
+    this.isStale = false,
+  });
 
   @override
   State<HistogramView> createState() => _HistogramViewState();
@@ -45,6 +66,10 @@ class _HistogramViewState extends State<HistogramView> {
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
+    final welle = widget.waveform;
+    final istWelle =
+        _mode == HistogramMode.waveform || _mode == HistogramMode.parade;
+    final leer = istWelle ? welle == null || welle.isEmpty : data == null || data.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -70,7 +95,7 @@ class _HistogramViewState extends State<HistogramView> {
             border: Border.all(color: Colors.white24),
           ),
           clipBehavior: Clip.antiAlias,
-          child: data == null || data.isEmpty
+          child: leer
               ? Center(
                   child: Text(
                     AppTexte.of(context).histogrammKeineVorschau,
@@ -78,7 +103,9 @@ class _HistogramViewState extends State<HistogramView> {
                   ),
                 )
               : CustomPaint(
-                  painter: _HistogramPainter(data: data, mode: _mode),
+                  painter: istWelle
+                      ? _WaveformPainter(data: welle!, parade: _mode == HistogramMode.parade)
+                      : _HistogramPainter(data: data!, mode: _mode),
                   size: Size.infinite,
                 ),
         ),
@@ -97,6 +124,16 @@ class _HistogramViewState extends State<HistogramView> {
             const ButtonSegment(
               value: HistogramMode.rgb,
               label: Text('RGB', style: TextStyle(fontSize: 11)),
+            ),
+            ButtonSegment(
+              value: HistogramMode.waveform,
+              label: Text(AppTexte.of(context).histogrammWaveform,
+                  style: const TextStyle(fontSize: 11)),
+            ),
+            ButtonSegment(
+              value: HistogramMode.parade,
+              label: Text(AppTexte.of(context).histogrammParade,
+                  style: const TextStyle(fontSize: 11)),
             ),
           ],
           selected: {_mode},
@@ -199,4 +236,85 @@ void paintHistogramSilhouette(
       ..style = PaintingStyle.fill
       ..blendMode = blend,
   );
+}
+
+/// Zeichnet Waveform und RGB-Parade.
+///
+/// Beide sind dasselbe Bild, nur anders angeordnet: Die Waveform legt die
+/// Helligkeit über die volle Breite, die Parade stellt die drei Farbkanäle
+/// nebeneinander in je einem Drittel. Deshalb ein Maler für beides.
+///
+/// Gezeichnet wird als Bildpunkte, nicht als Linie: Jede Bildspalte hat
+/// eine ganze Verteilung von Tonwerten, keinen einzelnen Wert. Wie hell ein
+/// Punkt ist, sagt, wie viele Pixel dieser Spalte diesen Tonwert haben –
+/// genau so sieht eine Waveform in einem Schnittprogramm aus.
+class _WaveformPainter extends CustomPainter {
+  final WaveformData data;
+  final bool parade;
+
+  _WaveformPainter({required this.data, required this.parade});
+
+  /// In wie viele Helligkeitsstufen abgestuft wird.
+  ///
+  /// `drawPoints` kennt nur eine Farbe für den ganzen Aufruf. Statt jeden
+  /// Punkt einzeln zu zeichnen – bei 256×256 Stützstellen wäre das zu
+  /// langsam – werden die Punkte nach Stufe gebündelt und je Stufe ein Mal
+  /// gezeichnet. Sechs Stufen sind fein genug, dass keine Kanten sichtbar
+  /// werden.
+  static const _stufen = 6;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.peak <= 0) return;
+
+    void zeichne(List<List<int>> kanal, Color farbe, double x0, double breite) {
+      final spalten = kanal.length;
+      final punktBreite = breite / spalten;
+      final buendel = List.generate(_stufen, (_) => <Offset>[]);
+
+      for (var x = 0; x < spalten; x++) {
+        final spalte = kanal[x];
+        final px = x0 + x * punktBreite + punktBreite / 2;
+        for (var t = 0; t < spalte.length; t++) {
+          if (spalte[t] <= 0) continue;
+          // Wurzelkennlinie statt linear: Eine Spalte hat wenige sehr hohe
+          // und viele sehr kleine Werte. Linear abgebildet wäre ausser der
+          // Spitze nichts zu sehen.
+          final h = math.sqrt(spalte[t] / data.peak);
+          final stufe = (h * _stufen).ceil().clamp(1, _stufen) - 1;
+          // Tonwert 255 gehört nach oben, 0 nach unten.
+          final py = size.height * (1 - t / (spalte.length - 1));
+          buendel[stufe].add(Offset(px, py));
+        }
+      }
+
+      for (var stufe = 0; stufe < _stufen; stufe++) {
+        if (buendel[stufe].isEmpty) continue;
+        canvas.drawPoints(
+          ui.PointMode.points,
+          buendel[stufe],
+          Paint()
+            ..strokeWidth = math.max(1.0, punktBreite)
+            ..strokeCap = StrokeCap.square
+            // Additiv: Wo sich in der Parade zwei Kanäle decken, entsteht
+            // die Mischfarbe – dasselbe Verhalten wie beim RGB-Histogramm.
+            ..blendMode = BlendMode.plus
+            ..color = farbe.withValues(alpha: (stufe + 1) / _stufen),
+        );
+      }
+    }
+
+    if (parade) {
+      final drittel = size.width / 3;
+      zeichne(data.red, const Color(0xFFFF5252), 0, drittel);
+      zeichne(data.green, const Color(0xFF69F0AE), drittel, drittel);
+      zeichne(data.blue, const Color(0xFF448AFF), drittel * 2, drittel);
+    } else {
+      zeichne(data.luminance, Colors.white, 0, size.width);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter old) =>
+      !identical(old.data, data) || old.parade != parade;
 }

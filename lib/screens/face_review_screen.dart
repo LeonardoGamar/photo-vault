@@ -52,6 +52,15 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   Map<String, String> _personNames = {}; // personId -> Name
   double? _aspectRatio;
   bool _addMode = false;
+
+  /// Ob die Rahmen über dem Foto gezeichnet werden.
+  ///
+  /// Bei einem Gruppenfoto liegen schnell ein Dutzend Kästen mit
+  /// Beschriftung über dem Bild – man sieht dann die Rahmen und nicht mehr
+  /// das Foto. Der Schalter gilt für die ganze Sitzung dieses Bildschirms,
+  /// also auch beim Weiterblättern: Wer sie einmal weggeschaltet hat, will
+  /// sie nicht auf jedem Foto neu wegschalten.
+  bool _rahmenSichtbar = true;
   Offset? _dragStart;
   Offset? _dragCurrent;
   bool _loading = true;
@@ -231,6 +240,113 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     _load();
   }
 
+  /// Das Kontextmenü (Rechtsklick). [face] ist gesetzt, wenn auf einen
+  /// Rahmen geklickt wurde, sonst wurde daneben geklickt.
+  ///
+  /// Dass es hier eines gibt, ist kein Beiwerk: Dies ist der Bildschirm, auf
+  /// dem man unter „Personen" tatsächlich arbeitet. Bisher führte jede
+  /// Handlung über einen Linksklick, der immer denselben Dialog öffnete –
+  /// wer ein Fehlerkennung nur wegräumen wollte, musste erst den
+  /// Namensdialog aufmachen.
+  Future<void> _kontextmenue(Offset position, FaceData? face) async {
+    final t = AppTexte.of(context);
+    final wo = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final unbenannte = _faces.where((f) => f.personId == null && !f.isIgnored).length;
+
+    final wahl = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(position & Size.zero, Offset.zero & wo.size),
+      items: [
+        if (face != null) ...[
+          if (!face.isIgnored)
+            PopupMenuItem(
+              value: 'benennen',
+              child: _eintrag(
+                  Icons.person_add_alt_1,
+                  face.personId != null
+                      ? t.gesichtUmbenennen
+                      : t.gesichtBenennen),
+            ),
+          if (face.personId != null)
+            PopupMenuItem(
+              value: 'loesen',
+              child: _eintrag(Icons.person_off_outlined, t.gesichtZuordnungLoesen),
+            ),
+          PopupMenuItem(
+            value: face.isIgnored ? 'zurueck' : 'ignorieren',
+            child: _eintrag(
+                face.isIgnored ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                face.isIgnored ? t.gesichtNichtMehrIgnorieren : t.gesichtIgnorieren),
+          ),
+          PopupMenuItem(
+            value: 'loeschen',
+            child: _eintrag(Icons.delete_outline, t.gesichtErkennungLoeschen),
+          ),
+          const PopupMenuDivider(),
+        ],
+        // Auch hier, nicht nur in der Titelleiste: Sind die Rahmen weg,
+        // sucht man den Weg zurück dort, wo man gerade hinsieht.
+        PopupMenuItem(
+          value: 'rahmen',
+          child: _eintrag(
+              _rahmenSichtbar ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+              _rahmenSichtbar ? t.gesichtRahmenAusblenden : t.gesichtRahmenEinblenden),
+        ),
+        PopupMenuItem(
+          value: 'hinzufuegen',
+          child: _eintrag(Icons.add_a_photo_outlined, t.gesichtManuellHinzufuegen),
+        ),
+        PopupMenuItem(
+          value: 'alleIgnorieren',
+          enabled: unbenannte > 0,
+          child: _eintrag(Icons.visibility_off_outlined,
+              t.gesichtAlleUnbenanntenIgnorieren(unbenannte)),
+        ),
+      ],
+    );
+    if (!mounted || wahl == null) return;
+
+    switch (wahl) {
+      case 'benennen':
+        await _tapFace(face!);
+      case 'loesen':
+        await widget.library.db.loeseZuordnung(face!.id);
+        _load();
+      case 'ignorieren':
+        await widget.library.db.setFacesIgnored([face!.id], true);
+        _load();
+      case 'zurueck':
+        await widget.library.db.setFacesIgnored([face!.id], false);
+        _load();
+      case 'loeschen':
+        await widget.library.loescheGesicht(face!.id);
+        _load();
+      case 'rahmen':
+        setState(() => _rahmenSichtbar = !_rahmenSichtbar);
+      case 'hinzufuegen':
+        setState(() {
+          _addMode = true;
+          _dragStart = null;
+          _dragCurrent = null;
+        });
+      case 'alleIgnorieren':
+        await widget.library.db.setFacesIgnored(
+          [for (final f in _faces) if (f.personId == null && !f.isIgnored) f.id],
+          true,
+        );
+        _load();
+    }
+  }
+
+  /// Eine Menüzeile. Der Text ist [Flexible], weil ein Popup-Menü seine
+  /// Breite begrenzt und eine feste Zeile sonst überläuft – genau das
+  /// passierte beim längsten Eintrag.
+  Widget _eintrag(IconData icon, String text) => Row(children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Flexible(child: Text(text)),
+      ]);
+
   Future<void> _finishManualBox(Rect normalizedRect) async {
     final people = await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
@@ -339,6 +455,16 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
         ],
         if (!gesperrt)
           IconButton(
+            tooltip: _rahmenSichtbar
+                ? AppTexte.of(context).gesichtRahmenAusblenden
+                : AppTexte.of(context).gesichtRahmenEinblenden,
+            icon: Icon(_rahmenSichtbar
+                ? Icons.visibility_outlined
+                : Icons.visibility_off_outlined),
+            onPressed: () => setState(() => _rahmenSichtbar = !_rahmenSichtbar),
+          ),
+        if (!gesperrt)
+          IconButton(
             tooltip: _addMode
                 ? AppTexte.of(context).gesichtHinzufuegenBeenden
                 : AppTexte.of(context).gesichtManuellHinzufuegen,
@@ -395,6 +521,10 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                     final w = constraints.maxWidth;
                     final h = constraints.maxHeight;
                     return GestureDetector(
+                      // Rechtsklick auf die freie Fläche. Liegt auf
+                      // derselben Geste wie das Aufziehen, damit beides
+                      // dieselbe Fläche abdeckt.
+                      onSecondaryTapDown: (d) => _kontextmenue(d.globalPosition, null),
                       onPanStart: _addMode ? (d) => setState(() {
                             _dragStart = d.localPosition;
                             _dragCurrent = d.localPosition;
@@ -435,14 +565,21 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                             // Bildcache.
                             cacheWidth: (w * MediaQuery.devicePixelRatioOf(context)).round(),
                           ),
-                          for (final face in _faces)
-                            Positioned(
+                          if (_rahmenSichtbar)
+                            for (final face in _faces)
+                              Positioned(
                               left: face.boxX * w,
                               top: face.boxY * h,
                               width: face.boxW * w,
                               height: face.boxH * h,
                               child: GestureDetector(
                                 onTap: () => _tapFace(face),
+                                // Der Rahmen liegt über der Fläche und
+                                // fängt den Klick zuerst ab – ohne diese
+                                // Zeile bekäme man auf einem Gesicht das
+                                // Menü der freien Fläche.
+                                onSecondaryTapDown: (d) =>
+                                    _kontextmenue(d.globalPosition, face),
                                 child: Container(
                                   decoration: BoxDecoration(
                                     border: Border.all(

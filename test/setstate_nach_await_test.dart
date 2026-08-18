@@ -120,6 +120,19 @@ void main() {
             continue;
           }
 
+          // Ein case-Zweig: Was in den Geschwister-Zweigen steht, läuft nie
+          // zusammen mit diesem. Rückwärts über sie hinweg bis zum switch
+          // selbst – der Code DAVOR ist wieder gemeinsamer Ablauf und zählt.
+          // Ohne diesen Schritt meldete der Wächter jedes setState in einem
+          // switch, sobald irgendein anderer Zweig ein await enthielt.
+          if (RegExp(r'^\s*(case\b|default\s*:)').hasMatch(zeile)) {
+            while (j > 0 &&
+                !RegExp(r'^\s*switch\s*\(').hasMatch(ohneKommentar(zeilen[j]))) {
+              j--;
+            }
+            continue;
+          }
+
           if (zeile.contains('mounted')) {
             mountedGesehen = true;
             break;

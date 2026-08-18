@@ -103,6 +103,8 @@ class ImageConverterChannel: NSObject {
                     shadows: (args["shadows"] as? NSNumber)?.floatValue ?? 0,
                     sharpness: (args["sharpness"] as? NSNumber)?.floatValue ?? 0,
                     noiseReduction: (args["noiseReduction"] as? NSNumber)?.floatValue ?? 0,
+                    clarity: (args["clarity"] as? NSNumber)?.floatValue ?? 0,
+                    vignette: (args["vignette"] as? NSNumber)?.floatValue ?? 0,
                     lensCorrectionEnabled: (args["lensCorrectionEnabled"] as? Bool) ?? true,
                     curveLut: floatArray(args["toneCurveLut"]),
                     colorCube: floatArray(args["colorCube"]),
@@ -123,6 +125,8 @@ class ImageConverterChannel: NSObject {
                             shadows: (m["shadows"] as? NSNumber)?.floatValue ?? 0,
                             sharpness: (m["sharpness"] as? NSNumber)?.floatValue ?? 0,
                             noiseReduction: (m["noiseReduction"] as? NSNumber)?.floatValue ?? 0,
+                            clarity: (m["clarity"] as? NSNumber)?.floatValue ?? 0,
+                            vignette: (m["vignette"] as? NSNumber)?.floatValue ?? 0,
                             lensCorrectionEnabled: true
                         )
                     )
@@ -418,6 +422,8 @@ class ImageConverterChannel: NSObject {
         let shadows: Float
         let sharpness: Float
         let noiseReduction: Float
+        let clarity: Float
+        let vignette: Float
         let lensCorrectionEnabled: Bool
 
         /// Tonwertkurve und Farbmischer kommen NICHT als Regler-Zahlen an,
@@ -649,7 +655,45 @@ class ImageConverterChannel: NSObject {
             f.setValue(0.4, forKey: kCIInputSharpnessKey)
             image = f.outputImage ?? image
         }
+
+        // Klarheit: eine Unschärfemaske mit grossem Radius. Genau das
+        // unterscheidet sie vom Schärfen darüber – der kleine Radius dort
+        // arbeitet Kanten heraus, der grosse hier den Eindruck von Struktur
+        // über grössere Flächen. Deshalb auch NACH dem Schärfen: Beide
+        // greifen an verschiedenen Grössenordnungen an.
+        if a.clarity != 0, let f = CIFilter(name: "CIUnsharpMask") {
+            f.setValue(image, forKey: kCIInputImageKey)
+            f.setValue(20.0, forKey: kCIInputRadiusKey)
+            f.setValue(abs(a.clarity) * 1.5, forKey: kCIInputIntensityKey)
+            if let raus = f.outputImage {
+                // Negative Klarheit gibt es als Filter nicht; sie entsteht
+                // durch Zurückblenden über das Original hinaus.
+                image = a.clarity > 0 ? raus : mische(image, raus, -Double(a.clarity))
+            }
+        }
+
+        // Vignettierung. CIVignette dunkelt nur ab; zum Aufhellen wird der
+        // Effekt gespiegelt und zurückgeblendet.
+        if a.vignette != 0, let f = CIFilter(name: "CIVignette") {
+            f.setValue(image, forKey: kCIInputImageKey)
+            f.setValue(1.0, forKey: kCIInputRadiusKey)
+            f.setValue(-abs(a.vignette) * 2.0, forKey: kCIInputIntensityKey)
+            if let raus = f.outputImage {
+                image = a.vignette < 0 ? raus : mische(image, raus, -Double(a.vignette))
+            }
+        }
         return image
+    }
+
+    /// Blendet [b] mit [anteil] über [a]. Bei negativem [anteil] wird über
+    /// [a] hinaus in die Gegenrichtung extrapoliert – so entsteht aus einem
+    /// Filter, den es nur in eine Richtung gibt, auch die andere.
+    private static func mische(_ a: CIImage, _ b: CIImage, _ anteil: Double) -> CIImage {
+        guard let f = CIFilter(name: "CIMix") else { return a }
+        f.setValue(a, forKey: kCIInputImageKey)
+        f.setValue(b, forKey: kCIInputBackgroundImageKey)
+        f.setValue(anteil, forKey: "inputAmount")
+        return f.outputImage ?? a
     }
 
     /// Skaliert [image] gleichmäßig herunter, falls die längste Seite über

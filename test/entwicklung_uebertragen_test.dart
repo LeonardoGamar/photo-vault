@@ -86,6 +86,9 @@ void main() {
       shadows: 0,
       sharpness: 0,
       noiseReduction: 0,
+      clarity: 0,
+      vignette: 0,
+      lutStrength: 1,
       lensCorrectionEnabled: true,
       updatedAt: DateTime.now(),
     ));

@@ -338,6 +338,22 @@ class DevelopSettings extends Table {
   RealColumn get noiseReduction => real().withDefault(const Constant(0))(); // 0..1
   BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
 
+  /// Klarheit (lokaler Mikrokontrast) und Vignettierung, je -1..1.
+  ///
+  /// Beide sind reine Core-Image-Filter und wirken deshalb – wie Schärfe
+  /// und Rauschunterdrückung – erst im gerenderten Bild, nicht in der
+  /// Shader-Vorschau während des Ziehens.
+  RealColumn get clarity => real().withDefault(const Constant(0))();
+  RealColumn get vignette => real().withDefault(const Constant(0))();
+
+  /// Eine importierte Farbtabelle (`.cube`), relativ zur Bibliothek, und
+  /// wie stark sie wirkt.
+  ///
+  /// Der Pfad statt des Inhalts: Ein 33er-Würfel sind 36.000 Zahlen, die
+  /// sonst in jeder Zeile und noch einmal in jedem Verlaufseintrag lägen.
+  TextColumn get lutPath => text().nullable()();
+  RealColumn get lutStrength => real().withDefault(const Constant(1))();
+
   /// JSON-kodierte [ToneCurve] bzw. [ColorMixer] (siehe develop_color.dart).
   ///
   /// Anders als die Regler darüber sind das keine einzelnen Zahlen, sondern
@@ -391,6 +407,14 @@ class DevelopHistory extends Table {
   RealColumn get sharpness => real()();
   RealColumn get noiseReduction => real()();
   BoolColumn get lensCorrectionEnabled => boolean()();
+
+  /// Wie in [DevelopSettings]. Ohne sie liesse ein Verlaufs-Eintrag diese
+  /// Werte stillschweigend fallen, und „Zurück zu diesem Stand" führte zu
+  /// einem anderen Bild als damals.
+  RealColumn get clarity => real().withDefault(const Constant(0))();
+  RealColumn get vignette => real().withDefault(const Constant(0))();
+  TextColumn get lutPath => text().nullable()();
+  RealColumn get lutStrength => real().withDefault(const Constant(1))();
 
   /// Wie in [DevelopSettings] – ohne diese beiden Spalten liesse ein
   /// Verlaufs-Eintrag Kurve und Mischer stillschweigend fallen, und
@@ -773,7 +797,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 38;
+  int get schemaVersion => 39;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1047,6 +1071,28 @@ class AppDatabase extends _$AppDatabase {
             // Erst nach der Spalte – ein Index auf eine noch nicht
             // existierende Spalte scheitert.
             await _createPerformanceIndices(m);
+          }
+          if (from < 39) {
+            // Klarheit, Vignettierung und importierte Farbtabellen – in
+            // beiden Tabellen, damit der Verlauf nichts fallen lässt.
+            // Ausgeschrieben statt in einer Schleife: Über beide Tabellen zu
+            // laufen verliert deren konkreten Typ und damit die Spalten.
+            await _addColumnIfMissing(
+                m, developSettings, developSettings.clarity, 'develop_settings', 'clarity');
+            await _addColumnIfMissing(
+                m, developSettings, developSettings.vignette, 'develop_settings', 'vignette');
+            await _addColumnIfMissing(
+                m, developSettings, developSettings.lutPath, 'develop_settings', 'lut_path');
+            await _addColumnIfMissing(m, developSettings, developSettings.lutStrength,
+                'develop_settings', 'lut_strength');
+            await _addColumnIfMissing(
+                m, developHistory, developHistory.clarity, 'develop_history', 'clarity');
+            await _addColumnIfMissing(
+                m, developHistory, developHistory.vignette, 'develop_history', 'vignette');
+            await _addColumnIfMissing(
+                m, developHistory, developHistory.lutPath, 'develop_history', 'lut_path');
+            await _addColumnIfMissing(m, developHistory, developHistory.lutStrength,
+                'develop_history', 'lut_strength');
           }
         },
       );
@@ -2942,6 +2988,31 @@ class AppDatabase extends _$AppDatabase {
     final row = await query.getSingle();
     return row.read(anzahl) ?? 0;
   }
+
+  /// Löscht eine einzelne Erkennung und liefert den Pfad ihres
+  /// Ausschnitts, damit der Aufrufer die Datei mit wegräumen kann.
+  ///
+  /// Für den offensichtlichen Fehlgriff der Erkennung, den man direkt im
+  /// Foto sieht. Wie jedes Löschen ist auch das nicht dauerhaft – der
+  /// nächste Scan findet die Stelle wieder. Wer sie loswerden will, legt
+  /// sie beiseite (siehe [Faces.isIgnored]).
+  Future<String?> loescheGesicht(String faceId) async {
+    final vorher =
+        await (select(faces)..where((t) => t.id.equals(faceId))).getSingleOrNull();
+    if (vorher == null) return null;
+    await (delete(faces)..where((t) => t.id.equals(faceId))).go();
+    return vorher.cropRelativePath;
+  }
+
+  /// Nimmt einem Gesicht seine Person, ohne es zu löschen – es landet
+  /// wieder unter „Unbenannte Gesichter".
+  ///
+  /// Für die falsch zugeordnete Erkennung: Sie zu löschen wäre zu viel
+  /// (die Stelle IST ein Gesicht), sie beiseitezulegen auch (man will sie
+  /// ja richtig benennen).
+  Future<void> loeseZuordnung(String faceId) =>
+      (update(faces)..where((t) => t.id.equals(faceId)))
+          .write(const FacesCompanion(personId: Value(null)));
 
   /// Legt alle noch unbenannten Gesichter auf einen Schlag beiseite und
   /// liefert, wie viele es waren.
