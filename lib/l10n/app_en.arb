@@ -1019,5 +1019,50 @@
   "einstBeschrBackupAuto": "Back up regularly without having to think about it",
   "einstBeschrPapierkorb": "When deleted photos disappear for good",
   "einstBeschrGefahr": "Steps that cannot be undone",
-  "einstBeschrUeber": "Version, licences and updates"
+  "einstBeschrUeber": "Version, licences and updates",
+  "allgRueckgaengig": "Undo",
+  "personenIgnoriertTab": "Ignored",
+  "personenIgnoriertTabMitZahl": "Ignored ({anzahl})",
+  "@personenIgnoriertTabMitZahl": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenIgnorierenTooltip": "Ignore selected faces",
+  "personenIgnoriertMeldung": "{anzahl, plural, =1{One face ignored.} other{{anzahl} faces ignored.}}",
+  "@personenIgnoriertMeldung": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenIgnoriertLeer": "No ignored faces. Whatever you set aside under “Unnamed faces” – posters, reflections, statues – collects here and can be brought back at any time.",
+  "personenIgnoriertHinweis": "Ignored faces no longer appear in the grid and are left out of grouping. Double-click opens the whole photo.",
+  "personenIgnoriertTeilHinweis": "{gezeigt} of {gesamt} ignored faces. Double-click opens the whole photo.",
+  "@personenIgnoriertTeilHinweis": {
+    "placeholders": { "gezeigt": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "personenZurueckholenKnopf": "Bring back {anzahl}",
+  "@personenZurueckholenKnopf": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "clusterPhaseLaden": "Loading faces …",
+  "clusterPhaseVergleichen": "Comparing faces …",
+  "clusterPhaseVorschlaege": "Preparing suggestions …",
+  "clusterOhneProzent": "Working …",
+  "clusterFehlgeschlagen": "Automatic grouping failed: {fehler}",
+  "@clusterFehlgeschlagen": {
+    "placeholders": { "fehler": { "type": "String" } }
+  },
+  "clusterIgnorierenTooltip": "Ignore the whole group",
+  "gesichtIgnorieren": "Ignore",
+  "gesichtIgnoriert": "Ignored",
+  "gesichtZurueckgeholt": "This face counts again.",
+  "gesichtPosition": "{nummer} of {gesamt}",
+  "@gesichtPosition": {
+    "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "gesichtVoriges": "Previous photo (left arrow)",
+  "gesichtNaechstes": "Next photo (right arrow)",
+  "clusterUnerwartetBeendet": "Automatic grouping ended unexpectedly.",
+  "aufgAktiv": "Active",
+  "aufgStufeKurz": "Step {nummer}/{gesamt}",
+  "@aufgStufeKurz": {
+    "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+  }
 }

@@ -183,8 +183,10 @@ class _SearchScreenState extends State<SearchScreen> {
       } else {
         results = await widget.library.db.searchAssets(_filters);
       }
+      if (!mounted) return;
       setState(() => _results = results);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = AppTexte.of(context).sucheFehlgeschlagen('$e'));
     } finally {
       if (mounted) {

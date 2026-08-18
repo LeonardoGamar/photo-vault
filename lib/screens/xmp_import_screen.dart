@@ -125,6 +125,7 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
         }
       }
 
+      if (!mounted) return;
       setState(() {
         _diffs = diffs;
         _sidecarsFound = sidecarsFound;
@@ -154,7 +155,6 @@ class _XmpImportScreenState extends State<XmpImportScreen> {
       case _XmpDiffField.location:
         await widget.library.db.setLocation(diff.asset.id, diff.xmpFields.latitude, diff.xmpFields.longitude);
     }
-    if (!mounted) return;
     setState(() => _diffs = _diffs.where((d) => d != diff).toList());
   }
 

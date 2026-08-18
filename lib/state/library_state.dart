@@ -24,6 +24,7 @@ import '../services/translation_service.dart';
 import '../services/embedding_codec.dart';
 import '../services/eye_state_service.dart';
 import '../services/face_engine_service.dart';
+import '../services/face_postprocess.dart';
 import '../services/geo_data_download_service.dart';
 import '../services/import_service.dart';
 import '../services/library_location.dart';
@@ -847,10 +848,27 @@ class LibraryState extends ChangeNotifier {
       await db.deleteUnassignedFacesForAsset(asset.id);
     }
 
+    // Was beiseitegelegt wurde, darf ein erneuter Scan nicht als neue
+    // Erkennung zurückbringen. Das Löschen oben verschont diese Gesichter
+    // zwar, aber die Erkennung findet dieselbe Stelle wieder – ohne diesen
+    // Abgleich stünde neben jedem ignorierten Plakatgesicht nach dem
+    // nächsten Scan ein frisches, unbenanntes.
+    final ignorierteBoxen = [
+      for (final f in await db.facesForAsset(asset.id))
+        if (f.isIgnored) DetectedFace(f.boxX, f.boxY, f.boxW, f.boxH, 1.0),
+    ];
+
     try {
       if (decoded != null) {
         final boxes = await engine.detectFaces(decoded);
         for (final box in boxes) {
+          // Dieselbe Schwelle wie die Unterdrückung mehrfacher Erkennungen
+          // derselben Stelle (FaceEngineService.detectFaces) – es ist
+          // dieselbe Frage: Ist das nochmal dieses Gesicht?
+          if (ignorierteBoxen
+              .any((alt) => FacePostprocess.iou(alt, box) > 0.3)) {
+            continue;
+          }
           final faceId = const Uuid().v4();
           final cropFile = paths.absolute(paths.faceRelativePath(faceId));
           final croppedThumb = FaceEngineService.cropFaceImage(decoded, box);
@@ -1111,14 +1129,40 @@ class LibraryState extends ChangeNotifier {
     final assets = await db.assetsForLocationNameBackfill();
     var done = 0;
     yield ImportProgress(0, assets.length);
+
+    // Blockweise schreiben statt je Foto einzeln.
+    //
+    // Diese Stufe ist die einzige der Nachträge, bei der die eigentliche
+    // Arbeit im Hauptspeicher stattfindet – kein Dateizugriff, kein Modell,
+    // nur ein Nachschlagen im Ortsraster. Damit wird das Schreiben zum
+    // Kostentreiber: Für 5000 Fotos gemessen 2131 ms einzeln gegen 139 ms in
+    // Blöcken, bei 359 ms für die Auflösungen selbst.
+    //
+    // Blöcke statt einer einzigen grossen Transaktion, damit der
+    // Fortschrittsbalken weiterläuft und ein Abbruch nicht alles verwirft.
+    const blockGroesse = 200;
+    var block = <({String id, GeoLookupResult treffer})>[];
+
+    Future<void> blockSchreiben() async {
+      if (block.isEmpty) return;
+      final zuSchreiben = block;
+      block = [];
+      await db.transaction(() async {
+        for (final e in zuSchreiben) {
+          await db.setLocationNames(e.id,
+              country: e.treffer.country, state: e.treffer.state, city: e.treffer.city);
+        }
+      });
+    }
+
     for (final asset in assets) {
       final result = engine.lookup(asset.latitude!, asset.longitude!);
-      if (result != null) {
-        await db.setLocationNames(asset.id, country: result.country, state: result.state, city: result.city);
-      }
+      if (result != null) block.add((id: asset.id, treffer: result));
+      if (block.length >= blockGroesse) await blockSchreiben();
       done++;
       yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
     }
+    await blockSchreiben();
   }
 
   /// Liest Kamera-/Objektiv-Angaben nachträglich aus Fotos ein, die vor

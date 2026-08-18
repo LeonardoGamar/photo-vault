@@ -318,6 +318,7 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
       lastDate: DateTime(2100),
     );
     if (picked == null) return;
+    if (!mounted) return;
     setState(() => isFrom ? _dateFrom = picked : _dateTo = picked);
   }
 
@@ -601,7 +602,7 @@ class _AutomationRuleEditorDialogState extends State<_AutomationRuleEditorDialog
                       },
                     ),
                   );
-                  if (result != null) setState(() => _tagIds = result);
+                  if (result != null && mounted) setState(() => _tagIds = result);
                 },
                 child: InputDecorator(
                   decoration: InputDecoration(

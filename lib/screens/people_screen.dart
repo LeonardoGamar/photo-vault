@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
@@ -27,6 +26,24 @@ import 'person_detail_screen.dart';
 /// "Ähnliche mit auswählen" auf Basis der SFace-Embeddings. Ein Doppelklick
 /// auf ein Gesicht öffnet das zugehörige Foto in Vollbild zur Kontrolle und
 /// zum Benennen weiterer Gesichter darauf.
+/// Die Reihe der Fotos, durch die sich aus einem Gesichts-Raster heraus
+/// blättern lässt – in der Reihenfolge des Rasters, jedes Foto einmal.
+///
+/// Ausgelagert, weil sich hier zwei Fehler verstecken können, die man am
+/// fertigen Bildschirm erst nach dem dritten Klick bemerkt: eine verlorene
+/// Reihenfolge (die Pfeiltaste springt scheinbar wahllos) und doppelte
+/// Einträge. Doppelte entstehen von allein: Auf einem Gruppenfoto liegen
+/// mehrere unbenannte Gesichter, und ohne diesen Schritt stünde dasselbe
+/// Foto drei Mal hintereinander in der Reihe.
+@visibleForTesting
+List<String> assetReiheFuerGesichter(List<FaceData> gesichter) {
+  final gesehen = <String>{};
+  return [
+    for (final f in gesichter)
+      if (gesehen.add(f.assetId)) f.assetId,
+  ];
+}
+
 class PeopleScreen extends StatefulWidget {
   final LibraryState library;
   const PeopleScreen({super.key, required this.library});
@@ -48,15 +65,70 @@ class _PeopleScreenState extends State<PeopleScreen> {
   final Map<String, double> _autoAehnlichkeit = {};
   List<FaceData> _unassignedFaces = [];
 
+  /// Beiseitegelegte Gesichter und ihre Gesamtzahl. Die Zahl wird getrennt
+  /// gezählt, weil die Liste bei 200 gedeckelt ist – ohne sie stünde am Tab
+  /// „200", egal ob dort 200 oder 4000 Gesichter liegen.
+  List<FaceData> _ignorierteFaces = [];
+  int _ignorierteAnzahl = 0;
+  final Set<String> _ausgewaehlteIgnorierte = {};
+
   @override
   void initState() {
     super.initState();
-    _loadUnassigned();
+    _neuLaden();
   }
 
-  Future<void> _loadUnassigned() async {
+  Future<void> _neuLaden() async {
     final faces = await widget.library.db.unassignedFaces();
-    if (mounted) setState(() => _unassignedFaces = faces);
+    final ignoriert = await widget.library.db.ignoredFaces();
+    final anzahl = await widget.library.db.ignoredFacesCount();
+    if (mounted) {
+      setState(() {
+        _unassignedFaces = faces;
+        _ignorierteFaces = ignoriert;
+        _ignorierteAnzahl = anzahl;
+        _ausgewaehlteIgnorierte.removeWhere(
+            (id) => !ignoriert.any((f) => f.id == id));
+      });
+    }
+  }
+
+  /// Legt die ausgewählten Gesichter beiseite.
+  ///
+  /// Ohne Rückfrage, aber mit Rückgängig: Ein Dialog für eine Handlung, die
+  /// nichts löscht und einen eigenen Tab zum Zurückholen hat, wäre nur im
+  /// Weg – gerade weil man beim Aussortieren von Fehlerkennungen viele
+  /// hintereinander wegräumt.
+  Future<void> _ignoriereAuswahl() async {
+    if (_selectedFaceIds.isEmpty) return;
+    final betroffen = _selectedFaceIds.toList();
+    await widget.library.db.setFacesIgnored(betroffen, true);
+    if (!mounted) return;
+    setState(() {
+      _selectedFaceIds.clear();
+      _autoSelectedIds.clear();
+      _autoAehnlichkeit.clear();
+    });
+    await _neuLaden();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppTexte.of(context).personenIgnoriertMeldung(betroffen.length)),
+      action: SnackBarAction(
+        label: AppTexte.of(context).allgRueckgaengig,
+        onPressed: () async {
+          await widget.library.db.setFacesIgnored(betroffen, false);
+          await _neuLaden();
+        },
+      ),
+    ));
+  }
+
+  Future<void> _holeZurueck() async {
+    if (_ausgewaehlteIgnorierte.isEmpty) return;
+    await widget.library.db.setFacesIgnored(_ausgewaehlteIgnorierte.toList(), false);
+    if (!mounted) return;
+    setState(_ausgewaehlteIgnorierte.clear);
+    await _neuLaden();
   }
 
   Float32List _vectorOf(FaceData face) => floatsFromEmbeddingBlob(face.embedding!);
@@ -125,7 +197,9 @@ class _PeopleScreenState extends State<PeopleScreen> {
     final people = await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
 
-    final choice = await showPersonPickerDialog(context, people, title: AppTexte.of(context).personenZuordnen(_selectedFaceIds.length));
+    final choice = await showPersonPickerDialog(context, people,
+        paths: widget.library.paths,
+        title: AppTexte.of(context).personenZuordnen(_selectedFaceIds.length));
     if (choice == null) return;
 
     String personId;
@@ -160,19 +234,87 @@ class _PeopleScreenState extends State<PeopleScreen> {
       );
     }
 
+    if (!mounted) return;
     setState(() {
       _selectedFaceIds.clear();
       _autoSelectedIds.clear();
       _autoAehnlichkeit.clear();
     });
-    _loadUnassigned();
+    _neuLaden();
   }
 
   /// Gruppiert alle unzugeordneten Gesichter automatisch (siehe
   /// face_clustering_service.dart) und öffnet die Review-Ansicht zur
   /// Bestätigung – bewusst kein stilles Auto-Zuordnen, siehe
   /// FaceClusterReviewScreen.
+  ///
+  /// Der Lauf zeigt seinen Fortschritt und lässt sich abbrechen. Vorher gab
+  /// es dafür nur eine Warnung vorab und danach nichts mehr: Bei mehreren
+  /// Zehntausend Gesichtern lief die Vergleichsphase minutenlang, ohne dass
+  /// erkennbar war, ob sie überhaupt vorankommt.
   Future<void> _autoCluster() async {
+    final stand = ValueNotifier<_ClusterStand>(const _ClusterStand(_Phase.laden, null));
+    var abgebrochen = false;
+    FaceClusterLauf? lauf;
+
+    void dialogZeigen() {
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogKontext) => PopScope(
+          // Die Escape-Taste würde den Dialog schliessen, den Lauf aber
+          // weiterlaufen lassen – ein unsichtbarer Isolat, der eine Minute
+          // lang einen Kern belegt.
+          canPop: false,
+          child: AlertDialog(
+            title: Text(AppTexte.of(dialogKontext).personenAutomatischGruppieren),
+            content: ValueListenableBuilder<_ClusterStand>(
+              valueListenable: stand,
+              builder: (kontext, wert, _) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(switch (wert.phase) {
+                    _Phase.laden => AppTexte.of(kontext).clusterPhaseLaden,
+                    _Phase.vergleichen => AppTexte.of(kontext).clusterPhaseVergleichen,
+                    _Phase.vorschlaege => AppTexte.of(kontext).clusterPhaseVorschlaege,
+                  }),
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(value: wert.anteil),
+                  const SizedBox(height: 8),
+                  Text(
+                    wert.anteil == null
+                        ? AppTexte.of(kontext).clusterOhneProzent
+                        : '${(wert.anteil! * 100).round()} %',
+                    style: Theme.of(kontext).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  abgebrochen = true;
+                  lauf?.abbrechen();
+                  Navigator.of(dialogKontext).pop();
+                },
+                child: Text(AppTexte.of(dialogKontext).allgAbbrechen),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final navigator = Navigator.of(context);
+    var dialogOffen = false;
+    void dialogSchliessen() {
+      if (dialogOffen && !abgebrochen) {
+        dialogOffen = false;
+        navigator.pop();
+      }
+    }
+
     final unassigned = await widget.library.db.allUnassignedFaces();
     final embeddingsByFaceId = {
       for (final f in unassigned)
@@ -184,16 +326,20 @@ class _PeopleScreenState extends State<PeopleScreen> {
           content: Text(AppTexte.of(context).personenZuWenigeFuerClustering),
         ));
       }
+      stand.dispose();
       return;
     }
 
     // clusterFaces vergleicht bewusst jedes Gesicht mit jedem (siehe dortiger
     // Kommentar) – bei einer frisch gescannten, noch nie triagierten großen
     // Bibliothek können das leicht mehrere Zehntausend unzugeordnete
-    // Gesichter sein, was spürbar dauern kann. Vorher warnen statt den
-    // Button scheinbar einfrieren zu lassen.
+    // Gesichter sein, was spürbar dauern kann. Vorher warnen, damit die
+    // Entscheidung vor dem Warten fällt und nicht mittendrin.
     if (embeddingsByFaceId.length > 8000) {
-      if (!mounted) return;
+      if (!mounted) {
+        stand.dispose();
+        return;
+      }
       final proceed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -206,13 +352,52 @@ class _PeopleScreenState extends State<PeopleScreen> {
           ],
         ),
       );
-      if (proceed != true) return;
+      if (proceed != true) {
+        stand.dispose();
+        return;
+      }
     }
-    if (!mounted) return;
+    if (!mounted) {
+      stand.dispose();
+      return;
+    }
+
+    dialogOffen = true;
+    dialogZeigen();
 
     final threshold = widget.library.faceSimilarityThreshold;
-    final clusters = await compute(clusterFaces, FaceClusterInput(embeddingsByFaceId, threshold));
+    stand.value = const _ClusterStand(_Phase.vergleichen, 0);
+
+    List<List<String>>? clusters;
+    try {
+      lauf = await starteFaceClustering(
+        embeddingsByFaceId,
+        threshold,
+        beiFortschritt: (anteil) =>
+            stand.value = _ClusterStand(_Phase.vergleichen, anteil),
+      );
+      clusters = await lauf.ergebnis;
+    } catch (e) {
+      dialogSchliessen();
+      stand.dispose();
+      if (mounted) {
+        final grund = e is FaceClusterFehler ? e.meldung : '$e';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(grund == null
+              ? AppTexte.of(context).clusterUnerwartetBeendet
+              : AppTexte.of(context).clusterFehlgeschlagen(grund)),
+        ));
+      }
+      return;
+    }
+
+    if (abgebrochen || clusters == null) {
+      stand.dispose();
+      return;
+    }
     if (clusters.isEmpty) {
+      dialogSchliessen();
+      stand.dispose();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(AppTexte.of(context).personenKeineGruppen),
@@ -222,15 +407,24 @@ class _PeopleScreenState extends State<PeopleScreen> {
     }
 
     // Centroid je bereits benannter Person, für den "Ähnlich zu"-Vorschlag.
+    // Eine Abfrage pro Person – bei vielen Personen dauert auch das, deshalb
+    // eine eigene Phase statt eines stillen Nachlaufs bei 100 %.
+    stand.value = const _ClusterStand(_Phase.vorschlaege, 0);
     final people = await widget.library.db.select(widget.library.db.people).get();
     final personCentroids = <PersonData, Float32List>{};
-    for (final person in people) {
+    for (var i = 0; i < people.length; i++) {
+      if (abgebrochen) {
+        stand.dispose();
+        return;
+      }
+      final person = people[i];
       final personFaces = await widget.library.db.facesForPerson(person.id);
       final vectors = [
         for (final f in personFaces)
           if (f.embedding != null) floatsFromEmbeddingBlob(f.embedding!),
       ];
       if (vectors.isNotEmpty) personCentroids[person] = meanNormalizedEmbedding(vectors);
+      stand.value = _ClusterStand(_Phase.vorschlaege, (i + 1) / people.length);
     }
 
     final faceById = {for (final f in unassigned) f.id: f};
@@ -260,29 +454,54 @@ class _PeopleScreenState extends State<PeopleScreen> {
       ));
     }
 
-    if (!mounted) return;
+    dialogSchliessen();
+    stand.dispose();
+    if (abgebrochen || !mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => FaceClusterReviewScreen(library: widget.library, suggestions: suggestions),
     ));
-    _loadUnassigned();
+    _neuLaden();
   }
 
-  Future<void> _openPhotoForFace(FaceData face) async {
-    final asset = await widget.library.db.assetById(face.assetId);
-    if (asset == null || !mounted) return;
+  /// Öffnet das Foto zu [face] – und gibt der Vorschau gleich die ganze
+  /// Reihe mit, damit sich von dort per Pfeiltaste weiterblättern lässt.
+  ///
+  /// Die Reihe sind die Fotos aller Gesichter des Rasters, in dessen
+  /// Reihenfolge. Doppelte fallen weg: Auf einem Gruppenfoto liegen mehrere
+  /// unbenannte Gesichter, und dasselbe Foto dreimal hintereinander
+  /// durchzublättern wäre unbrauchbar.
+  Future<void> _openPhotoForFace(FaceData face, List<FaceData> reihe) async {
+    final assetIds = assetReiheFuerGesichter(reihe);
+    final assets = await widget.library.db.assetsByIds(assetIds);
+    if (assets.isEmpty || !mounted) return;
+    final start = assets.indexWhere((a) => a.id == face.assetId);
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => FaceReviewScreen(library: widget.library, asset: asset),
+      builder: (_) => FaceReviewScreen(
+        library: widget.library,
+        assets: assets,
+        startIndex: start < 0 ? 0 : start,
+      ),
     ));
-    _loadUnassigned();
+    _neuLaden();
   }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
-          TabBar(tabs: [Tab(text: AppTexte.of(context).personenTab), Tab(text: AppTexte.of(context).personenUnbenannteTab)]),
+          TabBar(tabs: [
+            Tab(text: AppTexte.of(context).personenTab),
+            Tab(text: AppTexte.of(context).personenUnbenannteTab),
+            Tab(
+              // Die Zahl nur, wenn dort etwas liegt: Ein „(0)" am Tab wäre
+              // eine dauerhafte Beschriftung für einen Sonderfall.
+              text: _ignorierteAnzahl > 0
+                  ? AppTexte.of(context).personenIgnoriertTabMitZahl(_ignorierteAnzahl)
+                  : AppTexte.of(context).personenIgnoriertTab,
+            ),
+          ]),
           Expanded(
             child: TabBarView(
               children: [
@@ -298,10 +517,24 @@ class _PeopleScreenState extends State<PeopleScreen> {
                         : _selectedFaceIds.add(id);
                     _autoSelectedIds.remove(id);
                   }),
-                  onOpenPhoto: _openPhotoForFace,
+                  onOpenPhoto: (face) => _openPhotoForFace(face, _unassignedFaces),
                   onSelectSimilar: _toggleSelectSimilar,
                   onAssign: _assignSelection,
+                  onIgnore: _ignoriereAuswahl,
                   onAutoCluster: _autoCluster,
+                ),
+                _IgnorierteGesichter(
+                  faces: _ignorierteFaces,
+                  gesamt: _ignorierteAnzahl,
+                  paths: widget.library.paths,
+                  selected: _ausgewaehlteIgnorierte,
+                  onToggle: (id) => setState(() {
+                    _ausgewaehlteIgnorierte.contains(id)
+                        ? _ausgewaehlteIgnorierte.remove(id)
+                        : _ausgewaehlteIgnorierte.add(id);
+                  }),
+                  onOpenPhoto: (face) => _openPhotoForFace(face, _ignorierteFaces),
+                  onRestore: _holeZurueck,
                 ),
               ],
             ),
@@ -428,6 +661,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
   final void Function(FaceData face) onOpenPhoto;
   final VoidCallback onSelectSimilar;
   final VoidCallback onAssign;
+  final VoidCallback onIgnore;
   final VoidCallback onAutoCluster;
 
   const _UnassignedFacesGrid({
@@ -439,6 +673,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
     required this.onOpenPhoto,
     required this.onSelectSimilar,
     required this.onAssign,
+    required this.onIgnore,
     required this.onAutoCluster,
   });
 
@@ -528,6 +763,16 @@ class _UnassignedFacesGrid extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
+                    // Als Symbol, nicht als dritte gleichbreite Schaltfläche:
+                    // Beiseitelegen ist die seltenere Handlung, und drei
+                    // gleich grosse Knöpfe nebeneinander liessen den
+                    // eigentlichen – Zuordnen – nicht mehr hervorstechen.
+                    IconButton(
+                      tooltip: AppTexte.of(context).personenIgnorierenTooltip,
+                      icon: const Icon(Icons.visibility_off_outlined),
+                      onPressed: onIgnore,
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: onAssign,
@@ -543,4 +788,109 @@ class _UnassignedFacesGrid extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Der Tab „Ignoriert": alles, was beiseitegelegt wurde, mit dem Weg
+/// zurück.
+///
+/// Ohne diesen Tab wäre das Beiseitelegen eine Einbahnstrasse – ein
+/// versehentlich weggeräumtes Gesicht wäre nirgends mehr zu finden, weil es
+/// aus dem Raster und aus der Gruppierung zugleich verschwindet.
+class _IgnorierteGesichter extends StatelessWidget {
+  final List<FaceData> faces;
+  final int gesamt;
+  final StoragePaths paths;
+  final Set<String> selected;
+  final void Function(String faceId) onToggle;
+  final void Function(FaceData face) onOpenPhoto;
+  final VoidCallback onRestore;
+
+  const _IgnorierteGesichter({
+    required this.faces,
+    required this.gesamt,
+    required this.paths,
+    required this.selected,
+    required this.onToggle,
+    required this.onOpenPhoto,
+    required this.onRestore,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (faces.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Text(
+            AppTexte.of(context).personenIgnoriertLeer,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+          child: Text(
+            // Sagt beides: wofür der Tab da ist und – falls gedeckelt –
+            // dass hier nicht alles zu sehen ist.
+            gesamt > faces.length
+                ? AppTexte.of(context).personenIgnoriertTeilHinweis(faces.length, gesamt)
+                : AppTexte.of(context).personenIgnoriertHinweis,
+            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 110,
+              mainAxisSpacing: 6,
+              crossAxisSpacing: 6,
+            ),
+            itemCount: faces.length,
+            itemBuilder: (context, index) {
+              final face = faces[index];
+              if (face.cropRelativePath == null) return const SizedBox.shrink();
+              return Opacity(
+                // Abgeblendet: Diese Gesichter zählen gerade nicht mit, und
+                // das soll man sehen, ohne die Beschriftung zu lesen.
+                opacity: selected.contains(face.id) ? 1.0 : 0.55,
+                child: LocalImageTile(
+                  file: paths.absolute(face.cropRelativePath!),
+                  selected: selected.contains(face.id),
+                  onTap: () => onToggle(face.id),
+                  onDoubleTap: () => onOpenPhoto(face),
+                ),
+              );
+            },
+          ),
+        ),
+        if (selected.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onRestore,
+                icon: const Icon(Icons.visibility_outlined),
+                label: Text(AppTexte.of(context).personenZurueckholenKnopf(selected.length)),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Woran der Gruppierungslauf gerade arbeitet.
+enum _Phase { laden, vergleichen, vorschlaege }
+
+/// Ein Stand des Laufs. [anteil] `null` heisst „nicht bezifferbar" – dann
+/// zeigt der Balken die unbestimmte Animation statt einer erfundenen Zahl.
+class _ClusterStand {
+  final _Phase phase;
+  final double? anteil;
+  const _ClusterStand(this.phase, this.anteil);
 }

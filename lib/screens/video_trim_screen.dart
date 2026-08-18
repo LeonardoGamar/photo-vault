@@ -52,6 +52,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
 
     final existing = await widget.db.videoTrimForAsset(widget.asset.id);
     final durationSeconds = controller.duration.inMilliseconds / 1000;
+    if (!mounted) return;
     setState(() {
       _hasExistingTrim = existing != null;
       _range = RangeValues(

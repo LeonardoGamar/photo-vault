@@ -1996,5 +1996,50 @@
   "einstBeschrBackupAuto": "Regelmäßig sichern, ohne daran zu denken",
   "einstBeschrPapierkorb": "Wann gelöschte Fotos endgültig verschwinden",
   "einstBeschrGefahr": "Schritte, die sich nicht rückgängig machen lassen",
-  "einstBeschrUeber": "Version, Lizenzen und Aktualisierungen"
+  "einstBeschrUeber": "Version, Lizenzen und Aktualisierungen",
+  "allgRueckgaengig": "Rückgängig",
+  "personenIgnoriertTab": "Ignoriert",
+  "personenIgnoriertTabMitZahl": "Ignoriert ({anzahl})",
+  "@personenIgnoriertTabMitZahl": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenIgnorierenTooltip": "Ausgewählte Gesichter ignorieren",
+  "personenIgnoriertMeldung": "{anzahl, plural, =1{Ein Gesicht ignoriert.} other{{anzahl} Gesichter ignoriert.}}",
+  "@personenIgnoriertMeldung": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "personenIgnoriertLeer": "Keine ignorierten Gesichter. Was du unter „Unbenannte Gesichter“ beiseitelegst – Plakate, Spiegelungen, Statuen –, sammelt sich hier und lässt sich jederzeit zurückholen.",
+  "personenIgnoriertHinweis": "Ignorierte Gesichter erscheinen nicht mehr im Raster und werden nicht mehr gruppiert. Doppelklick öffnet das ganze Foto.",
+  "personenIgnoriertTeilHinweis": "{gezeigt} von {gesamt} ignorierten Gesichtern. Doppelklick öffnet das ganze Foto.",
+  "@personenIgnoriertTeilHinweis": {
+    "placeholders": { "gezeigt": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "personenZurueckholenKnopf": "{anzahl} zurückholen",
+  "@personenZurueckholenKnopf": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "clusterPhaseLaden": "Gesichter werden geladen …",
+  "clusterPhaseVergleichen": "Gesichter werden verglichen …",
+  "clusterPhaseVorschlaege": "Vorschläge werden vorbereitet …",
+  "clusterOhneProzent": "Läuft …",
+  "clusterFehlgeschlagen": "Die automatische Gruppierung ist fehlgeschlagen: {fehler}",
+  "@clusterFehlgeschlagen": {
+    "placeholders": { "fehler": { "type": "String" } }
+  },
+  "clusterIgnorierenTooltip": "Ganze Gruppe ignorieren",
+  "gesichtIgnorieren": "Ignorieren",
+  "gesichtIgnoriert": "Ignoriert",
+  "gesichtZurueckgeholt": "Gesicht wird wieder berücksichtigt.",
+  "gesichtPosition": "{nummer} von {gesamt}",
+  "@gesichtPosition": {
+    "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "gesichtVoriges": "Vorheriges Foto (Pfeil links)",
+  "gesichtNaechstes": "Nächstes Foto (Pfeil rechts)",
+  "clusterUnerwartetBeendet": "Die automatische Gruppierung wurde unerwartet beendet.",
+  "aufgAktiv": "Aktiv",
+  "aufgStufeKurz": "Stufe {nummer}/{gesamt}",
+  "@aufgStufeKurz": {
+    "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+  }
 }

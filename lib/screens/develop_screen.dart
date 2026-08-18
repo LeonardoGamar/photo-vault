@@ -721,6 +721,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     await widget.db.deleteDevelopMask(mask.id);
     final file = widget.paths.absolute(mask.maskRelativePath);
     if (await file.exists()) await file.delete();
+    if (!mounted) return;
     setState(() {
       _masks = _masks.where((m) => m.id != mask.id).toList();
       if (_selectedMaskId == mask.id) _selectedMaskId = null;

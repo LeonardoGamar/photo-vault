@@ -64,6 +64,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
         if (assets.length >= 2) groups.add(assets);
       }
 
+      if (!mounted) return;
       setState(() {
         _groups = groups;
         _error = null;
@@ -143,6 +144,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
 
   Future<void> _moveToTrash(AssetData asset, List<AssetData> group) async {
     await widget.library.db.moveToTrash([asset.id]);
+    if (!mounted) return;
     setState(() {
       group.remove(asset);
       if (group.length < 2) _groups.remove(group);
@@ -152,6 +154,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
   Future<void> _moveToLocked(AssetData asset, List<AssetData> group) async {
     if (!await ensureVaultUnlocked(context, widget.library)) return;
     await widget.library.lockAsset(asset);
+    if (!mounted) return;
     setState(() {
       group.remove(asset);
       if (group.length < 2) _groups.remove(group);

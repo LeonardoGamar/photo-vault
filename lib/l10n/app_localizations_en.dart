@@ -3608,4 +3608,99 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get einstBeschrUeber => 'Version, licences and updates';
+
+  @override
+  String get allgRueckgaengig => 'Undo';
+
+  @override
+  String get personenIgnoriertTab => 'Ignored';
+
+  @override
+  String personenIgnoriertTabMitZahl(int anzahl) {
+    return 'Ignored ($anzahl)';
+  }
+
+  @override
+  String get personenIgnorierenTooltip => 'Ignore selected faces';
+
+  @override
+  String personenIgnoriertMeldung(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl faces ignored.',
+      one: 'One face ignored.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get personenIgnoriertLeer =>
+      'No ignored faces. Whatever you set aside under “Unnamed faces” – posters, reflections, statues – collects here and can be brought back at any time.';
+
+  @override
+  String get personenIgnoriertHinweis =>
+      'Ignored faces no longer appear in the grid and are left out of grouping. Double-click opens the whole photo.';
+
+  @override
+  String personenIgnoriertTeilHinweis(int gezeigt, int gesamt) {
+    return '$gezeigt of $gesamt ignored faces. Double-click opens the whole photo.';
+  }
+
+  @override
+  String personenZurueckholenKnopf(int anzahl) {
+    return 'Bring back $anzahl';
+  }
+
+  @override
+  String get clusterPhaseLaden => 'Loading faces …';
+
+  @override
+  String get clusterPhaseVergleichen => 'Comparing faces …';
+
+  @override
+  String get clusterPhaseVorschlaege => 'Preparing suggestions …';
+
+  @override
+  String get clusterOhneProzent => 'Working …';
+
+  @override
+  String clusterFehlgeschlagen(String fehler) {
+    return 'Automatic grouping failed: $fehler';
+  }
+
+  @override
+  String get clusterIgnorierenTooltip => 'Ignore the whole group';
+
+  @override
+  String get gesichtIgnorieren => 'Ignore';
+
+  @override
+  String get gesichtIgnoriert => 'Ignored';
+
+  @override
+  String get gesichtZurueckgeholt => 'This face counts again.';
+
+  @override
+  String gesichtPosition(int nummer, int gesamt) {
+    return '$nummer of $gesamt';
+  }
+
+  @override
+  String get gesichtVoriges => 'Previous photo (left arrow)';
+
+  @override
+  String get gesichtNaechstes => 'Next photo (right arrow)';
+
+  @override
+  String get clusterUnerwartetBeendet =>
+      'Automatic grouping ended unexpectedly.';
+
+  @override
+  String get aufgAktiv => 'Active';
+
+  @override
+  String aufgStufeKurz(int nummer, int gesamt) {
+    return 'Step $nummer/$gesamt';
+  }
 }

@@ -70,11 +70,13 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
       );
 
       final report = await compute(runIntegrityCheck, params);
+      if (!mounted) return;
       setState(() {
         _report = report;
         _error = null;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = AppTexte.of(context).integPruefungFehlgeschlagen('$e'));
     } finally {
       if (mounted) setState(() => _loading = false);

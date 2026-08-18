@@ -71,6 +71,7 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
         if (groupAssets.length >= 2) groups.add(groupAssets);
       }
 
+      if (!mounted) return;
       setState(() {
         _groups = groups;
         _error = null;
@@ -110,6 +111,7 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
       group.map((a) => a.id).toList(),
       group[coverIndex].id,
     );
+    if (!mounted) return;
     setState(() {
       _groups.removeAt(groupIndex);
       _reindexCovers();

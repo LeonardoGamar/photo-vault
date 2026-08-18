@@ -130,7 +130,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   /// erneutes Antippen von "+" fortsetzen.
   Future<void> _addPerson() async {
     final faces = await widget.db.facesForAsset(_asset.id);
-    final unassigned = faces.where((f) => f.personId == null).toList();
+    final unassigned = faces.where((f) => f.personId == null && !f.isIgnored).toList();
     if (unassigned.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -143,7 +143,8 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     }
     final people = await widget.db.select(widget.db.people).get();
     if (!mounted) return;
-    final choice = await showPersonPickerDialog(context, people, title: AppTexte.of(context).personZuordnenTitel);
+    final choice = await showPersonPickerDialog(context, people,
+        paths: widget.paths, title: AppTexte.of(context).personZuordnenTitel);
     if (choice == null) return;
 
     String personId;

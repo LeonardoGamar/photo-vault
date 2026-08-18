@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import 'package:image/image.dart' as img;
@@ -12,24 +14,40 @@ import '../db/database.dart';
 import '../services/face_engine_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 import '../widgets/person_picker_dialog.dart';
 
-/// Zeigt ein einzelnes Foto in Vollbild mit allen erkannten Gesichtern als
-/// Rahmen darüber. Tippen auf einen Rahmen ordnet dieses Gesicht einer
-/// Person zu (oder benennt sie um). Im "Gesicht hinzufügen"-Modus kann man
-/// zusätzlich per Ziehen einen neuen Rahmen aufziehen, um ein von der
-/// automatischen Erkennung übersehenes Gesicht manuell zu markieren und zu
-/// benennen.
+/// Zeigt ein Foto in Vollbild mit allen erkannten Gesichtern als Rahmen
+/// darüber. Tippen auf einen Rahmen ordnet dieses Gesicht einer Person zu
+/// (oder benennt sie um). Im "Gesicht hinzufügen"-Modus kann man zusätzlich
+/// per Ziehen einen neuen Rahmen aufziehen, um ein von der automatischen
+/// Erkennung übersehenes Gesicht manuell zu markieren und zu benennen.
+///
+/// [assets] ist die Reihe, durch die sich mit Pfeiltasten oder den Pfeilen
+/// in der Titelleiste blättern lässt. Gesichter benennt man selten einzeln:
+/// Wer im Raster ein unbenanntes Gesicht anklickt, will meist gleich die
+/// nächsten mitnehmen – bisher hiess das jedes Mal zurück, suchen, wieder
+/// öffnen. Eine Liste mit einem einzigen Eintrag ist erlaubt; dann sind die
+/// Pfeile abgeschaltet.
 class FaceReviewScreen extends StatefulWidget {
   final LibraryState library;
-  final AssetData asset;
-  const FaceReviewScreen({super.key, required this.library, required this.asset});
+  final List<AssetData> assets;
+  final int startIndex;
+  const FaceReviewScreen({
+    super.key,
+    required this.library,
+    required this.assets,
+    this.startIndex = 0,
+  }) : assert(assets.length > 0);
 
   @override
   State<FaceReviewScreen> createState() => _FaceReviewScreenState();
 }
 
 class _FaceReviewScreenState extends State<FaceReviewScreen> {
+  late int _index = widget.startIndex.clamp(0, widget.assets.length - 1);
+  AssetData get _asset => widget.assets[_index];
+
   List<FaceData> _faces = [];
   Map<String, String> _personNames = {}; // personId -> Name
   double? _aspectRatio;
@@ -41,38 +59,119 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   @override
   void initState() {
     super.initState();
-    // Redundant zur Sperre in asset_viewer_screen.dart (bisher der einzige
-    // Einstiegspunkt, seit heute auch über dessen Kontextmenü erreichbar):
-    // schützt auch dann, falls dieser Screen je aus einem anderen Kontext
-    // heraus geöffnet würde, bevor die Original-/Vorschau-Datei (noch
-    // verschlüsselt) angefasst wird – dasselbe Muster wie DevelopScreen._init.
-    if (widget.asset.isLocked) {
-      _loading = false;
-      return;
-    }
     _load();
+  }
+
+  /// Blättert um [schritt] Fotos weiter und lädt neu.
+  ///
+  /// Am Rand der Liste passiert bewusst nichts – kein Umlauf zum Anfang.
+  /// Wer am Ende ankommt, soll das merken, statt unbemerkt wieder von vorn
+  /// dieselben Gesichter zu benennen.
+  void _springe(int schritt) {
+    final ziel = _index + schritt;
+    if (ziel < 0 || ziel >= widget.assets.length) return;
+    setState(() {
+      _index = ziel;
+      _faces = [];
+      _aspectRatio = null;
+      // Ein halb aufgezogener Rahmen gehört zum vorherigen Foto.
+      _addMode = false;
+      _dragStart = null;
+      _dragCurrent = null;
+    });
+    _load();
+  }
+
+  KeyEventResult _taste(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    // Im "Gesicht hinzufügen"-Modus wäre ein Sprung zum nächsten Foto
+    // mitten im Aufziehen verwirrend; dort bleiben die Pfeile stumm.
+    if (!_addMode && event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      _springe(-1);
+      return KeyEventResult.handled;
+    }
+    if (!_addMode && event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      _springe(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_addMode) {
+        setState(() {
+          _addMode = false;
+          _dragStart = null;
+          _dragCurrent = null;
+        });
+      } else {
+        Navigator.of(context).maybePop();
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   /// Datei, die tatsächlich angezeigt/für Crops verwendet wird: die
   /// konvertierte Vorschau, falls das Originalformat (z.B. HEIC/DNG) von
   /// Flutter nicht direkt gerendert werden kann – sonst das Original.
   File get _displayFile =>
-      widget.library.paths.absolute(widget.asset.previewRelativePath ?? widget.asset.relativePath);
+      widget.library.paths.absolute(_asset.previewRelativePath ?? _asset.relativePath);
+
+  /// Seitenverhältnis eines Fotos, dessen Maße nicht in der Datenbank
+  /// stehen (in der Praxis eine Handvoll Altfälle).
+  ///
+  /// Über den Kopf der Datei, nicht über das ganze Bild: Ein vollständiges
+  /// Dekodieren nur für zwei Zahlen liefe auf dem UI-Strang und kostete bei
+  /// einem 48-Megapixel-Foto 183 MB und eine spürbare Pause – für eine
+  /// Angabe, die in den ersten Bytes steht.
+  ///
+  /// Der Rückfall auf das vollständige Dekodieren bleibt: Das image-Paket
+  /// kennt Formate, die Flutters eigener Dekodierer nicht kennt. Zeigen
+  /// liesse sich so ein Foto hier zwar ohnehin nicht, aber die Rahmen
+  /// säßen wenigstens richtig.
+  Future<double?> _seitenverhaeltnisAusDatei() async {
+    final bytes = await _displayFile.readAsBytes();
+    try {
+      final puffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+      final kopf = await ui.ImageDescriptor.encoded(puffer);
+      final verhaeltnis = kopf.height > 0 ? kopf.width / kopf.height : null;
+      kopf.dispose();
+      puffer.dispose();
+      if (verhaeltnis != null) return verhaeltnis;
+    } catch (_) {
+      // Unbekanntes Format – unten weiter.
+    }
+    final decoded = img.decodeImage(bytes);
+    return decoded == null ? null : decoded.width / decoded.height;
+  }
 
   Future<void> _load() async {
+    // Redundant zur Sperre in asset_viewer_screen.dart: schützt auch dann,
+    // falls dieser Screen je aus einem anderen Kontext heraus geöffnet
+    // würde, bevor die Original-/Vorschau-Datei (noch verschlüsselt)
+    // angefasst wird – dasselbe Muster wie DevelopScreen._init. Steht seit
+    // dem Blättern hier statt in initState, weil die Sperre pro Foto gilt
+    // und nicht pro geöffnetem Bildschirm.
+    if (_asset.isLocked) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     setState(() => _loading = true);
-    final faces = await widget.library.db.facesForAsset(widget.asset.id);
+    final gefragtesAsset = _asset.id;
+    final faces = await widget.library.db.facesForAsset(_asset.id);
     final people = await widget.library.db.select(widget.library.db.people).get();
 
     double? aspect;
-    if (widget.asset.widthPx != null && widget.asset.heightPx != null && widget.asset.heightPx! > 0) {
-      aspect = widget.asset.widthPx! / widget.asset.heightPx!;
+    if (_asset.widthPx != null && _asset.heightPx != null && _asset.heightPx! > 0) {
+      aspect = _asset.widthPx! / _asset.heightPx!;
     } else {
-      final decoded = img.decodeImage(await _displayFile.readAsBytes());
-      if (decoded != null) aspect = decoded.width / decoded.height;
+      aspect = await _seitenverhaeltnisAusDatei();
     }
 
-    if (mounted) {
+    // Beim schnellen Durchblättern kann ein früherer Ladevorgang später
+    // fertig werden als ein späterer. Ohne diese Prüfung landeten die
+    // Rahmen des vorigen Fotos auf dem aktuellen.
+    if (mounted && _asset.id == gefragtesAsset) {
       setState(() {
         _faces = faces;
         _personNames = {for (final p in people) p.id: p.name};
@@ -83,18 +182,43 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   }
 
   Future<void> _tapFace(FaceData face) async {
+    // Ein beiseitegelegtes Gesicht anzutippen heisst „doch nicht" – dafür
+    // braucht es keinen Dialog mit Namensfeld, der nur den einen Fall
+    // verdeckte, den der Nutzer hier will.
+    if (face.isIgnored) {
+      await widget.library.db.setFacesIgnored([face.id], false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppTexte.of(context).gesichtZurueckgeholt)),
+        );
+      }
+      _load();
+      return;
+    }
+
     final people = await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
     final currentName = face.personId != null ? _personNames[face.personId] : null;
     final choice = await showPersonPickerDialog(
       context,
       people,
+      paths: widget.library.paths,
       title: currentName != null
           ? AppTexte.of(context).gesichtUmbenennen
           : AppTexte.of(context).gesichtBenennen,
       currentName: currentName,
+      // Nur für noch namenlose Gesichter: Ein bereits benanntes beiseite-
+      // zulegen hiesse, die Person still aus dem Foto zu entfernen – das
+      // gehört nicht hinter dieselbe Schaltfläche.
+      erlaubtIgnorieren: face.personId == null,
     );
     if (choice == null) return;
+
+    if (choice.ignorieren) {
+      await widget.library.db.setFacesIgnored([face.id], true);
+      _load();
+      return;
+    }
 
     String personId;
     if (choice.newName != null) {
@@ -110,7 +234,8 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   Future<void> _finishManualBox(Rect normalizedRect) async {
     final people = await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
-    final choice = await showPersonPickerDialog(context, people, title: AppTexte.of(context).gesichtNeuBenennen);
+    final choice = await showPersonPickerDialog(context, people,
+        paths: widget.library.paths, title: AppTexte.of(context).gesichtNeuBenennen);
     if (choice == null) return;
 
     String personId;
@@ -152,7 +277,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
 
     await widget.library.db.insertFace(FacesCompanion.insert(
       id: faceId,
-      assetId: widget.asset.id,
+      assetId: _asset.id,
       personId: Value(personId),
       boxX: box.x,
       boxY: box.y,
@@ -168,6 +293,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
       widget.library.paths.faceRelativePath(faceId),
     );
 
+    if (!mounted) return;
     setState(() {
       _addMode = false;
       _dragStart = null;
@@ -176,37 +302,46 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     _load();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (widget.asset.isLocked) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-          title: Text(widget.asset.originalFileName, overflow: TextOverflow.ellipsis),
-        ),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xxl),
-            child: Text(
-              AppTexte.of(context).gesichtGesperrt,
-              style: const TextStyle(color: Colors.white70),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
-    }
-    return Scaffold(
+  /// Titelleiste, für beide Zustände (gesperrt und normal) dieselbe – nur
+  /// so bleiben die Pfeile beim Blättern an ihrem Platz, auch wenn
+  /// zwischendurch ein gesperrtes Foto in der Reihe liegt.
+  PreferredSizeWidget _leiste(BuildContext context, {required bool gesperrt}) {
+    final mehrere = widget.assets.length > 1;
+    return AppBar(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(widget.asset.originalFileName, overflow: TextOverflow.ellipsis),
-        actions: [
+      foregroundColor: Colors.white,
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(_asset.originalFileName, overflow: TextOverflow.ellipsis),
+          ),
+          if (mehrere) ...[
+            const SizedBox(width: 12),
+            Text(
+              AppTexte.of(context).gesichtPosition(_index + 1, widget.assets.length),
+              style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        if (mehrere) ...[
           IconButton(
-            tooltip: _addMode ? AppTexte.of(context).gesichtHinzufuegenBeenden : AppTexte.of(context).gesichtManuellHinzufuegen,
+            tooltip: AppTexte.of(context).gesichtVoriges,
+            icon: const Icon(Icons.chevron_left),
+            onPressed: _index > 0 ? () => _springe(-1) : null,
+          ),
+          IconButton(
+            tooltip: AppTexte.of(context).gesichtNaechstes,
+            icon: const Icon(Icons.chevron_right),
+            onPressed: _index < widget.assets.length - 1 ? () => _springe(1) : null,
+          ),
+        ],
+        if (!gesperrt)
+          IconButton(
+            tooltip: _addMode
+                ? AppTexte.of(context).gesichtHinzufuegenBeenden
+                : AppTexte.of(context).gesichtManuellHinzufuegen,
             icon: Icon(_addMode ? Icons.close : Icons.add_a_photo_outlined),
             onPressed: () => setState(() {
               _addMode = !_addMode;
@@ -214,8 +349,42 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
               _dragCurrent = null;
             }),
           ),
-        ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Der Fokus sitzt aussen um beide Zustände, damit die Pfeiltasten auch
+    // dann weiterblättern, wenn gerade ein gesperrtes Foto angezeigt wird.
+    return Focus(
+      autofocus: true,
+      onKeyEvent: _taste,
+      child: _asset.isLocked ? _gesperrt(context) : _inhalt(context),
+    );
+  }
+
+  Widget _gesperrt(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: _leiste(context, gesperrt: true),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Text(
+            AppTexte.of(context).gesichtGesperrt,
+            style: const TextStyle(color: DunkleFlaeche.zweitText),
+            textAlign: TextAlign.center,
+          ),
+        ),
       ),
+    );
+  }
+
+  Widget _inhalt(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: _leiste(context, gesperrt: false),
       body: _loading || _aspectRatio == null
           ? const Center(child: CircularProgressIndicator())
           : Center(
@@ -257,6 +426,14 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                           Image.file(
                             _displayFile,
                             fit: BoxFit.fill,
+                            // Nur so gross dekodieren, wie es angezeigt wird.
+                            // Dieser Bildschirm kann nicht zoomen (anders als
+                            // der Vollbildbetrachter, wo die volle Auflösung
+                            // gebraucht wird) – ein 48-Megapixel-Foto voll zu
+                            // dekodieren kostet 183 MB statt 22 MB, gemessen.
+                            // Beim Durchblättern summiert sich das über den
+                            // Bildcache.
+                            cacheWidth: (w * MediaQuery.devicePixelRatioOf(context)).round(),
                           ),
                           for (final face in _faces)
                             Positioned(
@@ -269,7 +446,14 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color: face.personId != null ? Colors.greenAccent : Colors.orangeAccent,
+                                      color: face.isIgnored
+                                          // Genau die Rolle „gilt gerade
+                                          // nicht" – als Rahmen, nicht als
+                                          // Text, deshalb unbedenklich.
+                                          ? DunkleFlaeche.inaktiv
+                                          : face.personId != null
+                                              ? Colors.greenAccent
+                                              : Colors.orangeAccent,
                                       width: 2,
                                     ),
                                   ),
@@ -278,10 +462,21 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                                     color: Colors.black54,
                                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
                                     child: Text(
-                                      face.personId != null
-                                          ? (_personNames[face.personId] ?? '…')
-                                          : AppTexte.of(context).gesichtUnbenannt,
-                                      style: const TextStyle(color: Colors.white, fontSize: 11),
+                                      face.isIgnored
+                                          ? AppTexte.of(context).gesichtIgnoriert
+                                          : face.personId != null
+                                              ? (_personNames[face.personId] ?? '…')
+                                              : AppTexte.of(context).gesichtUnbenannt,
+                                      style: TextStyle(
+                                        // Gedämpft, aber lesbar: „Ignoriert"
+                                        // ist eine Angabe, die man liest,
+                                        // kein abgeschaltetes Bedienelement.
+                                        // white38 wäre hier zu wenig.
+                                        color: face.isIgnored
+                                            ? DunkleFlaeche.zweitText
+                                            : DunkleFlaeche.text,
+                                        fontSize: 11,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -309,7 +504,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Text(
                 AppTexte.of(context).gesichtRechteckHinweis,
-                style: const TextStyle(color: Colors.white70),
+                style: const TextStyle(color: DunkleFlaeche.zweitText),
                 textAlign: TextAlign.center,
               ),
             )

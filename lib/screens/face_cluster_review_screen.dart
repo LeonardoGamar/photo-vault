@@ -57,6 +57,7 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
     final choice = await showPersonPickerDialog(
       context,
       people,
+      paths: widget.library.paths,
       title: AppTexte.of(context).clusterGesichterZuordnen(cluster.faces.length),
       suggestedPerson: cluster.suggestedPerson,
     );
@@ -105,6 +106,23 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
   /// übersprungene Vorschlag die Schwelle der vorgeschlagenen Person
   /// hochziehen, obwohl der Nutzer gar keine Aussage gemacht hat.
   void _skip(FaceClusterSuggestion cluster) => setState(() => _pending.remove(cluster));
+
+  /// Die ganze Gruppe beiseitelegen.
+  ///
+  /// Der lohnendste Ort dafür: Was die Gruppierung findet, sind nicht nur
+  /// Personen, sondern auch immer wieder dasselbe Nicht-Gesicht in Serie –
+  /// ein Plakat im Hintergrund, eine Schaufensterpuppe, ein wiederkehrendes
+  /// Logo. Hier liegen sie bereits fertig beisammen und sind mit einem
+  /// Klick erledigt statt einzeln im Raster.
+  ///
+  /// Auch das ist keine Aussage über die *Erkennungs*schwelle: Der Nutzer
+  /// sagt „das ist keine Person", nicht „diese Gesichter gehören nicht
+  /// zusammen". Deshalb wird, wie beim Überspringen, nichts gelernt.
+  Future<void> _ignorieren(FaceClusterSuggestion cluster) async {
+    await widget.library.db
+        .setFacesIgnored(cluster.faces.map((f) => f.id).toList(), true);
+    if (mounted) setState(() => _pending.remove(cluster));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +182,12 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
                         const SizedBox(height: 10),
                         Row(
                           children: [
+                            IconButton(
+                              tooltip: AppTexte.of(context).clusterIgnorierenTooltip,
+                              icon: const Icon(Icons.visibility_off_outlined),
+                              onPressed: () => _ignorieren(cluster),
+                            ),
+                            const SizedBox(width: 4),
                             Expanded(
                               child: OutlinedButton(
                                 onPressed: () => _skip(cluster),

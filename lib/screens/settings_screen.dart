@@ -328,6 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _deleteModel(ModelCatalogEntry entry) async {
     await widget.library.modelDownloadService.deleteEntry(entry);
     await widget.library.reloadModels();
+    if (!mounted) return;
     setState(() {});
   }
 
@@ -383,6 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _deleteGeoData() async {
     await widget.library.geoDataDownloadService.deleteAll();
     await widget.library.reloadGeoData();
+    if (!mounted) return;
     setState(() {});
   }
 

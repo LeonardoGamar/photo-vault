@@ -238,6 +238,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
     );
     if (picked == null) return;
+    if (!mounted) return;
     setState(() {
       if (isStart) {
         _startDate = picked;
@@ -305,7 +306,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
         },
       ),
     );
-    if (result != null) setState(() => _tagIds = result);
+    if (result != null && mounted) setState(() => _tagIds = result);
   }
 
   @override

@@ -427,7 +427,11 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
     final library = widget.library;
     if (library == null) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => FaceReviewScreen(library: library, asset: _currentAsset),
+      builder: (_) => FaceReviewScreen(
+        library: library,
+        assets: _assets,
+        startIndex: _currentIndex,
+      ),
     ));
     if (mounted) await _refreshCurrentAsset();
   }

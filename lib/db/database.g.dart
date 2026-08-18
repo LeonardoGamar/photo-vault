@@ -3526,6 +3526,16 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
   late final GeneratedColumn<double> eyeOpenScore = GeneratedColumn<double>(
       'eye_open_score', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _isIgnoredMeta =
+      const VerificationMeta('isIgnored');
+  @override
+  late final GeneratedColumn<bool> isIgnored = GeneratedColumn<bool>(
+      'is_ignored', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_ignored" IN (0, 1))'),
+      defaultValue: const Constant(false));
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -3537,7 +3547,8 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
         boxH,
         cropRelativePath,
         embedding,
-        eyeOpenScore
+        eyeOpenScore,
+        isIgnored
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3604,6 +3615,10 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
           eyeOpenScore.isAcceptableOrUnknown(
               data['eye_open_score']!, _eyeOpenScoreMeta));
     }
+    if (data.containsKey('is_ignored')) {
+      context.handle(_isIgnoredMeta,
+          isIgnored.isAcceptableOrUnknown(data['is_ignored']!, _isIgnoredMeta));
+    }
     return context;
   }
 
@@ -3633,6 +3648,8 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
           .read(DriftSqlType.blob, data['${effectivePrefix}embedding']),
       eyeOpenScore: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}eye_open_score']),
+      isIgnored: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_ignored'])!,
     );
   }
 
@@ -3659,6 +3676,16 @@ class FaceData extends DataClass implements Insertable<FaceData> {
   /// geschlossen". Für die Sichtungs-Warnung erst ab einem gesetzten Wert
   /// unter dem Schwellenwert auswerten.
   final double? eyeOpenScore;
+
+  /// Vom Nutzer beiseitegelegt: kein Gesicht (Plakat, Spiegelung, Statue)
+  /// oder eine Person, die er nicht benennen will.
+  ///
+  /// Bewusst ein Merkmal statt eines Löschens. Löschen wäre endgültig und
+  /// obendrein wirkungslos: Der nächste Gesichts-Scan fände dieselbe Stelle
+  /// erneut und legte den Eintrag neu an. Ein beiseitegelegtes Gesicht
+  /// verschwindet aus dem Raster und aus der automatischen Gruppierung,
+  /// bleibt aber unter „Ignoriert" auffindbar und rückholbar.
+  final bool isIgnored;
   const FaceData(
       {required this.id,
       required this.assetId,
@@ -3669,7 +3696,8 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       required this.boxH,
       this.cropRelativePath,
       this.embedding,
-      this.eyeOpenScore});
+      this.eyeOpenScore,
+      required this.isIgnored});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3691,6 +3719,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
     if (!nullToAbsent || eyeOpenScore != null) {
       map['eye_open_score'] = Variable<double>(eyeOpenScore);
     }
+    map['is_ignored'] = Variable<bool>(isIgnored);
     return map;
   }
 
@@ -3714,6 +3743,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       eyeOpenScore: eyeOpenScore == null && nullToAbsent
           ? const Value.absent()
           : Value(eyeOpenScore),
+      isIgnored: Value(isIgnored),
     );
   }
 
@@ -3731,6 +3761,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       cropRelativePath: serializer.fromJson<String?>(json['cropRelativePath']),
       embedding: serializer.fromJson<Uint8List?>(json['embedding']),
       eyeOpenScore: serializer.fromJson<double?>(json['eyeOpenScore']),
+      isIgnored: serializer.fromJson<bool>(json['isIgnored']),
     );
   }
   @override
@@ -3747,6 +3778,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       'cropRelativePath': serializer.toJson<String?>(cropRelativePath),
       'embedding': serializer.toJson<Uint8List?>(embedding),
       'eyeOpenScore': serializer.toJson<double?>(eyeOpenScore),
+      'isIgnored': serializer.toJson<bool>(isIgnored),
     };
   }
 
@@ -3760,7 +3792,8 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           double? boxH,
           Value<String?> cropRelativePath = const Value.absent(),
           Value<Uint8List?> embedding = const Value.absent(),
-          Value<double?> eyeOpenScore = const Value.absent()}) =>
+          Value<double?> eyeOpenScore = const Value.absent(),
+          bool? isIgnored}) =>
       FaceData(
         id: id ?? this.id,
         assetId: assetId ?? this.assetId,
@@ -3775,6 +3808,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
         embedding: embedding.present ? embedding.value : this.embedding,
         eyeOpenScore:
             eyeOpenScore.present ? eyeOpenScore.value : this.eyeOpenScore,
+        isIgnored: isIgnored ?? this.isIgnored,
       );
   FaceData copyWithCompanion(FacesCompanion data) {
     return FaceData(
@@ -3792,6 +3826,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       eyeOpenScore: data.eyeOpenScore.present
           ? data.eyeOpenScore.value
           : this.eyeOpenScore,
+      isIgnored: data.isIgnored.present ? data.isIgnored.value : this.isIgnored,
     );
   }
 
@@ -3807,14 +3842,25 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           ..write('boxH: $boxH, ')
           ..write('cropRelativePath: $cropRelativePath, ')
           ..write('embedding: $embedding, ')
-          ..write('eyeOpenScore: $eyeOpenScore')
+          ..write('eyeOpenScore: $eyeOpenScore, ')
+          ..write('isIgnored: $isIgnored')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, assetId, personId, boxX, boxY, boxW, boxH,
-      cropRelativePath, $driftBlobEquality.hash(embedding), eyeOpenScore);
+  int get hashCode => Object.hash(
+      id,
+      assetId,
+      personId,
+      boxX,
+      boxY,
+      boxW,
+      boxH,
+      cropRelativePath,
+      $driftBlobEquality.hash(embedding),
+      eyeOpenScore,
+      isIgnored);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3828,7 +3874,8 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           other.boxH == this.boxH &&
           other.cropRelativePath == this.cropRelativePath &&
           $driftBlobEquality.equals(other.embedding, this.embedding) &&
-          other.eyeOpenScore == this.eyeOpenScore);
+          other.eyeOpenScore == this.eyeOpenScore &&
+          other.isIgnored == this.isIgnored);
 }
 
 class FacesCompanion extends UpdateCompanion<FaceData> {
@@ -3842,6 +3889,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
   final Value<String?> cropRelativePath;
   final Value<Uint8List?> embedding;
   final Value<double?> eyeOpenScore;
+  final Value<bool> isIgnored;
   final Value<int> rowid;
   const FacesCompanion({
     this.id = const Value.absent(),
@@ -3854,6 +3902,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     this.cropRelativePath = const Value.absent(),
     this.embedding = const Value.absent(),
     this.eyeOpenScore = const Value.absent(),
+    this.isIgnored = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FacesCompanion.insert({
@@ -3867,6 +3916,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     this.cropRelativePath = const Value.absent(),
     this.embedding = const Value.absent(),
     this.eyeOpenScore = const Value.absent(),
+    this.isIgnored = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         assetId = Value(assetId),
@@ -3885,6 +3935,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     Expression<String>? cropRelativePath,
     Expression<Uint8List>? embedding,
     Expression<double>? eyeOpenScore,
+    Expression<bool>? isIgnored,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3898,6 +3949,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       if (cropRelativePath != null) 'crop_relative_path': cropRelativePath,
       if (embedding != null) 'embedding': embedding,
       if (eyeOpenScore != null) 'eye_open_score': eyeOpenScore,
+      if (isIgnored != null) 'is_ignored': isIgnored,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3913,6 +3965,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       Value<String?>? cropRelativePath,
       Value<Uint8List?>? embedding,
       Value<double?>? eyeOpenScore,
+      Value<bool>? isIgnored,
       Value<int>? rowid}) {
     return FacesCompanion(
       id: id ?? this.id,
@@ -3925,6 +3978,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       cropRelativePath: cropRelativePath ?? this.cropRelativePath,
       embedding: embedding ?? this.embedding,
       eyeOpenScore: eyeOpenScore ?? this.eyeOpenScore,
+      isIgnored: isIgnored ?? this.isIgnored,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3962,6 +4016,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     if (eyeOpenScore.present) {
       map['eye_open_score'] = Variable<double>(eyeOpenScore.value);
     }
+    if (isIgnored.present) {
+      map['is_ignored'] = Variable<bool>(isIgnored.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3981,6 +4038,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
           ..write('cropRelativePath: $cropRelativePath, ')
           ..write('embedding: $embedding, ')
           ..write('eyeOpenScore: $eyeOpenScore, ')
+          ..write('isIgnored: $isIgnored, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -13085,6 +13143,7 @@ typedef $$FacesTableCreateCompanionBuilder = FacesCompanion Function({
   Value<String?> cropRelativePath,
   Value<Uint8List?> embedding,
   Value<double?> eyeOpenScore,
+  Value<bool> isIgnored,
   Value<int> rowid,
 });
 typedef $$FacesTableUpdateCompanionBuilder = FacesCompanion Function({
@@ -13098,6 +13157,7 @@ typedef $$FacesTableUpdateCompanionBuilder = FacesCompanion Function({
   Value<String?> cropRelativePath,
   Value<Uint8List?> embedding,
   Value<double?> eyeOpenScore,
+  Value<bool> isIgnored,
   Value<int> rowid,
 });
 
@@ -13139,6 +13199,9 @@ class $$FacesTableFilterComposer extends Composer<_$AppDatabase, $FacesTable> {
 
   ColumnFilters<double> get eyeOpenScore => $composableBuilder(
       column: $table.eyeOpenScore, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isIgnored => $composableBuilder(
+      column: $table.isIgnored, builder: (column) => ColumnFilters(column));
 }
 
 class $$FacesTableOrderingComposer
@@ -13181,6 +13244,9 @@ class $$FacesTableOrderingComposer
   ColumnOrderings<double> get eyeOpenScore => $composableBuilder(
       column: $table.eyeOpenScore,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isIgnored => $composableBuilder(
+      column: $table.isIgnored, builder: (column) => ColumnOrderings(column));
 }
 
 class $$FacesTableAnnotationComposer
@@ -13221,6 +13287,9 @@ class $$FacesTableAnnotationComposer
 
   GeneratedColumn<double> get eyeOpenScore => $composableBuilder(
       column: $table.eyeOpenScore, builder: (column) => column);
+
+  GeneratedColumn<bool> get isIgnored =>
+      $composableBuilder(column: $table.isIgnored, builder: (column) => column);
 }
 
 class $$FacesTableTableManager extends RootTableManager<
@@ -13256,6 +13325,7 @@ class $$FacesTableTableManager extends RootTableManager<
             Value<String?> cropRelativePath = const Value.absent(),
             Value<Uint8List?> embedding = const Value.absent(),
             Value<double?> eyeOpenScore = const Value.absent(),
+            Value<bool> isIgnored = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FacesCompanion(
@@ -13269,6 +13339,7 @@ class $$FacesTableTableManager extends RootTableManager<
             cropRelativePath: cropRelativePath,
             embedding: embedding,
             eyeOpenScore: eyeOpenScore,
+            isIgnored: isIgnored,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -13282,6 +13353,7 @@ class $$FacesTableTableManager extends RootTableManager<
             Value<String?> cropRelativePath = const Value.absent(),
             Value<Uint8List?> embedding = const Value.absent(),
             Value<double?> eyeOpenScore = const Value.absent(),
+            Value<bool> isIgnored = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FacesCompanion.insert(
@@ -13295,6 +13367,7 @@ class $$FacesTableTableManager extends RootTableManager<
             cropRelativePath: cropRelativePath,
             embedding: embedding,
             eyeOpenScore: eyeOpenScore,
+            isIgnored: isIgnored,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

@@ -328,7 +328,7 @@ class _CameraPresetEditorDialogState extends State<_CameraPresetEditorDialog> {
         },
       ),
     );
-    if (result != null) setState(() => _tagIds = result);
+    if (result != null && mounted) setState(() => _tagIds = result);
   }
 
   void _save() {

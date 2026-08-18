@@ -3634,4 +3634,99 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get einstBeschrUeber => 'Version, Lizenzen und Aktualisierungen';
+
+  @override
+  String get allgRueckgaengig => 'Rückgängig';
+
+  @override
+  String get personenIgnoriertTab => 'Ignoriert';
+
+  @override
+  String personenIgnoriertTabMitZahl(int anzahl) {
+    return 'Ignoriert ($anzahl)';
+  }
+
+  @override
+  String get personenIgnorierenTooltip => 'Ausgewählte Gesichter ignorieren';
+
+  @override
+  String personenIgnoriertMeldung(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Gesichter ignoriert.',
+      one: 'Ein Gesicht ignoriert.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get personenIgnoriertLeer =>
+      'Keine ignorierten Gesichter. Was du unter „Unbenannte Gesichter“ beiseitelegst – Plakate, Spiegelungen, Statuen –, sammelt sich hier und lässt sich jederzeit zurückholen.';
+
+  @override
+  String get personenIgnoriertHinweis =>
+      'Ignorierte Gesichter erscheinen nicht mehr im Raster und werden nicht mehr gruppiert. Doppelklick öffnet das ganze Foto.';
+
+  @override
+  String personenIgnoriertTeilHinweis(int gezeigt, int gesamt) {
+    return '$gezeigt von $gesamt ignorierten Gesichtern. Doppelklick öffnet das ganze Foto.';
+  }
+
+  @override
+  String personenZurueckholenKnopf(int anzahl) {
+    return '$anzahl zurückholen';
+  }
+
+  @override
+  String get clusterPhaseLaden => 'Gesichter werden geladen …';
+
+  @override
+  String get clusterPhaseVergleichen => 'Gesichter werden verglichen …';
+
+  @override
+  String get clusterPhaseVorschlaege => 'Vorschläge werden vorbereitet …';
+
+  @override
+  String get clusterOhneProzent => 'Läuft …';
+
+  @override
+  String clusterFehlgeschlagen(String fehler) {
+    return 'Die automatische Gruppierung ist fehlgeschlagen: $fehler';
+  }
+
+  @override
+  String get clusterIgnorierenTooltip => 'Ganze Gruppe ignorieren';
+
+  @override
+  String get gesichtIgnorieren => 'Ignorieren';
+
+  @override
+  String get gesichtIgnoriert => 'Ignoriert';
+
+  @override
+  String get gesichtZurueckgeholt => 'Gesicht wird wieder berücksichtigt.';
+
+  @override
+  String gesichtPosition(int nummer, int gesamt) {
+    return '$nummer von $gesamt';
+  }
+
+  @override
+  String get gesichtVoriges => 'Vorheriges Foto (Pfeil links)';
+
+  @override
+  String get gesichtNaechstes => 'Nächstes Foto (Pfeil rechts)';
+
+  @override
+  String get clusterUnerwartetBeendet =>
+      'Die automatische Gruppierung wurde unerwartet beendet.';
+
+  @override
+  String get aufgAktiv => 'Aktiv';
+
+  @override
+  String aufgStufeKurz(int nummer, int gesamt) {
+    return 'Stufe $nummer/$gesamt';
+  }
 }

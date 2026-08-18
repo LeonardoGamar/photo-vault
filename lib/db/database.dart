@@ -530,6 +530,16 @@ class Faces extends Table {
   /// unter dem Schwellenwert auswerten.
   RealColumn get eyeOpenScore => real().nullable()();
 
+  /// Vom Nutzer beiseitegelegt: kein Gesicht (Plakat, Spiegelung, Statue)
+  /// oder eine Person, die er nicht benennen will.
+  ///
+  /// Bewusst ein Merkmal statt eines Löschens. Löschen wäre endgültig und
+  /// obendrein wirkungslos: Der nächste Gesichts-Scan fände dieselbe Stelle
+  /// erneut und legte den Eintrag neu an. Ein beiseitegelegtes Gesicht
+  /// verschwindet aus dem Raster und aus der automatischen Gruppierung,
+  /// bleibt aber unter „Ignoriert" auffindbar und rückholbar.
+  BoolColumn get isIgnored => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -763,7 +773,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 37;
+  int get schemaVersion => 38;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -788,6 +798,14 @@ class AppDatabase extends _$AppDatabase {
         'CREATE INDEX IF NOT EXISTS idx_assets_location '
         'ON assets (location_country, location_state, location_city)');
     await customStatement('CREATE INDEX IF NOT EXISTS idx_faces_asset_id ON faces (asset_id)');
+    // Teilindex, nicht vollständig: Nur ein kleiner Teil aller Gesichter ist
+    // beiseitegelegt, und genau danach wird gefragt. Gemessen an 17.836
+    // Gesichtern / 7.988 Fotos: ohne Index 8,3 ms, mit Teilindex 0,49 ms.
+    // Ein vollständiger Index über is_ignored brachte nichts – der Planer
+    // benutzt ihn nicht, weil die Spalte für den Regelfall (0) nichts
+    // eingrenzt.
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_faces_ignored '
+        'ON faces (is_ignored) WHERE is_ignored = 1');
     await customStatement('CREATE INDEX IF NOT EXISTS idx_faces_person_id ON faces (person_id)');
     await customStatement(
         'CREATE INDEX IF NOT EXISTS idx_album_assets_asset_id ON album_assets (asset_id)');
@@ -1019,6 +1037,16 @@ class AppDatabase extends _$AppDatabase {
             // ohne eine einzige gespeicherte Vorgabe verhält sich der Export
             // wie bisher, die vier festen Grössen bleiben erhalten.
             await m.createTable(exportPresets);
+          }
+          if (from < 38) {
+            // Ignorierte Gesichter. Ein Merkmal an der bestehenden Tabelle,
+            // keine eigene: Die Alternative wäre eine Ausschlussliste
+            // gewesen, die bei jeder Abfrage mitgejoint werden müsste – für
+            // eine Eigenschaft, die genau ein Gesicht betrifft.
+            await _addColumnIfMissing(m, faces, faces.isIgnored, 'faces', 'is_ignored');
+            // Erst nach der Spalte – ein Index auf eine noch nicht
+            // existierende Spalte scheitert.
+            await _createPerformanceIndices(m);
           }
         },
       );
@@ -2860,7 +2888,10 @@ class AppDatabase extends _$AppDatabase {
     final query = select(faces).join([
       innerJoin(assets, assets.id.equalsExp(faces.assetId)),
     ])
-      ..where(faces.personId.isNull() & assets.isTrashed.equals(false) & assets.isLocked.equals(false))
+      ..where(faces.personId.isNull() &
+          faces.isIgnored.equals(false) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
       ..limit(limit);
     final rows = await query.get();
     return rows.map((r) => r.readTable(faces)).toList();
@@ -2873,9 +2904,57 @@ class AppDatabase extends _$AppDatabase {
   Future<List<FaceData>> allUnassignedFaces() async {
     final query = select(faces).join([
       innerJoin(assets, assets.id.equalsExp(faces.assetId)),
-    ])..where(faces.personId.isNull() & assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+    ])..where(faces.personId.isNull() &
+        faces.isIgnored.equals(false) &
+        assets.isTrashed.equals(false) &
+        assets.isLocked.equals(false));
     final rows = await query.get();
     return rows.map((r) => r.readTable(faces)).toList();
+  }
+
+  /// Beiseitegelegte Gesichter für den Tab „Ignoriert" – dieselbe
+  /// Absicherung über Assets wie [unassignedFaces], damit auch hier kein
+  /// Ausschnitt aus einem gesperrten Foto sichtbar wird.
+  Future<List<FaceData>> ignoredFaces({int limit = 200}) async {
+    final query = select(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+      ..where(faces.isIgnored.equals(true) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
+      ..limit(limit);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(faces)).toList();
+  }
+
+  /// Wie viele Gesichter insgesamt beiseitegelegt sind – für die Zahl am
+  /// Tab, damit auch jenseits des Anzeigelimits von 200 ersichtlich ist,
+  /// wie viel dort liegt.
+  Future<int> ignoredFacesCount() async {
+    final anzahl = faces.id.count();
+    final query = selectOnly(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+      ..addColumns([anzahl])
+      ..where(faces.isIgnored.equals(true) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false));
+    final row = await query.getSingle();
+    return row.read(anzahl) ?? 0;
+  }
+
+  /// Legt Gesichter beiseite bzw. holt sie zurück.
+  ///
+  /// Beim Beiseitelegen wird eine bestehende Personen-Zuordnung entfernt:
+  /// Ein Gesicht, das noch als „Anna" zählte und zugleich ignoriert wäre,
+  /// hinge zwischen beiden Zuständen – es erschiene weiter in Annas Fotos,
+  /// wäre aber unter „Ignoriert" gelistet.
+  Future<void> setFacesIgnored(List<String> faceIds, bool ignoriert) async {
+    if (faceIds.isEmpty) return;
+    await (update(faces)..where((t) => t.id.isIn(faceIds))).write(FacesCompanion(
+      isIgnored: Value(ignoriert),
+      personId: ignoriert ? const Value(null) : const Value.absent(),
+    ));
   }
 
   /// Alle erkannten (und ggf. manuell hinzugefügten) Gesichter eines
@@ -2921,8 +3000,11 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> assignFacesToPerson(List<String> faceIds, String personId) async {
+    // Wer einem beiseitegelegten Gesicht einen Namen gibt, hat es damit
+    // zurückgeholt – sonst verschwände es unmittelbar nach dem Benennen
+    // wieder aus der Personenansicht.
     await (update(faces)..where((t) => t.id.isIn(faceIds)))
-        .write(FacesCompanion(personId: Value(personId)));
+        .write(FacesCompanion(personId: Value(personId), isIgnored: const Value(false)));
     final assignedFaces = await (select(faces)..where((t) => t.id.isIn(faceIds))).get();
     final withCrop = assignedFaces.where((f) => f.cropRelativePath != null);
     if (withCrop.isNotEmpty) {
@@ -3078,8 +3160,15 @@ class AppDatabase extends _$AppDatabase {
   /// Löscht bereits erkannte, aber noch keiner Person zugeordnete Gesichter
   /// eines Assets, bevor ein erneuter Scan neue Erkennungen einfügt – manuell
   /// zugeordnete Gesichter (mit personId) bleiben dabei bewusst unangetastet.
+  ///
+  /// Beiseitegelegte Gesichter bleiben ebenfalls stehen. Sonst wäre das
+  /// Ignorieren beim ersten „alle Fotos erneut scannen" stillschweigend
+  /// wieder weg – und genau davor soll es schützen (siehe [Faces.isIgnored]).
   Future<void> deleteUnassignedFacesForAsset(String assetId) => (delete(faces)
-        ..where((t) => t.assetId.equals(assetId) & t.personId.isNull()))
+        ..where((t) =>
+            t.assetId.equals(assetId) &
+            t.personId.isNull() &
+            t.isIgnored.equals(false)))
       .go();
 
   // -----------------------------------------------------------------------

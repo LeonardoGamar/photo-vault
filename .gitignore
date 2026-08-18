@@ -69,3 +69,7 @@ test/fixtures/samples/
 # Ausgabe von gen-l10n: wird bei jedem Lauf neu geschrieben und ist nur ein
 # Prüfmittel, kein Quelltext (siehe test/uebersetzungen_vollstaendig_test.dart).
 lib/l10n/fehlende_uebersetzungen.txt
+
+# Vergleichsbilder eines fehlgeschlagenen Golden-Tests – Zwischenstand,
+# kein Quelltext (entsteht bei jedem Fehlschlag neu).
+test/failures/

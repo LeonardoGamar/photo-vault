@@ -56,6 +56,7 @@ class _TrashScreenState extends State<TrashScreen> {
               icon: const Icon(Icons.restore_from_trash_outlined),
               onPressed: () async {
                 await widget.library.db.restoreFromTrash(_selected.toList());
+                if (!mounted) return;
                 setState(() => _selected.clear());
               },
             ),
@@ -69,6 +70,7 @@ class _TrashScreenState extends State<TrashScreen> {
                 final all = await widget.library.db.select(widget.library.db.assets).get();
                 final toDelete = all.where((a) => _selected.contains(a.id)).toList();
                 await _permanentlyDelete(toDelete);
+                if (!mounted) return;
                 setState(() => _selected.clear());
               },
             ),

@@ -154,7 +154,11 @@ class PersonDetailScreen extends StatelessWidget {
                               ),
                             )),
                             onDoubleTap: () => Navigator.of(context).push(MaterialPageRoute(
-                              builder: (_) => FaceReviewScreen(library: library, asset: asset),
+                              builder: (_) => FaceReviewScreen(
+                                library: library,
+                                assets: assets,
+                                startIndex: index,
+                              ),
                             )),
                           );
                         },

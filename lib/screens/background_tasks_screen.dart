@@ -44,42 +44,251 @@ Future<void> _showProgress(BuildContext context, _TaskAction action) {
   );
 }
 
-/// Kompakte Status-Zeile im Immich-"Auftrags-Schlangen"-Stil (Label links,
-/// Wert rechts, farbig hinterlegt).
-class _StatusRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? color;
-  const _StatusRow({required this.label, required this.value, this.color});
+/// Ein Zahlenfeld der Kopfzeile: Beschriftung links, Wert rechts.
+///
+/// Zwei davon nebeneinander bilden die Zeile „Aktiv / Wartend" – das
+/// auffällige Feld links, das ruhige rechts.
+class _Zahlenfeld extends StatelessWidget {
+  final String beschriftung;
+  final String wert;
+  final bool hervorgehoben;
+  const _Zahlenfeld({
+    required this.beschriftung,
+    required this.wert,
+    this.hervorgehoben = false,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    // Die Paare aus dem Farbschema statt eigener Werte: Sie sind auf
+    // ausreichenden Kontrast ausgelegt und gelten in beiden Helligkeiten.
+    final grund = hervorgehoben ? farben.primaryContainer : farben.surfaceContainerHighest;
+    final schrift = hervorgehoben ? farben.onPrimaryContainer : farben.onSurfaceVariant;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: color ?? Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+      decoration: BoxDecoration(color: grund, borderRadius: BorderRadius.circular(10)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Flexible(
+            child: Text(beschriftung,
+                overflow: TextOverflow.ellipsis, style: TextStyle(color: schrift)),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(wert,
+              style: TextStyle(
+                color: schrift,
+                fontWeight: FontWeight.w600,
+                // Damit die Zahlen zweier Karten untereinander fluchten.
+                fontFeatures: const [FontFeature.tabularFigures()],
+              )),
         ],
       ),
     );
   }
 }
 
-/// Eine Aufgaben-Karte: Titel, Beschreibung, Wartend-Zähler (aus [pendingCount],
-/// einer bereits vorhandenen DB-Zählmethode) und ein bis zwei Aktions-Knöpfe.
-/// [unavailableReason] gesetzt: Knöpfe deaktiviert, Grund wird stattdessen
-/// angezeigt (fehlendes KI-Modell o.ä.) – dieselben Verfügbarkeits-Getter wie
-/// in ToolsScreen.
+/// Die Zahlenzeile einer Karte.
+class _Zahlenreihe extends StatelessWidget {
+  final String linksBeschriftung;
+  final String linksWert;
+  final String rechtsBeschriftung;
+  final String rechtsWert;
+  const _Zahlenreihe({
+    required this.linksBeschriftung,
+    required this.linksWert,
+    required this.rechtsBeschriftung,
+    required this.rechtsWert,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _Zahlenfeld(
+              beschriftung: linksBeschriftung, wert: linksWert, hervorgehoben: true),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: _Zahlenfeld(beschriftung: rechtsBeschriftung, wert: rechtsWert),
+        ),
+      ],
+    );
+  }
+}
+
+/// Ein Knopf der Aktionsleiste.
+///
+/// Bewusst nicht [_TaskAction]: Die Gesamtanalyse-Karte startet nicht über
+/// ein Fortschrittsfenster, sondern über [LibraryState]. Sie müsste sonst
+/// eine Aktion mit leerem Strom und leerem Titel erfinden, nur um in die
+/// Leiste zu passen.
+class _Leistenknopf {
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _Leistenknopf({required this.label, required this.icon, this.onTap});
+}
+
+/// Die Aktionsleiste rechts an der Karte, über deren volle Höhe.
+///
+/// Die Knöpfe stehen aussen statt unter dem Text, weil sie dadurch bei allen
+/// Karten an derselben Stelle sitzen – gleich, ob die Beschreibung ein oder
+/// zwei Zeilen braucht. Man findet „Alle erneut" dann mit den Augen, ohne
+/// jede Karte einzeln zu lesen.
+class _Aktionsleiste extends StatelessWidget {
+  final List<_Leistenknopf> knoepfe;
+
+  /// Falsch, wenn ein Modell oder Datensatz fehlt – die Knöpfe sind dann
+  /// abgeschaltet, der Grund steht in der Karte.
+  final bool bedienbar;
+
+  const _Aktionsleiste({required this.knoepfe, required this.bedienbar});
+
+  /// Fest, nicht anteilig: Zwei Karten nebeneinander hätten sonst
+  /// unterschiedlich breite Leisten, je nach Länge ihrer Beschreibung.
+  static const double breite = 112;
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return Container(
+      width: breite,
+      color: farben.surfaceContainerHigh,
+      child: Column(
+        children: [
+          for (var i = 0; i < knoepfe.length; i++) ...[
+            if (i > 0) Divider(height: 1, thickness: 1, color: farben.outlineVariant),
+            Expanded(
+              child: InkWell(
+                onTap: bedienbar ? knoepfe[i].onTap : null,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: AppSpacing.md),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(knoepfe[i].icon,
+                          size: 26,
+                          color: bedienbar ? farben.onSurface : farben.onSurface.withValues(alpha: 0.38)),
+                      const SizedBox(height: 6),
+                      Text(
+                        knoepfe[i].label,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: bedienbar
+                              ? farben.onSurfaceVariant
+                              : farben.onSurface.withValues(alpha: 0.38),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Der gemeinsame Rahmen aller Aufgabenkarten: links Inhalt, rechts die
+/// Aktionsleiste über die volle Höhe.
+class _Aufgabenrahmen extends StatelessWidget {
+  final IconData icon;
+  final String titel;
+  final String beschreibung;
+  final Widget inhalt;
+  final List<_Leistenknopf> knoepfe;
+  final bool bedienbar;
+
+  const _Aufgabenrahmen({
+    required this.icon,
+    required this.titel,
+    required this.beschreibung,
+    required this.inhalt,
+    required this.knoepfe,
+    required this.bedienbar,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      // Ohne das Beschneiden stünde die Leiste rechts über die abgerundeten
+      // Ecken der Karte hinaus.
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(icon, size: 20, color: farben.primary),
+                        const SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: Text(titel,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(color: farben.primary)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(beschreibung,
+                        style: TextStyle(fontSize: 13, color: farben.outline)),
+                    const SizedBox(height: AppSpacing.md),
+                    inhalt,
+                  ],
+                ),
+              ),
+            ),
+            _Aktionsleiste(knoepfe: knoepfe, bedienbar: bedienbar),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Eine Aufgaben-Karte: Symbol und Titel, Kurzbeschreibung, die Zahlen
+/// „Aktiv" und „Wartend" und rechts die Aktionsleiste.
+///
+/// „Aktiv" ist keine Zierde: Vier dieser Aufgaben sind zugleich Stufen der
+/// Hintergrundanalyse ([stufe]), die weiterläuft, während man durch die App
+/// navigiert. Wer diesen Bildschirm während eines Laufs öffnet, sieht dort
+/// die tatsächlich verbleibende Zahl der gerade bearbeiteten Stufe. Die
+/// übrigen Aufgaben laufen in einem Fortschrittsfenster, das den Bildschirm
+/// verdeckt – bei ihnen steht dort zwangsläufig 0, und das ist richtig so.
+///
+/// [unavailableReason] gesetzt: Leiste abgeschaltet, Grund statt der Zahlen
+/// (fehlendes KI-Modell o.ä.) – dieselben Verfügbarkeits-Getter wie in
+/// ToolsScreen.
 class _TaskCard extends StatefulWidget {
+  final LibraryState library;
+  final IconData icon;
   final String title;
   final String description;
   final Future<int> Function() pendingCount;
+
+  /// Die Stufe der Hintergrundanalyse, die dieselbe Arbeit erledigt – oder
+  /// `null`, wenn diese Aufgabe nur von Hand läuft.
+  final Analysestufe? stufe;
 
   /// null heisst „Wartend" – der übersetzte Vorgabewert kann nicht im Kopf
   /// stehen, dort gibt es noch keinen Kontext.
@@ -87,9 +296,12 @@ class _TaskCard extends StatefulWidget {
   final String? unavailableReason;
   final List<_TaskAction> actions;
   const _TaskCard({
+    required this.library,
+    required this.icon,
     required this.title,
     required this.description,
     required this.pendingCount,
+    this.stufe,
     this.pendingLabel,
     this.unavailableReason,
     required this.actions,
@@ -116,51 +328,46 @@ class _TaskCardState extends State<_TaskCard> {
     if (mounted) _refreshCount();
   }
 
+  /// Wie viele Fotos die Hintergrundanalyse in dieser Stufe gerade noch vor
+  /// sich hat – `0`, wenn sie nicht läuft oder woanders steht.
+  int _aktiv() {
+    final analyse = widget.library.analyse;
+    if (analyse == null || analyse.stufe != widget.stufe) return 0;
+    final offen = analyse.gesamt - analyse.erledigt;
+    return offen < 0 ? 0 : offen;
+  }
+
   @override
   Widget build(BuildContext context) {
     final reason = widget.unavailableReason;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: Theme.of(context).colorScheme.primary)),
-            const SizedBox(height: 4),
-            Text(widget.description,
-                style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.outline)),
-            const SizedBox(height: 12),
-            if (reason != null)
-              Text(reason,
-                  style: TextStyle(fontSize: 12, color: context.semantik.warnung))
-            else ...[
-              FutureBuilder<int>(
+    // Auf LibraryState hören, damit „Aktiv" mitläuft, während die
+    // Hintergrundanalyse arbeitet.
+    return ListenableBuilder(
+      listenable: widget.library,
+      builder: (context, _) => _Aufgabenrahmen(
+        icon: widget.icon,
+        titel: widget.title,
+        beschreibung: widget.description,
+        knoepfe: [
+          for (final aktion in widget.actions)
+            _Leistenknopf(
+              label: aktion.label,
+              icon: aktion.icon,
+              onTap: () => _runAction(aktion),
+            ),
+        ],
+        bedienbar: reason == null,
+        inhalt: reason != null
+            ? Text(reason, style: TextStyle(fontSize: 12, color: context.semantik.warnung))
+            : FutureBuilder<int>(
                 future: _countFuture,
-                builder: (context, snapshot) => _StatusRow(
-                  label: widget.pendingLabel ?? AppTexte.of(context).aufgWartend,
-                  value: snapshot.hasData ? '${snapshot.data}' : '…',
+                builder: (context, snapshot) => _Zahlenreihe(
+                  linksBeschriftung: AppTexte.of(context).aufgAktiv,
+                  linksWert: '${_aktiv()}',
+                  rechtsBeschriftung: widget.pendingLabel ?? AppTexte.of(context).aufgWartend,
+                  rechtsWert: snapshot.hasData ? '${snapshot.data}' : '…',
                 ),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                children: [
-                  for (final action in widget.actions)
-                    OutlinedButton.icon(
-                      onPressed: () => _runAction(action),
-                      icon: Icon(action.icon, size: 18),
-                      label: Text(action.label),
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }
@@ -168,9 +375,10 @@ class _TaskCardState extends State<_TaskCard> {
 
 /// Sonderkarte für [LibraryState.starteHintergrundanalyse]: läuft (anders als
 /// die übrigen Aufgaben hier) bereits echt im Hintergrund weiter, während man
-/// navigiert – deshalb ein echtes "Status"-Badge statt eines Wartend-Zählers,
-/// gespeist aus [LibraryState.analyse]/[LibraryState.analyseLaeuft] über
-/// ListenableBuilder (LibraryState ist ein ChangeNotifier).
+/// navigiert – deshalb zeigt sie neben der Zahl der aktiven Fotos die gerade
+/// bearbeitete Stufe im Klartext, gespeist aus
+/// [LibraryState.analyse]/[LibraryState.analyseLaeuft] über ListenableBuilder
+/// (LibraryState ist ein ChangeNotifier).
 class _CombinedAnalysisCard extends StatelessWidget {
   final LibraryState library;
   const _CombinedAnalysisCard({required this.library});
@@ -183,46 +391,45 @@ class _CombinedAnalysisCard extends StatelessWidget {
         final t = AppTexte.of(context);
         final analyse = library.analyse;
         final laeuft = library.analyseLaeuft;
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t.werkzAllesNachholenTitel,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(color: Theme.of(context).colorScheme.primary)),
-                const SizedBox(height: 4),
+        final offen = analyse == null ? 0 : (analyse.gesamt - analyse.erledigt).clamp(0, 1 << 31);
+
+        return _Aufgabenrahmen(
+          icon: Icons.auto_awesome_outlined,
+          titel: t.werkzAllesNachholenTitel,
+          beschreibung: t.werkzAllesNachholenText,
+          bedienbar: !laeuft,
+          knoepfe: [
+            _Leistenknopf(
+              label: t.aufgJetztStarten,
+              icon: Icons.play_arrow,
+              onTap: () {
+                library.starteHintergrundanalyse();
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(t.aufgLaeuft)));
+              },
+            ),
+          ],
+          inhalt: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _Zahlenreihe(
+                linksBeschriftung: t.aufgAktiv,
+                linksWert: '$offen',
+                rechtsBeschriftung: t.aufgStatus,
+                rechtsWert: laeuft && analyse != null
+                    ? t.aufgStufeKurz(analyse.stufeNummer, analyse.stufenGesamt)
+                    : t.aufgBereit,
+              ),
+              if (laeuft && analyse != null) ...[
+                const SizedBox(height: AppSpacing.sm),
                 Text(
-                  t.werkzAllesNachholenText,
-                  style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.outline),
-                ),
-                const SizedBox(height: 12),
-                _StatusRow(
-                  label: t.aufgStatus,
-                  value: laeuft && analyse != null
-                      ? t.aufgStufe(analysestufeName(t, analyse.stufe), analyse.erledigt, analyse.gesamt,
-                          analyse.stufeNummer, analyse.stufenGesamt)
-                      : t.aufgBereit,
-                  color: laeuft ? Theme.of(context).colorScheme.primaryContainer : null,
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: laeuft
-                      ? null
-                      : () {
-                          library.starteHintergrundanalyse();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(t.aufgLaeuft)),
-                          );
-                        },
-                  icon: const Icon(Icons.play_circle_outline, size: 18),
-                  label: Text(t.aufgJetztStarten),
+                  t.aufgStufe(analysestufeName(t, analyse.stufe), analyse.erledigt,
+                      analyse.gesamt, analyse.stufeNummer, analyse.stufenGesamt),
+                  style: TextStyle(
+                      fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ],
-            ),
+            ],
           ),
         );
       },
@@ -251,6 +458,8 @@ class BackgroundTasksScreen extends StatelessWidget {
           _CombinedAnalysisCard(library: library),
           const SizedBox(height: AppSpacing.md),
           _TaskCard(
+            library: library,
+            icon: Icons.face_retouching_natural,
             title: t.werkzGesichterScannenTitel,
             description: t.aufgGesichterText,
             pendingCount: () => library.db.countFaceScan(onlyNew: true),
@@ -274,6 +483,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.photo_size_select_actual_outlined,
             title: t.werkzAbschnittVorschau,
             description: t.aufgVorschauText,
             pendingCount: () => library.db.countThumbnailRegen(onlyMissing: true),
@@ -295,7 +506,10 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.text_fields,
             title: t.aufgOcrTitel,
+            stufe: Analysestufe.texterkennung,
             description: t.aufgOcrText,
             pendingCount: () => library.db.countOcrBackfill(),
             actions: [
@@ -309,7 +523,10 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.subtitles_outlined,
             title: t.aufgBeschreibungenTitel,
+            stufe: Analysestufe.bildbeschreibung,
             description: t.aufgBeschreibungenText,
             pendingCount: () => library.db.countCaptionBackfill(),
             unavailableReason: _modelHint(
@@ -325,7 +542,10 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.scatter_plot_outlined,
             title: t.aufgEmbeddingsTitel,
+            stufe: Analysestufe.bildanalyse,
             description: t.aufgEmbeddingsText,
             pendingCount: () => library.db.countEmbeddingBackfill(),
             unavailableReason:
@@ -341,7 +561,10 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.sell_outlined,
             title: t.aufgKiTagsTitel,
+            stufe: Analysestufe.schlagwoerter,
             description: t.aufgKiTagsText,
             pendingCount: () => library.db.countAiTagging(onlyUntagged: true),
             unavailableReason:
@@ -364,6 +587,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.blur_on,
             title: t.aufgUnschaerfeTitel,
             description: t.aufgUnschaerfeText,
             pendingCount: () => library.db.countBlurBackfill(),
@@ -378,6 +603,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.place_outlined,
             title: t.aufgOrteTitel,
             description: t.aufgOrteText,
             pendingCount: () => library.db.countLocationBackfill(),
@@ -392,6 +619,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.map_outlined,
             title: t.werkzOrteAufloesenTitel,
             description: t.aufgOrteAufloesenText,
             pendingCount: () => library.db.countLocationNameBackfill(),
@@ -408,6 +637,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.photo_camera_outlined,
             title: t.aufgKameraTitel,
             description: t.aufgKameraText,
             pendingCount: () => library.db.countCameraMetadataBackfill(),
@@ -422,6 +653,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.motion_photos_on_outlined,
             title: t.aufgLivePhotoTitel,
             description: t.aufgLivePhotoText,
             pendingCount: () => library.db.countUnlinkedAssetsOfType('IMAGE'),
@@ -436,6 +669,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.tune,
             title: t.werkzNeuRendernTitel,
             description: t.aufgRendernText,
             pendingLabel: t.aufgBetrifft,
@@ -451,6 +686,8 @@ class BackgroundTasksScreen extends StatelessWidget {
             ],
           ),
           _TaskCard(
+            library: library,
+            icon: Icons.description_outlined,
             title: t.werkzXmpSchreibenTitel,
             description: t.aufgXmpText,
             pendingLabel: t.aufgBetrifft,

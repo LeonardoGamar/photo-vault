@@ -6221,6 +6221,150 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Version, Lizenzen und Aktualisierungen'**
   String get einstBeschrUeber;
+
+  /// No description provided for @allgRueckgaengig.
+  ///
+  /// In de, this message translates to:
+  /// **'Rückgängig'**
+  String get allgRueckgaengig;
+
+  /// No description provided for @personenIgnoriertTab.
+  ///
+  /// In de, this message translates to:
+  /// **'Ignoriert'**
+  String get personenIgnoriertTab;
+
+  /// No description provided for @personenIgnoriertTabMitZahl.
+  ///
+  /// In de, this message translates to:
+  /// **'Ignoriert ({anzahl})'**
+  String personenIgnoriertTabMitZahl(int anzahl);
+
+  /// No description provided for @personenIgnorierenTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausgewählte Gesichter ignorieren'**
+  String get personenIgnorierenTooltip;
+
+  /// No description provided for @personenIgnoriertMeldung.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Ein Gesicht ignoriert.} other{{anzahl} Gesichter ignoriert.}}'**
+  String personenIgnoriertMeldung(int anzahl);
+
+  /// No description provided for @personenIgnoriertLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine ignorierten Gesichter. Was du unter „Unbenannte Gesichter“ beiseitelegst – Plakate, Spiegelungen, Statuen –, sammelt sich hier und lässt sich jederzeit zurückholen.'**
+  String get personenIgnoriertLeer;
+
+  /// No description provided for @personenIgnoriertHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Ignorierte Gesichter erscheinen nicht mehr im Raster und werden nicht mehr gruppiert. Doppelklick öffnet das ganze Foto.'**
+  String get personenIgnoriertHinweis;
+
+  /// No description provided for @personenIgnoriertTeilHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'{gezeigt} von {gesamt} ignorierten Gesichtern. Doppelklick öffnet das ganze Foto.'**
+  String personenIgnoriertTeilHinweis(int gezeigt, int gesamt);
+
+  /// No description provided for @personenZurueckholenKnopf.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} zurückholen'**
+  String personenZurueckholenKnopf(int anzahl);
+
+  /// No description provided for @clusterPhaseLaden.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter werden geladen …'**
+  String get clusterPhaseLaden;
+
+  /// No description provided for @clusterPhaseVergleichen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter werden verglichen …'**
+  String get clusterPhaseVergleichen;
+
+  /// No description provided for @clusterPhaseVorschlaege.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschläge werden vorbereitet …'**
+  String get clusterPhaseVorschlaege;
+
+  /// No description provided for @clusterOhneProzent.
+  ///
+  /// In de, this message translates to:
+  /// **'Läuft …'**
+  String get clusterOhneProzent;
+
+  /// No description provided for @clusterFehlgeschlagen.
+  ///
+  /// In de, this message translates to:
+  /// **'Die automatische Gruppierung ist fehlgeschlagen: {fehler}'**
+  String clusterFehlgeschlagen(String fehler);
+
+  /// No description provided for @clusterIgnorierenTooltip.
+  ///
+  /// In de, this message translates to:
+  /// **'Ganze Gruppe ignorieren'**
+  String get clusterIgnorierenTooltip;
+
+  /// No description provided for @gesichtIgnorieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Ignorieren'**
+  String get gesichtIgnorieren;
+
+  /// No description provided for @gesichtIgnoriert.
+  ///
+  /// In de, this message translates to:
+  /// **'Ignoriert'**
+  String get gesichtIgnoriert;
+
+  /// No description provided for @gesichtZurueckgeholt.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesicht wird wieder berücksichtigt.'**
+  String get gesichtZurueckgeholt;
+
+  /// No description provided for @gesichtPosition.
+  ///
+  /// In de, this message translates to:
+  /// **'{nummer} von {gesamt}'**
+  String gesichtPosition(int nummer, int gesamt);
+
+  /// No description provided for @gesichtVoriges.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorheriges Foto (Pfeil links)'**
+  String get gesichtVoriges;
+
+  /// No description provided for @gesichtNaechstes.
+  ///
+  /// In de, this message translates to:
+  /// **'Nächstes Foto (Pfeil rechts)'**
+  String get gesichtNaechstes;
+
+  /// No description provided for @clusterUnerwartetBeendet.
+  ///
+  /// In de, this message translates to:
+  /// **'Die automatische Gruppierung wurde unerwartet beendet.'**
+  String get clusterUnerwartetBeendet;
+
+  /// No description provided for @aufgAktiv.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktiv'**
+  String get aufgAktiv;
+
+  /// No description provided for @aufgStufeKurz.
+  ///
+  /// In de, this message translates to:
+  /// **'Stufe {nummer}/{gesamt}'**
+  String aufgStufeKurz(int nummer, int gesamt);
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

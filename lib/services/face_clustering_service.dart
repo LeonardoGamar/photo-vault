@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -9,7 +11,17 @@ import 'face_engine_service.dart';
 class FaceClusterInput {
   final Map<String, Float32List> embeddingsByFaceId;
   final double threshold;
-  const FaceClusterInput(this.embeddingsByFaceId, this.threshold);
+
+  /// Rückkanal für den Fortschritt (0..1). `null` heisst „niemand hört zu";
+  /// die Funktion läuft dann genau wie zuvor.
+  ///
+  /// Der Anteil zählt **verglichene Paare**, nicht abgearbeitete Zeilen der
+  /// äusseren Schleife. Der Unterschied ist erheblich: Die innere Schleife
+  /// wird mit jedem Durchlauf kürzer, ein Balken nach Zeilen stünde nach
+  /// der Hälfte der Zeit schon bei 71 % und danach scheinbar still.
+  final SendPort? fortschritt;
+
+  const FaceClusterInput(this.embeddingsByFaceId, this.threshold, {this.fortschritt});
 }
 
 /// Gruppiert unzugeordnete Gesichter anhand ihrer SFace-Embeddings zu
@@ -49,10 +61,25 @@ List<List<String>> clusterFaces(FaceClusterInput input) {
     if (ra != rb) parent[ra] = rb;
   }
 
+  final paareGesamt = n * (n - 1) / 2;
+  var paareErledigt = 0.0;
+  var zuletztGemeldet = 0.0;
+
   for (var i = 0; i < n; i++) {
     for (var j = i + 1; j < n; j++) {
       if (FaceEngineService.cosineSimilarity(vectors[i], vectors[j]) >= input.threshold) {
         union(i, j);
+      }
+    }
+    if (input.fortschritt != null && paareGesamt > 0) {
+      paareErledigt += n - 1 - i;
+      final anteil = paareErledigt / paareGesamt;
+      // Nur bei jedem halben Prozent melden. Eine Meldung je Zeile wären
+      // bei 30.000 Gesichtern 30.000 Nachrichten über den Port – mehr
+      // Aufwand für das Zustellen als für das Rechnen.
+      if (anteil - zuletztGemeldet >= 0.005 || anteil >= 1.0) {
+        zuletztGemeldet = anteil;
+        input.fortschritt!.send(anteil);
       }
     }
   }
@@ -94,4 +121,115 @@ Float32List meanNormalizedEmbedding(Iterable<Float32List> vectors) {
     sum[i] /= norm;
   }
   return sum;
+}
+
+// ---------------------------------------------------------------------------
+// Ein Lauf mit Fortschritt und Abbruch
+// ---------------------------------------------------------------------------
+
+/// Der Lauf ist zu Ende gegangen, ohne ein Ergebnis zu liefern.
+///
+/// [meldung] ist die technische Ursache aus dem Isolat und `null`, wenn es
+/// gar keine gab – das Isolat also einfach weg war. Bewusst kein fertiger
+/// Satz: Welcher Text daraus wird, entscheidet die Oberfläche, die weiss,
+/// in welcher Sprache sie gerade spricht.
+class FaceClusterFehler implements Exception {
+  final String? meldung;
+  const FaceClusterFehler([this.meldung]);
+
+  @override
+  String toString() => 'FaceClusterFehler(${meldung ?? ''})';
+}
+
+/// Auftrag an das Isolat – ein einzelnes Argument, weil [Isolate.spawn] nur
+/// eines übergibt.
+class _ClusterAuftrag {
+  final Map<String, Float32List> embeddings;
+  final double threshold;
+  final SendPort antwort;
+  const _ClusterAuftrag(this.embeddings, this.threshold, this.antwort);
+}
+
+void _clusterImIsolat(_ClusterAuftrag auftrag) {
+  final clusters = clusterFaces(FaceClusterInput(
+    auftrag.embeddings,
+    auftrag.threshold,
+    fortschritt: auftrag.antwort,
+  ));
+  auftrag.antwort.send(clusters);
+}
+
+/// Ein laufender Gruppierungs-Durchgang: liefert [ergebnis], meldet
+/// unterwegs den Fortschritt und lässt sich abbrechen.
+///
+/// Warum nicht `compute()` wie bisher: Dessen Isolat ist nach dem Start
+/// nicht mehr erreichbar – weder für eine Rückmeldung noch für einen
+/// Abbruch. Bei einer frisch gescannten grossen Bibliothek läuft der
+/// Vergleich aber minutenlang, und beides ist genau dann nötig.
+class FaceClusterLauf {
+  FaceClusterLauf._(this._isolat, this._port, this._fertig);
+
+  final Isolate _isolat;
+  final ReceivePort _port;
+  final Completer<List<List<String>>?> _fertig;
+
+  /// Die gefundenen Gruppen – oder `null`, wenn abgebrochen wurde.
+  Future<List<List<String>>?> get ergebnis => _fertig.future;
+
+  var _abgebrochen = false;
+
+  void abbrechen() {
+    if (_fertig.isCompleted) return;
+    _abgebrochen = true;
+    _isolat.kill(priority: Isolate.immediate);
+    _port.close();
+    _fertig.complete(null);
+  }
+}
+
+/// Startet einen Gruppierungslauf in einem eigenen Isolat.
+///
+/// [beiFortschritt] wird mit einem Anteil von 0..1 aufgerufen, etwa alle
+/// halbe Prozent.
+Future<FaceClusterLauf> starteFaceClustering(
+  Map<String, Float32List> embeddings,
+  double threshold, {
+  required void Function(double anteil) beiFortschritt,
+}) async {
+  final port = ReceivePort();
+  final fertig = Completer<List<List<String>>?>();
+  late final FaceClusterLauf lauf;
+
+  final isolat = await Isolate.spawn(
+    _clusterImIsolat,
+    _ClusterAuftrag(embeddings, threshold, port.sendPort),
+    // Beides an denselben Port: Ohne sie bliebe der Dialog bei einem Fehler
+    // oder einem abgestürzten Isolat für immer stehen, weil schlicht nie
+    // eine Nachricht käme.
+    onError: port.sendPort,
+    onExit: port.sendPort,
+  );
+
+  port.listen((nachricht) {
+    if (nachricht is double) {
+      beiFortschritt(nachricht);
+      return;
+    }
+    if (nachricht is List<List<String>>) {
+      if (!fertig.isCompleted) fertig.complete(nachricht);
+      port.close();
+      return;
+    }
+    // Bleibt: `null` von onExit oder [Fehler, Stack] von onError. Beides
+    // heisst „zu Ende, ohne Ergebnis". Nach einem Abbruch ist genau das
+    // erwartet und schon beantwortet.
+    if (!fertig.isCompleted && !lauf._abgebrochen) {
+      fertig.completeError(FaceClusterFehler(
+          nachricht is List && nachricht.isNotEmpty ? '${nachricht.first}' : null));
+    }
+    port.close();
+  });
+
+  lauf = FaceClusterLauf._(isolat, port, fertig);
+  return lauf;
 }
