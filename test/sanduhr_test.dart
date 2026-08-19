@@ -10,6 +10,8 @@ import 'package:photo_vault/services/stammbaum.dart';
 /// sondern ob jeder Vorfahr seinen eigenen Platz über seinem Kind hat und
 /// sich keine zwei Kästen überlappen.
 void main() {
+  seitenlinienTests();
+
   ///        opaV  omaV   opaM  omaM
   ///            vater  mutter
   ///                ich
@@ -163,6 +165,129 @@ void main() {
       final s = bau();
       final ids = s.knoten.map((k) => k.personId).toList();
       expect(ids.toSet(), hasLength(ids.length));
+    });
+  });
+}
+
+/// Die Seitenlinie: Geschwister neben der Person, ihre Kinder darunter.
+///
+/// Der Anlass war eine Rückmeldung: Ein neu eingetragener Neffe war in
+/// dieser Ansicht nirgends zu sehen. Er hängt an keiner Kante, die von der
+/// gewählten Person ausgeht – die Sanduhr zeigte damit ausgerechnet die
+/// Verwandten nicht, die sich neu eintragen lassen.
+void seitenlinienTests() {
+  /// Der gemeldete Bestand, auf das Wesentliche verkürzt:
+  ///
+  ///   conny ── nicki
+  ///     ├ marco ── marly        jenni ── marcel
+  ///     │   └ dante                 └ mika
+  Verwandtschaftsnetz bestand() => Verwandtschaftsnetz([
+        kante('marco', 'conny', Verwandtschaft.elternteil),
+        kante('marco', 'nicki', Verwandtschaft.elternteil),
+        kante('jenni', 'conny', Verwandtschaft.elternteil),
+        kante('jenni', 'nicki', Verwandtschaft.elternteil),
+        kante('dante', 'marco', Verwandtschaft.elternteil),
+        kante('mika', 'jenni', Verwandtschaft.elternteil),
+        kante('mika', 'marcel', Verwandtschaft.elternteil),
+        partnerKanteFuer('marly', 'marco'),
+        partnerKanteFuer('marcel', 'jenni'),
+      ]);
+
+  const ordnung = {
+    'conny': 0, 'nicki': 1, 'marco': 2, 'jenni': 3,
+    'marly': 4, 'marcel': 5, 'dante': 6, 'mika': 7,
+  };
+  int rang(String id) => ordnung[id] ?? 99;
+
+  Sanduhr mitSeite({bool an = true}) =>
+      ordneSanduhr(bestand(), 'marco', rang, seitenlinien: an);
+
+  group('Seitenlinie', () {
+    test('das Geschwister steht in derselben Reihe wie die Person', () {
+      final s = mitSeite();
+      final jenni = s.knoten.firstWhere((k) => k.personId == 'jenni');
+      expect(jenni.reihe, 0);
+      expect(jenni.istPartner, isFalse);
+    });
+
+    test('der Neffe steht eine Reihe darunter – der eigentliche Anlass', () {
+      final s = mitSeite();
+      final mika = s.knoten.firstWhere((k) => k.personId == 'mika');
+      expect(mika.reihe, 1);
+    });
+
+    test('der Schwager kommt als Partner des Geschwisters mit', () {
+      final s = mitSeite();
+      final marcel = s.knoten.firstWhere((k) => k.personId == 'marcel');
+      expect(marcel.reihe, 0);
+      expect(marcel.istPartner, isTrue);
+    });
+
+    test('ohne Seitenlinie bleibt es bei der eigenen Linie', () {
+      final s = mitSeite(an: false);
+      final drin = s.knoten.map((k) => k.personId).toSet();
+      expect(drin, equals({'marco', 'marly', 'dante', 'conny', 'nicki'}));
+      expect(drin, isNot(contains('jenni')));
+      expect(drin, isNot(contains('mika')));
+    });
+
+    test('das Geschwister hängt an denselben Eltern, mit eigenen Kanten', () {
+      final s = mitSeite();
+      final vonJenni = s.kanten
+          .where((k) => k.vonId == 'jenni')
+          .map((k) => k.zuId)
+          .toSet();
+      expect(vonJenni, containsAll({'conny', 'nicki'}),
+          reason: 'ohne diese Kanten schwebte das Geschwister ohne Anschluss');
+    });
+
+    test('in keiner Reihe überlappen sich zwei Kästen', () {
+      final s = mitSeite();
+      for (var r = s.obersteReihe; r <= s.untersteReihe; r++) {
+        final spalten = s.knoten
+            .where((k) => k.reihe == r)
+            .map((k) => k.spalte)
+            .toList()
+          ..sort();
+        for (var i = 1; i < spalten.length; i++) {
+          expect(spalten[i] - spalten[i - 1], greaterThanOrEqualTo(1.0),
+              reason: 'Reihe $r: ${spalten[i - 1]} und ${spalten[i]}');
+        }
+      }
+    });
+
+    test('die Wurzel bleibt die Achse – die Eltern stehen über ihr', () {
+      final s = mitSeite();
+      final marco = s.knoten.firstWhere((k) => k.personId == 'marco');
+      final conny = s.knoten.firstWhere((k) => k.personId == 'conny');
+      final nicki = s.knoten.firstWhere((k) => k.personId == 'nicki');
+      expect((conny.spalte + nicki.spalte) / 2, closeTo(marco.spalte, 0.001),
+          reason: 'die Eltern rahmen die gewählte Person, nicht die Gruppe');
+    });
+
+    test('ein Halbgeschwister bekommt nur die Kante zum gemeinsamen Elternteil',
+        () {
+      final netz = Verwandtschaftsnetz([
+        kante('marco', 'conny', Verwandtschaft.elternteil),
+        kante('marco', 'nicki', Verwandtschaft.elternteil),
+        // Halb: nur conny gemeinsam.
+        kante('halb', 'conny', Verwandtschaft.elternteil),
+        kante('halb', 'fremd', Verwandtschaft.elternteil),
+      ]);
+      final s = ordneSanduhr(netz, 'marco', rang);
+      final vonHalb =
+          s.kanten.where((k) => k.vonId == 'halb').map((k) => k.zuId).toSet();
+      expect(vonHalb, equals({'conny'}),
+          reason: 'der zweite Elternteil steht nicht im Bild');
+    });
+
+    test('ohne Geschwister ändert der Schalter nichts', () {
+      final netz = Verwandtschaftsnetz([
+        kante('einzel', 'mutter', Verwandtschaft.elternteil),
+      ]);
+      final mit = ordneSanduhr(netz, 'einzel', rang);
+      final ohne = ordneSanduhr(netz, 'einzel', rang, seitenlinien: false);
+      expect(mit.knoten.length, ohne.knoten.length);
     });
   });
 }

@@ -7314,6 +7314,18 @@ abstract class AppTexte {
   /// **'Sanduhr'**
   String get stammbaumAnsichtSanduhr;
 
+  /// No description provided for @stammbaumSeitenlinien.
+  ///
+  /// In de, this message translates to:
+  /// **'Seitenlinie'**
+  String get stammbaumSeitenlinien;
+
+  /// No description provided for @stammbaumSeitenlinienHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschwister neben der Person, deren Kinder darunter – so werden auch Neffen, Nichten und Schwäger sichtbar.'**
+  String get stammbaumSeitenlinienHinweis;
+
   /// No description provided for @lebenslaufVon.
   ///
   /// In de, this message translates to:

@@ -1658,6 +1658,8 @@
   "stammbaumAdoptiv": "Adoptive",
   "stammbaumPflege": "Foster",
   "stammbaumAnsichtSanduhr": "Hourglass",
+  "stammbaumSeitenlinien": "Collateral line",
+  "stammbaumSeitenlinienHinweis": "Siblings beside the person, their children below – this is what makes nephews, nieces and in-laws visible.",
   "lebenslaufVon": "Life story: {name}",
   "@lebenslaufVon": {
     "placeholders": {

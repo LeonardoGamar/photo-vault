@@ -2636,6 +2636,8 @@
   "stammbaumAdoptiv": "Adoptiv",
   "stammbaumPflege": "Pflege",
   "stammbaumAnsichtSanduhr": "Sanduhr",
+  "stammbaumSeitenlinien": "Seitenlinie",
+  "stammbaumSeitenlinienHinweis": "Geschwister neben der Person, deren Kinder darunter – so werden auch Neffen, Nichten und Schwäger sichtbar.",
   "lebenslaufVon": "Lebenslauf: {name}",
   "@lebenslaufVon": {
     "placeholders": {

@@ -121,6 +121,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   String? _fokusId;
   _Ansicht _ansicht = _Ansicht.baum;
 
+  /// Ob die Sanduhr die Seitenlinie mitzeigt – Geschwister, deren Kinder
+  /// und die angeheirateten daneben.
+  bool _seitenlinien = true;
+
   List<PersonData> _personen = [];
   Map<String, PersonData> _nachId = {};
   Verwandtschaftsnetz _netz = Verwandtschaftsnetz(const []);
@@ -893,16 +897,51 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
 
   /// Die Sanduhr – siehe [SanduhrAnsicht].
   Widget _sanduhr(BuildContext context, PersonData fokus) {
+    final t = AppTexte.of(context);
     final rang = {for (var i = 0; i < _personen.length; i++) _personen[i].id: i};
-    final s = ordneSanduhr(_netz, fokus.id, (id) => rang[id] ?? 1 << 30);
-    if (s.knoten.length == 1) {
-      return _hinweis(context, AppTexte.of(context).stammbaumLeer);
-    }
-    return SanduhrAnsicht(
-      sanduhr: s,
-      personen: _nachId,
-      fokusId: fokus.id,
-      onTippen: _ruecke,
+    final s = ordneSanduhr(_netz, fokus.id, (id) => rang[id] ?? 1 << 30,
+        seitenlinien: _seitenlinien);
+    return Column(
+      children: [
+        // Der Schalter steht über der Zeichnung und nicht in einem Menü:
+        // Er verändert, was zu sehen ist, und das gehört neben das
+        // Gesehene. Angeschaltet als Vorgabe – eine Familienansicht, die
+        // die eigene Schwester weglässt, überrascht mehr als eine, die
+        // etwas breiter ist.
+        Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              FilterChip(
+                selected: _seitenlinien,
+                onSelected: (an) => setState(() => _seitenlinien = an),
+                avatar: const Icon(Icons.hub_outlined, size: 18),
+                label: Text(t.stammbaumSeitenlinien),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  t.stammbaumSeitenlinienHinweis,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: s.knoten.length == 1
+              ? _hinweis(context, t.stammbaumLeer)
+              : SanduhrAnsicht(
+                  sanduhr: s,
+                  personen: _nachId,
+                  fokusId: fokus.id,
+                  onTippen: _ruecke,
+                ),
+        ),
+      ],
     );
   }
 

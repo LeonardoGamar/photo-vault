@@ -112,9 +112,14 @@ welche Modelle aus welcher Quelle stammen.
     Klick rückt eine Person in die Mitte
   – **Fächer**: bis zu vier Generationen Vorfahren als Ringe. Ein Platz im
     Ring hat immer genau einen Nachfolger nach innen – deshalb kann hier
-    keine Linie mehrdeutig werden
+    keine Linie mehrdeutig werden, und deshalb zeigt der Fächer
+    ausschließlich Vorfahren. Hinter der letzten belegten Generation steht
+    ein Ring gestrichelter Plätze als Einladung, weiterzugehen
   – **Sanduhr**: Vorfahren und Nachkommen über je drei Generationen in
-    einem Bild; jeder Vorfahr steht über seinem eigenen Kind
+    einem Bild; jeder Vorfahr steht über seinem eigenen Kind. Mit
+    zuschaltbarer **Seitenlinie** stehen Geschwister daneben und deren
+    Kinder darunter – erst dadurch werden Neffen, Nichten und Schwäger
+    hier sichtbar
   – **Nachfahren**: alle Nachkommen als eingerückte Gliederung
   – **Verwandte**: *alle* Verwandten mit ihrer Bezeichnung, sortiert von
     den nächsten zu den entferntesten

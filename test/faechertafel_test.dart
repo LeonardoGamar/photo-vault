@@ -10,6 +10,63 @@ import 'package:photo_vault/services/stammbaum.dart';
 /// lückenlos gefüllt ist oder zwei Plätze sich um ein Hundertstel
 /// überlappen, sieht niemand. Hier wird es nachgerechnet.
 void main() {
+  group('Ein leerer Ring bleibt als Einladung stehen', () {
+    // Der gemeldete Eindruck: „hier werden nur die Eltern aufgeführt".
+    // Die Daten waren richtig – aufwärts standen nur die Eltern im
+    // Bestand –, aber der Fächer endete bündig mit ihnen und zeigte
+    // nirgends, dass darüber noch Platz ist.
+    Verwandtschaftsnetz nurEltern() => Verwandtschaftsnetz([
+          kante('ich', 'vater', Verwandtschaft.elternteil),
+          kante('ich', 'mutter', Verwandtschaft.elternteil),
+        ]);
+
+    int rang(String id) => const {'vater': 0, 'mutter': 1}[id] ?? 99;
+
+    test('über belegten Eltern stehen vier gestrichelte Großelternplätze', () {
+      final p = faechertafel(nurEltern(), 'ich', rang);
+      final ring2 = p.where((x) => x.ring == 2).toList();
+      expect(ring2, hasLength(4));
+      expect(ring2.every((x) => x.istLeer), isTrue);
+    });
+
+    test('aber nur einer – Ring 3 bleibt weg', () {
+      final p = faechertafel(nurEltern(), 'ich', rang);
+      expect(p.where((x) => x.ring >= 3), isEmpty,
+          reason: 'zwei leere Ringe sähen aus wie ein Zeichenfehler');
+    });
+
+    test('ohne jeden Vorfahren bleibt es bei den zwei Elternplätzen', () {
+      final p = faechertafel(Verwandtschaftsnetz(const []), 'ich', rang);
+      expect(p.where((x) => x.ring == 1), hasLength(2));
+      expect(p.where((x) => x.ring >= 2), isEmpty);
+    });
+
+    test('der leere Ring wächst mit: über Großeltern stehen die Urgroßeltern',
+        () {
+      final netz = Verwandtschaftsnetz([
+        kante('ich', 'vater', Verwandtschaft.elternteil),
+        kante('vater', 'opa', Verwandtschaft.elternteil),
+      ]);
+      final p = faechertafel(netz, 'ich', rang);
+      expect(p.where((x) => x.ring == 3), isNotEmpty);
+      expect(p.where((x) => x.ring == 3).every((x) => x.istLeer), isTrue);
+      expect(p.where((x) => x.ring >= 4), isEmpty);
+    });
+
+    test('die Höchstzahl der Ringe wird nicht überschritten', () {
+      // Vier Generationen voll – ein fünfter Ring darf nicht entstehen.
+      final kanten = <Kante>[];
+      var vorher = 'ich';
+      for (var i = 0; i < 4; i++) {
+        kanten.add(kante(vorher, 'ahn$i', Verwandtschaft.elternteil));
+        vorher = 'ahn$i';
+      }
+      final p = faechertafel(Verwandtschaftsnetz(kanten), 'ich', rang);
+      expect(p.fold(0, (m, x) => x.ring > m ? x.ring : m),
+          lessThanOrEqualTo(maxFachRinge));
+    });
+  });
+
   /// vier Generationen über „ich", ein Ast bricht früher ab:
   ///
   ///   ich
@@ -104,18 +161,21 @@ void main() {
       expect(plaetze.where((p) => p.ring == 3), hasLength(6));
     });
 
-    test('schneidet einen vollständig leeren Aussenring ab', () {
-      // opaM hat keine Eltern, opaV und omaV auch nicht – aber uropaV
-      // steht in Ring 3, also bleibt dieser Ring. Ohne uropaV wäre Ring 3
-      // ein leerer grauer Streifen.
+    test('lässt genau einen leeren Aussenring stehen', () {
+      // Geänderte Entscheidung: Vorher endete der Fächer bündig mit der
+      // letzten belegten Generation – hier also bei Ring 2. Damit sah ein
+      // Fächer aus Mitte und Eltern aus, als könne er nicht mehr, statt
+      // als warte er auf mehr; genau das wurde gemeldet. Jetzt bleibt
+      // einer stehen, aber auch nur einer.
       final ohneUropa = Verwandtschaftsnetz([
         kante('ich', 'vater', Verwandtschaft.elternteil),
         kante('vater', 'opaV', Verwandtschaft.elternteil),
       ]);
       final plaetze = faechertafel(ohneUropa, 'ich', ordnung);
-      expect(plaetze.map((p) => p.ring).reduce(math.max), 2,
-          reason: 'Ring 3 wäre komplett leer');
-      // Ring 2 bleibt: Dort steht opaV.
+      expect(plaetze.map((p) => p.ring).reduce(math.max), 3,
+          reason: 'ein leerer Ring als Einladung');
+      expect(plaetze.where((p) => p.ring == 3).every((p) => p.istLeer), isTrue);
+      // Ring 2 bleibt belegt: Dort steht opaV.
       expect(plaetze.where((p) => p.ring == 2 && !p.istLeer), hasLength(1));
     });
 

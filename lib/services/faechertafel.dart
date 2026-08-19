@@ -145,7 +145,7 @@ List<Fachplatz> faechertafel(
   return _ohneLeereAussenringe(plaetze);
 }
 
-/// Entfernt äußere Ringe, in denen niemand steht.
+/// Kürzt den Fächer auf **einen** leeren Ring hinter dem letzten belegten.
 ///
 /// Ein Ring leerer Plätze ist die Aussage „hier fehlt jemand" und gehört
 /// ins Bild – aber nur einer. Ohne diesen Schnitt entstünde für jede
@@ -153,16 +153,25 @@ List<Fachplatz> faechertafel(
 /// sind, ein breiter grauer Streifen am Rand, der wie ein Zeichenfehler
 /// aussieht statt wie eine Einladung.
 ///
-/// Ring 1 bleibt immer stehen: Wer keine Eltern eingetragen hat, soll
-/// genau dort die beiden leeren Plätze sehen.
+/// Vorher wurde **jeder** leere Außenring entfernt, auch der erste. Der
+/// Fächer endete damit bündig mit der letzten belegten Generation: Wer
+/// seine Eltern erfasst hatte und sonst nichts, sah eine Mitte und zwei
+/// Elternhälften – und keinen Hinweis darauf, dass darüber noch zwei
+/// Generationen Platz haben. Genau das war der gemeldete Eindruck, „hier
+/// werden nur die Eltern aufgeführt". Jetzt stehen dort vier gestrichelte
+/// Großelternplätze.
+///
+/// Ring 1 bleibt ohnehin immer stehen: Wer keine Eltern eingetragen hat,
+/// soll genau dort die beiden leeren Plätze sehen.
 List<Fachplatz> _ohneLeereAussenringe(List<Fachplatz> plaetze) {
-  var aeusserster = plaetze.fold(0, (m, p) => p.ring > m ? p.ring : m);
-  while (aeusserster > 1 &&
-      plaetze.where((p) => p.ring == aeusserster).every((p) => p.istLeer)) {
-    plaetze = plaetze.where((p) => p.ring < aeusserster).toList();
-    aeusserster--;
-  }
-  return plaetze;
+  final letzterBelegte = plaetze
+      .where((p) => !p.istLeer)
+      .fold(0, (m, p) => p.ring > m ? p.ring : m);
+  // Einer mehr als der letzte belegte – aber mindestens Ring 1, und nie
+  // mehr, als überhaupt gebaut wurde.
+  final gebaut = plaetze.fold(0, (m, p) => p.ring > m ? p.ring : m);
+  final behalten = math.min(math.max(letzterBelegte + 1, 1), gebaut);
+  return plaetze.where((p) => p.ring <= behalten).toList();
 }
 
 /// Findet den Platz, der an [winkel] und [abstand] liegt – für das

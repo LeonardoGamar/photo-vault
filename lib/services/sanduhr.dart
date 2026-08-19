@@ -1,5 +1,6 @@
 /// Die Anordnung der Sanduhr-Ansicht: Vorfahren nach oben, Nachkommen
-/// nach unten, die gewählte Person in der Taille.
+/// nach unten, die gewählte Person in der Taille – und auf Wunsch die
+/// Seitenlinie: Geschwister neben ihr, deren Kinder darunter.
 ///
 /// Der Grund, warum das eine eigene Datei ist und nicht im Bildschirm
 /// steht: Genau hier lag die Beschränkung, die den Baum bisher auf eine
@@ -97,6 +98,7 @@ Sanduhr ordneSanduhr(
   int Function(String) ordnung, {
   int oben = maxSanduhrOben,
   int unten = maxSanduhrUnten,
+  bool seitenlinien = true,
 }) {
   final knoten = <Sanduhrknoten>[];
   final kanten = <Sanduhrkante>[];
@@ -172,35 +174,85 @@ Sanduhr ordneSanduhr(
     }
   }
 
-  // Die Wurzel sitzt mittig über ihren Nachkommen.
-  final gesamtBreite = breiteNachUnten(wurzel, 0, {});
-  knoten.add(Sanduhrknoten(
-    personId: wurzel,
-    spalte: gesamtBreite / 2 - 0.5,
-    reihe: 0,
-  ));
-  legeNachUnten(wurzel, 0, 0, {});
+  // ------------------------------------------------------------------
+  // Reihe 0: die Wurzel und – wenn gewünscht – ihre Geschwister, jedes
+  // mit dem eigenen Nachkommen-Block darunter.
+  //
+  // Ohne die Geschwister fehlten in dieser Ansicht auch alle Neffen und
+  // Nichten: Ein Neffe ist das Kind eines Geschwisters und hängt an
+  // keiner Kante, die von der Wurzel ausgeht. Die Sanduhr zeigte damit
+  // ausgerechnet die Verwandten nicht, die man neu eintragen kann.
+  // ------------------------------------------------------------------
+  final gruppe = <String>[wurzel];
+  if (seitenlinien) {
+    gruppe.addAll(netz.geschwister(wurzel));
+    gruppe.sort((a, b) => ordnung(a).compareTo(ordnung(b)));
+  }
 
-  // Die Vorfahren spannen sich über der Wurzel auf. Als Ausgangsbreite
-  // vier Spalten: Damit stehen die Großeltern zwei Spalten auseinander
-  // und überlappen auch dann nicht, wenn unten nur ein Kind steht.
-  legeNachOben(wurzel, gesamtBreite / 2 - 0.5, 0, 4);
+  /// Setzt ein Mitglied der Reihe 0 samt Nachkommen und Partnern ab und
+  /// gibt die erste freie Spalte dahinter zurück.
+  double setzeMitglied(String id, double links) {
+    final breite = breiteNachUnten(id, 0, {});
+    final spalte = links + breite / 2 - 0.5;
+    if (gesehen.add(id) || id == wurzel) {
+      knoten.add(Sanduhrknoten(personId: id, spalte: spalte, reihe: 0));
+    }
+    legeNachUnten(id, links, 0, {});
 
-  // Partner der Wurzel sitzen daneben, nicht darüber oder darunter – sie
-  // gehören zu keiner Generation, sondern zu einer Person.
-  final partner = netz.partner(wurzel).toList()
-    ..sort((a, b) => ordnung(a).compareTo(ordnung(b)));
-  var seite = 1.0;
-  for (final p in partner) {
-    if (!gesehen.add(p)) continue;
-    knoten.add(Sanduhrknoten(
-      personId: p,
-      spalte: gesamtBreite / 2 - 0.5 + seite,
-      reihe: 0,
-      istPartner: true,
-    ));
-    kanten.add(Sanduhrkante(wurzel, p, Verwandtschaft.partner));
-    seite += 1;
+    // Partner sitzen daneben, nicht darüber oder darunter – sie gehören
+    // zu keiner Generation, sondern zu einer Person. Beim Geschwister
+    // ist das zugleich der Schwager.
+    var rechteste = links + breite - 1;
+    var seite = 1.0;
+    for (final p in netz.partner(id).toList()
+      ..sort((a, b) => ordnung(a).compareTo(ordnung(b)))) {
+      if (!gesehen.add(p)) continue;
+      knoten.add(Sanduhrknoten(
+        personId: p,
+        spalte: spalte + seite,
+        reihe: 0,
+        istPartner: true,
+      ));
+      kanten.add(Sanduhrkante(id, p, Verwandtschaft.partner));
+      if (spalte + seite > rechteste) rechteste = spalte + seite;
+      seite += 1;
+    }
+    // Eine Spalte Luft zum nächsten Geschwister, damit die Blöcke auch
+    // optisch getrennt bleiben.
+    return rechteste + 2;
+  }
+
+  var x = 0.0;
+  var wurzelSpalte = 0.0;
+  for (final mitglied in gruppe) {
+    final davor = x;
+    x = setzeMitglied(mitglied, davor);
+    if (mitglied == wurzel) {
+      wurzelSpalte =
+          knoten.firstWhere((k) => k.personId == wurzel && k.reihe == 0).spalte;
+    }
+  }
+
+  // Die Vorfahren spannen sich über der WURZEL auf, nicht über der Mitte
+  // der Geschwisterreihe: Sie ist die gewählte Person und soll die Achse
+  // der Sanduhr bleiben. Als Ausgangsbreite vier Spalten – damit stehen
+  // die Großeltern zwei Spalten auseinander und überlappen auch dann
+  // nicht, wenn unten nur ein Kind steht.
+  legeNachOben(wurzel, wurzelSpalte, 0, 4);
+
+  // Die Geschwister hängen an denselben Eltern wie die Wurzel. Ihre
+  // Kanten entstehen nicht in legeNachOben – das läuft nur die eigene
+  // Linie hinauf – und müssen deshalb hier nachgetragen werden. Nur zu
+  // Eltern, die auch im Bild stehen; bei einem Halbgeschwister ist das
+  // eben nur einer.
+  final gezeichnet = {for (final k in knoten) k.personId};
+  for (final g in gruppe) {
+    if (g == wurzel) continue;
+    for (final e in netz.eltern(g)) {
+      if (!gezeichnet.contains(e)) continue;
+      kanten.add(Sanduhrkante(
+          g, e, netz.elternArt(g, e) ?? Verwandtschaft.elternteil));
+    }
   }
 
   return Sanduhr(knoten, kanten);

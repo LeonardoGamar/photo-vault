@@ -4575,6 +4575,13 @@ class AppTexteEn extends AppTexte {
   String get stammbaumAnsichtSanduhr => 'Hourglass';
 
   @override
+  String get stammbaumSeitenlinien => 'Collateral line';
+
+  @override
+  String get stammbaumSeitenlinienHinweis =>
+      'Siblings beside the person, their children below – this is what makes nephews, nieces and in-laws visible.';
+
+  @override
   String lebenslaufVon(String name) {
     return 'Life story: $name';
   }

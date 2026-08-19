@@ -4598,6 +4598,13 @@ class AppTexteDe extends AppTexte {
   String get stammbaumAnsichtSanduhr => 'Sanduhr';
 
   @override
+  String get stammbaumSeitenlinien => 'Seitenlinie';
+
+  @override
+  String get stammbaumSeitenlinienHinweis =>
+      'Geschwister neben der Person, deren Kinder darunter – so werden auch Neffen, Nichten und Schwäger sichtbar.';
+
+  @override
   String lebenslaufVon(String name) {
     return 'Lebenslauf: $name';
   }
