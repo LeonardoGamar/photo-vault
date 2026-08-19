@@ -948,6 +948,38 @@
   "integArtVideoZuschnitt": "Trimmed video",
   "integArtGesichtsCrop": "Face crop",
   "integArtMaske": "AI mask",
+  "integAlleVerwaistenLoeschen": "Delete all",
+  "integAlleVerwaistenTitel": "Delete all orphaned files?",
+  "integAlleVerwaistenText": "{anzahl} files totalling {groesse} will be permanently deleted from disk. No database row refers to them, so the library loses nothing it could have shown.",
+  "@integAlleVerwaistenText": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      },
+      "groesse": {
+        "type": "String"
+      }
+    }
+  },
+  "integVerwaisteGeloescht": "Deleted {anzahl} orphaned files.",
+  "@integVerwaisteGeloescht": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "integWeitereEintraege": "… and {anzahl} more. The list shows only the first {gezeigt}; “Delete all” clears the rest too.",
+  "@integWeitereEintraege": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      },
+      "gezeigt": {
+        "type": "int"
+      }
+    }
+  },
   "gesperrtTabFotos": "Photos",
   "gesperrtTabPapierkorb": "Trash",
   "karteHell": "Light",
@@ -1025,24 +1057,43 @@
   "tabMitZahl": "{beschriftung} ({anzahl})",
   "@tabMitZahl": {
     "placeholders": {
-      "beschriftung": { "type": "String" },
-      "anzahl": { "type": "int" }
+      "beschriftung": {
+        "type": "String"
+      },
+      "anzahl": {
+        "type": "int"
+      }
     }
   },
   "personenIgnorierenTooltip": "Ignore selected faces",
   "personenIgnoriertMeldung": "{anzahl, plural, =1{One face ignored.} other{{anzahl} faces ignored.}}",
   "@personenIgnoriertMeldung": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "personenIgnoriertLeer": "No ignored faces. Whatever you set aside under “Unnamed faces” – posters, reflections, statues – collects here and can be brought back at any time.",
   "personenIgnoriertHinweis": "Ignored faces no longer appear in the grid and are left out of grouping. Double-click opens the whole photo.",
   "personenIgnoriertTeilHinweis": "{gezeigt} of {gesamt} ignored faces. Double-click opens the whole photo.",
   "@personenIgnoriertTeilHinweis": {
-    "placeholders": { "gezeigt": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "gezeigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "personenZurueckholenKnopf": "Bring back {anzahl}",
   "@personenZurueckholenKnopf": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "clusterPhaseLaden": "Loading faces …",
   "clusterPhaseVergleichen": "Comparing faces …",
@@ -1050,7 +1101,11 @@
   "clusterOhneProzent": "Working …",
   "clusterFehlgeschlagen": "Automatic grouping failed: {fehler}",
   "@clusterFehlgeschlagen": {
-    "placeholders": { "fehler": { "type": "String" } }
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
   },
   "clusterIgnorierenTooltip": "Ignore the whole group",
   "gesichtIgnorieren": "Ignore",
@@ -1058,7 +1113,14 @@
   "gesichtZurueckgeholt": "This face counts again.",
   "gesichtPosition": "{nummer} of {gesamt}",
   "@gesichtPosition": {
-    "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "gesichtVoriges": "Previous photo (left arrow)",
   "gesichtNaechstes": "Next photo (right arrow)",
@@ -1066,16 +1128,31 @@
   "aufgAktiv": "Active",
   "aufgStufeKurz": "Step {nummer}/{gesamt}",
   "@aufgStufeKurz": {
-    "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "personenAlleIgnorieren": "Ignore all unnamed faces",
   "personenAlleIgnorierenHinweis": "{anzahl, plural, =0{Nothing left} =1{One face moves to “Ignored”} other{{anzahl} faces move to “Ignored”}}",
   "@personenAlleIgnorierenHinweis": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "personenAlleIgnoriertMeldung": "{anzahl, plural, =0{There was nothing to ignore.} =1{One face ignored. Bring individual ones back under “Ignored”.} other{{anzahl} faces ignored. Bring individual ones back under “Ignored”.}}",
   "@personenAlleIgnoriertMeldung": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "personenAlleErkennungenLoeschen": "Delete all unnamed detections",
   "personenAlleErkennungenLoeschenHinweis": "Frees space, but comes back on the next scan",
@@ -1083,7 +1160,11 @@
   "personenErkennungenLoeschenText": "All unnamed detections and their crops are deleted from disk – including the ones already ignored. Named people are left untouched.\n\nThis is not permanent: the next face scan finds the same spots again. To be rid of them for good, use “Ignore all unnamed faces” instead – that survives another scan.",
   "personenErkennungenGeloeschtMeldung": "{anzahl, plural, =0{There were no detections to delete.} =1{One detection deleted.} other{{anzahl} detections deleted.}}",
   "@personenErkennungenGeloeschtMeldung": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "gesichtZuordnungLoesen": "Remove assignment",
   "gesichtNichtMehrIgnorieren": "Stop ignoring",
@@ -1091,22 +1172,50 @@
   "gesichtErkennungLoeschen": "Delete detection",
   "gesichtAlleUnbenanntenIgnorieren": "{anzahl, plural, =0{No unnamed faces} =1{Ignore unnamed face} other{Ignore {anzahl} unnamed faces}}",
   "@gesichtAlleUnbenanntenIgnorieren": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "personWeitereFotosSuchen": "Find more photos",
   "vorschlagTitel": "Suggestions for {name}",
-  "@vorschlagTitel": { "placeholders": { "name": { "type": "String" } } },
+  "@vorschlagTitel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "vorschlagHinweis": "Everything is selected. Take out what is wrong – the recognition learns from that too: a rejection raises this person's threshold.",
   "vorschlagAlleWaehlen": "Select all",
   "vorschlagKeineWaehlen": "Select none",
   "vorschlagUebernehmen": "{anzahl, plural, =0{Nothing selected} =1{Assign one face} other{Assign {anzahl} faces}}",
-  "@vorschlagUebernehmen": { "placeholders": { "anzahl": { "type": "int" } } },
+  "@vorschlagUebernehmen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "vorschlagUebernommenMeldung": "{anzahl, plural, =0{Nothing taken over – the feedback was still saved.} =1{One photo added.} other{{anzahl} photos added.}}",
-  "@vorschlagUebernommenMeldung": { "placeholders": { "anzahl": { "type": "int" } } },
+  "@vorschlagUebernommenMeldung": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "vorschlagKeineEmbeddings": "There is no recognition data for this person yet. It is created during the face scan once the SFace model is installed.",
   "vorschlagKeineKandidaten": "There are no unnamed faces that could be suggested.",
   "vorschlagNichtsGefunden": "No unnamed face is above this person's threshold of {schwelle}.",
-  "@vorschlagNichtsGefunden": { "placeholders": { "schwelle": { "type": "String" } } },
+  "@vorschlagNichtsGefunden": {
+    "placeholders": {
+      "schwelle": {
+        "type": "String"
+      }
+    }
+  },
   "gesichtRahmenAusblenden": "Hide boxes",
   "gesichtRahmenEinblenden": "Show boxes",
   "entwKlarheit": "Clarity",
@@ -1116,16 +1225,40 @@
   "entwLutEntfernen": "Remove colour table",
   "entwLutStaerke": "Strength",
   "entwLutFehlt": "The colour table “{name}” can no longer be read and was removed.",
-  "@entwLutFehlt": { "placeholders": { "name": { "type": "String" } } },
+  "@entwLutFehlt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "entwLutNichtLesbar": "The file cannot be read: {fehler}",
-  "@entwLutNichtLesbar": { "placeholders": { "fehler": { "type": "String" } } },
+  "@entwLutNichtLesbar": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
   "entwLutEindimensional": "This is a one-dimensional table – it describes a curve, not a colour space. Use the tone curve for that.",
   "entwLutOhneGroesse": "The file is missing the LUT_3D_SIZE entry.",
   "entwLutGroesse": "The edge length in line {zeile} is outside the allowed range (2 to 256).",
-  "@entwLutGroesse": { "placeholders": { "zeile": { "type": "int" } } },
+  "@entwLutGroesse": {
+    "placeholders": {
+      "zeile": {
+        "type": "int"
+      }
+    }
+  },
   "entwLutZeilenzahl": "The file does not contain as many values as its edge length requires.",
   "entwLutZeile": "Line {zeile} cannot be read.",
-  "@entwLutZeile": { "placeholders": { "zeile": { "type": "int" } } },
+  "@entwLutZeile": {
+    "placeholders": {
+      "zeile": {
+        "type": "int"
+      }
+    }
+  },
   "histogrammWaveform": "Waveform",
   "histogrammParade": "Parade",
   "entwFormRechteck": "Rectangle",
@@ -1134,7 +1267,17 @@
   "entwFarbauswahlHinweis": "Tap a colour in the photo. Everything close enough to it is selected – lighter and darker too, because colour counts for more than brightness.",
   "entwFarbeAufgenommen": "R {rot} · G {gruen} · B {blau}",
   "@entwFarbeAufgenommen": {
-    "placeholders": { "rot": { "type": "int" }, "gruen": { "type": "int" }, "blau": { "type": "int" } }
+    "placeholders": {
+      "rot": {
+        "type": "int"
+      },
+      "gruen": {
+        "type": "int"
+      },
+      "blau": {
+        "type": "int"
+      }
+    }
   },
   "entwToleranz": "Tolerance",
   "vergleichTitel": "Compare two photos",
@@ -1161,11 +1304,21 @@
   "bearbRetuscheZurueck": "Undo last stroke",
   "bearbPinselbreite": "Brush width",
   "bearbRetuscheFehler": "Removal failed: {fehler}",
-  "@bearbRetuscheFehler": { "placeholders": { "fehler": { "type": "String" } } },
+  "@bearbRetuscheFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
   "stammbaumTitel": "Family tree",
   "stammbaumTitelVon": "Family tree: {name}",
   "@stammbaumTitelVon": {
-    "placeholders": {"name": {"type": "String"}}
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "stammbaumEltern": "Parents",
   "stammbaumGeschwister": "Siblings",
@@ -1176,15 +1329,18 @@
   "stammbaumKindHinzufuegen": "Add child",
   "stammbaumInDieMitte": "Move to centre",
   "stammbaumLebensdaten": "Life dates …",
-  "stammbaumLebensdatenVon": "Life dates: {name}",
-  "@stammbaumLebensdatenVon": {
-    "placeholders": {"name": {"type": "String"}}
-  },
   "stammbaumFotosZeigen": "Photos of this person",
   "stammbaumVerbindungEntfernen": "Remove connection",
   "stammbaumVerbindungEntfernenFrage": "The relationship between {eine} and {andere} will be removed. Both people and their photos stay.",
   "@stammbaumVerbindungEntfernenFrage": {
-    "placeholders": {"eine": {"type": "String"}, "andere": {"type": "String"}}
+    "placeholders": {
+      "eine": {
+        "type": "String"
+      },
+      "andere": {
+        "type": "String"
+      }
+    }
   },
   "stammbaumFehlerSelbst": "A person cannot be related to themselves.",
   "stammbaumFehlerKreis": "That would run in a circle: this person already appears further down the same branch.",
@@ -1194,5 +1350,351 @@
   "stammbaumGeboren": "Born",
   "stammbaumGestorben": "Died",
   "stammbaumUnbekannt": "unknown",
-  "stammbaumNurJahrHinweis": "If only the year is known, pick any day within it – only the year is shown anyway."
+  "stammbaumNurJahrHinweis": "If only the year is known, pick any day within it – only the year is shown anyway.",
+  "gradSelbst": "this person",
+  "gradEltern": "{geschlecht, select, w{Mother} m{Father} other{Parent}}",
+  "@gradEltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradGrosseltern": "{geschlecht, select, w{Grandmother} m{Grandfather} other{Grandparent}}",
+  "@gradGrosseltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradUrgrosseltern": "{geschlecht, select, w{Great-grandmother} m{Great-grandfather} other{Great-grandparent}}",
+  "@gradUrgrosseltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradUrurgrosseltern": "{geschlecht, select, w{Great-great-grandmother} m{Great-great-grandfather} other{Great-great-grandparent}}",
+  "@gradUrurgrosseltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradVorfahreN": "Ancestor, {stufe} generations up",
+  "@gradVorfahreN": {
+    "placeholders": {
+      "stufe": {
+        "type": "int"
+      }
+    }
+  },
+  "gradKind": "{geschlecht, select, w{Daughter} m{Son} other{Child}}",
+  "@gradKind": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradEnkel": "{geschlecht, select, w{Granddaughter} m{Grandson} other{Grandchild}}",
+  "@gradEnkel": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradUrenkel": "{geschlecht, select, w{Great-granddaughter} m{Great-grandson} other{Great-grandchild}}",
+  "@gradUrenkel": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradUrurenkel": "{geschlecht, select, w{Great-great-granddaughter} m{Great-great-grandson} other{Great-great-grandchild}}",
+  "@gradUrurenkel": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradNachkommeN": "Descendant, {stufe} generations down",
+  "@gradNachkommeN": {
+    "placeholders": {
+      "stufe": {
+        "type": "int"
+      }
+    }
+  },
+  "gradGeschwister": "{geschlecht, select, w{Sister} m{Brother} other{Sibling}}",
+  "@gradGeschwister": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradHalbgeschwister": "{geschlecht, select, w{Half-sister} m{Half-brother} other{Half-sibling}}",
+  "@gradHalbgeschwister": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradNeffeNichte": "{geschlecht, select, w{Niece} m{Nephew} other{Sibling’s child}}",
+  "@gradNeffeNichte": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradGrossneffeNichte": "{geschlecht, select, w{Great-niece} m{Great-nephew} other{Sibling’s grandchild}}",
+  "@gradGrossneffeNichte": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradGeschwisterNachkommeN": "Descendant of a sibling, {stufe} steps down",
+  "@gradGeschwisterNachkommeN": {
+    "placeholders": {
+      "stufe": {
+        "type": "int"
+      }
+    }
+  },
+  "gradOnkelTante": "{geschlecht, select, w{Aunt} m{Uncle} other{Parent’s sibling}}",
+  "@gradOnkelTante": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradGrossonkelTante": "{geschlecht, select, w{Great-aunt} m{Great-uncle} other{Grandparent’s sibling}}",
+  "@gradGrossonkelTante": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradVorfahrengeschwisterN": "Sibling of an ancestor, {stufe} generations up",
+  "@gradVorfahrengeschwisterN": {
+    "placeholders": {
+      "stufe": {
+        "type": "int"
+      }
+    }
+  },
+  "gradCousin": "{geschlecht, select, other{{stufe, plural, =1{First} =2{Second} other{Degree-{stufe}}} cousin}}",
+  "@gradCousin": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      },
+      "stufe": {
+        "type": "int"
+      }
+    }
+  },
+  "gradEntfernt": "{bezeichnung}, {stufe} times removed",
+  "@gradEntfernt": {
+    "placeholders": {
+      "stufe": {
+        "type": "int"
+      },
+      "bezeichnung": {
+        "type": "String"
+      }
+    }
+  },
+  "gradPartner": "{geschlecht, select, w{Partner} m{Partner} other{Partner}}",
+  "@gradPartner": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradSchwager": "{geschlecht, select, w{Sister-in-law} m{Brother-in-law} other{Sibling-in-law}}",
+  "@gradSchwager": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradSchwiegereltern": "{geschlecht, select, w{Mother-in-law} m{Father-in-law} other{Parent-in-law}}",
+  "@gradSchwiegereltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradSchwiegerkind": "{geschlecht, select, w{Daughter-in-law} m{Son-in-law} other{Child-in-law}}",
+  "@gradSchwiegerkind": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradStiefeltern": "{geschlecht, select, w{Stepmother} m{Stepfather} other{Stepparent}}",
+  "@gradStiefeltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradStiefkind": "{geschlecht, select, w{Stepdaughter} m{Stepson} other{Stepchild}}",
+  "@gradStiefkind": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradStiefgeschwister": "{geschlecht, select, w{Stepsister} m{Stepbrother} other{Stepsibling}}",
+  "@gradStiefgeschwister": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradAngeheiratet": "related by marriage",
+  "gradKeine": "not related",
+  "navStammbaum": "Family tree",
+  "stammbaumAndereWaehlen": "Put another person at the centre",
+  "stammbaumAnsichtBaum": "Tree",
+  "stammbaumAnsichtListe": "Relatives",
+  "stammbaumListeKopf": "{anzahl, plural, =1{One person is related to {name}.} other{{anzahl} people are related to {name} – closest relatives first.}}",
+  "@stammbaumListeKopf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "stammbaumKeinePersonen": "No people yet. Name a few faces under “People”, or add someone here via “Put another person at the centre”.",
+  "stammbaumGeschlecht": "Gender",
+  "stammbaumGeschlechtWeiblich": "female",
+  "stammbaumGeschlechtMaennlich": "male",
+  "stammbaumGeschlechtDivers": "non-binary",
+  "stammbaumGeschlechtOffen": "not stated",
+  "stammbaumGeschlechtHinweis": "Used only for the relationship labels – without it you get “sibling” instead of “sister”.",
+  "stammbaumAngaben": "Person details",
+  "stammbaumAnsichtFaecher": "Fan",
+  "stammbaumAnsichtNachfahren": "Descendants",
+  "stammbaumKeineVorfahren": "No ancestors recorded for this person yet. The fan shows parents, grandparents and great-grandparents – add a parent at the top right and it fills from the inside out.",
+  "stammbaumKeineNachfahren": "No children recorded for this person yet. The outline shows all descendants, indented by generation.",
+  "stammbaumFamilienfotos": "Photos of this family",
+  "stammbaumFamilienfotosVon": "Photos of {name}’s family",
+  "@stammbaumFamilienfotosVon": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumKeineFamilienfotos": "Nobody from this family has been recognised in a photo yet.",
+  "stammbaumGedcomExport": "Export as GEDCOM …",
+  "stammbaumGedcomFertig": "{anzahl, plural, =1{One person exported.} other{{anzahl} people exported.}}",
+  "@stammbaumGedcomFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gradAdoptiveltern": "{geschlecht, select, w{Adoptive mother} m{Adoptive father} other{Adoptive parent}}",
+  "@gradAdoptiveltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradPflegeeltern": "{geschlecht, select, w{Foster mother} m{Foster father} other{Foster parent}}",
+  "@gradPflegeeltern": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradAdoptivkind": "{geschlecht, select, w{Adopted daughter} m{Adopted son} other{Adopted child}}",
+  "@gradAdoptivkind": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "gradPflegekind": "{geschlecht, select, w{Foster daughter} m{Foster son} other{Foster child}}",
+  "@gradPflegekind": {
+    "placeholders": {
+      "geschlecht": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumLeiblich": "Biological",
+  "stammbaumAdoptiv": "Adoptive",
+  "stammbaumPflege": "Foster",
+  "stammbaumAnsichtSanduhr": "Hourglass",
+  "lebenslaufVon": "Life story: {name}",
+  "@lebenslaufVon": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "lebenslaufHinzufuegen": "Add event",
+  "lebenslaufLeer": "Nothing recorded for this person yet. Birth and death live with the person details; weddings, moves, jobs and everything else go here.",
+  "lebenslaufGeburt": "Born",
+  "lebenslaufTod": "Died",
+  "lebenslaufHochzeit": "Marriage",
+  "lebenslaufUmzug": "Move",
+  "lebenslaufBeruf": "Work",
+  "lebenslaufAusbildung": "Education",
+  "lebenslaufSonstiges": "Other",
+  "lebenslaufOhneDatum": "no date",
+  "lebenslaufOrt": "Place",
+  "lebenslaufNotiz": "Note",
+  "stammbaumLebenslauf": "Life story …",
+  "orteIch": "This person",
+  "orteVorfahren": "Ancestors",
+  "orteNachkommen": "Descendants",
+  "orteSeitenlinie": "Collateral line",
+  "orteAngeheiratet": "By marriage",
+  "orteNichtsGewaehlt": "No group selected.",
+  "stammbaumFamilienorte": "Places of this family",
+  "stammbaumFamilienorteVon": "Places of {name}’s family",
+  "@stammbaumFamilienorteVon": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumKeineFamilienorte": "No photo from this family has a location.",
+  "stammbaumTafelDrucken": "Chart as PDF …",
+  "stammbaumTafelFertig": "The chart has been written."
 }

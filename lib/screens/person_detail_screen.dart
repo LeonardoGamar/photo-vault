@@ -147,6 +147,12 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   child: Image.file(
                     library.paths.absolute(face.cropRelativePath!),
                     fit: BoxFit.cover,
+                    // Ein Gesichtsausschnitt liegt mit 160 px auf der
+                    // Platte, die Kachel ist höchstens 100 breit. Bei einer
+                    // Person mit vielen hundert Erkennungen summiert sich
+                    // der Unterschied (Prüfrunde 8).
+                    cacheWidth: (100 * MediaQuery.devicePixelRatioOf(context))
+                        .round(),
                   ),
                 ),
               );

@@ -13,20 +13,46 @@ enum Verwandtschaft {
   /// heißt „Kind" und steckt in derselben Kante.
   elternteil,
 
+  /// Adoptivelternteil. Zählt überall als Elternteil – im Baum, im
+  /// Fächer, bei der Kreisprüfung –, nur die Bezeichnung ist eine andere.
+  ///
+  /// Als eigene Kantenart und nicht als Merkmal an der Person: Wer wen
+  /// adoptiert hat, ist eine Eigenschaft der Verbindung, nicht des
+  /// Menschen. Dieselbe Person kann leiblicher Vater des einen und
+  /// Adoptivvater des anderen Kindes sein.
+  adoptivelternteil,
+
+  /// Pflegeelternteil. Wie [adoptivelternteil], aber ohne die
+  /// Rechtsfolge – für Familien, die das unterscheiden.
+  pflegeelternteil,
+
   /// Partnerschaft. Ungerichtet, deshalb nur einmal je Paar gespeichert.
   partner,
 }
+
+/// Die drei Arten, auf die jemand Elternteil sein kann.
+const elternArten = {
+  Verwandtschaft.elternteil,
+  Verwandtschaft.adoptivelternteil,
+  Verwandtschaft.pflegeelternteil,
+};
+
+bool istElternArt(Verwandtschaft art) => elternArten.contains(art);
 
 /// Der Datenbankwert einer [Verwandtschaft]. Ausgeschrieben statt über
 /// `index`, damit eine spätere Ergänzung der Aufzählung nicht die
 /// Bedeutung bereits gespeicherter Zeilen verschiebt.
 String artZuText(Verwandtschaft art) => switch (art) {
       Verwandtschaft.elternteil => 'elternteil',
+      Verwandtschaft.adoptivelternteil => 'adoptiv',
+      Verwandtschaft.pflegeelternteil => 'pflege',
       Verwandtschaft.partner => 'partner',
     };
 
 Verwandtschaft? artAusText(String text) => switch (text) {
       'elternteil' => Verwandtschaft.elternteil,
+      'adoptiv' => Verwandtschaft.adoptivelternteil,
+      'pflege' => Verwandtschaft.pflegeelternteil,
       'partner' => Verwandtschaft.partner,
       _ => null,
     };
@@ -57,12 +83,23 @@ class Verwandtschaftsnetz {
   /// personId -> Partner
   final Map<String, Set<String>> _partner = {};
 
+  /// personId -> (Elternteil -> auf welche Art)
+  ///
+  /// Getrennt von [_eltern], damit alle Auswertungen – Baum, Fächer,
+  /// Kreisprüfung – Adoptiv- und Pflegeeltern ohne Sonderfall als Eltern
+  /// behandeln und trotzdem nachschlagen können, wie die Verbindung
+  /// zustande kam.
+  final Map<String, Map<String, Verwandtschaft>> _elternArt = {};
+
   Verwandtschaftsnetz(Iterable<Kante> kanten) {
     for (final k in kanten) {
       switch (k.art) {
         case Verwandtschaft.elternteil:
+        case Verwandtschaft.adoptivelternteil:
+        case Verwandtschaft.pflegeelternteil:
           _eltern.putIfAbsent(k.personId, () => {}).add(k.andereId);
           _kinder.putIfAbsent(k.andereId, () => {}).add(k.personId);
+          _elternArt.putIfAbsent(k.personId, () => {})[k.andereId] = k.art;
         case Verwandtschaft.partner:
           // In beide Richtungen eingetragen, obwohl nur eine Zeile
           // gespeichert ist: Beim Nachschlagen soll die Richtung keine
@@ -74,6 +111,12 @@ class Verwandtschaftsnetz {
   }
 
   Set<String> eltern(String id) => _eltern[id] ?? const {};
+
+  /// Auf welche Art [elternteil] Elternteil von [kind] ist.
+  ///
+  /// `null`, wenn zwischen den beiden gar keine Elternkante steht.
+  Verwandtschaft? elternArt(String kind, String elternteil) =>
+      _elternArt[kind]?[elternteil];
   Set<String> kinder(String id) => _kinder[id] ?? const {};
   Set<String> partner(String id) => _partner[id] ?? const {};
 
@@ -131,13 +174,15 @@ Beziehungsfehler? pruefeBeziehung(
   Verwandtschaft art,
 ) {
   if (personId == andereId) return Beziehungsfehler.mitSichSelbst;
-  final schonDa = switch (art) {
-    Verwandtschaft.elternteil => netz.eltern(personId).contains(andereId),
-    Verwandtschaft.partner => netz.partner(personId).contains(andereId),
-  };
+  // Gegen ALLE Elternarten geprüft, nicht nur gegen die gerade gewählte:
+  // Jemanden, der schon leiblicher Vater ist, zusätzlich als Adoptivvater
+  // einzutragen, wäre eine zweite Kante zwischen denselben beiden – und
+  // die Bezeichnung wäre dann nicht mehr entscheidbar.
+  final schonDa = istElternArt(art)
+      ? netz.eltern(personId).contains(andereId)
+      : netz.partner(personId).contains(andereId);
   if (schonDa) return Beziehungsfehler.schonVorhanden;
-  if (art == Verwandtschaft.elternteil &&
-      netz.istVorfahreVon(personId, andereId)) {
+  if (istElternArt(art) && netz.istVorfahreVon(personId, andereId)) {
     return Beziehungsfehler.kreis;
   }
   return null;

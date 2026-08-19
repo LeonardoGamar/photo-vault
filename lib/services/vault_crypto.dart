@@ -180,6 +180,7 @@ class VaultCrypto {
   static Future<void> decryptFile(File source, File destination, SecretKey masterKey) async {
     final input = await source.open(mode: FileMode.read);
     final sink = destination.openWrite();
+    var vollstaendig = false;
     try {
       final magic = await input.read(4);
       final istV2 = magic.length == 4 && _bytesEqual(magic, _magicV2);
@@ -237,9 +238,28 @@ class VaultCrypto {
         nummer++;
       }
       await sink.flush();
+      vollstaendig = true;
     } finally {
       await input.close();
       await sink.close();
+      // Bricht das Entschlüsseln ab – falscher Schlüssel, beschädigte oder
+      // abgeschnittene Datei –, dann steht in [destination] bereits der
+      // Klartext aller Blöcke, die bis dahin durchgingen. Bei einer
+      // gesperrten Datei ist das genau das, was nie auf der Platte stehen
+      // soll: eine unverschlüsselte Teilkopie, die kein Aufrufer je wieder
+      // anfasst, weil er die Ausnahme sieht und nicht die Datei.
+      //
+      // Gemessen an einem 3-MiB-Foto, dem die letzten 40 Byte fehlten:
+      // 2 MiB lesbarer Klartext blieben liegen (Prüfrunde 8).
+      if (!vollstaendig && await destination.exists()) {
+        try {
+          await destination.delete();
+        } catch (_) {
+          // Ein fehlgeschlagenes Aufräumen darf den eigentlichen Fehler
+          // nicht verdecken – der Aufrufer soll erfahren, warum das
+          // Entschlüsseln scheiterte, nicht warum das Löschen scheiterte.
+        }
+      }
     }
   }
 

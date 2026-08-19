@@ -132,6 +132,51 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
     setState(() => _report = _withoutOrphan(_report!, issue));
   }
 
+  /// Löscht alle verwaisten Dateien auf einmal.
+  ///
+  /// Ohne diesen Weg gab es nur den Knopf je Zeile. Das reicht für die
+  /// Handvoll Fälle, für die die Prüfung gedacht war – aber ein einziges
+  /// „alle Fotos erneut scannen" hinterließ in der Prüfbibliothek 17 643
+  /// verwaiste Gesichtsausschnitte (Prüfrunde 8; die Ursache ist inzwischen
+  /// behoben, die Altlast bleibt). 17 643 Mal einzeln bestätigen ist kein
+  /// Weg, den jemand geht.
+  Future<void> _deleteAllOrphaned() async {
+    final report = _report;
+    if (report == null || report.orphanedFiles.isEmpty) return;
+    final t = AppTexte.of(context);
+    final bytes = report.orphanedFiles.fold<int>(0, (s, i) => s + i.sizeBytes);
+    final confirmed = await confirmDialog(
+      context,
+      t.integAlleVerwaistenTitel,
+      t.integAlleVerwaistenText(report.orphanedFiles.length, _groesse(bytes)),
+    );
+    if (!confirmed) return;
+    var geloescht = 0;
+    for (final issue in report.orphanedFiles) {
+      try {
+        await widget.library.paths.deletePermanently(issue.relativePath);
+        geloescht++;
+      } catch (e) {
+        debugPrint('Verwaiste Datei ${issue.relativePath} nicht löschbar: $e');
+      }
+    }
+    if (!mounted) return;
+    setState(() => _report = IntegrityCheckReport(
+          missingFiles: report.missingFiles,
+          orphanedFiles: const [],
+          checksumMismatches: report.checksumMismatches,
+          encryptedHeaderIssues: report.encryptedHeaderIssues,
+          filesScanned: report.filesScanned,
+        ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppTexte.of(context).integVerwaisteGeloescht(geloescht))),
+    );
+  }
+
+  static String _groesse(int bytes) => bytes >= 1024 * 1024 * 1024
+      ? '${(bytes / 1024 / 1024 / 1024).toStringAsFixed(1)} GB'
+      : '${(bytes / 1024 / 1024).round()} MB';
+
   IntegrityCheckReport _withoutMissing(IntegrityCheckReport report, MissingFileIssue issue) =>
       IntegrityCheckReport(
         missingFiles: report.missingFiles.where((i) => i != issue).toList(),
@@ -250,8 +295,9 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
         if (report.missingFiles.isNotEmpty)
           _Section(
             title: AppTexte.of(context).integFehlendeDateien(report.missingFiles.length),
+            gesamt: report.missingFiles.length,
             children: [
-              for (final issue in report.missingFiles)
+              for (final issue in report.missingFiles.take(_maxZeilenJeAbschnitt))
                 ListTile(
                   leading: Icon(Icons.error_outline, color: context.semantik.warnung),
                   title: Text(issue.relativePath),
@@ -266,8 +312,14 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
         if (report.orphanedFiles.isNotEmpty)
           _Section(
             title: AppTexte.of(context).integVerwaisteDateien(report.orphanedFiles.length),
+            gesamt: report.orphanedFiles.length,
+            aktion: TextButton.icon(
+              onPressed: _deleteAllOrphaned,
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: Text(AppTexte.of(context).integAlleVerwaistenLoeschen),
+            ),
             children: [
-              for (final issue in report.orphanedFiles)
+              for (final issue in report.orphanedFiles.take(_maxZeilenJeAbschnitt))
                 ListTile(
                   leading: Icon(Icons.help_outline, color: context.semantik.warnung),
                   title: Text(issue.relativePath),
@@ -282,8 +334,9 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
         if (report.checksumMismatches.isNotEmpty)
           _Section(
             title: AppTexte.of(context).integAbweichungen(report.checksumMismatches.length),
+            gesamt: report.checksumMismatches.length,
             children: [
-              for (final issue in report.checksumMismatches)
+              for (final issue in report.checksumMismatches.take(_maxZeilenJeAbschnitt))
                 ListTile(
                   leading: Icon(Icons.warning_amber, color: Theme.of(context).colorScheme.error),
                   title: Text(issue.relativePath),
@@ -298,8 +351,9 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
         if (report.encryptedHeaderIssues.isNotEmpty)
           _Section(
             title: AppTexte.of(context).integHeaderProbleme(report.encryptedHeaderIssues.length),
+            gesamt: report.encryptedHeaderIssues.length,
             children: [
-              for (final issue in report.encryptedHeaderIssues)
+              for (final issue in report.encryptedHeaderIssues.take(_maxZeilenJeAbschnitt))
                 ListTile(
                   leading: Icon(Icons.warning_amber, color: Theme.of(context).colorScheme.error),
                   title: Text(issue.relativePath),
@@ -312,13 +366,36 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   }
 }
 
+/// Wie viele Zeilen ein Abschnitt höchstens ausschreibt.
+///
+/// Die Liste baute bisher jeden Fund als fertige Zeile, auch wenn nur zwölf
+/// davon ins Bild passten. Bei 17 643 verwaisten Dateien kostete allein das
+/// Zusammenbauen 228 ms gegen 28 ms – ein sichtbares Stocken für Zeilen,
+/// die niemand liest (Prüfrunde 8). Wer mehr sehen will, will in Wahrheit
+/// nicht scrollen, sondern aufräumen; dafür gibt es den Sammelknopf.
+const int _maxZeilenJeAbschnitt = 100;
+
 class _Section extends StatelessWidget {
   final String title;
   final List<Widget> children;
-  const _Section({required this.title, required this.children});
+
+  /// Gesamtzahl der Funde – kann größer sein als [children.length], wenn
+  /// die Liste gekappt wurde.
+  final int gesamt;
+
+  /// Optionale Sammelaktion neben der Überschrift.
+  final Widget? aktion;
+
+  const _Section({
+    required this.title,
+    required this.children,
+    required this.gesamt,
+    this.aktion,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final rest = gesamt - children.length;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Column(
@@ -326,9 +403,30 @@ class _Section extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(title,
+                      style: Theme.of(context).textTheme.titleSmall),
+                ),
+                if (aktion != null) aktion!,
+              ],
+            ),
           ),
-          Card(child: Column(children: children)),
+          Card(
+            child: Column(children: [
+              ...children,
+              if (rest > 0)
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Text(
+                    AppTexte.of(context)
+                        .integWeitereEintraege(rest, children.length),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+            ]),
+          ),
         ],
       ),
     );

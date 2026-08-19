@@ -21,6 +21,10 @@ import 'asset_viewer_screen.dart';
 /// (siehe LibraryState.vaultUnlockedThisSession). Thumbnails und die
 /// Vollbildansicht werden hier on-demand entschlüsselt (die Originaldateien
 /// auf der Platte bleiben dabei verschlüsselt).
+/// Kantenlänge einer Kachel – zugleich die Dekodiergröße der
+/// entschlüsselten Vorschau (siehe `cacheWidth` unten).
+const double _kachelBreite = 160;
+
 class LockedFolderScreen extends StatefulWidget {
   final LibraryState library;
   const LockedFolderScreen({super.key, required this.library});
@@ -92,7 +96,7 @@ class _LockedAssetsGrid extends StatelessWidget {
         return GridView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 160,
+            maxCrossAxisExtent: _kachelBreite,
             mainAxisSpacing: 4,
             crossAxisSpacing: 4,
           ),
@@ -186,7 +190,7 @@ class _LockedTrashGrid extends StatelessWidget {
         return GridView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 160,
+            maxCrossAxisExtent: _kachelBreite,
             mainAxisSpacing: 4,
             crossAxisSpacing: 4,
           ),
@@ -302,6 +306,12 @@ class _DecryptedThumbnailState extends State<_DecryptedThumbnail> {
         return Image.file(
           snapshot.data!,
           fit: BoxFit.cover,
+          // Wie im übrigen Raster auf Kachelgröße dekodieren statt auf die
+          // volle Vorschaugröße (Prüfrunde 8). Hier zählt es doppelt: Die
+          // Datei kommt frisch aus der Entschlüsselung, jedes gesparte
+          // Pixel ist eines weniger im Speicher.
+          cacheWidth:
+              (_kachelBreite * MediaQuery.devicePixelRatioOf(context)).round(),
           errorBuilder: (_, __, ___) => Container(
             color: Colors.grey.shade900,
             child: const Icon(Icons.broken_image_outlined, color: Colors.white24),

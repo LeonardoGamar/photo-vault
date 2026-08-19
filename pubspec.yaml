@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 0.10.0
+version: 1.0.0
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -120,6 +120,7 @@ dependencies:
   # bisher nur transitiv vorhanden (über flutter_map/archive), hier als
   # direkte Abhängigkeit, da xmp_writer.dart XmlBuilder direkt nutzt.
   xml: ^7.0.1
+  pdf: ^3.13.0
 
 dev_dependencies:
   integration_test:

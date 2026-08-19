@@ -104,19 +104,40 @@ welche Modelle aus welcher Quelle stammen.
   einzeln oder als Stapelaktion auf eine Auswahl
 - **Tags & Volltextsuche** über Dateiname, Beschreibung, Tags, erkannten
   Text im Foto (OCR) sowie KI-Bildbeschreibung
-- **Familienstammbaum** – wer zu wem gehört, als eigene Angabe neben den
-  erkannten Gesichtern: Eltern, Kinder und Partner, dazu Geburts- und
-  Sterbedatum. Der Baum zeigt immer die unmittelbare Verwandtschaft einer
-  Person; ein Klick auf eine Karte rückt sie in die Mitte. Angehörige
-  lassen sich auch anlegen, wenn kein einziges Foto von ihnen in der
-  Bibliothek liegt. Erreichbar über das Baum-Symbol in der Personenansicht
+- **Familienstammbaum** (eigener Menüpunkt, ⌘0) – wer zu wem gehört, als
+  eigene Angabe neben den erkannten Gesichtern: Eltern, Kinder und Partner,
+  dazu Geburts- und Sterbedatum sowie – nur für die Bezeichnungen –
+  optional das Geschlecht. Fünf Sichten auf dieselbe Familie:
+  – **Baum**: die unmittelbare Verwandtschaft räumlich angeordnet, ein
+    Klick rückt eine Person in die Mitte
+  – **Fächer**: bis zu vier Generationen Vorfahren als Ringe. Ein Platz im
+    Ring hat immer genau einen Nachfolger nach innen – deshalb kann hier
+    keine Linie mehrdeutig werden
+  – **Sanduhr**: Vorfahren und Nachkommen über je drei Generationen in
+    einem Bild; jeder Vorfahr steht über seinem eigenen Kind
+  – **Nachfahren**: alle Nachkommen als eingerückte Gliederung
+  – **Verwandte**: *alle* Verwandten mit ihrer Bezeichnung, sortiert von
+    den nächsten zu den entferntesten
+
+  Neben leiblichen Eltern lassen sich **Adoptiv- und Pflegeeltern**
+  eintragen; sie zählen überall als Eltern, werden gestrichelt gezeichnet
+  und eigens benannt. Jede Person hat einen **Lebenslauf** – Hochzeit,
+  Umzug, Beruf, Ausbildung, jeweils mit Datum, Ort und Notiz.
+
+  Dazu vier Wege nach draußen: **Fotos der Familie** (alle Bilder, auf
+  denen jemand aus dem Verwandtschaftsnetz erkannt wurde), **Orte der
+  Familie** (dieselben Fotos auf der Karte, eingefärbt nach
+  Verwandtschaftsrichtung), eine **Tafel als PDF** zum Aufhängen und ein
+  **GEDCOM-Export** (5.5.1). Angehörige lassen sich anlegen, wenn kein
+  einziges Foto von ihnen in der Bibliothek liegt
 - **Papierkorb** – favorisieren, in den Papierkorb verschieben,
   wiederherstellen, endgültig löschen; automatische Leerung nach
   konfigurierbarer Frist
 - **Integritätsprüfung** – findet fehlende Dateien (Original, Vorschau,
   Thumbnail, Entwicklung, Video-Trim, Restaurierung) und optional per
   Prüfsumme veränderte Originale; verwaiste DB-Einträge lassen sich direkt
-  bereinigen
+  bereinigen, verwaiste **Dateien** ohne DB-Zeile wahlweise einzeln oder
+  alle auf einmal
 
 ### KI-Funktionen (alle offline, ONNX Runtime)
 
@@ -452,6 +473,13 @@ lib/
     blur_detection.dart          Laplace-basierter Unschärfe-Score
     histogram.dart               Tonwertverteilung (Helligkeit + RGB) für den Entwickeln-Screen
     stammbaum.dart               Verwandtschaftsgraph, Kreisprüfung, Ausschnitt um eine Person
+    verwandtschaftsgrad.dart     Bezeichnungen: Schwester, Urgroßvater, Schwägerin, Cousine 2. Grades
+    faechertafel.dart            Fächer-Geometrie (Ahnentafel in Polarkoordinaten) + Nachfahrengliederung
+    sanduhr.dart                 Anordnung der Sanduhr: jeder Vorfahr über seinem eigenen Kind
+    lebenslauf.dart              Ereignisarten und ihre Reihenfolge
+    familienorte.dart            Einfärbung der Familienkarte nach Verwandtschaftsrichtung
+    gedcom_export.dart           Ausgabe nach GEDCOM 5.5.1
+    tafel_pdf.dart               Der Fächer als druckbares PDF (A3 quer)
     map_clustering.dart          Zoomabhängiges Zusammenfassen von Kartenmarkern
     reverse_geocoder.dart        Lokale GPS → Stadt/Land-Auflösung (GeoNames)
     vault_crypto.dart            AES-256-GCM-Dateiverschlüsselung + PIN-Envelope-Encryption
@@ -535,13 +563,24 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   bewusst nur einen Auftrag gleichzeitig ab.
 - HEIC-Dateien mit HDR-Gain-Map werden korrekt angezeigt, die HDR-Feinheiten
   gehen bei der JPEG-Vorschau aber verloren.
-- Der Familienstammbaum zeigt bewusst nur die unmittelbare Verwandtschaft
-  einer Person, nicht mehrere Generationen auf einmal. Für Großeltern und
-  Enkel in derselben Reihe ließe sich keine Verbindungslinie zeichnen, die
-  stimmt – welcher Großelternteil zu welchem Elternteil gehört, ginge
-  verloren. Ein Zeichen an der Karte weist darauf hin, wo es weitergeht.
-  Einen Export nach GEDCOM (dem üblichen Austauschformat der Ahnenforschung)
-  gibt es noch nicht.
+- Die **Baum**-Sicht des Stammbaums zeigt bewusst nur die unmittelbare
+  Verwandtschaft: Für Großeltern und Enkel in derselben Reihe ließe sich
+  keine Verbindungslinie zeichnen, die stimmt. Mehrere Generationen zeigt
+  stattdessen der **Fächer** – der kann dafür nur nach oben, weshalb es
+  für die Gegenrichtung die **Nachfahrengliederung** gibt. Der Fächer
+  bildet außerdem höchstens zwei Elternteile je Person ab; er ist auf
+  Verdopplung gebaut. Die anderen Sichten zeigen alle.
+- Der GEDCOM-Export schreibt nur, was die App auch führt: Namen,
+  Geschlecht, Lebensdaten und Verwandtschaft. Lebensereignisse gehen dort
+  nicht mit, und einen **Import** gibt es nicht – das Format ist alt und
+  uneinheitlich umgesetzt, und importierte Personen hätten hier keine
+  Fotos.
+- Die Sanduhr zeigt je drei Generationen und höchstens zwei Elternteile je
+  Person; sie ist wie die Ahnentafel auf Verdopplung gebaut. Wer weiter
+  hinauf will, nimmt den Fächer.
+- Die Adoptiv-/Pflege-Unterscheidung gilt nur eine Stufe weit: Der Vater
+  eines Adoptivvaters heißt Großvater. Für alles Weitere gibt es keine
+  eigenen Wörter.
 
 ### Technische Altlasten
 

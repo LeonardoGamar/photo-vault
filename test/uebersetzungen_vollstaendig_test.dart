@@ -54,15 +54,39 @@ void main() {
         reason: 'noch nicht übersetzt: ${inhalt.values.join(', ')}');
   });
 
+  /// Die Platzhalter eines Textbausteins.
+  ///
+  /// Nicht jede geschweifte Klammer ist einer: In `{geschlecht, select,
+  /// w{Schwester} m{Bruder} other{Geschwister}}` ist `geschlecht` der
+  /// Platzhalter – `Schwester` und `Bruder` sind übersetzter Text. Die
+  /// erste Fassung dieses Wächters nahm alles, was in einer Klammer stand,
+  /// und schlug deshalb bei jedem geschlechtsabhängigen Baustein Alarm.
+  ///
+  /// Unterschieden wird am Zeichen **vor** der Klammer: Eine öffnende
+  /// Klammer direkt hinter einem Wortzeichen gehört zu einem ICU-Zweig
+  /// (`w{…}`, `=1{…}`, `other{…}`), ihr Inhalt ist Text. Steht davor etwas
+  /// anderes – Zeilenanfang, Leerzeichen, Bindestrich, eine weitere
+  /// Klammer –, beginnt dort ein echter Platzhalter.
+  Set<String> platzhalter(String text) {
+    final wortzeichen = RegExp(r'[\w=]');
+    final name = RegExp(r'^\s*(\w+)\s*[,}]');
+    final gefunden = <String>{};
+    for (var i = 0; i < text.length; i++) {
+      if (text[i] != '{') continue;
+      if (i > 0 && wortzeichen.hasMatch(text[i - 1])) continue;
+      final treffer = name.firstMatch(text.substring(i + 1));
+      if (treffer != null) gefunden.add(treffer.group(1)!);
+    }
+    return gefunden;
+  }
+
   test('gleiche Platzhalter in beiden Sprachen', () {
     // Ein Platzhalter, der in einer Sprache fehlt, erzeugt keinen
     // Übersetzungsfehler, sondern einen Satz mit einer Lücke – etwa
     // „Exportiert:" ohne die Dateinamen.
-    final muster = RegExp(r'\{(\w+)[,}]');
     for (final k in schluessel(de)) {
-      final deTeile = muster.allMatches(de[k] as String).map((m) => m.group(1)).toSet();
-      final enTeile = muster.allMatches(en[k] as String).map((m) => m.group(1)).toSet();
-      expect(enTeile, deTeile, reason: 'unterschiedliche Platzhalter bei „$k"');
+      expect(platzhalter(en[k] as String), platzhalter(de[k] as String),
+          reason: 'unterschiedliche Platzhalter bei „$k"');
     }
   });
 

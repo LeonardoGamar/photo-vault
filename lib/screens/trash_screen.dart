@@ -8,6 +8,11 @@ import '../theme/app_spacing.dart';
 import '../widgets/empty_state.dart';
 import 'asset_viewer_screen.dart';
 
+/// Kantenlänge einer Kachel im Raster – zugleich die Grundlage dafür, wie
+/// groß das Vorschaubild dekodiert wird (siehe `cacheWidth` unten). Als
+/// Konstante, damit beide Stellen nicht auseinanderlaufen können.
+const double _kachelBreite = 160;
+
 class TrashScreen extends StatefulWidget {
   final LibraryState library;
   const TrashScreen({super.key, required this.library});
@@ -87,7 +92,7 @@ class _TrashScreenState extends State<TrashScreen> {
           return GridView.builder(
             padding: const EdgeInsets.all(AppSpacing.md),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 160,
+              maxCrossAxisExtent: _kachelBreite,
               mainAxisSpacing: 4,
               crossAxisSpacing: 4,
             ),
@@ -120,6 +125,17 @@ class _TrashScreenState extends State<TrashScreen> {
                         ? Image.file(
                             widget.library.paths.absolute(asset.thumbnailRelativePath!),
                             fit: BoxFit.cover,
+                            // Auf Kachelgröße dekodieren statt auf die
+                            // volle Vorschaugröße: Die Vorschau ist 400 px
+                            // breit, die Kachel höchstens 160. Ohne diese
+                            // Angabe liegt das 2,4-Fache im Bildspeicher
+                            // (gemessen an echten Vorschaubildern:
+                            // 2,37x Speicher, 1,53x Dekodierzeit,
+                            // Prüfrunde 8) – dasselbe, was das Raster der
+                            // Zeitleiste längst tut.
+                            cacheWidth: (_kachelBreite *
+                                    MediaQuery.devicePixelRatioOf(context))
+                                .round(),
                             errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade900),
                           )
                         : Container(

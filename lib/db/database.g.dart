@@ -3208,6 +3208,12 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
   late final GeneratedColumn<DateTime> sterbedatum = GeneratedColumn<DateTime>(
       'sterbedatum', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _geschlechtMeta =
+      const VerificationMeta('geschlecht');
+  @override
+  late final GeneratedColumn<String> geschlecht = GeneratedColumn<String>(
+      'geschlecht', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -3215,7 +3221,8 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
         coverFaceCropPath,
         similarityThreshold,
         geburtsdatum,
-        sterbedatum
+        sterbedatum,
+        geschlecht
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3262,6 +3269,12 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
           sterbedatum.isAcceptableOrUnknown(
               data['sterbedatum']!, _sterbedatumMeta));
     }
+    if (data.containsKey('geschlecht')) {
+      context.handle(
+          _geschlechtMeta,
+          geschlecht.isAcceptableOrUnknown(
+              data['geschlecht']!, _geschlechtMeta));
+    }
     return context;
   }
 
@@ -3283,6 +3296,8 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
           .read(DriftSqlType.dateTime, data['${effectivePrefix}geburtsdatum']),
       sterbedatum: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}sterbedatum']),
+      geschlecht: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}geschlecht']),
     );
   }
 
@@ -3317,13 +3332,24 @@ class PersonData extends DataClass implements Insertable<PersonData> {
   /// Darstellung, nicht die Speicherung.
   final DateTime? geburtsdatum;
   final DateTime? sterbedatum;
+
+  /// Geschlecht – ausschließlich für die Verwandtschaftsbezeichnungen.
+  ///
+  /// Ohne diese Angabe gibt es kein „Schwester", nur „Geschwister": Fast
+  /// jede Bezeichnung im Deutschen wie im Englischen ist geschlechtsgebunden.
+  /// `null` ist deshalb kein Mangel, sondern ein gültiger Zustand – dann
+  /// erscheint die geschlechtsneutrale Form, und niemand muss eine Angabe
+  /// machen, die er nicht kennt oder nicht machen will. Werte siehe
+  /// `Geschlecht` in services/verwandtschaftsgrad.dart.
+  final String? geschlecht;
   const PersonData(
       {required this.id,
       required this.name,
       this.coverFaceCropPath,
       this.similarityThreshold,
       this.geburtsdatum,
-      this.sterbedatum});
+      this.sterbedatum,
+      this.geschlecht});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3340,6 +3366,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
     }
     if (!nullToAbsent || sterbedatum != null) {
       map['sterbedatum'] = Variable<DateTime>(sterbedatum);
+    }
+    if (!nullToAbsent || geschlecht != null) {
+      map['geschlecht'] = Variable<String>(geschlecht);
     }
     return map;
   }
@@ -3360,6 +3389,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       sterbedatum: sterbedatum == null && nullToAbsent
           ? const Value.absent()
           : Value(sterbedatum),
+      geschlecht: geschlecht == null && nullToAbsent
+          ? const Value.absent()
+          : Value(geschlecht),
     );
   }
 
@@ -3375,6 +3407,7 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           serializer.fromJson<double?>(json['similarityThreshold']),
       geburtsdatum: serializer.fromJson<DateTime?>(json['geburtsdatum']),
       sterbedatum: serializer.fromJson<DateTime?>(json['sterbedatum']),
+      geschlecht: serializer.fromJson<String?>(json['geschlecht']),
     );
   }
   @override
@@ -3387,6 +3420,7 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       'similarityThreshold': serializer.toJson<double?>(similarityThreshold),
       'geburtsdatum': serializer.toJson<DateTime?>(geburtsdatum),
       'sterbedatum': serializer.toJson<DateTime?>(sterbedatum),
+      'geschlecht': serializer.toJson<String?>(geschlecht),
     };
   }
 
@@ -3396,7 +3430,8 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           Value<String?> coverFaceCropPath = const Value.absent(),
           Value<double?> similarityThreshold = const Value.absent(),
           Value<DateTime?> geburtsdatum = const Value.absent(),
-          Value<DateTime?> sterbedatum = const Value.absent()}) =>
+          Value<DateTime?> sterbedatum = const Value.absent(),
+          Value<String?> geschlecht = const Value.absent()}) =>
       PersonData(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -3409,6 +3444,7 @@ class PersonData extends DataClass implements Insertable<PersonData> {
         geburtsdatum:
             geburtsdatum.present ? geburtsdatum.value : this.geburtsdatum,
         sterbedatum: sterbedatum.present ? sterbedatum.value : this.sterbedatum,
+        geschlecht: geschlecht.present ? geschlecht.value : this.geschlecht,
       );
   PersonData copyWithCompanion(PeopleCompanion data) {
     return PersonData(
@@ -3425,6 +3461,8 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           : this.geburtsdatum,
       sterbedatum:
           data.sterbedatum.present ? data.sterbedatum.value : this.sterbedatum,
+      geschlecht:
+          data.geschlecht.present ? data.geschlecht.value : this.geschlecht,
     );
   }
 
@@ -3436,14 +3474,15 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           ..write('coverFaceCropPath: $coverFaceCropPath, ')
           ..write('similarityThreshold: $similarityThreshold, ')
           ..write('geburtsdatum: $geburtsdatum, ')
-          ..write('sterbedatum: $sterbedatum')
+          ..write('sterbedatum: $sterbedatum, ')
+          ..write('geschlecht: $geschlecht')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, name, coverFaceCropPath,
-      similarityThreshold, geburtsdatum, sterbedatum);
+      similarityThreshold, geburtsdatum, sterbedatum, geschlecht);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3453,7 +3492,8 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           other.coverFaceCropPath == this.coverFaceCropPath &&
           other.similarityThreshold == this.similarityThreshold &&
           other.geburtsdatum == this.geburtsdatum &&
-          other.sterbedatum == this.sterbedatum);
+          other.sterbedatum == this.sterbedatum &&
+          other.geschlecht == this.geschlecht);
 }
 
 class PeopleCompanion extends UpdateCompanion<PersonData> {
@@ -3463,6 +3503,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
   final Value<double?> similarityThreshold;
   final Value<DateTime?> geburtsdatum;
   final Value<DateTime?> sterbedatum;
+  final Value<String?> geschlecht;
   final Value<int> rowid;
   const PeopleCompanion({
     this.id = const Value.absent(),
@@ -3471,6 +3512,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     this.similarityThreshold = const Value.absent(),
     this.geburtsdatum = const Value.absent(),
     this.sterbedatum = const Value.absent(),
+    this.geschlecht = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PeopleCompanion.insert({
@@ -3480,6 +3522,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     this.similarityThreshold = const Value.absent(),
     this.geburtsdatum = const Value.absent(),
     this.sterbedatum = const Value.absent(),
+    this.geschlecht = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         name = Value(name);
@@ -3490,6 +3533,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     Expression<double>? similarityThreshold,
     Expression<DateTime>? geburtsdatum,
     Expression<DateTime>? sterbedatum,
+    Expression<String>? geschlecht,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3500,6 +3544,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
         'similarity_threshold': similarityThreshold,
       if (geburtsdatum != null) 'geburtsdatum': geburtsdatum,
       if (sterbedatum != null) 'sterbedatum': sterbedatum,
+      if (geschlecht != null) 'geschlecht': geschlecht,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3511,6 +3556,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
       Value<double?>? similarityThreshold,
       Value<DateTime?>? geburtsdatum,
       Value<DateTime?>? sterbedatum,
+      Value<String?>? geschlecht,
       Value<int>? rowid}) {
     return PeopleCompanion(
       id: id ?? this.id,
@@ -3519,6 +3565,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
       similarityThreshold: similarityThreshold ?? this.similarityThreshold,
       geburtsdatum: geburtsdatum ?? this.geburtsdatum,
       sterbedatum: sterbedatum ?? this.sterbedatum,
+      geschlecht: geschlecht ?? this.geschlecht,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3544,6 +3591,9 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     if (sterbedatum.present) {
       map['sterbedatum'] = Variable<DateTime>(sterbedatum.value);
     }
+    if (geschlecht.present) {
+      map['geschlecht'] = Variable<String>(geschlecht.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3559,6 +3609,7 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
           ..write('similarityThreshold: $similarityThreshold, ')
           ..write('geburtsdatum: $geburtsdatum, ')
           ..write('sterbedatum: $sterbedatum, ')
+          ..write('geschlecht: $geschlecht, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12201,6 +12252,352 @@ class PersonBeziehungenCompanion
   }
 }
 
+class $LebensereignisseTable extends Lebensereignisse
+    with TableInfo<$LebensereignisseTable, LebensereignisseData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $LebensereignisseTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _personIdMeta =
+      const VerificationMeta('personId');
+  @override
+  late final GeneratedColumn<String> personId = GeneratedColumn<String>(
+      'person_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _artMeta = const VerificationMeta('art');
+  @override
+  late final GeneratedColumn<String> art = GeneratedColumn<String>(
+      'art', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _datumMeta = const VerificationMeta('datum');
+  @override
+  late final GeneratedColumn<DateTime> datum = GeneratedColumn<DateTime>(
+      'datum', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _ortMeta = const VerificationMeta('ort');
+  @override
+  late final GeneratedColumn<String> ort = GeneratedColumn<String>(
+      'ort', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _notizMeta = const VerificationMeta('notiz');
+  @override
+  late final GeneratedColumn<String> notiz = GeneratedColumn<String>(
+      'notiz', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [id, personId, art, datum, ort, notiz];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'lebensereignisse';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<LebensereignisseData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('person_id')) {
+      context.handle(_personIdMeta,
+          personId.isAcceptableOrUnknown(data['person_id']!, _personIdMeta));
+    } else if (isInserting) {
+      context.missing(_personIdMeta);
+    }
+    if (data.containsKey('art')) {
+      context.handle(
+          _artMeta, art.isAcceptableOrUnknown(data['art']!, _artMeta));
+    } else if (isInserting) {
+      context.missing(_artMeta);
+    }
+    if (data.containsKey('datum')) {
+      context.handle(
+          _datumMeta, datum.isAcceptableOrUnknown(data['datum']!, _datumMeta));
+    }
+    if (data.containsKey('ort')) {
+      context.handle(
+          _ortMeta, ort.isAcceptableOrUnknown(data['ort']!, _ortMeta));
+    }
+    if (data.containsKey('notiz')) {
+      context.handle(
+          _notizMeta, notiz.isAcceptableOrUnknown(data['notiz']!, _notizMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  LebensereignisseData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return LebensereignisseData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      personId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}person_id'])!,
+      art: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}art'])!,
+      datum: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}datum']),
+      ort: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ort']),
+      notiz: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notiz']),
+    );
+  }
+
+  @override
+  $LebensereignisseTable createAlias(String alias) {
+    return $LebensereignisseTable(attachedDatabase, alias);
+  }
+}
+
+class LebensereignisseData extends DataClass
+    implements Insertable<LebensereignisseData> {
+  final String id;
+  final String personId;
+
+  /// Siehe `Ereignisart` in services/lebenslauf.dart.
+  final String art;
+
+  /// Freiwillig – manchmal weiß man nur, *dass* etwas war.
+  final DateTime? datum;
+  final String? ort;
+  final String? notiz;
+  const LebensereignisseData(
+      {required this.id,
+      required this.personId,
+      required this.art,
+      this.datum,
+      this.ort,
+      this.notiz});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['person_id'] = Variable<String>(personId);
+    map['art'] = Variable<String>(art);
+    if (!nullToAbsent || datum != null) {
+      map['datum'] = Variable<DateTime>(datum);
+    }
+    if (!nullToAbsent || ort != null) {
+      map['ort'] = Variable<String>(ort);
+    }
+    if (!nullToAbsent || notiz != null) {
+      map['notiz'] = Variable<String>(notiz);
+    }
+    return map;
+  }
+
+  LebensereignisseCompanion toCompanion(bool nullToAbsent) {
+    return LebensereignisseCompanion(
+      id: Value(id),
+      personId: Value(personId),
+      art: Value(art),
+      datum:
+          datum == null && nullToAbsent ? const Value.absent() : Value(datum),
+      ort: ort == null && nullToAbsent ? const Value.absent() : Value(ort),
+      notiz:
+          notiz == null && nullToAbsent ? const Value.absent() : Value(notiz),
+    );
+  }
+
+  factory LebensereignisseData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return LebensereignisseData(
+      id: serializer.fromJson<String>(json['id']),
+      personId: serializer.fromJson<String>(json['personId']),
+      art: serializer.fromJson<String>(json['art']),
+      datum: serializer.fromJson<DateTime?>(json['datum']),
+      ort: serializer.fromJson<String?>(json['ort']),
+      notiz: serializer.fromJson<String?>(json['notiz']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'personId': serializer.toJson<String>(personId),
+      'art': serializer.toJson<String>(art),
+      'datum': serializer.toJson<DateTime?>(datum),
+      'ort': serializer.toJson<String?>(ort),
+      'notiz': serializer.toJson<String?>(notiz),
+    };
+  }
+
+  LebensereignisseData copyWith(
+          {String? id,
+          String? personId,
+          String? art,
+          Value<DateTime?> datum = const Value.absent(),
+          Value<String?> ort = const Value.absent(),
+          Value<String?> notiz = const Value.absent()}) =>
+      LebensereignisseData(
+        id: id ?? this.id,
+        personId: personId ?? this.personId,
+        art: art ?? this.art,
+        datum: datum.present ? datum.value : this.datum,
+        ort: ort.present ? ort.value : this.ort,
+        notiz: notiz.present ? notiz.value : this.notiz,
+      );
+  LebensereignisseData copyWithCompanion(LebensereignisseCompanion data) {
+    return LebensereignisseData(
+      id: data.id.present ? data.id.value : this.id,
+      personId: data.personId.present ? data.personId.value : this.personId,
+      art: data.art.present ? data.art.value : this.art,
+      datum: data.datum.present ? data.datum.value : this.datum,
+      ort: data.ort.present ? data.ort.value : this.ort,
+      notiz: data.notiz.present ? data.notiz.value : this.notiz,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LebensereignisseData(')
+          ..write('id: $id, ')
+          ..write('personId: $personId, ')
+          ..write('art: $art, ')
+          ..write('datum: $datum, ')
+          ..write('ort: $ort, ')
+          ..write('notiz: $notiz')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, personId, art, datum, ort, notiz);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is LebensereignisseData &&
+          other.id == this.id &&
+          other.personId == this.personId &&
+          other.art == this.art &&
+          other.datum == this.datum &&
+          other.ort == this.ort &&
+          other.notiz == this.notiz);
+}
+
+class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
+  final Value<String> id;
+  final Value<String> personId;
+  final Value<String> art;
+  final Value<DateTime?> datum;
+  final Value<String?> ort;
+  final Value<String?> notiz;
+  final Value<int> rowid;
+  const LebensereignisseCompanion({
+    this.id = const Value.absent(),
+    this.personId = const Value.absent(),
+    this.art = const Value.absent(),
+    this.datum = const Value.absent(),
+    this.ort = const Value.absent(),
+    this.notiz = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  LebensereignisseCompanion.insert({
+    required String id,
+    required String personId,
+    required String art,
+    this.datum = const Value.absent(),
+    this.ort = const Value.absent(),
+    this.notiz = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        personId = Value(personId),
+        art = Value(art);
+  static Insertable<LebensereignisseData> custom({
+    Expression<String>? id,
+    Expression<String>? personId,
+    Expression<String>? art,
+    Expression<DateTime>? datum,
+    Expression<String>? ort,
+    Expression<String>? notiz,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (personId != null) 'person_id': personId,
+      if (art != null) 'art': art,
+      if (datum != null) 'datum': datum,
+      if (ort != null) 'ort': ort,
+      if (notiz != null) 'notiz': notiz,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  LebensereignisseCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? personId,
+      Value<String>? art,
+      Value<DateTime?>? datum,
+      Value<String?>? ort,
+      Value<String?>? notiz,
+      Value<int>? rowid}) {
+    return LebensereignisseCompanion(
+      id: id ?? this.id,
+      personId: personId ?? this.personId,
+      art: art ?? this.art,
+      datum: datum ?? this.datum,
+      ort: ort ?? this.ort,
+      notiz: notiz ?? this.notiz,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (personId.present) {
+      map['person_id'] = Variable<String>(personId.value);
+    }
+    if (art.present) {
+      map['art'] = Variable<String>(art.value);
+    }
+    if (datum.present) {
+      map['datum'] = Variable<DateTime>(datum.value);
+    }
+    if (ort.present) {
+      map['ort'] = Variable<String>(ort.value);
+    }
+    if (notiz.present) {
+      map['notiz'] = Variable<String>(notiz.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('LebensereignisseCompanion(')
+          ..write('id: $id, ')
+          ..write('personId: $personId, ')
+          ..write('art: $art, ')
+          ..write('datum: $datum, ')
+          ..write('ort: $ort, ')
+          ..write('notiz: $notiz, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -12240,6 +12637,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ExportPresetsTable exportPresets = $ExportPresetsTable(this);
   late final $PersonBeziehungenTable personBeziehungen =
       $PersonBeziehungenTable(this);
+  late final $LebensereignisseTable lebensereignisse =
+      $LebensereignisseTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -12271,7 +12670,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         automationRules,
         automationRuleTags,
         exportPresets,
-        personBeziehungen
+        personBeziehungen,
+        lebensereignisse
       ];
 }
 
@@ -13651,6 +14051,7 @@ typedef $$PeopleTableCreateCompanionBuilder = PeopleCompanion Function({
   Value<double?> similarityThreshold,
   Value<DateTime?> geburtsdatum,
   Value<DateTime?> sterbedatum,
+  Value<String?> geschlecht,
   Value<int> rowid,
 });
 typedef $$PeopleTableUpdateCompanionBuilder = PeopleCompanion Function({
@@ -13660,6 +14061,7 @@ typedef $$PeopleTableUpdateCompanionBuilder = PeopleCompanion Function({
   Value<double?> similarityThreshold,
   Value<DateTime?> geburtsdatum,
   Value<DateTime?> sterbedatum,
+  Value<String?> geschlecht,
   Value<int> rowid,
 });
 
@@ -13691,6 +14093,9 @@ class $$PeopleTableFilterComposer
 
   ColumnFilters<DateTime> get sterbedatum => $composableBuilder(
       column: $table.sterbedatum, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get geschlecht => $composableBuilder(
+      column: $table.geschlecht, builder: (column) => ColumnFilters(column));
 }
 
 class $$PeopleTableOrderingComposer
@@ -13722,6 +14127,9 @@ class $$PeopleTableOrderingComposer
 
   ColumnOrderings<DateTime> get sterbedatum => $composableBuilder(
       column: $table.sterbedatum, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get geschlecht => $composableBuilder(
+      column: $table.geschlecht, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PeopleTableAnnotationComposer
@@ -13750,6 +14158,9 @@ class $$PeopleTableAnnotationComposer
 
   GeneratedColumn<DateTime> get sterbedatum => $composableBuilder(
       column: $table.sterbedatum, builder: (column) => column);
+
+  GeneratedColumn<String> get geschlecht => $composableBuilder(
+      column: $table.geschlecht, builder: (column) => column);
 }
 
 class $$PeopleTableTableManager extends RootTableManager<
@@ -13781,6 +14192,7 @@ class $$PeopleTableTableManager extends RootTableManager<
             Value<double?> similarityThreshold = const Value.absent(),
             Value<DateTime?> geburtsdatum = const Value.absent(),
             Value<DateTime?> sterbedatum = const Value.absent(),
+            Value<String?> geschlecht = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PeopleCompanion(
@@ -13790,6 +14202,7 @@ class $$PeopleTableTableManager extends RootTableManager<
             similarityThreshold: similarityThreshold,
             geburtsdatum: geburtsdatum,
             sterbedatum: sterbedatum,
+            geschlecht: geschlecht,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -13799,6 +14212,7 @@ class $$PeopleTableTableManager extends RootTableManager<
             Value<double?> similarityThreshold = const Value.absent(),
             Value<DateTime?> geburtsdatum = const Value.absent(),
             Value<DateTime?> sterbedatum = const Value.absent(),
+            Value<String?> geschlecht = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PeopleCompanion.insert(
@@ -13808,6 +14222,7 @@ class $$PeopleTableTableManager extends RootTableManager<
             similarityThreshold: similarityThreshold,
             geburtsdatum: geburtsdatum,
             sterbedatum: sterbedatum,
+            geschlecht: geschlecht,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -18134,6 +18549,197 @@ typedef $$PersonBeziehungenTableProcessedTableManager = ProcessedTableManager<
     ),
     PersonBeziehungenData,
     PrefetchHooks Function()>;
+typedef $$LebensereignisseTableCreateCompanionBuilder
+    = LebensereignisseCompanion Function({
+  required String id,
+  required String personId,
+  required String art,
+  Value<DateTime?> datum,
+  Value<String?> ort,
+  Value<String?> notiz,
+  Value<int> rowid,
+});
+typedef $$LebensereignisseTableUpdateCompanionBuilder
+    = LebensereignisseCompanion Function({
+  Value<String> id,
+  Value<String> personId,
+  Value<String> art,
+  Value<DateTime?> datum,
+  Value<String?> ort,
+  Value<String?> notiz,
+  Value<int> rowid,
+});
+
+class $$LebensereignisseTableFilterComposer
+    extends Composer<_$AppDatabase, $LebensereignisseTable> {
+  $$LebensereignisseTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get personId => $composableBuilder(
+      column: $table.personId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get datum => $composableBuilder(
+      column: $table.datum, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get ort => $composableBuilder(
+      column: $table.ort, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnFilters(column));
+}
+
+class $$LebensereignisseTableOrderingComposer
+    extends Composer<_$AppDatabase, $LebensereignisseTable> {
+  $$LebensereignisseTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get personId => $composableBuilder(
+      column: $table.personId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get datum => $composableBuilder(
+      column: $table.datum, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get ort => $composableBuilder(
+      column: $table.ort, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnOrderings(column));
+}
+
+class $$LebensereignisseTableAnnotationComposer
+    extends Composer<_$AppDatabase, $LebensereignisseTable> {
+  $$LebensereignisseTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get personId =>
+      $composableBuilder(column: $table.personId, builder: (column) => column);
+
+  GeneratedColumn<String> get art =>
+      $composableBuilder(column: $table.art, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get datum =>
+      $composableBuilder(column: $table.datum, builder: (column) => column);
+
+  GeneratedColumn<String> get ort =>
+      $composableBuilder(column: $table.ort, builder: (column) => column);
+
+  GeneratedColumn<String> get notiz =>
+      $composableBuilder(column: $table.notiz, builder: (column) => column);
+}
+
+class $$LebensereignisseTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $LebensereignisseTable,
+    LebensereignisseData,
+    $$LebensereignisseTableFilterComposer,
+    $$LebensereignisseTableOrderingComposer,
+    $$LebensereignisseTableAnnotationComposer,
+    $$LebensereignisseTableCreateCompanionBuilder,
+    $$LebensereignisseTableUpdateCompanionBuilder,
+    (
+      LebensereignisseData,
+      BaseReferences<_$AppDatabase, $LebensereignisseTable,
+          LebensereignisseData>
+    ),
+    LebensereignisseData,
+    PrefetchHooks Function()> {
+  $$LebensereignisseTableTableManager(
+      _$AppDatabase db, $LebensereignisseTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$LebensereignisseTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$LebensereignisseTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$LebensereignisseTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> personId = const Value.absent(),
+            Value<String> art = const Value.absent(),
+            Value<DateTime?> datum = const Value.absent(),
+            Value<String?> ort = const Value.absent(),
+            Value<String?> notiz = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LebensereignisseCompanion(
+            id: id,
+            personId: personId,
+            art: art,
+            datum: datum,
+            ort: ort,
+            notiz: notiz,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String personId,
+            required String art,
+            Value<DateTime?> datum = const Value.absent(),
+            Value<String?> ort = const Value.absent(),
+            Value<String?> notiz = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              LebensereignisseCompanion.insert(
+            id: id,
+            personId: personId,
+            art: art,
+            datum: datum,
+            ort: ort,
+            notiz: notiz,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$LebensereignisseTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $LebensereignisseTable,
+    LebensereignisseData,
+    $$LebensereignisseTableFilterComposer,
+    $$LebensereignisseTableOrderingComposer,
+    $$LebensereignisseTableAnnotationComposer,
+    $$LebensereignisseTableCreateCompanionBuilder,
+    $$LebensereignisseTableUpdateCompanionBuilder,
+    (
+      LebensereignisseData,
+      BaseReferences<_$AppDatabase, $LebensereignisseTable,
+          LebensereignisseData>
+    ),
+    LebensereignisseData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -18191,4 +18797,6 @@ class $AppDatabaseManager {
       $$ExportPresetsTableTableManager(_db, _db.exportPresets);
   $$PersonBeziehungenTableTableManager get personBeziehungen =>
       $$PersonBeziehungenTableTableManager(_db, _db.personBeziehungen);
+  $$LebensereignisseTableTableManager get lebensereignisse =>
+      $$LebensereignisseTableTableManager(_db, _db.lebensereignisse);
 }

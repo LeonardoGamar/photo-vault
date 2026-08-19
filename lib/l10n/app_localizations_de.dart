@@ -3384,6 +3384,27 @@ class AppTexteDe extends AppTexte {
   String get integArtMaske => 'KI-Maske';
 
   @override
+  String get integAlleVerwaistenLoeschen => 'Alle löschen';
+
+  @override
+  String get integAlleVerwaistenTitel => 'Alle verwaisten Dateien löschen?';
+
+  @override
+  String integAlleVerwaistenText(int anzahl, String groesse) {
+    return '$anzahl Dateien mit zusammen $groesse werden unwiderruflich von der Platte gelöscht. Sie sind in keiner Datenbankzeile verzeichnet – die Bibliothek verliert dadurch nichts, was sie anzeigen könnte.';
+  }
+
+  @override
+  String integVerwaisteGeloescht(int anzahl) {
+    return '$anzahl verwaiste Dateien gelöscht.';
+  }
+
+  @override
+  String integWeitereEintraege(int anzahl, int gezeigt) {
+    return '… und $anzahl weitere. Die Liste zeigt nur die ersten $gezeigt; „Alle löschen“ räumt auch den Rest weg.';
+  }
+
+  @override
   String get gesperrtTabFotos => 'Fotos';
 
   @override
@@ -4060,11 +4081,6 @@ class AppTexteDe extends AppTexte {
   String get stammbaumLebensdaten => 'Lebensdaten …';
 
   @override
-  String stammbaumLebensdatenVon(String name) {
-    return 'Lebensdaten: $name';
-  }
-
-  @override
   String get stammbaumFotosZeigen => 'Fotos dieser Person';
 
   @override
@@ -4106,4 +4122,559 @@ class AppTexteDe extends AppTexte {
   @override
   String get stammbaumNurJahrHinweis =>
       'Ist nur das Jahr bekannt, wähle einen beliebigen Tag darin – angezeigt wird ohnehin nur die Jahreszahl.';
+
+  @override
+  String get gradSelbst => 'diese Person';
+
+  @override
+  String gradEltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Mutter',
+        'm': 'Vater',
+        'other': 'Elternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradGrosseltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Großmutter',
+        'm': 'Großvater',
+        'other': 'Großelternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradUrgrosseltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Urgroßmutter',
+        'm': 'Urgroßvater',
+        'other': 'Urgroßelternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradUrurgrosseltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Ururgroßmutter',
+        'm': 'Ururgroßvater',
+        'other': 'Ururgroßelternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradVorfahreN(int stufe) {
+    return 'Vorfahre der $stufe. Generation';
+  }
+
+  @override
+  String gradKind(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Tochter',
+        'm': 'Sohn',
+        'other': 'Kind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradEnkel(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Enkelin',
+        'm': 'Enkel',
+        'other': 'Enkelkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradUrenkel(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Urenkelin',
+        'm': 'Urenkel',
+        'other': 'Urenkelkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradUrurenkel(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Ururenkelin',
+        'm': 'Ururenkel',
+        'other': 'Ururenkelkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradNachkommeN(int stufe) {
+    return 'Nachkomme der $stufe. Generation';
+  }
+
+  @override
+  String gradGeschwister(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Schwester',
+        'm': 'Bruder',
+        'other': 'Geschwister',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradHalbgeschwister(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Halbschwester',
+        'm': 'Halbbruder',
+        'other': 'Halbgeschwister',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradNeffeNichte(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Nichte',
+        'm': 'Neffe',
+        'other': 'Geschwisterkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradGrossneffeNichte(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Großnichte',
+        'm': 'Großneffe',
+        'other': 'Großgeschwisterkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradGeschwisterNachkommeN(int stufe) {
+    return 'Nachkomme eines Geschwisters, $stufe Stufen entfernt';
+  }
+
+  @override
+  String gradOnkelTante(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Tante',
+        'm': 'Onkel',
+        'other': 'Elterngeschwister',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradGrossonkelTante(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Großtante',
+        'm': 'Großonkel',
+        'other': 'Großelterngeschwister',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradVorfahrengeschwisterN(int stufe) {
+    return 'Geschwister eines Vorfahren der $stufe. Generation';
+  }
+
+  @override
+  String gradCousin(String geschlecht, int stufe) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Cousine',
+        'm': 'Cousin',
+        'other': 'Cousin/Cousine',
+      },
+    );
+    return '$_temp0 $stufe. Grades';
+  }
+
+  @override
+  String gradEntfernt(int stufe, String bezeichnung) {
+    return '$bezeichnung, $stufe-fach entfernt';
+  }
+
+  @override
+  String gradPartner(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Partnerin',
+        'm': 'Partner',
+        'other': 'Partner',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradSchwager(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Schwägerin',
+        'm': 'Schwager',
+        'other': 'Schwager/Schwägerin',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradSchwiegereltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Schwiegermutter',
+        'm': 'Schwiegervater',
+        'other': 'Schwiegerelternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradSchwiegerkind(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Schwiegertochter',
+        'm': 'Schwiegersohn',
+        'other': 'Schwiegerkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradStiefeltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Stiefmutter',
+        'm': 'Stiefvater',
+        'other': 'Stiefelternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradStiefkind(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Stieftochter',
+        'm': 'Stiefsohn',
+        'other': 'Stiefkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradStiefgeschwister(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Stiefschwester',
+        'm': 'Stiefbruder',
+        'other': 'Stiefgeschwister',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gradAngeheiratet => 'angeheiratet';
+
+  @override
+  String get gradKeine => 'nicht verwandt';
+
+  @override
+  String get navStammbaum => 'Stammbaum';
+
+  @override
+  String get stammbaumAndereWaehlen => 'Andere Person in die Mitte';
+
+  @override
+  String get stammbaumAnsichtBaum => 'Baum';
+
+  @override
+  String get stammbaumAnsichtListe => 'Verwandte';
+
+  @override
+  String stammbaumListeKopf(String name, int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other:
+          '$anzahl Personen sind mit $name verwandt – von den nächsten zu den entferntesten.',
+      one: 'Eine Person ist mit $name verwandt.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get stammbaumKeinePersonen =>
+      'Es sind noch keine Personen angelegt. Benenne im Tab „Personen\" ein paar Gesichter, oder lege hier über „Andere Person in die Mitte\" jemanden von Hand an.';
+
+  @override
+  String get stammbaumGeschlecht => 'Geschlecht';
+
+  @override
+  String get stammbaumGeschlechtWeiblich => 'weiblich';
+
+  @override
+  String get stammbaumGeschlechtMaennlich => 'männlich';
+
+  @override
+  String get stammbaumGeschlechtDivers => 'divers';
+
+  @override
+  String get stammbaumGeschlechtOffen => 'keine Angabe';
+
+  @override
+  String get stammbaumGeschlechtHinweis =>
+      'Wird nur für die Verwandtschaftsbezeichnungen gebraucht – ohne Angabe steht dort „Geschwister\" statt „Schwester\".';
+
+  @override
+  String get stammbaumAngaben => 'Angaben zur Person';
+
+  @override
+  String get stammbaumAnsichtFaecher => 'Fächer';
+
+  @override
+  String get stammbaumAnsichtNachfahren => 'Nachfahren';
+
+  @override
+  String get stammbaumKeineVorfahren =>
+      'Für diese Person sind noch keine Vorfahren eingetragen. Der Fächer zeigt Eltern, Großeltern und Urgroßeltern – füge oben rechts einen Elternteil hinzu, und er füllt sich von innen nach außen.';
+
+  @override
+  String get stammbaumKeineNachfahren =>
+      'Für diese Person sind noch keine Kinder eingetragen. Die Gliederung zeigt alle Nachkommen, eingerückt nach Generation.';
+
+  @override
+  String get stammbaumFamilienfotos => 'Fotos der Familie';
+
+  @override
+  String stammbaumFamilienfotosVon(String name) {
+    return 'Fotos der Familie von $name';
+  }
+
+  @override
+  String get stammbaumKeineFamilienfotos =>
+      'Auf keinem Foto wurde bisher jemand aus dieser Familie erkannt.';
+
+  @override
+  String get stammbaumGedcomExport => 'Als GEDCOM ausgeben …';
+
+  @override
+  String stammbaumGedcomFertig(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Personen ausgegeben.',
+      one: 'Eine Person ausgegeben.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradAdoptiveltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Adoptivmutter',
+        'm': 'Adoptivvater',
+        'other': 'Adoptivelternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradPflegeeltern(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Pflegemutter',
+        'm': 'Pflegevater',
+        'other': 'Pflegeelternteil',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradAdoptivkind(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Adoptivtochter',
+        'm': 'Adoptivsohn',
+        'other': 'Adoptivkind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gradPflegekind(String geschlecht) {
+    String _temp0 = intl.Intl.selectLogic(
+      geschlecht,
+      {
+        'w': 'Pflegetochter',
+        'm': 'Pflegesohn',
+        'other': 'Pflegekind',
+      },
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get stammbaumLeiblich => 'Leiblich';
+
+  @override
+  String get stammbaumAdoptiv => 'Adoptiv';
+
+  @override
+  String get stammbaumPflege => 'Pflege';
+
+  @override
+  String get stammbaumAnsichtSanduhr => 'Sanduhr';
+
+  @override
+  String lebenslaufVon(String name) {
+    return 'Lebenslauf: $name';
+  }
+
+  @override
+  String get lebenslaufHinzufuegen => 'Ereignis hinzufügen';
+
+  @override
+  String get lebenslaufLeer =>
+      'Für diese Person ist noch nichts eingetragen. Geburt und Tod stehen bei den Angaben zur Person; hier kommen Hochzeit, Umzug, Beruf und alles Weitere hin.';
+
+  @override
+  String get lebenslaufGeburt => 'Geboren';
+
+  @override
+  String get lebenslaufTod => 'Gestorben';
+
+  @override
+  String get lebenslaufHochzeit => 'Hochzeit';
+
+  @override
+  String get lebenslaufUmzug => 'Umzug';
+
+  @override
+  String get lebenslaufBeruf => 'Beruf';
+
+  @override
+  String get lebenslaufAusbildung => 'Ausbildung';
+
+  @override
+  String get lebenslaufSonstiges => 'Sonstiges';
+
+  @override
+  String get lebenslaufOhneDatum => 'ohne Datum';
+
+  @override
+  String get lebenslaufOrt => 'Ort';
+
+  @override
+  String get lebenslaufNotiz => 'Notiz';
+
+  @override
+  String get stammbaumLebenslauf => 'Lebenslauf …';
+
+  @override
+  String get orteIch => 'Diese Person';
+
+  @override
+  String get orteVorfahren => 'Vorfahren';
+
+  @override
+  String get orteNachkommen => 'Nachkommen';
+
+  @override
+  String get orteSeitenlinie => 'Seitenlinie';
+
+  @override
+  String get orteAngeheiratet => 'Angeheiratet';
+
+  @override
+  String get orteNichtsGewaehlt => 'Keine Gruppe ausgewählt.';
+
+  @override
+  String get stammbaumFamilienorte => 'Orte der Familie';
+
+  @override
+  String stammbaumFamilienorteVon(String name) {
+    return 'Orte der Familie von $name';
+  }
+
+  @override
+  String get stammbaumKeineFamilienorte =>
+      'Von dieser Familie ist kein Foto mit Ortsangabe vorhanden.';
+
+  @override
+  String get stammbaumTafelDrucken => 'Tafel als PDF …';
+
+  @override
+  String get stammbaumTafelFertig => 'Die Tafel wurde geschrieben.';
 }

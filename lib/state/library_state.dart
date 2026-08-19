@@ -845,7 +845,13 @@ class LibraryState extends ChangeNotifier {
     required bool deleteExistingUnassigned,
   }) async {
     if (deleteExistingUnassigned) {
-      await db.deleteUnassignedFacesForAsset(asset.id);
+      // Die Ausschnitte der gelöschten Zeilen müssen mit weg. Sonst
+      // hinterlässt jedes „alle Fotos erneut scannen" den kompletten alten
+      // Bestand als Dateien ohne Datenbankzeile – siehe
+      // [AppDatabase.deleteUnassignedFacesForAsset].
+      for (final pfad in await db.deleteUnassignedFacesForAsset(asset.id)) {
+        await paths.deletePermanently(pfad);
+      }
     }
 
     // Was beiseitegelegt wurde, darf ein erneuter Scan nicht als neue
@@ -1850,12 +1856,20 @@ class LibraryState extends ChangeNotifier {
     final file = paths.absolute(relativePath);
     if (!await file.exists()) return;
     final tmp = File('${file.path}.vaulttmp');
-    if (encrypt) {
-      await VaultCrypto.encryptFile(file, tmp, key);
-    } else {
-      await VaultCrypto.decryptFile(file, tmp, key);
+    try {
+      if (encrypt) {
+        await VaultCrypto.encryptFile(file, tmp, key);
+      } else {
+        await VaultCrypto.decryptFile(file, tmp, key);
+      }
+      await tmp.rename(file.path);
+    } finally {
+      // Scheitert der Durchgang, bleibt sonst ein Rumpf neben dem Original
+      // liegen: beim Entsperren Klartext einer gesperrten Datei, beim
+      // Sperren Chiffretext, den niemand mehr zuordnen kann. Das Original
+      // ist in beiden Fällen unangetastet – nur der Rumpf muss weg.
+      if (await tmp.exists()) await tmp.delete();
     }
-    await tmp.rename(file.path);
   }
 
   /// Verschlüsselt Original, Thumbnail, Vorschau, ein evtl. entwickeltes
@@ -1924,16 +1938,25 @@ class LibraryState extends ChangeNotifier {
     // bliebe der Inhalt in der unverschlüsselten Datenbank lesbar – siehe
     // [AppDatabase.clearDerivedContentData].
     await db.clearDerivedContentData([asset.id]);
+    // Der Ausschnitt ist jetzt Chiffrat – ein Profilbild, das darauf
+    // zeigt, bliebe leer.
+    await db.verlegeProfilbilderVon([asset.id]);
     if (asset.linkedAssetId != null) {
       final partner = await db.assetById(asset.linkedAssetId!);
       if (partner != null && !partner.isLocked) {
         await _encryptAssetFiles(partner, key);
         await db.setAssetsLocked([partner.id], true);
         await db.clearDerivedContentData([partner.id]);
+        await db.verlegeProfilbilderVon([partner.id]);
       }
     }
   }
 
+  /// Löscht die von [AppDatabase.clearDerivedContentData] genannten
+  /// Dateien – Gesichts-Ausschnitte gesperrter Fotos.
+  ///
+  /// Fehlt eine Datei bereits, ist das kein Fehler: Das Ziel ist, dass sie
+  /// weg ist.
   /// Kehrt [lockAsset] um: entschlüsselt die Dateien wieder in Klartext und
   /// entfernt das Foto (samt Live-Photo-Partner) aus dem gesperrten Ordner.
   Future<void> unlockAsset(AssetData asset) async {
@@ -1969,7 +1992,27 @@ class LibraryState extends ChangeNotifier {
     final safeName = sha256.convert(utf8.encode(relativePath)).toString();
     final target = File(p.join(cacheDir.path, safeName));
     if (!await target.exists()) {
-      await VaultCrypto.decryptFile(paths.absolute(relativePath), target, key);
+      // Erst unter eigenem Namen entschlüsseln, dann umbenennen. Zwei
+      // Gründe, beide aus Prüfrunde 8:
+      //
+      // Die Ansicht kann dieselbe Datei zweimal gleichzeitig anfordern –
+      // eine Kachel, die aus dem Bild scrollt und zurückkommt, startet
+      // einen zweiten Durchgang, während der erste noch schreibt. Beide
+      // sähen "gibt es noch nicht" und schrieben ineinander. Das Umbenennen
+      // ist unteilbar; im schlimmsten Fall gewinnt der zweite Durchgang mit
+      // demselben Inhalt.
+      //
+      // Und: Unter dem endgültigen Namen darf nie ein Rumpf stehen. Bräche
+      // das Entschlüsseln ab, hielte der Zwischenspeicher die abgebrochene
+      // Fassung für fertig und zeigte sie beim nächsten Zugriff wortlos
+      // weiter, statt es erneut zu versuchen.
+      final teil = File('${target.path}.${DateTime.now().microsecondsSinceEpoch}');
+      try {
+        await VaultCrypto.decryptFile(paths.absolute(relativePath), teil, key);
+        await teil.rename(target.path);
+      } finally {
+        if (await teil.exists()) await teil.delete();
+      }
     }
     return target;
   }

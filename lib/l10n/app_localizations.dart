@@ -5790,6 +5790,36 @@ abstract class AppTexte {
   /// **'KI-Maske'**
   String get integArtMaske;
 
+  /// No description provided for @integAlleVerwaistenLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle löschen'**
+  String get integAlleVerwaistenLoeschen;
+
+  /// No description provided for @integAlleVerwaistenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle verwaisten Dateien löschen?'**
+  String get integAlleVerwaistenTitel;
+
+  /// No description provided for @integAlleVerwaistenText.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Dateien mit zusammen {groesse} werden unwiderruflich von der Platte gelöscht. Sie sind in keiner Datenbankzeile verzeichnet – die Bibliothek verliert dadurch nichts, was sie anzeigen könnte.'**
+  String integAlleVerwaistenText(int anzahl, String groesse);
+
+  /// No description provided for @integVerwaisteGeloescht.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} verwaiste Dateien gelöscht.'**
+  String integVerwaisteGeloescht(int anzahl);
+
+  /// No description provided for @integWeitereEintraege.
+  ///
+  /// In de, this message translates to:
+  /// **'… und {anzahl} weitere. Die Liste zeigt nur die ersten {gezeigt}; „Alle löschen“ räumt auch den Rest weg.'**
+  String integWeitereEintraege(int anzahl, int gezeigt);
+
   /// No description provided for @gesperrtTabFotos.
   ///
   /// In de, this message translates to:
@@ -6852,12 +6882,6 @@ abstract class AppTexte {
   /// **'Lebensdaten …'**
   String get stammbaumLebensdaten;
 
-  /// No description provided for @stammbaumLebensdatenVon.
-  ///
-  /// In de, this message translates to:
-  /// **'Lebensdaten: {name}'**
-  String stammbaumLebensdatenVon(String name);
-
   /// No description provided for @stammbaumFotosZeigen.
   ///
   /// In de, this message translates to:
@@ -6929,6 +6953,516 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Ist nur das Jahr bekannt, wähle einen beliebigen Tag darin – angezeigt wird ohnehin nur die Jahreszahl.'**
   String get stammbaumNurJahrHinweis;
+
+  /// No description provided for @gradSelbst.
+  ///
+  /// In de, this message translates to:
+  /// **'diese Person'**
+  String get gradSelbst;
+
+  /// No description provided for @gradEltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Mutter} m{Vater} other{Elternteil}}'**
+  String gradEltern(String geschlecht);
+
+  /// No description provided for @gradGrosseltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Großmutter} m{Großvater} other{Großelternteil}}'**
+  String gradGrosseltern(String geschlecht);
+
+  /// No description provided for @gradUrgrosseltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Urgroßmutter} m{Urgroßvater} other{Urgroßelternteil}}'**
+  String gradUrgrosseltern(String geschlecht);
+
+  /// No description provided for @gradUrurgrosseltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Ururgroßmutter} m{Ururgroßvater} other{Ururgroßelternteil}}'**
+  String gradUrurgrosseltern(String geschlecht);
+
+  /// No description provided for @gradVorfahreN.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorfahre der {stufe}. Generation'**
+  String gradVorfahreN(int stufe);
+
+  /// No description provided for @gradKind.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Tochter} m{Sohn} other{Kind}}'**
+  String gradKind(String geschlecht);
+
+  /// No description provided for @gradEnkel.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Enkelin} m{Enkel} other{Enkelkind}}'**
+  String gradEnkel(String geschlecht);
+
+  /// No description provided for @gradUrenkel.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Urenkelin} m{Urenkel} other{Urenkelkind}}'**
+  String gradUrenkel(String geschlecht);
+
+  /// No description provided for @gradUrurenkel.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Ururenkelin} m{Ururenkel} other{Ururenkelkind}}'**
+  String gradUrurenkel(String geschlecht);
+
+  /// No description provided for @gradNachkommeN.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachkomme der {stufe}. Generation'**
+  String gradNachkommeN(int stufe);
+
+  /// No description provided for @gradGeschwister.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Schwester} m{Bruder} other{Geschwister}}'**
+  String gradGeschwister(String geschlecht);
+
+  /// No description provided for @gradHalbgeschwister.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Halbschwester} m{Halbbruder} other{Halbgeschwister}}'**
+  String gradHalbgeschwister(String geschlecht);
+
+  /// No description provided for @gradNeffeNichte.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Nichte} m{Neffe} other{Geschwisterkind}}'**
+  String gradNeffeNichte(String geschlecht);
+
+  /// No description provided for @gradGrossneffeNichte.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Großnichte} m{Großneffe} other{Großgeschwisterkind}}'**
+  String gradGrossneffeNichte(String geschlecht);
+
+  /// No description provided for @gradGeschwisterNachkommeN.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachkomme eines Geschwisters, {stufe} Stufen entfernt'**
+  String gradGeschwisterNachkommeN(int stufe);
+
+  /// No description provided for @gradOnkelTante.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Tante} m{Onkel} other{Elterngeschwister}}'**
+  String gradOnkelTante(String geschlecht);
+
+  /// No description provided for @gradGrossonkelTante.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Großtante} m{Großonkel} other{Großelterngeschwister}}'**
+  String gradGrossonkelTante(String geschlecht);
+
+  /// No description provided for @gradVorfahrengeschwisterN.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschwister eines Vorfahren der {stufe}. Generation'**
+  String gradVorfahrengeschwisterN(int stufe);
+
+  /// No description provided for @gradCousin.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Cousine} m{Cousin} other{Cousin/Cousine}} {stufe}. Grades'**
+  String gradCousin(String geschlecht, int stufe);
+
+  /// No description provided for @gradEntfernt.
+  ///
+  /// In de, this message translates to:
+  /// **'{bezeichnung}, {stufe}-fach entfernt'**
+  String gradEntfernt(int stufe, String bezeichnung);
+
+  /// No description provided for @gradPartner.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Partnerin} m{Partner} other{Partner}}'**
+  String gradPartner(String geschlecht);
+
+  /// No description provided for @gradSchwager.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Schwägerin} m{Schwager} other{Schwager/Schwägerin}}'**
+  String gradSchwager(String geschlecht);
+
+  /// No description provided for @gradSchwiegereltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Schwiegermutter} m{Schwiegervater} other{Schwiegerelternteil}}'**
+  String gradSchwiegereltern(String geschlecht);
+
+  /// No description provided for @gradSchwiegerkind.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Schwiegertochter} m{Schwiegersohn} other{Schwiegerkind}}'**
+  String gradSchwiegerkind(String geschlecht);
+
+  /// No description provided for @gradStiefeltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Stiefmutter} m{Stiefvater} other{Stiefelternteil}}'**
+  String gradStiefeltern(String geschlecht);
+
+  /// No description provided for @gradStiefkind.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Stieftochter} m{Stiefsohn} other{Stiefkind}}'**
+  String gradStiefkind(String geschlecht);
+
+  /// No description provided for @gradStiefgeschwister.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Stiefschwester} m{Stiefbruder} other{Stiefgeschwister}}'**
+  String gradStiefgeschwister(String geschlecht);
+
+  /// No description provided for @gradAngeheiratet.
+  ///
+  /// In de, this message translates to:
+  /// **'angeheiratet'**
+  String get gradAngeheiratet;
+
+  /// No description provided for @gradKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'nicht verwandt'**
+  String get gradKeine;
+
+  /// No description provided for @navStammbaum.
+  ///
+  /// In de, this message translates to:
+  /// **'Stammbaum'**
+  String get navStammbaum;
+
+  /// No description provided for @stammbaumAndereWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Andere Person in die Mitte'**
+  String get stammbaumAndereWaehlen;
+
+  /// No description provided for @stammbaumAnsichtBaum.
+  ///
+  /// In de, this message translates to:
+  /// **'Baum'**
+  String get stammbaumAnsichtBaum;
+
+  /// No description provided for @stammbaumAnsichtListe.
+  ///
+  /// In de, this message translates to:
+  /// **'Verwandte'**
+  String get stammbaumAnsichtListe;
+
+  /// No description provided for @stammbaumListeKopf.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Person ist mit {name} verwandt.} other{{anzahl} Personen sind mit {name} verwandt – von den nächsten zu den entferntesten.}}'**
+  String stammbaumListeKopf(String name, int anzahl);
+
+  /// No description provided for @stammbaumKeinePersonen.
+  ///
+  /// In de, this message translates to:
+  /// **'Es sind noch keine Personen angelegt. Benenne im Tab „Personen\" ein paar Gesichter, oder lege hier über „Andere Person in die Mitte\" jemanden von Hand an.'**
+  String get stammbaumKeinePersonen;
+
+  /// No description provided for @stammbaumGeschlecht.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschlecht'**
+  String get stammbaumGeschlecht;
+
+  /// No description provided for @stammbaumGeschlechtWeiblich.
+  ///
+  /// In de, this message translates to:
+  /// **'weiblich'**
+  String get stammbaumGeschlechtWeiblich;
+
+  /// No description provided for @stammbaumGeschlechtMaennlich.
+  ///
+  /// In de, this message translates to:
+  /// **'männlich'**
+  String get stammbaumGeschlechtMaennlich;
+
+  /// No description provided for @stammbaumGeschlechtDivers.
+  ///
+  /// In de, this message translates to:
+  /// **'divers'**
+  String get stammbaumGeschlechtDivers;
+
+  /// No description provided for @stammbaumGeschlechtOffen.
+  ///
+  /// In de, this message translates to:
+  /// **'keine Angabe'**
+  String get stammbaumGeschlechtOffen;
+
+  /// No description provided for @stammbaumGeschlechtHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird nur für die Verwandtschaftsbezeichnungen gebraucht – ohne Angabe steht dort „Geschwister\" statt „Schwester\".'**
+  String get stammbaumGeschlechtHinweis;
+
+  /// No description provided for @stammbaumAngaben.
+  ///
+  /// In de, this message translates to:
+  /// **'Angaben zur Person'**
+  String get stammbaumAngaben;
+
+  /// No description provided for @stammbaumAnsichtFaecher.
+  ///
+  /// In de, this message translates to:
+  /// **'Fächer'**
+  String get stammbaumAnsichtFaecher;
+
+  /// No description provided for @stammbaumAnsichtNachfahren.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachfahren'**
+  String get stammbaumAnsichtNachfahren;
+
+  /// No description provided for @stammbaumKeineVorfahren.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diese Person sind noch keine Vorfahren eingetragen. Der Fächer zeigt Eltern, Großeltern und Urgroßeltern – füge oben rechts einen Elternteil hinzu, und er füllt sich von innen nach außen.'**
+  String get stammbaumKeineVorfahren;
+
+  /// No description provided for @stammbaumKeineNachfahren.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diese Person sind noch keine Kinder eingetragen. Die Gliederung zeigt alle Nachkommen, eingerückt nach Generation.'**
+  String get stammbaumKeineNachfahren;
+
+  /// No description provided for @stammbaumFamilienfotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos der Familie'**
+  String get stammbaumFamilienfotos;
+
+  /// No description provided for @stammbaumFamilienfotosVon.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos der Familie von {name}'**
+  String stammbaumFamilienfotosVon(String name);
+
+  /// No description provided for @stammbaumKeineFamilienfotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf keinem Foto wurde bisher jemand aus dieser Familie erkannt.'**
+  String get stammbaumKeineFamilienfotos;
+
+  /// No description provided for @stammbaumGedcomExport.
+  ///
+  /// In de, this message translates to:
+  /// **'Als GEDCOM ausgeben …'**
+  String get stammbaumGedcomExport;
+
+  /// No description provided for @stammbaumGedcomFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Person ausgegeben.} other{{anzahl} Personen ausgegeben.}}'**
+  String stammbaumGedcomFertig(int anzahl);
+
+  /// No description provided for @gradAdoptiveltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Adoptivmutter} m{Adoptivvater} other{Adoptivelternteil}}'**
+  String gradAdoptiveltern(String geschlecht);
+
+  /// No description provided for @gradPflegeeltern.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Pflegemutter} m{Pflegevater} other{Pflegeelternteil}}'**
+  String gradPflegeeltern(String geschlecht);
+
+  /// No description provided for @gradAdoptivkind.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Adoptivtochter} m{Adoptivsohn} other{Adoptivkind}}'**
+  String gradAdoptivkind(String geschlecht);
+
+  /// No description provided for @gradPflegekind.
+  ///
+  /// In de, this message translates to:
+  /// **'{geschlecht, select, w{Pflegetochter} m{Pflegesohn} other{Pflegekind}}'**
+  String gradPflegekind(String geschlecht);
+
+  /// No description provided for @stammbaumLeiblich.
+  ///
+  /// In de, this message translates to:
+  /// **'Leiblich'**
+  String get stammbaumLeiblich;
+
+  /// No description provided for @stammbaumAdoptiv.
+  ///
+  /// In de, this message translates to:
+  /// **'Adoptiv'**
+  String get stammbaumAdoptiv;
+
+  /// No description provided for @stammbaumPflege.
+  ///
+  /// In de, this message translates to:
+  /// **'Pflege'**
+  String get stammbaumPflege;
+
+  /// No description provided for @stammbaumAnsichtSanduhr.
+  ///
+  /// In de, this message translates to:
+  /// **'Sanduhr'**
+  String get stammbaumAnsichtSanduhr;
+
+  /// No description provided for @lebenslaufVon.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebenslauf: {name}'**
+  String lebenslaufVon(String name);
+
+  /// No description provided for @lebenslaufHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ereignis hinzufügen'**
+  String get lebenslaufHinzufuegen;
+
+  /// No description provided for @lebenslaufLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diese Person ist noch nichts eingetragen. Geburt und Tod stehen bei den Angaben zur Person; hier kommen Hochzeit, Umzug, Beruf und alles Weitere hin.'**
+  String get lebenslaufLeer;
+
+  /// No description provided for @lebenslaufGeburt.
+  ///
+  /// In de, this message translates to:
+  /// **'Geboren'**
+  String get lebenslaufGeburt;
+
+  /// No description provided for @lebenslaufTod.
+  ///
+  /// In de, this message translates to:
+  /// **'Gestorben'**
+  String get lebenslaufTod;
+
+  /// No description provided for @lebenslaufHochzeit.
+  ///
+  /// In de, this message translates to:
+  /// **'Hochzeit'**
+  String get lebenslaufHochzeit;
+
+  /// No description provided for @lebenslaufUmzug.
+  ///
+  /// In de, this message translates to:
+  /// **'Umzug'**
+  String get lebenslaufUmzug;
+
+  /// No description provided for @lebenslaufBeruf.
+  ///
+  /// In de, this message translates to:
+  /// **'Beruf'**
+  String get lebenslaufBeruf;
+
+  /// No description provided for @lebenslaufAusbildung.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausbildung'**
+  String get lebenslaufAusbildung;
+
+  /// No description provided for @lebenslaufSonstiges.
+  ///
+  /// In de, this message translates to:
+  /// **'Sonstiges'**
+  String get lebenslaufSonstiges;
+
+  /// No description provided for @lebenslaufOhneDatum.
+  ///
+  /// In de, this message translates to:
+  /// **'ohne Datum'**
+  String get lebenslaufOhneDatum;
+
+  /// No description provided for @lebenslaufOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort'**
+  String get lebenslaufOrt;
+
+  /// No description provided for @lebenslaufNotiz.
+  ///
+  /// In de, this message translates to:
+  /// **'Notiz'**
+  String get lebenslaufNotiz;
+
+  /// No description provided for @stammbaumLebenslauf.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebenslauf …'**
+  String get stammbaumLebenslauf;
+
+  /// No description provided for @orteIch.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Person'**
+  String get orteIch;
+
+  /// No description provided for @orteVorfahren.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorfahren'**
+  String get orteVorfahren;
+
+  /// No description provided for @orteNachkommen.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachkommen'**
+  String get orteNachkommen;
+
+  /// No description provided for @orteSeitenlinie.
+  ///
+  /// In de, this message translates to:
+  /// **'Seitenlinie'**
+  String get orteSeitenlinie;
+
+  /// No description provided for @orteAngeheiratet.
+  ///
+  /// In de, this message translates to:
+  /// **'Angeheiratet'**
+  String get orteAngeheiratet;
+
+  /// No description provided for @orteNichtsGewaehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Gruppe ausgewählt.'**
+  String get orteNichtsGewaehlt;
+
+  /// No description provided for @stammbaumFamilienorte.
+  ///
+  /// In de, this message translates to:
+  /// **'Orte der Familie'**
+  String get stammbaumFamilienorte;
+
+  /// No description provided for @stammbaumFamilienorteVon.
+  ///
+  /// In de, this message translates to:
+  /// **'Orte der Familie von {name}'**
+  String stammbaumFamilienorteVon(String name);
+
+  /// No description provided for @stammbaumKeineFamilienorte.
+  ///
+  /// In de, this message translates to:
+  /// **'Von dieser Familie ist kein Foto mit Ortsangabe vorhanden.'**
+  String get stammbaumKeineFamilienorte;
+
+  /// No description provided for @stammbaumTafelDrucken.
+  ///
+  /// In de, this message translates to:
+  /// **'Tafel als PDF …'**
+  String get stammbaumTafelDrucken;
+
+  /// No description provided for @stammbaumTafelFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Tafel wurde geschrieben.'**
+  String get stammbaumTafelFertig;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

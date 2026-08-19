@@ -14,6 +14,7 @@ import '../services/library_location.dart';
 import '../services/library_stats.dart';
 import '../services/search_filters.dart';
 import '../services/stammbaum.dart';
+import '../services/verwandtschaftsgrad.dart';
 
 part 'database.g.dart';
 
@@ -515,6 +516,42 @@ class People extends Table {
   DateTimeColumn get geburtsdatum => dateTime().nullable()();
   DateTimeColumn get sterbedatum => dateTime().nullable()();
 
+  /// Geschlecht – ausschließlich für die Verwandtschaftsbezeichnungen.
+  ///
+  /// Ohne diese Angabe gibt es kein „Schwester", nur „Geschwister": Fast
+  /// jede Bezeichnung im Deutschen wie im Englischen ist geschlechtsgebunden.
+  /// `null` ist deshalb kein Mangel, sondern ein gültiger Zustand – dann
+  /// erscheint die geschlechtsneutrale Form, und niemand muss eine Angabe
+  /// machen, die er nicht kennt oder nicht machen will. Werte siehe
+  /// `Geschlecht` in services/verwandtschaftsgrad.dart.
+  TextColumn get geschlecht => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Ein Ereignis im Leben einer Person – Hochzeit, Umzug, Berufsantritt.
+///
+/// Eigene Tabelle und nicht Spalten an [People]: Geburt und Tod gibt es
+/// genau einmal, alles andere beliebig oft. Wer dreimal umgezogen ist,
+/// hat drei Umzüge, und eine feste Spaltenzahl wäre entweder zu klein
+/// oder meistens leer.
+///
+/// Geburt und Tod bleiben bewusst dort, wo sie sind: Sie stehen in fast
+/// jeder Ansicht unter dem Namen, und sie hier ein zweites Mal zu führen
+/// hiesse, zwei Wahrheiten zu haben.
+class Lebensereignisse extends Table {
+  TextColumn get id => text()();
+  TextColumn get personId => text()();
+
+  /// Siehe `Ereignisart` in services/lebenslauf.dart.
+  TextColumn get art => text()();
+
+  /// Freiwillig – manchmal weiß man nur, *dass* etwas war.
+  DateTimeColumn get datum => dateTime().nullable()();
+  TextColumn get ort => text().nullable()();
+  TextColumn get notiz => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -822,6 +859,7 @@ class SavedSearches extends Table {
   AutomationRuleTags,
   ExportPresets,
   PersonBeziehungen,
+  Lebensereignisse,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -836,7 +874,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 40;
+  int get schemaVersion => 42;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1143,6 +1181,19 @@ class AppDatabase extends _$AppDatabase {
             await _addColumnIfMissing(m, people, people.sterbedatum, 'people', 'sterbedatum');
             await customStatement(
                 'CREATE INDEX IF NOT EXISTS idx_beziehung_andere ON person_beziehungen (andere_id)');
+          }
+          if (from < 41) {
+            // Geschlecht, nur für die Verwandtschaftsbezeichnungen. Leer
+            // bedeutet „nicht angegeben" – der Stammbaum zeigt dann die
+            // geschlechtsneutrale Form.
+            await _addColumnIfMissing(m, people, people.geschlecht, 'people', 'geschlecht');
+          }
+          if (from < 42) {
+            // Lebensereignisse. Eine neue, anfangs leere Tabelle – ohne
+            // einen einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(lebensereignisse);
+            await customStatement('CREATE INDEX IF NOT EXISTS idx_ereignis_person '
+                'ON lebensereignisse (person_id)');
           }
         },
       );
@@ -3419,6 +3470,38 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  // -----------------------------------------------------------------------
+  // Lebensereignisse (siehe services/lebenslauf.dart)
+  // -----------------------------------------------------------------------
+
+  Stream<List<LebensereignisseData>> watchEreignisse(String personId) =>
+      (select(lebensereignisse)..where((t) => t.personId.equals(personId)))
+          .watch();
+
+  Future<void> fuegeEreignisHinzu(LebensereignisseCompanion ereignis) =>
+      into(lebensereignisse).insert(ereignis);
+
+  Future<void> loescheEreignis(String id) =>
+      (delete(lebensereignisse)..where((t) => t.id.equals(id))).go();
+
+  /// Wie viele Ereignisse eine Person hat – für den Hinweis am Menüpunkt.
+  Future<int> ereignisAnzahl(String personId) async {
+    final anzahl = lebensereignisse.id.count();
+    final row = await (selectOnly(lebensereignisse)
+          ..addColumns([anzahl])
+          ..where(lebensereignisse.personId.equals(personId)))
+        .getSingle();
+    return row.read(anzahl) ?? 0;
+  }
+
+  /// Setzt das Geschlecht einer Person. `null` bedeutet „nicht angegeben".
+  Future<void> setzeGeschlecht(String personId, Geschlecht? geschlecht) =>
+      (update(people)..where((t) => t.id.equals(personId))).write(
+        PeopleCompanion(
+          geschlecht: Value(geschlecht == null ? null : geschlechtZuText(geschlecht)),
+        ),
+      );
+
   /// Setzt die Lebensdaten einer Person. `null` löscht die Angabe.
   Future<void> setzeLebensdaten(
     String personId, {
@@ -3446,6 +3529,68 @@ class AppDatabase extends _$AppDatabase {
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
     return sortiert;
+  }
+
+  /// Alle Fotos, auf denen mindestens eine der genannten Personen erkannt
+  /// wurde – für „Fotos der Familie".
+  ///
+  /// Die eigentliche Verbindung zwischen den beiden Hälften dieser App:
+  /// Gesichter sind Personen zugeordnet, Personen sind miteinander
+  /// verwandt. Erst diese Abfrage macht daraus „zeig mir alles von diesem
+  /// Familienzweig". Ein Foto mit mehreren Verwandten darauf erscheint
+  /// einmal, nicht mehrfach.
+  Future<List<AssetData>> assetsFuerPersonen(List<String> personIds) async {
+    if (personIds.isEmpty) return [];
+    final query = select(assets).join([
+      innerJoin(faces, faces.assetId.equalsExp(assets.id)),
+    ])
+      ..where(faces.personId.isIn(personIds) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          _isPrimaryGridEntry(assets))
+      ..orderBy([OrderingTerm.desc(assets.fileCreatedAt)]);
+    final rows = await query.get();
+    final gesehen = <String>{};
+    final ergebnis = <AssetData>[];
+    for (final row in rows) {
+      final a = row.readTable(assets);
+      if (gesehen.add(a.id)) ergebnis.add(a);
+    }
+    return ergebnis;
+  }
+
+  /// Verortete Fotos einer Personengruppe, samt der Personen darauf.
+  ///
+  /// Für die Familienkarte: Ein Foto kann mehrere Verwandte zeigen, und
+  /// erst die Liste der Personen erlaubt der Karte zu entscheiden, welcher
+  /// Verwandtschaftsgrad die Farbe bestimmt. Ein einzelnes „gehört zur
+  /// Familie“ genügte dafür nicht.
+  Future<List<({AssetData asset, Set<String> personen})>> verorteteAssetsFuerPersonen(
+      List<String> personIds) async {
+    if (personIds.isEmpty) return [];
+    final query = select(assets).join([
+      innerJoin(faces, faces.assetId.equalsExp(assets.id)),
+    ])
+      ..where(faces.personId.isIn(personIds) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          assets.latitude.isNotNull() &
+          assets.longitude.isNotNull() &
+          _isPrimaryGridEntry(assets))
+      ..orderBy([OrderingTerm.desc(assets.fileCreatedAt)]);
+    final rows = await query.get();
+    final nachId = <String, AssetData>{};
+    final leute = <String, Set<String>>{};
+    for (final row in rows) {
+      final a = row.readTable(assets);
+      nachId[a.id] = a;
+      final pid = row.readTable(faces).personId;
+      if (pid != null) leute.putIfAbsent(a.id, () => {}).add(pid);
+    }
+    return [
+      for (final e in nachId.entries)
+        (asset: e.value, personen: leute[e.key] ?? const <String>{}),
+    ];
   }
 
   Stream<List<AssetData>> watchAssetsForPerson(String personId) {
@@ -3500,12 +3645,31 @@ class AppDatabase extends _$AppDatabase {
   /// Beiseitegelegte Gesichter bleiben ebenfalls stehen. Sonst wäre das
   /// Ignorieren beim ersten „alle Fotos erneut scannen" stillschweigend
   /// wieder weg – und genau davor soll es schützen (siehe [Faces.isIgnored]).
-  Future<void> deleteUnassignedFacesForAsset(String assetId) => (delete(faces)
-        ..where((t) =>
-            t.assetId.equals(assetId) &
-            t.personId.isNull() &
-            t.isIgnored.equals(false)))
-      .go();
+  /// Gibt die Ausschnitts-Pfade der gelöschten Zeilen zurück, damit der
+  /// Aufrufer die Dateien mit wegräumt – wie [loescheGesicht] und
+  /// [loescheAlleUnbenanntenErkennungen].
+  ///
+  /// Diese Rückgabe fehlte hier als einziger der drei Löschwege, und
+  /// ausgerechnet dieser läuft nicht auf Knopfdruck, sondern bei jedem
+  /// „alle Fotos erneut scannen" über den ganzen Bestand. In der
+  /// Prüfbibliothek lagen dadurch 17 643 Ausschnitte ohne Datenbankzeile
+  /// – 160 MB, genau die Hälfte des Ordners, alle aus einem einzigen
+  /// Durchlauf. Jeder weitere Scan hätte den Bestand erneut verdoppelt
+  /// (Prüfrunde 8).
+  Future<List<String>> deleteUnassignedFacesForAsset(String assetId) async {
+    final auswahl = select(faces)
+      ..where((t) =>
+          t.assetId.equals(assetId) &
+          t.personId.isNull() &
+          t.isIgnored.equals(false));
+    final betroffen = await auswahl.get();
+    if (betroffen.isEmpty) return const [];
+    await (delete(faces)..where((t) => t.id.isIn([for (final f in betroffen) f.id]))).go();
+    return [
+      for (final f in betroffen)
+        if (f.cropRelativePath != null) f.cropRelativePath!,
+    ];
+  }
 
   // -----------------------------------------------------------------------
   // CLIP-Bild-Embeddings (KI-Suche)
@@ -3818,6 +3982,49 @@ class AppDatabase extends _$AppDatabase {
     ));
     await (delete(imageEmbeddings)..where((t) => t.assetId.isIn(assetIds))).go();
     _embeddingsGeneration++;
+  }
+
+  /// Hängt Profilbilder um, die auf einen Gesichts-Ausschnitt aus einem
+  /// gerade gesperrten Foto zeigen.
+  ///
+  /// Die Ausschnittdatei selbst wird beim Sperren mitverschlüsselt (siehe
+  /// `LibraryState._encryptAssetFiles`) – sie ist also kein Leck. Aber der
+  /// Pfad im Profilbild zeigt danach auf Chiffrat: Die Person verliert
+  /// ihren Avatar in Erkunden, Personen und Stammbaum, bis das Foto wieder
+  /// entsperrt wird.
+  ///
+  /// Ersetzt wird durch einen Ausschnitt aus einem nicht gesperrten Foto;
+  /// gibt es keinen, bleibt die Person ohne Profilbild. Beim Entsperren
+  /// wird nichts zurückgehängt – jeder gültige Ausschnitt tut es, und ein
+  /// automatisches Zurücksetzen würde eine inzwischen von Hand getroffene
+  /// Wahl überschreiben.
+  Future<int> verlegeProfilbilderVon(List<String> assetIds) async {
+    final betroffen = await (select(faces)
+          ..where((t) => t.assetId.isIn(assetIds) & t.cropRelativePath.isNotNull()))
+        .get();
+    final pfade = [for (final f in betroffen) f.cropRelativePath!];
+    if (pfade.isEmpty) return 0;
+
+    final personen =
+        await (select(people)..where((t) => t.coverFaceCropPath.isIn(pfade))).get();
+    for (final person in personen) {
+      final ersatz = await (select(faces).join([
+        innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+      ])
+            ..where(faces.personId.equals(person.id) &
+                faces.cropRelativePath.isNotNull() &
+                assets.isLocked.equals(false) &
+                assets.isTrashed.equals(false))
+            ..limit(1))
+          .get();
+      await (update(people)..where((t) => t.id.equals(person.id))).write(
+        PeopleCompanion(
+          coverFaceCropPath: Value(
+              ersatz.isEmpty ? null : ersatz.first.readTable(faces).cropRelativePath),
+        ),
+      );
+    }
+    return personen.length;
   }
 
   Stream<List<AssetData>> watchLockedAssets() => (select(assets)

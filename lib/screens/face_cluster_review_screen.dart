@@ -160,6 +160,14 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
                                           width: 56,
                                           height: 56,
                                           fit: BoxFit.cover,
+                                          // 160 px auf der Platte, 56 auf
+                                          // dem Schirm – das Achtfache an
+                                          // Bildspeicher für nichts
+                                          // (Prüfrunde 8).
+                                          cacheWidth: (56 *
+                                                  MediaQuery.devicePixelRatioOf(
+                                                      context))
+                                              .round(),
                                         )
                                       : const SizedBox(width: 56, height: 56),
                                 ),

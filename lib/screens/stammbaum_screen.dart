@@ -1,13 +1,30 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/stammbaum.dart';
+import '../services/verwandtschaftsgrad.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../services/faechertafel.dart';
+import '../services/familienorte.dart';
+import '../services/gedcom_export.dart';
+import '../services/tafel_pdf.dart';
+import '../services/sanduhr.dart';
+import '../widgets/faecher_ansicht.dart';
 import '../widgets/person_picker_dialog.dart';
+import '../widgets/sanduhr_ansicht.dart';
+import '../widgets/verwandtschaft_text.dart';
+import 'familienfotos_screen.dart';
+import 'familienorte_screen.dart';
+import 'lebenslauf_screen.dart';
 import 'person_detail_screen.dart';
 
 /// Breite und Höhe einer Personenkarte. Fest, weil die Verbindungslinien
@@ -30,14 +47,43 @@ const double _verbinderHoehe = 44;
 /// gehört, ginge verloren). Sie sind einen Klick entfernt: Wer auf eine
 /// Karte tippt, rückt sie in die Mitte. Ein kleines Zeichen an der Karte
 /// sagt vorher, ob dort etwas wartet.
+/// Die beiden Sichten auf dieselbe Familie.
+enum _Ansicht {
+  /// Der Baum: unmittelbare Verwandtschaft, räumlich angeordnet.
+  baum,
+
+  /// Der Fächer: bis zu vier Generationen Vorfahren als Ringe. Die
+  /// gewählte Baumoptik – sie kann als einzige mehrere Generationen
+  /// zeigen, ohne dass eine Linie mehrdeutig wird.
+  faecher,
+
+  /// Die Sanduhr: Vorfahren und Nachkommen über mehrere Generationen in
+  /// einem Bild.
+  sanduhr,
+
+  /// Die Nachfahren als eingerückte Gliederung – die Gegenrichtung zum
+  /// Fächer, der nur nach oben zeigen kann.
+  nachfahren,
+
+  /// Die Liste: **alle** Verwandten mit ihrer Bezeichnung, von den
+  /// nächsten zu den entferntesten. Erst hier tauchen die Bezeichnungen
+  /// auf, für die im Baum kein Platz ist – Urgroßvater, Cousine zweiten
+  /// Grades, Schwägerin.
+  liste,
+}
+
 class StammbaumScreen extends StatefulWidget {
   final LibraryState library;
-  final String startPersonId;
+
+  /// Wer in der Mitte steht. `null`, wenn der Bildschirm über den
+  /// Menüpunkt geöffnet wird und noch niemand gewählt ist – dann sucht er
+  /// sich selbst eine Person aus (siehe [_StammbaumScreenState._startperson]).
+  final String? startPersonId;
 
   const StammbaumScreen({
     super.key,
     required this.library,
-    required this.startPersonId,
+    this.startPersonId,
   });
 
   @override
@@ -45,11 +91,17 @@ class StammbaumScreen extends StatefulWidget {
 }
 
 class _StammbaumScreenState extends State<StammbaumScreen> {
-  late String _fokusId = widget.startPersonId;
+  String? _fokusId;
+  _Ansicht _ansicht = _Ansicht.baum;
 
   List<PersonData> _personen = [];
   Map<String, PersonData> _nachId = {};
   Verwandtschaftsnetz _netz = Verwandtschaftsnetz(const []);
+
+  /// Die Bezeichnung jeder verwandten Person, bezogen auf [_fokusId].
+  /// Einmal je Fokuswechsel gerechnet statt je Karte – für die Liste
+  /// braucht es ohnehin alle.
+  Map<String, Grad> _grade = const {};
   bool _laedt = true;
 
   /// Der Weg, den man sich durch den Baum genommen hat – damit der
@@ -68,28 +120,71 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
         await widget.library.db.select(widget.library.db.people).get());
     final zeilen = await widget.library.db.alleBeziehungen();
     if (!mounted) return;
+    final netz = Verwandtschaftsnetz([
+      for (final z in zeilen)
+        if (artAusText(z.art) case final art?) kante(z.personId, z.andereId, art),
+    ]);
     setState(() {
       _personen = personen;
       _nachId = {for (final p in personen) p.id: p};
-      _netz = Verwandtschaftsnetz([
-        for (final z in zeilen)
-          if (artAusText(z.art) case final art?) kante(z.personId, z.andereId, art),
-      ]);
+      _netz = netz;
+      _fokusId ??= widget.startPersonId ?? _startperson(personen, netz);
       _laedt = false;
     });
+    _rechneGrade();
+  }
+
+  /// Wen der Bildschirm zeigt, wenn er ohne Vorgabe geöffnet wird.
+  ///
+  /// Die Person mit den meisten eingetragenen Verwandten – dort ist am
+  /// meisten zu sehen. Die erste Person der Liste wäre die schlechtere
+  /// Wahl: Das ist die älteste oder alphabetisch erste, und die steht
+  /// typischerweise am Rand des Baums, nicht in seiner Mitte.
+  String? _startperson(List<PersonData> personen, Verwandtschaftsnetz netz) {
+    if (personen.isEmpty) return null;
+    var beste = personen.first;
+    var meiste = -1;
+    for (final p in personen) {
+      final anzahl = netz.eltern(p.id).length +
+          netz.kinder(p.id).length +
+          netz.partner(p.id).length;
+      if (anzahl > meiste) {
+        meiste = anzahl;
+        beste = p;
+      }
+    }
+    return beste.id;
+  }
+
+  void _rechneGrade() {
+    final fokus = _fokusId;
+    if (fokus == null) return;
+    setState(() {
+      _grade = alleGrade(_netz, fokus, [for (final p in _personen) p.id]);
+    });
+  }
+
+  /// Die Bezeichnung einer Person, bezogen auf die Person in der Mitte.
+  String? _bezeichnung(PersonData person) {
+    final grad = _grade[person.id];
+    if (grad == null) return null;
+    return verwandtschaftText(
+        context, grad, geschlechtAusText(person.geschlecht));
   }
 
   void _ruecke(String id) {
     if (id == _fokusId) return;
     setState(() {
-      _pfad.add(_fokusId);
+      _pfad.add(_fokusId!);
       _fokusId = id;
     });
+    _rechneGrade();
   }
 
   bool _zurueck() {
     if (_pfad.isEmpty) return false;
     setState(() => _fokusId = _pfad.removeLast());
+    _rechneGrade();
     return true;
   }
 
@@ -101,18 +196,20 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// zwei Schreibweisen für einen Sachverhalt laufen früher oder später
   /// auseinander.
   Future<void> _hinzufuegen(Verwandtschaft art, {bool umgekehrt = false}) async {
+    final fokusId = _fokusId;
+    if (fokusId == null) return;
     final t = AppTexte.of(context);
-    final titel = switch ((art, umgekehrt)) {
-      (Verwandtschaft.elternteil, false) => t.stammbaumElternteilHinzufuegen,
-      (Verwandtschaft.elternteil, true) => t.stammbaumKindHinzufuegen,
-      (Verwandtschaft.partner, _) => t.stammbaumPartnerHinzufuegen,
-    };
+    final titel = art == Verwandtschaft.partner
+        ? t.stammbaumPartnerHinzufuegen
+        : umgekehrt
+            ? t.stammbaumKindHinzufuegen
+            : t.stammbaumElternteilHinzufuegen;
     final wahl = await showPersonPickerDialog(
       context,
       // Die Person in der Mitte steht nicht zur Auswahl – mit sich selbst
       // verwandt zu sein wäre der einzige Fehler, den dieser Dialog
       // überhaupt anbieten könnte.
-      _personen.where((p) => p.id != _fokusId).toList(),
+      _personen.where((p) => p.id != fokusId).toList(),
       paths: widget.library.paths,
       title: titel,
     );
@@ -129,8 +226,8 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     }
 
     final fehler = umgekehrt
-        ? await widget.library.db.fuegeBeziehungHinzu(andereId, _fokusId, art)
-        : await widget.library.db.fuegeBeziehungHinzu(_fokusId, andereId, art);
+        ? await widget.library.db.fuegeBeziehungHinzu(andereId, fokusId, art)
+        : await widget.library.db.fuegeBeziehungHinzu(fokusId, andereId, art);
     await _laden();
     if (fehler != null && mounted) _meldeFehler(fehler);
   }
@@ -172,6 +269,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
           child: _zeile(Icons.event_outlined, t.stammbaumLebensdaten),
         ),
         PopupMenuItem(
+          value: 'lebenslauf',
+          child: _zeile(Icons.timeline_outlined, t.stammbaumLebenslauf),
+        ),
+        PopupMenuItem(
           value: 'fotos',
           child: _zeile(Icons.photo_library_outlined, t.stammbaumFotosZeigen),
         ),
@@ -190,6 +291,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
         _ruecke(person.id);
       case 'lebensdaten':
         await _lebensdatenBearbeiten(person);
+      case 'lebenslauf':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => LebenslaufScreen(library: widget.library, person: person),
+        ));
       case 'fotos':
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => PersonDetailScreen(library: widget.library, person: person),
@@ -220,23 +325,400 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       ),
     );
     if (ja != true) return;
+    final fokusId = _fokusId!;
     if (umgekehrt) {
-      await widget.library.db.entferneBeziehung(person.id, _fokusId, art);
+      await widget.library.db.entferneBeziehung(person.id, fokusId, art);
     } else {
-      await widget.library.db.entferneBeziehung(_fokusId, person.id, art);
+      await widget.library.db.entferneBeziehung(fokusId, person.id, art);
     }
     await _laden();
   }
 
   Future<void> _lebensdatenBearbeiten(PersonData person) async {
-    final ergebnis = await showDialog<({DateTime? geburt, DateTime? tod})>(
+    final ergebnis =
+        await showDialog<({DateTime? geburt, DateTime? tod, Geschlecht? geschlecht})>(
       context: context,
       builder: (_) => _LebensdatenDialog(person: person),
     );
     if (ergebnis == null) return;
     await widget.library.db.setzeLebensdaten(person.id,
         geburt: ergebnis.geburt, tod: ergebnis.tod);
+    await widget.library.db.setzeGeschlecht(person.id, ergebnis.geschlecht);
     await _laden();
+  }
+
+  /// Wechselt die Person in der Mitte über die bekannte Personenauswahl.
+  ///
+  /// Ein neuer Name ist dort erlaubt und legt die Person an – so lässt
+  /// sich ein Stammbaum auch dann beginnen, wenn noch niemand benannt ist.
+  Future<void> _waehlePerson() async {
+    final wahl = await showPersonPickerDialog(
+      context,
+      _personen,
+      paths: widget.library.paths,
+      title: AppTexte.of(context).stammbaumAndereWaehlen,
+    );
+    if (wahl == null || !mounted) return;
+    if (wahl.newName != null) {
+      final id = const Uuid().v4();
+      await widget.library.db
+          .createPerson(PeopleCompanion.insert(id: id, name: wahl.newName!));
+      if (!mounted) return;
+      setState(() => _fokusId = id);
+      await _laden();
+      return;
+    }
+    _ruecke(wahl.existingPersonId!);
+  }
+
+  /// Öffnet alle Fotos, auf denen jemand aus dieser Familie zu sehen ist.
+  ///
+  /// Die Funktion, die diese App von einem Ahnenprogramm unterscheidet:
+  /// Die Gesichter sind bereits Personen zugeordnet, die Verwandtschaft
+  /// steht daneben – es fehlte nur die Abfrage, die beides verbindet.
+  Future<void> _fotosDerFamilie() async {
+    final fokus = _fokusId;
+    if (fokus == null) return;
+    final t = AppTexte.of(context);
+    // Die Person selbst gehört dazu, sonst fehlten ausgerechnet ihre
+    // eigenen Fotos.
+    final ids = [fokus, ..._grade.keys];
+    final assets = await widget.library.db.assetsFuerPersonen(ids);
+    if (!mounted) return;
+    if (assets.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.stammbaumKeineFamilienfotos)),
+      );
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => FamilienfotosScreen(
+        library: widget.library,
+        titel: t.stammbaumFamilienfotosVon(_nachId[fokus]?.name ?? ''),
+        assets: assets,
+      ),
+    ));
+  }
+
+  /// Zeigt die Fotos der Familie auf einer Karte, eingefärbt nach
+  /// Verwandtschaftsrichtung.
+  Future<void> _orteDerFamilie() async {
+    final fokus = _fokusId;
+    if (fokus == null) return;
+    final t = AppTexte.of(context);
+    final roh = await widget.library.db
+        .verorteteAssetsFuerPersonen([fokus, ..._grade.keys]);
+    if (!mounted) return;
+    final orte = <Familienort>[
+      for (final e in roh)
+        if (gruppeFuerFoto(e.personen, _grade, fokus: fokus) case final g?)
+          (asset: e.asset, gruppe: g),
+    ];
+    if (orte.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.stammbaumKeineFamilienorte)),
+      );
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => FamilienorteScreen(
+        library: widget.library,
+        titel: t.stammbaumFamilienorteVon(_nachId[fokus]?.name ?? ''),
+        orte: orte,
+      ),
+    ));
+  }
+
+  /// Schreibt den Fächer als PDF – die Tafel zum Aufhängen.
+  ///
+  /// Gezeichnet wird mit **derselben** Routine wie auf dem Bildschirm,
+  /// nur auf eine viel größere Leinwand; das Ergebnis wandert als Bild in
+  /// die Seite. Die Alternative – den Fächer ein zweites Mal mit den
+  /// Zeichenbefehlen der PDF-Bibliothek zu bauen – hätte zwei
+  /// Darstellungen ergeben, die auseinanderlaufen können.
+  Future<void> _tafelDrucken() async {
+    final fokus = _fokusId;
+    if (fokus == null) return;
+    final t = AppTexte.of(context);
+    final rang = {for (var i = 0; i < _personen.length; i++) _personen[i].id: i};
+    final plaetze = faechertafel(_netz, fokus, (id) => rang[id] ?? 1 << 30);
+
+    final ziel = await FilePicker.platform.saveFile(
+      dialogTitle: t.stammbaumTafelDrucken,
+      fileName: tafelDateiname,
+      type: FileType.custom,
+      allowedExtensions: const [tafelEndungOhnePunkt],
+    );
+    if (ziel == null || !mounted) return;
+
+    final bytes = await baueTafelPdf(
+      plaetze: plaetze,
+      personen: _nachId,
+      titel: _nachId[fokus]?.name ?? '',
+      farben: Theme.of(context).colorScheme,
+      textRichtung: Directionality.of(context),
+    );
+    await File(mitTafelEndung(ziel)).writeAsBytes(bytes);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(t.stammbaumTafelFertig)),
+    );
+  }
+
+  /// Schreibt den Bestand als GEDCOM-Datei.
+  ///
+  /// Ohne diesen Weg wären die eingetragenen Verwandtschaften in dieser
+  /// App gefangen – Fotos lassen sich immer noch kopieren, ein
+  /// Verwandtschaftsnetz nicht.
+  Future<void> _gedcomExport() async {
+    final t = AppTexte.of(context);
+    final ziel = await FilePicker.platform.saveFile(
+      dialogTitle: t.stammbaumGedcomExport,
+      fileName: gedcomDateiname,
+      type: FileType.custom,
+      allowedExtensions: const [gedcomEndungOhnePunkt],
+    );
+    if (ziel == null || !mounted) return;
+
+    final inhalt = schreibeGedcom(
+      [
+        for (final p in _personen)
+          (
+            id: p.id,
+            name: p.name,
+            geschlecht: geschlechtAusText(p.geschlecht),
+            geburt: p.geburtsdatum,
+            tod: p.sterbedatum,
+          ),
+      ],
+      _netz,
+      erzeuger: gedcomErzeuger,
+      // Aus dem Paket statt als feste Zeichenkette – sonst stünde in der
+      // exportierten Datei irgendwann eine Version, die es nicht gibt.
+      version: (await PackageInfo.fromPlatform()).version,
+    );
+    if (!mounted) return;
+    // Ausdrücklich UTF-8: Der Kopf der Datei kündigt es an, und die
+    // Standard-Kodierung von `writeAsString` ist es nicht überall.
+    await File(mitEndung(ziel)).writeAsString(inhalt, encoding: utf8);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(t.stammbaumGedcomFertig(_personen.length))),
+    );
+  }
+
+  /// Der Fächer – siehe [FaecherAnsicht].
+  Widget _faecher(BuildContext context, PersonData fokus) {
+    final rang = {for (var i = 0; i < _personen.length; i++) _personen[i].id: i};
+    final plaetze = faechertafel(
+      _netz,
+      fokus.id,
+      (id) => rang[id] ?? 1 << 30,
+    );
+    // Nicht "nur ein Platz": Für eine Person ohne Eltern liefert die
+    // Tafel zwei leere Elternplätze mit – die Lücke ist gewollt. Leer ist
+    // der Fächer erst, wenn außerhalb der Mitte niemand steht.
+    if (plaetze.every((p) => p.ring == 0 || p.istLeer)) {
+      return _hinweis(context, AppTexte.of(context).stammbaumKeineVorfahren);
+    }
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: FaecherAnsicht(
+        plaetze: plaetze,
+        personen: _nachId,
+        onTippen: _ruecke,
+      ),
+    );
+  }
+
+  /// Die Sanduhr – siehe [SanduhrAnsicht].
+  Widget _sanduhr(BuildContext context, PersonData fokus) {
+    final rang = {for (var i = 0; i < _personen.length; i++) _personen[i].id: i};
+    final s = ordneSanduhr(_netz, fokus.id, (id) => rang[id] ?? 1 << 30);
+    if (s.knoten.length == 1) {
+      return _hinweis(context, AppTexte.of(context).stammbaumLeer);
+    }
+    return SanduhrAnsicht(
+      sanduhr: s,
+      personen: _nachId,
+      fokusId: fokus.id,
+      onTippen: _ruecke,
+    );
+  }
+
+  /// Die Nachkommen als eingerückte Gliederung.
+  Widget _nachfahrenTafel(BuildContext context, PersonData fokus) {
+    final rang = {for (var i = 0; i < _personen.length; i++) _personen[i].id: i};
+    final zeilen = nachfahren(_netz, fokus.id, (id) => rang[id] ?? 1 << 30);
+    if (zeilen.length == 1) {
+      return _hinweis(context, AppTexte.of(context).stammbaumKeineNachfahren);
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      itemCount: zeilen.length,
+      itemBuilder: (context, index) {
+        final zeile = zeilen[index];
+        final person = _nachId[zeile.personId];
+        if (person == null) return const SizedBox.shrink();
+        final spanne = lebensspanne(person.geburtsdatum, person.sterbedatum);
+        return InkWell(
+          onTap: () => _ruecke(person.id),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg + zeile.stufe * 24.0,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.sm),
+            child: Row(
+              children: [
+                // Ein Winkel statt eines Aufzählungspunkts: Er zeigt an,
+                // dass die Zeile an der darüber hängt.
+                Icon(
+                  zeile.stufe == 0
+                      ? Icons.person_outline
+                      : Icons.subdirectory_arrow_right,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  person.name,
+                  style: TextStyle(
+                    fontWeight:
+                        zeile.stufe == 0 ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+                if (spanne != null) ...[
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(spanne,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.outline)),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _hinweis(BuildContext context, String text) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: SizedBox(
+            width: 420,
+            child: Text(text,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+          ),
+        ),
+      );
+
+  /// Alle Verwandten mit ihrer Bezeichnung, von den nächsten zu den
+  /// entferntesten.
+  ///
+  /// Der Grund, warum es diese Sicht neben dem Baum gibt: Im Baum steht
+  /// nur die unmittelbare Verwandtschaft, dort tauchen „Urgroßvater" oder
+  /// „Cousine zweiten Grades" nie auf. Hier schon.
+  Widget _verwandtenListe(BuildContext context, PersonData fokus) {
+    final t = AppTexte.of(context);
+    final eintraege = _grade.entries
+        .where((e) => _nachId.containsKey(e.key))
+        .toList()
+      ..sort((a, b) {
+        final rang = naeheRang(a.value).compareTo(naeheRang(b.value));
+        if (rang != 0) return rang;
+        return _nachId[a.key]!.name.toLowerCase().compareTo(
+            _nachId[b.key]!.name.toLowerCase());
+      });
+
+    if (eintraege.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: SizedBox(
+            width: 420,
+            child: Text(t.stammbaumLeer, textAlign: TextAlign.center),
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      itemCount: eintraege.length + 1,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.md),
+            child: Text(
+              t.stammbaumListeKopf(fokus.name, eintraege.length),
+              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+            ),
+          );
+        }
+        final eintrag = eintraege[index - 1];
+        final person = _nachId[eintrag.key]!;
+        final spanne = lebensspanne(person.geburtsdatum, person.sterbedatum);
+        return ListTile(
+          leading: CircleAvatar(
+            radius: 20,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
+            backgroundImage: person.coverFaceCropPath != null
+                ? FileImage(widget.library.paths.absolute(person.coverFaceCropPath!))
+                : null,
+            child: person.coverFaceCropPath == null
+                ? const Icon(Icons.person_outline, size: 18)
+                : null,
+          ),
+          title: Text(person.name),
+          subtitle: Text(
+            verwandtschaftText(context, eintrag.value,
+                geschlechtAusText(person.geschlecht)),
+            style: TextStyle(color: Theme.of(context).colorScheme.primary),
+          ),
+          trailing: spanne == null
+              ? null
+              : Text(spanne,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+          onTap: () => _ruecke(person.id),
+        );
+      },
+    );
+  }
+
+  /// Der Knopf zum Hinzufügen eines Elternteils bzw. Kindes.
+  ///
+  /// Ein Menü statt eines einfachen Knopfes, seit es drei Arten von
+  /// Elternschaft gibt. Die Alternative wäre gewesen, nach der Auswahl
+  /// der Person noch nach der Art zu fragen – ein zweiter Dialog bei
+  /// jedem Eintrag, für eine Angabe, die in den allermeisten Fällen
+  /// „leiblich“ lautet.
+  Widget _elternMenue(AppTexte t, PersonData? fokus, {required bool umgekehrt}) {
+    return PopupMenuButton<Verwandtschaft>(
+      tooltip: umgekehrt ? t.stammbaumKindHinzufuegen : t.stammbaumElternteilHinzufuegen,
+      icon: Icon(umgekehrt ? Icons.child_care_outlined : Icons.person_add_alt),
+      enabled: fokus != null,
+      onSelected: (art) => _hinzufuegen(art, umgekehrt: umgekehrt),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: Verwandtschaft.elternteil,
+          child: _zeile(Icons.person_outline, t.stammbaumLeiblich),
+        ),
+        PopupMenuItem(
+          value: Verwandtschaft.adoptivelternteil,
+          child: _zeile(Icons.family_restroom, t.stammbaumAdoptiv),
+        ),
+        PopupMenuItem(
+          value: Verwandtschaft.pflegeelternteil,
+          child: _zeile(Icons.volunteer_activism_outlined, t.stammbaumPflege),
+        ),
+      ],
+    );
   }
 
   Widget _zeile(IconData icon, String text) => Row(children: [
@@ -258,39 +740,127 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(fokus == null ? t.stammbaumTitel : t.stammbaumTitelVon(fokus.name)),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(fokus == null
+                    ? t.stammbaumTitel
+                    : t.stammbaumTitelVon(fokus.name)),
+              ),
+              if (fokus != null) ...[
+                const SizedBox(width: AppSpacing.sm),
+                IconButton(
+                  tooltip: t.stammbaumAndereWaehlen,
+                  icon: const Icon(Icons.swap_horiz, size: 20),
+                  onPressed: _waehlePerson,
+                ),
+              ],
+            ],
+          ),
+          bottom: fokus == null
+              ? null
+              : PreferredSize(
+                  preferredSize: const Size.fromHeight(44),
+                  // Waagerecht rollbar statt umbrechend: Bei knapp 480
+                  // Punkten Fensterbreite brachen die vier Beschriftungen
+                  // zweizeilig um, und die Abschnitte bekamen
+                  // unterschiedliche Höhen. Lieber eine Zeile, die sich
+                  // schieben lässt.
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: SegmentedButton<_Ansicht>(
+                      // Ohne Symbole: Vier Abschnitte mit Symbol UND
+                      // Beschriftung laufen in einem schmalen Fenster über.
+                      segments: [
+                        ButtonSegment(
+                          value: _Ansicht.baum,
+                          label: Text(t.stammbaumAnsichtBaum),
+                        ),
+                        ButtonSegment(
+                          value: _Ansicht.faecher,
+                          label: Text(t.stammbaumAnsichtFaecher),
+                        ),
+                        ButtonSegment(
+                          value: _Ansicht.sanduhr,
+                          label: Text(t.stammbaumAnsichtSanduhr),
+                        ),
+                        ButtonSegment(
+                          value: _Ansicht.nachfahren,
+                          label: Text(t.stammbaumAnsichtNachfahren),
+                        ),
+                        ButtonSegment(
+                          value: _Ansicht.liste,
+                          label: Text(t.stammbaumAnsichtListe),
+                        ),
+                      ],
+                      selected: {_ansicht},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (w) => setState(() => _ansicht = w.first),
+                    ),
+                  ),
+                ),
           actions: [
-            IconButton(
-              tooltip: t.stammbaumElternteilHinzufuegen,
-              icon: const Icon(Icons.person_add_alt),
-              onPressed: fokus == null ? null : () => _hinzufuegen(Verwandtschaft.elternteil),
-            ),
+            _elternMenue(t, fokus, umgekehrt: false),
             IconButton(
               tooltip: t.stammbaumPartnerHinzufuegen,
               icon: const Icon(Icons.favorite_border),
               onPressed: fokus == null ? null : () => _hinzufuegen(Verwandtschaft.partner),
             ),
-            IconButton(
-              tooltip: t.stammbaumKindHinzufuegen,
-              icon: const Icon(Icons.child_care_outlined),
-              onPressed: fokus == null
-                  ? null
-                  : () => _hinzufuegen(Verwandtschaft.elternteil, umgekehrt: true),
+            _elternMenue(t, fokus, umgekehrt: true),
+            PopupMenuButton<String>(
+              tooltip: t.allgMehr,
+              onSelected: (w) => switch (w) {
+                'fotos' => _fotosDerFamilie(),
+                'orte' => _orteDerFamilie(),
+                'tafel' => _tafelDrucken(),
+                _ => _gedcomExport(),
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'fotos',
+                  enabled: fokus != null,
+                  child: _zeile(Icons.photo_library_outlined, t.stammbaumFamilienfotos),
+                ),
+                PopupMenuItem(
+                  value: 'orte',
+                  enabled: fokus != null,
+                  child: _zeile(Icons.map_outlined, t.stammbaumFamilienorte),
+                ),
+                PopupMenuItem(
+                  value: 'tafel',
+                  enabled: fokus != null,
+                  child: _zeile(Icons.print_outlined, t.stammbaumTafelDrucken),
+                ),
+                PopupMenuItem(
+                  value: 'gedcom',
+                  enabled: _personen.isNotEmpty,
+                  child: _zeile(Icons.ios_share, t.stammbaumGedcomExport),
+                ),
+              ],
             ),
           ],
         ),
         body: _laedt
             ? const Center(child: CircularProgressIndicator())
             : fokus == null
-                ? Center(child: Text(t.stammbaumPersonFehlt))
-                : _baum(context, fokus),
+                ? Center(child: Text(_personen.isEmpty
+                    ? t.stammbaumKeinePersonen
+                    : t.stammbaumPersonFehlt))
+                : switch (_ansicht) {
+                    _Ansicht.baum => _baum(context, fokus),
+                    _Ansicht.faecher => _faecher(context, fokus),
+                    _Ansicht.sanduhr => _sanduhr(context, fokus),
+                    _Ansicht.nachfahren => _nachfahrenTafel(context, fokus),
+                    _Ansicht.liste => _verwandtenListe(context, fokus),
+                  },
       ),
     );
   }
 
   Widget _baum(BuildContext context, PersonData fokus) {
     final t = AppTexte.of(context);
-    final a = ausschnittUm(_netz, _fokusId, [for (final p in _personen) p.id]);
+    final a = ausschnittUm(_netz, fokus.id, [for (final p in _personen) p.id]);
 
     final eltern = [for (final id in a.eltern) _nachId[id]!];
     final geschwister = [for (final id in a.geschwister) _nachId[id]!];
@@ -503,6 +1073,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       person: person,
       paths: widget.library.paths,
       istFokus: istFokus,
+      bezeichnung: istFokus ? null : _bezeichnung(person),
       weitereOben: a.weitereOben[person.id] ?? false,
       weitereUnten: a.weitereUnten[person.id] ?? false,
       onTap: () => _ruecke(person.id),
@@ -516,6 +1087,11 @@ class _Personenkarte extends StatelessWidget {
   final PersonData person;
   final StoragePaths paths;
   final bool istFokus;
+
+  /// Wie diese Person zur Person in der Mitte steht – „Schwester",
+  /// „Schwiegervater". Bei der Person in der Mitte selbst `null`: „diese
+  /// Person" auf der eigenen Karte wäre nur Füllsel.
+  final String? bezeichnung;
   final bool weitereOben;
   final bool weitereUnten;
   final VoidCallback onTap;
@@ -525,6 +1101,7 @@ class _Personenkarte extends StatelessWidget {
     required this.person,
     required this.paths,
     required this.istFokus,
+    required this.bezeichnung,
     required this.weitereOben,
     required this.weitereUnten,
     required this.onTap,
@@ -581,10 +1158,23 @@ class _Personenkarte extends StatelessWidget {
                   fontWeight: istFokus ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
+              if (bezeichnung != null)
+                Text(
+                  bezeichnung!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: farben.primary,
+                  ),
+                ),
               if (spanne != null)
                 Text(
                   spanne,
-                  style: TextStyle(fontSize: 10, color: farben.outline),
+                  // onSurfaceVariant statt outline – gegen die Kartenfläche
+                  // gemessen kam outline auf 4,07:1, gefordert sind 4,5:1.
+                  style: TextStyle(fontSize: 10, color: farben.onSurfaceVariant),
                 ),
               _Mehrzeichen(sichtbar: weitereUnten, nachOben: false),
             ],
@@ -704,7 +1294,7 @@ class _VerbinderMaler extends CustomPainter {
       alt.anzahl != anzahl || alt.vieleOben != vieleOben || alt.farbe != farbe;
 }
 
-/// Geburts- und Sterbedatum einer Person.
+/// Geschlecht sowie Geburts- und Sterbedatum einer Person.
 ///
 /// Beide freiwillig und einzeln löschbar. Der Bereich beginnt 1800: Eine
 /// Fotobibliothek reicht selten weiter zurück, und ein Auswahldialog, der
@@ -721,6 +1311,7 @@ class _LebensdatenDialog extends StatefulWidget {
 class _LebensdatenDialogState extends State<_LebensdatenDialog> {
   late DateTime? _geburt = widget.person.geburtsdatum;
   late DateTime? _tod = widget.person.sterbedatum;
+  late Geschlecht? _geschlecht = geschlechtAusText(widget.person.geschlecht);
 
   Future<void> _waehle({required bool geburt}) async {
     final jetzt = DateTime.now();
@@ -738,10 +1329,44 @@ class _LebensdatenDialogState extends State<_LebensdatenDialog> {
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
     return AlertDialog(
-      title: Text(t.stammbaumLebensdatenVon(widget.person.name)),
+      title: Text(t.stammbaumAngaben),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Row(
+            children: [
+              SizedBox(width: 96, child: Text(t.stammbaumGeschlecht)),
+              Expanded(
+                child: DropdownButton<Geschlecht?>(
+                  value: _geschlecht,
+                  isExpanded: true,
+                  isDense: true,
+                  onChanged: (w) => setState(() => _geschlecht = w),
+                  items: [
+                    DropdownMenuItem(value: null, child: Text(t.stammbaumGeschlechtOffen)),
+                    DropdownMenuItem(
+                        value: Geschlecht.weiblich,
+                        child: Text(t.stammbaumGeschlechtWeiblich)),
+                    DropdownMenuItem(
+                        value: Geschlecht.maennlich,
+                        child: Text(t.stammbaumGeschlechtMaennlich)),
+                    DropdownMenuItem(
+                        value: Geschlecht.divers,
+                        child: Text(t.stammbaumGeschlechtDivers)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 40),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Text(
+              t.stammbaumGeschlechtHinweis,
+              style: TextStyle(
+                  fontSize: 11, color: Theme.of(context).colorScheme.outline),
+            ),
+          ),
           _Datumszeile(
             beschriftung: t.stammbaumGeboren,
             wert: _geburt,
@@ -765,7 +1390,8 @@ class _LebensdatenDialogState extends State<_LebensdatenDialog> {
         TextButton(
             onPressed: () => Navigator.pop(context), child: Text(t.allgAbbrechen)),
         FilledButton(
-          onPressed: () => Navigator.pop(context, (geburt: _geburt, tod: _tod)),
+          onPressed: () => Navigator.pop(
+              context, (geburt: _geburt, tod: _tod, geschlecht: _geschlecht)),
           child: Text(t.allgSpeichern),
         ),
       ],

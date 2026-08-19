@@ -14,6 +14,7 @@ import 'people_screen.dart';
 import 'restore_queue_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
+import 'stammbaum_screen.dart';
 import 'timeline_screen.dart';
 import 'tools_screen.dart';
 
@@ -216,6 +217,7 @@ class _HomeShellState extends State<HomeShell> {
         t.navKarte,
         t.navSuche,
         t.navPersonen,
+        t.navStammbaum,
         t.navAlben,
         t.navWerkzeuge,
         t.navEinstellungen,
@@ -227,6 +229,7 @@ class _HomeShellState extends State<HomeShell> {
     Icons.map_outlined,
     Icons.search_outlined,
     Icons.face_outlined,
+    Icons.account_tree_outlined,
     Icons.photo_album_outlined,
     Icons.build_outlined,
     Icons.settings_outlined,
@@ -238,6 +241,7 @@ class _HomeShellState extends State<HomeShell> {
     Icons.map,
     Icons.search,
     Icons.face,
+    Icons.account_tree,
     Icons.photo_album,
     Icons.build,
     Icons.settings,
@@ -256,6 +260,12 @@ class _HomeShellState extends State<HomeShell> {
         LogicalKeyboardKey.digit7: 6,
         LogicalKeyboardKey.digit8: 7,
         LogicalKeyboardKey.digit9: 8,
+        // Das zehnte Ziel liegt auf ⌘0. Es hinten anzuhängen wäre die
+        // Alternative gewesen – dann stünde der Stammbaum aber weit weg
+        // von den Personen, zu denen er gehört. Lieber eine Taste, die
+        // sich aus der Reihe ergibt, als eine Reihenfolge nach dem
+        // Tastenfeld.
+        LogicalKeyboardKey.digit0: 9,
       };
       final target = digitKeys[event.logicalKey];
       if (target != null) {
@@ -300,6 +310,7 @@ class _HomeShellState extends State<HomeShell> {
       MapScreen(library: widget.library),
       SearchScreen(library: widget.library),
       PeopleScreen(library: widget.library),
+      StammbaumScreen(library: widget.library),
       AlbumsScreen(library: widget.library),
       ToolsScreen(library: widget.library),
       SettingsScreen(library: widget.library),
