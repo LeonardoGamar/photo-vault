@@ -36,16 +36,21 @@ void main() {
       ..paths = paths
       ..backupService = BackupService(db, paths);
 
-    for (final (id, name, jahr) in [
-      ('kind', 'Kind', 1960),
-      ('vater', 'Vater', 1930),
-      ('ziehvater', 'Ziehvater', 1932),
-      ('pflegemutter', 'Pflegemutter', 1935),
-      ('enkel', 'Enkel', 1990),
-      ('fremd', 'Fremd', 1970),
+    for (final (id, name, jahr, geschlecht) in [
+      ('kind', 'Kind', 1960, null),
+      ('vater', 'Vater', 1930, 'm'),
+      ('ziehvater', 'Ziehvater', 1932, 'm'),
+      ('pflegemutter', 'Pflegemutter', 1935, 'w'),
+      ('enkel', 'Enkel', 1990, null),
+      // Mit Geschlecht, damit die ausgerechnete Bezeichnung
+      // geschlechtsgenau ausfällt („Neffe" statt „Geschwisterkind").
+      ('fremd', 'Fremd', 1970, 'm'),
     ]) {
       await db.createPerson(PeopleCompanion.insert(
-          id: id, name: name, geburtsdatum: Value(DateTime(jahr))));
+          id: id,
+          name: name,
+          geburtsdatum: Value(DateTime(jahr)),
+          geschlecht: Value(geschlecht)));
     }
   });
 
@@ -55,6 +60,13 @@ void main() {
   });
 
   Future<void> zeige(WidgetTester tester, String start) async {
+    // Die Vorgabe des Testfensters (800x600) ist kleiner als jedes echte
+    // Fenster; der Gradwähler müsste darin gerollt werden, was den Test
+    // über die Rollmechanik statt über die Sache aussagen liesse.
+    tester.view.physicalSize = const Size(1400, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('de'),
       localizationsDelegates: AppTexte.localizationsDelegates,
@@ -215,70 +227,101 @@ void main() {
     });
   });
 
-  group('Weitere Verwandte', () {
+  group('Weitere Verwandte über den Gradwähler', () {
+    /// Öffnet Mehr -> Verwandten hinzufügen.
+    Future<void> oeffneGradwaehler(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Mehr'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Verwandten hinzufügen …'));
+      await tester.pumpAndSettle();
+    }
+
+    /// Holt einen Grad ins Bild. Die Liste ist länger als der Ausschnitt,
+    /// sobald das Fenster klein genug ist – der Test soll an dieser Stelle
+    /// nichts über die Fenstergröße behaupten.
+    Future<Finder> zeigeGrad(WidgetTester tester, String grad) async {
+      final ziel = find.text(grad);
+      if (ziel.evaluate().isEmpty) {
+        await tester.scrollUntilVisible(ziel, 80,
+            scrollable: find.byType(Scrollable).last);
+        await tester.pumpAndSettle();
+      }
+      return ziel;
+    }
+
+    Future<void> waehleGrad(WidgetTester tester, String grad) async {
+      await oeffneGradwaehler(tester);
+      await tester.tap(await zeigeGrad(tester, grad));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('ein Neffe wird Kind des Geschwisterkindes und heißt danach so',
+        (tester) async {
+      // kind und bruder teilen sich den Vater.
+      await db.createPerson(
+          PeopleCompanion.insert(id: 'bruder', name: 'Bruder',
+              geschlecht: const Value('m')));
+      await db.fuegeBeziehungHinzu('kind', 'vater', Verwandtschaft.elternteil);
+      await db.fuegeBeziehungHinzu('bruder', 'vater', Verwandtschaft.elternteil);
+      await zeige(tester, 'kind');
+
+      await waehleGrad(tester, 'Neffe oder Nichte');
+      // Nur ein Geschwisterkind – es wird nicht gefragt.
+      await waehlePerson(tester, 'Fremd');
+
+      final neu = (await db.alleBeziehungen())
+          .where((k) => k.personId == 'fremd')
+          .toList();
+      expect(neu.single.andereId, 'bruder');
+      // Die Rückmeldung nennt die AUSGERECHNETE Bezeichnung.
+      expect(find.textContaining('Neffe'), findsWidgets);
+    });
+
+    testWidgets('ein nicht eintragbarer Grad steht grau da und erklärt sich',
+        (tester) async {
+      await zeige(tester, 'kind');
+      await oeffneGradwaehler(tester);
+
+      // Ohne jede Verwandtschaft ist nichts eintragbar – aber alles
+      // sichtbar, mit dem Grund darunter.
+      expect(find.text('Neffe oder Nichte'), findsOneWidget);
+      expect(find.text('Cousin oder Cousine'), findsOneWidget);
+      expect(find.textContaining('zuerst ein Geschwisterkind'), findsWidgets);
+      expect(find.textContaining('zuerst einen Onkel'), findsWidgets);
+
+      // Ein Tippen auf den grauen Eintrag tut nichts.
+      await tester.tap(find.text('Neffe oder Nichte'));
+      await tester.pumpAndSettle();
+      expect(find.text('Verwandten hinzufügen …'), findsOneWidget,
+          reason: 'der Wähler bleibt offen');
+    });
+
     testWidgets('ein Geschwisterkind bekommt beide Eltern', (tester) async {
       await db.fuegeBeziehungHinzu('kind', 'vater', Verwandtschaft.elternteil);
       await db.fuegeBeziehungHinzu('kind', 'pflegemutter', Verwandtschaft.elternteil);
       await zeige(tester, 'kind');
 
-      await tester.tap(find.byTooltip('Mehr'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Geschwisterkind hinzufügen …'));
-      await tester.pumpAndSettle();
+      await waehleGrad(tester, 'Geschwisterkind');
       await waehlePerson(tester, 'Fremd');
 
-      final kanten = await db.alleBeziehungen();
       expect(
-        kanten.where((k) => k.personId == 'fremd').map((k) => k.andereId).toSet(),
+        (await db.alleBeziehungen())
+            .where((k) => k.personId == 'fremd')
+            .map((k) => k.andereId)
+            .toSet(),
         equals({'vater', 'pflegemutter'}),
-        reason: 'Ein Geschwisterkind mit nur einem Elternteil wäre ein '
-            'Halbgeschwisterkind – eine andere Aussage.',
+        reason: 'mit nur einem wäre es ein Halbgeschwisterkind',
       );
     });
 
-    testWidgets('ohne Elternteil erklärt der Hinweis, was fehlt', (tester) async {
-      await zeige(tester, 'kind');
-
-      await tester.tap(find.byTooltip('Mehr'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Geschwisterkind hinzufügen …'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('teilt sich einen Elternteil'), findsOneWidget);
-      expect(await db.alleBeziehungen(), isEmpty);
-    });
-
-    testWidgets('ein Großelternteil wird Elternteil des einzigen Elternteils',
-        (tester) async {
-      await db.fuegeBeziehungHinzu('kind', 'vater', Verwandtschaft.elternteil);
-      await zeige(tester, 'kind');
-
-      await tester.tap(find.byTooltip('Mehr'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Großelternteil hinzufügen …'));
-      await tester.pumpAndSettle();
-      // Nur ein Elternteil – es wird nicht gefragt.
-      await waehlePerson(tester, 'Fremd');
-
-      final neu = (await db.alleBeziehungen())
-          .where((k) => k.andereId == 'fremd')
-          .toList();
-      expect(neu, hasLength(1));
-      expect(neu.single.personId, 'vater');
-    });
-
-    testWidgets('bei zwei Eltern wird gefragt, wessen Elternteil gemeint ist',
+    testWidgets('bei zwei Eltern fragt der Großelternteil, wessen gemeint ist',
         (tester) async {
       await db.fuegeBeziehungHinzu('kind', 'vater', Verwandtschaft.elternteil);
       await db.fuegeBeziehungHinzu('kind', 'pflegemutter', Verwandtschaft.elternteil);
       await zeige(tester, 'kind');
 
-      await tester.tap(find.byTooltip('Mehr'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Großelternteil hinzufügen …'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Wessen Elternteil?'), findsOneWidget);
+      await waehleGrad(tester, 'Großelternteil');
+      expect(find.textContaining('über wen?'), findsOneWidget);
       await tester.tap(find.text('Pflegemutter').last);
       await tester.pumpAndSettle();
       await waehlePerson(tester, 'Fremd');
@@ -289,20 +332,18 @@ void main() {
       expect(neu.single.personId, 'pflegemutter');
     });
 
-    testWidgets('ein Enkelkind wird Kind des Kindes', (tester) async {
+    testWidgets('ein Schwiegerkind wird Partner des Kindes', (tester) async {
       await db.fuegeBeziehungHinzu('enkel', 'kind', Verwandtschaft.elternteil);
       await zeige(tester, 'kind');
 
-      await tester.tap(find.byTooltip('Mehr'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Enkelkind hinzufügen …'));
-      await tester.pumpAndSettle();
+      await waehleGrad(tester, 'Schwiegerkind');
       await waehlePerson(tester, 'Fremd');
 
       final neu = (await db.alleBeziehungen())
-          .where((k) => k.personId == 'fremd')
+          .where((k) => k.art == 'partner')
           .toList();
-      expect(neu.single.andereId, 'enkel');
+      expect(neu, hasLength(1));
+      expect({neu.single.personId, neu.single.andereId}, {'fremd', 'enkel'});
     });
   });
 }

@@ -1702,34 +1702,112 @@
   "stammbaumVerbindungsartHinweis": "Adoptive and foster parents count as parents everywhere – only the term and the dashed line tell them apart.",
   "stammbaumNichtsEntfernt": "That connection was already removed.",
   "stammbaumWeitereVerwandte": "More relatives",
-  "stammbaumGeschwisterHinzufuegen": "Add a sibling …",
-  "stammbaumGrosselternteilHinzufuegen": "Add a grandparent …",
-  "stammbaumEnkelHinzufuegen": "Add a grandchild …",
-  "stammbaumBrauchtElternteil": "A sibling shares a parent. Add a parent for {name} first.",
-  "@stammbaumBrauchtElternteil": {
+  "stammbaumVerwandtenHinzufuegen": "Add a relative …",
+  "stammbaumGruppeVorfahren": "Ancestors",
+  "stammbaumGruppeNachkommen": "Descendants",
+  "stammbaumGruppeSeitenlinie": "Collateral line",
+  "stammbaumGruppeAngeheiratet": "By marriage",
+  "stammbaumGradGrosselternteil": "Grandparent",
+  "stammbaumGradUrgrosselternteil": "Great-grandparent",
+  "stammbaumGradEnkelkind": "Grandchild",
+  "stammbaumGradUrenkelkind": "Great-grandchild",
+  "stammbaumGradGeschwisterkind": "Sibling",
+  "stammbaumGradHalbgeschwisterkind": "Half-sibling",
+  "stammbaumGradOnkelTante": "Uncle or aunt",
+  "stammbaumGradNeffeNichte": "Nephew or niece",
+  "stammbaumGradCousin": "Cousin",
+  "stammbaumGradSchwiegerelternteil": "Parent-in-law",
+  "stammbaumGradSchwiegerkind": "Child-in-law",
+  "stammbaumGradSchwager": "Brother- or sister-in-law",
+  "stammbaumGradStiefelternteil": "Step-parent",
+  "stammbaumGradStiefkind": "Stepchild",
+  "stammbaumFehltElternteil": "{name} needs a parent first.",
+  "@stammbaumFehltElternteil": {
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "stammbaumBrauchtKind": "A grandchild is the child of a child. Add a child for {name} first.",
-  "@stammbaumBrauchtKind": {
+  "stammbaumFehltGrosselternteil": "{name} needs grandparents first.",
+  "@stammbaumFehltGrosselternteil": {
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "stammbaumWelcherElternteil": "Whose parent?",
-  "stammbaumWelchesKind": "Whose child?",
-  "stammbaumGeschwisterHinweis": "The new sibling gets the same parents as {name}: {eltern}.",
-  "@stammbaumGeschwisterHinweis": {
+  "stammbaumFehltKind": "{name} needs a child first.",
+  "@stammbaumFehltKind": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltEnkelkind": "{name} needs a grandchild first.",
+  "@stammbaumFehltEnkelkind": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltGeschwister": "{name} needs a sibling first.",
+  "@stammbaumFehltGeschwister": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltOnkelTante": "{name} needs an uncle or aunt first.",
+  "@stammbaumFehltOnkelTante": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltPartner": "{name} needs a partner first.",
+  "@stammbaumFehltPartner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltGeschwisterOderPartner": "{name} needs a sibling or a partner first.",
+  "@stammbaumFehltGeschwisterOderPartner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumUeberWen": "{grad} – through whom?",
+  "@stammbaumUeberWen": {
+    "placeholders": {
+      "grad": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumVerwandterEingetragen": "{name} has been added – {bezeichnung}.",
+  "@stammbaumVerwandterEingetragen": {
     "placeholders": {
       "name": {
         "type": "String"
       },
-      "eltern": {
+      "bezeichnung": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumNurEintragbares": "Shown is what can be added for {name}. Greyed out means an intermediate person is still missing.",
+  "@stammbaumNurEintragbares": {
+    "placeholders": {
+      "name": {
         "type": "String"
       }
     }

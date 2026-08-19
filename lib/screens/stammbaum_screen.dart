@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -10,6 +11,7 @@ import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
+import '../services/verwandte_anlegen.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -58,13 +60,6 @@ const double _verbinderHoehe = 44;
 ///
 /// Die Art selbst wird daraus im Netz nachgeschlagen (siehe
 /// [_StammbaumScreenState._artFuer]); die Reihe kennt sie nicht.
-/// Verwandte, die sich über eine Zwischenperson eintragen lassen.
-///
-/// Sie sind keine eigene Kantenart – gespeichert werden weiterhin nur
-/// Eltern, Kinder und Partner. Diese Aufzählung beschreibt nur, an wem
-/// die neue Person hängt.
-enum _Weitere { geschwister, grosselternteil, enkel }
-
 enum _Bezug {
   /// Die Karte steht in der Elternreihe.
   elternteil,
@@ -265,71 +260,45 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   }
 
   /// Legt einen Verwandten an, der nicht unmittelbar an der Person in der
-  /// Mitte hängt – ein Geschwisterkind, einen Großelternteil, ein
-  /// Enkelkind.
+  /// Mitte hängt – einen Neffen, eine Großtante, ein Schwiegerkind.
   ///
   /// Gespeichert werden weiterhin nur Eltern, Kinder und Partner; alles
-  /// andere ist ausgerechnet (siehe verwandtschaftsgrad.dart). Diese
-  /// Einträge sind deshalb keine neue Kantenart, sondern eine Abkürzung:
-  /// Sie hängen die neue Person an der richtigen Stelle ein, statt dass
-  /// man erst zum Elternteil rücken, dort ein Kind eintragen und wieder
-  /// zurückrücken muss.
-  ///
-  /// Wo die Stelle nicht eindeutig ist – wessen Elternteil, wessen Kind –,
-  /// wird gefragt statt geraten.
-  Future<void> _weitererVerwandter(_Weitere art) async {
+  /// andere ist ausgerechnet (siehe verwandtschaftsgrad.dart). Dieser Weg
+  /// ist deshalb keine neue Kantenart, sondern eine Abkürzung: Er hängt
+  /// die neue Person an der Stelle ein, an der ihre Bezeichnung hinterher
+  /// stimmt – nachgerechnet in verwandte_anlegen.dart.
+  Future<void> _verwandtenHinzufuegen() async {
     final fokusId = _fokusId;
     final fokus = _nachId[fokusId];
     if (fokusId == null || fokus == null) return;
     final t = AppTexte.of(context);
 
-    // Die Personen, an die die neue angehängt wird. Für ein
-    // Geschwisterkind sind das ALLE Eltern – ein Geschwisterkind mit nur
-    // einem der beiden Elternteile wäre ein Halbgeschwisterkind, und das
-    // ist eine andere Aussage.
-    List<String> anker;
-    switch (art) {
-      case _Weitere.geschwister:
-        anker = _netz.eltern(fokusId).toList();
-        if (anker.isEmpty) {
-          _kurzerHinweis(t.stammbaumBrauchtElternteil(fokus.name));
-          return;
-        }
-      case _Weitere.grosselternteil:
-        final eltern = _netz.eltern(fokusId).toList();
-        if (eltern.isEmpty) {
-          _kurzerHinweis(t.stammbaumBrauchtElternteil(fokus.name));
-          return;
-        }
-        final gewaehlt = await _wenVon(eltern, t.stammbaumWelcherElternteil);
-        if (gewaehlt == null) return;
-        anker = [gewaehlt];
-      case _Weitere.enkel:
-        final kinder = _netz.kinder(fokusId).toList();
-        if (kinder.isEmpty) {
-          _kurzerHinweis(t.stammbaumBrauchtKind(fokus.name));
-          return;
-        }
-        final gewaehlt = await _wenVon(kinder, t.stammbaumWelchesKind);
-        if (gewaehlt == null) return;
-        anker = [gewaehlt];
-    }
-    if (!mounted) return;
+    final grad = await _gradWaehlen(fokus);
+    if (grad == null || !mounted) return;
 
-    final titel = switch (art) {
-      _Weitere.geschwister => t.stammbaumGeschwisterHinzufuegen,
-      _Weitere.grosselternteil => t.stammbaumGrosselternteilHinzufuegen,
-      _Weitere.enkel => t.stammbaumEnkelHinzufuegen,
-    };
+    final rang = {for (var i = 0; i < _personen.length; i++) _personen[i].id: i};
+    final wege = wegeFuer(_netz, fokusId, grad,
+        reihenfolge: (id) => rang[id] ?? 1 << 30);
+    if (wege.isEmpty) {
+      _kurzerHinweis(_fehltText(t, fehlendeVoraussetzung(grad), fokus.name));
+      return;
+    }
+
+    // Bei genau einem Weg gibt es nichts zu fragen.
+    final weg = wege.length == 1
+        ? wege.first
+        : await _wegWaehlen(wege, t.stammbaumUeberWen(_gradName(t, grad)));
+    if (weg == null || !mounted) return;
+
     final wahl = await showPersonPickerDialog(
       context,
-      // Weder die Mitte noch die Anker stehen zur Auswahl: Beide wären
+      // Weder die Mitte noch die Anker stehen zur Auswahl: Beides wäre
       // ein Kreis oder eine Verwandtschaft mit sich selbst.
       _personen
-          .where((p) => p.id != fokusId && !anker.contains(p.id))
+          .where((p) => p.id != fokusId && !weg.anker.contains(p.id))
           .toList(),
       paths: widget.library.paths,
-      title: titel,
+      title: _gradName(t, grad),
     );
     if (wahl == null || !mounted) return;
 
@@ -343,83 +312,201 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       neueId = wahl.existingPersonId!;
     }
 
-    Beziehungsfehler? fehler;
-    for (final ankerId in anker) {
-      // Ein Großelternteil ist Elternteil des Ankers, ein Geschwisterkind
-      // und ein Enkelkind sind dessen Kind.
-      final f = art == _Weitere.grosselternteil
-          ? await widget.library.db
-              .fuegeBeziehungHinzu(ankerId, neueId, Verwandtschaft.elternteil)
-          : await widget.library.db
-              .fuegeBeziehungHinzu(neueId, ankerId, Verwandtschaft.elternteil);
-      // Der erste Fehler zählt: Bei einem Geschwisterkind mit zwei Eltern
-      // sagt „schon vorhanden" beim zweiten nichts Neues.
-      fehler ??= f;
-    }
+    final fehler = await widget.library.db
+        .fuegeBeziehungenHinzu(kantenFuer(weg, neueId));
     await _laden();
     if (!mounted) return;
     if (fehler != null) {
       _meldeFehler(fehler);
       return;
     }
-    // Ein Geschwisterkind entsteht aus zwei (oder mehr) Kanten auf einmal,
-    // und keine davon führt zur Person in der Mitte. Wer das nicht weiß,
-    // sieht nur eine neue Karte auftauchen. Die Rückmeldung nennt, was
-    // tatsächlich eingetragen wurde.
-    if (art == _Weitere.geschwister) {
-      _kurzerHinweis(t.stammbaumGeschwisterHinweis(
-        fokus.name,
-        [for (final id in anker) _nachId[id]?.name ?? '?'].join(', '),
+    // Ein Neffe taucht im Ausschnitt um die Mitte gar nicht auf – ohne
+    // Rückmeldung sähe es aus, als sei nichts geschehen. Genannt wird die
+    // AUSGERECHNETE Bezeichnung, nicht die gewählte: Sie ist die Probe
+    // darauf, dass die Person an der richtigen Stelle hängt.
+    final person = _nachId[neueId];
+    final gerechnet = _grade[neueId];
+    if (person != null && gerechnet != null) {
+      _kurzerHinweis(t.stammbaumVerwandterEingetragen(
+        person.name,
+        verwandtschaftText(
+            context, gerechnet, geschlechtAusText(person.geschlecht)),
       ));
     }
   }
 
-  /// Fragt, an welcher von mehreren Personen die neue hängen soll. Steht
-  /// nur eine zur Wahl, wird nicht gefragt.
-  Future<String?> _wenVon(List<String> ids, String titel) async {
-    if (ids.length == 1) return ids.first;
-    final personen = [
-      for (final id in ids)
-        if (_nachId[id] case final p?) p,
-    ];
-    if (personen.isEmpty) return null;
-    if (!mounted) return null;
-    return showDialog<String>(
+  /// Der Wähler für den Verwandtschaftsgrad.
+  ///
+  /// Alle Grade stehen immer da, auch die gerade nicht eintragbaren – nur
+  /// grau und mit dem Grund darunter. Sie auszublenden hiesse, dem Nutzer
+  /// zu verschweigen, dass es sie gibt; so lernt er nebenbei, welche
+  /// Zwischenperson noch fehlt.
+  Future<Zusatzgrad?> _gradWaehlen(PersonData fokus) async {
+    final t = AppTexte.of(context);
+    final fokusId = fokus.id;
+    final gruppen = <String, List<Zusatzgrad>>{
+      t.stammbaumGruppeVorfahren: [
+        Zusatzgrad.grosselternteil,
+        Zusatzgrad.urgrosselternteil,
+      ],
+      t.stammbaumGruppeNachkommen: [
+        Zusatzgrad.enkelkind,
+        Zusatzgrad.urenkelkind,
+      ],
+      t.stammbaumGruppeSeitenlinie: [
+        Zusatzgrad.geschwisterkind,
+        Zusatzgrad.halbgeschwisterkind,
+        Zusatzgrad.onkelTante,
+        Zusatzgrad.neffeNichte,
+        Zusatzgrad.cousin,
+      ],
+      t.stammbaumGruppeAngeheiratet: [
+        Zusatzgrad.schwiegerelternteil,
+        Zusatzgrad.schwiegerkind,
+        Zusatzgrad.schwager,
+        Zusatzgrad.stiefelternteil,
+        Zusatzgrad.stiefkind,
+      ],
+    };
+
+    return showDialog<Zusatzgrad>(
       context: context,
-      builder: (dialog) => SimpleDialog(
-        title: Text(titel),
-        children: [
-          for (final p in personen)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(dialog, p.id),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  radius: 18,
-                  backgroundImage: p.coverFaceCropPath != null
-                      ? FileImage(
-                          widget.library.paths.absolute(p.coverFaceCropPath!))
-                      : null,
-                  child: p.coverFaceCropPath == null
-                      ? const Icon(Icons.person_outline, size: 18)
-                      : null,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.stammbaumVerwandtenHinzufuegen),
+        content: SizedBox(
+          width: 420,
+          // Aus dem Fenster abgeleitet statt fest: Die Liste ist mit
+          // Überschriften rund 700 Punkte hoch. Auf einem gewöhnlichen
+          // Bildschirm steht sie damit vollständig da; erst auf einem
+          // kleinen muss gerollt werden.
+          height: math.min(MediaQuery.of(dialog).size.height * 0.62, 720),
+          child: ListView(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: Text(
+                  t.stammbaumNurEintragbares(fokus.name),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(dialog).colorScheme.onSurfaceVariant),
                 ),
-                title: Text(p.name),
-                subtitle: lebensspanne(p.geburtsdatum, p.sterbedatum) == null
-                    ? null
-                    : Text(lebensspanne(p.geburtsdatum, p.sterbedatum)!),
               ),
-            ),
+              for (final eintrag in gruppen.entries) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      0, AppSpacing.md, 0, AppSpacing.xs),
+                  child: Text(
+                    eintrag.key,
+                    style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 1.1,
+                      color: Theme.of(dialog).colorScheme.outline,
+                    ),
+                  ),
+                ),
+                for (final grad in eintrag.value)
+                  _gradZeile(dialog, grad, fokus, fokusId),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: Text(t.allgAbbrechen)),
         ],
       ),
     );
   }
+
+  Widget _gradZeile(
+      BuildContext dialog, Zusatzgrad grad, PersonData fokus, String fokusId) {
+    final t = AppTexte.of(dialog);
+    final moeglich = wegeFuer(_netz, fokusId, grad).isNotEmpty;
+    return ListTile(
+      dense: true,
+      enabled: moeglich,
+      title: Text(_gradName(t, grad)),
+      subtitle: moeglich
+          ? null
+          : Text(_fehltText(t, fehlendeVoraussetzung(grad), fokus.name),
+              style: const TextStyle(fontSize: 11)),
+      onTap: moeglich ? () => Navigator.pop(dialog, grad) : null,
+    );
+  }
+
+  String _gradName(AppTexte t, Zusatzgrad grad) => switch (grad) {
+        Zusatzgrad.grosselternteil => t.stammbaumGradGrosselternteil,
+        Zusatzgrad.urgrosselternteil => t.stammbaumGradUrgrosselternteil,
+        Zusatzgrad.enkelkind => t.stammbaumGradEnkelkind,
+        Zusatzgrad.urenkelkind => t.stammbaumGradUrenkelkind,
+        Zusatzgrad.geschwisterkind => t.stammbaumGradGeschwisterkind,
+        Zusatzgrad.halbgeschwisterkind => t.stammbaumGradHalbgeschwisterkind,
+        Zusatzgrad.onkelTante => t.stammbaumGradOnkelTante,
+        Zusatzgrad.neffeNichte => t.stammbaumGradNeffeNichte,
+        Zusatzgrad.cousin => t.stammbaumGradCousin,
+        Zusatzgrad.schwiegerelternteil => t.stammbaumGradSchwiegerelternteil,
+        Zusatzgrad.schwiegerkind => t.stammbaumGradSchwiegerkind,
+        Zusatzgrad.schwager => t.stammbaumGradSchwager,
+        Zusatzgrad.stiefelternteil => t.stammbaumGradStiefelternteil,
+        Zusatzgrad.stiefkind => t.stammbaumGradStiefkind,
+      };
+
+  String _fehltText(AppTexte t, Fehlt fehlt, String name) => switch (fehlt) {
+        Fehlt.elternteil => t.stammbaumFehltElternteil(name),
+        Fehlt.grosselternteil => t.stammbaumFehltGrosselternteil(name),
+        Fehlt.kind => t.stammbaumFehltKind(name),
+        Fehlt.enkelkind => t.stammbaumFehltEnkelkind(name),
+        Fehlt.geschwister => t.stammbaumFehltGeschwister(name),
+        Fehlt.onkelTante => t.stammbaumFehltOnkelTante(name),
+        Fehlt.partner => t.stammbaumFehltPartner(name),
+        Fehlt.geschwisterOderPartner =>
+          t.stammbaumFehltGeschwisterOderPartner(name),
+      };
 
   /// Ein kurzer Hinweis am unteren Rand – für die Fälle, in denen der
   /// Wunsch verständlich, aber (noch) nicht ausführbar ist.
   void _kurzerHinweis(String text) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// Fragt, über welche Bezugsperson die neue eingehängt werden soll.
+  ///
+  /// Jede Zeile nennt neben dem Namen die Bezeichnung dieser Person – bei
+  /// „Schwager" stehen Geschwister und Partner nebeneinander in der Liste,
+  /// und erst die Bezeichnung macht die beiden Lesarten unterscheidbar.
+  Future<Einhaengeweg?> _wegWaehlen(
+      List<Einhaengeweg> wege, String titel) async {
+    return showDialog<Einhaengeweg>(
+      context: context,
+      builder: (dialog) => SimpleDialog(
+        title: Text(titel),
+        children: [
+          for (final weg in wege)
+            if (_nachId[weg.bezugsperson] case final p?)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialog, weg),
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: CircleAvatar(
+                    radius: 18,
+                    backgroundImage: p.coverFaceCropPath != null
+                        ? FileImage(
+                            widget.library.paths.absolute(p.coverFaceCropPath!))
+                        : null,
+                    child: p.coverFaceCropPath == null
+                        ? const Icon(Icons.person_outline, size: 18)
+                        : null,
+                  ),
+                  title: Text(p.name),
+                  subtitle:
+                      _bezeichnung(p) == null ? null : Text(_bezeichnung(p)!),
+                ),
+              ),
+        ],
+      ),
+    );
   }
 
   void _meldeFehler(Beziehungsfehler fehler) {
@@ -1110,9 +1197,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
             PopupMenuButton<String>(
               tooltip: t.allgMehr,
               onSelected: (w) => switch (w) {
-                'geschwister' => _weitererVerwandter(_Weitere.geschwister),
-                'grosseltern' => _weitererVerwandter(_Weitere.grosselternteil),
-                'enkel' => _weitererVerwandter(_Weitere.enkel),
+                'verwandter' => _verwandtenHinzufuegen(),
                 'fotos' => _fotosDerFamilie(),
                 'orte' => _orteDerFamilie(),
                 'tafel' => _tafelDrucken(),
@@ -1123,7 +1208,6 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                 // Die Knöpfe daneben legen Eltern, Kinder und Partner an –
                 // das sind die Kanten, die es wirklich gibt. Was hier
                 // steht, hängt die neue Person an einer Zwischenperson ein.
-                // Die Überschrift sagt das, ohne dass man es erraten muss.
                 PopupMenuItem(
                   enabled: false,
                   height: 32,
@@ -1137,22 +1221,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                   ),
                 ),
                 PopupMenuItem(
-                  value: 'geschwister',
+                  value: 'verwandter',
                   enabled: fokus != null,
-                  child: _zeile(Icons.people_outline,
-                      t.stammbaumGeschwisterHinzufuegen),
-                ),
-                PopupMenuItem(
-                  value: 'grosseltern',
-                  enabled: fokus != null,
-                  child: _zeile(Icons.elderly_outlined,
-                      t.stammbaumGrosselternteilHinzufuegen),
-                ),
-                PopupMenuItem(
-                  value: 'enkel',
-                  enabled: fokus != null,
-                  child: _zeile(Icons.child_friendly_outlined,
-                      t.stammbaumEnkelHinzufuegen),
+                  child: _zeile(
+                      Icons.diversity_1_outlined, t.stammbaumVerwandtenHinzufuegen),
                 ),
                 const PopupMenuDivider(),
                 PopupMenuItem(

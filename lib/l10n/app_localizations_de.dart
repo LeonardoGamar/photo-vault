@@ -4685,34 +4685,115 @@ class AppTexteDe extends AppTexte {
   String get stammbaumWeitereVerwandte => 'Weitere Verwandte';
 
   @override
-  String get stammbaumGeschwisterHinzufuegen => 'Geschwisterkind hinzufügen …';
+  String get stammbaumVerwandtenHinzufuegen => 'Verwandten hinzufügen …';
 
   @override
-  String get stammbaumGrosselternteilHinzufuegen =>
-      'Großelternteil hinzufügen …';
+  String get stammbaumGruppeVorfahren => 'Vorfahren';
 
   @override
-  String get stammbaumEnkelHinzufuegen => 'Enkelkind hinzufügen …';
+  String get stammbaumGruppeNachkommen => 'Nachkommen';
 
   @override
-  String stammbaumBrauchtElternteil(String name) {
-    return 'Ein Geschwisterkind teilt sich einen Elternteil. Trage für $name zuerst einen Elternteil ein.';
+  String get stammbaumGruppeSeitenlinie => 'Seitenlinie';
+
+  @override
+  String get stammbaumGruppeAngeheiratet => 'Angeheiratet';
+
+  @override
+  String get stammbaumGradGrosselternteil => 'Großelternteil';
+
+  @override
+  String get stammbaumGradUrgrosselternteil => 'Urgroßelternteil';
+
+  @override
+  String get stammbaumGradEnkelkind => 'Enkelkind';
+
+  @override
+  String get stammbaumGradUrenkelkind => 'Urenkelkind';
+
+  @override
+  String get stammbaumGradGeschwisterkind => 'Geschwisterkind';
+
+  @override
+  String get stammbaumGradHalbgeschwisterkind => 'Halbgeschwisterkind';
+
+  @override
+  String get stammbaumGradOnkelTante => 'Onkel oder Tante';
+
+  @override
+  String get stammbaumGradNeffeNichte => 'Neffe oder Nichte';
+
+  @override
+  String get stammbaumGradCousin => 'Cousin oder Cousine';
+
+  @override
+  String get stammbaumGradSchwiegerelternteil => 'Schwiegerelternteil';
+
+  @override
+  String get stammbaumGradSchwiegerkind => 'Schwiegerkind';
+
+  @override
+  String get stammbaumGradSchwager => 'Schwager oder Schwägerin';
+
+  @override
+  String get stammbaumGradStiefelternteil => 'Stiefelternteil';
+
+  @override
+  String get stammbaumGradStiefkind => 'Stiefkind';
+
+  @override
+  String stammbaumFehltElternteil(String name) {
+    return 'Dafür braucht $name zuerst einen Elternteil.';
   }
 
   @override
-  String stammbaumBrauchtKind(String name) {
-    return 'Ein Enkelkind ist das Kind eines Kindes. Trage für $name zuerst ein Kind ein.';
+  String stammbaumFehltGrosselternteil(String name) {
+    return 'Dafür braucht $name zuerst Großeltern.';
   }
 
   @override
-  String get stammbaumWelcherElternteil => 'Wessen Elternteil?';
+  String stammbaumFehltKind(String name) {
+    return 'Dafür braucht $name zuerst ein Kind.';
+  }
 
   @override
-  String get stammbaumWelchesKind => 'Wessen Kind?';
+  String stammbaumFehltEnkelkind(String name) {
+    return 'Dafür braucht $name zuerst ein Enkelkind.';
+  }
 
   @override
-  String stammbaumGeschwisterHinweis(String name, String eltern) {
-    return 'Das neue Geschwisterkind bekommt dieselben Eltern wie $name: $eltern.';
+  String stammbaumFehltGeschwister(String name) {
+    return 'Dafür braucht $name zuerst ein Geschwisterkind.';
+  }
+
+  @override
+  String stammbaumFehltOnkelTante(String name) {
+    return 'Dafür braucht $name zuerst einen Onkel oder eine Tante.';
+  }
+
+  @override
+  String stammbaumFehltPartner(String name) {
+    return 'Dafür braucht $name zuerst einen Partner.';
+  }
+
+  @override
+  String stammbaumFehltGeschwisterOderPartner(String name) {
+    return 'Dafür braucht $name zuerst ein Geschwisterkind oder einen Partner.';
+  }
+
+  @override
+  String stammbaumUeberWen(String grad) {
+    return '$grad – über wen?';
+  }
+
+  @override
+  String stammbaumVerwandterEingetragen(String name, String bezeichnung) {
+    return '$name ist eingetragen – $bezeichnung.';
+  }
+
+  @override
+  String stammbaumNurEintragbares(String name) {
+    return 'Gezeigt wird, was sich für $name eintragen lässt. Grau bedeutet: Dafür fehlt noch eine Zwischenperson.';
   }
 
   @override

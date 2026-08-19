@@ -2680,34 +2680,112 @@
   "stammbaumVerbindungsartHinweis": "Adoptiv- und Pflegeeltern zählen überall als Eltern – nur die Bezeichnung und die gestrichelte Linie unterscheiden sie.",
   "stammbaumNichtsEntfernt": "Diese Verbindung war schon gelöst.",
   "stammbaumWeitereVerwandte": "Weitere Verwandte",
-  "stammbaumGeschwisterHinzufuegen": "Geschwisterkind hinzufügen …",
-  "stammbaumGrosselternteilHinzufuegen": "Großelternteil hinzufügen …",
-  "stammbaumEnkelHinzufuegen": "Enkelkind hinzufügen …",
-  "stammbaumBrauchtElternteil": "Ein Geschwisterkind teilt sich einen Elternteil. Trage für {name} zuerst einen Elternteil ein.",
-  "@stammbaumBrauchtElternteil": {
+  "stammbaumVerwandtenHinzufuegen": "Verwandten hinzufügen …",
+  "stammbaumGruppeVorfahren": "Vorfahren",
+  "stammbaumGruppeNachkommen": "Nachkommen",
+  "stammbaumGruppeSeitenlinie": "Seitenlinie",
+  "stammbaumGruppeAngeheiratet": "Angeheiratet",
+  "stammbaumGradGrosselternteil": "Großelternteil",
+  "stammbaumGradUrgrosselternteil": "Urgroßelternteil",
+  "stammbaumGradEnkelkind": "Enkelkind",
+  "stammbaumGradUrenkelkind": "Urenkelkind",
+  "stammbaumGradGeschwisterkind": "Geschwisterkind",
+  "stammbaumGradHalbgeschwisterkind": "Halbgeschwisterkind",
+  "stammbaumGradOnkelTante": "Onkel oder Tante",
+  "stammbaumGradNeffeNichte": "Neffe oder Nichte",
+  "stammbaumGradCousin": "Cousin oder Cousine",
+  "stammbaumGradSchwiegerelternteil": "Schwiegerelternteil",
+  "stammbaumGradSchwiegerkind": "Schwiegerkind",
+  "stammbaumGradSchwager": "Schwager oder Schwägerin",
+  "stammbaumGradStiefelternteil": "Stiefelternteil",
+  "stammbaumGradStiefkind": "Stiefkind",
+  "stammbaumFehltElternteil": "Dafür braucht {name} zuerst einen Elternteil.",
+  "@stammbaumFehltElternteil": {
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "stammbaumBrauchtKind": "Ein Enkelkind ist das Kind eines Kindes. Trage für {name} zuerst ein Kind ein.",
-  "@stammbaumBrauchtKind": {
+  "stammbaumFehltGrosselternteil": "Dafür braucht {name} zuerst Großeltern.",
+  "@stammbaumFehltGrosselternteil": {
     "placeholders": {
       "name": {
         "type": "String"
       }
     }
   },
-  "stammbaumWelcherElternteil": "Wessen Elternteil?",
-  "stammbaumWelchesKind": "Wessen Kind?",
-  "stammbaumGeschwisterHinweis": "Das neue Geschwisterkind bekommt dieselben Eltern wie {name}: {eltern}.",
-  "@stammbaumGeschwisterHinweis": {
+  "stammbaumFehltKind": "Dafür braucht {name} zuerst ein Kind.",
+  "@stammbaumFehltKind": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltEnkelkind": "Dafür braucht {name} zuerst ein Enkelkind.",
+  "@stammbaumFehltEnkelkind": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltGeschwister": "Dafür braucht {name} zuerst ein Geschwisterkind.",
+  "@stammbaumFehltGeschwister": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltOnkelTante": "Dafür braucht {name} zuerst einen Onkel oder eine Tante.",
+  "@stammbaumFehltOnkelTante": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltPartner": "Dafür braucht {name} zuerst einen Partner.",
+  "@stammbaumFehltPartner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumFehltGeschwisterOderPartner": "Dafür braucht {name} zuerst ein Geschwisterkind oder einen Partner.",
+  "@stammbaumFehltGeschwisterOderPartner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumUeberWen": "{grad} – über wen?",
+  "@stammbaumUeberWen": {
+    "placeholders": {
+      "grad": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumVerwandterEingetragen": "{name} ist eingetragen – {bezeichnung}.",
+  "@stammbaumVerwandterEingetragen": {
     "placeholders": {
       "name": {
         "type": "String"
       },
-      "eltern": {
+      "bezeichnung": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumNurEintragbares": "Gezeigt wird, was sich für {name} eintragen lässt. Grau bedeutet: Dafür fehlt noch eine Zwischenperson.",
+  "@stammbaumNurEintragbares": {
+    "placeholders": {
+      "name": {
         "type": "String"
       }
     }

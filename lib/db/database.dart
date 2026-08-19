@@ -3411,6 +3411,47 @@ class AppDatabase extends _$AppDatabase {
     return null;
   }
 
+  /// Trägt mehrere Verwandtschaften auf einmal ein – für die Grade, die
+  /// über eine Zwischenperson entstehen (siehe verwandte_anlegen.dart).
+  ///
+  /// In einer Transaktion, weil ein Geschwisterkind an beiden Eltern
+  /// gleichzeitig hängt: Bräche der zweite Eintrag ab, stünde ein
+  /// Halbgeschwisterkind im Baum, das nie jemand so gemeint hat.
+  ///
+  /// Die Prüfung läuft je Kante gegen den **fortgeschriebenen** Stand, nicht
+  /// gegen den Anfangszustand – sonst könnten zwei Kanten eines Aufrufs
+  /// gemeinsam einen Kreis schliessen, den keine für sich geschlossen hätte.
+  ///
+  /// Gibt den ersten Grund zurück, an dem es scheiterte; dann wurde nichts
+  /// geschrieben.
+  Future<Beziehungsfehler?> fuegeBeziehungenHinzu(List<Kante> kanten) async {
+    if (kanten.isEmpty) return null;
+    try {
+      await transaction(() async {
+        final gesammelt = <Kante>[...await _kanten()];
+        for (final k in kanten) {
+          final netz = Verwandtschaftsnetz(gesammelt);
+          final fehler = pruefeBeziehung(netz, k.personId, k.andereId, k.art);
+          // Der Wurf rollt die Transaktion zurück und macht damit auch die
+          // bereits eingefügten Kanten dieses Aufrufs rückgängig.
+          if (fehler != null) throw _BeziehungAbbruch(fehler);
+          final fest = k.art == Verwandtschaft.partner
+              ? partnerKanteFuer(k.personId, k.andereId)
+              : k;
+          await into(personBeziehungen).insert(PersonBeziehungenCompanion.insert(
+            personId: fest.personId,
+            andereId: fest.andereId,
+            art: artZuText(fest.art),
+          ));
+          gesammelt.add(fest);
+        }
+      });
+      return null;
+    } on _BeziehungAbbruch catch (e) {
+      return e.grund;
+    }
+  }
+
   /// Entfernt eine Verwandtschaft. Bei Partnerschaften ist die
   /// Eingaberichtung gleichgültig – gespeichert ist nur eine Zeile.
   ///
@@ -4075,4 +4116,12 @@ class AppDatabase extends _$AppDatabase {
         ..where((t) => t.isLocked.equals(true) & t.isTrashed.equals(false))
         ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]))
       .watch();
+}
+
+/// Bricht [AppDatabase.fuegeBeziehungenHinzu] ab und rollt die Transaktion
+/// zurück. Rein intern – nach aussen wird daraus wieder ein
+/// [Beziehungsfehler].
+class _BeziehungAbbruch implements Exception {
+  final Beziehungsfehler grund;
+  const _BeziehungAbbruch(this.grund);
 }

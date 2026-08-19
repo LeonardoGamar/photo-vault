@@ -7476,53 +7476,185 @@ abstract class AppTexte {
   /// **'Weitere Verwandte'**
   String get stammbaumWeitereVerwandte;
 
-  /// No description provided for @stammbaumGeschwisterHinzufuegen.
+  /// No description provided for @stammbaumVerwandtenHinzufuegen.
   ///
   /// In de, this message translates to:
-  /// **'Geschwisterkind hinzufügen …'**
-  String get stammbaumGeschwisterHinzufuegen;
+  /// **'Verwandten hinzufügen …'**
+  String get stammbaumVerwandtenHinzufuegen;
 
-  /// No description provided for @stammbaumGrosselternteilHinzufuegen.
+  /// No description provided for @stammbaumGruppeVorfahren.
   ///
   /// In de, this message translates to:
-  /// **'Großelternteil hinzufügen …'**
-  String get stammbaumGrosselternteilHinzufuegen;
+  /// **'Vorfahren'**
+  String get stammbaumGruppeVorfahren;
 
-  /// No description provided for @stammbaumEnkelHinzufuegen.
+  /// No description provided for @stammbaumGruppeNachkommen.
   ///
   /// In de, this message translates to:
-  /// **'Enkelkind hinzufügen …'**
-  String get stammbaumEnkelHinzufuegen;
+  /// **'Nachkommen'**
+  String get stammbaumGruppeNachkommen;
 
-  /// No description provided for @stammbaumBrauchtElternteil.
+  /// No description provided for @stammbaumGruppeSeitenlinie.
   ///
   /// In de, this message translates to:
-  /// **'Ein Geschwisterkind teilt sich einen Elternteil. Trage für {name} zuerst einen Elternteil ein.'**
-  String stammbaumBrauchtElternteil(String name);
+  /// **'Seitenlinie'**
+  String get stammbaumGruppeSeitenlinie;
 
-  /// No description provided for @stammbaumBrauchtKind.
+  /// No description provided for @stammbaumGruppeAngeheiratet.
   ///
   /// In de, this message translates to:
-  /// **'Ein Enkelkind ist das Kind eines Kindes. Trage für {name} zuerst ein Kind ein.'**
-  String stammbaumBrauchtKind(String name);
+  /// **'Angeheiratet'**
+  String get stammbaumGruppeAngeheiratet;
 
-  /// No description provided for @stammbaumWelcherElternteil.
+  /// No description provided for @stammbaumGradGrosselternteil.
   ///
   /// In de, this message translates to:
-  /// **'Wessen Elternteil?'**
-  String get stammbaumWelcherElternteil;
+  /// **'Großelternteil'**
+  String get stammbaumGradGrosselternteil;
 
-  /// No description provided for @stammbaumWelchesKind.
+  /// No description provided for @stammbaumGradUrgrosselternteil.
   ///
   /// In de, this message translates to:
-  /// **'Wessen Kind?'**
-  String get stammbaumWelchesKind;
+  /// **'Urgroßelternteil'**
+  String get stammbaumGradUrgrosselternteil;
 
-  /// No description provided for @stammbaumGeschwisterHinweis.
+  /// No description provided for @stammbaumGradEnkelkind.
   ///
   /// In de, this message translates to:
-  /// **'Das neue Geschwisterkind bekommt dieselben Eltern wie {name}: {eltern}.'**
-  String stammbaumGeschwisterHinweis(String name, String eltern);
+  /// **'Enkelkind'**
+  String get stammbaumGradEnkelkind;
+
+  /// No description provided for @stammbaumGradUrenkelkind.
+  ///
+  /// In de, this message translates to:
+  /// **'Urenkelkind'**
+  String get stammbaumGradUrenkelkind;
+
+  /// No description provided for @stammbaumGradGeschwisterkind.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschwisterkind'**
+  String get stammbaumGradGeschwisterkind;
+
+  /// No description provided for @stammbaumGradHalbgeschwisterkind.
+  ///
+  /// In de, this message translates to:
+  /// **'Halbgeschwisterkind'**
+  String get stammbaumGradHalbgeschwisterkind;
+
+  /// No description provided for @stammbaumGradOnkelTante.
+  ///
+  /// In de, this message translates to:
+  /// **'Onkel oder Tante'**
+  String get stammbaumGradOnkelTante;
+
+  /// No description provided for @stammbaumGradNeffeNichte.
+  ///
+  /// In de, this message translates to:
+  /// **'Neffe oder Nichte'**
+  String get stammbaumGradNeffeNichte;
+
+  /// No description provided for @stammbaumGradCousin.
+  ///
+  /// In de, this message translates to:
+  /// **'Cousin oder Cousine'**
+  String get stammbaumGradCousin;
+
+  /// No description provided for @stammbaumGradSchwiegerelternteil.
+  ///
+  /// In de, this message translates to:
+  /// **'Schwiegerelternteil'**
+  String get stammbaumGradSchwiegerelternteil;
+
+  /// No description provided for @stammbaumGradSchwiegerkind.
+  ///
+  /// In de, this message translates to:
+  /// **'Schwiegerkind'**
+  String get stammbaumGradSchwiegerkind;
+
+  /// No description provided for @stammbaumGradSchwager.
+  ///
+  /// In de, this message translates to:
+  /// **'Schwager oder Schwägerin'**
+  String get stammbaumGradSchwager;
+
+  /// No description provided for @stammbaumGradStiefelternteil.
+  ///
+  /// In de, this message translates to:
+  /// **'Stiefelternteil'**
+  String get stammbaumGradStiefelternteil;
+
+  /// No description provided for @stammbaumGradStiefkind.
+  ///
+  /// In de, this message translates to:
+  /// **'Stiefkind'**
+  String get stammbaumGradStiefkind;
+
+  /// No description provided for @stammbaumFehltElternteil.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst einen Elternteil.'**
+  String stammbaumFehltElternteil(String name);
+
+  /// No description provided for @stammbaumFehltGrosselternteil.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst Großeltern.'**
+  String stammbaumFehltGrosselternteil(String name);
+
+  /// No description provided for @stammbaumFehltKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst ein Kind.'**
+  String stammbaumFehltKind(String name);
+
+  /// No description provided for @stammbaumFehltEnkelkind.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst ein Enkelkind.'**
+  String stammbaumFehltEnkelkind(String name);
+
+  /// No description provided for @stammbaumFehltGeschwister.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst ein Geschwisterkind.'**
+  String stammbaumFehltGeschwister(String name);
+
+  /// No description provided for @stammbaumFehltOnkelTante.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst einen Onkel oder eine Tante.'**
+  String stammbaumFehltOnkelTante(String name);
+
+  /// No description provided for @stammbaumFehltPartner.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst einen Partner.'**
+  String stammbaumFehltPartner(String name);
+
+  /// No description provided for @stammbaumFehltGeschwisterOderPartner.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür braucht {name} zuerst ein Geschwisterkind oder einen Partner.'**
+  String stammbaumFehltGeschwisterOderPartner(String name);
+
+  /// No description provided for @stammbaumUeberWen.
+  ///
+  /// In de, this message translates to:
+  /// **'{grad} – über wen?'**
+  String stammbaumUeberWen(String grad);
+
+  /// No description provided for @stammbaumVerwandterEingetragen.
+  ///
+  /// In de, this message translates to:
+  /// **'{name} ist eingetragen – {bezeichnung}.'**
+  String stammbaumVerwandterEingetragen(String name, String bezeichnung);
+
+  /// No description provided for @stammbaumNurEintragbares.
+  ///
+  /// In de, this message translates to:
+  /// **'Gezeigt wird, was sich für {name} eintragen lässt. Grau bedeutet: Dafür fehlt noch eine Zwischenperson.'**
+  String stammbaumNurEintragbares(String name);
 
   /// No description provided for @stammbaumFamilienorteVon.
   ///

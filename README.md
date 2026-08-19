@@ -126,11 +126,20 @@ welche Modelle aus welcher Quelle stammen.
   einen **Lebenslauf** – Hochzeit, Umzug, Beruf, Ausbildung, jeweils mit
   Datum, Ort und Notiz.
 
-  Gespeichert werden nur Eltern, Kinder und Partner. **Geschwisterkind,
-  Großelternteil und Enkelkind** lassen sich trotzdem direkt eintragen –
-  sie werden an der richtigen Zwischenperson eingehängt, statt dass man
-  erst dorthin rücken muss. Wo die Stelle nicht eindeutig ist (wessen
-  Elternteil?), wird gefragt statt geraten.
+  Gespeichert werden nur Eltern, Kinder und Partner. **Vierzehn weitere
+  Grade** lassen sich trotzdem direkt eintragen – Großelternteil,
+  Urgroßelternteil, Enkelkind, Urenkelkind, Geschwisterkind,
+  Halbgeschwisterkind, Onkel/Tante, Neffe/Nichte, Cousin/Cousine,
+  Schwiegerelternteil, Schwiegerkind, Schwager/Schwägerin,
+  Stiefelternteil, Stiefkind. Sie werden an der richtigen Zwischenperson
+  eingehängt, statt dass man erst dorthin rücken muss; wo die Stelle nicht
+  eindeutig ist (wessen Elternteil?), wird gefragt statt geraten. Grade,
+  denen noch eine Zwischenperson fehlt, stehen grau da und nennen den
+  Grund – ein Cousin braucht zuerst einen Onkel.
+
+  Die Probe darauf ist die Gegenrechnung: Wer einen Neffen einträgt, muss
+  hinterher von der Bezeichnungslogik auch als Neffe ausgewiesen werden.
+  Für alle vierzehn Grade ist das ein Test.
 
   Dazu vier Wege nach draußen: **Fotos der Familie** (alle Bilder, auf
   denen jemand aus dem Verwandtschaftsnetz erkannt wurde), **Orte der

@@ -4662,33 +4662,115 @@ class AppTexteEn extends AppTexte {
   String get stammbaumWeitereVerwandte => 'More relatives';
 
   @override
-  String get stammbaumGeschwisterHinzufuegen => 'Add a sibling …';
+  String get stammbaumVerwandtenHinzufuegen => 'Add a relative …';
 
   @override
-  String get stammbaumGrosselternteilHinzufuegen => 'Add a grandparent …';
+  String get stammbaumGruppeVorfahren => 'Ancestors';
 
   @override
-  String get stammbaumEnkelHinzufuegen => 'Add a grandchild …';
+  String get stammbaumGruppeNachkommen => 'Descendants';
 
   @override
-  String stammbaumBrauchtElternteil(String name) {
-    return 'A sibling shares a parent. Add a parent for $name first.';
+  String get stammbaumGruppeSeitenlinie => 'Collateral line';
+
+  @override
+  String get stammbaumGruppeAngeheiratet => 'By marriage';
+
+  @override
+  String get stammbaumGradGrosselternteil => 'Grandparent';
+
+  @override
+  String get stammbaumGradUrgrosselternteil => 'Great-grandparent';
+
+  @override
+  String get stammbaumGradEnkelkind => 'Grandchild';
+
+  @override
+  String get stammbaumGradUrenkelkind => 'Great-grandchild';
+
+  @override
+  String get stammbaumGradGeschwisterkind => 'Sibling';
+
+  @override
+  String get stammbaumGradHalbgeschwisterkind => 'Half-sibling';
+
+  @override
+  String get stammbaumGradOnkelTante => 'Uncle or aunt';
+
+  @override
+  String get stammbaumGradNeffeNichte => 'Nephew or niece';
+
+  @override
+  String get stammbaumGradCousin => 'Cousin';
+
+  @override
+  String get stammbaumGradSchwiegerelternteil => 'Parent-in-law';
+
+  @override
+  String get stammbaumGradSchwiegerkind => 'Child-in-law';
+
+  @override
+  String get stammbaumGradSchwager => 'Brother- or sister-in-law';
+
+  @override
+  String get stammbaumGradStiefelternteil => 'Step-parent';
+
+  @override
+  String get stammbaumGradStiefkind => 'Stepchild';
+
+  @override
+  String stammbaumFehltElternteil(String name) {
+    return '$name needs a parent first.';
   }
 
   @override
-  String stammbaumBrauchtKind(String name) {
-    return 'A grandchild is the child of a child. Add a child for $name first.';
+  String stammbaumFehltGrosselternteil(String name) {
+    return '$name needs grandparents first.';
   }
 
   @override
-  String get stammbaumWelcherElternteil => 'Whose parent?';
+  String stammbaumFehltKind(String name) {
+    return '$name needs a child first.';
+  }
 
   @override
-  String get stammbaumWelchesKind => 'Whose child?';
+  String stammbaumFehltEnkelkind(String name) {
+    return '$name needs a grandchild first.';
+  }
 
   @override
-  String stammbaumGeschwisterHinweis(String name, String eltern) {
-    return 'The new sibling gets the same parents as $name: $eltern.';
+  String stammbaumFehltGeschwister(String name) {
+    return '$name needs a sibling first.';
+  }
+
+  @override
+  String stammbaumFehltOnkelTante(String name) {
+    return '$name needs an uncle or aunt first.';
+  }
+
+  @override
+  String stammbaumFehltPartner(String name) {
+    return '$name needs a partner first.';
+  }
+
+  @override
+  String stammbaumFehltGeschwisterOderPartner(String name) {
+    return '$name needs a sibling or a partner first.';
+  }
+
+  @override
+  String stammbaumUeberWen(String grad) {
+    return '$grad – through whom?';
+  }
+
+  @override
+  String stammbaumVerwandterEingetragen(String name, String bezeichnung) {
+    return '$name has been added – $bezeichnung.';
+  }
+
+  @override
+  String stammbaumNurEintragbares(String name) {
+    return 'Shown is what can be added for $name. Greyed out means an intermediate person is still missing.';
   }
 
   @override
