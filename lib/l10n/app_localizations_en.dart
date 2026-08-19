@@ -3616,8 +3616,8 @@ class AppTexteEn extends AppTexte {
   String get personenIgnoriertTab => 'Ignored';
 
   @override
-  String personenIgnoriertTabMitZahl(int anzahl) {
-    return 'Ignored ($anzahl)';
+  String tabMitZahl(String beschriftung, int anzahl) {
+    return '$beschriftung ($anzahl)';
   }
 
   @override
@@ -3764,6 +3764,9 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get gesichtNichtMehrIgnorieren => 'Stop ignoring';
+
+  @override
+  String get gesichtFotoLoeschen => 'Delete photo';
 
   @override
   String get gesichtErkennungLoeschen => 'Delete detection';
@@ -3993,4 +3996,87 @@ class AppTexteEn extends AppTexte {
   String bearbRetuscheFehler(String fehler) {
     return 'Removal failed: $fehler';
   }
+
+  @override
+  String get stammbaumTitel => 'Family tree';
+
+  @override
+  String stammbaumTitelVon(String name) {
+    return 'Family tree: $name';
+  }
+
+  @override
+  String get stammbaumEltern => 'Parents';
+
+  @override
+  String get stammbaumGeschwister => 'Siblings';
+
+  @override
+  String get stammbaumPartner => 'Partner';
+
+  @override
+  String get stammbaumKinder => 'Children';
+
+  @override
+  String get stammbaumElternteilHinzufuegen => 'Add parent';
+
+  @override
+  String get stammbaumPartnerHinzufuegen => 'Add partner';
+
+  @override
+  String get stammbaumKindHinzufuegen => 'Add child';
+
+  @override
+  String get stammbaumInDieMitte => 'Move to centre';
+
+  @override
+  String get stammbaumLebensdaten => 'Life dates …';
+
+  @override
+  String stammbaumLebensdatenVon(String name) {
+    return 'Life dates: $name';
+  }
+
+  @override
+  String get stammbaumFotosZeigen => 'Photos of this person';
+
+  @override
+  String get stammbaumVerbindungEntfernen => 'Remove connection';
+
+  @override
+  String stammbaumVerbindungEntfernenFrage(String eine, String andere) {
+    return 'The relationship between $eine and $andere will be removed. Both people and their photos stay.';
+  }
+
+  @override
+  String get stammbaumFehlerSelbst =>
+      'A person cannot be related to themselves.';
+
+  @override
+  String get stammbaumFehlerKreis =>
+      'That would run in a circle: this person already appears further down the same branch.';
+
+  @override
+  String get stammbaumFehlerVorhanden =>
+      'This relationship is already recorded.';
+
+  @override
+  String get stammbaumLeer =>
+      'No relatives recorded for this person yet. Use the buttons at the top right to add parents, a partner or children – either from the people you have already named, or as a new name, even without a single photo.';
+
+  @override
+  String get stammbaumPersonFehlt => 'This person no longer exists.';
+
+  @override
+  String get stammbaumGeboren => 'Born';
+
+  @override
+  String get stammbaumGestorben => 'Died';
+
+  @override
+  String get stammbaumUnbekannt => 'unknown';
+
+  @override
+  String get stammbaumNurJahrHinweis =>
+      'If only the year is known, pick any day within it – only the year is shown anyway.';
 }

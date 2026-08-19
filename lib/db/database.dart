@@ -13,6 +13,7 @@ import '../services/face_threshold.dart';
 import '../services/library_location.dart';
 import '../services/library_stats.dart';
 import '../services/search_filters.dart';
+import '../services/stammbaum.dart';
 
 part 'database.g.dart';
 
@@ -503,8 +504,45 @@ class People extends Table {
   /// Anwendung unterscheidet, wäre nicht erklärbar.
   RealColumn get similarityThreshold => real().nullable()();
 
+  /// Lebensdaten – nur für den Stammbaum, und beide freiwillig.
+  ///
+  /// Als volles Datum und nicht als Jahreszahl: Bei Verwandten aus der
+  /// eigenen Zeit kennt man den Tag, bei den Urgroßeltern oft nur das
+  /// Jahr. Ein Feld, das nur Jahre aufnimmt, verlöre die genaue Angabe;
+  /// eines für den Tag lässt sich mit dem 1. Januar füllen, wenn mehr
+  /// nicht bekannt ist. Was davon angezeigt wird, entscheidet die
+  /// Darstellung, nicht die Speicherung.
+  DateTimeColumn get geburtsdatum => dateTime().nullable()();
+  DateTimeColumn get sterbedatum => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Eine Verwandtschaft zwischen zwei Personen – die Grundlage des
+/// Stammbaums.
+///
+/// Eine Kantenliste statt Spalten wie „Mutter"/„Vater" an [People]. Feste
+/// Spalten legen die Familienform fest, bevor der Nutzer sie beschreibt:
+/// Zwei Elternteile passen, drei (Stief-, Pflegeeltern) passen nicht mehr,
+/// und für Partner bräuchte es ohnehin eine eigene Struktur. Eine
+/// Kantenliste beschreibt jede dieser Formen, ohne dass das Schema davon
+/// wüsste.
+///
+/// [art] entscheidet, wie die beiden Enden zu lesen sind:
+/// * `elternteil`: [andereId] ist ein Elternteil von [personId]. Gerichtet
+///   – die Umkehrung ist „Kind" und ergibt sich aus derselben Zeile.
+/// * `partner`: symmetrisch. Genau **eine** Zeile je Paar, mit der
+///   kleineren Kennung in [personId] (siehe `partnerKanteFuer`). Zwei
+///   Zeilen je Paar könnten auseinanderlaufen, und dann wäre nicht
+///   entscheidbar, welche gilt.
+class PersonBeziehungen extends Table {
+  TextColumn get personId => text()();
+  TextColumn get andereId => text()();
+  TextColumn get art => text()();
+
+  @override
+  Set<Column> get primaryKey => {personId, andereId, art};
 }
 
 /// Eine festgehaltene Entscheidung über einen Wiedererkennungs-Vorschlag.
@@ -783,6 +821,7 @@ class SavedSearches extends Table {
   AutomationRules,
   AutomationRuleTags,
   ExportPresets,
+  PersonBeziehungen,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -797,7 +836,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 39;
+  int get schemaVersion => 40;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1093,6 +1132,17 @@ class AppDatabase extends _$AppDatabase {
                 m, developHistory, developHistory.lutPath, 'develop_history', 'lut_path');
             await _addColumnIfMissing(m, developHistory, developHistory.lutStrength,
                 'develop_history', 'lut_strength');
+          }
+          if (from < 40) {
+            // Stammbaum: Verwandtschaften und Lebensdaten. Beides ist rein
+            // additiv – eine leere Beziehungstabelle und zwei leere Spalten
+            // verhalten sich wie zuvor, der Stammbaum einer Person ohne
+            // Einträge ist schlicht leer.
+            await m.createTable(personBeziehungen);
+            await _addColumnIfMissing(m, people, people.geburtsdatum, 'people', 'geburtsdatum');
+            await _addColumnIfMissing(m, people, people.sterbedatum, 'people', 'sterbedatum');
+            await customStatement(
+                'CREATE INDEX IF NOT EXISTS idx_beziehung_andere ON person_beziehungen (andere_id)');
           }
         },
       );
@@ -2918,6 +2968,18 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<PersonData>> watchPeople() => select(people).watch();
 
+  /// Wie viele Personen angelegt sind – für die Zahl am Reiter.
+  ///
+  /// Als Zählung und nicht über [watchPeople]: Ein zweiter Beobachter auf
+  /// derselben Tabelle würde bei jeder Zuordnung den ganzen Bildschirm neu
+  /// aufbauen, samt der 200 Gesichtskacheln darunter – genau das, was das
+  /// stückweise Entfernen im Raster gerade vermeidet.
+  Future<int> countPeople() async {
+    final anzahl = people.id.count();
+    final row = await (selectOnly(people)..addColumns([anzahl])).getSingle();
+    return row.read(anzahl) ?? 0;
+  }
+
   Stream<PersonData?> watchPerson(String id) =>
       (select(people)..where((t) => t.id.equals(id))).watchSingleOrNull();
 
@@ -3245,9 +3307,145 @@ class AppDatabase extends _$AppDatabase {
   /// Personen-Zeile gelöscht. Nützlich, wenn die Gesichtserkennung
   /// dieselbe reale Person versehentlich als zwei Personen angelegt hat.
   Future<void> mergePeople({required String keepPersonId, required String removePersonId}) async {
-    await (update(faces)..where((t) => t.personId.equals(removePersonId)))
-        .write(FacesCompanion(personId: Value(keepPersonId)));
-    await (delete(people)..where((t) => t.id.equals(removePersonId))).go();
+    await transaction(() async {
+      await (update(faces)..where((t) => t.personId.equals(removePersonId)))
+          .write(FacesCompanion(personId: Value(keepPersonId)));
+      // Die Verwandtschaften der aufgelösten Person würden sonst ins Leere
+      // zeigen: Kanten auf eine nicht mehr vorhandene Kennung erscheinen im
+      // Stammbaum als namenlose Karte. Übertragen statt löschen – wer zwei
+      // Einträge derselben Person zusammenführt, will deren Familie
+      // behalten.
+      await _uebertrageBeziehungen(removePersonId, keepPersonId);
+      await (delete(people)..where((t) => t.id.equals(removePersonId))).go();
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // Stammbaum (siehe services/stammbaum.dart)
+  // -----------------------------------------------------------------------
+
+  /// Alle Verwandtschaften. Als vollständige Liste und nicht je Person
+  /// abgefragt: Der Stammbaum braucht für seine Hinweise („hat noch Eltern")
+  /// ohnehin die Nachbarschaft der Nachbarn, und die Tabelle bleibt selbst
+  /// bei einer sehr großen Familie klein gegenüber allem anderen hier.
+  Stream<List<PersonBeziehungenData>> watchBeziehungen() =>
+      select(personBeziehungen).watch();
+
+  Future<List<PersonBeziehungenData>> alleBeziehungen() =>
+      select(personBeziehungen).get();
+
+  /// Trägt eine Verwandtschaft ein.
+  ///
+  /// Die Prüfung läuft hier und nicht nur in der Oberfläche: Ein Kreis
+  /// („jemand ist sein eigener Urgroßvater") ließe jede Auswertung nach
+  /// oben endlos laufen, und das wäre nach dem Speichern nicht mehr
+  /// bequem zu heilen. Gibt den Grund zurück, wenn nichts eingetragen
+  /// wurde.
+  Future<Beziehungsfehler?> fuegeBeziehungHinzu(
+    String personId,
+    String andereId,
+    Verwandtschaft art,
+  ) async {
+    final netz = Verwandtschaftsnetz(await _kanten());
+    final fehler = pruefeBeziehung(netz, personId, andereId, art);
+    if (fehler != null) return fehler;
+    final k = art == Verwandtschaft.partner
+        ? partnerKanteFuer(personId, andereId)
+        : kante(personId, andereId, art);
+    await into(personBeziehungen).insert(PersonBeziehungenCompanion.insert(
+      personId: k.personId,
+      andereId: k.andereId,
+      art: artZuText(k.art),
+    ));
+    return null;
+  }
+
+  /// Entfernt eine Verwandtschaft. Bei Partnerschaften ist die
+  /// Eingaberichtung gleichgültig – gespeichert ist nur eine Zeile.
+  Future<void> entferneBeziehung(
+    String personId,
+    String andereId,
+    Verwandtschaft art,
+  ) async {
+    final k = art == Verwandtschaft.partner
+        ? partnerKanteFuer(personId, andereId)
+        : kante(personId, andereId, art);
+    await (delete(personBeziehungen)
+          ..where((t) =>
+              t.personId.equals(k.personId) &
+              t.andereId.equals(k.andereId) &
+              t.art.equals(artZuText(k.art))))
+        .go();
+  }
+
+  Future<List<Kante>> _kanten() async {
+    final zeilen = await alleBeziehungen();
+    return [
+      for (final z in zeilen)
+        if (artAusText(z.art) case final art?) kante(z.personId, z.andereId, art),
+    ];
+  }
+
+  /// Hängt alle Kanten von [vonId] auf [aufId] um – für [mergePeople].
+  ///
+  /// Kanten, die dabei zur Selbstbeziehung würden (die beiden waren
+  /// miteinander verwandt eingetragen), fallen weg statt einen Kreis zu
+  /// bilden. Doppelte ebenfalls: `insertOnConflictUpdate` würde die
+  /// bestehende Zeile nur mit sich selbst überschreiben.
+  Future<void> _uebertrageBeziehungen(String vonId, String aufId) async {
+    final betroffen = await (select(personBeziehungen)
+          ..where((t) => t.personId.equals(vonId) | t.andereId.equals(vonId)))
+        .get();
+    await (delete(personBeziehungen)
+          ..where((t) => t.personId.equals(vonId) | t.andereId.equals(vonId)))
+        .go();
+    for (final z in betroffen) {
+      final art = artAusText(z.art);
+      if (art == null) continue;
+      final person = z.personId == vonId ? aufId : z.personId;
+      final andere = z.andereId == vonId ? aufId : z.andereId;
+      if (person == andere) continue;
+      final k = art == Verwandtschaft.partner
+          ? partnerKanteFuer(person, andere)
+          : kante(person, andere, art);
+      await into(personBeziehungen).insert(
+        PersonBeziehungenCompanion.insert(
+          personId: k.personId,
+          andereId: k.andereId,
+          art: artZuText(k.art),
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
+    }
+  }
+
+  /// Setzt die Lebensdaten einer Person. `null` löscht die Angabe.
+  Future<void> setzeLebensdaten(
+    String personId, {
+    required DateTime? geburt,
+    required DateTime? tod,
+  }) =>
+      (update(people)..where((t) => t.id.equals(personId))).write(
+        PeopleCompanion(geburtsdatum: Value(geburt), sterbedatum: Value(tod)),
+      );
+
+  /// Alle Personen in der Reihenfolge, in der sie im Stammbaum stehen
+  /// sollen: die Älteren zuerst, Unbekanntes zuletzt, bei Gleichstand nach
+  /// Namen.
+  ///
+  /// Die Sortierung steckt hier und nicht in der Darstellung, weil sie
+  /// auch die Reihenfolge innerhalb einer Geschwisterreihe bestimmt – und
+  /// die soll überall dieselbe sein.
+  List<PersonData> nachAlterSortiert(List<PersonData> personen) {
+    final sortiert = [...personen];
+    sortiert.sort((a, b) {
+      final ga = a.geburtsdatum, gb = b.geburtsdatum;
+      if (ga != null && gb != null && ga != gb) return ga.compareTo(gb);
+      if (ga != null && gb == null) return -1;
+      if (ga == null && gb != null) return 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return sortiert;
   }
 
   Stream<List<AssetData>> watchAssetsForPerson(String personId) {

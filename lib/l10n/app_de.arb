@@ -1999,9 +1999,13 @@
   "einstBeschrUeber": "Version, Lizenzen und Aktualisierungen",
   "allgRueckgaengig": "Rückgängig",
   "personenIgnoriertTab": "Ignoriert",
-  "personenIgnoriertTabMitZahl": "Ignoriert ({anzahl})",
-  "@personenIgnoriertTabMitZahl": {
-    "placeholders": { "anzahl": { "type": "int" } }
+  "tabMitZahl": "{beschriftung} ({anzahl})",
+  "@tabMitZahl": {
+    "description": "Reiterbeschriftung mit der Zahl der darin liegenden Einträge. Als Textbaustein und nicht im Quelltext zusammengesetzt, weil nicht jede Sprache runde Klammern dafür verwendet.",
+    "placeholders": {
+      "beschriftung": { "type": "String" },
+      "anzahl": { "type": "int" }
+    }
   },
   "personenIgnorierenTooltip": "Ausgewählte Gesichter ignorieren",
   "personenIgnoriertMeldung": "{anzahl, plural, =1{Ein Gesicht ignoriert.} other{{anzahl} Gesichter ignoriert.}}",
@@ -2061,6 +2065,7 @@
   },
   "gesichtZuordnungLoesen": "Zuordnung lösen",
   "gesichtNichtMehrIgnorieren": "Nicht mehr ignorieren",
+  "gesichtFotoLoeschen": "Foto löschen",
   "gesichtErkennungLoeschen": "Erkennung löschen",
   "gesichtAlleUnbenanntenIgnorieren": "{anzahl, plural, =0{Keine unbenannten Gesichter} =1{Unbenanntes Gesicht ignorieren} other{{anzahl} unbenannte Gesichter ignorieren}}",
   "@gesichtAlleUnbenanntenIgnorieren": {
@@ -2134,5 +2139,38 @@
   "bearbRetuscheZurueck": "Letzten Strich zurücknehmen",
   "bearbPinselbreite": "Pinselbreite",
   "bearbRetuscheFehler": "Das Entfernen ist fehlgeschlagen: {fehler}",
-  "@bearbRetuscheFehler": { "placeholders": { "fehler": { "type": "String" } } }
+  "@bearbRetuscheFehler": { "placeholders": { "fehler": { "type": "String" } } },
+  "stammbaumTitel": "Stammbaum",
+  "stammbaumTitelVon": "Stammbaum: {name}",
+  "@stammbaumTitelVon": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "stammbaumEltern": "Eltern",
+  "stammbaumGeschwister": "Geschwister",
+  "stammbaumPartner": "Partner",
+  "stammbaumKinder": "Kinder",
+  "stammbaumElternteilHinzufuegen": "Elternteil hinzufügen",
+  "stammbaumPartnerHinzufuegen": "Partner hinzufügen",
+  "stammbaumKindHinzufuegen": "Kind hinzufügen",
+  "stammbaumInDieMitte": "In die Mitte rücken",
+  "stammbaumLebensdaten": "Lebensdaten …",
+  "stammbaumLebensdatenVon": "Lebensdaten: {name}",
+  "@stammbaumLebensdatenVon": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "stammbaumFotosZeigen": "Fotos dieser Person",
+  "stammbaumVerbindungEntfernen": "Verbindung entfernen",
+  "stammbaumVerbindungEntfernenFrage": "Die Verwandtschaft zwischen {eine} und {andere} wird gelöst. Beide Personen und ihre Fotos bleiben erhalten.",
+  "@stammbaumVerbindungEntfernenFrage": {
+    "placeholders": {"eine": {"type": "String"}, "andere": {"type": "String"}}
+  },
+  "stammbaumFehlerSelbst": "Eine Person kann nicht mit sich selbst verwandt sein.",
+  "stammbaumFehlerKreis": "Das ginge im Kreis: Die Person steht bereits weiter unten im selben Zweig.",
+  "stammbaumFehlerVorhanden": "Diese Verwandtschaft ist schon eingetragen.",
+  "stammbaumLeer": "Für diese Person ist noch keine Verwandtschaft eingetragen. Oben rechts lassen sich Eltern, Partner und Kinder hinzufügen – entweder aus den bereits benannten Personen oder als neuer Name, auch ohne ein einziges Foto.",
+  "stammbaumPersonFehlt": "Diese Person gibt es nicht mehr.",
+  "stammbaumGeboren": "Geboren",
+  "stammbaumGestorben": "Gestorben",
+  "stammbaumUnbekannt": "unbekannt",
+  "stammbaumNurJahrHinweis": "Ist nur das Jahr bekannt, wähle einen beliebigen Tag darin – angezeigt wird ohnehin nur die Jahreszahl."
 }

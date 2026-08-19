@@ -3642,8 +3642,8 @@ class AppTexteDe extends AppTexte {
   String get personenIgnoriertTab => 'Ignoriert';
 
   @override
-  String personenIgnoriertTabMitZahl(int anzahl) {
-    return 'Ignoriert ($anzahl)';
+  String tabMitZahl(String beschriftung, int anzahl) {
+    return '$beschriftung ($anzahl)';
   }
 
   @override
@@ -3791,6 +3791,9 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get gesichtNichtMehrIgnorieren => 'Nicht mehr ignorieren';
+
+  @override
+  String get gesichtFotoLoeschen => 'Foto löschen';
 
   @override
   String get gesichtErkennungLoeschen => 'Erkennung löschen';
@@ -4020,4 +4023,87 @@ class AppTexteDe extends AppTexte {
   String bearbRetuscheFehler(String fehler) {
     return 'Das Entfernen ist fehlgeschlagen: $fehler';
   }
+
+  @override
+  String get stammbaumTitel => 'Stammbaum';
+
+  @override
+  String stammbaumTitelVon(String name) {
+    return 'Stammbaum: $name';
+  }
+
+  @override
+  String get stammbaumEltern => 'Eltern';
+
+  @override
+  String get stammbaumGeschwister => 'Geschwister';
+
+  @override
+  String get stammbaumPartner => 'Partner';
+
+  @override
+  String get stammbaumKinder => 'Kinder';
+
+  @override
+  String get stammbaumElternteilHinzufuegen => 'Elternteil hinzufügen';
+
+  @override
+  String get stammbaumPartnerHinzufuegen => 'Partner hinzufügen';
+
+  @override
+  String get stammbaumKindHinzufuegen => 'Kind hinzufügen';
+
+  @override
+  String get stammbaumInDieMitte => 'In die Mitte rücken';
+
+  @override
+  String get stammbaumLebensdaten => 'Lebensdaten …';
+
+  @override
+  String stammbaumLebensdatenVon(String name) {
+    return 'Lebensdaten: $name';
+  }
+
+  @override
+  String get stammbaumFotosZeigen => 'Fotos dieser Person';
+
+  @override
+  String get stammbaumVerbindungEntfernen => 'Verbindung entfernen';
+
+  @override
+  String stammbaumVerbindungEntfernenFrage(String eine, String andere) {
+    return 'Die Verwandtschaft zwischen $eine und $andere wird gelöst. Beide Personen und ihre Fotos bleiben erhalten.';
+  }
+
+  @override
+  String get stammbaumFehlerSelbst =>
+      'Eine Person kann nicht mit sich selbst verwandt sein.';
+
+  @override
+  String get stammbaumFehlerKreis =>
+      'Das ginge im Kreis: Die Person steht bereits weiter unten im selben Zweig.';
+
+  @override
+  String get stammbaumFehlerVorhanden =>
+      'Diese Verwandtschaft ist schon eingetragen.';
+
+  @override
+  String get stammbaumLeer =>
+      'Für diese Person ist noch keine Verwandtschaft eingetragen. Oben rechts lassen sich Eltern, Partner und Kinder hinzufügen – entweder aus den bereits benannten Personen oder als neuer Name, auch ohne ein einziges Foto.';
+
+  @override
+  String get stammbaumPersonFehlt => 'Diese Person gibt es nicht mehr.';
+
+  @override
+  String get stammbaumGeboren => 'Geboren';
+
+  @override
+  String get stammbaumGestorben => 'Gestorben';
+
+  @override
+  String get stammbaumUnbekannt => 'unbekannt';
+
+  @override
+  String get stammbaumNurJahrHinweis =>
+      'Ist nur das Jahr bekannt, wähle einen beliebigen Tag darin – angezeigt wird ohnehin nur die Jahreszahl.';
 }

@@ -52,7 +52,14 @@ class PeopleScreen extends StatefulWidget {
   State<PeopleScreen> createState() => _PeopleScreenState();
 }
 
-class _PeopleScreenState extends State<PeopleScreen> {
+/// Ab wie wenigen sichtbaren Gesichtern das Raster aus der Datenbank
+/// nachgefüllt wird. Deutlich unter dem Anzeigelimit von 200, damit das
+/// Nachladen selten passiert – und deutlich über null, damit nie eine
+/// leere Fläche zu sehen ist, obwohl noch Tausende warten.
+const _nachladeSchwelle = 40;
+
+class _PeopleScreenState extends State<PeopleScreen>
+    with SingleTickerProviderStateMixin {
   final Set<String> _selectedFaceIds = {};
   final Set<String> _autoSelectedIds = {}; // von "Ähnliche mit auswählen" hinzugefügt
 
@@ -72,23 +79,119 @@ class _PeopleScreenState extends State<PeopleScreen> {
   int _ignorierteAnzahl = 0;
   final Set<String> _ausgewaehlteIgnorierte = {};
 
+  /// Wie viele unbenannte Gesichter es insgesamt gibt – für die Zahl am
+  /// Tab. Getrennt von [_unassignedFaces.length], weil die Liste bei 200
+  /// gedeckelt ist: Ohne diese Zahl stünde am Tab „200", egal ob dort 200
+  /// oder 16 000 Gesichter liegen.
+  int _unbenannteAnzahl = 0;
+
+  /// Ob der Inhalt des Tabs „Ignoriert" noch zum Datenbankstand passt.
+  ///
+  /// Beim Beiseitelegen wird er absichtlich nicht sofort nachgeladen: Wer
+  /// gerade Gesichter benennt, sieht diesen Tab nicht, und sein Nachladen
+  /// war der teuerste Teil jeder einzelnen Zuordnung (200 Zeilen plus eine
+  /// Zählung, die mit der Zahl der beiseitegelegten Gesichter wächst).
+  bool _ignorierteVeraltet = false;
+
+  /// Wie viele Personen angelegt sind – für die Zahl am Reiter.
+  ///
+  /// Als Zahl im Zustand statt als zweiter Beobachter der Tabelle: Ein
+  /// [StreamBuilder] um den ganzen Bildschirm hätte bei jeder Zuordnung
+  /// alles neu aufgebaut, auch die 200 Gesichtskacheln – und damit genau
+  /// den Aufwand zurückgeholt, den [_entferneAusRaster] einspart.
+  /// Nachgeführt wird sie an den drei Stellen, an denen sich Personen
+  /// überhaupt ändern können: beim vollständigen Neuladen, nach einer
+  /// Zuordnung und wenn das Personen-Raster meldet, dass es etwas
+  /// verändert hat.
+  int _personenAnzahl = 0;
+
+  late final TabController _tabs =
+      TabController(length: 3, vsync: this)..addListener(_tabGewechselt);
+
   @override
   void initState() {
     super.initState();
     _neuLaden();
   }
 
+  @override
+  void dispose() {
+    _tabs.removeListener(_tabGewechselt);
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  /// Holt den Tab „Ignoriert" nach, sobald er tatsächlich angesehen wird.
+  void _tabGewechselt() {
+    if (_tabs.indexIsChanging || _tabs.index != 2 || !_ignorierteVeraltet) return;
+    _ladeIgnorierte();
+  }
+
+  /// Lädt alles neu – für den Start und nach Eingriffen, die die ganze
+  /// Bestandsaufnahme umwerfen (Gruppierungslauf, Massenaktionen).
   Future<void> _neuLaden() async {
     final faces = await widget.library.db.unassignedFaces();
-    final ignoriert = await widget.library.db.ignoredFaces();
-    final anzahl = await widget.library.db.ignoredFacesCount();
+    final unbenannt = await widget.library.db.unassignedFacesCount();
     if (mounted) {
       setState(() {
         _unassignedFaces = faces;
-        _ignorierteFaces = ignoriert;
-        _ignorierteAnzahl = anzahl;
-        _ausgewaehlteIgnorierte.removeWhere(
-            (id) => !ignoriert.any((f) => f.id == id));
+        _unbenannteAnzahl = unbenannt;
+      });
+    }
+    await _zaehlePersonen();
+    await _ladeIgnorierte();
+  }
+
+  Future<void> _zaehlePersonen() async {
+    final anzahl = await widget.library.db.countPeople();
+    if (mounted) setState(() => _personenAnzahl = anzahl);
+  }
+
+  Future<void> _ladeIgnorierte() async {
+    final ignoriert = await widget.library.db.ignoredFaces();
+    final anzahl = await widget.library.db.ignoredFacesCount();
+    if (!mounted) return;
+    setState(() {
+      _ignorierteFaces = ignoriert;
+      _ignorierteAnzahl = anzahl;
+      _ignorierteVeraltet = false;
+      _ausgewaehlteIgnorierte.removeWhere(
+          (id) => !ignoriert.any((f) => f.id == id));
+    });
+  }
+
+  /// Nimmt bearbeitete Gesichter aus dem Raster, statt es neu zu laden.
+  ///
+  /// Der Unterschied ist nicht die Datenbank – die gemessene Abfragezeit
+  /// bleibt selbst bei 16 000 beiseitegelegten Gesichtern unter 15 ms.
+  /// Teuer ist das Raster: Ein Neuladen tauscht die komplette Liste aus,
+  /// wodurch alle 200 Kacheln eine andere Datei bekommen und ihr Bild neu
+  /// von der Platte dekodieren müssen. Genau das summierte sich über viele
+  /// Zuordnungen hinweg. Wer nur ein paar Gesichter entfernt, soll auch
+  /// nur diese Kacheln verlieren.
+  ///
+  /// Nachgeladen wird erst, wenn das Raster spürbar leer wird – dann in
+  /// einem Zug statt nach jeder einzelnen Zuordnung.
+  Future<void> _entferneAusRaster(
+    Set<String> faceIds, {
+    required bool nachIgnoriert,
+  }) async {
+    setState(() {
+      _unassignedFaces.removeWhere((f) => faceIds.contains(f.id));
+      _unbenannteAnzahl = math.max(0, _unbenannteAnzahl - faceIds.length);
+      if (nachIgnoriert) {
+        _ignorierteAnzahl += faceIds.length;
+        _ignorierteVeraltet = true;
+      }
+    });
+    if (_unassignedFaces.length < _nachladeSchwelle &&
+        _unbenannteAnzahl > _unassignedFaces.length) {
+      final faces = await widget.library.db.unassignedFaces();
+      final anzahl = await widget.library.db.unassignedFacesCount();
+      if (!mounted) return;
+      setState(() {
+        _unassignedFaces = faces;
+        _unbenannteAnzahl = anzahl;
       });
     }
   }
@@ -101,22 +204,25 @@ class _PeopleScreenState extends State<PeopleScreen> {
   /// hintereinander wegräumt.
   Future<void> _ignoriereAuswahl() async {
     if (_selectedFaceIds.isEmpty) return;
-    final betroffen = _selectedFaceIds.toList();
-    await widget.library.db.setFacesIgnored(betroffen, true);
+    final betroffen = _selectedFaceIds.toSet();
+    await widget.library.db.setFacesIgnored(betroffen.toList(), true);
     if (!mounted) return;
     setState(() {
       _selectedFaceIds.clear();
       _autoSelectedIds.clear();
       _autoAehnlichkeit.clear();
     });
-    await _neuLaden();
+    await _entferneAusRaster(betroffen, nachIgnoriert: true);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(AppTexte.of(context).personenIgnoriertMeldung(betroffen.length)),
       action: SnackBarAction(
         label: AppTexte.of(context).allgRueckgaengig,
+        // Hier bewusst der vollständige Neuaufbau: Das Zurückholen muss
+        // die Gesichter wieder an ihren Platz im Raster setzen, und deren
+        // Reihenfolge kennt nur die Datenbank.
         onPressed: () async {
-          await widget.library.db.setFacesIgnored(betroffen, false);
+          await widget.library.db.setFacesIgnored(betroffen.toList(), false);
           await _neuLaden();
         },
       ),
@@ -330,12 +436,15 @@ class _PeopleScreenState extends State<PeopleScreen> {
     }
 
     if (!mounted) return;
+    final zugeordnet = _selectedFaceIds.toSet();
     setState(() {
       _selectedFaceIds.clear();
       _autoSelectedIds.clear();
       _autoAehnlichkeit.clear();
     });
-    _neuLaden();
+    await _entferneAusRaster(zugeordnet, nachIgnoriert: false);
+    // Eine neue Person kann dabei entstanden sein.
+    if (choice.newName != null) await _zaehlePersonen();
   }
 
   /// Gruppiert alle unzugeordneten Gesichter automatisch (siehe
@@ -582,25 +691,26 @@ class _PeopleScreenState extends State<PeopleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Column(
+    final t = AppTexte.of(context);
+    return Column(
         children: [
-          TabBar(tabs: [
-            Tab(text: AppTexte.of(context).personenTab),
-            Tab(text: AppTexte.of(context).personenUnbenannteTab),
-            Tab(
-              // Die Zahl nur, wenn dort etwas liegt: Ein „(0)" am Tab wäre
-              // eine dauerhafte Beschriftung für einen Sonderfall.
-              text: _ignorierteAnzahl > 0
-                  ? AppTexte.of(context).personenIgnoriertTabMitZahl(_ignorierteAnzahl)
-                  : AppTexte.of(context).personenIgnoriertTab,
-            ),
+          TabBar(controller: _tabs, tabs: [
+            // Die Zahl der Personen kommt aus demselben Stand, den das
+            // Raster darunter zeigt – sie ist damit auch dann richtig,
+            // wenn Personen im Detailbildschirm zusammengeführt oder
+            // umbenannt werden.
+            Tab(text: _mitZahl(t.personenTab, _personenAnzahl)),
+            Tab(text: _mitZahl(t.personenUnbenannteTab, _unbenannteAnzahl)),
+            Tab(text: _mitZahl(t.personenIgnoriertTab, _ignorierteAnzahl)),
           ]),
           Expanded(
             child: TabBarView(
+              controller: _tabs,
               children: [
-                _PeopleGrid(library: widget.library),
+                _PeopleGrid(
+                  library: widget.library,
+                  onPersonenGeaendert: _zaehlePersonen,
+                ),
                 _UnassignedFacesGrid(
                   onKontextmenue: _kontextmenue,
                   faces: _unassignedFaces,
@@ -637,14 +747,29 @@ class _PeopleScreenState extends State<PeopleScreen> {
             ),
           ),
         ],
-      ),
     );
   }
+
+  /// Hängt die Anzahl in Klammern an eine Tab-Beschriftung.
+  ///
+  /// Bei null bleibt sie weg. Ein „(0)" wäre eine dauerhafte Beschriftung
+  /// für den Zustand, in dem es nichts zu zählen gibt – und gerade bei den
+  /// unbenannten Gesichtern ist die Null das erklärte Ziel, nicht ein
+  /// Sonderfall, den man beziffern müsste.
+  String _mitZahl(String beschriftung, int anzahl) => anzahl > 0
+      ? AppTexte.of(context).tabMitZahl(beschriftung, anzahl)
+      : beschriftung;
 }
 
 class _PeopleGrid extends StatelessWidget {
   final LibraryState library;
-  const _PeopleGrid({required this.library});
+
+  /// Wird gerufen, wenn sich der Personenbestand durch eine Handlung in
+  /// diesem Raster geändert haben kann – nach dem Zusammenführen und nach
+  /// der Rückkehr aus der Detailansicht, in der sich umbenennen und
+  /// löschen lässt. Der Zähler am Reiter hängt daran.
+  final Future<void> Function() onPersonenGeaendert;
+  const _PeopleGrid({required this.library, required this.onPersonenGeaendert});
 
   Future<void> _mergeInto(BuildContext context, PersonData source, List<PersonData> all) async {
     final candidates = all.where((p) => p.id != source.id).toList();
@@ -684,65 +809,74 @@ class _PeopleGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<List<PersonData>>(
       stream: library.db.watchPeople(),
-      builder: (context, snapshot) {
-        final people = snapshot.data ?? [];
-        if (people.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xxl),
-              child: Text(
-                AppTexte.of(context).personenLeer,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          );
-        }
-        return GridView.builder(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: 120,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            // 0.8 war zu knapp: Avatar (80px) + Name + zweizeiliger
-            // Hinweistext liefen unten um wenige Pixel über.
-            childAspectRatio: 0.66,
+      builder: (context, schnappschuss) => _raster(context, schnappschuss.data ?? []),
+    );
+  }
+
+  Widget _raster(BuildContext context, List<PersonData> people) {
+    if (people.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Text(
+            AppTexte.of(context).personenLeer,
+            textAlign: TextAlign.center,
           ),
-          itemCount: people.length,
-          itemBuilder: (context, index) {
-            final person = people[index];
-            return InkWell(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => PersonDetailScreen(library: library, person: person),
-              )),
-              onLongPress: () => _mergeInto(context, person, people),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.grey.shade800,
-                    backgroundImage: person.coverFaceCropPath != null
-                        ? FileImage(library.paths.absolute(person.coverFaceCropPath!))
-                        : null,
-                    child: person.coverFaceCropPath == null
-                        ? const Icon(Icons.person_outline, size: 32)
-                        : null,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  // maxLines/ellipsis verhindern, dass ein langer Hinweis die
-                  // Kachelhöhe sprengt (siehe childAspectRatio oben).
-                  Text(AppTexte.of(context).personenLangeDruecken,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(fontSize: 9, color: Theme.of(context).colorScheme.outline)),
-                ],
-              ),
-            );
+        ),
+      );
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 120,
+        mainAxisSpacing: 16,
+        crossAxisSpacing: 16,
+        // 0.8 war zu knapp: Avatar (80px) + Name + zweizeiliger
+        // Hinweistext liefen unten um wenige Pixel über.
+        childAspectRatio: 0.66,
+      ),
+      itemCount: people.length,
+      itemBuilder: (context, index) {
+        final person = people[index];
+        return InkWell(
+          onTap: () async {
+            await Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => PersonDetailScreen(library: library, person: person),
+            ));
+            // Dort lässt sich umbenennen und löschen – das Raster erfährt
+            // es über seinen Strom, die Zahl am Reiter nicht.
+            await onPersonenGeaendert();
           },
+          onLongPress: () async {
+            await _mergeInto(context, person, people);
+            await onPersonenGeaendert();
+          },
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: Colors.grey.shade800,
+                backgroundImage: person.coverFaceCropPath != null
+                    ? FileImage(library.paths.absolute(person.coverFaceCropPath!))
+                    : null,
+                child: person.coverFaceCropPath == null
+                    ? const Icon(Icons.person_outline, size: 32)
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              // maxLines/ellipsis verhindern, dass ein langer Hinweis die
+              // Kachelhöhe sprengt (siehe childAspectRatio oben).
+              Text(AppTexte.of(context).personenLangeDruecken,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(fontSize: 9, color: Theme.of(context).colorScheme.outline)),
+            ],
+          ),
         );
       },
     );

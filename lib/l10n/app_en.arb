@@ -1022,9 +1022,12 @@
   "einstBeschrUeber": "Version, licences and updates",
   "allgRueckgaengig": "Undo",
   "personenIgnoriertTab": "Ignored",
-  "personenIgnoriertTabMitZahl": "Ignored ({anzahl})",
-  "@personenIgnoriertTabMitZahl": {
-    "placeholders": { "anzahl": { "type": "int" } }
+  "tabMitZahl": "{beschriftung} ({anzahl})",
+  "@tabMitZahl": {
+    "placeholders": {
+      "beschriftung": { "type": "String" },
+      "anzahl": { "type": "int" }
+    }
   },
   "personenIgnorierenTooltip": "Ignore selected faces",
   "personenIgnoriertMeldung": "{anzahl, plural, =1{One face ignored.} other{{anzahl} faces ignored.}}",
@@ -1084,6 +1087,7 @@
   },
   "gesichtZuordnungLoesen": "Remove assignment",
   "gesichtNichtMehrIgnorieren": "Stop ignoring",
+  "gesichtFotoLoeschen": "Delete photo",
   "gesichtErkennungLoeschen": "Delete detection",
   "gesichtAlleUnbenanntenIgnorieren": "{anzahl, plural, =0{No unnamed faces} =1{Ignore unnamed face} other{Ignore {anzahl} unnamed faces}}",
   "@gesichtAlleUnbenanntenIgnorieren": {
@@ -1157,5 +1161,38 @@
   "bearbRetuscheZurueck": "Undo last stroke",
   "bearbPinselbreite": "Brush width",
   "bearbRetuscheFehler": "Removal failed: {fehler}",
-  "@bearbRetuscheFehler": { "placeholders": { "fehler": { "type": "String" } } }
+  "@bearbRetuscheFehler": { "placeholders": { "fehler": { "type": "String" } } },
+  "stammbaumTitel": "Family tree",
+  "stammbaumTitelVon": "Family tree: {name}",
+  "@stammbaumTitelVon": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "stammbaumEltern": "Parents",
+  "stammbaumGeschwister": "Siblings",
+  "stammbaumPartner": "Partner",
+  "stammbaumKinder": "Children",
+  "stammbaumElternteilHinzufuegen": "Add parent",
+  "stammbaumPartnerHinzufuegen": "Add partner",
+  "stammbaumKindHinzufuegen": "Add child",
+  "stammbaumInDieMitte": "Move to centre",
+  "stammbaumLebensdaten": "Life dates …",
+  "stammbaumLebensdatenVon": "Life dates: {name}",
+  "@stammbaumLebensdatenVon": {
+    "placeholders": {"name": {"type": "String"}}
+  },
+  "stammbaumFotosZeigen": "Photos of this person",
+  "stammbaumVerbindungEntfernen": "Remove connection",
+  "stammbaumVerbindungEntfernenFrage": "The relationship between {eine} and {andere} will be removed. Both people and their photos stay.",
+  "@stammbaumVerbindungEntfernenFrage": {
+    "placeholders": {"eine": {"type": "String"}, "andere": {"type": "String"}}
+  },
+  "stammbaumFehlerSelbst": "A person cannot be related to themselves.",
+  "stammbaumFehlerKreis": "That would run in a circle: this person already appears further down the same branch.",
+  "stammbaumFehlerVorhanden": "This relationship is already recorded.",
+  "stammbaumLeer": "No relatives recorded for this person yet. Use the buttons at the top right to add parents, a partner or children – either from the people you have already named, or as a new name, even without a single photo.",
+  "stammbaumPersonFehlt": "This person no longer exists.",
+  "stammbaumGeboren": "Born",
+  "stammbaumGestorben": "Died",
+  "stammbaumUnbekannt": "unknown",
+  "stammbaumNurJahrHinweis": "If only the year is known, pick any day within it – only the year is shown anyway."
 }

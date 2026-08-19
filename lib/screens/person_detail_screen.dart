@@ -15,6 +15,7 @@ import '../services/face_suggestions.dart';
 import 'asset_viewer_screen.dart';
 import 'face_review_screen.dart';
 import 'person_suggestions_screen.dart';
+import 'stammbaum_screen.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final LibraryState library;
@@ -165,7 +166,21 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(person.name)),
+      appBar: AppBar(
+        title: Text(person.name),
+        actions: [
+          IconButton(
+            tooltip: AppTexte.of(context).stammbaumTitel,
+            icon: const Icon(Icons.account_tree_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => StammbaumScreen(
+                library: library,
+                startPersonId: person.id,
+              ),
+            )),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

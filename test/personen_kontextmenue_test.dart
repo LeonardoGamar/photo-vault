@@ -62,6 +62,16 @@ void main() {
     tempRoot.deleteSync(recursive: true);
   });
 
+  /// Der Reiter mit dieser Beschriftung.
+  ///
+  /// Nicht über `find.text`: An der Beschriftung hängt inzwischen die
+  /// Anzahl in Klammern, und derselbe Wortlaut steht ausserdem im
+  /// Hinweistext des leeren Personen-Reiters.
+  Finder reiter(String beschriftung) => find.descendant(
+        of: find.byType(Tab),
+        matching: find.textContaining(beschriftung),
+      );
+
   Future<void> zeige(WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(
       locale: const Locale('de'),
@@ -71,8 +81,7 @@ void main() {
       home: Scaffold(body: PeopleScreen(library: library)),
     ));
     await tester.pumpAndSettle();
-    // Auf den Reiter „Unbenannte Gesichter".
-    await tester.tap(find.text('Unbenannte Gesichter'));
+    await tester.tap(reiter('Unbenannte Gesichter'));
     await tester.pumpAndSettle();
   }
 
@@ -105,6 +114,20 @@ void main() {
     expect(await db.unassignedFaces(), isEmpty);
     expect(await db.ignoredFacesCount(), 3);
     expect(find.text('Ignoriert (3)'), findsOneWidget);
+    // Umgekehrt muss die Zahl am geräumten Reiter verschwinden – nicht
+    // „(0)" stehen bleiben.
+    expect(reiter('Unbenannte Gesichter'), findsOneWidget);
+    expect(find.text('Unbenannte Gesichter'), findsOneWidget,
+        reason: 'ohne Zahl, sobald keine mehr da sind');
+  });
+
+  testWidgets('die Reiter tragen die Anzahl in Klammern', (tester) async {
+    await zeige(tester);
+    expect(find.text('Unbenannte Gesichter (3)'), findsOneWidget);
+    // „Personen" und „Ignoriert" sind hier beide leer und stehen deshalb
+    // ohne Zahl da.
+    expect(find.text('Personen'), findsOneWidget);
+    expect(find.text('Ignoriert'), findsOneWidget);
   });
 
   testWidgets('Löschen fragt vorher nach und tut ohne Zustimmung nichts',

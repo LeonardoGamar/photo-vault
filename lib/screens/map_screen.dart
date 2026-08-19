@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../services/map_clustering.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -23,6 +24,9 @@ import 'asset_viewer_screen.dart';
 /// [buildMapTileLayer]) – die App ist permanent dunkel eingefärbt, ohne
 /// diesen Umschalter gäbe es also nie helle Kacheln zu sehen.
 enum _MapViewMode { light, dark, globe }
+
+/// Zoomstufe beim Öffnen der flachen Karte ohne bestimmtes Ziel.
+const double _standardZoom = 6;
 
 /// Scrollbare Kartenansicht (OpenStreetMap) über alle Fotos/Videos mit
 /// bekanntem Ort – aus EXIF-GPS-Daten beim Import übernommen oder manuell in
@@ -58,6 +62,12 @@ class _MapScreenState extends State<MapScreen> {
   // die kachelbasierte OSM-Karte an genau dieser Stelle.
   ll.LatLng? _pendingFlatFocus;
   double? _pendingFlatZoom;
+
+  // Der Zoom, mit dem die flache Karte gerade gruppiert ist – gerundet auf
+  // ganze Stufen, damit nicht jede Pixelbewegung einer laufenden Zoomgeste
+  // die komplette Markerliste neu aufbaut (dasselbe Vorgehen wie
+  // [_onGlobeZoomChanged]).
+  double _flacherZoom = _standardZoom;
 
   @override
   void initState() {
@@ -117,8 +127,8 @@ class _MapScreenState extends State<MapScreen> {
     return ll.LatLng(latSum / assets.length, lngSum / assets.length);
   }
 
-  /// Rastergröße (in Grad) für [_groupForGlobe] – abhängig vom aktuellen
-  /// Zoom, damit dicht beieinanderliegende Fotos beim Reinzoomen sichtbar
+  /// Rastergröße (in Grad) für die Gruppierung auf dem Globus – abhängig
+  /// vom aktuellen Zoom, damit dicht beieinanderliegende Fotos beim Reinzoomen sichtbar
   /// auseinanderrücken statt für immer an einem Punkt zu kleben. Grob
   /// 33km beim Herausgezoomten Überblick (verhindert hunderte überlappende
   /// Punkte auf der kleinen Kugelfläche), bis knapp über GPS-Genauigkeit
@@ -128,7 +138,7 @@ class _MapScreenState extends State<MapScreen> {
     return (0.3 / scale).clamp(0.0005, 0.3);
   }
 
-  Map<String, List<AssetData>> _groupForGlobe(List<AssetData> assets, double gridDegrees) {
+  Map<String, List<AssetData>> _gruppiereNachRaster(List<AssetData> assets, double gridDegrees) {
     final groups = <String, List<AssetData>>{};
     for (final a in assets) {
       final latKey = (a.latitude! / gridDegrees).round();
@@ -170,7 +180,7 @@ class _MapScreenState extends State<MapScreen> {
     if (located == null) return;
     final controller = _ensureGlobeController();
     controller.points.clear();
-    final groups = _groupForGlobe(located, _gridDegreesForZoom(zoom));
+    final groups = _gruppiereNachRaster(located, _gridDegreesForZoom(zoom));
     for (final entry in groups.entries) {
       final group = entry.value;
       final first = group.first;
@@ -223,6 +233,7 @@ class _MapScreenState extends State<MapScreen> {
         // einem früheren Sprung übrig gebliebenen Zielorts.
         _pendingFlatFocus = null;
         _pendingFlatZoom = null;
+        _flacherZoom = _standardZoom;
       }
     });
     if (mode == _MapViewMode.globe && !_globePointsSynced) {
@@ -237,6 +248,7 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _pendingFlatFocus = _averageCenter(group);
       _pendingFlatZoom = 16;
+      _flacherZoom = 16;
       _mode = _lastFlatMode;
     });
   }
@@ -332,25 +344,38 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     final isDark = _mode == _MapViewMode.dark;
+    // Ein Marker je Gruppe statt je Foto. Vorher stand für jedes verortete
+    // Foto ein eigener Marker auf der Karte, jeder mit seiner vollen
+    // 400×300-Vorschau: Bei 1140 Fotos waren das 498 MB dekodierte Bitmaps
+    // für 40 Punkte große Kreise – weit über Flutters Bildspeicher von
+    // 100 MB. Sichtbar wurde das als graues Platzhalter-Symbol statt eines
+    // Vorschaubilds, und zwar auf den meisten Markern.
+    final gruppen = gruppiereFuerKarte(located, _flacherZoom,
+        (a) => (breite: a.latitude!, laenge: a.longitude!));
     return FlutterMap(
       options: MapOptions(
         initialCenter: _pendingFlatFocus ?? _averageCenter(located),
-        initialZoom: _pendingFlatZoom ?? 6,
+        initialZoom: _pendingFlatZoom ?? _standardZoom,
+        onPositionChanged: _onFlatPositionChanged,
       ),
       children: [
         buildMapTileLayer(context, dark: isDark),
         buildMapAttribution(context, dark: isDark),
         MarkerLayer(
           markers: [
-            for (final asset in located)
+            for (final gruppe in gruppen.values)
               Marker(
-                point: ll.LatLng(asset.latitude!, asset.longitude!),
-                width: 44,
-                height: 44,
+                point: _averageCenter(gruppe),
+                width: markerGroesse,
+                height: markerGroesse,
                 alignment: Alignment.center,
                 child: GestureDetector(
-                  onTap: () => _openAsset(located, asset),
-                  child: _MapThumbMarker(asset: asset, paths: widget.library.paths),
+                  onTap: () => _openAsset(gruppe, gruppe.first),
+                  child: _MapThumbMarker(
+                    asset: gruppe.first,
+                    anzahl: gruppe.length,
+                    paths: widget.library.paths,
+                  ),
                 ),
               ),
           ],
@@ -358,33 +383,84 @@ class _MapScreenState extends State<MapScreen> {
       ],
     );
   }
+
+  /// Gruppiert neu, sobald sich die Zoomstufe um einen ganzen Schritt
+  /// geändert hat.
+  ///
+  /// Auf ganze Stufen gerundet, weil `onPositionChanged` bei einer
+  /// laufenden Zoomgeste in jedem Frame feuert – ohne diese Rundung würde
+  /// die komplette Markerliste dutzendfach pro Sekunde neu aufgebaut.
+  void _onFlatPositionChanged(MapCamera camera, bool hasGesture) {
+    final stufe = camera.zoom.roundToDouble();
+    if (stufe == _flacherZoom) return;
+    setState(() => _flacherZoom = stufe);
+  }
 }
 
+/// Ein Marker auf der flachen Karte: das Vorschaubild des jüngsten Fotos
+/// seiner Gruppe, bei mehreren zusätzlich deren Anzahl.
 class _MapThumbMarker extends StatelessWidget {
   final AssetData asset;
+
+  /// Wie viele Fotos an diesem Punkt zusammengefasst sind.
+  final int anzahl;
   final StoragePaths paths;
-  const _MapThumbMarker({required this.asset, required this.paths});
+  const _MapThumbMarker({
+    required this.asset,
+    required this.anzahl,
+    required this.paths,
+  });
 
   @override
   Widget build(BuildContext context) {
     final thumbPath = asset.thumbnailRelativePath;
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)],
-      ),
-      child: ClipOval(
-        child: thumbPath != null
-            ? Image.file(
-                paths.absolute(thumbPath),
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _fallbackIcon(),
-              )
-            : _fallbackIcon(),
-      ),
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)],
+          ),
+          child: ClipOval(
+            child: thumbPath != null
+                ? Image.file(
+                    paths.absolute(thumbPath),
+                    fit: BoxFit.cover,
+                    // Auf Markergröße dekodieren statt auf die volle
+                    // Vorschaugröße – derselbe Grund wie bei
+                    // [AssetThumbnailTile]: Der Kreis ist 40 Punkte groß,
+                    // die Datei auf der Platte 400 Pixel breit.
+                    cacheWidth: (40 * dpr).round(),
+                    cacheHeight: (40 * dpr).round(),
+                    errorBuilder: (_, __, ___) => _fallbackIcon(),
+                  )
+                : _fallbackIcon(),
+          ),
+        ),
+        if (anzahl > 1)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: Colors.white, width: 1),
+              ),
+              child: Text(
+                '$anzahl',
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+      ],
     );
   }
 

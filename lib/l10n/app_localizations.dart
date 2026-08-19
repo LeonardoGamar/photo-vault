@@ -6234,11 +6234,11 @@ abstract class AppTexte {
   /// **'Ignoriert'**
   String get personenIgnoriertTab;
 
-  /// No description provided for @personenIgnoriertTabMitZahl.
+  /// Reiterbeschriftung mit der Zahl der darin liegenden Einträge. Als Textbaustein und nicht im Quelltext zusammengesetzt, weil nicht jede Sprache runde Klammern dafür verwendet.
   ///
   /// In de, this message translates to:
-  /// **'Ignoriert ({anzahl})'**
-  String personenIgnoriertTabMitZahl(int anzahl);
+  /// **'{beschriftung} ({anzahl})'**
+  String tabMitZahl(String beschriftung, int anzahl);
 
   /// No description provided for @personenIgnorierenTooltip.
   ///
@@ -6425,6 +6425,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Nicht mehr ignorieren'**
   String get gesichtNichtMehrIgnorieren;
+
+  /// No description provided for @gesichtFotoLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Foto löschen'**
+  String get gesichtFotoLoeschen;
 
   /// No description provided for @gesichtErkennungLoeschen.
   ///
@@ -6779,6 +6785,150 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Das Entfernen ist fehlgeschlagen: {fehler}'**
   String bearbRetuscheFehler(String fehler);
+
+  /// No description provided for @stammbaumTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Stammbaum'**
+  String get stammbaumTitel;
+
+  /// No description provided for @stammbaumTitelVon.
+  ///
+  /// In de, this message translates to:
+  /// **'Stammbaum: {name}'**
+  String stammbaumTitelVon(String name);
+
+  /// No description provided for @stammbaumEltern.
+  ///
+  /// In de, this message translates to:
+  /// **'Eltern'**
+  String get stammbaumEltern;
+
+  /// No description provided for @stammbaumGeschwister.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschwister'**
+  String get stammbaumGeschwister;
+
+  /// No description provided for @stammbaumPartner.
+  ///
+  /// In de, this message translates to:
+  /// **'Partner'**
+  String get stammbaumPartner;
+
+  /// No description provided for @stammbaumKinder.
+  ///
+  /// In de, this message translates to:
+  /// **'Kinder'**
+  String get stammbaumKinder;
+
+  /// No description provided for @stammbaumElternteilHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Elternteil hinzufügen'**
+  String get stammbaumElternteilHinzufuegen;
+
+  /// No description provided for @stammbaumPartnerHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Partner hinzufügen'**
+  String get stammbaumPartnerHinzufuegen;
+
+  /// No description provided for @stammbaumKindHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Kind hinzufügen'**
+  String get stammbaumKindHinzufuegen;
+
+  /// No description provided for @stammbaumInDieMitte.
+  ///
+  /// In de, this message translates to:
+  /// **'In die Mitte rücken'**
+  String get stammbaumInDieMitte;
+
+  /// No description provided for @stammbaumLebensdaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebensdaten …'**
+  String get stammbaumLebensdaten;
+
+  /// No description provided for @stammbaumLebensdatenVon.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebensdaten: {name}'**
+  String stammbaumLebensdatenVon(String name);
+
+  /// No description provided for @stammbaumFotosZeigen.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos dieser Person'**
+  String get stammbaumFotosZeigen;
+
+  /// No description provided for @stammbaumVerbindungEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbindung entfernen'**
+  String get stammbaumVerbindungEntfernen;
+
+  /// No description provided for @stammbaumVerbindungEntfernenFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Verwandtschaft zwischen {eine} und {andere} wird gelöst. Beide Personen und ihre Fotos bleiben erhalten.'**
+  String stammbaumVerbindungEntfernenFrage(String eine, String andere);
+
+  /// No description provided for @stammbaumFehlerSelbst.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine Person kann nicht mit sich selbst verwandt sein.'**
+  String get stammbaumFehlerSelbst;
+
+  /// No description provided for @stammbaumFehlerKreis.
+  ///
+  /// In de, this message translates to:
+  /// **'Das ginge im Kreis: Die Person steht bereits weiter unten im selben Zweig.'**
+  String get stammbaumFehlerKreis;
+
+  /// No description provided for @stammbaumFehlerVorhanden.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Verwandtschaft ist schon eingetragen.'**
+  String get stammbaumFehlerVorhanden;
+
+  /// No description provided for @stammbaumLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diese Person ist noch keine Verwandtschaft eingetragen. Oben rechts lassen sich Eltern, Partner und Kinder hinzufügen – entweder aus den bereits benannten Personen oder als neuer Name, auch ohne ein einziges Foto.'**
+  String get stammbaumLeer;
+
+  /// No description provided for @stammbaumPersonFehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Person gibt es nicht mehr.'**
+  String get stammbaumPersonFehlt;
+
+  /// No description provided for @stammbaumGeboren.
+  ///
+  /// In de, this message translates to:
+  /// **'Geboren'**
+  String get stammbaumGeboren;
+
+  /// No description provided for @stammbaumGestorben.
+  ///
+  /// In de, this message translates to:
+  /// **'Gestorben'**
+  String get stammbaumGestorben;
+
+  /// No description provided for @stammbaumUnbekannt.
+  ///
+  /// In de, this message translates to:
+  /// **'unbekannt'**
+  String get stammbaumUnbekannt;
+
+  /// No description provided for @stammbaumNurJahrHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Ist nur das Jahr bekannt, wähle einen beliebigen Tag darin – angezeigt wird ohnehin nur die Jahreszahl.'**
+  String get stammbaumNurJahrHinweis;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

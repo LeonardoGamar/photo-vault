@@ -87,7 +87,9 @@ welche Modelle aus welcher Quelle stammen.
 - **Kalender** – Jahresübersicht mit Titelbild und Foto-/Videoanzahl je Jahr
 - **Karte** – Fotos mit GPS-Daten auf einer Karte (OpenStreetMap-Kacheln)
   oder wahlweise auf einem interaktiven 3D-Globus; lokale Umkehr-Geokodierung
-  (GPS → Stadt/Land) über den offenen GeoNames-Datensatz, komplett offline
+  (GPS → Stadt/Land) über den offenen GeoNames-Datensatz, komplett offline.
+  Dicht beieinanderliegende Fotos werden zoomabhängig zu einem Marker
+  zusammengefasst und rücken beim Hineinzoomen wieder auseinander
 - **Statistiken** – Anzahl Medien, Speicherplatz, Fotos/Videos pro Jahr,
   Saisonalität pro Monat, häufigste Kameras
 - **Import** – Mehrfachauswahl über den nativen Dateidialog oder direkt von
@@ -102,6 +104,12 @@ welche Modelle aus welcher Quelle stammen.
   einzeln oder als Stapelaktion auf eine Auswahl
 - **Tags & Volltextsuche** über Dateiname, Beschreibung, Tags, erkannten
   Text im Foto (OCR) sowie KI-Bildbeschreibung
+- **Familienstammbaum** – wer zu wem gehört, als eigene Angabe neben den
+  erkannten Gesichtern: Eltern, Kinder und Partner, dazu Geburts- und
+  Sterbedatum. Der Baum zeigt immer die unmittelbare Verwandtschaft einer
+  Person; ein Klick auf eine Karte rückt sie in die Mitte. Angehörige
+  lassen sich auch anlegen, wenn kein einziges Foto von ihnen in der
+  Bibliothek liegt. Erreichbar über das Baum-Symbol in der Personenansicht
 - **Papierkorb** – favorisieren, in den Papierkorb verschieben,
   wiederherstellen, endgültig löschen; automatische Leerung nach
   konfigurierbarer Frist
@@ -418,7 +426,8 @@ erneut, sobald das YuNet-Modell installiert ist).
 
 ```
 lib/
-  db/database.dart              drift-Schema (Assets, Albums, Tags, People, Faces,
+  db/database.dart              drift-Schema (Assets, Albums, Tags, People, PersonBeziehungen,
+                                 Faces,
                                  Embeddings, CameraPresets, DevelopSettings/-History/-Masks,
                                  VideoTrims, RestoreJobs, PrivacySettings, BackupRecords,
                                  AppSettings, …)
@@ -442,6 +451,8 @@ lib/
     tile_processor.dart          Generisches Zerlegen/Zusammensetzen großer Bilder in Kacheln
     blur_detection.dart          Laplace-basierter Unschärfe-Score
     histogram.dart               Tonwertverteilung (Helligkeit + RGB) für den Entwickeln-Screen
+    stammbaum.dart               Verwandtschaftsgraph, Kreisprüfung, Ausschnitt um eine Person
+    map_clustering.dart          Zoomabhängiges Zusammenfassen von Kartenmarkern
     reverse_geocoder.dart        Lokale GPS → Stadt/Land-Auflösung (GeoNames)
     vault_crypto.dart            AES-256-GCM-Dateiverschlüsselung + PIN-Envelope-Encryption
     xmp_writer.dart / xmp_reader.dart  XMP-Sidecar-Export bzw. -Import
@@ -524,6 +535,13 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   bewusst nur einen Auftrag gleichzeitig ab.
 - HEIC-Dateien mit HDR-Gain-Map werden korrekt angezeigt, die HDR-Feinheiten
   gehen bei der JPEG-Vorschau aber verloren.
+- Der Familienstammbaum zeigt bewusst nur die unmittelbare Verwandtschaft
+  einer Person, nicht mehrere Generationen auf einmal. Für Großeltern und
+  Enkel in derselben Reihe ließe sich keine Verbindungslinie zeichnen, die
+  stimmt – welcher Großelternteil zu welchem Elternteil gehört, ginge
+  verloren. Ein Zeichen an der Karte weist darauf hin, wo es weitergeht.
+  Einen Export nach GEDCOM (dem üblichen Austauschformat der Ahnenforschung)
+  gibt es noch nicht.
 
 ### Technische Altlasten
 

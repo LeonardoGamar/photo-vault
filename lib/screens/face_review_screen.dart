@@ -15,6 +15,7 @@ import '../services/face_engine_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import '../widgets/asset_info_sheet.dart';
 import '../widgets/person_picker_dialog.dart';
 
 /// Zeigt ein Foto in Vollbild mit allen erkannten Gesichtern als Rahmen
@@ -45,8 +46,20 @@ class FaceReviewScreen extends StatefulWidget {
 }
 
 class _FaceReviewScreenState extends State<FaceReviewScreen> {
-  late int _index = widget.startIndex.clamp(0, widget.assets.length - 1);
-  AssetData get _asset => widget.assets[_index];
+  /// Eigene Kopie der Reihe, nicht [FaceReviewScreen.assets] selbst: Ein
+  /// gelöschtes Foto muss hier verschwinden, sonst blätterte man gleich
+  /// danach wieder auf ein Bild, das es nicht mehr gibt. Die Info-Ansicht
+  /// tauscht ebenfalls Einträge aus, wenn sie Datum oder Ort ändert.
+  late final List<AssetData> _assets = List.of(widget.assets);
+  late int _index = widget.startIndex.clamp(0, _assets.length - 1);
+  AssetData get _asset => _assets[_index];
+
+  /// Ob die Info-Ansicht neben dem Foto steht.
+  ///
+  /// Sie fehlte hier ganz: Wer aus der Personenansicht ein Foto öffnete,
+  /// sah die Gesichter, aber weder Datum noch Kamera noch Ort – und musste
+  /// dafür zurück in die Zeitleiste und das Foto dort erneut suchen.
+  bool _infoSichtbar = false;
 
   List<FaceData> _faces = [];
   Map<String, String> _personNames = {}; // personId -> Name
@@ -78,7 +91,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   /// dieselben Gesichter zu benennen.
   void _springe(int schritt) {
     final ziel = _index + schritt;
-    if (ziel < 0 || ziel >= widget.assets.length) return;
+    if (ziel < 0 || ziel >= _assets.length) return;
     setState(() {
       _index = ziel;
       _faces = [];
@@ -302,6 +315,18 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
           child: _eintrag(Icons.visibility_off_outlined,
               t.gesichtAlleUnbenanntenIgnorieren(unbenannte)),
         ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'info',
+          child: _eintrag(Icons.info_outline, t.viewerInfo),
+        ),
+        // Das Foto selbst, nicht eine Erkennung darauf – deshalb unten und
+        // hinter einem Trenner: Die Einträge darüber ändern nur, was über
+        // dem Bild liegt.
+        PopupMenuItem(
+          value: 'fotoLoeschen',
+          child: _eintrag(Icons.delete_outline, t.gesichtFotoLoeschen),
+        ),
       ],
     );
     if (!mounted || wahl == null) return;
@@ -335,7 +360,56 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
           true,
         );
         _load();
+      case 'info':
+        setState(() => _infoSichtbar = true);
+      case 'fotoLoeschen':
+        await _loescheFoto();
     }
+  }
+
+  /// Verschiebt das gerade gezeigte Foto in den Papierkorb.
+  ///
+  /// Danach wird nicht geschlossen, sondern weitergeblättert: Wer eine
+  /// Reihe durchsieht und dabei aussortiert, will an derselben Stelle
+  /// weitermachen. Erst wenn das letzte Foto der Reihe weg ist, geht der
+  /// Bildschirm zu.
+  Future<void> _loescheFoto() async {
+    final t = AppTexte.of(context);
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.loeschenTitel(1)),
+        content: Text(t.loeschenHinweis(1)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(t.allgLoeschen)),
+        ],
+      ),
+    );
+    if (ja != true || !mounted) return;
+
+    await widget.library.db.moveToTrash([_asset.id]);
+    if (!mounted) return;
+    if (_assets.length == 1) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _assets.removeAt(_index);
+      // Am Ende der Reihe eins zurück, sonst bleibt der Index stehen und
+      // zeigt damit von selbst auf das nachgerückte Foto.
+      if (_index >= _assets.length) _index = _assets.length - 1;
+      _faces = [];
+      _aspectRatio = null;
+      _addMode = false;
+      _dragStart = null;
+      _dragCurrent = null;
+    });
+    _load();
   }
 
   /// Eine Menüzeile. Der Text ist [Flexible], weil ein Popup-Menü seine
@@ -422,7 +496,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   /// so bleiben die Pfeile beim Blättern an ihrem Platz, auch wenn
   /// zwischendurch ein gesperrtes Foto in der Reihe liegt.
   PreferredSizeWidget _leiste(BuildContext context, {required bool gesperrt}) {
-    final mehrere = widget.assets.length > 1;
+    final mehrere = _assets.length > 1;
     return AppBar(
       backgroundColor: Colors.black,
       foregroundColor: Colors.white,
@@ -434,7 +508,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
           if (mehrere) ...[
             const SizedBox(width: 12),
             Text(
-              AppTexte.of(context).gesichtPosition(_index + 1, widget.assets.length),
+              AppTexte.of(context).gesichtPosition(_index + 1, _assets.length),
               style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 12),
             ),
           ],
@@ -450,7 +524,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
           IconButton(
             tooltip: AppTexte.of(context).gesichtNaechstes,
             icon: const Icon(Icons.chevron_right),
-            onPressed: _index < widget.assets.length - 1 ? () => _springe(1) : null,
+            onPressed: _index < _assets.length - 1 ? () => _springe(1) : null,
           ),
         ],
         if (!gesperrt)
@@ -475,6 +549,22 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
               _dragCurrent = null;
             }),
           ),
+        // Bei gesperrtem Foto bleiben beide weg. Die Info-Ansicht ist
+        // nicht bloß Text: Sie zeigt in der Personen-Zeile die
+        // Gesichts-Ausschnitte AUS DIESEM FOTO – bei einem gesperrten Bild
+        // wäre genau das ein Blick auf den verborgenen Inhalt.
+        if (!gesperrt) ...[
+          IconButton(
+            tooltip: AppTexte.of(context).viewerInfo,
+            icon: Icon(_infoSichtbar ? Icons.info : Icons.info_outline),
+            onPressed: () => setState(() => _infoSichtbar = !_infoSichtbar),
+          ),
+          IconButton(
+            tooltip: AppTexte.of(context).gesichtFotoLoeschen,
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _loescheFoto,
+          ),
+        ],
       ],
     );
   }
@@ -511,7 +601,50 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: _leiste(context, gesperrt: false),
-      body: _loading || _aspectRatio == null
+      // Foto links, Info rechts daneben – dieselbe Aufteilung wie in der
+      // Vollbildansicht (siehe AssetViewerScreen), damit die Info-Ansicht
+      // an beiden Stellen gleich aussieht und gleich breit ist.
+      body: Row(
+        children: [
+          Expanded(child: _fotoFlaeche(context)),
+          if (_infoSichtbar) ...[
+            const VerticalDivider(width: 1, color: Colors.white24),
+            SizedBox(
+              width: 340,
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                child: AssetInfoSheet(
+                  // Ohne den Schlüssel behielte die Info-Ansicht beim
+                  // Weiterblättern den Zustand des vorigen Fotos.
+                  key: ValueKey(_asset.id),
+                  asset: _asset,
+                  db: widget.library.db,
+                  paths: widget.library.paths,
+                  onUpdated: (aktualisiert) =>
+                      setState(() => _assets[_index] = aktualisiert),
+                  onClose: () => setState(() => _infoSichtbar = false),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+      bottomNavigationBar: _addMode
+          ? Container(
+              color: Colors.black87,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Text(
+                AppTexte.of(context).gesichtRechteckHinweis,
+                style: const TextStyle(color: DunkleFlaeche.zweitText),
+                textAlign: TextAlign.center,
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _fotoFlaeche(BuildContext context) {
+    return _loading || _aspectRatio == null
           ? const Center(child: CircularProgressIndicator())
           : Center(
               child: AspectRatio(
@@ -634,18 +767,6 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                   },
                 ),
               ),
-            ),
-      bottomNavigationBar: _addMode
-          ? Container(
-              color: Colors.black87,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Text(
-                AppTexte.of(context).gesichtRechteckHinweis,
-                style: const TextStyle(color: DunkleFlaeche.zweitText),
-                textAlign: TextAlign.center,
-              ),
-            )
-          : null,
-    );
+            );
   }
 }

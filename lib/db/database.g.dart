@@ -3196,9 +3196,27 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
   late final GeneratedColumn<double> similarityThreshold =
       GeneratedColumn<double>('similarity_threshold', aliasedName, true,
           type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _geburtsdatumMeta =
+      const VerificationMeta('geburtsdatum');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, name, coverFaceCropPath, similarityThreshold];
+  late final GeneratedColumn<DateTime> geburtsdatum = GeneratedColumn<DateTime>(
+      'geburtsdatum', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _sterbedatumMeta =
+      const VerificationMeta('sterbedatum');
+  @override
+  late final GeneratedColumn<DateTime> sterbedatum = GeneratedColumn<DateTime>(
+      'sterbedatum', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        name,
+        coverFaceCropPath,
+        similarityThreshold,
+        geburtsdatum,
+        sterbedatum
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3232,6 +3250,18 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
           similarityThreshold.isAcceptableOrUnknown(
               data['similarity_threshold']!, _similarityThresholdMeta));
     }
+    if (data.containsKey('geburtsdatum')) {
+      context.handle(
+          _geburtsdatumMeta,
+          geburtsdatum.isAcceptableOrUnknown(
+              data['geburtsdatum']!, _geburtsdatumMeta));
+    }
+    if (data.containsKey('sterbedatum')) {
+      context.handle(
+          _sterbedatumMeta,
+          sterbedatum.isAcceptableOrUnknown(
+              data['sterbedatum']!, _sterbedatumMeta));
+    }
     return context;
   }
 
@@ -3249,6 +3279,10 @@ class $PeopleTable extends People with TableInfo<$PeopleTable, PersonData> {
           DriftSqlType.string, data['${effectivePrefix}cover_face_crop_path']),
       similarityThreshold: attachedDatabase.typeMapping.read(
           DriftSqlType.double, data['${effectivePrefix}similarity_threshold']),
+      geburtsdatum: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}geburtsdatum']),
+      sterbedatum: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}sterbedatum']),
     );
   }
 
@@ -3272,11 +3306,24 @@ class PersonData extends DataClass implements Insertable<PersonData> {
   /// entschieden wurde – eine Schwelle, die sich zwischen Anzeige und
   /// Anwendung unterscheidet, wäre nicht erklärbar.
   final double? similarityThreshold;
+
+  /// Lebensdaten – nur für den Stammbaum, und beide freiwillig.
+  ///
+  /// Als volles Datum und nicht als Jahreszahl: Bei Verwandten aus der
+  /// eigenen Zeit kennt man den Tag, bei den Urgroßeltern oft nur das
+  /// Jahr. Ein Feld, das nur Jahre aufnimmt, verlöre die genaue Angabe;
+  /// eines für den Tag lässt sich mit dem 1. Januar füllen, wenn mehr
+  /// nicht bekannt ist. Was davon angezeigt wird, entscheidet die
+  /// Darstellung, nicht die Speicherung.
+  final DateTime? geburtsdatum;
+  final DateTime? sterbedatum;
   const PersonData(
       {required this.id,
       required this.name,
       this.coverFaceCropPath,
-      this.similarityThreshold});
+      this.similarityThreshold,
+      this.geburtsdatum,
+      this.sterbedatum});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3287,6 +3334,12 @@ class PersonData extends DataClass implements Insertable<PersonData> {
     }
     if (!nullToAbsent || similarityThreshold != null) {
       map['similarity_threshold'] = Variable<double>(similarityThreshold);
+    }
+    if (!nullToAbsent || geburtsdatum != null) {
+      map['geburtsdatum'] = Variable<DateTime>(geburtsdatum);
+    }
+    if (!nullToAbsent || sterbedatum != null) {
+      map['sterbedatum'] = Variable<DateTime>(sterbedatum);
     }
     return map;
   }
@@ -3301,6 +3354,12 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       similarityThreshold: similarityThreshold == null && nullToAbsent
           ? const Value.absent()
           : Value(similarityThreshold),
+      geburtsdatum: geburtsdatum == null && nullToAbsent
+          ? const Value.absent()
+          : Value(geburtsdatum),
+      sterbedatum: sterbedatum == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sterbedatum),
     );
   }
 
@@ -3314,6 +3373,8 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           serializer.fromJson<String?>(json['coverFaceCropPath']),
       similarityThreshold:
           serializer.fromJson<double?>(json['similarityThreshold']),
+      geburtsdatum: serializer.fromJson<DateTime?>(json['geburtsdatum']),
+      sterbedatum: serializer.fromJson<DateTime?>(json['sterbedatum']),
     );
   }
   @override
@@ -3324,6 +3385,8 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       'name': serializer.toJson<String>(name),
       'coverFaceCropPath': serializer.toJson<String?>(coverFaceCropPath),
       'similarityThreshold': serializer.toJson<double?>(similarityThreshold),
+      'geburtsdatum': serializer.toJson<DateTime?>(geburtsdatum),
+      'sterbedatum': serializer.toJson<DateTime?>(sterbedatum),
     };
   }
 
@@ -3331,7 +3394,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           {String? id,
           String? name,
           Value<String?> coverFaceCropPath = const Value.absent(),
-          Value<double?> similarityThreshold = const Value.absent()}) =>
+          Value<double?> similarityThreshold = const Value.absent(),
+          Value<DateTime?> geburtsdatum = const Value.absent(),
+          Value<DateTime?> sterbedatum = const Value.absent()}) =>
       PersonData(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -3341,6 +3406,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
         similarityThreshold: similarityThreshold.present
             ? similarityThreshold.value
             : this.similarityThreshold,
+        geburtsdatum:
+            geburtsdatum.present ? geburtsdatum.value : this.geburtsdatum,
+        sterbedatum: sterbedatum.present ? sterbedatum.value : this.sterbedatum,
       );
   PersonData copyWithCompanion(PeopleCompanion data) {
     return PersonData(
@@ -3352,6 +3420,11 @@ class PersonData extends DataClass implements Insertable<PersonData> {
       similarityThreshold: data.similarityThreshold.present
           ? data.similarityThreshold.value
           : this.similarityThreshold,
+      geburtsdatum: data.geburtsdatum.present
+          ? data.geburtsdatum.value
+          : this.geburtsdatum,
+      sterbedatum:
+          data.sterbedatum.present ? data.sterbedatum.value : this.sterbedatum,
     );
   }
 
@@ -3361,14 +3434,16 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('coverFaceCropPath: $coverFaceCropPath, ')
-          ..write('similarityThreshold: $similarityThreshold')
+          ..write('similarityThreshold: $similarityThreshold, ')
+          ..write('geburtsdatum: $geburtsdatum, ')
+          ..write('sterbedatum: $sterbedatum')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, coverFaceCropPath, similarityThreshold);
+  int get hashCode => Object.hash(id, name, coverFaceCropPath,
+      similarityThreshold, geburtsdatum, sterbedatum);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3376,7 +3451,9 @@ class PersonData extends DataClass implements Insertable<PersonData> {
           other.id == this.id &&
           other.name == this.name &&
           other.coverFaceCropPath == this.coverFaceCropPath &&
-          other.similarityThreshold == this.similarityThreshold);
+          other.similarityThreshold == this.similarityThreshold &&
+          other.geburtsdatum == this.geburtsdatum &&
+          other.sterbedatum == this.sterbedatum);
 }
 
 class PeopleCompanion extends UpdateCompanion<PersonData> {
@@ -3384,12 +3461,16 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
   final Value<String> name;
   final Value<String?> coverFaceCropPath;
   final Value<double?> similarityThreshold;
+  final Value<DateTime?> geburtsdatum;
+  final Value<DateTime?> sterbedatum;
   final Value<int> rowid;
   const PeopleCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.coverFaceCropPath = const Value.absent(),
     this.similarityThreshold = const Value.absent(),
+    this.geburtsdatum = const Value.absent(),
+    this.sterbedatum = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PeopleCompanion.insert({
@@ -3397,6 +3478,8 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     required String name,
     this.coverFaceCropPath = const Value.absent(),
     this.similarityThreshold = const Value.absent(),
+    this.geburtsdatum = const Value.absent(),
+    this.sterbedatum = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         name = Value(name);
@@ -3405,6 +3488,8 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     Expression<String>? name,
     Expression<String>? coverFaceCropPath,
     Expression<double>? similarityThreshold,
+    Expression<DateTime>? geburtsdatum,
+    Expression<DateTime>? sterbedatum,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3413,6 +3498,8 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
       if (coverFaceCropPath != null) 'cover_face_crop_path': coverFaceCropPath,
       if (similarityThreshold != null)
         'similarity_threshold': similarityThreshold,
+      if (geburtsdatum != null) 'geburtsdatum': geburtsdatum,
+      if (sterbedatum != null) 'sterbedatum': sterbedatum,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3422,12 +3509,16 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
       Value<String>? name,
       Value<String?>? coverFaceCropPath,
       Value<double?>? similarityThreshold,
+      Value<DateTime?>? geburtsdatum,
+      Value<DateTime?>? sterbedatum,
       Value<int>? rowid}) {
     return PeopleCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       coverFaceCropPath: coverFaceCropPath ?? this.coverFaceCropPath,
       similarityThreshold: similarityThreshold ?? this.similarityThreshold,
+      geburtsdatum: geburtsdatum ?? this.geburtsdatum,
+      sterbedatum: sterbedatum ?? this.sterbedatum,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3447,6 +3538,12 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
     if (similarityThreshold.present) {
       map['similarity_threshold'] = Variable<double>(similarityThreshold.value);
     }
+    if (geburtsdatum.present) {
+      map['geburtsdatum'] = Variable<DateTime>(geburtsdatum.value);
+    }
+    if (sterbedatum.present) {
+      map['sterbedatum'] = Variable<DateTime>(sterbedatum.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3460,6 +3557,8 @@ class PeopleCompanion extends UpdateCompanion<PersonData> {
           ..write('name: $name, ')
           ..write('coverFaceCropPath: $coverFaceCropPath, ')
           ..write('similarityThreshold: $similarityThreshold, ')
+          ..write('geburtsdatum: $geburtsdatum, ')
+          ..write('sterbedatum: $sterbedatum, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -11868,6 +11967,240 @@ class ExportPresetsCompanion extends UpdateCompanion<ExportPresetData> {
   }
 }
 
+class $PersonBeziehungenTable extends PersonBeziehungen
+    with TableInfo<$PersonBeziehungenTable, PersonBeziehungenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PersonBeziehungenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _personIdMeta =
+      const VerificationMeta('personId');
+  @override
+  late final GeneratedColumn<String> personId = GeneratedColumn<String>(
+      'person_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _andereIdMeta =
+      const VerificationMeta('andereId');
+  @override
+  late final GeneratedColumn<String> andereId = GeneratedColumn<String>(
+      'andere_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _artMeta = const VerificationMeta('art');
+  @override
+  late final GeneratedColumn<String> art = GeneratedColumn<String>(
+      'art', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [personId, andereId, art];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'person_beziehungen';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<PersonBeziehungenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('person_id')) {
+      context.handle(_personIdMeta,
+          personId.isAcceptableOrUnknown(data['person_id']!, _personIdMeta));
+    } else if (isInserting) {
+      context.missing(_personIdMeta);
+    }
+    if (data.containsKey('andere_id')) {
+      context.handle(_andereIdMeta,
+          andereId.isAcceptableOrUnknown(data['andere_id']!, _andereIdMeta));
+    } else if (isInserting) {
+      context.missing(_andereIdMeta);
+    }
+    if (data.containsKey('art')) {
+      context.handle(
+          _artMeta, art.isAcceptableOrUnknown(data['art']!, _artMeta));
+    } else if (isInserting) {
+      context.missing(_artMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {personId, andereId, art};
+  @override
+  PersonBeziehungenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PersonBeziehungenData(
+      personId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}person_id'])!,
+      andereId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}andere_id'])!,
+      art: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}art'])!,
+    );
+  }
+
+  @override
+  $PersonBeziehungenTable createAlias(String alias) {
+    return $PersonBeziehungenTable(attachedDatabase, alias);
+  }
+}
+
+class PersonBeziehungenData extends DataClass
+    implements Insertable<PersonBeziehungenData> {
+  final String personId;
+  final String andereId;
+  final String art;
+  const PersonBeziehungenData(
+      {required this.personId, required this.andereId, required this.art});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['person_id'] = Variable<String>(personId);
+    map['andere_id'] = Variable<String>(andereId);
+    map['art'] = Variable<String>(art);
+    return map;
+  }
+
+  PersonBeziehungenCompanion toCompanion(bool nullToAbsent) {
+    return PersonBeziehungenCompanion(
+      personId: Value(personId),
+      andereId: Value(andereId),
+      art: Value(art),
+    );
+  }
+
+  factory PersonBeziehungenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PersonBeziehungenData(
+      personId: serializer.fromJson<String>(json['personId']),
+      andereId: serializer.fromJson<String>(json['andereId']),
+      art: serializer.fromJson<String>(json['art']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'personId': serializer.toJson<String>(personId),
+      'andereId': serializer.toJson<String>(andereId),
+      'art': serializer.toJson<String>(art),
+    };
+  }
+
+  PersonBeziehungenData copyWith(
+          {String? personId, String? andereId, String? art}) =>
+      PersonBeziehungenData(
+        personId: personId ?? this.personId,
+        andereId: andereId ?? this.andereId,
+        art: art ?? this.art,
+      );
+  PersonBeziehungenData copyWithCompanion(PersonBeziehungenCompanion data) {
+    return PersonBeziehungenData(
+      personId: data.personId.present ? data.personId.value : this.personId,
+      andereId: data.andereId.present ? data.andereId.value : this.andereId,
+      art: data.art.present ? data.art.value : this.art,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonBeziehungenData(')
+          ..write('personId: $personId, ')
+          ..write('andereId: $andereId, ')
+          ..write('art: $art')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(personId, andereId, art);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PersonBeziehungenData &&
+          other.personId == this.personId &&
+          other.andereId == this.andereId &&
+          other.art == this.art);
+}
+
+class PersonBeziehungenCompanion
+    extends UpdateCompanion<PersonBeziehungenData> {
+  final Value<String> personId;
+  final Value<String> andereId;
+  final Value<String> art;
+  final Value<int> rowid;
+  const PersonBeziehungenCompanion({
+    this.personId = const Value.absent(),
+    this.andereId = const Value.absent(),
+    this.art = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PersonBeziehungenCompanion.insert({
+    required String personId,
+    required String andereId,
+    required String art,
+    this.rowid = const Value.absent(),
+  })  : personId = Value(personId),
+        andereId = Value(andereId),
+        art = Value(art);
+  static Insertable<PersonBeziehungenData> custom({
+    Expression<String>? personId,
+    Expression<String>? andereId,
+    Expression<String>? art,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (personId != null) 'person_id': personId,
+      if (andereId != null) 'andere_id': andereId,
+      if (art != null) 'art': art,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PersonBeziehungenCompanion copyWith(
+      {Value<String>? personId,
+      Value<String>? andereId,
+      Value<String>? art,
+      Value<int>? rowid}) {
+    return PersonBeziehungenCompanion(
+      personId: personId ?? this.personId,
+      andereId: andereId ?? this.andereId,
+      art: art ?? this.art,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (personId.present) {
+      map['person_id'] = Variable<String>(personId.value);
+    }
+    if (andereId.present) {
+      map['andere_id'] = Variable<String>(andereId.value);
+    }
+    if (art.present) {
+      map['art'] = Variable<String>(art.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PersonBeziehungenCompanion(')
+          ..write('personId: $personId, ')
+          ..write('andereId: $andereId, ')
+          ..write('art: $art, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -11905,6 +12238,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $AutomationRuleTagsTable automationRuleTags =
       $AutomationRuleTagsTable(this);
   late final $ExportPresetsTable exportPresets = $ExportPresetsTable(this);
+  late final $PersonBeziehungenTable personBeziehungen =
+      $PersonBeziehungenTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11935,7 +12270,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         aiTagVocabulary,
         automationRules,
         automationRuleTags,
-        exportPresets
+        exportPresets,
+        personBeziehungen
       ];
 }
 
@@ -13313,6 +13649,8 @@ typedef $$PeopleTableCreateCompanionBuilder = PeopleCompanion Function({
   required String name,
   Value<String?> coverFaceCropPath,
   Value<double?> similarityThreshold,
+  Value<DateTime?> geburtsdatum,
+  Value<DateTime?> sterbedatum,
   Value<int> rowid,
 });
 typedef $$PeopleTableUpdateCompanionBuilder = PeopleCompanion Function({
@@ -13320,6 +13658,8 @@ typedef $$PeopleTableUpdateCompanionBuilder = PeopleCompanion Function({
   Value<String> name,
   Value<String?> coverFaceCropPath,
   Value<double?> similarityThreshold,
+  Value<DateTime?> geburtsdatum,
+  Value<DateTime?> sterbedatum,
   Value<int> rowid,
 });
 
@@ -13345,6 +13685,12 @@ class $$PeopleTableFilterComposer
   ColumnFilters<double> get similarityThreshold => $composableBuilder(
       column: $table.similarityThreshold,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get geburtsdatum => $composableBuilder(
+      column: $table.geburtsdatum, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get sterbedatum => $composableBuilder(
+      column: $table.sterbedatum, builder: (column) => ColumnFilters(column));
 }
 
 class $$PeopleTableOrderingComposer
@@ -13369,6 +13715,13 @@ class $$PeopleTableOrderingComposer
   ColumnOrderings<double> get similarityThreshold => $composableBuilder(
       column: $table.similarityThreshold,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get geburtsdatum => $composableBuilder(
+      column: $table.geburtsdatum,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get sterbedatum => $composableBuilder(
+      column: $table.sterbedatum, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PeopleTableAnnotationComposer
@@ -13391,6 +13744,12 @@ class $$PeopleTableAnnotationComposer
 
   GeneratedColumn<double> get similarityThreshold => $composableBuilder(
       column: $table.similarityThreshold, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get geburtsdatum => $composableBuilder(
+      column: $table.geburtsdatum, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get sterbedatum => $composableBuilder(
+      column: $table.sterbedatum, builder: (column) => column);
 }
 
 class $$PeopleTableTableManager extends RootTableManager<
@@ -13420,6 +13779,8 @@ class $$PeopleTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<String?> coverFaceCropPath = const Value.absent(),
             Value<double?> similarityThreshold = const Value.absent(),
+            Value<DateTime?> geburtsdatum = const Value.absent(),
+            Value<DateTime?> sterbedatum = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PeopleCompanion(
@@ -13427,6 +13788,8 @@ class $$PeopleTableTableManager extends RootTableManager<
             name: name,
             coverFaceCropPath: coverFaceCropPath,
             similarityThreshold: similarityThreshold,
+            geburtsdatum: geburtsdatum,
+            sterbedatum: sterbedatum,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -13434,6 +13797,8 @@ class $$PeopleTableTableManager extends RootTableManager<
             required String name,
             Value<String?> coverFaceCropPath = const Value.absent(),
             Value<double?> similarityThreshold = const Value.absent(),
+            Value<DateTime?> geburtsdatum = const Value.absent(),
+            Value<DateTime?> sterbedatum = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               PeopleCompanion.insert(
@@ -13441,6 +13806,8 @@ class $$PeopleTableTableManager extends RootTableManager<
             name: name,
             coverFaceCropPath: coverFaceCropPath,
             similarityThreshold: similarityThreshold,
+            geburtsdatum: geburtsdatum,
+            sterbedatum: sterbedatum,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -17620,6 +17987,153 @@ typedef $$ExportPresetsTableProcessedTableManager = ProcessedTableManager<
     ),
     ExportPresetData,
     PrefetchHooks Function()>;
+typedef $$PersonBeziehungenTableCreateCompanionBuilder
+    = PersonBeziehungenCompanion Function({
+  required String personId,
+  required String andereId,
+  required String art,
+  Value<int> rowid,
+});
+typedef $$PersonBeziehungenTableUpdateCompanionBuilder
+    = PersonBeziehungenCompanion Function({
+  Value<String> personId,
+  Value<String> andereId,
+  Value<String> art,
+  Value<int> rowid,
+});
+
+class $$PersonBeziehungenTableFilterComposer
+    extends Composer<_$AppDatabase, $PersonBeziehungenTable> {
+  $$PersonBeziehungenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get personId => $composableBuilder(
+      column: $table.personId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get andereId => $composableBuilder(
+      column: $table.andereId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnFilters(column));
+}
+
+class $$PersonBeziehungenTableOrderingComposer
+    extends Composer<_$AppDatabase, $PersonBeziehungenTable> {
+  $$PersonBeziehungenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get personId => $composableBuilder(
+      column: $table.personId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get andereId => $composableBuilder(
+      column: $table.andereId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PersonBeziehungenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PersonBeziehungenTable> {
+  $$PersonBeziehungenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get personId =>
+      $composableBuilder(column: $table.personId, builder: (column) => column);
+
+  GeneratedColumn<String> get andereId =>
+      $composableBuilder(column: $table.andereId, builder: (column) => column);
+
+  GeneratedColumn<String> get art =>
+      $composableBuilder(column: $table.art, builder: (column) => column);
+}
+
+class $$PersonBeziehungenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PersonBeziehungenTable,
+    PersonBeziehungenData,
+    $$PersonBeziehungenTableFilterComposer,
+    $$PersonBeziehungenTableOrderingComposer,
+    $$PersonBeziehungenTableAnnotationComposer,
+    $$PersonBeziehungenTableCreateCompanionBuilder,
+    $$PersonBeziehungenTableUpdateCompanionBuilder,
+    (
+      PersonBeziehungenData,
+      BaseReferences<_$AppDatabase, $PersonBeziehungenTable,
+          PersonBeziehungenData>
+    ),
+    PersonBeziehungenData,
+    PrefetchHooks Function()> {
+  $$PersonBeziehungenTableTableManager(
+      _$AppDatabase db, $PersonBeziehungenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PersonBeziehungenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PersonBeziehungenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PersonBeziehungenTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> personId = const Value.absent(),
+            Value<String> andereId = const Value.absent(),
+            Value<String> art = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PersonBeziehungenCompanion(
+            personId: personId,
+            andereId: andereId,
+            art: art,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String personId,
+            required String andereId,
+            required String art,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PersonBeziehungenCompanion.insert(
+            personId: personId,
+            andereId: andereId,
+            art: art,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PersonBeziehungenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PersonBeziehungenTable,
+    PersonBeziehungenData,
+    $$PersonBeziehungenTableFilterComposer,
+    $$PersonBeziehungenTableOrderingComposer,
+    $$PersonBeziehungenTableAnnotationComposer,
+    $$PersonBeziehungenTableCreateCompanionBuilder,
+    $$PersonBeziehungenTableUpdateCompanionBuilder,
+    (
+      PersonBeziehungenData,
+      BaseReferences<_$AppDatabase, $PersonBeziehungenTable,
+          PersonBeziehungenData>
+    ),
+    PersonBeziehungenData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -17675,4 +18189,6 @@ class $AppDatabaseManager {
       $$AutomationRuleTagsTableTableManager(_db, _db.automationRuleTags);
   $$ExportPresetsTableTableManager get exportPresets =>
       $$ExportPresetsTableTableManager(_db, _db.exportPresets);
+  $$PersonBeziehungenTableTableManager get personBeziehungen =>
+      $$PersonBeziehungenTableTableManager(_db, _db.personBeziehungen);
 }

@@ -177,47 +177,59 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
               top: 0,
               bottom: 0,
               width: gridWidth,
-              child: CustomScrollView(
-                controller: _scrollController,
-                slivers: [
-                  for (final key in orderedKeys) ...[
-                    SliverToBoxAdapter(
-                      child: _MonthHeader(
-                        label: DateFormat.yMMMM(
-                                Localizations.localeOf(context).toString())
-                            .format(groups[key]!.first.fileCreatedAt),
-                        groupAssets: groups[key]!,
-                        selectedIds: widget.selectedIds,
-                        onTap: widget.onHeaderTap,
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                      sliver: SliverGrid(
-                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 160,
-                          mainAxisSpacing: 4,
-                          crossAxisSpacing: 4,
-                        ),
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final asset = groups[key]![index];
-                            final tile = AssetThumbnailTile(
-                              asset: asset,
-                              paths: widget.paths,
-                              selected: widget.selectedIds?.contains(asset.id) ?? false,
-                              onTap: () => widget.onTap(asset),
-                              onLongPress: widget.onLongPress == null ? null : () => widget.onLongPress!(asset),
-                            );
-                            return asset.id == _flashingAssetId ? _FlashHighlight(child: tile) : tile;
-                          },
-                          childCount: groups[key]!.length,
+              // Kein eigener Rollbalken, solange der Zeitstrahl daneben
+              // steht: Auf dem Rechner blendet Flutter von sich aus einen
+              // ein, und dann stehen zwei Bedienelemente für dieselbe Sache
+              // nebeneinander – der schmale graue Streifen direkt links vom
+              // Zeitstrahl. Ohne Zeitstrahl (weniger als zwei Monatsgruppen)
+              // bleibt er, sonst gäbe es überhaupt keine Rückmeldung mehr,
+              // wo man sich in der Liste befindet.
+              child: ScrollConfiguration(
+                behavior: showScrubber
+                    ? ScrollConfiguration.of(context).copyWith(scrollbars: false)
+                    : ScrollConfiguration.of(context),
+                child: CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    for (final key in orderedKeys) ...[
+                      SliverToBoxAdapter(
+                        child: _MonthHeader(
+                          label: DateFormat.yMMMM(
+                                  Localizations.localeOf(context).toString())
+                              .format(groups[key]!.first.fileCreatedAt),
+                          groupAssets: groups[key]!,
+                          selectedIds: widget.selectedIds,
+                          onTap: widget.onHeaderTap,
                         ),
                       ),
-                    ),
+                      SliverPadding(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                        sliver: SliverGrid(
+                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 160,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final asset = groups[key]![index];
+                              final tile = AssetThumbnailTile(
+                                asset: asset,
+                                paths: widget.paths,
+                                selected: widget.selectedIds?.contains(asset.id) ?? false,
+                                onTap: () => widget.onTap(asset),
+                                onLongPress: widget.onLongPress == null ? null : () => widget.onLongPress!(asset),
+                              );
+                              return asset.id == _flashingAssetId ? _FlashHighlight(child: tile) : tile;
+                            },
+                            childCount: groups[key]!.length,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SliverToBoxAdapter(child: SizedBox(height: 40)),
                   ],
-                  const SliverToBoxAdapter(child: SizedBox(height: 40)),
-                ],
+                ),
               ),
             ),
             if (showScrubber)

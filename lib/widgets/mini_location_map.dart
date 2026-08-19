@@ -33,9 +33,40 @@ TileLayer buildMapTileLayer(BuildContext context, {bool? dark}) {
   );
 }
 
+/// Die Namensnennung der Kartenanbieter – eine Auflage der Lizenz, also
+/// muss sie lesbar bleiben.
+///
+/// Eigenhändig gebaut statt mit `SimpleAttributionWidget`: Jenes setzt den
+/// Text in normaler Schriftgröße in eine Zeile fester Breite und stellt
+/// ihm noch „flutter_map | ©" voran – ein Hinweis auf die verwendete
+/// Programmbibliothek, der mit der Lizenz nichts zu tun hat. In der 340
+/// Punkte breiten Info-Ansicht lief die Zeile dadurch um über 400 Punkte
+/// über und wurde abgeschnitten; ausgerechnet die Namensnennung war damit
+/// unvollständig. Hier steht sie klein, umbricht bei Bedarf und ist auf
+/// zwei Drittel der Breite begrenzt, damit sie die Karte nicht zudeckt.
 Widget buildMapAttribution(BuildContext context, {bool? dark}) {
   final isDark = dark ?? Theme.of(context).brightness == Brightness.dark;
-  return SimpleAttributionWidget(source: Text(isDark ? kOsmDarkAttribution : kOsmAttribution));
+  return Align(
+    alignment: Alignment.bottomRight,
+    child: LayoutBuilder(
+      builder: (context, constraints) => ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: constraints.maxWidth * 2 / 3),
+        child: ColoredBox(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.75),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            child: Text(
+              isDark ? kOsmDarkAttribution : kOsmAttribution,
+              style: TextStyle(
+                fontSize: 9,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 const _defaultCenter = ll.LatLng(51.1657, 10.4515); // Mitte Deutschlands
