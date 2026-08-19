@@ -3413,7 +3413,20 @@ class AppDatabase extends _$AppDatabase {
 
   /// Entfernt eine Verwandtschaft. Bei Partnerschaften ist die
   /// Eingaberichtung gleichgültig – gespeichert ist nur eine Zeile.
-  Future<void> entferneBeziehung(
+  ///
+  /// Bei einer Elternverbindung wird die Art **nicht** mitverglichen: Zwei
+  /// Menschen können nur auf genau eine Weise Eltern und Kind sein (das
+  /// stellt [pruefeBeziehung] sicher), also ist „löse diese
+  /// Elternverbindung" auch ohne die Art eindeutig.
+  ///
+  /// Vorher stand hier ein Vergleich auf die genaue Art – und die
+  /// Oberfläche übergab für jede Elternreihe fest „leiblich". Bei einem
+  /// Adoptiv- oder Pflegeelternteil traf die Bedingung deshalb keine
+  /// Zeile: Es passierte nichts, ohne Fehler, ohne Hinweis.
+  ///
+  /// Gibt zurück, ob tatsächlich etwas entfernt wurde. Ein Aufrufer, der
+  /// ins Leere greift, soll das erfahren können statt es zu vermuten.
+  Future<bool> entferneBeziehung(
     String personId,
     String andereId,
     Verwandtschaft art,
@@ -3421,12 +3434,43 @@ class AppDatabase extends _$AppDatabase {
     final k = art == Verwandtschaft.partner
         ? partnerKanteFuer(personId, andereId)
         : kante(personId, andereId, art);
-    await (delete(personBeziehungen)
-          ..where((t) =>
-              t.personId.equals(k.personId) &
-              t.andereId.equals(k.andereId) &
-              t.art.equals(artZuText(k.art))))
+    final betroffen = await (delete(personBeziehungen)
+          ..where((t) {
+            final gleicheStelle =
+                t.personId.equals(k.personId) & t.andereId.equals(k.andereId);
+            return istElternArt(k.art)
+                ? gleicheStelle &
+                    t.art.isIn([for (final e in elternArten) artZuText(e)])
+                : gleicheStelle & t.art.equals(artZuText(k.art));
+          }))
         .go();
+    return betroffen > 0;
+  }
+
+  /// Ändert die Art einer bestehenden Elternverbindung – aus „leiblich"
+  /// wird „Adoptiv", ohne die Verbindung erst zu lösen und neu zu legen.
+  ///
+  /// Die Art steht im Primärschlüssel, deshalb ist es kein einfaches
+  /// Ändern der Spalte, sondern Entfernen und Neuanlegen – beides in einer
+  /// Transaktion, damit die Verbindung nie zwischendurch fehlt.
+  ///
+  /// Gibt zurück, ob es die Verbindung überhaupt gab.
+  Future<bool> aendereElternart(
+    String kindId,
+    String elternteilId,
+    Verwandtschaft neueArt,
+  ) async {
+    if (!istElternArt(neueArt)) return false;
+    return transaction(() async {
+      final entfernt = await entferneBeziehung(kindId, elternteilId, neueArt);
+      if (!entfernt) return false;
+      await into(personBeziehungen).insert(PersonBeziehungenCompanion.insert(
+        personId: kindId,
+        andereId: elternteilId,
+        art: artZuText(neueArt),
+      ));
+      return true;
+    });
   }
 
   Future<List<Kante>> _kanten() async {

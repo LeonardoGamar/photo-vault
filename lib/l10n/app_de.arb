@@ -2664,6 +2664,54 @@
   "orteAngeheiratet": "Angeheiratet",
   "orteNichtsGewaehlt": "Keine Gruppe ausgewählt.",
   "stammbaumFamilienorte": "Orte der Familie",
+  "stammbaumMenue": "Mehr zu dieser Person",
+  "stammbaumVerbindungsart": "Art der Verbindung …",
+  "stammbaumVerbindungsartTitel": "Wie ist {kind} mit {elternteil} verbunden?",
+  "@stammbaumVerbindungsartTitel": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "elternteil": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumVerbindungsartHinweis": "Adoptiv- und Pflegeeltern zählen überall als Eltern – nur die Bezeichnung und die gestrichelte Linie unterscheiden sie.",
+  "stammbaumNichtsEntfernt": "Diese Verbindung war schon gelöst.",
+  "stammbaumWeitereVerwandte": "Weitere Verwandte",
+  "stammbaumGeschwisterHinzufuegen": "Geschwisterkind hinzufügen …",
+  "stammbaumGrosselternteilHinzufuegen": "Großelternteil hinzufügen …",
+  "stammbaumEnkelHinzufuegen": "Enkelkind hinzufügen …",
+  "stammbaumBrauchtElternteil": "Ein Geschwisterkind teilt sich einen Elternteil. Trage für {name} zuerst einen Elternteil ein.",
+  "@stammbaumBrauchtElternteil": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumBrauchtKind": "Ein Enkelkind ist das Kind eines Kindes. Trage für {name} zuerst ein Kind ein.",
+  "@stammbaumBrauchtKind": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumWelcherElternteil": "Wessen Elternteil?",
+  "stammbaumWelchesKind": "Wessen Kind?",
+  "stammbaumGeschwisterHinweis": "Das neue Geschwisterkind bekommt dieselben Eltern wie {name}: {eltern}.",
+  "@stammbaumGeschwisterHinweis": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "eltern": {
+        "type": "String"
+      }
+    }
+  },
   "stammbaumFamilienorteVon": "Orte der Familie von {name}",
   "@stammbaumFamilienorteVon": {
     "placeholders": {

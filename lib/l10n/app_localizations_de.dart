@@ -4664,6 +4664,58 @@ class AppTexteDe extends AppTexte {
   String get stammbaumFamilienorte => 'Orte der Familie';
 
   @override
+  String get stammbaumMenue => 'Mehr zu dieser Person';
+
+  @override
+  String get stammbaumVerbindungsart => 'Art der Verbindung …';
+
+  @override
+  String stammbaumVerbindungsartTitel(String kind, String elternteil) {
+    return 'Wie ist $kind mit $elternteil verbunden?';
+  }
+
+  @override
+  String get stammbaumVerbindungsartHinweis =>
+      'Adoptiv- und Pflegeeltern zählen überall als Eltern – nur die Bezeichnung und die gestrichelte Linie unterscheiden sie.';
+
+  @override
+  String get stammbaumNichtsEntfernt => 'Diese Verbindung war schon gelöst.';
+
+  @override
+  String get stammbaumWeitereVerwandte => 'Weitere Verwandte';
+
+  @override
+  String get stammbaumGeschwisterHinzufuegen => 'Geschwisterkind hinzufügen …';
+
+  @override
+  String get stammbaumGrosselternteilHinzufuegen =>
+      'Großelternteil hinzufügen …';
+
+  @override
+  String get stammbaumEnkelHinzufuegen => 'Enkelkind hinzufügen …';
+
+  @override
+  String stammbaumBrauchtElternteil(String name) {
+    return 'Ein Geschwisterkind teilt sich einen Elternteil. Trage für $name zuerst einen Elternteil ein.';
+  }
+
+  @override
+  String stammbaumBrauchtKind(String name) {
+    return 'Ein Enkelkind ist das Kind eines Kindes. Trage für $name zuerst ein Kind ein.';
+  }
+
+  @override
+  String get stammbaumWelcherElternteil => 'Wessen Elternteil?';
+
+  @override
+  String get stammbaumWelchesKind => 'Wessen Kind?';
+
+  @override
+  String stammbaumGeschwisterHinweis(String name, String eltern) {
+    return 'Das neue Geschwisterkind bekommt dieselben Eltern wie $name: $eltern.';
+  }
+
+  @override
   String stammbaumFamilienorteVon(String name) {
     return 'Orte der Familie von $name';
   }

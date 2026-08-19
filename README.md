@@ -121,8 +121,16 @@ welche Modelle aus welcher Quelle stammen.
 
   Neben leiblichen Eltern lassen sich **Adoptiv- und Pflegeeltern**
   eintragen; sie zählen überall als Eltern, werden gestrichelt gezeichnet
-  und eigens benannt. Jede Person hat einen **Lebenslauf** – Hochzeit,
-  Umzug, Beruf, Ausbildung, jeweils mit Datum, Ort und Notiz.
+  und eigens benannt. Die Art einer bestehenden Verbindung lässt sich
+  nachträglich ändern, ohne sie zu lösen und neu zu legen. Jede Person hat
+  einen **Lebenslauf** – Hochzeit, Umzug, Beruf, Ausbildung, jeweils mit
+  Datum, Ort und Notiz.
+
+  Gespeichert werden nur Eltern, Kinder und Partner. **Geschwisterkind,
+  Großelternteil und Enkelkind** lassen sich trotzdem direkt eintragen –
+  sie werden an der richtigen Zwischenperson eingehängt, statt dass man
+  erst dorthin rücken muss. Wo die Stelle nicht eindeutig ist (wessen
+  Elternteil?), wird gefragt statt geraten.
 
   Dazu vier Wege nach draußen: **Fotos der Familie** (alle Bilder, auf
   denen jemand aus dem Verwandtschaftsnetz erkannt wurde), **Orte der

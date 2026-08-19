@@ -7440,6 +7440,90 @@ abstract class AppTexte {
   /// **'Orte der Familie'**
   String get stammbaumFamilienorte;
 
+  /// No description provided for @stammbaumMenue.
+  ///
+  /// In de, this message translates to:
+  /// **'Mehr zu dieser Person'**
+  String get stammbaumMenue;
+
+  /// No description provided for @stammbaumVerbindungsart.
+  ///
+  /// In de, this message translates to:
+  /// **'Art der Verbindung …'**
+  String get stammbaumVerbindungsart;
+
+  /// No description provided for @stammbaumVerbindungsartTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Wie ist {kind} mit {elternteil} verbunden?'**
+  String stammbaumVerbindungsartTitel(String kind, String elternteil);
+
+  /// No description provided for @stammbaumVerbindungsartHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Adoptiv- und Pflegeeltern zählen überall als Eltern – nur die Bezeichnung und die gestrichelte Linie unterscheiden sie.'**
+  String get stammbaumVerbindungsartHinweis;
+
+  /// No description provided for @stammbaumNichtsEntfernt.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Verbindung war schon gelöst.'**
+  String get stammbaumNichtsEntfernt;
+
+  /// No description provided for @stammbaumWeitereVerwandte.
+  ///
+  /// In de, this message translates to:
+  /// **'Weitere Verwandte'**
+  String get stammbaumWeitereVerwandte;
+
+  /// No description provided for @stammbaumGeschwisterHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Geschwisterkind hinzufügen …'**
+  String get stammbaumGeschwisterHinzufuegen;
+
+  /// No description provided for @stammbaumGrosselternteilHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Großelternteil hinzufügen …'**
+  String get stammbaumGrosselternteilHinzufuegen;
+
+  /// No description provided for @stammbaumEnkelHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Enkelkind hinzufügen …'**
+  String get stammbaumEnkelHinzufuegen;
+
+  /// No description provided for @stammbaumBrauchtElternteil.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein Geschwisterkind teilt sich einen Elternteil. Trage für {name} zuerst einen Elternteil ein.'**
+  String stammbaumBrauchtElternteil(String name);
+
+  /// No description provided for @stammbaumBrauchtKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein Enkelkind ist das Kind eines Kindes. Trage für {name} zuerst ein Kind ein.'**
+  String stammbaumBrauchtKind(String name);
+
+  /// No description provided for @stammbaumWelcherElternteil.
+  ///
+  /// In de, this message translates to:
+  /// **'Wessen Elternteil?'**
+  String get stammbaumWelcherElternteil;
+
+  /// No description provided for @stammbaumWelchesKind.
+  ///
+  /// In de, this message translates to:
+  /// **'Wessen Kind?'**
+  String get stammbaumWelchesKind;
+
+  /// No description provided for @stammbaumGeschwisterHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Das neue Geschwisterkind bekommt dieselben Eltern wie {name}: {eltern}.'**
+  String stammbaumGeschwisterHinweis(String name, String eltern);
+
   /// No description provided for @stammbaumFamilienorteVon.
   ///
   /// In de, this message translates to:

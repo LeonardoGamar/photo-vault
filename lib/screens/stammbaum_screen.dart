@@ -32,7 +32,12 @@ import 'person_detail_screen.dart';
 /// mit von der Schriftlänge abhängigen Breiten wüsste der Zeichner nicht,
 /// wo eine Karte endet.
 const double _karteBreite = 132;
-const double _karteHoehe = 148;
+/// Nachgemessen, nicht geschätzt: zwei Zeichen à 12, Bildkreis 52,
+/// Abstand 4, zweizeiliger Name 34, Bezeichnung 14, Lebensspanne 14,
+/// Polster 16 – zusammen 158. Vorher standen hier 148, und eine Karte mit
+/// zweizeiligem Namen lief unten über („Marianne Schmidt-Hollmann" genügt
+/// dafür). Die zwei Punkte Zugabe fangen die Randbreite ab.
+const double _karteHoehe = 160;
 const double _karteAbstand = AppSpacing.lg;
 
 /// Höhe der Fläche zwischen zwei Generationen.
@@ -48,6 +53,33 @@ const double _verbinderHoehe = 44;
 /// Karte tippt, rückt sie in die Mitte. Ein kleines Zeichen an der Karte
 /// sagt vorher, ob dort etwas wartet.
 /// Die beiden Sichten auf dieselbe Familie.
+/// Wie eine Karte zur Person in der Mitte steht – nicht die Art der
+/// gespeicherten Kante, sondern die Stelle im Bild.
+///
+/// Die Art selbst wird daraus im Netz nachgeschlagen (siehe
+/// [_StammbaumScreenState._artFuer]); die Reihe kennt sie nicht.
+/// Verwandte, die sich über eine Zwischenperson eintragen lassen.
+///
+/// Sie sind keine eigene Kantenart – gespeichert werden weiterhin nur
+/// Eltern, Kinder und Partner. Diese Aufzählung beschreibt nur, an wem
+/// die neue Person hängt.
+enum _Weitere { geschwister, grosselternteil, enkel }
+
+enum _Bezug {
+  /// Die Karte steht in der Elternreihe.
+  elternteil,
+
+  /// Die Karte steht in der Kinderreihe.
+  kind,
+
+  /// Die Karte steht in der Partnergruppe.
+  partner,
+
+  /// Geschwister und die Person in der Mitte selbst: Zwischen ihnen und
+  /// der Mitte steht keine eigene Kante, die man lösen könnte.
+  keiner,
+}
+
 enum _Ansicht {
   /// Der Baum: unmittelbare Verwandtschaft, räumlich angeordnet.
   baum,
@@ -232,6 +264,164 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     if (fehler != null && mounted) _meldeFehler(fehler);
   }
 
+  /// Legt einen Verwandten an, der nicht unmittelbar an der Person in der
+  /// Mitte hängt – ein Geschwisterkind, einen Großelternteil, ein
+  /// Enkelkind.
+  ///
+  /// Gespeichert werden weiterhin nur Eltern, Kinder und Partner; alles
+  /// andere ist ausgerechnet (siehe verwandtschaftsgrad.dart). Diese
+  /// Einträge sind deshalb keine neue Kantenart, sondern eine Abkürzung:
+  /// Sie hängen die neue Person an der richtigen Stelle ein, statt dass
+  /// man erst zum Elternteil rücken, dort ein Kind eintragen und wieder
+  /// zurückrücken muss.
+  ///
+  /// Wo die Stelle nicht eindeutig ist – wessen Elternteil, wessen Kind –,
+  /// wird gefragt statt geraten.
+  Future<void> _weitererVerwandter(_Weitere art) async {
+    final fokusId = _fokusId;
+    final fokus = _nachId[fokusId];
+    if (fokusId == null || fokus == null) return;
+    final t = AppTexte.of(context);
+
+    // Die Personen, an die die neue angehängt wird. Für ein
+    // Geschwisterkind sind das ALLE Eltern – ein Geschwisterkind mit nur
+    // einem der beiden Elternteile wäre ein Halbgeschwisterkind, und das
+    // ist eine andere Aussage.
+    List<String> anker;
+    switch (art) {
+      case _Weitere.geschwister:
+        anker = _netz.eltern(fokusId).toList();
+        if (anker.isEmpty) {
+          _kurzerHinweis(t.stammbaumBrauchtElternteil(fokus.name));
+          return;
+        }
+      case _Weitere.grosselternteil:
+        final eltern = _netz.eltern(fokusId).toList();
+        if (eltern.isEmpty) {
+          _kurzerHinweis(t.stammbaumBrauchtElternteil(fokus.name));
+          return;
+        }
+        final gewaehlt = await _wenVon(eltern, t.stammbaumWelcherElternteil);
+        if (gewaehlt == null) return;
+        anker = [gewaehlt];
+      case _Weitere.enkel:
+        final kinder = _netz.kinder(fokusId).toList();
+        if (kinder.isEmpty) {
+          _kurzerHinweis(t.stammbaumBrauchtKind(fokus.name));
+          return;
+        }
+        final gewaehlt = await _wenVon(kinder, t.stammbaumWelchesKind);
+        if (gewaehlt == null) return;
+        anker = [gewaehlt];
+    }
+    if (!mounted) return;
+
+    final titel = switch (art) {
+      _Weitere.geschwister => t.stammbaumGeschwisterHinzufuegen,
+      _Weitere.grosselternteil => t.stammbaumGrosselternteilHinzufuegen,
+      _Weitere.enkel => t.stammbaumEnkelHinzufuegen,
+    };
+    final wahl = await showPersonPickerDialog(
+      context,
+      // Weder die Mitte noch die Anker stehen zur Auswahl: Beide wären
+      // ein Kreis oder eine Verwandtschaft mit sich selbst.
+      _personen
+          .where((p) => p.id != fokusId && !anker.contains(p.id))
+          .toList(),
+      paths: widget.library.paths,
+      title: titel,
+    );
+    if (wahl == null || !mounted) return;
+
+    String neueId;
+    if (wahl.newName != null) {
+      neueId = const Uuid().v4();
+      await widget.library.db.createPerson(
+        PeopleCompanion.insert(id: neueId, name: wahl.newName!),
+      );
+    } else {
+      neueId = wahl.existingPersonId!;
+    }
+
+    Beziehungsfehler? fehler;
+    for (final ankerId in anker) {
+      // Ein Großelternteil ist Elternteil des Ankers, ein Geschwisterkind
+      // und ein Enkelkind sind dessen Kind.
+      final f = art == _Weitere.grosselternteil
+          ? await widget.library.db
+              .fuegeBeziehungHinzu(ankerId, neueId, Verwandtschaft.elternteil)
+          : await widget.library.db
+              .fuegeBeziehungHinzu(neueId, ankerId, Verwandtschaft.elternteil);
+      // Der erste Fehler zählt: Bei einem Geschwisterkind mit zwei Eltern
+      // sagt „schon vorhanden" beim zweiten nichts Neues.
+      fehler ??= f;
+    }
+    await _laden();
+    if (!mounted) return;
+    if (fehler != null) {
+      _meldeFehler(fehler);
+      return;
+    }
+    // Ein Geschwisterkind entsteht aus zwei (oder mehr) Kanten auf einmal,
+    // und keine davon führt zur Person in der Mitte. Wer das nicht weiß,
+    // sieht nur eine neue Karte auftauchen. Die Rückmeldung nennt, was
+    // tatsächlich eingetragen wurde.
+    if (art == _Weitere.geschwister) {
+      _kurzerHinweis(t.stammbaumGeschwisterHinweis(
+        fokus.name,
+        [for (final id in anker) _nachId[id]?.name ?? '?'].join(', '),
+      ));
+    }
+  }
+
+  /// Fragt, an welcher von mehreren Personen die neue hängen soll. Steht
+  /// nur eine zur Wahl, wird nicht gefragt.
+  Future<String?> _wenVon(List<String> ids, String titel) async {
+    if (ids.length == 1) return ids.first;
+    final personen = [
+      for (final id in ids)
+        if (_nachId[id] case final p?) p,
+    ];
+    if (personen.isEmpty) return null;
+    if (!mounted) return null;
+    return showDialog<String>(
+      context: context,
+      builder: (dialog) => SimpleDialog(
+        title: Text(titel),
+        children: [
+          for (final p in personen)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialog, p.id),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  radius: 18,
+                  backgroundImage: p.coverFaceCropPath != null
+                      ? FileImage(
+                          widget.library.paths.absolute(p.coverFaceCropPath!))
+                      : null,
+                  child: p.coverFaceCropPath == null
+                      ? const Icon(Icons.person_outline, size: 18)
+                      : null,
+                ),
+                title: Text(p.name),
+                subtitle: lebensspanne(p.geburtsdatum, p.sterbedatum) == null
+                    ? null
+                    : Text(lebensspanne(p.geburtsdatum, p.sterbedatum)!),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Ein kurzer Hinweis am unteren Rand – für die Fälle, in denen der
+  /// Wunsch verständlich, aber (noch) nicht ausführbar ist.
+  void _kurzerHinweis(String text) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(text)));
+  }
+
   void _meldeFehler(Beziehungsfehler fehler) {
     final t = AppTexte.of(context);
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -278,6 +468,13 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
         ),
         if (art != null) ...[
           const PopupMenuDivider(),
+          // Nur für Elternverbindungen: Zwischen Partnern gibt es keine
+          // Arten, und zwischen Geschwistern keine eigene Kante.
+          if (istElternArt(art))
+            PopupMenuItem(
+              value: 'art',
+              child: _zeile(Icons.swap_horiz, t.stammbaumVerbindungsart),
+            ),
           PopupMenuItem(
             value: 'loesen',
             child: _zeile(Icons.link_off, t.stammbaumVerbindungEntfernen),
@@ -300,9 +497,80 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
           builder: (_) => PersonDetailScreen(library: widget.library, person: person),
         ));
         await _laden();
+      case 'art':
+        await _verbindungsartAendern(person, art!, umgekehrt);
       case 'loesen':
         await _verbindungLoesen(person, art!, umgekehrt);
     }
+  }
+
+  /// Ändert eine bestehende Elternverbindung zwischen „leiblich",
+  /// „Adoptiv" und „Pflege".
+  ///
+  /// Bisher blieb nur, die Verbindung zu lösen und neu zu legen – und wer
+  /// das tat, verlor dabei nichts, musste aber die Person im Wähler erneut
+  /// suchen. Die Art ist eine Eigenschaft der Verbindung; sie zu ändern
+  /// sollte die Verbindung nicht antasten.
+  Future<void> _verbindungsartAendern(
+      PersonData person, Verwandtschaft art, bool umgekehrt) async {
+    final fokusId = _fokusId;
+    if (fokusId == null) return;
+    // Wer ist hier das Kind? In der Elternreihe die Mitte, in der
+    // Kinderreihe die angeklickte Person.
+    final kindId = umgekehrt ? person.id : fokusId;
+    final elternteilId = umgekehrt ? fokusId : person.id;
+    final t = AppTexte.of(context);
+
+    final neueArt = await showDialog<Verwandtschaft>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.stammbaumVerbindungsartTitel(
+          _nachId[kindId]?.name ?? '',
+          _nachId[elternteilId]?.name ?? '',
+        )),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (kandidat, symbol, text) in [
+              (Verwandtschaft.elternteil, Icons.person_outline, t.stammbaumLeiblich),
+              (Verwandtschaft.adoptivelternteil, Icons.family_restroom, t.stammbaumAdoptiv),
+              (
+                Verwandtschaft.pflegeelternteil,
+                Icons.volunteer_activism_outlined,
+                t.stammbaumPflege
+              ),
+            ])
+              ListTile(
+                leading: Icon(symbol),
+                title: Text(text),
+                selected: kandidat == art,
+                // Ein Haken statt eines Auswahlknopfes: Die Liste hat drei
+                // Einträge, jeder schliesst den Dialog sofort. Ein
+                // Auswahlknopf verspräche ein späteres „Übernehmen", das es
+                // hier nicht gibt.
+                trailing: kandidat == art ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(dialog, kandidat),
+              ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              t.stammbaumVerbindungsartHinweis,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog),
+              child: Text(t.allgAbbrechen)),
+        ],
+      ),
+    );
+    if (neueArt == null || neueArt == art) return;
+    await widget.library.db.aendereElternart(kindId, elternteilId, neueArt);
+    await _laden();
   }
 
   Future<void> _verbindungLoesen(
@@ -326,12 +594,17 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     );
     if (ja != true) return;
     final fokusId = _fokusId!;
-    if (umgekehrt) {
-      await widget.library.db.entferneBeziehung(person.id, fokusId, art);
-    } else {
-      await widget.library.db.entferneBeziehung(fokusId, person.id, art);
-    }
+    final entfernt = umgekehrt
+        ? await widget.library.db.entferneBeziehung(person.id, fokusId, art)
+        : await widget.library.db.entferneBeziehung(fokusId, person.id, art);
     await _laden();
+    // Ein Griff ins Leere soll nicht als Erfolg aussehen. Genau das war
+    // der Fehler bei Adoptiv- und Pflegeeltern: Es passierte nichts, und
+    // nichts sagte es.
+    if (!entfernt && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(t.stammbaumNichtsEntfernt)));
+    }
   }
 
   Future<void> _lebensdatenBearbeiten(PersonData person) async {
@@ -680,11 +953,37 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                 geschlechtAusText(person.geschlecht)),
             style: TextStyle(color: Theme.of(context).colorScheme.primary),
           ),
-          trailing: spanne == null
-              ? null
-              : Text(spanne,
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.outline, fontSize: 12)),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (spanne != null)
+                Text(spanne,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.outline,
+                        fontSize: 12)),
+              Builder(
+                builder: (knopfKontext) => IconButton(
+                  tooltip: t.stammbaumMenue,
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () {
+                    final kasten =
+                        knopfKontext.findRenderObject() as RenderBox;
+                    final bezug = _bezugZurMitte(person.id);
+                    _karteMenue(
+                      kasten.localToGlobal(
+                          kasten.size.bottomLeft(Offset.zero)),
+                      person,
+                      art: _artFuer(person, bezug),
+                      umgekehrt: bezug == _Bezug.kind,
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+          // Kein langes Drücken wie auf einer Karte: Hier steht der Knopf
+          // sichtbar daneben, eine zweite verborgene Geste wäre nur eine
+          // weitere Möglichkeit, dasselbe zu tun.
           onTap: () => _ruecke(person.id),
         );
       },
@@ -811,12 +1110,51 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
             PopupMenuButton<String>(
               tooltip: t.allgMehr,
               onSelected: (w) => switch (w) {
+                'geschwister' => _weitererVerwandter(_Weitere.geschwister),
+                'grosseltern' => _weitererVerwandter(_Weitere.grosselternteil),
+                'enkel' => _weitererVerwandter(_Weitere.enkel),
                 'fotos' => _fotosDerFamilie(),
                 'orte' => _orteDerFamilie(),
                 'tafel' => _tafelDrucken(),
                 _ => _gedcomExport(),
               },
               itemBuilder: (context) => [
+                // Verwandte, die nicht unmittelbar an der Mitte hängen.
+                // Die Knöpfe daneben legen Eltern, Kinder und Partner an –
+                // das sind die Kanten, die es wirklich gibt. Was hier
+                // steht, hängt die neue Person an einer Zwischenperson ein.
+                // Die Überschrift sagt das, ohne dass man es erraten muss.
+                PopupMenuItem(
+                  enabled: false,
+                  height: 32,
+                  child: Text(
+                    t.stammbaumWeitereVerwandte,
+                    style: TextStyle(
+                      fontSize: 11,
+                      letterSpacing: 1.1,
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'geschwister',
+                  enabled: fokus != null,
+                  child: _zeile(Icons.people_outline,
+                      t.stammbaumGeschwisterHinzufuegen),
+                ),
+                PopupMenuItem(
+                  value: 'grosseltern',
+                  enabled: fokus != null,
+                  child: _zeile(Icons.elderly_outlined,
+                      t.stammbaumGrosselternteilHinzufuegen),
+                ),
+                PopupMenuItem(
+                  value: 'enkel',
+                  enabled: fokus != null,
+                  child: _zeile(Icons.child_friendly_outlined,
+                      t.stammbaumEnkelHinzufuegen),
+                ),
+                const PopupMenuDivider(),
                 PopupMenuItem(
                   value: 'fotos',
                   enabled: fokus != null,
@@ -900,7 +1238,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
             children: [
               if (eltern.isNotEmpty) ...[
                 _beschriftung(t.stammbaumEltern),
-                _reihe(eltern, a, art: Verwandtschaft.elternteil),
+                _reihe(eltern, a, bezug: _Bezug.elternteil),
                 _Verbinder(anzahl: eltern.length, vieleOben: true),
               ],
               // Die mittlere Reihe wird auf der schmaleren Seite
@@ -916,7 +1254,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
               ),
               if (kinder.isNotEmpty) ...[
                 _Verbinder(anzahl: kinder.length, vieleOben: false),
-                _reihe(kinder, a, art: Verwandtschaft.elternteil, umgekehrt: true),
+                _reihe(kinder, a, bezug: _Bezug.kind),
                 _beschriftung(t.stammbaumKinder),
               ],
               if (a.istLeer) ...[
@@ -958,15 +1296,14 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   Widget _reihe(
     List<PersonData> personen,
     Stammbaumausschnitt a, {
-    Verwandtschaft? art,
-    bool umgekehrt = false,
+    _Bezug bezug = _Bezug.keiner,
   }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < personen.length; i++) ...[
           if (i > 0) const SizedBox(width: _karteAbstand),
-          _karte(personen[i], a, art: art, umgekehrt: umgekehrt),
+          _karte(personen[i], a, bezug: bezug),
         ],
       ],
     );
@@ -995,7 +1332,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     final block = Stack(
       clipBehavior: Clip.none,
       children: [
-        _reihe(personen, a, art: verbunden ? Verwandtschaft.partner : null),
+        _reihe(personen, a, bezug: verbunden ? _Bezug.partner : _Bezug.keiner),
         Positioned(
           top: -16,
           left: 0,
@@ -1066,9 +1403,9 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     PersonData person,
     Stammbaumausschnitt a, {
     bool istFokus = false,
-    Verwandtschaft? art,
-    bool umgekehrt = false,
+    _Bezug bezug = _Bezug.keiner,
   }) {
+    final art = _artFuer(person, bezug);
     return _Personenkarte(
       person: person,
       paths: widget.library.paths,
@@ -1077,8 +1414,45 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       weitereOben: a.weitereOben[person.id] ?? false,
       weitereUnten: a.weitereUnten[person.id] ?? false,
       onTap: () => _ruecke(person.id),
-      onMenue: (pos) => _karteMenue(pos, person, art: art, umgekehrt: umgekehrt),
+      onMenue: (pos) => _karteMenue(pos, person,
+          art: art, umgekehrt: bezug == _Bezug.kind),
     );
+  }
+
+  /// Wie [person] zur Mitte steht, aus dem Netz hergeleitet.
+  ///
+  /// Für die Sichten ohne feste Reihen – die Verwandtenliste zeigt auch
+  /// eine Großtante, zu der es gar keine eigene Kante gibt. Dann
+  /// [_Bezug.keiner], und das Menü bietet folgerichtig kein Lösen an.
+  _Bezug _bezugZurMitte(String personId) {
+    final fokus = _fokusId;
+    if (fokus == null || personId == fokus) return _Bezug.keiner;
+    if (_netz.eltern(fokus).contains(personId)) return _Bezug.elternteil;
+    if (_netz.kinder(fokus).contains(personId)) return _Bezug.kind;
+    if (_netz.partner(fokus).contains(personId)) return _Bezug.partner;
+    return _Bezug.keiner;
+  }
+
+  /// Die tatsächlich gespeicherte Art der Verbindung zwischen [person] und
+  /// der Person in der Mitte.
+  ///
+  /// Aus dem Netz nachgeschlagen statt aus der Reihe abgeleitet: Eine
+  /// Elternreihe kann einen leiblichen und daneben einen Adoptivvater
+  /// enthalten. Die Reihe weiß nur, dass es Eltern sind – welcher Art,
+  /// weiß nur die Kante.
+  ///
+  /// Genau hier lag der Fehler: Beide Elternreihen übergaben fest
+  /// „leiblich", und das Lösen einer Adoptivverbindung traf deshalb keine
+  /// Zeile.
+  Verwandtschaft? _artFuer(PersonData person, _Bezug bezug) {
+    final fokus = _fokusId;
+    if (fokus == null) return null;
+    return switch (bezug) {
+      _Bezug.elternteil => _netz.elternArt(fokus, person.id),
+      _Bezug.kind => _netz.elternArt(person.id, fokus),
+      _Bezug.partner => Verwandtschaft.partner,
+      _Bezug.keiner => null,
+    };
   }
 }
 
@@ -1117,7 +1491,9 @@ class _Personenkarte extends StatelessWidget {
     return GestureDetector(
       onSecondaryTapDown: (d) => onMenue(d.globalPosition),
       onLongPressStart: (d) => onMenue(d.globalPosition),
-      child: InkWell(
+      child: Stack(
+        children: [
+          InkWell(
         onTap: istFokus ? null : onTap,
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: Container(
@@ -1180,6 +1556,35 @@ class _Personenkarte extends StatelessWidget {
             ],
           ),
         ),
+      ),
+          // Das Menü gab es bisher nur über die rechte Maustaste und langes
+          // Drücken – zwei Gesten, die niemand ausprobiert, wenn nichts
+          // darauf hinweist. Ein sichtbares Zeichen in der Ecke, ruhig
+          // gehalten, damit es die Karte nicht beherrscht; die beiden
+          // Gesten bleiben zusätzlich.
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Builder(
+              builder: (knopfKontext) => IconButton(
+                iconSize: 16,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                constraints: const BoxConstraints(),
+                tooltip: AppTexte.of(context).stammbaumMenue,
+                icon: Icon(Icons.more_vert,
+                    color: Theme.of(context).colorScheme.outline),
+                onPressed: () {
+                  // Das Menü öffnet an der Stelle des Knopfes, nicht am
+                  // Mauszeiger: Bei einem Klick gibt es keinen.
+                  final kasten =
+                      knopfKontext.findRenderObject() as RenderBox;
+                  onMenue(kasten.localToGlobal(kasten.size.bottomLeft(Offset.zero)));
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

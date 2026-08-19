@@ -1686,6 +1686,54 @@
   "orteAngeheiratet": "By marriage",
   "orteNichtsGewaehlt": "No group selected.",
   "stammbaumFamilienorte": "Places of this family",
+  "stammbaumMenue": "More about this person",
+  "stammbaumVerbindungsart": "Kind of connection …",
+  "stammbaumVerbindungsartTitel": "How is {kind} connected to {elternteil}?",
+  "@stammbaumVerbindungsartTitel": {
+    "placeholders": {
+      "kind": {
+        "type": "String"
+      },
+      "elternteil": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumVerbindungsartHinweis": "Adoptive and foster parents count as parents everywhere – only the term and the dashed line tell them apart.",
+  "stammbaumNichtsEntfernt": "That connection was already removed.",
+  "stammbaumWeitereVerwandte": "More relatives",
+  "stammbaumGeschwisterHinzufuegen": "Add a sibling …",
+  "stammbaumGrosselternteilHinzufuegen": "Add a grandparent …",
+  "stammbaumEnkelHinzufuegen": "Add a grandchild …",
+  "stammbaumBrauchtElternteil": "A sibling shares a parent. Add a parent for {name} first.",
+  "@stammbaumBrauchtElternteil": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumBrauchtKind": "A grandchild is the child of a child. Add a child for {name} first.",
+  "@stammbaumBrauchtKind": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stammbaumWelcherElternteil": "Whose parent?",
+  "stammbaumWelchesKind": "Whose child?",
+  "stammbaumGeschwisterHinweis": "The new sibling gets the same parents as {name}: {eltern}.",
+  "@stammbaumGeschwisterHinweis": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "eltern": {
+        "type": "String"
+      }
+    }
+  },
   "stammbaumFamilienorteVon": "Places of {name}’s family",
   "@stammbaumFamilienorteVon": {
     "placeholders": {

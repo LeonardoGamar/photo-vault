@@ -4641,6 +4641,57 @@ class AppTexteEn extends AppTexte {
   String get stammbaumFamilienorte => 'Places of this family';
 
   @override
+  String get stammbaumMenue => 'More about this person';
+
+  @override
+  String get stammbaumVerbindungsart => 'Kind of connection …';
+
+  @override
+  String stammbaumVerbindungsartTitel(String kind, String elternteil) {
+    return 'How is $kind connected to $elternteil?';
+  }
+
+  @override
+  String get stammbaumVerbindungsartHinweis =>
+      'Adoptive and foster parents count as parents everywhere – only the term and the dashed line tell them apart.';
+
+  @override
+  String get stammbaumNichtsEntfernt => 'That connection was already removed.';
+
+  @override
+  String get stammbaumWeitereVerwandte => 'More relatives';
+
+  @override
+  String get stammbaumGeschwisterHinzufuegen => 'Add a sibling …';
+
+  @override
+  String get stammbaumGrosselternteilHinzufuegen => 'Add a grandparent …';
+
+  @override
+  String get stammbaumEnkelHinzufuegen => 'Add a grandchild …';
+
+  @override
+  String stammbaumBrauchtElternteil(String name) {
+    return 'A sibling shares a parent. Add a parent for $name first.';
+  }
+
+  @override
+  String stammbaumBrauchtKind(String name) {
+    return 'A grandchild is the child of a child. Add a child for $name first.';
+  }
+
+  @override
+  String get stammbaumWelcherElternteil => 'Whose parent?';
+
+  @override
+  String get stammbaumWelchesKind => 'Whose child?';
+
+  @override
+  String stammbaumGeschwisterHinweis(String name, String eltern) {
+    return 'The new sibling gets the same parents as $name: $eltern.';
+  }
+
+  @override
   String stammbaumFamilienorteVon(String name) {
     return 'Places of $name’s family';
   }
