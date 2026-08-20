@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../state/hintergrundlauf.dart';
 import '../services/native_image_converter.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -39,11 +40,30 @@ class _ToolsScreenState extends State<ToolsScreen> {
   /// Titel und Leermeldung werden VOR dem Dialog aufgelöst: Der Mapper unten
   /// läuft bei jedem Fortschritts-Ereignis, also lange nach dem Aufbau des
   /// Dialogs, und dürfte den BuildContext bis dahin nicht festhalten.
+  ///
+  /// [schluessel] ist die Kennung derselben Arbeit in den
+  /// Hintergrundaufgaben. Seit die dort wirklich weiterlaufen, während man
+  /// durch die App geht, liesse sich dieselbe Auswertung sonst ein zweites
+  /// Mal anstossen – zwei Läufe über dieselben Fotos, jeder mit einer
+  /// eigenen Modellsitzung im Speicher.
   Future<void> _zeigeFortschritt({
     required String titel,
     required String wennLeer,
+    required String schluessel,
+    bool rechenintensiv = false,
     required Stream<dynamic> lauf,
   }) {
+    final abweisung =
+        widget.library.pruefeStart(schluessel, rechenintensiv: rechenintensiv);
+    if (abweisung != null) {
+      final offen = widget.library.lauf(schluessel);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(abweisung == Startabweisung.laeuftBereits && offen != null
+            ? AppTexte.of(context).werkzLaeuftSchon(offen.titel)
+            : abweisungstext(AppTexte.of(context), abweisung)),
+      ));
+      return Future<void>.value();
+    }
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -115,6 +135,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: onlyNew ? t.werkzScanneNeue : t.werkzScanneAlle,
       wennLeer: t.werkzKeinePassenden,
+      schluessel: 'gesichter',
+      rechenintensiv: true,
       lauf: widget.library.rescanFaces(onlyNewPhotos: onlyNew),
     );
   }
@@ -146,6 +168,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: onlyMissing ? t.werkzErstelleFehlende : t.werkzErstelleAlle,
       wennLeer: t.werkzKeinePassenden,
+      schluessel: 'vorschau',
       lauf: widget.library.regenerateThumbnails(onlyMissing: onlyMissing),
     );
   }
@@ -155,6 +178,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzRendereNeu,
       wennLeer: t.werkzKeineEntwickelten,
+      schluessel: 'rendern',
       lauf: widget.library.redevelopAll(),
     );
   }
@@ -164,6 +188,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzPruefeLivePhotos,
       wennLeer: t.werkzKeineUnverknuepften,
+      schluessel: 'livephotos',
       lauf: widget.library.relinkLivePhotos(),
     );
   }
@@ -201,6 +226,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzBerechneEmbeddings,
       wennLeer: t.werkzAlleHabenEmbedding,
+      schluessel: 'embeddings',
+      rechenintensiv: true,
       lauf: widget.library.backfillClipEmbeddings(alle: alle),
     );
   }
@@ -238,6 +265,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzBerechneKiTags,
       wennLeer: t.werkzKeinePassenden,
+      schluessel: 'kitags',
+      rechenintensiv: true,
       lauf: widget.library.backfillAiTags(onlyUntagged: onlyUntagged),
     );
   }
@@ -247,6 +276,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzLeseOrte,
       wennLeer: t.werkzAlleHabenOrt,
+      schluessel: 'orte',
       lauf: widget.library.backfillLocations(),
     );
   }
@@ -262,6 +292,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzLoeseOrteAuf,
       wennLeer: t.werkzAlleAufgeloest,
+      schluessel: 'ortsnamen',
       lauf: widget.library.backfillLocationNames(),
     );
   }
@@ -271,6 +302,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzLeseKameradaten,
       wennLeer: t.werkzAlleHabenKameradaten,
+      schluessel: 'kameradaten',
       lauf: widget.library.backfillCameraMetadata(),
     );
   }
@@ -280,6 +312,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzSchreibeXmp,
       wennLeer: t.werkzKeineFotosGesperrt,
+      schluessel: 'xmp',
       lauf: widget.library.writeXmpSidecars(),
     );
   }
@@ -289,6 +322,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzErkenneText,
       wennLeer: t.werkzAlleTextDurchsucht,
+      schluessel: 'ocr',
+      rechenintensiv: true,
       lauf: widget.library.backfillOcrText(),
     );
   }
@@ -304,6 +339,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzErzeugeBeschreibungen,
       wennLeer: t.werkzAlleHabenBeschreibung,
+      schluessel: 'beschreibungen',
+      rechenintensiv: true,
       lauf: widget.library.backfillCaptions(),
     );
   }
@@ -313,6 +350,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
     await _zeigeFortschritt(
       titel: t.werkzBerechneUnschaerfe,
       wennLeer: t.werkzAlleHabenUnschaerfe,
+      schluessel: 'unschaerfe',
+      rechenintensiv: true,
       lauf: widget.library.backfillBlurScores(),
     );
   }

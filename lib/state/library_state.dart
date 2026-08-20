@@ -40,6 +40,7 @@ import '../services/segmentation_service.dart';
 import '../services/storage_paths.dart';
 import '../services/vault_crypto.dart';
 import '../services/xmp_writer.dart';
+import 'hintergrundlauf.dart';
 
 /// Die Schritte der Hintergrundanalyse, in der Reihenfolge ihres Ablaufs.
 ///
@@ -525,6 +526,7 @@ class LibraryState extends ChangeNotifier {
   bool get faceRecognitionAvailable => FaceEngineService.isRecognitionAvailable(_modelsDir!);
   bool get segmentationAvailable => segmentationHalter.installiert;
   bool get captioningAvailable => captioningHalter.installiert;
+  bool get uebersetzungEnDeAvailable => uebersetzungEnDeHalter.installiert;
   bool get geoDataAvailable => geocoder != null;
 
   bool isModelInstalled(ModelCatalogEntry entry) =>
@@ -740,6 +742,19 @@ class LibraryState extends ChangeNotifier {
   /// dekodierten Bild ohnehin nichts.
   Future<void> starteHintergrundanalyse() async {
     if (_analyse != null) return; // läuft bereits
+
+    // Nicht neben eine rechenintensive Aufgabe legen: Die Analyse arbeitet
+    // genau deren Stufen ab – zwei Durchgänge gingen dann dieselbe Liste
+    // durch, mit zwei Modellsitzungen im Speicher. Die Anfrage geht nicht
+    // verloren, sie wird nachgeholt, sobald die Aufgabe durch ist. Ohne
+    // dieses Nachholen bliebe ein direkt nach dem Import gestarteter
+    // Durchgang bis zum nächsten Programmstart aus, und frisch importierte
+    // Fotos wären ohne Gesichter und ohne Suche.
+    if (laufendeSchwerarbeit.isNotEmpty) {
+      _analyseZurueckgestellt = true;
+      return;
+    }
+    _analyseZurueckgestellt = false;
     _analyseAbbruch = false;
 
     final stufen = <({Analysestufe name, Stream<ImportProgress> Function() lauf})>[
@@ -785,11 +800,176 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  /// Gesetzt, wenn eine Analyse angefragt wurde, während eine
+  /// rechenintensive Aufgabe lief.
+  bool _analyseZurueckgestellt = false;
+
+  /// Ob ein zurückgestellter Analysedurchgang aussteht – für die Anzeige.
+  bool get analyseZurueckgestellt => _analyseZurueckgestellt;
+
+  /// Holt eine zurückgestellte Analyse nach, sobald die letzte
+  /// rechenintensive Aufgabe durch ist.
+  void _holeZurueckgestellteAnalyseNach() {
+    if (!_analyseZurueckgestellt) return;
+    if (laufendeSchwerarbeit.isNotEmpty) return;
+    _analyseZurueckgestellt = false;
+    unawaited(starteHintergrundanalyse());
+  }
+
   /// Bricht nach der laufenden Datei ab – kein harter Abbruch mitten in
   /// einer Modell-Inferenz.
   void brichHintergrundanalyseAb() {
     if (_analyse == null) return;
     _analyseAbbruch = true;
+  }
+
+  // --- Aufgaben, die wirklich im Hintergrund laufen ----------------------
+
+  /// Die laufenden und die eben beendeten Nachholvorgänge, nach ihrer
+  /// Kennung.
+  ///
+  /// Warum hier und nicht im Bildschirm: Die Aufgabenübersicht öffnete
+  /// bisher je Aufgabe ein Fortschrittsfenster. Das liess sich weder
+  /// verkleinern noch beiseitelegen – wer die Bibliothek während der Arbeit
+  /// ansehen wollte, musste den Vorgang abbrechen. Ein Lauf an dieser
+  /// Stelle überlebt jeden Bildschirmwechsel.
+  final Map<String, Hintergrundlauf> _laeufe = {};
+
+  /// Der Lauf zu einer Kennung, oder `null`, wenn dort gerade nichts steht.
+  Hintergrundlauf? lauf(String schluessel) => _laeufe[schluessel];
+
+  /// Alle Läufe, die gerade tatsächlich arbeiten.
+  Iterable<Hintergrundlauf> get laufendeAufgaben =>
+      _laeufe.values.where((l) => l.laeuft);
+
+  /// Ob überhaupt noch etwas arbeitet – einschliesslich der
+  /// Hintergrundanalyse, die ihren eigenen Zustand führt. Grundlage für die
+  /// Rückfrage beim Beenden (siehe BeendenWaechter).
+  bool get etwasLaeuft => analyseLaeuft || laufendeAufgaben.isNotEmpty;
+
+  /// Die laufenden Aufgaben, die als teure Auswertung gelten – Modell im
+  /// Speicher oder dieselbe Arbeit wie eine Stufe der Hintergrundanalyse.
+  Iterable<Hintergrundlauf> get laufendeSchwerarbeit =>
+      laufendeAufgaben.where((l) => l.rechenintensiv);
+
+  /// Warum eine Aufgabe gerade nicht starten kann – `null` heisst: sie kann.
+  ///
+  /// Der Grund für diese Prüfung ist eine Nebenwirkung davon, dass die
+  /// Aufgaben kein Fenster mehr sperren: Vier Klicks genügten, um
+  /// Gesichter, Bildbeschreibung, Einbettung und Übersetzung gleichzeitig
+  /// zu starten. Deren Modelle liegen dann zusammen im Speicher (allein
+  /// CLIP-Bild 335 MB und die Bildbeschreibung 235 MB, gemessen), und
+  /// dieselben Fotos werden vierfach dekodiert. Läuft zusätzlich die
+  /// Hintergrundanalyse, arbeiten zwei Durchgänge sogar dieselbe Liste ab
+  /// und schreiben einander die Ergebnisse zu.
+  ///
+  /// Aufgaben ohne Modell (Orte einlesen, XMP schreiben, Live-Photo-Paare)
+  /// bleiben davon unberührt – sie kosten nichts, was sich gegenseitig im
+  /// Weg stünde.
+  Startabweisung? pruefeStart(String schluessel, {required bool rechenintensiv}) {
+    if (_laeufe[schluessel]?.laeuft ?? false) return Startabweisung.laeuftBereits;
+    if (!rechenintensiv) return null;
+    if (analyseLaeuft) return Startabweisung.analyseLaeuft;
+    if (laufendeSchwerarbeit.isNotEmpty) return Startabweisung.andereAufgabe;
+    return null;
+  }
+
+  /// Startet [strom] unter der Kennung [schluessel] und verfolgt seinen
+  /// Fortschritt in [lauf].
+  ///
+  /// Gibt den Grund zurück, wenn nicht gestartet wurde (siehe
+  /// [pruefeStart]) – die Oberfläche fragt vorher, prüft hier aber ein
+  /// zweites Mal, weil zwischen Frage und Start ein anderer Lauf begonnen
+  /// haben kann.
+  Future<Startabweisung?> starteAufgabe({
+    required String schluessel,
+    required String titel,
+    required String leermeldung,
+    required Stream<ImportProgress> Function() strom,
+    bool rechenintensiv = false,
+  }) async {
+    final abweisung = pruefeStart(schluessel, rechenintensiv: rechenintensiv);
+    if (abweisung != null) return abweisung;
+
+    final lauf = Hintergrundlauf(
+      schluessel: schluessel,
+      titel: titel,
+      leermeldung: leermeldung,
+      rechenintensiv: rechenintensiv,
+    );
+    _laeufe[schluessel] = lauf;
+    notifyListeners();
+
+    // Auf [Hintergrundlauf.abschluss] warten statt auf ein `await for`:
+    // Der Lauf muss von aussen abbrechbar sein, und ein gekündigtes
+    // Abonnement meldet kein `onDone` mehr – ein `await for` bliebe dann
+    // für immer stehen.
+    // Gedrosselt melden. Ein Lauf über 8000 Fotos meldet 8000 Fortschritte,
+    // und an diesem ChangeNotifier hängt über den Consumer in main.dart der
+    // gesamte Widget-Baum – jede Meldung baut also die ganze App neu auf.
+    // Fünf Aktualisierungen je Sekunde sind für eine Zahl, die ein Mensch
+    // liest, reichlich.
+    var letzteMeldung = DateTime.fromMillisecondsSinceEpoch(0);
+    const drosselMs = 200;
+
+    try {
+      lauf.abo = strom().listen(
+        (p) {
+          lauf.erledigt = p.done;
+          lauf.gesamt = p.total;
+          lauf.datei = p.currentFile;
+          final jetzt = DateTime.now();
+          // Der letzte Schritt kommt immer durch, sonst bliebe die Anzeige
+          // kurz vor der Gesamtzahl stehen.
+          if (p.done >= p.total ||
+              jetzt.difference(letzteMeldung).inMilliseconds >= drosselMs) {
+            letzteMeldung = jetzt;
+            notifyListeners();
+          }
+        },
+        onError: (Object e) {
+          lauf.fehler = e;
+          lauf.schliesseAb();
+        },
+        onDone: lauf.schliesseAb,
+        cancelOnError: true,
+      );
+      await lauf.abschluss;
+    } catch (e) {
+      lauf.fehler = e;
+    } finally {
+      lauf.beendet = true;
+      lauf.abo = null;
+      notifyListeners();
+      // Eine wegen dieser Aufgabe zurückgestellte Analyse jetzt nachholen.
+      _holeZurueckgestellteAnalyseNach();
+    }
+    return null;
+  }
+
+  /// Bricht den Lauf zu [schluessel] ab.
+  ///
+  /// Das Kündigen des Abonnements hält den Generator bei seinem nächsten
+  /// `yield` an – also nach der gerade bearbeiteten Datei, nicht mitten in
+  /// einer Modell-Inferenz. Die `finally`-Blöcke der Nachholvorgänge laufen
+  /// dabei durch und geben ihre geliehenen Modelle zurück.
+  void brichAufgabeAb(String schluessel) {
+    final lauf = _laeufe[schluessel];
+    if (lauf == null || lauf.beendet) return;
+    lauf.abgebrochen = true;
+    final abo = lauf.abo;
+    lauf.abo = null;
+    unawaited(abo?.cancel());
+    lauf.schliesseAb();
+    lauf.beendet = true;
+    notifyListeners();
+  }
+
+  /// Räumt einen beendeten Lauf weg, damit die Karte wieder ihre Zahlen
+  /// zeigt. Ein noch laufender bleibt stehen.
+  void verwerfeLauf(String schluessel) {
+    if (_laeufe[schluessel]?.laeuft ?? false) return;
+    if (_laeufe.remove(schluessel) != null) notifyListeners();
   }
 
   /// Nachbereitung direkt beim Import – bewusst NUR ressourcenschonende
@@ -1467,6 +1647,54 @@ class LibraryState extends ChangeNotifier {
     } finally {
       if (uebersetzer != null) uebersetzungEnDeHalter.zurueckgeben();
       captioningHalter.zurueckgeben();
+    }
+  }
+
+  /// Übersetzt vorhandene englische Bildunterschriften ins Deutsche, ohne
+  /// das Beschreibungsmodell zu bemühen.
+  ///
+  /// Das ist der Weg für alle, die die Übersetzung erst später einschalten:
+  /// Die englischen Sätze stehen längst in der Datenbank, es fehlt nur ihre
+  /// Übertragung. Der Umweg über [backfillCaptions] mit `alle: true` würde
+  /// dafür das 275-MB-Modell über die gesamte Bibliothek laufen lassen und
+  /// dabei ausgerechnet die vorhandenen Sätze wegwerfen.
+  ///
+  /// [alle] übersetzt auch das, was schon eine deutsche Fassung hat – nach
+  /// einem Modellwechsel der sinnvolle Weg.
+  Stream<ImportProgress> uebersetzeBildbeschreibungen({bool alle = false}) async* {
+    // Erst die Arbeit ermitteln, dann das Modell holen – siehe
+    // [_bildinhaltsAnalyse].
+    final assets = await db.assetsForCaptionTranslation(alle: alle);
+    if (assets.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
+    final uebersetzer = await uebersetzungEnDeHalter.leihen();
+    if (uebersetzer == null) {
+      yield ImportProgress(0, 0);
+      return;
+    }
+
+    try {
+      var done = 0;
+      yield ImportProgress(0, assets.length);
+      for (final asset in assets) {
+        final englisch = asset.aiCaption?.trim() ?? '';
+        if (englisch.isNotEmpty) {
+          try {
+            final deutsch = await uebersetzer.translate(englisch);
+            if (deutsch.trim().isNotEmpty) await db.setAiCaptionDe(asset.id, deutsch.trim());
+          } catch (e) {
+            // Ein Satz, an dem sich das Modell verschluckt, darf den Lauf
+            // über die ganze Bibliothek nicht beenden.
+            debugPrint('Übersetzung fehlgeschlagen für ${asset.originalFileName}: $e');
+          }
+        }
+        done++;
+        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+      }
+    } finally {
+      uebersetzungEnDeHalter.zurueckgeben();
     }
   }
 

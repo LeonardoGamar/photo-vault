@@ -13,6 +13,14 @@ class CameraInfo {
   final int? iso;
   final double? exposureTimeSeconds;
 
+  /// Belichtungskorrektur in Blendenstufen – 0 heisst „ohne Korrektur
+  /// aufgenommen", `null` heisst „nicht überliefert".
+  final double? exposureBiasEv;
+
+  /// Kleinbild-äquivalente Brennweite. Bei Telefonkameras die einzige Zahl,
+  /// die dem Nutzer etwas sagt (26 mm statt der echten 5,7 mm).
+  final double? focalLength35mm;
+
   const CameraInfo({
     this.make,
     this.model,
@@ -21,6 +29,8 @@ class CameraInfo {
     this.fNumber,
     this.iso,
     this.exposureTimeSeconds,
+    this.exposureBiasEv,
+    this.focalLength35mm,
   });
 
   bool get isEmpty =>
@@ -30,7 +40,9 @@ class CameraInfo {
       focalLengthMm == null &&
       fNumber == null &&
       iso == null &&
-      exposureTimeSeconds == null;
+      exposureTimeSeconds == null &&
+      exposureBiasEv == null &&
+      focalLength35mm == null;
 }
 
 /// Liest Kamera-/Objektiv-/Aufnahme-Angaben aus bereits geparsten EXIF-Tags
@@ -71,5 +83,11 @@ CameraInfo parseExifCameraInfo(Map<String, IfdTag> tags) {
     fNumber: readRatio('EXIF FNumber'),
     iso: readInt('EXIF ISOSpeedRatings') ?? readInt('EXIF ISOSpeed'),
     exposureTimeSeconds: readRatio('EXIF ExposureTime'),
+    // Als Bruch geschrieben (z.B. "-1/3"), deshalb readRatio und nicht
+    // readInt: Eine Drittel-Blendenstufe ist der Normalfall am Rad.
+    exposureBiasEv: readRatio('EXIF ExposureBiasValue'),
+    // Steht in aller Regel als ganze Zahl da, gelegentlich als Bruch –
+    // readInt deckt beides ab und liefert Millimeter.
+    focalLength35mm: readInt('EXIF FocalLengthIn35mmFilm')?.toDouble(),
   );
 }

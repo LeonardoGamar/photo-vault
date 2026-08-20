@@ -237,6 +237,18 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
   late final GeneratedColumn<double> exposureTimeSeconds =
       GeneratedColumn<double>('exposure_time_seconds', aliasedName, true,
           type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _exposureBiasEvMeta =
+      const VerificationMeta('exposureBiasEv');
+  @override
+  late final GeneratedColumn<double> exposureBiasEv = GeneratedColumn<double>(
+      'exposure_bias_ev', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _focalLength35mmMeta =
+      const VerificationMeta('focalLength35mm');
+  @override
+  late final GeneratedColumn<double> focalLength35mm = GeneratedColumn<double>(
+      'focal_length35mm', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _locationCountryMeta =
       const VerificationMeta('locationCountry');
   @override
@@ -380,6 +392,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         fNumber,
         iso,
         exposureTimeSeconds,
+        exposureBiasEv,
+        focalLength35mm,
         locationCountry,
         locationState,
         locationCity,
@@ -595,6 +609,18 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           exposureTimeSeconds.isAcceptableOrUnknown(
               data['exposure_time_seconds']!, _exposureTimeSecondsMeta));
     }
+    if (data.containsKey('exposure_bias_ev')) {
+      context.handle(
+          _exposureBiasEvMeta,
+          exposureBiasEv.isAcceptableOrUnknown(
+              data['exposure_bias_ev']!, _exposureBiasEvMeta));
+    }
+    if (data.containsKey('focal_length35mm')) {
+      context.handle(
+          _focalLength35mmMeta,
+          focalLength35mm.isAcceptableOrUnknown(
+              data['focal_length35mm']!, _focalLength35mmMeta));
+    }
     if (data.containsKey('location_country')) {
       context.handle(
           _locationCountryMeta,
@@ -755,6 +781,10 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.int, data['${effectivePrefix}iso']),
       exposureTimeSeconds: attachedDatabase.typeMapping.read(
           DriftSqlType.double, data['${effectivePrefix}exposure_time_seconds']),
+      exposureBiasEv: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}exposure_bias_ev']),
+      focalLength35mm: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}focal_length35mm']),
       locationCountry: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}location_country']),
       locationState: attachedDatabase.typeMapping
@@ -867,6 +897,23 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   final int? iso;
   final double? exposureTimeSeconds;
 
+  /// Belichtungskorrektur in Blendenstufen (EXIF `ExposureBiasValue`) – der
+  /// „0 ev"-Wert, den auch die macOS-Fotos-Informationen zeigen.
+  ///
+  /// Eigene Spalte statt „0 annehmen, wenn nichts dasteht": Ein Foto ohne
+  /// diese Angabe (Screenshot, Scan) hat keine Belichtungskorrektur von
+  /// null, es hat gar keine. Der Unterschied ist derselbe wie zwischen
+  /// „ISO 0" und „ISO unbekannt".
+  final double? exposureBiasEv;
+
+  /// Kleinbild-äquivalente Brennweite (EXIF `FocalLengthIn35mmFilm`).
+  ///
+  /// Bei Telefonen ist das der Wert, den alle nennen: Die iPhone-Hauptkamera
+  /// schreibt 5,7 mm echte Brennweite, gemeint und überall angezeigt sind
+  /// 26 mm. Ohne diese Spalte stünde in der Info-Ansicht eine Zahl, die zu
+  /// nichts passt, was der Nutzer über sein Gerät weiss.
+  final double? focalLength35mm;
+
   /// Aus [latitude]/[longitude] abgeleitet über die lokale/offline
   /// Umkehr-Geokodierung (siehe ReverseGeocoder – nächstgelegene bekannte
   /// Stadt, keine Anfrage an einen Online-Dienst). Bleibt `null`, solange
@@ -893,7 +940,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   final bool ocrScanned;
 
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
-  /// CaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
+  /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
   final String? aiCaption;
 
@@ -971,6 +1018,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       this.fNumber,
       this.iso,
       this.exposureTimeSeconds,
+      this.exposureBiasEv,
+      this.focalLength35mm,
       this.locationCountry,
       this.locationState,
       this.locationCity,
@@ -1062,6 +1111,12 @@ class AssetData extends DataClass implements Insertable<AssetData> {
     }
     if (!nullToAbsent || exposureTimeSeconds != null) {
       map['exposure_time_seconds'] = Variable<double>(exposureTimeSeconds);
+    }
+    if (!nullToAbsent || exposureBiasEv != null) {
+      map['exposure_bias_ev'] = Variable<double>(exposureBiasEv);
+    }
+    if (!nullToAbsent || focalLength35mm != null) {
+      map['focal_length35mm'] = Variable<double>(focalLength35mm);
     }
     if (!nullToAbsent || locationCountry != null) {
       map['location_country'] = Variable<String>(locationCountry);
@@ -1175,6 +1230,12 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       exposureTimeSeconds: exposureTimeSeconds == null && nullToAbsent
           ? const Value.absent()
           : Value(exposureTimeSeconds),
+      exposureBiasEv: exposureBiasEv == null && nullToAbsent
+          ? const Value.absent()
+          : Value(exposureBiasEv),
+      focalLength35mm: focalLength35mm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(focalLength35mm),
       locationCountry: locationCountry == null && nullToAbsent
           ? const Value.absent()
           : Value(locationCountry),
@@ -1257,6 +1318,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       iso: serializer.fromJson<int?>(json['iso']),
       exposureTimeSeconds:
           serializer.fromJson<double?>(json['exposureTimeSeconds']),
+      exposureBiasEv: serializer.fromJson<double?>(json['exposureBiasEv']),
+      focalLength35mm: serializer.fromJson<double?>(json['focalLength35mm']),
       locationCountry: serializer.fromJson<String?>(json['locationCountry']),
       locationState: serializer.fromJson<String?>(json['locationState']),
       locationCity: serializer.fromJson<String?>(json['locationCity']),
@@ -1314,6 +1377,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'fNumber': serializer.toJson<double?>(fNumber),
       'iso': serializer.toJson<int?>(iso),
       'exposureTimeSeconds': serializer.toJson<double?>(exposureTimeSeconds),
+      'exposureBiasEv': serializer.toJson<double?>(exposureBiasEv),
+      'focalLength35mm': serializer.toJson<double?>(focalLength35mm),
       'locationCountry': serializer.toJson<String?>(locationCountry),
       'locationState': serializer.toJson<String?>(locationState),
       'locationCity': serializer.toJson<String?>(locationCity),
@@ -1367,6 +1432,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           Value<double?> fNumber = const Value.absent(),
           Value<int?> iso = const Value.absent(),
           Value<double?> exposureTimeSeconds = const Value.absent(),
+          Value<double?> exposureBiasEv = const Value.absent(),
+          Value<double?> focalLength35mm = const Value.absent(),
           Value<String?> locationCountry = const Value.absent(),
           Value<String?> locationState = const Value.absent(),
           Value<String?> locationCity = const Value.absent(),
@@ -1433,6 +1500,11 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         exposureTimeSeconds: exposureTimeSeconds.present
             ? exposureTimeSeconds.value
             : this.exposureTimeSeconds,
+        exposureBiasEv:
+            exposureBiasEv.present ? exposureBiasEv.value : this.exposureBiasEv,
+        focalLength35mm: focalLength35mm.present
+            ? focalLength35mm.value
+            : this.focalLength35mm,
         locationCountry: locationCountry.present
             ? locationCountry.value
             : this.locationCountry,
@@ -1525,6 +1597,12 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       exposureTimeSeconds: data.exposureTimeSeconds.present
           ? data.exposureTimeSeconds.value
           : this.exposureTimeSeconds,
+      exposureBiasEv: data.exposureBiasEv.present
+          ? data.exposureBiasEv.value
+          : this.exposureBiasEv,
+      focalLength35mm: data.focalLength35mm.present
+          ? data.focalLength35mm.value
+          : this.focalLength35mm,
       locationCountry: data.locationCountry.present
           ? data.locationCountry.value
           : this.locationCountry,
@@ -1597,6 +1675,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('fNumber: $fNumber, ')
           ..write('iso: $iso, ')
           ..write('exposureTimeSeconds: $exposureTimeSeconds, ')
+          ..write('exposureBiasEv: $exposureBiasEv, ')
+          ..write('focalLength35mm: $focalLength35mm, ')
           ..write('locationCountry: $locationCountry, ')
           ..write('locationState: $locationState, ')
           ..write('locationCity: $locationCity, ')
@@ -1652,6 +1732,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         fNumber,
         iso,
         exposureTimeSeconds,
+        exposureBiasEv,
+        focalLength35mm,
         locationCountry,
         locationState,
         locationCity,
@@ -1706,6 +1788,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.fNumber == this.fNumber &&
           other.iso == this.iso &&
           other.exposureTimeSeconds == this.exposureTimeSeconds &&
+          other.exposureBiasEv == this.exposureBiasEv &&
+          other.focalLength35mm == this.focalLength35mm &&
           other.locationCountry == this.locationCountry &&
           other.locationState == this.locationState &&
           other.locationCity == this.locationCity &&
@@ -1758,6 +1842,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<double?> fNumber;
   final Value<int?> iso;
   final Value<double?> exposureTimeSeconds;
+  final Value<double?> exposureBiasEv;
+  final Value<double?> focalLength35mm;
   final Value<String?> locationCountry;
   final Value<String?> locationState;
   final Value<String?> locationCity;
@@ -1809,6 +1895,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.fNumber = const Value.absent(),
     this.iso = const Value.absent(),
     this.exposureTimeSeconds = const Value.absent(),
+    this.exposureBiasEv = const Value.absent(),
+    this.focalLength35mm = const Value.absent(),
     this.locationCountry = const Value.absent(),
     this.locationState = const Value.absent(),
     this.locationCity = const Value.absent(),
@@ -1861,6 +1949,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.fNumber = const Value.absent(),
     this.iso = const Value.absent(),
     this.exposureTimeSeconds = const Value.absent(),
+    this.exposureBiasEv = const Value.absent(),
+    this.focalLength35mm = const Value.absent(),
     this.locationCountry = const Value.absent(),
     this.locationState = const Value.absent(),
     this.locationCity = const Value.absent(),
@@ -1919,6 +2009,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<double>? fNumber,
     Expression<int>? iso,
     Expression<double>? exposureTimeSeconds,
+    Expression<double>? exposureBiasEv,
+    Expression<double>? focalLength35mm,
     Expression<String>? locationCountry,
     Expression<String>? locationState,
     Expression<String>? locationCity,
@@ -1977,6 +2069,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       if (iso != null) 'iso': iso,
       if (exposureTimeSeconds != null)
         'exposure_time_seconds': exposureTimeSeconds,
+      if (exposureBiasEv != null) 'exposure_bias_ev': exposureBiasEv,
+      if (focalLength35mm != null) 'focal_length35mm': focalLength35mm,
       if (locationCountry != null) 'location_country': locationCountry,
       if (locationState != null) 'location_state': locationState,
       if (locationCity != null) 'location_city': locationCity,
@@ -2031,6 +2125,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<double?>? fNumber,
       Value<int?>? iso,
       Value<double?>? exposureTimeSeconds,
+      Value<double?>? exposureBiasEv,
+      Value<double?>? focalLength35mm,
       Value<String?>? locationCountry,
       Value<String?>? locationState,
       Value<String?>? locationCity,
@@ -2084,6 +2180,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       fNumber: fNumber ?? this.fNumber,
       iso: iso ?? this.iso,
       exposureTimeSeconds: exposureTimeSeconds ?? this.exposureTimeSeconds,
+      exposureBiasEv: exposureBiasEv ?? this.exposureBiasEv,
+      focalLength35mm: focalLength35mm ?? this.focalLength35mm,
       locationCountry: locationCountry ?? this.locationCountry,
       locationState: locationState ?? this.locationState,
       locationCity: locationCity ?? this.locationCity,
@@ -2214,6 +2312,12 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       map['exposure_time_seconds'] =
           Variable<double>(exposureTimeSeconds.value);
     }
+    if (exposureBiasEv.present) {
+      map['exposure_bias_ev'] = Variable<double>(exposureBiasEv.value);
+    }
+    if (focalLength35mm.present) {
+      map['focal_length35mm'] = Variable<double>(focalLength35mm.value);
+    }
     if (locationCountry.present) {
       map['location_country'] = Variable<String>(locationCountry.value);
     }
@@ -2302,6 +2406,8 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('fNumber: $fNumber, ')
           ..write('iso: $iso, ')
           ..write('exposureTimeSeconds: $exposureTimeSeconds, ')
+          ..write('exposureBiasEv: $exposureBiasEv, ')
+          ..write('focalLength35mm: $focalLength35mm, ')
           ..write('locationCountry: $locationCountry, ')
           ..write('locationState: $locationState, ')
           ..write('locationCity: $locationCity, ')
@@ -12710,6 +12816,8 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<double?> fNumber,
   Value<int?> iso,
   Value<double?> exposureTimeSeconds,
+  Value<double?> exposureBiasEv,
+  Value<double?> focalLength35mm,
   Value<String?> locationCountry,
   Value<String?> locationState,
   Value<String?> locationCity,
@@ -12762,6 +12870,8 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<double?> fNumber,
   Value<int?> iso,
   Value<double?> exposureTimeSeconds,
+  Value<double?> exposureBiasEv,
+  Value<double?> focalLength35mm,
   Value<String?> locationCountry,
   Value<String?> locationState,
   Value<String?> locationCity,
@@ -12897,6 +13007,14 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<double> get exposureTimeSeconds => $composableBuilder(
       column: $table.exposureTimeSeconds,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get exposureBiasEv => $composableBuilder(
+      column: $table.exposureBiasEv,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get focalLength35mm => $composableBuilder(
+      column: $table.focalLength35mm,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get locationCountry => $composableBuilder(
@@ -13074,6 +13192,14 @@ class $$AssetsTableOrderingComposer
       column: $table.exposureTimeSeconds,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get exposureBiasEv => $composableBuilder(
+      column: $table.exposureBiasEv,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get focalLength35mm => $composableBuilder(
+      column: $table.focalLength35mm,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get locationCountry => $composableBuilder(
       column: $table.locationCountry,
       builder: (column) => ColumnOrderings(column));
@@ -13238,6 +13364,12 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<double> get exposureTimeSeconds => $composableBuilder(
       column: $table.exposureTimeSeconds, builder: (column) => column);
 
+  GeneratedColumn<double> get exposureBiasEv => $composableBuilder(
+      column: $table.exposureBiasEv, builder: (column) => column);
+
+  GeneratedColumn<double> get focalLength35mm => $composableBuilder(
+      column: $table.focalLength35mm, builder: (column) => column);
+
   GeneratedColumn<String> get locationCountry => $composableBuilder(
       column: $table.locationCountry, builder: (column) => column);
 
@@ -13341,6 +13473,8 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<double?> fNumber = const Value.absent(),
             Value<int?> iso = const Value.absent(),
             Value<double?> exposureTimeSeconds = const Value.absent(),
+            Value<double?> exposureBiasEv = const Value.absent(),
+            Value<double?> focalLength35mm = const Value.absent(),
             Value<String?> locationCountry = const Value.absent(),
             Value<String?> locationState = const Value.absent(),
             Value<String?> locationCity = const Value.absent(),
@@ -13393,6 +13527,8 @@ class $$AssetsTableTableManager extends RootTableManager<
             fNumber: fNumber,
             iso: iso,
             exposureTimeSeconds: exposureTimeSeconds,
+            exposureBiasEv: exposureBiasEv,
+            focalLength35mm: focalLength35mm,
             locationCountry: locationCountry,
             locationState: locationState,
             locationCity: locationCity,
@@ -13445,6 +13581,8 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<double?> fNumber = const Value.absent(),
             Value<int?> iso = const Value.absent(),
             Value<double?> exposureTimeSeconds = const Value.absent(),
+            Value<double?> exposureBiasEv = const Value.absent(),
+            Value<double?> focalLength35mm = const Value.absent(),
             Value<String?> locationCountry = const Value.absent(),
             Value<String?> locationState = const Value.absent(),
             Value<String?> locationCity = const Value.absent(),
@@ -13497,6 +13635,8 @@ class $$AssetsTableTableManager extends RootTableManager<
             fNumber: fNumber,
             iso: iso,
             exposureTimeSeconds: exposureTimeSeconds,
+            exposureBiasEv: exposureBiasEv,
+            focalLength35mm: focalLength35mm,
             locationCountry: locationCountry,
             locationState: locationState,
             locationCity: locationCity,

@@ -107,6 +107,44 @@ String formatExposureTime(double seconds) {
   return '1/${(1 / seconds).round()} s';
 }
 
+/// Belichtungskorrektur, so geschrieben wie in den Informationen von
+/// macOS Fotos: „0 ev", „+0.7 ev", „-1 ev".
+///
+/// Das Vorzeichen steht auch bei null nicht da – „+0 ev" gäbe es an keiner
+/// Kamera. Die Zahl bleibt beim Punkt als Trennzeichen, wie [formatFNumber]
+/// und [formatFocalLength] auch: In einer Zeile stünde sonst „f/1.6" neben
+/// „0,7 ev".
+String formatExposureBias(double ev) {
+  final gerundet = (ev * 10).roundToDouble() / 10;
+  if (gerundet == 0) return '0 ev';
+  final betrag = gerundet.abs();
+  final istGanz = (betrag - betrag.roundToDouble()).abs() < 0.05;
+  final zahl = istGanz ? betrag.toStringAsFixed(0) : betrag.toStringAsFixed(1);
+  return '${gerundet < 0 ? '-' : '+'}$zahl ev';
+}
+
+/// Die Aufnahmewerte eines Fotos in der Reihenfolge, in der sie auch macOS
+/// Fotos zeigt: ISO, Brennweite, Belichtungskorrektur, Blende, Zeit.
+///
+/// Als eigene Funktion, nicht in der Ansicht: Welche Angaben eine Kamera
+/// überhaupt schreibt, ist von Gerät zu Gerät verschieden – die Reihenfolge
+/// und das Auslassen des Fehlenden gehören damit zu den Dingen, die ein Test
+/// festhalten sollte.
+///
+/// Für die Brennweite hat die Kleinbild-äquivalente Angabe Vorrang: Bei
+/// Telefonen ist die echte Brennweite (5,7 mm) eine Zahl, mit der niemand
+/// etwas anfangen kann.
+List<String> aufnahmewerte(AssetData asset) => [
+      if (asset.iso != null) 'ISO ${asset.iso}',
+      if (asset.focalLength35mm != null)
+        formatFocalLength(asset.focalLength35mm!)
+      else if (asset.focalLengthMm != null)
+        formatFocalLength(asset.focalLengthMm!),
+      if (asset.exposureBiasEv != null) formatExposureBias(asset.exposureBiasEv!),
+      if (asset.fNumber != null) formatFNumber(asset.fNumber!),
+      if (asset.exposureTimeSeconds != null) formatExposureTime(asset.exposureTimeSeconds!),
+    ];
+
 /// Kehrt [formatExposureTime] um – akzeptiert sowohl Brüche ("1/125") als
 /// auch Dezimalwerte ("0.5" oder "0,5"), für das Belichtungszeit-Feld im
 /// Metadaten-Editor. Gibt `null` zurück, wenn der Text leer oder nicht

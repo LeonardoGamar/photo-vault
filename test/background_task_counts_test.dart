@@ -49,6 +49,8 @@ void main() {
     expect(await db.countCameraMetadataBackfill(), (await db.assetsForCameraMetadataBackfill()).length);
     expect(await db.countOcrBackfill(), (await db.assetsForOcrBackfill()).length);
     expect(await db.countCaptionBackfill(), (await db.assetsForCaptionBackfill()).length);
+    expect(await db.countCaptionTranslation(),
+        (await db.assetsForCaptionTranslation()).length);
     expect(await db.countBlurBackfill(), (await db.assetsForBlurBackfill()).length);
     expect(await db.countXmpExport(), (await db.assetsForXmpExport()).length);
     expect(await db.countLocationNameBackfill(), (await db.assetsForLocationNameBackfill()).length);

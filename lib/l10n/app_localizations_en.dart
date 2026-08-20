@@ -3109,7 +3109,7 @@ class AppTexteEn extends AppTexte {
   String get infoBeschreibungHinzufuegen => 'Add a description';
 
   @override
-  String get infoKiBeschreibung => 'AI caption · English';
+  String get infoKiBeschreibung => 'AI caption';
 
   @override
   String get infoBewertung => 'Rating';
@@ -4798,4 +4798,66 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get stammbaumTafelFertig => 'The chart has been written.';
+
+  @override
+  String get aufgWirdErmittelt => 'Working out what is left …';
+
+  @override
+  String aufgAbgebrochenBei(int erledigt, int gesamt) {
+    return 'Cancelled at $erledigt of $gesamt';
+  }
+
+  @override
+  String aufgFertigMit(int gesamt) {
+    return 'Done – $gesamt processed';
+  }
+
+  @override
+  String get beendenTitel => 'Still analysing';
+
+  @override
+  String get beendenText =>
+      'Quitting loses the file currently being worked on; everything already analysed stays. Still running:';
+
+  @override
+  String get beendenTrotzdem => 'Quit anyway';
+
+  @override
+  String get beendenWeiterlaufen => 'Keep running';
+
+  @override
+  String get aufgUebersetzenTitel => 'Translate captions';
+
+  @override
+  String get aufgUebersetzenText =>
+      'Turns the existing English AI captions into German – without running the captioning model again.';
+
+  @override
+  String get aufgUebersetzungsmodell =>
+      'the English → German translation model';
+
+  @override
+  String get werkzUebersetzeBeschreibungen => 'Translating captions …';
+
+  @override
+  String get werkzAlleUebersetzt => 'Every caption has been translated.';
+
+  @override
+  String get infoKiBeschreibungEnglisch => 'AI caption · English';
+
+  @override
+  String werkzLaeuftSchon(String titel) {
+    return 'Already running as a background task: $titel';
+  }
+
+  @override
+  String get aufgLaeuftSchon => 'This analysis is already running.';
+
+  @override
+  String get aufgAndereLaeuft =>
+      'Another analysis is already running. Expensive ones run one after another so that several AI models are never in memory at once.';
+
+  @override
+  String get aufgAnalyseLaeuft =>
+      'The background analysis is working through the same steps right now. You can stop it in the “Catch up on everything” card above.';
 }

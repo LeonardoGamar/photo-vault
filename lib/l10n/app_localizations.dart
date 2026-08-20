@@ -5396,7 +5396,7 @@ abstract class AppTexte {
   /// No description provided for @infoKiBeschreibung.
   ///
   /// In de, this message translates to:
-  /// **'KI-Beschreibung · Englisch'**
+  /// **'KI-Beschreibung'**
   String get infoKiBeschreibung;
 
   /// No description provided for @infoBewertung.
@@ -7697,6 +7697,108 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Die Tafel wurde geschrieben.'**
   String get stammbaumTafelFertig;
+
+  /// No description provided for @aufgWirdErmittelt.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird ermittelt …'**
+  String get aufgWirdErmittelt;
+
+  /// No description provided for @aufgAbgebrochenBei.
+  ///
+  /// In de, this message translates to:
+  /// **'Abgebrochen bei {erledigt} von {gesamt}'**
+  String aufgAbgebrochenBei(int erledigt, int gesamt);
+
+  /// No description provided for @aufgFertigMit.
+  ///
+  /// In de, this message translates to:
+  /// **'Fertig – {gesamt} bearbeitet'**
+  String aufgFertigMit(int gesamt);
+
+  /// No description provided for @beendenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Es wird noch ausgewertet'**
+  String get beendenTitel;
+
+  /// No description provided for @beendenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Beim Beenden geht die gerade bearbeitete Datei verloren; alles bereits Ausgewertete bleibt erhalten. Noch am Laufen:'**
+  String get beendenText;
+
+  /// No description provided for @beendenTrotzdem.
+  ///
+  /// In de, this message translates to:
+  /// **'Trotzdem beenden'**
+  String get beendenTrotzdem;
+
+  /// No description provided for @beendenWeiterlaufen.
+  ///
+  /// In de, this message translates to:
+  /// **'Weiterlaufen lassen'**
+  String get beendenWeiterlaufen;
+
+  /// No description provided for @aufgUebersetzenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Beschreibungen übersetzen'**
+  String get aufgUebersetzenTitel;
+
+  /// No description provided for @aufgUebersetzenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Überträgt die vorhandenen englischen KI-Bildunterschriften ins Deutsche – ohne das Beschreibungsmodell erneut laufen zu lassen.'**
+  String get aufgUebersetzenText;
+
+  /// No description provided for @aufgUebersetzungsmodell.
+  ///
+  /// In de, this message translates to:
+  /// **'das Übersetzungsmodell Englisch → Deutsch'**
+  String get aufgUebersetzungsmodell;
+
+  /// No description provided for @werkzUebersetzeBeschreibungen.
+  ///
+  /// In de, this message translates to:
+  /// **'Übersetze Bildbeschreibungen …'**
+  String get werkzUebersetzeBeschreibungen;
+
+  /// No description provided for @werkzAlleUebersetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Beschreibungen sind übersetzt.'**
+  String get werkzAlleUebersetzt;
+
+  /// No description provided for @infoKiBeschreibungEnglisch.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-Beschreibung · Englisch'**
+  String get infoKiBeschreibungEnglisch;
+
+  /// No description provided for @werkzLaeuftSchon.
+  ///
+  /// In de, this message translates to:
+  /// **'Läuft bereits als Hintergrundaufgabe: {titel}'**
+  String werkzLaeuftSchon(String titel);
+
+  /// No description provided for @aufgLaeuftSchon.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Auswertung läuft bereits.'**
+  String get aufgLaeuftSchon;
+
+  /// No description provided for @aufgAndereLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Es läuft bereits eine andere Auswertung. Teure Auswertungen laufen nacheinander, damit nicht mehrere KI-Modelle gleichzeitig im Speicher liegen.'**
+  String get aufgAndereLaeuft;
+
+  /// No description provided for @aufgAnalyseLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.'**
+  String get aufgAnalyseLaeuft;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

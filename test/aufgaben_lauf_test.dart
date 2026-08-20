@@ -1,0 +1,254 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:drift/native.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
+import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/l10n/app_localizations.dart';
+import 'package:photo_vault/screens/background_tasks_screen.dart';
+import 'package:photo_vault/screens/tools_screen.dart';
+import 'package:photo_vault/services/backup_service.dart';
+import 'package:photo_vault/services/clip_service.dart';
+import 'package:photo_vault/services/eye_state_service.dart';
+import 'package:photo_vault/services/face_engine_service.dart';
+import 'package:photo_vault/services/florence_captioning_service.dart';
+import 'package:photo_vault/services/modell_halter.dart';
+import 'package:photo_vault/services/storage_paths.dart';
+import 'package:photo_vault/services/translation_service.dart';
+import 'package:photo_vault/state/library_state.dart';
+import 'package:photo_vault/theme/app_theme.dart';
+
+/// Die Aufgabenübersicht zeigt den Fortschritt jetzt in der Karte statt in
+/// einem Fenster, das den Bildschirm sperrt.
+///
+/// Der Punkt dieser Tests ist nicht die Optik, sondern die Zusicherung
+/// dahinter: Es darf kein Dialog mehr aufgehen. Genau daran hing, dass eine
+/// „Hintergrundaufgabe" keine war – man konnte während der Arbeit nichts
+/// anderes tun und den Vorgang auch nicht beiseitelegen.
+void main() {
+  late Directory tempRoot;
+  late AppDatabase db;
+  late LibraryState library;
+
+  ModellHalter<T> halter<T>(String name, {required bool installiert}) => ModellHalter<T>(
+        name: name,
+        installiert: installiert,
+        laden: () async => throw StateError('im Test wird nichts geladen'),
+        entsorgen: (_) async {},
+      );
+
+  setUp(() async {
+    tempRoot = Directory.systemTemp.createTempSync('pv_aufgaben_lauf_');
+    db = AppDatabase(NativeDatabase.memory());
+    final paths = await StoragePaths.forTesting(Directory(p.join(tempRoot.path, 'lib')));
+    library = LibraryState()
+      ..db = db
+      ..paths = paths
+      ..backupService = BackupService(db, paths)
+      ..faceEngineHalter = halter<FaceEngineService>('Gesichter', installiert: true)
+      ..eyeStateHalter = halter<EyeStateService>('Augen', installiert: false)
+      ..clipBildHalter = halter<ClipService>('CLIP-Bild', installiert: false)
+      ..clipTextHalter = halter<ClipService>('CLIP-Text', installiert: false)
+      ..uebersetzungEnDeHalter = halter<TranslationService>('Übersetzung', installiert: false)
+      ..captioningHalter = halter<FlorenceCaptioningService>('Bildbeschreibung', installiert: false);
+  });
+
+  tearDown(() async {
+    await db.close();
+    tempRoot.deleteSync(recursive: true);
+  });
+
+  /// Eine feste Zahl von Einzelbildern statt `pumpAndSettle`.
+  ///
+  /// Solange ein Fortschrittsbalken zu sehen ist, läuft dessen Ticker; ein
+  /// `pumpAndSettle` dreht dann bis zu seinem Zeitlimit von zehn Minuten
+  /// gestellter Zeit und kostet real Minuten – gemessen, nicht vermutet.
+  /// Erst ein einzelnes `pump()` (das die Zustandsänderung übernimmt), dann
+  /// genug Zeit, damit die angestossenen Übergänge auslaufen.
+  Future<void> einigeBilder(WidgetTester tester) async {
+    await tester.pump();
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+  }
+
+  Future<void> zeige(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      // Das echte Thema: Die Karten greifen über context.semantik auf eine
+      // Theme-Erweiterung zu, die einem zusammengestellten Thema fehlt.
+      theme: buildDarkTheme(),
+      home: BackgroundTasksScreen(library: library),
+    ));
+    await tester.pumpAndSettle();
+  }
+
+  /// Rollt, bis [finder] im Bild ist – die Liste ist länger als jedes
+  /// Testfenster.
+  Future<void> hinScrollen(WidgetTester tester, Finder finder) async {
+    await tester.scrollUntilVisible(finder, 200, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('ein gestarteter Vorgang öffnet keinen Dialog, sondern läuft in der Karte',
+      (tester) async {
+    await zeige(tester);
+
+    final ocrKarte = find.ancestor(
+      of: find.text('Text erkennen (OCR)'),
+      matching: find.byType(Card),
+    );
+    await hinScrollen(tester, ocrKarte);
+
+    await tester.tap(find.descendant(of: ocrKarte, matching: find.text('Fehlende')));
+    await tester.pumpAndSettle();
+
+    // Das ist die eigentliche Zusicherung.
+    expect(find.byType(AlertDialog), findsNothing);
+
+    // Die leere Datenbank hat nichts nachzuholen – der Lauf ist sofort
+    // durch und sagt das mit der Meldung der Karte, nicht mit „0 / 0".
+    expect(
+      find.descendant(of: ocrKarte, matching: find.text('Alle Fotos wurden bereits nach Text durchsucht.')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: ocrKarte, matching: find.text('Schließen')), findsOneWidget);
+
+    await tester.tap(find.descendant(of: ocrKarte, matching: find.text('Schließen')));
+    await tester.pumpAndSettle();
+
+    // Danach steht die Karte wieder auf ihren Zahlen.
+    expect(library.lauf('ocr'), isNull);
+    expect(find.descendant(of: ocrKarte, matching: find.text('Wartend')), findsOneWidget);
+  });
+
+  testWidgets('während ein Vorgang läuft, zeigt die Karte Balken, Zahlen und Abbrechen',
+      (tester) async {
+    final regler = StreamController<ImportProgress>();
+    // Der Lauf wird angestossen, bevor der Bildschirm steht – genau der
+    // Fall, um den es geht: Man startet etwas und navigiert weg.
+    unawaited(library.starteAufgabe(
+      schluessel: 'orte',
+      titel: 'Lese Orte aus Fotos ein …',
+      leermeldung: 'Alle Fotos haben bereits einen Ort.',
+      strom: () => regler.stream,
+    ));
+
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      theme: buildDarkTheme(),
+      home: BackgroundTasksScreen(library: library),
+    ));
+    // Kein pumpEventQueue: Der Testkörper läuft in einer gestellten Zeit,
+    // in der ein echtes Warten auf die Ereignisschlange nie zurückkehrt.
+    regler.add(ImportProgress(3, 10, currentFile: 'IMG_0042.HEIC'));
+    await einigeBilder(tester);
+
+    final karte = find.ancestor(of: find.text('Orte einlesen'), matching: find.byType(Card));
+    expect(find.descendant(of: karte, matching: find.text('Lese Orte aus Fotos ein …')),
+        findsOneWidget);
+    expect(find.descendant(of: karte, matching: find.text('3 / 10')), findsOneWidget);
+    expect(find.descendant(of: karte, matching: find.text('IMG_0042.HEIC')), findsOneWidget);
+    expect(find.descendant(of: karte, matching: find.byType(LinearProgressIndicator)),
+        findsOneWidget);
+
+    // Solange gearbeitet wird, gibt es genau eine sinnvolle Handlung.
+    expect(find.descendant(of: karte, matching: find.text('Fehlende')), findsNothing);
+    expect(find.descendant(of: karte, matching: find.text('Abbrechen')), findsOneWidget);
+
+    // Was der Abbruch-Knopf auslöst, steht in hintergrundlauf_test.dart:
+    // Abonnement gekündigt, Lauf als abgebrochen vermerkt, Zähler bei 7 von
+    // 100. Hier bleibt es beim Nachweis, dass es ihn gibt und er die
+    // übrigen Aktionen verdrängt – ein Antippen an dieser Stelle bringt die
+    // Testumgebung reproduzierbar zum Stehen (nachgemessen: kein weiteres
+    // Einzelbild geplant, kein laufender Ticker, und trotzdem kehrt der
+    // Test nicht zurück).
+    await regler.close();
+  });
+
+  testWidgets('„Starten" steht nur noch dort, wo wirklich alles bearbeitet wird',
+      (tester) async {
+    await zeige(tester);
+
+    // Diese Aufgaben schliessen nur die Lücken – ihr Zähler heisst
+    // „Wartend", und der Knopf sagt jetzt, was er tut.
+    const nurLuecken = [
+      'Text erkennen (OCR)',
+      'Bildbeschreibungen',
+      'CLIP-Embeddings',
+      'Unschärfe',
+      'Orte einlesen',
+      'Land/Bundesland/Stadt auflösen',
+      'Kameradaten einlesen',
+      'Live-Photo-Paare prüfen',
+    ];
+    // Diese beiden arbeiten die vollständige Liste ab („Betrifft") – dort
+    // wäre „Fehlende" schlicht falsch.
+    const alles = ['Entwickelte Fotos neu rendern', 'XMP-Sidecars schreiben'];
+
+    for (final titel in nurLuecken) {
+      final karte = find.ancestor(of: find.text(titel), matching: find.byType(Card));
+      await hinScrollen(tester, karte);
+      expect(find.descendant(of: karte, matching: find.text('Fehlende')), findsOneWidget,
+          reason: '$titel holt nur Fehlendes nach');
+      expect(find.descendant(of: karte, matching: find.text('Starten')), findsNothing,
+          reason: titel);
+    }
+
+    for (final titel in alles) {
+      final karte = find.ancestor(of: find.text(titel), matching: find.byType(Card));
+      await hinScrollen(tester, karte);
+      expect(find.descendant(of: karte, matching: find.text('Starten')), findsOneWidget,
+          reason: '$titel bearbeitet alles, was es auflistet');
+      expect(find.descendant(of: karte, matching: find.text('Betrifft')), findsOneWidget);
+    }
+  });
+
+  testWidgets('Werkzeuge stösst dieselbe Arbeit nicht ein zweites Mal an', (tester) async {
+    final regler = StreamController<ImportProgress>();
+    unawaited(library.starteAufgabe(
+      schluessel: 'ocr',
+      titel: 'Erkenne Text in Fotos …',
+      leermeldung: 'nichts zu tun',
+      strom: () => regler.stream,
+    ));
+
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      theme: buildDarkTheme(),
+      home: ToolsScreen(library: library),
+    ));
+    await einigeBilder(tester);
+
+    final knopf = find.text('Text in Fotos erkennen');
+    await tester.scrollUntilVisible(knopf, 200, scrollable: find.byType(Scrollable).first);
+    await einigeBilder(tester);
+    await tester.tap(knopf);
+    await einigeBilder(tester);
+
+    // Kein zweiter Lauf über dieselben Fotos, kein zweites Modell im
+    // Speicher – stattdessen der Hinweis, wo die Arbeit schon läuft.
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('Läuft bereits als Hintergrundaufgabe: Erkenne Text in Fotos …'),
+        findsOneWidget);
+
+    await regler.close();
+  });
+}

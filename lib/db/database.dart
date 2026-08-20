@@ -95,6 +95,23 @@ class Assets extends Table {
   IntColumn get iso => integer().nullable()();
   RealColumn get exposureTimeSeconds => real().nullable()();
 
+  /// Belichtungskorrektur in Blendenstufen (EXIF `ExposureBiasValue`) – der
+  /// „0 ev"-Wert, den auch die macOS-Fotos-Informationen zeigen.
+  ///
+  /// Eigene Spalte statt „0 annehmen, wenn nichts dasteht": Ein Foto ohne
+  /// diese Angabe (Screenshot, Scan) hat keine Belichtungskorrektur von
+  /// null, es hat gar keine. Der Unterschied ist derselbe wie zwischen
+  /// „ISO 0" und „ISO unbekannt".
+  RealColumn get exposureBiasEv => real().nullable()();
+
+  /// Kleinbild-äquivalente Brennweite (EXIF `FocalLengthIn35mmFilm`).
+  ///
+  /// Bei Telefonen ist das der Wert, den alle nennen: Die iPhone-Hauptkamera
+  /// schreibt 5,7 mm echte Brennweite, gemeint und überall angezeigt sind
+  /// 26 mm. Ohne diese Spalte stünde in der Info-Ansicht eine Zahl, die zu
+  /// nichts passt, was der Nutzer über sein Gerät weiss.
+  RealColumn get focalLength35mm => real().nullable()();
+
   /// Aus [latitude]/[longitude] abgeleitet über die lokale/offline
   /// Umkehr-Geokodierung (siehe ReverseGeocoder – nächstgelegene bekannte
   /// Stadt, keine Anfrage an einen Online-Dienst). Bleibt `null`, solange
@@ -874,7 +891,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 42;
+  int get schemaVersion => 43;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1194,6 +1211,15 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(lebensereignisse);
             await customStatement('CREATE INDEX IF NOT EXISTS idx_ereignis_person '
                 'ON lebensereignisse (person_id)');
+          }
+          if (from < 43) {
+            // Belichtungskorrektur und Kleinbild-Brennweite. Beide bleiben
+            // für bestehende Fotos leer, bis „Kameradaten einlesen" läuft –
+            // die Info-Ansicht lässt eine fehlende Angabe einfach weg.
+            await _addColumnIfMissing(
+                m, assets, assets.exposureBiasEv, 'assets', 'exposure_bias_ev');
+            await _addColumnIfMissing(
+                m, assets, assets.focalLength35mm, 'assets', 'focal_length35mm');
           }
         },
       );
@@ -1791,6 +1817,8 @@ class AppDatabase extends _$AppDatabase {
         fNumber: Value(info.fNumber),
         iso: Value(info.iso),
         exposureTimeSeconds: Value(info.exposureTimeSeconds),
+        exposureBiasEv: Value(info.exposureBiasEv),
+        focalLength35mm: Value(info.focalLength35mm),
       ));
 
   /// Fotos ohne bekannte Kamera-Angaben – für das nachträgliche Einlesen in
@@ -1901,6 +1929,41 @@ class AppDatabase extends _$AppDatabase {
       assets.isTrashed.equals(false) &
       assets.isLocked.equals(false) &
       assets.aiCaptionScanned.equals(false));
+
+  /// Bedingung für „hat eine englische Bildunterschrift, aber (noch) keine
+  /// deutsche".
+  ///
+  /// Einmal geschrieben und von Liste wie Zählung genutzt: Die übrigen Paare
+  /// hier tippen ihr WHERE zweimal, was ein eigener Test absichern muss
+  /// (siehe background_task_counts_test.dart). Bei einer Bedingung mit
+  /// Schalter ist das Auseinanderdriften zu wahrscheinlich, um es nur zu
+  /// prüfen.
+  Expression<bool> _uebersetzbareBeschreibung(bool alle) =>
+      assets.type.equals('IMAGE') &
+      assets.isTrashed.equals(false) &
+      assets.isLocked.equals(false) &
+      assets.aiCaption.isNotNull() &
+      assets.aiCaption.equals('').not() &
+      (alle ? const Constant(true) : assets.aiCaptionDe.isNull());
+
+  /// Fotos, deren englische Bildunterschrift noch übersetzt werden kann.
+  ///
+  /// Eigene Aufgabe statt eines Nebenwegs der Bildbeschreibung: Wer die
+  /// Übersetzung erst nachträglich einschaltet, müsste sonst das
+  /// 275-MB-Modell über die ganze Bibliothek erneut laufen lassen, um an
+  /// deutsche Sätze zu kommen. Das Übersetzen allein kostet gemessen
+  /// 0,03–0,05 s je Satz – die Sätze sind längst da.
+  Future<List<AssetData>> assetsForCaptionTranslation({bool alle = false}) =>
+      (select(assets)..where((t) => _uebersetzbareBeschreibung(alle))).get();
+
+  /// Zählvariante von [assetsForCaptionTranslation].
+  Future<int> countCaptionTranslation() => _countWhere(_uebersetzbareBeschreibung(false));
+
+  /// Trägt die deutsche Fassung nach, ohne das englische Original oder das
+  /// `aiCaptionScanned`-Merkmal anzufassen.
+  Future<void> setAiCaptionDe(String assetId, String deutsch) =>
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(aiCaptionDe: Value(deutsch)));
 
   Future<void> setSharpnessScore(String assetId, double score) =>
       (update(assets)..where((t) => t.id.equals(assetId)))
@@ -2155,10 +2218,21 @@ class AppDatabase extends _$AppDatabase {
   /// Thumbnail (z.B. HEIC-Fotos, die vor Einbindung der nativen
   /// Bildkonvertierung importiert wurden, oder Videos, die vor Einführung
   /// der Video-Thumbnail-Erzeugung importiert wurden).
+  /// Assets, für die sich ein Vorschaubild erzeugen lässt.
+  ///
+  /// Gesperrte bleiben aussen vor. Der Kommentar stand hier früher
+  /// andersherum („läuft absichtlich auch über gesperrte, die Ansicht
+  /// braucht Thumbnails") – das ging nicht auf: Bei einem gesperrten Foto
+  /// ist die Originaldatei verschlüsselt, das Dekodieren scheitert
+  /// zwangsläufig, und [ImportService.generateThumbnailAndPreview] kehrt
+  /// ohne Ergebnis zurück, bevor überhaupt etwas geschrieben wird. Es kam
+  /// also nie ein Vorschaubild dabei heraus – nur für jedes gesperrte Foto
+  /// ein vollständiges Lesen der Datei und ein Isolate-Durchlauf ins Leere.
+  /// Das Vorschaubild eines gesperrten Fotos ist ohnehin mitverschlüsselt
+  /// und wird beim Entsperren wieder lesbar.
   Future<List<AssetData>> assetsForThumbnailRegen({required bool onlyMissing}) {
-    // Läuft absichtlich auch über gesperrte Assets: die gesperrte
-    // Ordner-Ansicht braucht ebenfalls funktionierende Thumbnails.
-    final query = select(assets)..where((t) => t.isTrashed.equals(false));
+    final query = select(assets)
+      ..where((t) => t.isTrashed.equals(false) & t.isLocked.equals(false));
     if (onlyMissing) {
       query.where((t) => t.thumbnailRelativePath.isNull());
     }
@@ -2167,8 +2241,10 @@ class AppDatabase extends _$AppDatabase {
 
   /// Zählvariante von [assetsForThumbnailRegen], siehe [countLocationBackfill].
   Future<int> countThumbnailRegen({required bool onlyMissing}) => _countWhere(onlyMissing
-      ? assets.isTrashed.equals(false) & assets.thumbnailRelativePath.isNull()
-      : assets.isTrashed.equals(false));
+      ? assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          assets.thumbnailRelativePath.isNull()
+      : assets.isTrashed.equals(false) & assets.isLocked.equals(false));
 
   /// Für die Bibliotheks-Integritätsprüfung (IntegrityCheckScreen): bewusst
   /// vollständig ungefiltert (auch gelöscht/gesperrt), da all diese Assets

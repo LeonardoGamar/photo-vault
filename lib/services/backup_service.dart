@@ -238,12 +238,23 @@ class BackupService {
       await file.writeAsBytes(jsonBytes);
       return;
     }
-    final plainTemp = File('${file.path}.plaintmp');
+    // Die Klartext-Zwischendatei liegt im privaten Temp-Ordner der App
+    // (unter macOS im Sandbox-Container), NICHT im Sicherungsziel.
+    //
+    // Vorher stand sie neben der verschlüsselten Datei. Das Ziel ist aber
+    // gerade der Ort, an dem nichts Lesbares landen soll – oft ein
+    // USB-Stick oder eine Netzfreigabe. Dort enthielte die Datei für einen
+    // Moment sämtliche Dateinamen, Beschreibungen, Schlagwörter und
+    // Koordinaten im Klartext, und auf Flash-Speicher überlebt Gelöschtes
+    // sein Löschen. Stürzte das Programm zwischen Schreiben und Löschen ab,
+    // bliebe sie sogar dauerhaft liegen.
+    final tempDir = await Directory.systemTemp.createTemp('pv_backup_meta_');
+    final plainTemp = File(p.join(tempDir.path, 'metadata.json'));
     await plainTemp.writeAsBytes(jsonBytes);
     try {
       await VaultCrypto.encryptFile(plainTemp, file, encryptionKey);
     } finally {
-      await plainTemp.delete();
+      await tempDir.delete(recursive: true);
     }
   }
 

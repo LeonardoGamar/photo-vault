@@ -1,23 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../state/hintergrundlauf.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
-import '../widgets/progress_dialog.dart';
 
-/// Eine Aktion innerhalb einer [_TaskCard] – öffnet [ProgressDialog] gegen
-/// einen der `Stream<ImportProgress>`-Backfills auf [LibraryState].
+/// Eine Aktion innerhalb einer [_TaskCard] – startet einen der
+/// `Stream<ImportProgress>`-Backfills auf [LibraryState] als Lauf, der das
+/// Wegnavigieren überlebt.
 class _TaskAction {
   final String label;
   final IconData icon;
-  final String dialogTitle;
+
+  /// Was während des Laufs in der Karte steht – „Bildbeschreibungen werden
+  /// erzeugt". Hiess früher `dialogTitle`, weil er die Kopfzeile des
+  /// Fortschrittsfensters füllte; den Namen behält er nicht, damit niemand
+  /// nach einem Fenster sucht, das es nicht mehr gibt.
+  final String laufTitel;
   final String emptyMessage;
   final Stream<ImportProgress> Function() stream;
   const _TaskAction({
     required this.label,
     required this.icon,
-    required this.dialogTitle,
+    required this.laufTitel,
     required this.emptyMessage,
     required this.stream,
   });
@@ -29,19 +37,73 @@ class _TaskAction {
 String? _modelHint(AppTexte t, bool available, String model, String where) =>
     available ? null : t.aufgModellNoetig(model, where);
 
-Future<void> _showProgress(BuildContext context, _TaskAction action) {
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => ProgressDialog(
-      title: action.dialogTitle,
-      stream: action.stream().map(
-            (p) => p.total == 0
-                ? action.emptyMessage
-                : '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}',
+/// Der Zustand eines laufenden oder eben beendeten Vorgangs, dort wo sonst
+/// die Zahlen „Aktiv/Wartend" stehen.
+///
+/// Das ersetzt das frühere Fortschrittsfenster. Es sperrte den Bildschirm,
+/// liess sich nicht beiseitelegen und machte die Bezeichnung
+/// „Hintergrundaufgabe" zur Fehlbeschriftung: Wer die Bibliothek währenddessen
+/// ansehen wollte, musste abbrechen.
+class _Laufanzeige extends StatelessWidget {
+  final Hintergrundlauf lauf;
+  const _Laufanzeige({required this.lauf});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+
+    final String satz;
+    if (lauf.fehler != null) {
+      satz = t.fortschrittFehlgeschlagen('${lauf.fehler}');
+    } else if (lauf.gesamt == 0) {
+      // Der Strom war sofort durch: Es gab nichts nachzuholen. Die Meldung
+      // der Karte ist genauer als ein „0 / 0".
+      satz = lauf.beendet ? lauf.leermeldung : t.aufgWirdErmittelt;
+    } else if (lauf.abgebrochen) {
+      satz = t.aufgAbgebrochenBei(lauf.erledigt, lauf.gesamt);
+    } else if (lauf.beendet) {
+      satz = t.aufgFertigMit(lauf.gesamt);
+    } else {
+      satz = '${lauf.erledigt} / ${lauf.gesamt}';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(lauf.titel, style: TextStyle(fontSize: 13, color: farben.onSurface)),
+        const SizedBox(height: AppSpacing.sm),
+        // Ein Balken auch im beendeten Zustand, damit die Karte nicht in der
+        // Höhe springt, sobald der Vorgang durch ist.
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: LinearProgressIndicator(
+            value: lauf.beendet ? 1.0 : lauf.anteil,
+            minHeight: 6,
+            color: lauf.fehler != null ? farben.error : null,
           ),
-    ),
-  );
+        ),
+        const SizedBox(height: 6),
+        Text(
+          satz,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            color: lauf.fehler != null ? farben.error : farben.onSurfaceVariant,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        if (lauf.laeuft && lauf.datei != null)
+          Text(
+            lauf.datei!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, color: farben.outline),
+          ),
+      ],
+    );
+  }
 }
 
 /// Ein Zahlenfeld der Kopfzeile: Beschriftung links, Wert rechts.
@@ -281,10 +343,22 @@ class _Aufgabenrahmen extends StatelessWidget {
 /// ToolsScreen.
 class _TaskCard extends StatefulWidget {
   final LibraryState library;
+
+  /// Kennung des Laufs dieser Karte (siehe [LibraryState.starteAufgabe]).
+  /// Fest im Quelltext vergeben statt aus dem Titel abgeleitet: Ein
+  /// übersetzter Titel wäre in jeder Sprache eine andere Kennung, und ein
+  /// beim Sprachwechsel laufender Vorgang verschwände aus seiner Karte.
+  final String schluessel;
+
   final IconData icon;
   final String title;
   final String description;
   final Future<int> Function() pendingCount;
+
+  /// Ob diese Aufgabe zu den teuren gehört (KI-Modell im Speicher oder
+  /// dieselbe Arbeit wie eine Stufe der Hintergrundanalyse). Solche laufen
+  /// nur einzeln – siehe [LibraryState.pruefeStart].
+  final bool rechenintensiv;
 
   /// Die Stufe der Hintergrundanalyse, die dieselbe Arbeit erledigt – oder
   /// `null`, wenn diese Aufgabe nur von Hand läuft.
@@ -297,10 +371,12 @@ class _TaskCard extends StatefulWidget {
   final List<_TaskAction> actions;
   const _TaskCard({
     required this.library,
+    required this.schluessel,
     required this.icon,
     required this.title,
     required this.description,
     required this.pendingCount,
+    this.rechenintensiv = false,
     this.stufe,
     this.pendingLabel,
     this.unavailableReason,
@@ -318,14 +394,61 @@ class _TaskCardState extends State<_TaskCard> {
   // sichtbar wird.
   late Future<int>? _countFuture = widget.unavailableReason == null ? widget.pendingCount() : null;
 
-  void _refreshCount() {
-    if (widget.unavailableReason != null) return;
-    setState(() => _countFuture = widget.pendingCount());
+  /// Ob der Lauf dieser Karte beim letzten Bescheid schon beendet war –
+  /// damit der Zähler genau einmal aufgefrischt wird, wenn ein Vorgang
+  /// durchläuft, und nicht bei jedem der tausenden Fortschritts-Bescheide.
+  bool _warBeendet = true;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.library.addListener(_aufLaufwechsel);
   }
 
-  Future<void> _runAction(_TaskAction action) async {
-    await _showProgress(context, action);
-    if (mounted) _refreshCount();
+  @override
+  void dispose() {
+    widget.library.removeListener(_aufLaufwechsel);
+    super.dispose();
+  }
+
+  void _aufLaufwechsel() {
+    final lauf = widget.library.lauf(widget.schluessel);
+    final beendet = lauf == null || lauf.beendet;
+    if (beendet && !_warBeendet) _refreshCount();
+    _warBeendet = beendet;
+  }
+
+  void _refreshCount() {
+    if (widget.unavailableReason != null) return;
+    if (!mounted) return;
+    // Die Abfrage VOR setState anstossen und nur die fertige Future
+    // hineinreichen: Ein Pfeilrumpf gäbe hier das `Future` der Zuweisung
+    // zurück, und setState verbietet einen Rückgabewert dieser Art
+    // ausdrücklich (Zusicherung im Framework).
+    final naechste = widget.pendingCount();
+    setState(() {
+      _countFuture = naechste;
+    });
+  }
+
+  void _runAction(_TaskAction action) {
+    final abweisung = widget.library
+        .pruefeStart(widget.schluessel, rechenintensiv: widget.rechenintensiv);
+    if (abweisung != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(abweisungstext(AppTexte.of(context), abweisung))),
+      );
+      return;
+    }
+    // Kein `await`: Der Lauf soll weiterlaufen, wenn dieser Bildschirm
+    // längst weg ist. Der Fortschritt kommt über LibraryState zurück.
+    unawaited(widget.library.starteAufgabe(
+      schluessel: widget.schluessel,
+      titel: action.laufTitel,
+      leermeldung: action.emptyMessage,
+      strom: action.stream,
+      rechenintensiv: widget.rechenintensiv,
+    ));
   }
 
   /// Wie viele Fotos die Hintergrundanalyse in dieser Stufe gerade noch vor
@@ -341,34 +464,70 @@ class _TaskCardState extends State<_TaskCard> {
   Widget build(BuildContext context) {
     final reason = widget.unavailableReason;
     // Auf LibraryState hören, damit „Aktiv" mitläuft, während die
-    // Hintergrundanalyse arbeitet.
+    // Hintergrundanalyse arbeitet – und damit der eigene Lauf dieser Karte
+    // seinen Fortschritt hierher meldet.
     return ListenableBuilder(
       listenable: widget.library,
-      builder: (context, _) => _Aufgabenrahmen(
-        icon: widget.icon,
-        titel: widget.title,
-        beschreibung: widget.description,
-        knoepfe: [
-          for (final aktion in widget.actions)
-            _Leistenknopf(
-              label: aktion.label,
-              icon: aktion.icon,
-              onTap: () => _runAction(aktion),
-            ),
-        ],
-        bedienbar: reason == null,
-        inhalt: reason != null
-            ? Text(reason, style: TextStyle(fontSize: 12, color: context.semantik.warnung))
-            : FutureBuilder<int>(
-                future: _countFuture,
-                builder: (context, snapshot) => _Zahlenreihe(
-                  linksBeschriftung: AppTexte.of(context).aufgAktiv,
-                  linksWert: '${_aktiv()}',
-                  rechtsBeschriftung: widget.pendingLabel ?? AppTexte.of(context).aufgWartend,
-                  rechtsWert: snapshot.hasData ? '${snapshot.data}' : '…',
-                ),
+      builder: (context, _) {
+        final t = AppTexte.of(context);
+        final lauf = widget.library.lauf(widget.schluessel);
+
+        // Während ein Lauf offen ist, tritt die Aktionsleiste hinter einen
+        // einzigen Knopf zurück: Abbrechen, solange er arbeitet, danach
+        // Schliessen. Vier Aktionen anzubieten, von denen keine etwas tut,
+        // wäre die schlechtere Antwort als eine, die zum Zustand passt.
+        final List<_Leistenknopf> knoepfe;
+        if (lauf == null) {
+          knoepfe = [
+            for (final aktion in widget.actions)
+              _Leistenknopf(
+                label: aktion.label,
+                icon: aktion.icon,
+                onTap: () => _runAction(aktion),
               ),
-      ),
+          ];
+        } else if (lauf.laeuft) {
+          knoepfe = [
+            _Leistenknopf(
+              label: t.allgAbbrechen,
+              icon: Icons.stop_circle_outlined,
+              onTap: () => widget.library.brichAufgabeAb(widget.schluessel),
+            ),
+          ];
+        } else {
+          knoepfe = [
+            _Leistenknopf(
+              label: t.allgSchliessen,
+              icon: Icons.check,
+              onTap: () {
+                widget.library.verwerfeLauf(widget.schluessel);
+                _refreshCount();
+              },
+            ),
+          ];
+        }
+
+        return _Aufgabenrahmen(
+          icon: widget.icon,
+          titel: widget.title,
+          beschreibung: widget.description,
+          knoepfe: knoepfe,
+          bedienbar: reason == null,
+          inhalt: reason != null
+              ? Text(reason, style: TextStyle(fontSize: 12, color: context.semantik.warnung))
+              : lauf != null
+                  ? _Laufanzeige(lauf: lauf)
+                  : FutureBuilder<int>(
+                      future: _countFuture,
+                      builder: (context, snapshot) => _Zahlenreihe(
+                        linksBeschriftung: t.aufgAktiv,
+                        linksWert: '${_aktiv()}',
+                        rechtsBeschriftung: widget.pendingLabel ?? t.aufgWartend,
+                        rechtsWert: snapshot.hasData ? '${snapshot.data}' : '…',
+                      ),
+                    ),
+        );
+      },
     );
   }
 }
@@ -397,17 +556,27 @@ class _CombinedAnalysisCard extends StatelessWidget {
           icon: Icons.auto_awesome_outlined,
           titel: t.werkzAllesNachholenTitel,
           beschreibung: t.werkzAllesNachholenText,
-          bedienbar: !laeuft,
+          // Anders als bei den übrigen Karten bleibt die Leiste bedienbar,
+          // während gearbeitet wird – sonst gäbe es keinen Weg, einen Lauf
+          // über 8000 Fotos wieder anzuhalten, ausser die App zu beenden.
+          bedienbar: true,
           knoepfe: [
-            _Leistenknopf(
-              label: t.aufgJetztStarten,
-              icon: Icons.play_arrow,
-              onTap: () {
-                library.starteHintergrundanalyse();
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text(t.aufgLaeuft)));
-              },
-            ),
+            if (laeuft)
+              _Leistenknopf(
+                label: t.allgAbbrechen,
+                icon: Icons.stop_circle_outlined,
+                onTap: library.brichHintergrundanalyseAb,
+              )
+            else
+              _Leistenknopf(
+                label: t.aufgJetztStarten,
+                icon: Icons.play_arrow,
+                onTap: () {
+                  library.starteHintergrundanalyse();
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(t.aufgLaeuft)));
+                },
+              ),
           ],
           inhalt: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,6 +628,13 @@ class BackgroundTasksScreen extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           _TaskCard(
             library: library,
+            schluessel: 'gesichter',
+            rechenintensiv: true,
+            // Dieselbe Stufe wie Unschärfe und Einbettung: Der gemeinsame
+            // Durchgang der Analyse dekodiert jedes Foto einmal und erledigt
+            // alle drei daran. Ohne diese Angabe stand hier „Aktiv 0",
+            // während die Analyse sichtbar genau diese Arbeit tat.
+            stufe: Analysestufe.bildanalyse,
             icon: Icons.face_retouching_natural,
             title: t.werkzGesichterScannenTitel,
             description: t.aufgGesichterText,
@@ -469,14 +645,14 @@ class BackgroundTasksScreen extends StatelessWidget {
               _TaskAction(
                 label: t.aufgNeueFotos,
                 icon: Icons.search,
-                dialogTitle: t.werkzScanneNeue,
+                laufTitel: t.werkzScanneNeue,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.rescanFaces(onlyNewPhotos: true),
               ),
               _TaskAction(
                 label: t.aufgAlleErneut,
                 icon: Icons.all_inclusive,
-                dialogTitle: t.werkzScanneAlle,
+                laufTitel: t.werkzScanneAlle,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.rescanFaces(onlyNewPhotos: false),
               ),
@@ -484,6 +660,7 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'vorschau',
             icon: Icons.photo_size_select_actual_outlined,
             title: t.werkzAbschnittVorschau,
             description: t.aufgVorschauText,
@@ -492,14 +669,14 @@ class BackgroundTasksScreen extends StatelessWidget {
               _TaskAction(
                 label: t.aufgFehlende,
                 icon: Icons.search,
-                dialogTitle: t.werkzErstelleFehlende,
+                laufTitel: t.werkzErstelleFehlende,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.regenerateThumbnails(onlyMissing: true),
               ),
               _TaskAction(
                 label: t.aufgAlleNeu,
                 icon: Icons.all_inclusive,
-                dialogTitle: t.werkzErstelleAlle,
+                laufTitel: t.werkzErstelleAlle,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.regenerateThumbnails(onlyMissing: false),
               ),
@@ -507,6 +684,8 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'ocr',
+            rechenintensiv: true,
             icon: Icons.text_fields,
             title: t.aufgOcrTitel,
             stufe: Analysestufe.texterkennung,
@@ -514,9 +693,9 @@ class BackgroundTasksScreen extends StatelessWidget {
             pendingCount: () => library.db.countOcrBackfill(),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzErkenneText,
+                laufTitel: t.werkzErkenneText,
                 emptyMessage: t.werkzAlleTextDurchsucht,
                 stream: () => library.backfillOcrText(),
               ),
@@ -524,6 +703,8 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'beschreibungen',
+            rechenintensiv: true,
             icon: Icons.subtitles_outlined,
             title: t.aufgBeschreibungenTitel,
             stufe: Analysestufe.bildbeschreibung,
@@ -533,9 +714,9 @@ class BackgroundTasksScreen extends StatelessWidget {
                 t, library.captioningAvailable, t.aufgBeschreibungsmodell, t.aufgWoModelle),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzErzeugeBeschreibungen,
+                laufTitel: t.werkzErzeugeBeschreibungen,
                 emptyMessage: t.werkzAlleHabenBeschreibung,
                 stream: () => library.backfillCaptions(),
               ),
@@ -544,7 +725,7 @@ class BackgroundTasksScreen extends StatelessWidget {
               _TaskAction(
                 label: t.werkzAlleFotos,
                 icon: Icons.all_inclusive,
-                dialogTitle: t.werkzErzeugeBeschreibungen,
+                laufTitel: t.werkzErzeugeBeschreibungen,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.backfillCaptions(alle: true),
               ),
@@ -552,6 +733,36 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'beschreibungen_de',
+            rechenintensiv: true,
+            icon: Icons.translate,
+            title: t.aufgUebersetzenTitel,
+            description: t.aufgUebersetzenText,
+            pendingCount: () => library.db.countCaptionTranslation(),
+            unavailableReason: _modelHint(t, library.uebersetzungEnDeAvailable,
+                t.aufgUebersetzungsmodell, t.aufgWoModelle),
+            actions: [
+              _TaskAction(
+                label: t.aufgFehlende,
+                icon: Icons.play_arrow,
+                laufTitel: t.werkzUebersetzeBeschreibungen,
+                emptyMessage: t.werkzAlleUebersetzt,
+                stream: () => library.uebersetzeBildbeschreibungen(),
+              ),
+              // Nach einem Wechsel des Übersetzungsmodells der sinnvolle Weg.
+              _TaskAction(
+                label: t.werkzAlleFotos,
+                icon: Icons.all_inclusive,
+                laufTitel: t.werkzUebersetzeBeschreibungen,
+                emptyMessage: t.werkzKeinePassenden,
+                stream: () => library.uebersetzeBildbeschreibungen(alle: true),
+              ),
+            ],
+          ),
+          _TaskCard(
+            library: library,
+            schluessel: 'embeddings',
+            rechenintensiv: true,
             icon: Icons.scatter_plot_outlined,
             title: t.aufgEmbeddingsTitel,
             stufe: Analysestufe.bildanalyse,
@@ -561,9 +772,9 @@ class BackgroundTasksScreen extends StatelessWidget {
                 _modelHint(t, library.clipAvailable, t.aufgClipModell, t.aufgWoModelle),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzBerechneEmbeddings,
+                laufTitel: t.werkzBerechneEmbeddings,
                 emptyMessage: t.werkzAlleHabenEmbedding,
                 stream: () => library.backfillClipEmbeddings(),
               ),
@@ -575,7 +786,7 @@ class BackgroundTasksScreen extends StatelessWidget {
               _TaskAction(
                 label: t.werkzAlleFotos,
                 icon: Icons.all_inclusive,
-                dialogTitle: t.werkzBerechneEmbeddings,
+                laufTitel: t.werkzBerechneEmbeddings,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.backfillClipEmbeddings(alle: true),
               ),
@@ -583,6 +794,8 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'kitags',
+            rechenintensiv: true,
             icon: Icons.sell_outlined,
             title: t.aufgKiTagsTitel,
             stufe: Analysestufe.schlagwoerter,
@@ -594,14 +807,14 @@ class BackgroundTasksScreen extends StatelessWidget {
               _TaskAction(
                 label: t.aufgUngetaggte,
                 icon: Icons.search,
-                dialogTitle: t.werkzBerechneKiTags,
+                laufTitel: t.werkzBerechneKiTags,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.backfillAiTags(onlyUntagged: true),
               ),
               _TaskAction(
                 label: t.werkzAlleFotos,
                 icon: Icons.all_inclusive,
-                dialogTitle: t.werkzBerechneKiTags,
+                laufTitel: t.werkzBerechneKiTags,
                 emptyMessage: t.werkzKeinePassenden,
                 stream: () => library.backfillAiTags(onlyUntagged: false),
               ),
@@ -609,15 +822,19 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'unschaerfe',
+            rechenintensiv: true,
+            // Teil des gemeinsamen Durchgangs, siehe Gesichter.
+            stufe: Analysestufe.bildanalyse,
             icon: Icons.blur_on,
             title: t.aufgUnschaerfeTitel,
             description: t.aufgUnschaerfeText,
             pendingCount: () => library.db.countBlurBackfill(),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzBerechneUnschaerfe,
+                laufTitel: t.werkzBerechneUnschaerfe,
                 emptyMessage: t.werkzAlleHabenUnschaerfe,
                 stream: () => library.backfillBlurScores(),
               ),
@@ -625,15 +842,16 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'orte',
             icon: Icons.place_outlined,
             title: t.aufgOrteTitel,
             description: t.aufgOrteText,
             pendingCount: () => library.db.countLocationBackfill(),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzLeseOrte,
+                laufTitel: t.werkzLeseOrte,
                 emptyMessage: t.werkzAlleHabenOrt,
                 stream: () => library.backfillLocations(),
               ),
@@ -641,6 +859,7 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'ortsnamen',
             icon: Icons.map_outlined,
             title: t.werkzOrteAufloesenTitel,
             description: t.aufgOrteAufloesenText,
@@ -649,9 +868,9 @@ class BackgroundTasksScreen extends StatelessWidget {
                 t, library.geoDataAvailable, t.aufgGeoDatensatz, t.aufgWoStandortdaten),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzLoeseOrteAuf,
+                laufTitel: t.werkzLoeseOrteAuf,
                 emptyMessage: t.werkzAlleAufgeloest,
                 stream: () => library.backfillLocationNames(),
               ),
@@ -659,15 +878,16 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'kameradaten',
             icon: Icons.photo_camera_outlined,
             title: t.aufgKameraTitel,
             description: t.aufgKameraText,
             pendingCount: () => library.db.countCameraMetadataBackfill(),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzLeseKameradaten,
+                laufTitel: t.werkzLeseKameradaten,
                 emptyMessage: t.werkzAlleHabenKameradaten,
                 stream: () => library.backfillCameraMetadata(),
               ),
@@ -675,15 +895,16 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'livephotos',
             icon: Icons.motion_photos_on_outlined,
             title: t.aufgLivePhotoTitel,
             description: t.aufgLivePhotoText,
             pendingCount: () => library.db.countUnlinkedAssetsOfType('IMAGE'),
             actions: [
               _TaskAction(
-                label: t.aufgStarten,
+                label: t.aufgFehlende,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzPruefeLivePhotos,
+                laufTitel: t.werkzPruefeLivePhotos,
                 emptyMessage: t.werkzKeineUnverknuepften,
                 stream: () => library.relinkLivePhotos(),
               ),
@@ -691,6 +912,7 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'rendern',
             icon: Icons.tune,
             title: t.werkzNeuRendernTitel,
             description: t.aufgRendernText,
@@ -700,7 +922,7 @@ class BackgroundTasksScreen extends StatelessWidget {
               _TaskAction(
                 label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzRendereNeu,
+                laufTitel: t.werkzRendereNeu,
                 emptyMessage: t.werkzKeineEntwickelten,
                 stream: () => library.redevelopAll(),
               ),
@@ -708,6 +930,7 @@ class BackgroundTasksScreen extends StatelessWidget {
           ),
           _TaskCard(
             library: library,
+            schluessel: 'xmp',
             icon: Icons.description_outlined,
             title: t.werkzXmpSchreibenTitel,
             description: t.aufgXmpText,
@@ -717,7 +940,7 @@ class BackgroundTasksScreen extends StatelessWidget {
               _TaskAction(
                 label: t.aufgStarten,
                 icon: Icons.play_arrow,
-                dialogTitle: t.werkzSchreibeXmp,
+                laufTitel: t.werkzSchreibeXmp,
                 emptyMessage: t.werkzKeineFotosGesperrt,
                 stream: () => library.writeXmpSidecars(),
               ),

@@ -248,6 +248,11 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
       parts.add(_formatDuration(asset.durationSeconds!));
     }
     parts.add(_formatFileSize(asset.fileSizeBytes));
+    // Das Formatkürzel (HEIC, DNG, JPG) gehört zu den Angaben, nach denen
+    // man in dieser Ansicht sucht – bisher stand es nur als kleines
+    // Abzeichen an der Kachel in der Übersicht.
+    final format = assetFormatLabel(asset);
+    if (format.isNotEmpty) parts.add(format);
     return parts.join('   ');
   }
 
@@ -256,20 +261,41 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     final asset = _asset;
     final onSurfaceVariant = Theme.of(context).colorScheme.onSurfaceVariant;
 
-    final exposureParts = <String>[
-      if (asset.exposureTimeSeconds != null) formatExposureTime(asset.exposureTimeSeconds!),
-      if (asset.iso != null) 'ISO ${asset.iso}',
-    ];
-
-    final lensTitle = cameraLabel(asset) ?? asset.lensModel;
-    final lensSubtitleParts = <String>[
-      if (asset.lensModel != null && asset.lensModel != lensTitle) asset.lensModel!,
-      if (asset.fNumber != null) formatFNumber(asset.fNumber!),
-      if (asset.focalLengthMm != null) formatFocalLength(asset.focalLengthMm!),
-    ];
+    // Kamera und Aufnahmewerte, aufgeteilt wie in den Informationen von
+    // macOS Fotos: oben das Gerät, darunter das Objektiv, darunter die
+    // Werte-Zeile. Vorher standen Zeit/ISO in der einen und
+    // Blende/Brennweite in einer zweiten Zeile mit eigenem Symbol – wer die
+    // Aufnahme beurteilen wollte, musste sie aus zwei Zeilen
+    // zusammensuchen, und die Belichtungskorrektur fehlte ganz.
+    final kameraTitel = cameraLabel(asset);
+    // Nur der Objektivname, ohne die Brennweite noch einmal daneben: An
+    // einer echten iPhone-Aufnahme geprüft steht sie im Namen bereits drin
+    // („iPhone 13 Pro back triple camera 5.7mm f/1.5"), und in der
+    // Werte-Zeile darunter ohnehin.
+    final objektiv = asset.lensModel != kameraTitel ? asset.lensModel : null;
+    final werte = aufnahmewerte(asset);
 
     final hasLocation = asset.latitude != null && asset.longitude != null;
     final sprache = Localizations.localeOf(context).toString();
+
+    // Welche Fassung der KI-Bildunterschrift angezeigt wird.
+    //
+    // Das Beschreibungsmodell liefert ausschliesslich Englisch; die deutsche
+    // Fassung steht in einer eigenen Spalte, sobald sie übersetzt wurde
+    // (siehe LibraryState.uebersetzeBildbeschreibungen). Bisher zeigte diese
+    // Ansicht IMMER das englische Original – die Übersetzung war zwar da und
+    // durchsuchbar, aber nirgends zu sehen.
+    //
+    // Bei englischer Oberfläche bleibt es beim Original: Eine deutsche
+    // Bildunterschrift in einer englischen Ansicht wäre kein Dienst.
+    final istDeutscheOberflaeche = Localizations.localeOf(context).languageCode == 'de';
+    final deutscheBeschreibung = asset.aiCaptionDe?.trim();
+    final englischeBeschreibung = asset.aiCaption?.trim();
+    final kiBeschreibungIstUebersetzt =
+        istDeutscheOberflaeche && (deutscheBeschreibung?.isNotEmpty ?? false);
+    final String? kiBeschreibung = kiBeschreibungIstUebersetzt
+        ? deutscheBeschreibung
+        : ((englischeBeschreibung?.isEmpty ?? true) ? null : englischeBeschreibung);
     final regionParts = [asset.locationState, asset.locationCountry]
         .whereType<String>()
         .where((s) => s.isNotEmpty)
@@ -309,17 +335,23 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           isDense: true,
                         ),
                       ),
-                      if ((_asset.aiCaption ?? '').trim().isNotEmpty) ...[
+                      if (kiBeschreibung != null) ...[
                         const SizedBox(height: 12),
                         Text(
-                          AppTexte.of(context).infoKiBeschreibung,
+                          // Sagt dazu, wenn der Satz englisch bleibt, obwohl
+                          // die Oberfläche deutsch ist – sonst sähe es nach
+                          // einer vergessenen Übersetzung aus statt nach
+                          // einer, die es noch nicht gibt.
+                          kiBeschreibungIstUebersetzt
+                              ? AppTexte.of(context).infoKiBeschreibung
+                              : AppTexte.of(context).infoKiBeschreibungEnglisch,
                           style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                 color: Theme.of(context).colorScheme.outline,
                               ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _asset.aiCaption!.trim(),
+                          kiBeschreibung,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 fontStyle: FontStyle.italic,
                                 color: Theme.of(context).colorScheme.outline,
@@ -424,16 +456,11 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                         title: asset.originalFileName,
                         subtitle: _fileDetailsSubtitle(asset),
                       ),
-                      if (exposureParts.isNotEmpty)
-                        _IconDetailRow(
-                          icon: Icons.camera_alt_outlined,
-                          title: exposureParts.join('   '),
-                        ),
-                      if (lensTitle != null)
-                        _IconDetailRow(
-                          icon: Icons.camera_outlined,
-                          title: lensTitle,
-                          subtitle: lensSubtitleParts.isEmpty ? null : lensSubtitleParts.join(' · '),
+                      if (kameraTitel != null || werte.isNotEmpty)
+                        _Aufnahmeblock(
+                          kamera: kameraTitel ?? asset.lensModel,
+                          objektiv: objektiv,
+                          werte: werte,
                         ),
                       if (hasLocation)
                         _IconDetailRow(
@@ -578,6 +605,80 @@ class _IconDetailRow extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               onPressed: onEdit,
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kamera, Objektiv und die Aufnahmewerte als ein Block – dieselbe
+/// Gliederung wie in den Informationen von macOS Fotos.
+///
+/// Die Werte-Zeile bricht um, statt abgeschnitten zu werden: Das Bedienfeld
+/// ist schmal, und fünf Werte nebeneinander passen darin nicht immer. Eine
+/// abgeschnittene Verschlusszeit wäre schlimmer als eine zweite Zeile.
+class _Aufnahmeblock extends StatelessWidget {
+  final String? kamera;
+  final String? objektiv;
+  final List<String> werte;
+
+  const _Aufnahmeblock({required this.kamera, required this.objektiv, required this.werte});
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(Icons.camera_alt_outlined, size: 20, color: farben.onSurfaceVariant),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (kamera != null) Text(kamera!),
+                if (objektiv != null) ...[
+                  const SizedBox(height: 2),
+                  Text(objektiv!,
+                      style: TextStyle(fontSize: 12, color: farben.onSurfaceVariant)),
+                ],
+                if (werte.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                    decoration: BoxDecoration(
+                      color: farben.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Wrap(
+                      spacing: 16,
+                      runSpacing: 4,
+                      children: [
+                        for (final wert in werte)
+                          Text(
+                            wert,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: farben.onSurfaceVariant,
+                              // Damit die Werte zweier Fotos untereinander
+                              // fluchten, wenn man durch die Bibliothek geht.
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

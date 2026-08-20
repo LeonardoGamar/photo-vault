@@ -147,16 +147,35 @@ class LibraryLocation {
     }
   }
 
+  /// Schreibt die Konfiguration – erst daneben, dann umbenennen.
+  ///
+  /// Ein `writeAsString` kürzt die Datei zuerst auf null und füllt sie dann.
+  /// Bricht das Programm oder der Rechner in diesem Moment ab, bleibt ein
+  /// Rumpf zurück, den [_leseKonfig] nicht auswerten kann – und da es dort
+  /// (bewusst) keinen Fehler gibt, sondern einen Rückfall auf „keine
+  /// Bibliothek", stünde die App danach wortlos im Standardordner: leere
+  /// Übersicht, und das Security-Scoped-Bookmark des echten Ordners weg,
+  /// das nur der Ordnerdialog wieder erzeugen kann. Selten, aber teuer –
+  /// und ein Umbenennen kostet nichts.
   static Future<void> _schreibeKonfig(String? aktiv, List<Bibliothekseintrag> liste) async {
     final configFile = await _configFile();
     if (aktiv == null && liste.isEmpty) {
       if (await configFile.exists()) await configFile.delete();
       return;
     }
-    await configFile.writeAsString(jsonEncode({
+    final inhalt = jsonEncode({
       'aktiv': aktiv,
       'bibliotheken': [for (final e in liste) e.toJson()],
-    }));
+    });
+    final teil = File('${configFile.path}.neu');
+    try {
+      await teil.writeAsString(inhalt, flush: true);
+      await teil.rename(configFile.path);
+    } finally {
+      // Bleibt nur liegen, wenn schon das Schreiben scheiterte – dann ist
+      // die alte Fassung noch da und der Rumpf hat nichts zu suchen.
+      if (await teil.exists()) await teil.delete();
+    }
   }
 
   /// Aktuelles Wurzelverzeichnis für `library.sqlite` und den `library/`-

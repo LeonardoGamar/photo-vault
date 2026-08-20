@@ -75,51 +75,90 @@ class _RestoreQueueBanner extends StatelessWidget {
   }
 }
 
-/// Zeigt an, dass die rechenintensiven KI-Auswertungen nach einem Import
-/// im Hintergrund nachlaufen (siehe LibraryState.starteHintergrundanalyse).
-/// Unsichtbar, solange nichts läuft. Tippen bricht ab.
+/// Eine Zeile des Hinweisbandes: Ringfortschritt, Text, Abbrechen-Knopf.
+///
+/// Nur der Knopf bricht ab, nicht die ganze Zeile: Ein Tipp auf den
+/// Fortschrittstext beendete sonst einen stundenlangen Lauf (Audit-Fund).
+class _Laufzeile extends StatelessWidget {
+  final double? anteil;
+  final String text;
+  final VoidCallback abbrechen;
+  const _Laufzeile({required this.anteil, required this.text, required this.abbrechen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(
+          left: AppSpacing.lg, right: AppSpacing.sm, top: AppSpacing.sm, bottom: AppSpacing.sm),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, value: anteil),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Text(text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall),
+          ),
+          TextButton(
+            onPressed: abbrechen,
+            child: Text(AppTexte.of(context).allgAbbrechen),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Zeigt an, was gerade im Hintergrund läuft – die Nachanalyse nach einem
+/// Import (siehe LibraryState.starteHintergrundanalyse) und jede von Hand
+/// gestartete Aufgabe (siehe LibraryState.starteAufgabe). Unsichtbar,
+/// solange nichts läuft.
+///
+/// Die zweite Hälfte ist neu und der eigentliche Punkt: Seit die Aufgaben
+/// kein sperrendes Fenster mehr aufziehen, wäre ohne diesen Hinweis
+/// nirgends zu sehen, dass überhaupt gearbeitet wird – man startet etwas,
+/// navigiert weg und hat keinen Anhaltspunkt mehr.
 class _AnalyseBanner extends StatelessWidget {
   final LibraryState library;
   const _AnalyseBanner({required this.library});
 
   @override
   Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
     final a = library.analyse;
-    if (a == null) return const SizedBox.shrink();
+    final laeufe = library.laufendeAufgaben.toList();
+    if (a == null && laeufe.isEmpty) return const SizedBox.shrink();
 
-    final anteil = a.gesamt > 0 ? a.erledigt / a.gesamt : null;
-    // Nur der Knopf bricht ab, nicht das ganze Banner: Ein Tipp auf den
-    // Fortschrittstext beendete sonst einen stundenlangen Lauf (Audit-Fund).
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Padding(
-        padding: const EdgeInsets.only(
-            left: AppSpacing.lg, right: AppSpacing.sm, top: AppSpacing.sm, bottom: AppSpacing.sm),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, value: anteil),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                AppTexte.of(context).analyseLaeuft(
-                  analysestufeName(AppTexte.of(context), a.stufe),
-                  a.stufeNummer,
-                  a.stufenGesamt,
-                  a.gesamt > 0 ? ', ${a.erledigt}/${a.gesamt}' : '',
-                ),
-                style: Theme.of(context).textTheme.bodySmall,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (a != null)
+            _Laufzeile(
+              anteil: a.gesamt > 0 ? a.erledigt / a.gesamt : null,
+              text: t.analyseLaeuft(
+                analysestufeName(t, a.stufe),
+                a.stufeNummer,
+                a.stufenGesamt,
+                a.gesamt > 0 ? ', ${a.erledigt}/${a.gesamt}' : '',
               ),
+              abbrechen: library.brichHintergrundanalyseAb,
             ),
-            TextButton(
-              onPressed: library.brichHintergrundanalyseAb,
-              child: Text(AppTexte.of(context).allgAbbrechen),
+          for (final lauf in laeufe)
+            _Laufzeile(
+              anteil: lauf.anteil,
+              text: lauf.gesamt > 0
+                  ? '${lauf.titel}  ${lauf.erledigt}/${lauf.gesamt}'
+                  : lauf.titel,
+              abbrechen: () => library.brichAufgabeAb(lauf.schluessel),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

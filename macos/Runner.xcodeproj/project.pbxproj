@@ -32,6 +32,7 @@
 		7B4B5697614F0A45C80A20AF /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BF9E40DE9D9046E6806CACBF /* Pods_RunnerTests.framework */; };
 		A9F2DC2E302489510071CD08 /* ImageConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9F2DC2D302489510071CD08 /* ImageConverter.swift */; };
 		C46E21329683B92035B245E3 /* LibraryLocationChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 897093BD2945D33D5F69646F /* LibraryLocationChannel.swift */; };
+		D1E2F30411223344556677A2 /* BeendenChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F30411223344556677A1 /* BeendenChannel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -90,6 +91,7 @@
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		897093BD2945D33D5F69646F /* LibraryLocationChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner/LibraryLocationChannel.swift; sourceTree = "<group>"; };
+		D1E2F30411223344556677A1 /* BeendenChannel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner/BeendenChannel.swift; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A4CEA2A17752D5C27E0D347E /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
 		A9F2DC2D302489510071CD08 /* ImageConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Runner/ImageConverter.swift; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 			children = (
 				A9F2DC2D302489510071CD08 /* ImageConverter.swift */,
 				897093BD2945D33D5F69646F /* LibraryLocationChannel.swift */,
+				D1E2F30411223344556677A1 /* BeendenChannel.swift */,
 				33FAB671232836740065AC1E /* Runner */,
 				33CEB47122A05771004F2AC0 /* Flutter */,
 				331C80D6294CF71000263BE5 /* RunnerTests */,
@@ -457,6 +460,7 @@
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				A9F2DC2E302489510071CD08 /* ImageConverter.swift in Sources */,
 				C46E21329683B92035B245E3 /* LibraryLocationChannel.swift in Sources */,
+				D1E2F30411223344556677A2 /* BeendenChannel.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

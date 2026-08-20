@@ -3128,7 +3128,7 @@ class AppTexteDe extends AppTexte {
   String get infoBeschreibungHinzufuegen => 'Beschreibung hinzufügen';
 
   @override
-  String get infoKiBeschreibung => 'KI-Beschreibung · Englisch';
+  String get infoKiBeschreibung => 'KI-Beschreibung';
 
   @override
   String get infoBewertung => 'Bewertung';
@@ -4822,4 +4822,66 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get stammbaumTafelFertig => 'Die Tafel wurde geschrieben.';
+
+  @override
+  String get aufgWirdErmittelt => 'Wird ermittelt …';
+
+  @override
+  String aufgAbgebrochenBei(int erledigt, int gesamt) {
+    return 'Abgebrochen bei $erledigt von $gesamt';
+  }
+
+  @override
+  String aufgFertigMit(int gesamt) {
+    return 'Fertig – $gesamt bearbeitet';
+  }
+
+  @override
+  String get beendenTitel => 'Es wird noch ausgewertet';
+
+  @override
+  String get beendenText =>
+      'Beim Beenden geht die gerade bearbeitete Datei verloren; alles bereits Ausgewertete bleibt erhalten. Noch am Laufen:';
+
+  @override
+  String get beendenTrotzdem => 'Trotzdem beenden';
+
+  @override
+  String get beendenWeiterlaufen => 'Weiterlaufen lassen';
+
+  @override
+  String get aufgUebersetzenTitel => 'Beschreibungen übersetzen';
+
+  @override
+  String get aufgUebersetzenText =>
+      'Überträgt die vorhandenen englischen KI-Bildunterschriften ins Deutsche – ohne das Beschreibungsmodell erneut laufen zu lassen.';
+
+  @override
+  String get aufgUebersetzungsmodell =>
+      'das Übersetzungsmodell Englisch → Deutsch';
+
+  @override
+  String get werkzUebersetzeBeschreibungen => 'Übersetze Bildbeschreibungen …';
+
+  @override
+  String get werkzAlleUebersetzt => 'Alle Beschreibungen sind übersetzt.';
+
+  @override
+  String get infoKiBeschreibungEnglisch => 'KI-Beschreibung · Englisch';
+
+  @override
+  String werkzLaeuftSchon(String titel) {
+    return 'Läuft bereits als Hintergrundaufgabe: $titel';
+  }
+
+  @override
+  String get aufgLaeuftSchon => 'Diese Auswertung läuft bereits.';
+
+  @override
+  String get aufgAndereLaeuft =>
+      'Es läuft bereits eine andere Auswertung. Teure Auswertungen laufen nacheinander, damit nicht mehrere KI-Modelle gleichzeitig im Speicher liegen.';
+
+  @override
+  String get aufgAnalyseLaeuft =>
+      'Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.';
 }
