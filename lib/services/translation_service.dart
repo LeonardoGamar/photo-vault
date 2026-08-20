@@ -25,7 +25,7 @@ enum Uebersetzungsrichtung {
 
 /// Übersetzt kurze Texte on-device mit einem OPUS-MT/Marian-Modell.
 ///
-/// Aufbau wie bei [CaptioningService]: ein Encoder, der den Satz einmal
+/// Aufbau wie bei [FlorenceCaptioningService]: ein Encoder, der den Satz einmal
 /// liest, und ein Decoder, der Wort für Wort erzeugt. Zwei Unterschiede,
 /// beide gegen die echten ONNX-Dateien geprüft:
 ///
@@ -86,7 +86,7 @@ class TranslationService {
   /// die gesamte Schleife – schlägt ein Aufruf mittendrin fehl, gibt der
   /// `finally`-Block alles frei, was zu dem Zeitpunkt offen war, statt
   /// native Tensor-Kennungen für immer liegen zu lassen. Dasselbe Muster
-  /// wie in [CaptioningService], und aus demselben Anlass: Dort war das
+  /// wie in [FlorenceCaptioningService], und aus demselben Anlass: Dort war das
   /// ein Prüfbefund.
   Future<String> translate(String text) async {
     if (text.trim().isEmpty) return '';

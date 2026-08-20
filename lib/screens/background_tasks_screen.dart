@@ -539,6 +539,15 @@ class BackgroundTasksScreen extends StatelessWidget {
                 emptyMessage: t.werkzAlleHabenBeschreibung,
                 stream: () => library.backfillCaptions(),
               ),
+              // Nach dem Modellwechsel der eigentlich sinnvolle Weg: Die
+              // vorhandenen Sätze stammen vom abgelösten Modell.
+              _TaskAction(
+                label: t.werkzAlleFotos,
+                icon: Icons.all_inclusive,
+                dialogTitle: t.werkzErzeugeBeschreibungen,
+                emptyMessage: t.werkzKeinePassenden,
+                stream: () => library.backfillCaptions(alle: true),
+              ),
             ],
           ),
           _TaskCard(

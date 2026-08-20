@@ -1980,19 +1980,19 @@ abstract class AppTexte {
   /// No description provided for @modellCaptionTitel.
   ///
   /// In de, this message translates to:
-  /// **'KI-Bildbeschreibung – ViT-GPT2 (Englisch)'**
+  /// **'KI-Bildbeschreibung – Florence-2 (Englisch)'**
   String get modellCaptionTitel;
 
   /// No description provided for @modellCaptionText.
   ///
   /// In de, this message translates to:
-  /// **'Erzeugt automatisch eine kurze, englische Bildunterschrift pro Foto (z.B. für die Suche oder als schnelle Übersicht). Es gibt aktuell kein vergleichbar kleines deutsches Modell – Ausgabe ist immer Englisch.'**
+  /// **'Erzeugt automatisch eine Bildunterschrift pro Foto – für die Suche und als schnelle Übersicht. Liest dabei auch Schrift im Bild, etwa Ladenschilder oder Ortstafeln. Ausgabe ist Englisch; auf Wunsch übersetzt die App sie ins Deutsche (eigenes Modell). Ein vergleichbar kleines mehrsprachiges Modell gibt es nicht – die mehrsprachigen liegen im Gigabyte-Bereich.'**
   String get modellCaptionText;
 
   /// No description provided for @modellCaptionLizenz.
   ///
   /// In de, this message translates to:
-  /// **'Apache-2.0 (Basis: nlpconnect/vit-gpt2-image-captioning, ONNX-Port: Xenova)'**
+  /// **'MIT (Basis: microsoft/Florence-2-base-ft, ONNX-Port: onnx-community)'**
   String get modellCaptionLizenz;
 
   /// No description provided for @modellOcecTitel.
@@ -2582,6 +2582,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Für Fotos, die vor Installation des CLIP-Modells importiert wurden – ohne Embedding tauchen sie in der KI-Bildsuche und der Duplikatsuche nicht auf.'**
   String get werkzEmbeddingsText;
+
+  /// No description provided for @werkzEmbeddingsFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur fehlende: für Fotos, die vor Installation des CLIP-Modells importiert wurden.\n\nAlle Fotos: rechnet auch vorhandene neu. Nötig nach einer Änderung der Bildvorverarbeitung – seit Version 1.4 wird ein Foto mittig zugeschnitten statt gestaucht, und alte Vektoren stammen noch aus dem gestauchten Bild. Bis das nachgeholt ist, arbeiten Bildsuche und Schlagwörter mit zweierlei Mass.'**
+  String get werkzEmbeddingsFrage;
 
   /// No description provided for @werkzKiTagsKarteText.
   ///

@@ -121,7 +121,7 @@ class Assets extends Table {
   BoolColumn get ocrScanned => boolean().withDefault(const Constant(false))();
 
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
-  /// CaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
+  /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
   TextColumn get aiCaption => text().nullable()();
 
@@ -1845,7 +1845,7 @@ class AppDatabase extends _$AppDatabase {
       assets.isLocked.equals(false) &
       assets.ocrScanned.equals(false));
 
-  /// Setzt das Ergebnis der KI-Bildbeschreibung (siehe CaptioningService) –
+  /// Setzt das Ergebnis der KI-Bildbeschreibung (siehe FlorenceCaptioningService) –
   /// analog zu [setOcrResult].
   ///
   /// [deutsch] ist die übersetzte Fassung, sofern das Übersetzungsmodell
@@ -1883,13 +1883,18 @@ class AppDatabase extends _$AppDatabase {
   /// Bild-Assets ohne KI-Bildbeschreibung – für den nachträglichen Lauf in
   /// den Werkzeugen, analog zu [assetsForOcrBackfill] (gesperrte Fotos
   /// ebenfalls ausgenommen, siehe dort).
-  Future<List<AssetData>> assetsForCaptionBackfill() => (select(assets)
-        ..where((t) =>
-            t.type.equals('IMAGE') &
-            t.isTrashed.equals(false) &
-            t.isLocked.equals(false) &
-            t.aiCaptionScanned.equals(false)))
-      .get();
+  /// [alle] nimmt auch Fotos mit, die schon eine Beschreibung haben – für
+  /// den Modellwechsel: Die vorhandenen Sätze stammen vom abgelösten
+  /// ViT-GPT2 und sind messbar schlechter (siehe
+  /// [ModelCatalog.captioningFlorence]).
+  Future<List<AssetData>> assetsForCaptionBackfill({bool alle = false}) =>
+      (select(assets)
+            ..where((t) =>
+                t.type.equals('IMAGE') &
+                t.isTrashed.equals(false) &
+                t.isLocked.equals(false) &
+                (alle ? const Constant(true) : t.aiCaptionScanned.equals(false))))
+          .get();
 
   /// Zählvariante von [assetsForCaptionBackfill], siehe [countLocationBackfill].
   Future<int> countCaptionBackfill() => _countWhere(assets.type.equals('IMAGE') &
@@ -3789,7 +3794,12 @@ class AppDatabase extends _$AppDatabase {
   /// Fotos ohne CLIP-Embedding – z.B. weil sie importiert wurden, bevor das
   /// CLIP-Modell installiert war (Embeddings werden sonst automatisch beim
   /// Import berechnet). Für das nachträgliche Berechnen in den Werkzeugen.
-  Future<List<AssetData>> assetsForEmbeddingBackfill() async {
+  /// [alle] nimmt auch Fotos mit, die schon ein Embedding haben – nötig,
+  /// wenn sich die Bildvorverarbeitung geändert hat: Ein Vektor aus einem
+  /// gestauchten Bild und einer aus einem mittig zugeschnittenen lassen
+  /// sich nicht sinnvoll gegeneinander rechnen (siehe `_aufClipGroesse` in
+  /// clip_service.dart).
+  Future<List<AssetData>> assetsForEmbeddingBackfill({bool alle = false}) async {
     final query = select(assets).join([
       leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
     ])
@@ -3799,7 +3809,7 @@ class AppDatabase extends _$AppDatabase {
           // CLIP-Embedding beschreibt den Bildinhalt und ist damit ebenso
           // wenig für die unverschlüsselte Datenbank gedacht.
           assets.isLocked.equals(false) &
-          imageEmbeddings.assetId.isNull());
+          (alle ? const Constant(true) : imageEmbeddings.assetId.isNull()));
     final rows = await query.get();
     return rows.map((r) => r.readTable(assets)).toList();
   }

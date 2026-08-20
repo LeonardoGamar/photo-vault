@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/services/backup_service.dart';
-import 'package:photo_vault/services/captioning_service.dart';
+import 'package:photo_vault/services/florence_captioning_service.dart';
 import 'package:photo_vault/services/clip_service.dart';
 import 'package:photo_vault/services/eye_state_service.dart';
 import 'package:photo_vault/services/face_engine_service.dart';
@@ -53,7 +53,7 @@ void main() {
       ..eyeStateHalter = falle<EyeStateService>('Augen')
       ..clipBildHalter = falle<ClipService>('CLIP-Bild')
       ..clipTextHalter = falle<ClipService>('CLIP-Text')
-      ..captioningHalter = falle<CaptioningService>('Bildbeschreibung');
+      ..captioningHalter = falle<FlorenceCaptioningService>('Bildbeschreibung');
 
     // Leere Bibliothek: keine Stufe hat etwas zu tun.
     await lib.starteHintergrundanalyse();

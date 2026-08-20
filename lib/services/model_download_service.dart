@@ -169,4 +169,35 @@ class ModelDownloadService {
     }
     return entfernt;
   }
+
+  /// Dateien des abgelösten Beschreibungsmodells (ViT-GPT2), das seit
+  /// Version 1.4 durch Florence-2 ersetzt ist.
+  ///
+  /// Sie stehen in keinem Katalogeintrag mehr und liessen sich deshalb
+  /// auch nicht mehr über die Modellverwaltung löschen – 246 MB, die
+  /// niemand je wieder anfasst. Dasselbe Muster wie bei den verwaisten
+  /// Gesichtsausschnitten der achten Prüfrunde: Wer etwas ablöst, muss
+  /// aufräumen, sonst tut es niemand.
+  ///
+  /// Nur beim Programmstart aufrufen, aus demselben Grund wie oben.
+  Future<int> raeumeAbgeloesteModelle() async {
+    const abgeloest = [
+      'caption_encoder.onnx',
+      'caption_decoder.onnx',
+      'caption_vocab.json',
+    ];
+    var bytes = 0;
+    for (final name in abgeloest) {
+      final f = File('$modelsDir/$name');
+      try {
+        if (await f.exists()) {
+          bytes += await f.length();
+          await f.delete();
+        }
+      } catch (e) {
+        debugPrint('Abgelöste Modelldatei $name liess sich nicht entfernen: $e');
+      }
+    }
+    return bytes;
+  }
 }

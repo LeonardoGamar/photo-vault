@@ -108,49 +108,62 @@ void main() {
   });
 
   group('Schlagwort-Vokabular', () {
+    // Geänderte Entscheidung (Version 1.4): Für Begriffe des
+    // Standardvokabulars gilt jetzt die von Hand geprüfte Tabelle, nicht
+    // die Maschine – und der Begriff geht in einer Satzschablone an den
+    // Encoder. Beides gemessen: An 40 echten Fotos stieg die Güte von
+    // F1 0,16 auf 0,48, an einer zweiten Stichprobe von 0,07 auf 0,42.
+    // Die Maschine bleibt für selbst hinzugefügte Begriffe zuständig.
+
     test('der Cache hängt am deutschen Begriff, nicht an der Übersetzung', () async {
       // Der Tag wird unter dem deutschen Namen vergeben. Hinge der Cache
       // an der Übersetzung, käme bei abgeschalteter Übersetzung ein
       // anderer Schlüssel heraus und die Vektoren würden doppelt gerechnet.
       final dienst = AiTaggingService();
       final gefragt = <String>[];
-
-      // Ein Bild-Embedding, das zu allem passt, damit jeder Begriff
-      // durchkommt und der Cache-Weg sichtbar wird.
       final bild = Float32List.fromList([1, 0, 0]);
 
       final tags = await dienst.suggestTags(
         _ClipAttrappe(gefragt),
         bild,
         ['Sonnenuntergang', 'Hund'],
-        insEnglische: (t) async => t == 'Sonnenuntergang' ? 'Sunset' : 'Dog',
+        insEnglische: (t) async => 'sollte nicht gefragt werden',
       );
 
       expect(tags, ['Sonnenuntergang', 'Hund'],
           reason: 'vergeben wird der deutsche Begriff');
-      expect(gefragt, ['Sunset', 'Dog'],
-          reason: 'eingebettet wird die englische Fassung');
+      expect(gefragt, ['a photo of sunset.', 'a photo of dog.'],
+          reason: 'geprüfte Übersetzung, in der Schablone');
 
       // Zweiter Lauf: nichts wird erneut eingebettet.
       gefragt.clear();
       await dienst.suggestTags(
-        _ClipAttrappe(gefragt),
-        bild,
-        ['Sonnenuntergang', 'Hund'],
-        insEnglische: (t) async => 'sollte nicht gefragt werden',
-      );
+        _ClipAttrappe(gefragt), bild, ['Sonnenuntergang', 'Hund']);
       expect(gefragt, isEmpty);
     });
 
-    test('ohne Übersetzerfunktion bleibt alles wie bisher', () async {
+    test('ein selbst hinzugefügter Begriff geht weiterhin an die Maschine',
+        () async {
       final dienst = AiTaggingService();
       final gefragt = <String>[];
       await dienst.suggestTags(
         _ClipAttrappe(gefragt),
         Float32List.fromList([1, 0, 0]),
-        ['Sonnenuntergang'],
+        ['Ferienlager'],
+        insEnglische: (t) async => 'summer camp',
       );
-      expect(gefragt, ['Sonnenuntergang']);
+      expect(gefragt, ['a photo of summer camp.']);
+    });
+
+    test('ohne Übersetzerfunktion greift wenigstens die Schablone', () async {
+      final dienst = AiTaggingService();
+      final gefragt = <String>[];
+      await dienst.suggestTags(
+        _ClipAttrappe(gefragt),
+        Float32List.fromList([1, 0, 0]),
+        ['Ferienlager'],
+      );
+      expect(gefragt, ['a photo of ferienlager.']);
     });
 
     test('das Leeren des Caches erzwingt ein Neuberechnen', () async {
@@ -161,14 +174,15 @@ void main() {
       final gefragt = <String>[];
       final bild = Float32List.fromList([1, 0, 0]);
 
-      await dienst.suggestTags(_ClipAttrappe(gefragt), bild, ['Hund'],
-          insEnglische: (t) async => 'Dog');
-      expect(gefragt, ['Dog']);
+      await dienst.suggestTags(_ClipAttrappe(gefragt), bild, ['Ferienlager'],
+          insEnglische: (t) async => 'summer camp');
+      expect(gefragt, ['a photo of summer camp.']);
 
       dienst.leereBegriffsCache();
       gefragt.clear();
-      await dienst.suggestTags(_ClipAttrappe(gefragt), bild, ['Hund']);
-      expect(gefragt, ['Hund'], reason: 'jetzt ohne Übersetzung');
+      await dienst.suggestTags(_ClipAttrappe(gefragt), bild, ['Ferienlager']);
+      expect(gefragt, ['a photo of ferienlager.'],
+          reason: 'jetzt ohne Übersetzung');
     });
   });
 }

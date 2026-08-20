@@ -1152,15 +1152,16 @@ class AppTexteDe extends AppTexte {
       'Apache-2.0 (Gewichte: Meta Segment Anything, siehe Quelle)';
 
   @override
-  String get modellCaptionTitel => 'KI-Bildbeschreibung – ViT-GPT2 (Englisch)';
+  String get modellCaptionTitel =>
+      'KI-Bildbeschreibung – Florence-2 (Englisch)';
 
   @override
   String get modellCaptionText =>
-      'Erzeugt automatisch eine kurze, englische Bildunterschrift pro Foto (z.B. für die Suche oder als schnelle Übersicht). Es gibt aktuell kein vergleichbar kleines deutsches Modell – Ausgabe ist immer Englisch.';
+      'Erzeugt automatisch eine Bildunterschrift pro Foto – für die Suche und als schnelle Übersicht. Liest dabei auch Schrift im Bild, etwa Ladenschilder oder Ortstafeln. Ausgabe ist Englisch; auf Wunsch übersetzt die App sie ins Deutsche (eigenes Modell). Ein vergleichbar kleines mehrsprachiges Modell gibt es nicht – die mehrsprachigen liegen im Gigabyte-Bereich.';
 
   @override
   String get modellCaptionLizenz =>
-      'Apache-2.0 (Basis: nlpconnect/vit-gpt2-image-captioning, ONNX-Port: Xenova)';
+      'MIT (Basis: microsoft/Florence-2-base-ft, ONNX-Port: onnx-community)';
 
   @override
   String get modellOcecTitel => 'Geschlossene-Augen-Erkennung – OCEC';
@@ -1497,6 +1498,10 @@ class AppTexteDe extends AppTexte {
   @override
   String get werkzEmbeddingsText =>
       'Für Fotos, die vor Installation des CLIP-Modells importiert wurden – ohne Embedding tauchen sie in der KI-Bildsuche und der Duplikatsuche nicht auf.';
+
+  @override
+  String get werkzEmbeddingsFrage =>
+      'Nur fehlende: für Fotos, die vor Installation des CLIP-Modells importiert wurden.\n\nAlle Fotos: rechnet auch vorhandene neu. Nötig nach einer Änderung der Bildvorverarbeitung – seit Version 1.4 wird ein Foto mittig zugeschnitten statt gestaucht, und alte Vektoren stammen noch aus dem gestauchten Bild. Bis das nachgeholt ist, arbeiten Bildsuche und Schlagwörter mit zweierlei Mass.';
 
   @override
   String get werkzKiTagsKarteText =>

@@ -60,7 +60,7 @@ String modellTitel(AppTexte t, String id) => switch (id) {
       'face_recognition_sface' => t.modellSfaceTitel,
       'clip_vit_b32' => t.modellClipTitel,
       'segmentation_sam_vit_base' => t.modellSamTitel,
-      'captioning_vit_gpt2' => t.modellCaptionTitel,
+      'captioning_florence2_base_ft' => t.modellCaptionTitel,
       'eye_state_ocec' => t.modellOcecTitel,
       'neural_restore_real_esrgan_x4' => t.modellEsrganTitel,
       'inpainting_lama' => t.modellLamaTitel,
@@ -76,7 +76,7 @@ String modellBeschreibung(AppTexte t, String id) => switch (id) {
       'face_recognition_sface' => t.modellSfaceText,
       'clip_vit_b32' => t.modellClipText,
       'segmentation_sam_vit_base' => t.modellSamText,
-      'captioning_vit_gpt2' => t.modellCaptionText,
+      'captioning_florence2_base_ft' => t.modellCaptionText,
       'eye_state_ocec' => t.modellOcecText,
       'neural_restore_real_esrgan_x4' => t.modellEsrganText,
       'inpainting_lama' => t.modellLamaText,
@@ -90,7 +90,7 @@ String modellLizenz(AppTexte t, String id) => switch (id) {
       'face_recognition_sface' => t.modellSfaceLizenz,
       'clip_vit_b32' => t.modellClipLizenz,
       'segmentation_sam_vit_base' => t.modellSamLizenz,
-      'captioning_vit_gpt2' => t.modellCaptionLizenz,
+      'captioning_florence2_base_ft' => t.modellCaptionLizenz,
       'eye_state_ocec' => t.modellOcecLizenz,
       'neural_restore_real_esrgan_x4' => t.modellEsrganLizenz,
       'inpainting_lama' => t.modellLamaLizenz,
@@ -185,46 +185,74 @@ class ModelCatalog {
     ],
   );
 
-  /// ViT-GPT2 (nlpconnect/vit-gpt2-image-captioning), quantisiert – für
-  /// automatische (englische) Bildunterschriften. Zwei Teilmodelle wie bei
-  /// CLIP/SAM: ein Bild-Encoder (einmal pro Foto) und ein autoregressiver
-  /// Text-Decoder – ANDERS als bei SAM aber KEIN einzelner Forward-Pass,
-  /// sondern ein Greedy-Decoding-Loop mit KV-Cache (siehe
-  /// CaptioningService). Derselbe Anbieter (Xenova/transformers.js) wie
-  /// CLIP/SAM oben. Exakte Ein-/Ausgabe-Tensoren real gegen die ONNX-
-  /// Dateien verifiziert (Python `onnx`-Paket) UND per End-to-End-
-  /// Smoke-Test (Python `onnxruntime`) gegen ein echtes Foto bestätigt:
-  /// Encoder nimmt `pixel_values` [1,3,224,224] entgegen (Skalierung auf
-  /// Faktor 1/255, Normalisierung mit Mittel/Standardabweichung je 0,5),
-  /// liefert `last_hidden_state` [1,197,768]. Der Decoder ist ein
-  /// "merged" Optimum-Export (ein `use_cache_branch`-Flag statt zweier
-  /// getrennter Dateien für ersten/folgenden Schritt), nimmt zusätzlich
-  /// `input_ids` [1,1] (int64) sowie 24 `past_key_values.{0..11}.
-  /// {key,value}` [1,12,n,64] entgegen und liefert `logits` [1,1,50257]
-  /// plus 24 `present.{0..11}.{key,value}` für den nächsten Schritt.
+  /// Florence-2 (base-ft) – das Beschreibungsmodell seit Version 1.4.
   ///
-  /// Bewusste Einschränkung: es gibt kein vergleichbar kleines, real
-  /// verifizierbares deutsches/mehrsprachiges Bildbeschreibungs-Modell in
-  /// diesem Ökosystem – Captions sind ausschließlich Englisch (COCO-
-  /// Trainingsdaten), UI kennzeichnet das entsprechend.
-  static const captioning = ModelCatalogEntry(
-    id: 'captioning_vit_gpt2',
-    sourceUrl: 'https://huggingface.co/Xenova/vit-gpt2-image-captioning',
+  /// **Warum der Wechsel weg von ViT-GPT2.** An 40 echten Fotos einer
+  /// gewachsenen Bibliothek von Hand beurteilt: ViT-GPT2 traf 11, traf
+  /// halb 18, lag 11 Mal falsch. Florence-2 traf 27, halb 11, falsch 2.
+  /// An einer zweiten, überschneidungsfreien Stichprobe dasselbe Bild
+  /// (7 gegen 27). ViT-GPT2 ist auf COCO trainiert und griff deshalb zu
+  /// COCO-Gegenständen: Katze, Hydrant, Fernbedienung und Krawatte
+  /// standen in Beschreibungen von Fotos, auf denen nichts davon zu
+  /// sehen war.
+  ///
+  /// Florence-2 liest zudem Schrift im Bild – Ladenschilder, Ortstafeln,
+  /// Aufschriften kamen in der Prüfstichprobe wörtlich richtig heraus.
+  ///
+  /// **Warum nicht gleich mehrsprachig?** Weil es dafür nichts in dieser
+  /// Grössenordnung gibt. Geprüft wurden BLIP (nur Gemeinschaftskopien
+  /// mit zweistelligen Downloadzahlen, die Kopie von onnx-community
+  /// enthält gar keine Modelldatei) und die mehrsprachigen
+  /// Seh-Sprach-Modelle, die alle im Gigabyte-Bereich liegen. Der Umweg
+  /// über [translationEnDe] ist ausgemessen und gut: Die Übersetzung
+  /// liefert flüssiges Deutsch und kostet 0,07 s je Satz. Sie war nie das
+  /// Problem – sie bekam nur schlechtes Englisch.
+  ///
+  /// **Der Preis:** vier Dateien statt zwei (275 statt 246 MB) und rund
+  /// fünfmal so viel Rechenzeit je Foto.
+  ///
+  /// Ein-/Ausgabetensoren real gegen die heruntergeladenen Dateien
+  /// geprüft (Python `onnx`/`onnxruntime`) und mit einem
+  /// End-zu-End-Lauf über 80 Fotos bestätigt:
+  /// `vision_encoder` nimmt `pixel_values` [1,3,768,768] (ImageNet-
+  /// Statistik, **kein** mittiger Zuschnitt) und liefert `image_features`
+  /// [1,577,768]; `embed_tokens` bildet `input_ids` auf `inputs_embeds`
+  /// ab; der Encoder nimmt `inputs_embeds` + `attention_mask`; der
+  /// zusammengeführte Decoder zusätzlich 24 `past_key_values.{0..5}.
+  /// {decoder,encoder}.{key,value}` und ein `use_cache_branch`-Flag.
+  static const captioningFlorence = ModelCatalogEntry(
+    id: 'captioning_florence2_base_ft',
+    sourceUrl: 'https://huggingface.co/onnx-community/Florence-2-base-ft',
     files: [
       ModelFile(
-        'caption_encoder.onnx',
-        'https://huggingface.co/Xenova/vit-gpt2-image-captioning/resolve/main/onnx/encoder_model_quantized.onnx',
-        '6f6e2e27c11303cf533682184543333e7ecb930a734197a0272a1e408aba2766',
+        'florence_vision.onnx',
+        'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/vision_encoder_quantized.onnx',
+        '3b79d54f23f666f731549db23cb070c35a979ce19cbd9720e90e67a78dc9768c',
       ),
       ModelFile(
-        'caption_decoder.onnx',
-        'https://huggingface.co/Xenova/vit-gpt2-image-captioning/resolve/main/onnx/decoder_model_merged_quantized.onnx',
-        '1f3ec53b5fc3614c0b54ee786755a7ec3007841f57543f8e241499edfadfa98f',
+        'florence_embed.onnx',
+        'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/embed_tokens_quantized.onnx',
+        '6b2258db1c8ee9b160576ccde3cd3814d83a2edaed0dd1c6ca9ff3c38fa62214',
       ),
       ModelFile(
-        'caption_vocab.json',
-        'https://huggingface.co/Xenova/vit-gpt2-image-captioning/resolve/main/vocab.json',
-        '3ba3c3109ff33976c4bd966589c11ee14fcaa1f4c9e5e154c2ed7f99d80709e7',
+        'florence_encoder.onnx',
+        'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/encoder_model_quantized.onnx',
+        'f4ad7a68f1fb875d3bcf735ea14a7021b7ba7e83baf7cf10289881b4ed6d9b85',
+      ),
+      ModelFile(
+        'florence_decoder.onnx',
+        'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/decoder_model_merged_quantized.onnx',
+        'f22f52f980c33df0efa15932c2f3db6d9d3595ce6387eca938b8cfe23dc4c641',
+      ),
+      ModelFile(
+        'florence_vocab.json',
+        'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/vocab.json',
+        '394fdc63c71aabe0a9b97117f5d62fb5fcc4d59b2b3ea929a3929e6a53217b3c',
+      ),
+      ModelFile(
+        'florence_merges.txt',
+        'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/merges.txt',
+        '1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5',
       ),
     ],
   );
@@ -387,7 +415,7 @@ class ModelCatalog {
     faceRecognition,
     clip,
     segmentation,
-    captioning,
+    captioningFlorence,
     eyeState,
     neuralRestore,
     inpainting,

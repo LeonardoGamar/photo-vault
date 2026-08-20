@@ -1141,15 +1141,15 @@ class AppTexteEn extends AppTexte {
       'Apache-2.0 (weights: Meta Segment Anything, see source)';
 
   @override
-  String get modellCaptionTitel => 'AI image captions – ViT-GPT2 (English)';
+  String get modellCaptionTitel => 'AI image captions – Florence-2 (English)';
 
   @override
   String get modellCaptionText =>
-      'Automatically writes a short English caption for each photo – useful for search, or as a quick overview. The output is always English; there is currently no comparably small model for other languages.';
+      'Generates a caption for each photo – for search and as a quick overview. It also reads text in the image, such as shop signs or place names. Output is English; the app can translate it into your language with a separate model. There is no comparably small multilingual model – the multilingual ones are gigabytes in size.';
 
   @override
   String get modellCaptionLizenz =>
-      'Apache-2.0 (base: nlpconnect/vit-gpt2-image-captioning, ONNX port: Xenova)';
+      'MIT (base: microsoft/Florence-2-base-ft, ONNX port: onnx-community)';
 
   @override
   String get modellOcecTitel => 'Closed-eye detection – OCEC';
@@ -1485,6 +1485,10 @@ class AppTexteEn extends AppTexte {
   @override
   String get werkzEmbeddingsText =>
       'For photos imported before the CLIP model was installed – without an embedding they show up in neither the AI image search nor the duplicate search.';
+
+  @override
+  String get werkzEmbeddingsFrage =>
+      'Missing only: for photos imported before the CLIP model was installed.\n\nAll photos: recomputes existing ones too. Needed after a change to image preprocessing – since version 1.4 a photo is centre-cropped instead of squashed, and older vectors still come from the squashed image. Until this is done, search and tagging work to two different standards.';
 
   @override
   String get werkzKiTagsKarteText =>

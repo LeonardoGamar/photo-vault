@@ -8,7 +8,7 @@ import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/background_tasks_screen.dart';
 import 'package:photo_vault/services/backup_service.dart';
-import 'package:photo_vault/services/captioning_service.dart';
+import 'package:photo_vault/services/florence_captioning_service.dart';
 import 'package:photo_vault/services/clip_service.dart';
 import 'package:photo_vault/services/eye_state_service.dart';
 import 'package:photo_vault/services/face_engine_service.dart';
@@ -51,7 +51,7 @@ void main() {
       ..eyeStateHalter = halter<EyeStateService>('Augen', installiert: false)
       ..clipBildHalter = halter<ClipService>('CLIP-Bild', installiert: false)
       ..clipTextHalter = halter<ClipService>('CLIP-Text', installiert: false)
-      ..captioningHalter = halter<CaptioningService>('Bildbeschreibung', installiert: false);
+      ..captioningHalter = halter<FlorenceCaptioningService>('Bildbeschreibung', installiert: false);
   });
 
   tearDown(() async {

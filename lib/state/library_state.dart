@@ -17,7 +17,7 @@ import '../l10n/app_localizations.dart';
 import '../services/ai_tagging_service.dart';
 import '../services/backup_service.dart';
 import '../services/blur_detection.dart';
-import '../services/captioning_service.dart';
+import '../services/florence_captioning_service.dart';
 import '../services/clip_service.dart';
 import '../services/develop_color.dart';
 import '../services/translation_service.dart';
@@ -138,7 +138,8 @@ class LibraryState extends ChangeNotifier {
   ModellHalter<ClipService> clipBildHalter = _leererHalter('CLIP-Bild');
   ModellHalter<ClipService> clipTextHalter = _leererHalter('CLIP-Text');
   ModellHalter<SegmentationService> segmentationHalter = _leererHalter('Segmentierung');
-  ModellHalter<CaptioningService> captioningHalter = _leererHalter('Bildbeschreibung');
+  ModellHalter<FlorenceCaptioningService> captioningHalter =
+      _leererHalter('Bildbeschreibung');
 
   /// Die beiden Übersetzungsrichtungen – getrennte Halter, weil sie
   /// getrennt installierbar sind und selten gleichzeitig gebraucht werden.
@@ -316,6 +317,7 @@ class LibraryState extends ChangeNotifier {
     // den Modellordner ansieht – sie sind nutzlos und können mehrere
     // hundert MB belegen (Audit-Fund).
     unawaited(modelDownloadService.raeumeAbgebrocheneDownloads());
+    unawaited(modelDownloadService.raeumeAbgeloesteModelle());
     // Welche Bibliothek ist offen? Nur anzeigen, wenn es eine Wahl gibt.
     try {
       final bekannt = await LibraryLocation.bekannte();
@@ -451,10 +453,10 @@ class LibraryState extends ChangeNotifier {
       laden: () => TranslationService.load(_modelsDir!, Uebersetzungsrichtung.deEn),
       entsorgen: (s) => s.dispose(),
     );
-    captioningHalter = ModellHalter<CaptioningService>(
+    captioningHalter = ModellHalter<FlorenceCaptioningService>(
       name: 'Bildbeschreibung',
-      installiert: CaptioningService.isAvailable(_modelsDir!),
-      laden: () => CaptioningService.load(_modelsDir!),
+      installiert: FlorenceCaptioningService.isAvailable(_modelsDir!),
+      laden: () => FlorenceCaptioningService.load(_modelsDir!),
       entsorgen: (s) => s.dispose(),
     );
     restoreQueue.restoreHalter = ModellHalter<RestoreService>(
@@ -1411,12 +1413,15 @@ class LibraryState extends ChangeNotifier {
   /// Erzeugt KI-Bildbeschreibungen nachträglich für Fotos, die vor
   /// Installation des Modells importiert wurden (Captions entstehen sonst
   /// nur automatisch beim Import, siehe [_postProcessNewAsset]).
-  Stream<ImportProgress> backfillCaptions() async* {
+  /// [alle] beschreibt auch Fotos neu, die schon eine Beschreibung haben –
+  /// nach dem Modellwechsel der sinnvolle Weg, siehe
+  /// [AppDatabase.assetsForCaptionBackfill].
+  Stream<ImportProgress> backfillCaptions({bool alle = false}) async* {
     // Erst die Arbeit ermitteln, dann das Modell holen – siehe
-    // [_bildinhaltsAnalyse]. Das Bildbeschreibungs-Modell ist mit 235 MB
+    // [_bildinhaltsAnalyse]. Das Bildbeschreibungs-Modell ist mit 275 MB
     // das zweitgrösste; es für eine leere Liste zu laden war der teuerste
     // Einzelposten des Fehlers.
-    final assets = await db.assetsForCaptionBackfill();
+    final assets = await db.assetsForCaptionBackfill(alle: alle);
     if (assets.isEmpty) {
       yield ImportProgress(0, 0);
       return;
@@ -1670,10 +1675,12 @@ class LibraryState extends ChangeNotifier {
   /// sonst nur automatisch beim Import, siehe [_postProcessNewAsset]) –
   /// ohne dieses Werkzeug bliebe die KI-Bildsuche/Duplikatsuche auf die
   /// wenigen danach importierten Fotos beschränkt.
-  Stream<ImportProgress> backfillClipEmbeddings() async* {
+  /// [alle] rechnet auch bereits vorhandene Einbettungen neu – für den
+  /// Fall, dass sich die Bildvorverarbeitung geändert hat.
+  Stream<ImportProgress> backfillClipEmbeddings({bool alle = false}) async* {
     // Erst die Arbeit ermitteln, dann das Modell holen – siehe
     // [_bildinhaltsAnalyse].
-    final assets = await db.assetsForEmbeddingBackfill();
+    final assets = await db.assetsForEmbeddingBackfill(alle: alle);
     if (assets.isEmpty) {
       yield ImportProgress(0, 0);
       return;

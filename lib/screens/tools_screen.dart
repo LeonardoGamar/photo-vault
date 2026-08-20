@@ -175,11 +175,33 @@ class _ToolsScreenState extends State<ToolsScreen> {
       ));
       return;
     }
+    final alle = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppTexte.of(context).werkzEmbeddingsTitel),
+        content: Text(AppTexte.of(context).werkzEmbeddingsFrage),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(AppTexte.of(context).werkzNurFehlende),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(AppTexte.of(context).werkzAlleFotos),
+          ),
+        ],
+      ),
+    );
+    if (alle == null || !mounted) return;
+
     final t = AppTexte.of(context);
     await _zeigeFortschritt(
       titel: t.werkzBerechneEmbeddings,
       wennLeer: t.werkzAlleHabenEmbedding,
-      lauf: widget.library.backfillClipEmbeddings(),
+      lauf: widget.library.backfillClipEmbeddings(alle: alle),
     );
   }
 

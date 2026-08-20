@@ -29,9 +29,31 @@ Kartenkacheln in der Kartenansicht. Sonst nichts.
 |---|---|
 | ![Fotoorte auf der Karte](docs/screenshots/karte.png) | ![Erkannte Personen](docs/screenshots/personen.png) |
 
-Alle Aufnahmen zeigen ausschließlich **gemeinfreie** Fotos aus einer
-Demo-Bibliothek (NASA, National Archives, historische Aufnahmen) – nie
-Bilder aus einer echten Sammlung. Wie das sichergestellt wird, steht in
+Der Stammbaum, in drei seiner fünf Sichten:
+
+![Stammbaum: der Ausschnitt um eine Person, mit berechneten Bezeichnungen](docs/screenshots/stammbaum.png)
+
+Eltern oben, Kinder unten, Geschwister und Partner daneben. Unter jedem
+Namen steht, wie die Person zur Mitte gehört – ausgerechnet, nicht
+eingetippt. „Adoptivmutter" ist eine eigene Art der Verbindung.
+
+![Sanduhr: vier Generationen aufwärts, drei abwärts, dazu die Seitenlinie](docs/screenshots/stammbaum-sanduhr.png)
+
+Die Sanduhr zeigt Vorfahren und Nachkommen in einem Bild. Mit
+eingeschalteter **Seitenlinie** stehen Geschwister daneben und deren
+Kinder darunter – so werden auch Neffen, Nichten und Schwäger sichtbar.
+Die gestrichelte Linie führt zur Adoptivmutter.
+
+![Verwandte: alle Personen mit ihrer Bezeichnung, von den nächsten zu den entferntesten](docs/screenshots/stammbaum-verwandte.png)
+
+Eingetragen werden nur Eltern, Kinder und Partner. Urgroßvater,
+Adoptivmutter, Enkelin und Nichte rechnet die App daraus aus.
+
+Die vier ersten Aufnahmen zeigen ausschließlich **gemeinfreie** Fotos aus
+einer Demo-Bibliothek (NASA, National Archives, historische Aufnahmen) –
+nie Bilder aus einer echten Sammlung. Auf den drei Stammbaum-Bildern ist
+überhaupt kein Foto zu sehen; die gezeigte Familie ist frei erfunden. Wie
+beides sichergestellt wird, steht in
 [docs/screenshots/](docs/screenshots/).
 
 ## Herunterladen
@@ -174,10 +196,16 @@ welche Modelle aus welcher Quelle stammen.
 - **KI-Bildsuche** – natürlichsprachige Suche ("Sonnenuntergang am Meer")
   über **CLIP ViT-B/32** (OpenAI-Originalgewichte, MIT-Lizenz)
 - **KI-Bildbeschreibung** – automatische (englische) Bildunterschrift pro
-  Foto über **ViT-GPT2**, fließt in die Volltextsuche mit ein
+  Foto über **Florence-2**, fließt in die Volltextsuche mit ein und wird auf
+  Wunsch ins Deutsche übersetzt. Liest dabei auch Schrift im Bild
+  (Ladenschilder, Ortstafeln). An 40 echten Fotos gegen den Vorgänger
+  ViT-GPT2 beurteilt: 27 statt 11 zutreffende Sätze
 - **KI-Tagging** – automatisches Zuordnen deutscher Alltagsbegriffe per
   CLIP-Zero-Shot-Klassifikation gegen eine feste Begriffsliste, statt eines
-  zusätzlichen dedizierten Tagging-Modells
+  zusätzlichen dedizierten Tagging-Modells. Der Begriff geht dabei in einer
+  Satzschablone („a photo of …") und in einer von Hand geprüften englischen
+  Fassung an den Encoder – gemessen der Unterschied zwischen F1 0,16 und
+  0,48
 - **KI-Objektmasken** – **SAM (Segment Anything) ViT-Base**: Vordergrund-/
   Hintergrund-Punkte setzen, Modell schlägt eine Maske vor, für gezielte
   Anpassungen nur auf einem Bildbereich im Entwickeln-Screen. Ergänzend
@@ -338,7 +366,7 @@ Download-Button:
 | SFace | Gesichts-Embedding für Wiedererkennung/Clustering | Apache-2.0 | OpenCV Zoo |
 | CLIP ViT-B/32 | KI-Bildsuche in natürlicher Sprache | MIT (OpenAI-Gewichte) | Xenova/HuggingFace |
 | SAM ViT-Base | KI-Objektmasken für gezielte Entwicklungs-Anpassungen | Apache-2.0 (Meta Segment Anything) | Xenova/HuggingFace |
-| ViT-GPT2 | Automatische Bildbeschreibung (Englisch) | Apache-2.0 | Xenova/HuggingFace |
+| Florence-2 base-ft | Automatische Bildbeschreibung (Englisch), liest auch Schrift im Bild | MIT (Microsoft) | onnx-community/HuggingFace |
 | OCEC | Erkennung geschlossener Augen (Blinzler) | MIT | PINTO0309/GitHub |
 | Real-ESRGAN x4 | KI-Restaurierung (4× hochskalieren + entrauschen) | BSD-3-Clause | SceneWorks/HuggingFace |
 | OPUS-MT en→de | Bildbeschreibungen in die Oberflächensprache übersetzen | Apache-2.0 (Helsinki-NLP) | Xenova/HuggingFace |
@@ -369,7 +397,7 @@ und behoben:
 
 Zusätzlich lesen die Inferenz-Services die tatsächlichen Ein-/Ausgabenamen
 dynamisch aus `session.inputNames`/`session.outputNames` statt sie zu raten,
-und Ein-/Ausgabe-Tensorformen für SAM/ViT-GPT2 wurden vor dem Einbau real
+und Ein-/Ausgabe-Tensorformen für SAM/Florence-2 wurden vor dem Einbau real
 gegen die ONNX-Dateien verifiziert (Python `onnx`/`onnxruntime`) statt
 angenommen.
 
@@ -377,9 +405,10 @@ Verbleibendes, geringeres Risiko: Die Gesichts-Ausrichtung vor dem
 SFace-Embedding beschränkt sich auf einen einfachen Bounding-Box-Crop (keine
 5-Punkt-Landmark-Warp wie im Original) – das kostet etwas
 Wiedererkennungsgenauigkeit, ist aber kein Funktionsfehler. Die
-KI-Bildbeschreibung liefert ausschließlich englischen Text (COCO-
-Trainingsdaten) – es gibt aktuell kein vergleichbar kleines,
-real verifizierbares deutsches Modell in diesem Ökosystem.
+KI-Bildbeschreibung liefert englischen Text – ein vergleichbar kleines
+mehrsprachiges Modell gibt es nicht, die mehrsprachigen liegen im
+Gigabyte-Bereich. Der Umweg über das Übersetzungsmodell ist ausgemessen:
+Er liefert flüssiges Deutsch und kostet 0,07 s je Satz.
 
 ## Gesperrter Ordner (Verschlüsselung)
 
@@ -486,7 +515,9 @@ lib/
     clip_service.dart            CLIP-Inferenz (ONNX Runtime) + Kosinus-Suche
     segmentation_service.dart    SAM-Inferenz für KI-Objektmasken
     vector_mask_service.dart     Editierbare Vektor-Maskenformen (normalisierte Koordinaten)
-    captioning_service.dart      ViT-GPT2-Inferenz für KI-Bildbeschreibung
+    florence_captioning_service.dart
+                                 Florence-2-Inferenz für KI-Bildbeschreibung
+    bart_tokenizer.dart          Wortzerleger dafür (Byte-Level-BPE, BART-Art)
     ai_tagging_service.dart      CLIP-Zero-Shot-Tagging gegen feste Begriffsliste
     eye_state_service.dart       OCEC-Inferenz für geschlossene Augen
     restore_service.dart         Real-ESRGAN-Inferenz (KI-Restaurierung)
@@ -579,7 +610,10 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 - Die KI-Bildsuche berechnet Ähnlichkeit per Brute-Force über alle
   gespeicherten Embeddings – für private Bibliotheken (bis niedrige
   Zehntausende Fotos) schnell genug.
-- KI-Bildbeschreibungen sind ausschließlich Englisch (siehe oben).
+- KI-Bildbeschreibungen entstehen auf Englisch und werden auf Wunsch
+  übersetzt (siehe oben). Ein Foto zu beschreiben dauert rund eine Sekunde,
+  etwa fünfmal so lange wie mit dem abgelösten Modell – die Beschreibung
+  läuft deshalb im Hintergrund.
 - Die KI-Restaurierung hält das komplette 4× vergrößerte Ergebnis im
   Arbeitsspeicher (12 MP → ~49 MP). Die Warteschlange arbeitet deshalb
   bewusst nur einen Auftrag gleichzeitig ab.
