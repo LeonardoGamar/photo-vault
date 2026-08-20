@@ -2828,5 +2828,17 @@
   "infoSpracheDe": "DE",
   "infoSpracheEn": "EN",
   "infoKiPlatzhalterDe": "Deutsche Fassung eintragen",
-  "infoKiPlatzhalterEn": "Englische Fassung eintragen"
+  "infoKiPlatzhalterEn": "Englische Fassung eintragen",
+  "duplGefunden": "{gruppen} Gruppen mit {fotos} Fotos",
+  "@duplGefunden": {"placeholders": {"gruppen": {"type": "int"}, "fotos": {"type": "int"}}},
+  "duplNichtsGefunden": "Keine Gruppen gefunden",
+  "duplGruppeIgnorieren": "Übergehen",
+  "duplGruppeIgnoriert": "{anzahl} Fotos werden bei der Duplikatsuche künftig übergangen.",
+  "@duplGruppeIgnoriert": {"placeholders": {"anzahl": {"type": "int"}}},
+  "duplAusnahmenZahl": "{anzahl} übergangen",
+  "@duplAusnahmenZahl": {"placeholders": {"anzahl": {"type": "int"}}},
+  "duplAusnahmenTitel": "Übergangene wieder anzeigen",
+  "duplAusnahmenFrage": "{anzahl} Paare sind von der Suche ausgenommen. Sollen alle wieder berücksichtigt werden?",
+  "@duplAusnahmenFrage": {"placeholders": {"anzahl": {"type": "int"}}},
+  "duplAusnahmenLoeschen": "Alle wieder anzeigen"
 }

@@ -4900,4 +4900,36 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get infoKiPlatzhalterEn => 'Englische Fassung eintragen';
+
+  @override
+  String duplGefunden(int gruppen, int fotos) {
+    return '$gruppen Gruppen mit $fotos Fotos';
+  }
+
+  @override
+  String get duplNichtsGefunden => 'Keine Gruppen gefunden';
+
+  @override
+  String get duplGruppeIgnorieren => 'Übergehen';
+
+  @override
+  String duplGruppeIgnoriert(int anzahl) {
+    return '$anzahl Fotos werden bei der Duplikatsuche künftig übergangen.';
+  }
+
+  @override
+  String duplAusnahmenZahl(int anzahl) {
+    return '$anzahl übergangen';
+  }
+
+  @override
+  String get duplAusnahmenTitel => 'Übergangene wieder anzeigen';
+
+  @override
+  String duplAusnahmenFrage(int anzahl) {
+    return '$anzahl Paare sind von der Suche ausgenommen. Sollen alle wieder berücksichtigt werden?';
+  }
+
+  @override
+  String get duplAusnahmenLoeschen => 'Alle wieder anzeigen';
 }

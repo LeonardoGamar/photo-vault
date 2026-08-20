@@ -32,6 +32,16 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
   String? _error;
   List<List<AssetData>> _groups = [];
 
+  /// Wie viele Paare der Nutzer von der Suche ausgenommen hat – für die
+  /// Kopfzeile und den Knopf zum Zurücknehmen.
+  int _ausnahmen = 0;
+
+  /// Fotos in allen Gruppen zusammen. Die zweite Zahl neben der Zahl der
+  /// Gruppen: „7 Gruppen" allein sagt nicht, ob dahinter 14 oder 60 Fotos
+  /// stehen.
+  int get _fotosInGruppen =>
+      _groups.fold(0, (summe, gruppe) => summe + gruppe.length);
+
   @override
   void initState() {
     super.initState();
@@ -50,12 +60,13 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       }
 
       final embeddings = await widget.library.cachedEmbeddings();
+      final ausnahmen = await widget.library.db.duplikatAusnahmeSchluessel();
       // Der paarweise Vergleich läuft in einem eigenen Isolate (siehe
       // [findDuplicateGroups]), damit die UI bei größeren Bibliotheken
       // währenddessen nicht einfriert.
       final groupIdLists = await compute(
         findDuplicateGroups,
-        DuplicateSearchParams(embeddings, _threshold),
+        DuplicateSearchParams(embeddings, _threshold, ausnahmen: ausnahmen),
       );
 
       final groups = <List<AssetData>>[];
@@ -67,6 +78,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       if (!mounted) return;
       setState(() {
         _groups = groups;
+        _ausnahmen = ausnahmen.length;
         _error = null;
       });
     } catch (e) {
@@ -142,6 +154,58 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     await _load();
   }
 
+  /// Nimmt eine Gruppe künftig von der Suche aus.
+  ///
+  /// Die Gruppe verschwindet sofort aus der Liste, statt einen neuen
+  /// Durchlauf anzustossen: Der kostet bei grossen Bibliotheken spürbar
+  /// Zeit, und am Ergebnis ändert sich nichts ausser dieser einen Gruppe.
+  Future<void> _gruppeIgnorieren(List<AssetData> group) async {
+    final ids = group.map((a) => a.id).toList();
+    await widget.library.db.ignoriereDuplikatgruppe(ids);
+    if (!mounted) return;
+    final neueZahl = await widget.library.db.zaehleDuplikatAusnahmen();
+    if (!mounted) return;
+    setState(() {
+      _groups.remove(group);
+      _ausnahmen = neueZahl;
+    });
+    final melder = ScaffoldMessenger.of(context);
+    melder.hideCurrentSnackBar();
+    melder.showSnackBar(SnackBar(
+      content: Text(AppTexte.of(context).duplGruppeIgnoriert(group.length)),
+      action: SnackBarAction(
+        label: AppTexte.of(context).allgRueckgaengig,
+        // Einzeln zurücknehmen statt alles: Wer sich vertippt hat, will
+        // diese eine Gruppe zurück, nicht die Arbeit einer halben Stunde.
+        onPressed: () async {
+          await widget.library.db.hebeDuplikatgruppeAuf(ids);
+          await _load();
+        },
+      ),
+    ));
+  }
+
+  Future<void> _ausnahmenZuruecknehmen() async {
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppTexte.of(context).duplAusnahmenTitel),
+        content: Text(AppTexte.of(context).duplAusnahmenFrage(_ausnahmen)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppTexte.of(context).duplAusnahmenLoeschen)),
+        ],
+      ),
+    );
+    if (bestaetigt != true) return;
+    await widget.library.db.loescheDuplikatAusnahmen();
+    await _load();
+  }
+
   Future<void> _moveToTrash(AssetData asset, List<AssetData> group) async {
     await widget.library.db.moveToTrash([asset.id]);
     if (!mounted) return;
@@ -211,6 +275,30 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           ),
+          if (!_loading && _error == null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _groups.isEmpty
+                          ? AppTexte.of(context).duplNichtsGefunden
+                          : AppTexte.of(context)
+                              .duplGefunden(_groups.length, _fotosInGruppen),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  if (_ausnahmen > 0)
+                    TextButton.icon(
+                      onPressed: _ausnahmenZuruecknehmen,
+                      icon: const Icon(Icons.visibility_off_outlined, size: 18),
+                      label: Text(AppTexte.of(context).duplAusnahmenZahl(_ausnahmen)),
+                    ),
+                ],
+              ),
+            ),
           const Divider(height: 16),
           Expanded(child: _buildBody()),
         ],
@@ -246,8 +334,21 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppTexte.of(context).duplGruppe(groupIndex + 1, group.length),
-                  style: Theme.of(context).textTheme.titleSmall),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppTexte.of(context).duplGruppe(groupIndex + 1, group.length),
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _gruppeIgnorieren(group),
+                    icon: const Icon(Icons.visibility_off_outlined, size: 18),
+                    label: Text(AppTexte.of(context).duplGruppeIgnorieren),
+                  ),
+                ],
+              ),
               const SizedBox(height: 8),
               SizedBox(
                 height: 160,

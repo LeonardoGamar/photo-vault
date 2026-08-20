@@ -6,8 +6,32 @@ import 'dart:typed_data';
 class DuplicateSearchParams {
   final Map<String, Float32List> embeddings;
   final double threshold;
-  const DuplicateSearchParams(this.embeddings, this.threshold);
+
+  /// Paare, die der Nutzer nicht mehr sehen will – Schlüssel aus
+  /// [duplikatPaarSchluessel]. Ein Paar darin wird nicht zusammengefasst.
+  ///
+  /// Es bleibt bei einem Vorbehalt, den man kennen sollte: Sind A und B
+  /// ausgenommen, aber beide einem dritten Foto C ähnlich, landen sie über
+  /// C trotzdem in einer Gruppe. Das ist keine Nachlässigkeit, sondern die
+  /// Natur der Gruppenbildung – C hält sie zusammen, und eine Gruppe
+  /// aufzubrechen, weil eines der Paare darin ausgenommen ist, wäre die
+  /// falschere Antwort.
+  final Set<String> ausnahmen;
+
+  const DuplicateSearchParams(
+    this.embeddings,
+    this.threshold, {
+    this.ausnahmen = const {},
+  });
 }
+
+/// Der Schlüssel eines Foto-Paares, unabhängig von der Reihenfolge.
+///
+/// Dieselbe Funktion für die Datenbank und für den Isolate-Lauf – zwei
+/// Fassungen desselben Formats wären genau die Art Fehler, die sich als
+/// „die Ausnahme wirkt nicht" zeigt und nirgends auffällt.
+String duplikatPaarSchluessel(String a, String b) =>
+    a.compareTo(b) <= 0 ? '$a|$b' : '$b|$a';
 
 /// Eingabe für [findBurstGroups] – siehe [DuplicateSearchParams].
 class BurstSearchParams {
@@ -73,10 +97,19 @@ List<List<String>> findDuplicateGroups(DuplicateSearchParams params) {
     if (ra != rb) parent[ra] = rb;
   }
 
+  final ausnahmen = params.ausnahmen;
   for (final packed in candidateIndexPairs(vectors)) {
     final i = packed ~/ n;
     final j = packed % n;
-    if (_cosineSimilarity(vectors[i], vectors[j]) >= params.threshold) union(i, j);
+    // Die Prüfung erst NACH dem Kosinus: Der Vergleich ist billiger als das
+    // Zusammensetzen eines Schlüssels, und ausgenommene Paare sind die
+    // grosse Ausnahme.
+    if (_cosineSimilarity(vectors[i], vectors[j]) < params.threshold) continue;
+    if (ausnahmen.isNotEmpty &&
+        ausnahmen.contains(duplikatPaarSchluessel(ids[i], ids[j]))) {
+      continue;
+    }
+    union(i, j);
   }
 
   return _resolveClusters(parent, n, ids);

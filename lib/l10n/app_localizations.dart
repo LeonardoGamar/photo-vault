@@ -7829,6 +7829,54 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Englische Fassung eintragen'**
   String get infoKiPlatzhalterEn;
+
+  /// No description provided for @duplGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'{gruppen} Gruppen mit {fotos} Fotos'**
+  String duplGefunden(int gruppen, int fotos);
+
+  /// No description provided for @duplNichtsGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Gruppen gefunden'**
+  String get duplNichtsGefunden;
+
+  /// No description provided for @duplGruppeIgnorieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergehen'**
+  String get duplGruppeIgnorieren;
+
+  /// No description provided for @duplGruppeIgnoriert.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Fotos werden bei der Duplikatsuche künftig übergangen.'**
+  String duplGruppeIgnoriert(int anzahl);
+
+  /// No description provided for @duplAusnahmenZahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} übergangen'**
+  String duplAusnahmenZahl(int anzahl);
+
+  /// No description provided for @duplAusnahmenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Übergangene wieder anzeigen'**
+  String get duplAusnahmenTitel;
+
+  /// No description provided for @duplAusnahmenFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Paare sind von der Suche ausgenommen. Sollen alle wieder berücksichtigt werden?'**
+  String duplAusnahmenFrage(int anzahl);
+
+  /// No description provided for @duplAusnahmenLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle wieder anzeigen'**
+  String get duplAusnahmenLoeschen;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

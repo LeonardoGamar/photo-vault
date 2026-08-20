@@ -4876,4 +4876,36 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get infoKiPlatzhalterEn => 'Write the English version';
+
+  @override
+  String duplGefunden(int gruppen, int fotos) {
+    return '$gruppen groups with $fotos photos';
+  }
+
+  @override
+  String get duplNichtsGefunden => 'No groups found';
+
+  @override
+  String get duplGruppeIgnorieren => 'Skip';
+
+  @override
+  String duplGruppeIgnoriert(int anzahl) {
+    return '$anzahl photos will be skipped by the duplicate search from now on.';
+  }
+
+  @override
+  String duplAusnahmenZahl(int anzahl) {
+    return '$anzahl skipped';
+  }
+
+  @override
+  String get duplAusnahmenTitel => 'Show skipped ones again';
+
+  @override
+  String duplAusnahmenFrage(int anzahl) {
+    return '$anzahl pairs are excluded from the search. Should all of them be considered again?';
+  }
+
+  @override
+  String get duplAusnahmenLoeschen => 'Show all again';
 }

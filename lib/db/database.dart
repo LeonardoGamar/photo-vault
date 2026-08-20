@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 
 import '../services/ai_tagging_service.dart' show defaultAiTagVocabulary;
 import '../services/embedding_codec.dart';
+import '../services/embedding_similarity.dart' show duplikatPaarSchluessel;
 import '../services/exif_camera.dart';
 import '../services/face_threshold.dart';
 import '../services/library_location.dart';
@@ -860,6 +861,27 @@ class SavedSearches extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Ein Foto-Paar, das der Nutzer bei der Duplikatsuche nicht mehr sehen
+/// will („die beiden sind schon in Ordnung so").
+///
+/// Paarweise und nicht je Foto – das ist der Unterschied, auf den es
+/// ankommt: Wer ein Foto als Ganzes von der Suche ausnähme, fände auch das
+/// echte Duplikat nicht mehr, das nächste Woche dazukommt. Die Ausnahme
+/// gilt deshalb nur für genau diese Kombination.
+///
+/// [assetA] ist immer die kleinere der beiden Kennungen (siehe
+/// [AppDatabase.ignoriereDuplikatpaare]), sonst müsste jede Abfrage beide
+/// Reihenfolgen prüfen.
+@DataClassName('DuplikatAusnahmeData')
+class DuplikatAusnahmen extends Table {
+  TextColumn get assetA => text()();
+  TextColumn get assetB => text()();
+  DateTimeColumn get angelegtAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {assetA, assetB};
+}
+
 @DriftDatabase(tables: [
   Assets,
   Albums,
@@ -875,6 +897,7 @@ class SavedSearches extends Table {
   BackupSettings,
   SavedSearches,
   TrashSettings,
+  DuplikatAusnahmen,
   CameraPresets,
   CameraPresetTags,
   DevelopSettings,
@@ -903,7 +926,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 44;
+  int get schemaVersion => 45;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1239,6 +1262,11 @@ class AppDatabase extends _$AppDatabase {
             // ändern.
             await _addColumnIfMissing(
                 m, assets, assets.aiCaptionEdited, 'assets', 'ai_caption_edited');
+          }
+          if (from < 45) {
+            // Ausnahmen der Duplikatsuche. Neue, anfangs leere Tabelle –
+            // ohne einen einzigen Eintrag verhält sich die Suche wie zuvor.
+            await m.createTable(duplikatAusnahmen);
           }
         },
       );
@@ -1602,8 +1630,82 @@ class AppDatabase extends _$AppDatabase {
   /// auf der Festplatte übernimmt StoragePaths.
   Future<void> deleteAssetRows(List<String> assetIds) async {
     await (delete(assets)..where((t) => t.id.isIn(assetIds))).go();
+    // Ausnahmen der Duplikatsuche mit wegräumen. Sie würden sonst als
+    // Zeilen ohne Foto liegen bleiben und niemandem mehr auffallen – ein
+    // Paar, dessen eine Hälfte es nicht mehr gibt, kann nie wieder wirken.
+    await (delete(duplikatAusnahmen)
+          ..where((t) => t.assetA.isIn(assetIds) | t.assetB.isIn(assetIds)))
+        .go();
     _embeddingsGeneration++;
   }
+
+  // --- Ausnahmen der Duplikatsuche --------------------------------------
+
+  /// Alle Ausnahmen als Schlüsselmenge für [findDuplicateGroups].
+  ///
+  /// Nicht `duplikatAusnahmen()` – so heisst bereits die von drift erzeugte
+  /// Tabelle, und eine Methode gleichen Namens verdeckt sie im ganzen
+  /// Klassenrumpf.
+  Future<Set<String>> duplikatAusnahmeSchluessel() async {
+    final zeilen = await select(duplikatAusnahmen).get();
+    return {for (final z in zeilen) duplikatPaarSchluessel(z.assetA, z.assetB)};
+  }
+
+  Future<int> zaehleDuplikatAusnahmen() async {
+    final zaehler = duplikatAusnahmen.assetA.count();
+    final zeile = await (selectOnly(duplikatAusnahmen)..addColumns([zaehler])).getSingle();
+    return zeile.read(zaehler) ?? 0;
+  }
+
+  /// Nimmt alle Paare innerhalb von [assetIds] von der Duplikatsuche aus –
+  /// also eine ganze Gruppe auf einmal.
+  ///
+  /// Alle Paare und nicht nur ein Merkmal an der Gruppe: Gruppen entstehen
+  /// bei jedem Lauf neu und hängen an der eingestellten Schwelle; eine
+  /// gespeicherte Gruppen-Kennung wäre beim nächsten Regler-Ruck wertlos.
+  Future<void> ignoriereDuplikatgruppe(List<String> assetIds) async {
+    if (assetIds.length < 2) return;
+    final jetzt = DateTime.now();
+    await batch((b) {
+      for (var i = 0; i < assetIds.length; i++) {
+        for (var j = i + 1; j < assetIds.length; j++) {
+          final a = assetIds[i], c = assetIds[j];
+          final klein = a.compareTo(c) <= 0 ? a : c;
+          final gross = a.compareTo(c) <= 0 ? c : a;
+          b.insert(
+            duplikatAusnahmen,
+            DuplikatAusnahmenCompanion.insert(
+                assetA: klein, assetB: gross, angelegtAm: jetzt),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      }
+    });
+  }
+
+  /// Nimmt die Ausnahmen einer einzelnen Gruppe zurück – für das
+  /// „Rückgängig" direkt nach dem Ausblenden.
+  Future<void> hebeDuplikatgruppeAuf(List<String> assetIds) async {
+    if (assetIds.length < 2) return;
+    await batch((b) {
+      for (var i = 0; i < assetIds.length; i++) {
+        for (var j = i + 1; j < assetIds.length; j++) {
+          final a = assetIds[i], c = assetIds[j];
+          final klein = a.compareTo(c) <= 0 ? a : c;
+          final gross = a.compareTo(c) <= 0 ? c : a;
+          b.deleteWhere(
+            duplikatAusnahmen,
+            ($DuplikatAusnahmenTable t) =>
+                t.assetA.equals(klein) & t.assetB.equals(gross),
+          );
+        }
+      }
+    });
+  }
+
+  /// Hebt alle Ausnahmen wieder auf – der Weg zurück, wenn zu viel
+  /// ausgeblendet wurde.
+  Future<int> loescheDuplikatAusnahmen() => delete(duplikatAusnahmen).go();
 
   /// Alle Assets (gesperrt oder nicht – der PIN-Schutz gilt dem Ansehen des
   /// Inhalts, nicht dem endgültigen Löschen einer bereits im Papierkorb

@@ -6670,6 +6670,241 @@ class TrashSettingsCompanion extends UpdateCompanion<TrashSettingsData> {
   }
 }
 
+class $DuplikatAusnahmenTable extends DuplikatAusnahmen
+    with TableInfo<$DuplikatAusnahmenTable, DuplikatAusnahmeData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DuplikatAusnahmenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _assetAMeta = const VerificationMeta('assetA');
+  @override
+  late final GeneratedColumn<String> assetA = GeneratedColumn<String>(
+      'asset_a', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _assetBMeta = const VerificationMeta('assetB');
+  @override
+  late final GeneratedColumn<String> assetB = GeneratedColumn<String>(
+      'asset_b', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _angelegtAmMeta =
+      const VerificationMeta('angelegtAm');
+  @override
+  late final GeneratedColumn<DateTime> angelegtAm = GeneratedColumn<DateTime>(
+      'angelegt_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [assetA, assetB, angelegtAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'duplikat_ausnahmen';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<DuplikatAusnahmeData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('asset_a')) {
+      context.handle(_assetAMeta,
+          assetA.isAcceptableOrUnknown(data['asset_a']!, _assetAMeta));
+    } else if (isInserting) {
+      context.missing(_assetAMeta);
+    }
+    if (data.containsKey('asset_b')) {
+      context.handle(_assetBMeta,
+          assetB.isAcceptableOrUnknown(data['asset_b']!, _assetBMeta));
+    } else if (isInserting) {
+      context.missing(_assetBMeta);
+    }
+    if (data.containsKey('angelegt_am')) {
+      context.handle(
+          _angelegtAmMeta,
+          angelegtAm.isAcceptableOrUnknown(
+              data['angelegt_am']!, _angelegtAmMeta));
+    } else if (isInserting) {
+      context.missing(_angelegtAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {assetA, assetB};
+  @override
+  DuplikatAusnahmeData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DuplikatAusnahmeData(
+      assetA: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}asset_a'])!,
+      assetB: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}asset_b'])!,
+      angelegtAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}angelegt_am'])!,
+    );
+  }
+
+  @override
+  $DuplikatAusnahmenTable createAlias(String alias) {
+    return $DuplikatAusnahmenTable(attachedDatabase, alias);
+  }
+}
+
+class DuplikatAusnahmeData extends DataClass
+    implements Insertable<DuplikatAusnahmeData> {
+  final String assetA;
+  final String assetB;
+  final DateTime angelegtAm;
+  const DuplikatAusnahmeData(
+      {required this.assetA, required this.assetB, required this.angelegtAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['asset_a'] = Variable<String>(assetA);
+    map['asset_b'] = Variable<String>(assetB);
+    map['angelegt_am'] = Variable<DateTime>(angelegtAm);
+    return map;
+  }
+
+  DuplikatAusnahmenCompanion toCompanion(bool nullToAbsent) {
+    return DuplikatAusnahmenCompanion(
+      assetA: Value(assetA),
+      assetB: Value(assetB),
+      angelegtAm: Value(angelegtAm),
+    );
+  }
+
+  factory DuplikatAusnahmeData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DuplikatAusnahmeData(
+      assetA: serializer.fromJson<String>(json['assetA']),
+      assetB: serializer.fromJson<String>(json['assetB']),
+      angelegtAm: serializer.fromJson<DateTime>(json['angelegtAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'assetA': serializer.toJson<String>(assetA),
+      'assetB': serializer.toJson<String>(assetB),
+      'angelegtAm': serializer.toJson<DateTime>(angelegtAm),
+    };
+  }
+
+  DuplikatAusnahmeData copyWith(
+          {String? assetA, String? assetB, DateTime? angelegtAm}) =>
+      DuplikatAusnahmeData(
+        assetA: assetA ?? this.assetA,
+        assetB: assetB ?? this.assetB,
+        angelegtAm: angelegtAm ?? this.angelegtAm,
+      );
+  DuplikatAusnahmeData copyWithCompanion(DuplikatAusnahmenCompanion data) {
+    return DuplikatAusnahmeData(
+      assetA: data.assetA.present ? data.assetA.value : this.assetA,
+      assetB: data.assetB.present ? data.assetB.value : this.assetB,
+      angelegtAm:
+          data.angelegtAm.present ? data.angelegtAm.value : this.angelegtAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DuplikatAusnahmeData(')
+          ..write('assetA: $assetA, ')
+          ..write('assetB: $assetB, ')
+          ..write('angelegtAm: $angelegtAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(assetA, assetB, angelegtAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DuplikatAusnahmeData &&
+          other.assetA == this.assetA &&
+          other.assetB == this.assetB &&
+          other.angelegtAm == this.angelegtAm);
+}
+
+class DuplikatAusnahmenCompanion extends UpdateCompanion<DuplikatAusnahmeData> {
+  final Value<String> assetA;
+  final Value<String> assetB;
+  final Value<DateTime> angelegtAm;
+  final Value<int> rowid;
+  const DuplikatAusnahmenCompanion({
+    this.assetA = const Value.absent(),
+    this.assetB = const Value.absent(),
+    this.angelegtAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DuplikatAusnahmenCompanion.insert({
+    required String assetA,
+    required String assetB,
+    required DateTime angelegtAm,
+    this.rowid = const Value.absent(),
+  })  : assetA = Value(assetA),
+        assetB = Value(assetB),
+        angelegtAm = Value(angelegtAm);
+  static Insertable<DuplikatAusnahmeData> custom({
+    Expression<String>? assetA,
+    Expression<String>? assetB,
+    Expression<DateTime>? angelegtAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (assetA != null) 'asset_a': assetA,
+      if (assetB != null) 'asset_b': assetB,
+      if (angelegtAm != null) 'angelegt_am': angelegtAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DuplikatAusnahmenCompanion copyWith(
+      {Value<String>? assetA,
+      Value<String>? assetB,
+      Value<DateTime>? angelegtAm,
+      Value<int>? rowid}) {
+    return DuplikatAusnahmenCompanion(
+      assetA: assetA ?? this.assetA,
+      assetB: assetB ?? this.assetB,
+      angelegtAm: angelegtAm ?? this.angelegtAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (assetA.present) {
+      map['asset_a'] = Variable<String>(assetA.value);
+    }
+    if (assetB.present) {
+      map['asset_b'] = Variable<String>(assetB.value);
+    }
+    if (angelegtAm.present) {
+      map['angelegt_am'] = Variable<DateTime>(angelegtAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DuplikatAusnahmenCompanion(')
+          ..write('assetA: $assetA, ')
+          ..write('assetB: $assetB, ')
+          ..write('angelegtAm: $angelegtAm, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CameraPresetsTable extends CameraPresets
     with TableInfo<$CameraPresetsTable, CameraPresetData> {
   @override
@@ -12779,6 +13014,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BackupSettingsTable backupSettings = $BackupSettingsTable(this);
   late final $SavedSearchesTable savedSearches = $SavedSearchesTable(this);
   late final $TrashSettingsTable trashSettings = $TrashSettingsTable(this);
+  late final $DuplikatAusnahmenTable duplikatAusnahmen =
+      $DuplikatAusnahmenTable(this);
   late final $CameraPresetsTable cameraPresets = $CameraPresetsTable(this);
   late final $CameraPresetTagsTable cameraPresetTags =
       $CameraPresetTagsTable(this);
@@ -12819,6 +13056,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         backupSettings,
         savedSearches,
         trashSettings,
+        duplikatAusnahmen,
         cameraPresets,
         cameraPresetTags,
         developSettings,
@@ -15946,6 +16184,153 @@ typedef $$TrashSettingsTableProcessedTableManager = ProcessedTableManager<
     ),
     TrashSettingsData,
     PrefetchHooks Function()>;
+typedef $$DuplikatAusnahmenTableCreateCompanionBuilder
+    = DuplikatAusnahmenCompanion Function({
+  required String assetA,
+  required String assetB,
+  required DateTime angelegtAm,
+  Value<int> rowid,
+});
+typedef $$DuplikatAusnahmenTableUpdateCompanionBuilder
+    = DuplikatAusnahmenCompanion Function({
+  Value<String> assetA,
+  Value<String> assetB,
+  Value<DateTime> angelegtAm,
+  Value<int> rowid,
+});
+
+class $$DuplikatAusnahmenTableFilterComposer
+    extends Composer<_$AppDatabase, $DuplikatAusnahmenTable> {
+  $$DuplikatAusnahmenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get assetA => $composableBuilder(
+      column: $table.assetA, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get assetB => $composableBuilder(
+      column: $table.assetB, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$DuplikatAusnahmenTableOrderingComposer
+    extends Composer<_$AppDatabase, $DuplikatAusnahmenTable> {
+  $$DuplikatAusnahmenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get assetA => $composableBuilder(
+      column: $table.assetA, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get assetB => $composableBuilder(
+      column: $table.assetB, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$DuplikatAusnahmenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DuplikatAusnahmenTable> {
+  $$DuplikatAusnahmenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get assetA =>
+      $composableBuilder(column: $table.assetA, builder: (column) => column);
+
+  GeneratedColumn<String> get assetB =>
+      $composableBuilder(column: $table.assetB, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => column);
+}
+
+class $$DuplikatAusnahmenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $DuplikatAusnahmenTable,
+    DuplikatAusnahmeData,
+    $$DuplikatAusnahmenTableFilterComposer,
+    $$DuplikatAusnahmenTableOrderingComposer,
+    $$DuplikatAusnahmenTableAnnotationComposer,
+    $$DuplikatAusnahmenTableCreateCompanionBuilder,
+    $$DuplikatAusnahmenTableUpdateCompanionBuilder,
+    (
+      DuplikatAusnahmeData,
+      BaseReferences<_$AppDatabase, $DuplikatAusnahmenTable,
+          DuplikatAusnahmeData>
+    ),
+    DuplikatAusnahmeData,
+    PrefetchHooks Function()> {
+  $$DuplikatAusnahmenTableTableManager(
+      _$AppDatabase db, $DuplikatAusnahmenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DuplikatAusnahmenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DuplikatAusnahmenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DuplikatAusnahmenTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> assetA = const Value.absent(),
+            Value<String> assetB = const Value.absent(),
+            Value<DateTime> angelegtAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              DuplikatAusnahmenCompanion(
+            assetA: assetA,
+            assetB: assetB,
+            angelegtAm: angelegtAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String assetA,
+            required String assetB,
+            required DateTime angelegtAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              DuplikatAusnahmenCompanion.insert(
+            assetA: assetA,
+            assetB: assetB,
+            angelegtAm: angelegtAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$DuplikatAusnahmenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $DuplikatAusnahmenTable,
+    DuplikatAusnahmeData,
+    $$DuplikatAusnahmenTableFilterComposer,
+    $$DuplikatAusnahmenTableOrderingComposer,
+    $$DuplikatAusnahmenTableAnnotationComposer,
+    $$DuplikatAusnahmenTableCreateCompanionBuilder,
+    $$DuplikatAusnahmenTableUpdateCompanionBuilder,
+    (
+      DuplikatAusnahmeData,
+      BaseReferences<_$AppDatabase, $DuplikatAusnahmenTable,
+          DuplikatAusnahmeData>
+    ),
+    DuplikatAusnahmeData,
+    PrefetchHooks Function()>;
 typedef $$CameraPresetsTableCreateCompanionBuilder = CameraPresetsCompanion
     Function({
   required String id,
@@ -18983,6 +19368,8 @@ class $AppDatabaseManager {
       $$SavedSearchesTableTableManager(_db, _db.savedSearches);
   $$TrashSettingsTableTableManager get trashSettings =>
       $$TrashSettingsTableTableManager(_db, _db.trashSettings);
+  $$DuplikatAusnahmenTableTableManager get duplikatAusnahmen =>
+      $$DuplikatAusnahmenTableTableManager(_db, _db.duplikatAusnahmen);
   $$CameraPresetsTableTableManager get cameraPresets =>
       $$CameraPresetsTableTableManager(_db, _db.cameraPresets);
   $$CameraPresetTagsTableTableManager get cameraPresetTags =>

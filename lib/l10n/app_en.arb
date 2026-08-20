@@ -1847,5 +1847,13 @@
   "infoSpracheDe": "DE",
   "infoSpracheEn": "EN",
   "infoKiPlatzhalterDe": "Write the German version",
-  "infoKiPlatzhalterEn": "Write the English version"
+  "infoKiPlatzhalterEn": "Write the English version",
+  "duplGefunden": "{gruppen} groups with {fotos} photos",
+  "duplNichtsGefunden": "No groups found",
+  "duplGruppeIgnorieren": "Skip",
+  "duplGruppeIgnoriert": "{anzahl} photos will be skipped by the duplicate search from now on.",
+  "duplAusnahmenZahl": "{anzahl} skipped",
+  "duplAusnahmenTitel": "Show skipped ones again",
+  "duplAusnahmenFrage": "{anzahl} pairs are excluded from the search. Should all of them be considered again?",
+  "duplAusnahmenLoeschen": "Show all again"
 }
