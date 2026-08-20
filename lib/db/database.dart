@@ -154,6 +154,18 @@ class Assets extends Table {
   /// analog zu [ocrScanned].
   BoolColumn get aiCaptionScanned => boolean().withDefault(const Constant(false))();
 
+  /// Ob jemand die Bildunterschrift von Hand geändert hat.
+  ///
+  /// Ohne dieses Merkmal wäre das Bearbeiten eine Falle: Ein „Alle Fotos"
+  /// bei den Bildbeschreibungen – gedacht für einen Modellwechsel – würde
+  /// den mühsam getippten Satz kommentarlos überschreiben. Ist es gesetzt,
+  /// fassen weder die Nachholvorgänge noch die Hintergrundanalyse den
+  /// Eintrag noch an; er verhält sich damit wie der Freitext des Nutzers.
+  ///
+  /// Zurücknehmen lässt es sich, indem das Feld geleert wird – dann ist das
+  /// Foto wieder Kandidat für das Modell.
+  BoolColumn get aiCaptionEdited => boolean().withDefault(const Constant(false))();
+
   /// Eigenes Flag statt "hat keine Tags" als "noch nicht verschlagwortet"-
   /// Signal, aus demselben Grund wie [ocrScanned]: Dass CLIP zu keinem
   /// Vokabelbegriff eine ausreichende Ähnlichkeit findet, ist ein GÜLTIGES
@@ -891,7 +903,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 43;
+  int get schemaVersion => 44;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1220,6 +1232,13 @@ class AppDatabase extends _$AppDatabase {
                 m, assets, assets.exposureBiasEv, 'assets', 'exposure_bias_ev');
             await _addColumnIfMissing(
                 m, assets, assets.focalLength35mm, 'assets', 'focal_length35mm');
+          }
+          if (from < 44) {
+            // Merkmal für eine von Hand geänderte Bildunterschrift. Für
+            // bestehende Fotos falsch – vorher liess sie sich gar nicht
+            // ändern.
+            await _addColumnIfMissing(
+                m, assets, assets.aiCaptionEdited, 'assets', 'ai_caption_edited');
           }
         },
       );
@@ -1915,20 +1934,24 @@ class AppDatabase extends _$AppDatabase {
   /// den Modellwechsel: Die vorhandenen Sätze stammen vom abgelösten
   /// ViT-GPT2 und sind messbar schlechter (siehe
   /// [ModelCatalog.captioningFlorence]).
-  Future<List<AssetData>> assetsForCaptionBackfill({bool alle = false}) =>
-      (select(assets)
-            ..where((t) =>
-                t.type.equals('IMAGE') &
-                t.isTrashed.equals(false) &
-                t.isLocked.equals(false) &
-                (alle ? const Constant(true) : t.aiCaptionScanned.equals(false))))
-          .get();
-
-  /// Zählvariante von [assetsForCaptionBackfill], siehe [countLocationBackfill].
-  Future<int> countCaptionBackfill() => _countWhere(assets.type.equals('IMAGE') &
+  /// Bedingung für „braucht (noch) eine Bildunterschrift vom Modell".
+  ///
+  /// [aiCaptionEdited] schliesst aus, was von Hand geschrieben wurde – auch
+  /// bei [alle]. „Alle Fotos" ist für einen Modellwechsel gedacht, nicht
+  /// zum Wegwerfen getippter Sätze; wer die Maschine wieder ranlassen will,
+  /// leert das Feld.
+  Expression<bool> _brauchtBeschreibung(bool alle) =>
+      assets.type.equals('IMAGE') &
       assets.isTrashed.equals(false) &
       assets.isLocked.equals(false) &
-      assets.aiCaptionScanned.equals(false));
+      assets.aiCaptionEdited.equals(false) &
+      (alle ? const Constant(true) : assets.aiCaptionScanned.equals(false));
+
+  Future<List<AssetData>> assetsForCaptionBackfill({bool alle = false}) =>
+      (select(assets)..where((t) => _brauchtBeschreibung(alle))).get();
+
+  /// Zählvariante von [assetsForCaptionBackfill], siehe [countLocationBackfill].
+  Future<int> countCaptionBackfill() => _countWhere(_brauchtBeschreibung(false));
 
   /// Bedingung für „hat eine englische Bildunterschrift, aber (noch) keine
   /// deutsche".
@@ -1944,6 +1967,8 @@ class AppDatabase extends _$AppDatabase {
       assets.isLocked.equals(false) &
       assets.aiCaption.isNotNull() &
       assets.aiCaption.equals('').not() &
+      // Ein von Hand geschriebener Satz wird nicht maschinell überschrieben.
+      assets.aiCaptionEdited.equals(false) &
       (alle ? const Constant(true) : assets.aiCaptionDe.isNull());
 
   /// Fotos, deren englische Bildunterschrift noch übersetzt werden kann.
@@ -1964,6 +1989,46 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setAiCaptionDe(String assetId, String deutsch) =>
       (update(assets)..where((t) => t.id.equals(assetId)))
           .write(AssetsCompanion(aiCaptionDe: Value(deutsch)));
+
+  /// Übernimmt eine von Hand geänderte Bildunterschrift.
+  ///
+  /// [deutsch] wählt die Spalte; leerer Text wird zu `null`. Das Merkmal
+  /// [Assets.aiCaptionEdited] wird gesetzt, solange in einer der beiden
+  /// Sprachen etwas steht – ist danach beides leer, fällt es wieder weg und
+  /// das Foto ist erneut Kandidat für das Modell. Genau so lässt sich eine
+  /// Bearbeitung zurücknehmen, ohne dafür einen eigenen Knopf zu brauchen.
+  Future<void> setAiCaptionVonHand(
+    String assetId,
+    String? text, {
+    required bool deutsch,
+  }) async {
+    final gesetzt = (text ?? '').trim();
+    final wert = Value<String?>(gesetzt.isEmpty ? null : gesetzt);
+    final vorher = await assetById(assetId);
+    if (vorher == null) return;
+
+    final englischDanach = deutsch ? (vorher.aiCaption ?? '') : gesetzt;
+    final deutschDanach = deutsch ? gesetzt : (vorher.aiCaptionDe ?? '');
+    final nochWas = englischDanach.trim().isNotEmpty || deutschDanach.trim().isNotEmpty;
+
+    await (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+      aiCaption: deutsch ? const Value.absent() : wert,
+      aiCaptionDe: deutsch ? wert : const Value.absent(),
+      aiCaptionEdited: Value(nochWas),
+      // Ein von Hand geschriebener Satz zählt als vorhanden – sonst stünde
+      // das Foto weiter unter „Wartend", obwohl da etwas steht. Und
+      // umgekehrt: Sind beide Felder leer, ist es wieder Kandidat für das
+      // Modell. Das ist der einzige Weg zurück, und er braucht keinen
+      // eigenen Knopf.
+      //
+      // Das Zurücksetzen ist hier ungefährlich, obwohl `aiCaptionScanned`
+      // sonst gerade verhindern soll, dass ein Foto ohne brauchbares
+      // Ergebnis endlos erneut durchs Modell läuft: Hierher kommt nur, wer
+      // wirklich etwas geändert hat – ein Feld zu leeren, in dem schon
+      // nichts stand, schreibt gar nicht erst.
+      aiCaptionScanned: Value(nochWas),
+    ));
+  }
 
   Future<void> setSharpnessScore(String assetId, double score) =>
       (update(assets)..where((t) => t.id.equals(assetId)))

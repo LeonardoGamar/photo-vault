@@ -27,6 +27,7 @@ AssetData foto(
     isTrashed: false,
     facesScanned: false,
     aiCaptionScanned: false,
+    aiCaptionEdited: false,
     aiTagsScanned: false,
     isStackCover: false,
     rating: bewertung,

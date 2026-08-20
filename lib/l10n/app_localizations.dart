@@ -7770,12 +7770,6 @@ abstract class AppTexte {
   /// **'Alle Beschreibungen sind übersetzt.'**
   String get werkzAlleUebersetzt;
 
-  /// No description provided for @infoKiBeschreibungEnglisch.
-  ///
-  /// In de, this message translates to:
-  /// **'KI-Beschreibung · Englisch'**
-  String get infoKiBeschreibungEnglisch;
-
   /// No description provided for @werkzLaeuftSchon.
   ///
   /// In de, this message translates to:
@@ -7799,6 +7793,42 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.'**
   String get aufgAnalyseLaeuft;
+
+  /// No description provided for @infoKiBeschreibungVonHand.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-Beschreibung, von Hand geändert'**
+  String get infoKiBeschreibungVonHand;
+
+  /// No description provided for @infoKiVonHandHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Bleibt bei „Alle Fotos“ erhalten. Zum Neuberechnen das Feld leeren.'**
+  String get infoKiVonHandHinweis;
+
+  /// No description provided for @infoSpracheDe.
+  ///
+  /// In de, this message translates to:
+  /// **'DE'**
+  String get infoSpracheDe;
+
+  /// No description provided for @infoSpracheEn.
+  ///
+  /// In de, this message translates to:
+  /// **'EN'**
+  String get infoSpracheEn;
+
+  /// No description provided for @infoKiPlatzhalterDe.
+  ///
+  /// In de, this message translates to:
+  /// **'Deutsche Fassung eintragen'**
+  String get infoKiPlatzhalterDe;
+
+  /// No description provided for @infoKiPlatzhalterEn.
+  ///
+  /// In de, this message translates to:
+  /// **'Englische Fassung eintragen'**
+  String get infoKiPlatzhalterEn;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

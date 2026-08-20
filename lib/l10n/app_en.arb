@@ -1838,9 +1838,14 @@
   "aufgUebersetzungsmodell": "the English → German translation model",
   "werkzUebersetzeBeschreibungen": "Translating captions …",
   "werkzAlleUebersetzt": "Every caption has been translated.",
-  "infoKiBeschreibungEnglisch": "AI caption · English",
   "werkzLaeuftSchon": "Already running as a background task: {titel}",
   "aufgLaeuftSchon": "This analysis is already running.",
   "aufgAndereLaeuft": "Another analysis is already running. Expensive ones run one after another so that several AI models are never in memory at once.",
-  "aufgAnalyseLaeuft": "The background analysis is working through the same steps right now. You can stop it in the “Catch up on everything” card above."
+  "aufgAnalyseLaeuft": "The background analysis is working through the same steps right now. You can stop it in the “Catch up on everything” card above.",
+  "infoKiBeschreibungVonHand": "AI caption, edited by hand",
+  "infoKiVonHandHinweis": "Survives “All photos”. Clear the field to have it computed again.",
+  "infoSpracheDe": "DE",
+  "infoSpracheEn": "EN",
+  "infoKiPlatzhalterDe": "Write the German version",
+  "infoKiPlatzhalterEn": "Write the English version"
 }

@@ -4843,9 +4843,6 @@ class AppTexteEn extends AppTexte {
   String get werkzAlleUebersetzt => 'Every caption has been translated.';
 
   @override
-  String get infoKiBeschreibungEnglisch => 'AI caption · English';
-
-  @override
   String werkzLaeuftSchon(String titel) {
     return 'Already running as a background task: $titel';
   }
@@ -4860,4 +4857,23 @@ class AppTexteEn extends AppTexte {
   @override
   String get aufgAnalyseLaeuft =>
       'The background analysis is working through the same steps right now. You can stop it in the “Catch up on everything” card above.';
+
+  @override
+  String get infoKiBeschreibungVonHand => 'AI caption, edited by hand';
+
+  @override
+  String get infoKiVonHandHinweis =>
+      'Survives “All photos”. Clear the field to have it computed again.';
+
+  @override
+  String get infoSpracheDe => 'DE';
+
+  @override
+  String get infoSpracheEn => 'EN';
+
+  @override
+  String get infoKiPlatzhalterDe => 'Write the German version';
+
+  @override
+  String get infoKiPlatzhalterEn => 'Write the English version';
 }

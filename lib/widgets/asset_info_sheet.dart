@@ -65,6 +65,18 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   List<TagData> _tags = [];
   List<_AssetFace> _peopleFaces = [];
 
+  /// Welche Fassung der KI-Bildunterschrift gerade bearbeitet wird.
+  ///
+  /// Anfangs die, die auch angezeigt würde: bei deutscher Oberfläche die
+  /// deutsche, sofern es sie gibt. Umschalten geht über die zwei Knöpfe
+  /// neben der Beschriftung – nur so kommt man an das englische Original
+  /// heran, wenn eine Übersetzung vorliegt (und umgekehrt an eine deutsche
+  /// Fassung, die es noch gar nicht gibt).
+  bool? _kiDeutsch;
+
+  late final TextEditingController _kiController = TextEditingController();
+  late final FocusNode _kiFocusNode = FocusNode()..addListener(_onKiFocusChange);
+
   @override
   void initState() {
     super.initState();
@@ -76,8 +88,43 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   void dispose() {
     _descriptionController.dispose();
     _descriptionFocusNode.dispose();
+    _kiController.dispose();
+    _kiFocusNode.dispose();
     _tagController.dispose();
     super.dispose();
+  }
+
+  /// Die Sprache, die beim Öffnen gezeigt wird – siehe [_kiDeutsch].
+  bool _kiSpracheVorgabe(BuildContext context) =>
+      Localizations.localeOf(context).languageCode == 'de' &&
+      (_asset.aiCaptionDe ?? '').trim().isNotEmpty;
+
+  String _kiText(bool deutsch) =>
+      ((deutsch ? _asset.aiCaptionDe : _asset.aiCaption) ?? '').trim();
+
+  void _onKiFocusChange() {
+    if (!_kiFocusNode.hasFocus) _saveKiBeschreibung();
+  }
+
+  Future<void> _saveKiBeschreibung() async {
+    final deutsch = _kiDeutsch;
+    if (deutsch == null) return;
+    final neu = _kiController.text.trim();
+    if (neu == _kiText(deutsch)) return;
+    await widget.db.setAiCaptionVonHand(_asset.id, neu, deutsch: deutsch);
+    await _refresh();
+  }
+
+  /// Wechselt zwischen deutscher und englischer Fassung. Speichert vorher,
+  /// damit ein Umschalten nicht wie ein Verwerfen wirkt.
+  Future<void> _kiSpracheWechseln(bool deutsch) async {
+    if (_kiDeutsch == deutsch) return;
+    await _saveKiBeschreibung();
+    if (!mounted) return;
+    setState(() {
+      _kiDeutsch = deutsch;
+      _kiController.text = _kiText(deutsch);
+    });
   }
 
   Future<void> _refresh() async {
@@ -278,24 +325,21 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     final hasLocation = asset.latitude != null && asset.longitude != null;
     final sprache = Localizations.localeOf(context).toString();
 
-    // Welche Fassung der KI-Bildunterschrift angezeigt wird.
+    // Welche Fassung der KI-Bildunterschrift bearbeitet wird.
     //
     // Das Beschreibungsmodell liefert ausschliesslich Englisch; die deutsche
     // Fassung steht in einer eigenen Spalte, sobald sie übersetzt wurde
-    // (siehe LibraryState.uebersetzeBildbeschreibungen). Bisher zeigte diese
-    // Ansicht IMMER das englische Original – die Übersetzung war zwar da und
-    // durchsuchbar, aber nirgends zu sehen.
+    // (siehe LibraryState.uebersetzeBildbeschreibungen).
     //
-    // Bei englischer Oberfläche bleibt es beim Original: Eine deutsche
-    // Bildunterschrift in einer englischen Ansicht wäre kein Dienst.
-    final istDeutscheOberflaeche = Localizations.localeOf(context).languageCode == 'de';
-    final deutscheBeschreibung = asset.aiCaptionDe?.trim();
-    final englischeBeschreibung = asset.aiCaption?.trim();
-    final kiBeschreibungIstUebersetzt =
-        istDeutscheOberflaeche && (deutscheBeschreibung?.isNotEmpty ?? false);
-    final String? kiBeschreibung = kiBeschreibungIstUebersetzt
-        ? deutscheBeschreibung
-        : ((englischeBeschreibung?.isEmpty ?? true) ? null : englischeBeschreibung);
+    // Die Vorgabe wird beim ersten Aufbau festgehalten und danach nur noch
+    // von den Umschaltknöpfen geändert – sonst spränge das Feld beim
+    // Speichern zurück, sobald jemand die deutsche Fassung leert.
+    final kiDeutsch = _kiDeutsch ??= _kiSpracheVorgabe(context);
+    final kiVorhanden = (asset.aiCaption ?? '').trim().isNotEmpty ||
+        (asset.aiCaptionDe ?? '').trim().isNotEmpty;
+    if (!_kiFocusNode.hasFocus && _kiController.text != _kiText(kiDeutsch)) {
+      _kiController.text = _kiText(kiDeutsch);
+    }
     final regionParts = [asset.locationState, asset.locationCountry]
         .whereType<String>()
         .where((s) => s.isNotEmpty)
@@ -335,27 +379,14 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           isDense: true,
                         ),
                       ),
-                      if (kiBeschreibung != null) ...[
+                      if (kiVorhanden) ...[
                         const SizedBox(height: 12),
-                        Text(
-                          // Sagt dazu, wenn der Satz englisch bleibt, obwohl
-                          // die Oberfläche deutsch ist – sonst sähe es nach
-                          // einer vergessenen Übersetzung aus statt nach
-                          // einer, die es noch nicht gibt.
-                          kiBeschreibungIstUebersetzt
-                              ? AppTexte.of(context).infoKiBeschreibung
-                              : AppTexte.of(context).infoKiBeschreibungEnglisch,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          kiBeschreibung,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontStyle: FontStyle.italic,
-                                color: Theme.of(context).colorScheme.outline,
-                              ),
+                        _KiBeschreibung(
+                          controller: _kiController,
+                          focusNode: _kiFocusNode,
+                          deutsch: kiDeutsch,
+                          vonHand: asset.aiCaptionEdited,
+                          onSprache: _kiSpracheWechseln,
                         ),
                       ],
                       const SizedBox(height: 16),
@@ -680,6 +711,118 @@ class _Aufnahmeblock extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Die KI-Bildunterschrift – anders als früher nicht nur zu lesen.
+///
+/// Warum überhaupt bearbeitbar: Das Modell trifft den Inhalt oft, aber
+/// nicht immer, und die Sätze sind durchsuchbar. Eine Zeile richtigzustellen
+/// ist billiger, als ein ganzes Modell besser zu machen. Der Freitext
+/// darüber bleibt davon getrennt – der gehört dem Nutzer, diese Zeile ist
+/// eine korrigierte Maschinenausgabe.
+///
+/// Die beiden Sprachknöpfe stehen auch dann da, wenn es die andere Fassung
+/// noch nicht gibt: Nur so lässt sich eine deutsche Bildunterschrift von
+/// Hand anlegen, ohne erst das Übersetzungsmodell zu bemühen.
+class _KiBeschreibung extends StatelessWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool deutsch;
+  final bool vonHand;
+  final void Function(bool deutsch) onSprache;
+
+  const _KiBeschreibung({
+    required this.controller,
+    required this.focusNode,
+    required this.deutsch,
+    required this.vonHand,
+    required this.onSprache,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                vonHand ? t.infoKiBeschreibungVonHand : t.infoKiBeschreibung,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelSmall
+                    ?.copyWith(color: farben.outline),
+              ),
+            ),
+            for (final istDeutsch in [true, false])
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: _Sprachknopf(
+                  beschriftung: istDeutsch ? t.infoSpracheDe : t.infoSpracheEn,
+                  aktiv: deutsch == istDeutsch,
+                  onTap: () => onSprache(istDeutsch),
+                ),
+              ),
+          ],
+        ),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLines: null,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontStyle: FontStyle.italic,
+                color: farben.onSurfaceVariant,
+              ),
+          decoration: InputDecoration(
+            hintText: deutsch ? t.infoKiPlatzhalterDe : t.infoKiPlatzhalterEn,
+            border: const UnderlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        if (vonHand) ...[
+          const SizedBox(height: 4),
+          Text(t.infoKiVonHandHinweis,
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: farben.outline)),
+        ],
+      ],
+    );
+  }
+}
+
+/// „DE"/„EN" als kleiner, flacher Umschalter – ein SegmentedButton wäre für
+/// zwei Kürzel neben einer Beschriftung deutlich zu wuchtig.
+class _Sprachknopf extends StatelessWidget {
+  final String beschriftung;
+  final bool aktiv;
+  final VoidCallback onTap;
+  const _Sprachknopf({required this.beschriftung, required this.aktiv, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        child: Text(
+          beschriftung,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: aktiv ? FontWeight.w700 : FontWeight.w400,
+            color: aktiv ? farben.primary : farben.outline,
+          ),
+        ),
       ),
     );
   }

@@ -31,6 +31,7 @@ AssetData _foto(String id, DateTime wann, {String? marke, String? modell}) => As
       facesScanned: false,
       ocrScanned: false,
       aiCaptionScanned: false,
+      aiCaptionEdited: false,
       aiTagsScanned: false,
       isStackCover: false,
       rating: 0,

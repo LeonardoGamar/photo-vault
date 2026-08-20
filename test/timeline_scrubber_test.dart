@@ -25,6 +25,7 @@ AssetData _foto(String id, DateTime wann) => AssetData(
       facesScanned: false,
       ocrScanned: false,
       aiCaptionScanned: false,
+      aiCaptionEdited: false,
       aiTagsScanned: false,
       isStackCover: false,
       rating: 0,

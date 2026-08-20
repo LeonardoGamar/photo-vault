@@ -30,6 +30,7 @@ AssetData _asset({
     facesScanned: false,
     ocrScanned: false,
     aiCaptionScanned: false,
+    aiCaptionEdited: false,
     aiTagsScanned: false,
     isStackCover: false,
     cameraMake: hersteller,

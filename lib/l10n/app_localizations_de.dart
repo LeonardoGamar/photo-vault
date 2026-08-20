@@ -4867,9 +4867,6 @@ class AppTexteDe extends AppTexte {
   String get werkzAlleUebersetzt => 'Alle Beschreibungen sind übersetzt.';
 
   @override
-  String get infoKiBeschreibungEnglisch => 'KI-Beschreibung · Englisch';
-
-  @override
   String werkzLaeuftSchon(String titel) {
     return 'Läuft bereits als Hintergrundaufgabe: $titel';
   }
@@ -4884,4 +4881,23 @@ class AppTexteDe extends AppTexte {
   @override
   String get aufgAnalyseLaeuft =>
       'Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.';
+
+  @override
+  String get infoKiBeschreibungVonHand => 'KI-Beschreibung, von Hand geändert';
+
+  @override
+  String get infoKiVonHandHinweis =>
+      'Bleibt bei „Alle Fotos“ erhalten. Zum Neuberechnen das Feld leeren.';
+
+  @override
+  String get infoSpracheDe => 'DE';
+
+  @override
+  String get infoSpracheEn => 'EN';
+
+  @override
+  String get infoKiPlatzhalterDe => 'Deutsche Fassung eintragen';
+
+  @override
+  String get infoKiPlatzhalterEn => 'Englische Fassung eintragen';
 }

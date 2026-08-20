@@ -318,6 +318,16 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("ai_caption_scanned" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _aiCaptionEditedMeta =
+      const VerificationMeta('aiCaptionEdited');
+  @override
+  late final GeneratedColumn<bool> aiCaptionEdited = GeneratedColumn<bool>(
+      'ai_caption_edited', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("ai_caption_edited" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _aiTagsScannedMeta =
       const VerificationMeta('aiTagsScanned');
   @override
@@ -404,6 +414,7 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
+        aiCaptionEdited,
         aiTagsScanned,
         sharpnessScore,
         stackId,
@@ -675,6 +686,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           aiCaptionScanned.isAcceptableOrUnknown(
               data['ai_caption_scanned']!, _aiCaptionScannedMeta));
     }
+    if (data.containsKey('ai_caption_edited')) {
+      context.handle(
+          _aiCaptionEditedMeta,
+          aiCaptionEdited.isAcceptableOrUnknown(
+              data['ai_caption_edited']!, _aiCaptionEditedMeta));
+    }
     if (data.containsKey('ai_tags_scanned')) {
       context.handle(
           _aiTagsScannedMeta,
@@ -805,6 +822,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.string, data['${effectivePrefix}ai_caption_de']),
       aiCaptionScanned: attachedDatabase.typeMapping.read(
           DriftSqlType.bool, data['${effectivePrefix}ai_caption_scanned'])!,
+      aiCaptionEdited: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}ai_caption_edited'])!,
       aiTagsScanned: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}ai_tags_scanned'])!,
       sharpnessScore: attachedDatabase.typeMapping
@@ -956,6 +975,18 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   /// analog zu [ocrScanned].
   final bool aiCaptionScanned;
 
+  /// Ob jemand die Bildunterschrift von Hand geändert hat.
+  ///
+  /// Ohne dieses Merkmal wäre das Bearbeiten eine Falle: Ein „Alle Fotos"
+  /// bei den Bildbeschreibungen – gedacht für einen Modellwechsel – würde
+  /// den mühsam getippten Satz kommentarlos überschreiben. Ist es gesetzt,
+  /// fassen weder die Nachholvorgänge noch die Hintergrundanalyse den
+  /// Eintrag noch an; er verhält sich damit wie der Freitext des Nutzers.
+  ///
+  /// Zurücknehmen lässt es sich, indem das Feld geleert wird – dann ist das
+  /// Foto wieder Kandidat für das Modell.
+  final bool aiCaptionEdited;
+
   /// Eigenes Flag statt "hat keine Tags" als "noch nicht verschlagwortet"-
   /// Signal, aus demselben Grund wie [ocrScanned]: Dass CLIP zu keinem
   /// Vokabelbegriff eine ausreichende Ähnlichkeit findet, ist ein GÜLTIGES
@@ -1030,6 +1061,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       this.aiCaption,
       this.aiCaptionDe,
       required this.aiCaptionScanned,
+      required this.aiCaptionEdited,
       required this.aiTagsScanned,
       this.sharpnessScore,
       this.stackId,
@@ -1142,6 +1174,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       map['ai_caption_de'] = Variable<String>(aiCaptionDe);
     }
     map['ai_caption_scanned'] = Variable<bool>(aiCaptionScanned);
+    map['ai_caption_edited'] = Variable<bool>(aiCaptionEdited);
     map['ai_tags_scanned'] = Variable<bool>(aiTagsScanned);
     if (!nullToAbsent || sharpnessScore != null) {
       map['sharpness_score'] = Variable<double>(sharpnessScore);
@@ -1260,6 +1293,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ? const Value.absent()
           : Value(aiCaptionDe),
       aiCaptionScanned: Value(aiCaptionScanned),
+      aiCaptionEdited: Value(aiCaptionEdited),
       aiTagsScanned: Value(aiTagsScanned),
       sharpnessScore: sharpnessScore == null && nullToAbsent
           ? const Value.absent()
@@ -1330,6 +1364,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       aiCaption: serializer.fromJson<String?>(json['aiCaption']),
       aiCaptionDe: serializer.fromJson<String?>(json['aiCaptionDe']),
       aiCaptionScanned: serializer.fromJson<bool>(json['aiCaptionScanned']),
+      aiCaptionEdited: serializer.fromJson<bool>(json['aiCaptionEdited']),
       aiTagsScanned: serializer.fromJson<bool>(json['aiTagsScanned']),
       sharpnessScore: serializer.fromJson<double?>(json['sharpnessScore']),
       stackId: serializer.fromJson<String?>(json['stackId']),
@@ -1389,6 +1424,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'aiCaption': serializer.toJson<String?>(aiCaption),
       'aiCaptionDe': serializer.toJson<String?>(aiCaptionDe),
       'aiCaptionScanned': serializer.toJson<bool>(aiCaptionScanned),
+      'aiCaptionEdited': serializer.toJson<bool>(aiCaptionEdited),
       'aiTagsScanned': serializer.toJson<bool>(aiTagsScanned),
       'sharpnessScore': serializer.toJson<double?>(sharpnessScore),
       'stackId': serializer.toJson<String?>(stackId),
@@ -1444,6 +1480,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           Value<String?> aiCaption = const Value.absent(),
           Value<String?> aiCaptionDe = const Value.absent(),
           bool? aiCaptionScanned,
+          bool? aiCaptionEdited,
           bool? aiTagsScanned,
           Value<double?> sharpnessScore = const Value.absent(),
           Value<String?> stackId = const Value.absent(),
@@ -1519,6 +1556,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         aiCaption: aiCaption.present ? aiCaption.value : this.aiCaption,
         aiCaptionDe: aiCaptionDe.present ? aiCaptionDe.value : this.aiCaptionDe,
         aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
+        aiCaptionEdited: aiCaptionEdited ?? this.aiCaptionEdited,
         aiTagsScanned: aiTagsScanned ?? this.aiTagsScanned,
         sharpnessScore:
             sharpnessScore.present ? sharpnessScore.value : this.sharpnessScore,
@@ -1624,6 +1662,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       aiCaptionScanned: data.aiCaptionScanned.present
           ? data.aiCaptionScanned.value
           : this.aiCaptionScanned,
+      aiCaptionEdited: data.aiCaptionEdited.present
+          ? data.aiCaptionEdited.value
+          : this.aiCaptionEdited,
       aiTagsScanned: data.aiTagsScanned.present
           ? data.aiTagsScanned.value
           : this.aiTagsScanned,
@@ -1687,6 +1728,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
+          ..write('aiCaptionEdited: $aiCaptionEdited, ')
           ..write('aiTagsScanned: $aiTagsScanned, ')
           ..write('sharpnessScore: $sharpnessScore, ')
           ..write('stackId: $stackId, ')
@@ -1744,6 +1786,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
+        aiCaptionEdited,
         aiTagsScanned,
         sharpnessScore,
         stackId,
@@ -1800,6 +1843,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.aiCaption == this.aiCaption &&
           other.aiCaptionDe == this.aiCaptionDe &&
           other.aiCaptionScanned == this.aiCaptionScanned &&
+          other.aiCaptionEdited == this.aiCaptionEdited &&
           other.aiTagsScanned == this.aiTagsScanned &&
           other.sharpnessScore == this.sharpnessScore &&
           other.stackId == this.stackId &&
@@ -1854,6 +1898,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<String?> aiCaption;
   final Value<String?> aiCaptionDe;
   final Value<bool> aiCaptionScanned;
+  final Value<bool> aiCaptionEdited;
   final Value<bool> aiTagsScanned;
   final Value<double?> sharpnessScore;
   final Value<String?> stackId;
@@ -1907,6 +1952,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
+    this.aiCaptionEdited = const Value.absent(),
     this.aiTagsScanned = const Value.absent(),
     this.sharpnessScore = const Value.absent(),
     this.stackId = const Value.absent(),
@@ -1961,6 +2007,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
+    this.aiCaptionEdited = const Value.absent(),
     this.aiTagsScanned = const Value.absent(),
     this.sharpnessScore = const Value.absent(),
     this.stackId = const Value.absent(),
@@ -2021,6 +2068,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<String>? aiCaption,
     Expression<String>? aiCaptionDe,
     Expression<bool>? aiCaptionScanned,
+    Expression<bool>? aiCaptionEdited,
     Expression<bool>? aiTagsScanned,
     Expression<double>? sharpnessScore,
     Expression<String>? stackId,
@@ -2081,6 +2129,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       if (aiCaption != null) 'ai_caption': aiCaption,
       if (aiCaptionDe != null) 'ai_caption_de': aiCaptionDe,
       if (aiCaptionScanned != null) 'ai_caption_scanned': aiCaptionScanned,
+      if (aiCaptionEdited != null) 'ai_caption_edited': aiCaptionEdited,
       if (aiTagsScanned != null) 'ai_tags_scanned': aiTagsScanned,
       if (sharpnessScore != null) 'sharpness_score': sharpnessScore,
       if (stackId != null) 'stack_id': stackId,
@@ -2137,6 +2186,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<String?>? aiCaption,
       Value<String?>? aiCaptionDe,
       Value<bool>? aiCaptionScanned,
+      Value<bool>? aiCaptionEdited,
       Value<bool>? aiTagsScanned,
       Value<double?>? sharpnessScore,
       Value<String?>? stackId,
@@ -2192,6 +2242,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       aiCaption: aiCaption ?? this.aiCaption,
       aiCaptionDe: aiCaptionDe ?? this.aiCaptionDe,
       aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
+      aiCaptionEdited: aiCaptionEdited ?? this.aiCaptionEdited,
       aiTagsScanned: aiTagsScanned ?? this.aiTagsScanned,
       sharpnessScore: sharpnessScore ?? this.sharpnessScore,
       stackId: stackId ?? this.stackId,
@@ -2348,6 +2399,9 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     if (aiCaptionScanned.present) {
       map['ai_caption_scanned'] = Variable<bool>(aiCaptionScanned.value);
     }
+    if (aiCaptionEdited.present) {
+      map['ai_caption_edited'] = Variable<bool>(aiCaptionEdited.value);
+    }
     if (aiTagsScanned.present) {
       map['ai_tags_scanned'] = Variable<bool>(aiTagsScanned.value);
     }
@@ -2418,6 +2472,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
+          ..write('aiCaptionEdited: $aiCaptionEdited, ')
           ..write('aiTagsScanned: $aiTagsScanned, ')
           ..write('sharpnessScore: $sharpnessScore, ')
           ..write('stackId: $stackId, ')
@@ -12828,6 +12883,7 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
+  Value<bool> aiCaptionEdited,
   Value<bool> aiTagsScanned,
   Value<double?> sharpnessScore,
   Value<String?> stackId,
@@ -12882,6 +12938,7 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
+  Value<bool> aiCaptionEdited,
   Value<bool> aiTagsScanned,
   Value<double?> sharpnessScore,
   Value<String?> stackId,
@@ -13047,6 +13104,10 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<bool> get aiCaptionScanned => $composableBuilder(
       column: $table.aiCaptionScanned,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get aiCaptionEdited => $composableBuilder(
+      column: $table.aiCaptionEdited,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get aiTagsScanned => $composableBuilder(
@@ -13234,6 +13295,10 @@ class $$AssetsTableOrderingComposer
       column: $table.aiCaptionScanned,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get aiCaptionEdited => $composableBuilder(
+      column: $table.aiCaptionEdited,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get aiTagsScanned => $composableBuilder(
       column: $table.aiTagsScanned,
       builder: (column) => ColumnOrderings(column));
@@ -13400,6 +13465,9 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<bool> get aiCaptionScanned => $composableBuilder(
       column: $table.aiCaptionScanned, builder: (column) => column);
 
+  GeneratedColumn<bool> get aiCaptionEdited => $composableBuilder(
+      column: $table.aiCaptionEdited, builder: (column) => column);
+
   GeneratedColumn<bool> get aiTagsScanned => $composableBuilder(
       column: $table.aiTagsScanned, builder: (column) => column);
 
@@ -13485,6 +13553,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
+            Value<bool> aiCaptionEdited = const Value.absent(),
             Value<bool> aiTagsScanned = const Value.absent(),
             Value<double?> sharpnessScore = const Value.absent(),
             Value<String?> stackId = const Value.absent(),
@@ -13539,6 +13608,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
+            aiCaptionEdited: aiCaptionEdited,
             aiTagsScanned: aiTagsScanned,
             sharpnessScore: sharpnessScore,
             stackId: stackId,
@@ -13593,6 +13663,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
+            Value<bool> aiCaptionEdited = const Value.absent(),
             Value<bool> aiTagsScanned = const Value.absent(),
             Value<double?> sharpnessScore = const Value.absent(),
             Value<String?> stackId = const Value.absent(),
@@ -13647,6 +13718,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
+            aiCaptionEdited: aiCaptionEdited,
             aiTagsScanned: aiTagsScanned,
             sharpnessScore: sharpnessScore,
             stackId: stackId,

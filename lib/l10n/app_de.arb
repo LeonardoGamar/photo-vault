@@ -2818,10 +2818,15 @@
   "aufgUebersetzungsmodell": "das Übersetzungsmodell Englisch → Deutsch",
   "werkzUebersetzeBeschreibungen": "Übersetze Bildbeschreibungen …",
   "werkzAlleUebersetzt": "Alle Beschreibungen sind übersetzt.",
-  "infoKiBeschreibungEnglisch": "KI-Beschreibung · Englisch",
   "werkzLaeuftSchon": "Läuft bereits als Hintergrundaufgabe: {titel}",
   "@werkzLaeuftSchon": {"placeholders": {"titel": {"type": "String"}}},
   "aufgLaeuftSchon": "Diese Auswertung läuft bereits.",
   "aufgAndereLaeuft": "Es läuft bereits eine andere Auswertung. Teure Auswertungen laufen nacheinander, damit nicht mehrere KI-Modelle gleichzeitig im Speicher liegen.",
-  "aufgAnalyseLaeuft": "Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten."
+  "aufgAnalyseLaeuft": "Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.",
+  "infoKiBeschreibungVonHand": "KI-Beschreibung, von Hand geändert",
+  "infoKiVonHandHinweis": "Bleibt bei „Alle Fotos“ erhalten. Zum Neuberechnen das Feld leeren.",
+  "infoSpracheDe": "DE",
+  "infoSpracheEn": "EN",
+  "infoKiPlatzhalterDe": "Deutsche Fassung eintragen",
+  "infoKiPlatzhalterEn": "Englische Fassung eintragen"
 }

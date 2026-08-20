@@ -32,6 +32,7 @@ AssetData _buildAsset({
     longitude: longitude,
     ocrScanned: false,
     aiCaptionScanned: false,
+    aiCaptionEdited: false,
     aiTagsScanned: false,
     isStackCover: false,
   );
