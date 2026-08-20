@@ -567,6 +567,18 @@ class BackgroundTasksScreen extends StatelessWidget {
                 emptyMessage: t.werkzAlleHabenEmbedding,
                 stream: () => library.backfillClipEmbeddings(),
               ),
+              // Nach der Umstellung der Bildvorverarbeitung der eigentlich
+              // sinnvolle Weg: Die gespeicherten Vektoren stammen noch vom
+              // gestauchten Bild. Fehlte hier, während die Bildbeschreibung
+              // ihn längst hatte – „Starten" rechnete dann nur das eine
+              // fehlende Foto und sah nach getaner Arbeit aus.
+              _TaskAction(
+                label: t.werkzAlleFotos,
+                icon: Icons.all_inclusive,
+                dialogTitle: t.werkzBerechneEmbeddings,
+                emptyMessage: t.werkzKeinePassenden,
+                stream: () => library.backfillClipEmbeddings(alle: true),
+              ),
             ],
           ),
           _TaskCard(

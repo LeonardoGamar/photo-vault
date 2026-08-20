@@ -104,6 +104,29 @@ void main() {
         reason: 'die Aktionsleiste gehört an den rechten Rand der Karte');
   });
 
+  testWidgets('was sich neu rechnen lässt, bietet auch „Alle Fotos" an',
+      (tester) async {
+    // Gemeldeter Fehler: Die Karte „CLIP-Embeddings" hatte nur „Starten".
+    // Das rechnet ausschliesslich fehlende Fotos – nach der Umstellung
+    // der Bildvorverarbeitung also fast nichts, und es sah trotzdem nach
+    // getaner Arbeit aus. Bei den Bildbeschreibungen war der zweite Knopf
+    // längst da; genau diese Ungleichheit fiel niemandem auf.
+    await zeige(tester, const Size(1400, 2400));
+
+    for (final titel in ['CLIP-Embeddings', 'Bildbeschreibungen', 'KI-Tags']) {
+      final karte = find.ancestor(
+        of: find.text(titel),
+        matching: find.byType(Card),
+      );
+      expect(karte, findsOneWidget, reason: 'Karte „$titel" fehlt');
+      expect(
+        find.descendant(of: karte, matching: find.text('Alle Fotos')),
+        findsOneWidget,
+        reason: 'Karte „$titel" bietet kein Neurechnen aller Fotos an',
+      );
+    }
+  });
+
   testWidgets('eine Aufgabe ohne Modell zeigt den Grund statt der Zahlen', (tester) async {
     // Hoch genug, dass die Liste alle Karten baut – find greift nur auf
     // Gebautes zu, und die CLIP-Karten liegen weit unten.
