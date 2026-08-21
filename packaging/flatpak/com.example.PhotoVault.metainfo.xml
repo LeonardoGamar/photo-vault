@@ -68,6 +68,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.8.3" date="2026-08-21">
+      <description>
+        <p>The Linux window is now titled “Photo Vault” and uses the desktop's own interface font.</p>
+        <p xml:lang="de">Das Linux-Fenster heisst jetzt „Photo Vault" und schreibt in der Oberflächenschrift der Arbeitsumgebung.</p>
+      </description>
+    </release>
     <release version="1.8.2" date="2026-08-21">
       <description>
         <p>The Linux package now ships ONNX Runtime itself – without it, every AI feature failed on any machine other than the build machine.</p>

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 /// Zentrale Theme-Definition für Light/Dark Mode (siehe
@@ -10,7 +11,24 @@ import 'package:flutter/material.dart';
 /// Font-Bundling nötig (reines System-Font-Referencing, keine Lizenzfrage),
 /// sorgt aber für ein deutlich natives Schriftbild statt Flutters
 /// Material-3-Standard (Roboto-Fallback).
-const _fontFamily = '.AppleSystemUIFont';
+///
+/// **Ausserhalb von macOS kennt diesen Namen niemand.** Die Oberfläche
+/// bekam dort still Flutters Standardschrift – nicht die Schrift, mit der
+/// die Arbeitsumgebung selbst schreibt.
+///
+/// `Adwaita Sans` ist die Oberflächenschrift heutiger GNOME-Fassungen und
+/// geht auf Inter zurück; sie kommt San Francisco im Schriftbild nahe und
+/// ist zugleich die native Wahl. Dahinter stehen Cantarell (ältere
+/// GNOME-Fassungen) und Noto Sans für alles andere.
+///
+/// Dass sie wirklich greift und nicht still ersetzt wird, misst
+/// `integration_test/schrift_greift_test.dart` über die Textbreite:
+/// Adwaita Sans 608,9 px, DejaVu Sans 653,3 px, unbekannter Name
+/// 588,2 px – drei verschiedene Werte, also drei verschiedene Schriften.
+final String _fontFamily =
+    Platform.isMacOS ? '.AppleSystemUIFont' : 'Adwaita Sans';
+
+const _fontFamilyFallback = <String>['Cantarell', 'Noto Sans', 'DejaVu Sans'];
 
 /// Farben für Warnung und Erfolg.
 ///
@@ -101,6 +119,7 @@ ThemeData buildLightTheme() => ThemeData(
       colorSchemeSeed: Colors.teal,
       brightness: Brightness.light,
       fontFamily: _fontFamily,
+      fontFamilyFallback: _fontFamilyFallback,
       extensions: const [AppSemantik._hell],
     );
 
@@ -109,6 +128,7 @@ ThemeData buildDarkTheme() => ThemeData(
       colorSchemeSeed: Colors.teal,
       brightness: Brightness.dark,
       fontFamily: _fontFamily,
+      fontFamilyFallback: _fontFamilyFallback,
       extensions: const [AppSemantik._dunkel],
     );
 
