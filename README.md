@@ -1,9 +1,9 @@
 # Photo Vault
 
 **Deine Fotobibliothek bleibt auf deinem Rechner.** Eine eigenständige
-Foto- und Videoverwaltung für macOS – mit Gesichtserkennung, Bildsuche in
-natürlicher Sprache und RAW-Entwicklung, aber **ohne Server, ohne Konto und
-ohne Cloud-Dienst**.
+Foto- und Videoverwaltung für **macOS und Linux** – mit Gesichtserkennung,
+Bildsuche in natürlicher Sprache und RAW-Entwicklung, aber **ohne Server,
+ohne Konto und ohne Cloud-Dienst**.
 
 Inspiriert von Immich, digiKam und Lightroom. Der Unterschied: Es gibt
 nichts, wo deine Fotos hochgeladen werden könnten. Die Datenbank ist eine
@@ -58,9 +58,25 @@ beides sichergestellt wird, steht in
 
 ## Herunterladen
 
-Fertige Fassungen liegen unter [Releases](../../releases). Aktuell gibt es
-Builds nur für macOS – als Universal Binary, also nativ auf Apple Silicon
-**und** Intel, ab macOS 10.15.
+Fertige Fassungen liegen unter [Releases](../../releases): für macOS als
+Universal Binary, also nativ auf Apple Silicon **und** Intel, ab macOS
+10.15 – und für Linux als Flatpak-Bündel.
+
+### Linux
+
+```bash
+flatpak remote-add --if-not-exists --user flathub \
+    https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user PhotoVault-*-x86_64.flatpak
+flatpak run com.example.PhotoVault
+```
+
+Die GNOME-Laufzeit zieht Flatpak beim ersten Mal selbst nach. Das Bündel
+bringt alles mit, was die App an Werkzeugen braucht – auch den
+HEVC-Dekoder, ohne den HEIC-Fotos unsichtbar blieben und den manche
+Distribution nicht mitliefert.
+
+### macOS
 
 Die App ist **nicht von Apple beglaubigt** (das erfordert ein
 kostenpflichtiges Entwicklerkonto). macOS blockiert sie deshalb beim ersten
@@ -78,11 +94,14 @@ xattr -dr com.apple.quarantine "/Applications/Photo Vault.app"
 Wer das nicht möchte, baut die App selbst – siehe
 [Aus dem Quellcode bauen](#aus-dem-quellcode-bauen).
 
+### Für beide
+
 Zu jedem Release gehört eine `SHA256SUMS.txt`. Prüfsumme des Downloads
 vergleichen:
 
 ```bash
-shasum -a 256 PhotoVault-*-macos-universal.zip
+shasum -a 256 PhotoVault-*-macos-universal.zip   # macOS
+sha256sum  PhotoVault-*-x86_64.flatpak           # Linux
 ```
 
 Die App enthält **keine** KI-Modelle – die lädst du bei Bedarf in den
@@ -94,9 +113,13 @@ welche Modelle aus welcher Quelle stammen.
 | Plattform | Status |
 |---|---|
 | macOS | vollständig unterstützt |
-| Linux | in Vorbereitung – siehe [docs/plan_linux.md](docs/plan_linux.md) |
+| Linux | unterstützt, als Flatpak – vier Entwickeln-Regler fehlen, siehe unten |
 | Windows | geplant, nach Linux |
 | iOS / Android | Code läuft grundsätzlich, aber nicht angepasst oder getestet |
+
+Was unter Linux anders gelöst ist, steht Phase für Phase in
+[docs/plan_linux.md](docs/plan_linux.md) – samt der Messwerte auf echter
+Hardware.
 
 ## Funktionen
 
@@ -233,12 +256,15 @@ welche Modelle aus welcher Quelle stammen.
 
 ### RAW & Bildbearbeitung
 
-- **Erweiterte RAW-Unterstützung** – alle von macOS' ImageIO/CIRAWFilter
-  systemweit erkannten Hersteller-RAW-Formate (nicht nur DNG)
+- **Erweiterte RAW-Unterstützung** – alle Hersteller-RAW-Formate (nicht nur
+  DNG), die macOS über ImageIO/CIRAWFilter beziehungsweise LibRaw unter
+  Linux kennt
 - **Nicht-destruktive Entwicklung** (Develop-Screen) – Anpassungen
   (Belichtung, Kontrast, Objektivkorrektur über CIRAWFilter, Masken-basierte
   gezielte Korrekturen) werden als Verlauf gespeichert, das Original bleibt
-  unverändert; jeder Schritt lässt sich zurückverfolgen
+  unverändert; jeder Schritt lässt sich zurückverfolgen. Ausserhalb von
+  macOS rechnet derselbe Fragment-Shader, der auch die Live-Vorschau
+  zeichnet, das gespeicherte Ergebnis
 - **Tonwertkurve** – Punktkurve mit den Kanälen RGB, R, G und B; Punkte per
   Ziehen setzen und verschieben, langes Drücken entfernt sie. Monotone
   Interpolation nach Fritsch–Carlson, damit die Kurve zwischen zwei Punkten
@@ -298,9 +324,9 @@ welche Modelle aus welcher Quelle stammen.
 
 ## Aus dem Quellcode bauen
 
-**Für die reine Nutzung unter macOS nicht nötig** – dafür genügt der
-Download oben. Weder das Flutter SDK noch Xcode müssen installiert sein,
-die `Photo Vault.app` läuft eigenständig.
+**Für die reine Nutzung nicht nötig** – dafür genügt der Download oben.
+Weder das Flutter SDK noch Xcode müssen installiert sein, die
+`Photo Vault.app` und das Flatpak laufen eigenständig.
 
 Dieser Abschnitt richtet sich an alle, die die App selbst bauen oder
 weiterentwickeln möchten. Voraussetzung dafür:
@@ -311,7 +337,7 @@ weiterentwickeln möchten. Voraussetzung dafür:
 cd photo_vault
 
 # Plattformordner generieren (überschreibt NICHT den vorhandenen lib/-Ordner)
-flutter create --platforms=macos,ios,android .
+flutter create --platforms=macos,linux,ios,android .
 
 # Abhängigkeiten installieren
 flutter pub get
@@ -323,9 +349,35 @@ dart run build_runner build --delete-conflicting-outputs
 flutter run -d macos
 ```
 
+### Linux
+
+Vorher prüfen, ob die Maschine alles hat – das Skript nennt für jedes
+fehlende Stück den Installationsbefehl:
+
+```bash
+tool/linux_setup_check.sh
+flutter run -d linux
+```
+
+Gebraucht werden neben dem Flutter SDK die Kommandozeilenwerkzeuge, über
+die HEIC, RAW und Video laufen: `heif-convert` (Paket `libheif-examples`,
+**samt HEVC-Dekoder**), `dcraw_emu` (`libraw-bin`) sowie
+`ffmpeg`/`ffprobe`. Fehlt eines davon, bleibt die App benutzbar, nur
+diese eine Fähigkeit fehlt.
+
+Das Flatpak-Bündel, das die Werkzeuge in bekannten Fassungen mitbringt,
+entsteht mit:
+
+```bash
+tool/flatpak_bauen.sh --installieren --pruefen
+```
+
+Bauplan und Metadaten liegen unter
+[packaging/flatpak/](packaging/flatpak/).
+
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 39: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 45: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
@@ -462,8 +514,8 @@ kann sie ebenfalls nicht dekodieren. Ohne Gegenmaßnahme blieben solche
 Fotos in der Timeline ohne Vorschaubild und ließen sich auch in der
 Vollbildansicht nicht öffnen.
 
-**Lösung:** `macos/Runner/ImageConverter.swift` nutzt Apples eigenes
-**ImageIO-Framework** (dieselbe Technik, die auch der Finder für
+**Lösung auf macOS:** `macos/Runner/ImageConverter.swift` nutzt Apples
+eigenes **ImageIO-Framework** (dieselbe Technik, die auch der Finder für
 Vorschaubilder verwendet), um solche Dateien zu einer JPEG-Vorschau zu
 konvertieren – einmalig beim Import, gespeichert unter
 `previews/{assetId}.jpg`. Diese Vorschau wird für Thumbnail, Vollbildansicht
@@ -472,9 +524,22 @@ und Gesichtserkennung verwendet; das Originalformat bleibt unverändert in
 Komponente übernimmt außerdem den nicht-destruktiven Video-Zuschnitt
 (AVFoundation) und die Objektivkorrektur für RAW-Import (CIRAWFilter).
 
+**Lösung auf Linux:** Dieselben Aufgaben übernimmt
+`lib/services/platform/linux_image_tools.dart` über etablierte
+Kommandozeilenwerkzeuge – `heif-convert` für HEIC/HEIF, `dcraw_emu` für
+RAW, `ffmpeg`/`ffprobe` für Video. Eigene FFI-Anbindungen an libheif,
+LibRaw und libavcodec zu bauen wäre der aufwendigere Weg zum selben
+Ergebnis gewesen; für keine dieser Bibliotheken gibt es ein brauchbares
+Dart-Paket. Im Flatpak sind die Werkzeuge mit im Bündel.
+
+**Der HEVC-Dekoder ist die Stolperstelle.** Manche Distribution liefert
+libheif ohne aus: `heif-convert` öffnet die Datei dann zwar, kann den
+Bildinhalt aber nicht auspacken. Das Flatpak kompiliert ihn deshalb fest
+ein, statt ihn zur Laufzeit zu suchen.
+
 Status prüfbar unter **Werkzeuge → Vorschaubilder → HEIC/HEIF & RAW-
 Unterstützung**. JPG/PNG/WebP/GIF/BMP/TIFF funktionieren immer, unabhängig
-von dieser nativen Komponente.
+von diesen Komponenten.
 
 ## Manuelles Backup verwenden
 
@@ -595,15 +660,23 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 
 ### Plattformen
 
-- **Nur macOS ist vollständig nutzbar.** Sechs Funktionen laufen über eine
-  native Schicht (`macos/Runner/ImageConverter.swift`): HEIC-/RAW-Umwandlung,
-  Entwickeln, Video-Vorschaubild, Video-Zuschnitt und Texterkennung.
-- **Linux** ist vorbereitet, aber noch nicht funktionsgleich – Projektgerüst
-  und Plattform-Abstraktion stehen, die nativen Gegenstücke fehlen. Weg zum
-  vollen Funktionsumfang: [docs/plan_linux.md](docs/plan_linux.md).
+- **macOS und Linux sind beide nutzbar.** Auf macOS laufen HEIC-/RAW-
+  Umwandlung, Entwickeln, Video-Vorschaubild, Video-Zuschnitt und
+  Texterkennung über eine native Schicht
+  (`macos/Runner/ImageConverter.swift`); unter Linux übernehmen das
+  Kommandozeilenwerkzeuge, ein Fragment-Shader und ein nachladbares
+  ONNX-Modell.
+- **Vier Entwickeln-Regler sind ausserhalb von macOS abgeschaltet** –
+  Schärfe, Rauschunterdrückung, Klarheit, Vignettierung. Die ersten beiden
+  brauchen Nachbarpixel, die ein Fragment-Shader so nicht sieht, die
+  anderen beiden sind reine Core-Image-Filter. Im Bedienfeld steht der
+  Grund darunter. Ein Regler, der sich bewegen lässt und nichts tut, wäre
+  die unangenehmere Lösung.
+- **Texterkennung** nutzt auf macOS Apples Vision-Framework, sonst zwei
+  nachladbare Modelle aus der PaddleOCR-Familie (erst finden, dann lesen).
+  An einer deutschen Testtafel gemessen: 95,5 % der Zeichen richtig,
+  Umlaute und `ß` kommen durch.
 - **Windows** danach; dieselbe Struktur, andere Werkzeuge.
-- `video_player` unterstützt kein Linux/Windows – vorgesehener Ersatz ist
-  `media_kit` (deckt auch macOS ab).
 
 ### Funktionale Grenzen
 
@@ -647,8 +720,19 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   `FileImage`/`MemoryImage` jeweils 0,0 %) und ist damit für Fotos aus der
   Bibliothek unbrauchbar. Es bleibt für den Erd-Globus in der Kartenansicht
   zuständig, der eine Asset-Textur verwendet.
-- Die Entwickeln-Regler laufen über Core Image, also über einen Umweg per
-  Datei. Ein Flutter-Fragment-Shader wäre schneller, plattformübergreifend
-  und würde die Vorschau live statt nach jedem Reglerstopp aktualisieren –
-  siehe Phase 3 in [docs/plan_linux.md](docs/plan_linux.md).
+- Die Entwickeln-Regler laufen **auf macOS** weiterhin über Core Image,
+  also über einen Umweg per Datei. Überall sonst rechnet derselbe
+  Fragment-Shader das gespeicherte Ergebnis, der auch die Live-Vorschau
+  zeichnet. Zwei Wege für dieselbe Rechnung sind eine Altlast – die
+  Mathematik steht deshalb nur einmal da, sonst liefen beide früher oder
+  später auseinander, ohne dass es auffällt.
+- **Das OCR-Lesemodell wird beim ersten Laden umgeschrieben.** Sein
+  `HardSwish`-Rechenschritt liefert im Flutter-Prozess unter Linux
+  durchweg null – ein Fehler ausserhalb dieses Projekts, eingegrenzt auf
+  ein Modell mit einem einzigen Knoten und gemeldet. Da `HardSwish(x)` per
+  ONNX-Festlegung genau `x · HardSigmoid(x)` mit festen Beiwerten ist und
+  beide Teile richtig rechnen, ersetzt `lib/services/onnx_hardswish.dart`
+  die 27 betroffenen Knoten in der Modelldatei. Gegengerechnet: grösste
+  Abweichung 0,000. Reproduktion und Ausschlussliste unter
+  [docs/hardswish_fehler/](docs/hardswish_fehler/).
 - Siehe "Transparenz zu den technischen Risiken" oben.
