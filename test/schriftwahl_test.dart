@@ -13,12 +13,13 @@ void main() {
     for (final theme in [buildLightTheme(), buildDarkTheme()]) {
       final familie = theme.textTheme.bodyMedium?.fontFamily;
       expect(familie, isNotNull);
-      if (Platform.isMacOS) {
-        expect(familie, '.AppleSystemUIFont');
-      } else {
-        expect(familie, isNot('.AppleSystemUIFont'),
-            reason: 'ausserhalb von macOS kennt diesen Namen niemand');
-      }
+      final erwartet = switch (Platform.operatingSystem) {
+        'macos' => '.AppleSystemUIFont',
+        'windows' => 'Segoe UI Variable',
+        _ => 'Adwaita Sans',
+      };
+      expect(familie, erwartet,
+          reason: 'jede Plattform bekommt die Schrift, die es dort gibt');
     }
   });
 

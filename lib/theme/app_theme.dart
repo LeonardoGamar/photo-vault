@@ -25,10 +25,23 @@ import 'package:flutter/material.dart';
 /// `integration_test/schrift_greift_test.dart` über die Textbreite:
 /// Adwaita Sans 608,9 px, DejaVu Sans 653,3 px, unbekannter Name
 /// 588,2 px – drei verschiedene Werte, also drei verschiedene Schriften.
-final String _fontFamily =
-    Platform.isMacOS ? '.AppleSystemUIFont' : 'Adwaita Sans';
+/// Windows schreibt seit 11 in `Segoe UI Variable`; ältere Fassungen
+/// kennen nur `Segoe UI`, das deshalb im Rückfall gleich dahinter steht.
+final String _fontFamily = switch (Platform.operatingSystem) {
+  'macos' => '.AppleSystemUIFont',
+  'windows' => 'Segoe UI Variable',
+  _ => 'Adwaita Sans',
+};
 
-const _fontFamilyFallback = <String>['Cantarell', 'Noto Sans', 'DejaVu Sans'];
+/// Nach der ersten Wahl der Reihe nach das, was die jeweilige Umgebung
+/// sonst noch hat. Namen fremder Plattformen stören dabei nicht – sie
+/// werden schlicht übersprungen.
+const _fontFamilyFallback = <String>[
+  'Segoe UI',
+  'Cantarell',
+  'Noto Sans',
+  'DejaVu Sans',
+];
 
 /// Farben für Warnung und Erfolg.
 ///
