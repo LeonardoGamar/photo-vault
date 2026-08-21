@@ -148,6 +148,36 @@ if [ "$pruefen" -eq 1 ]; then
   else
     hinweis "libmpv fehlt – alles ausser der Videowiedergabe funktioniert"
   fi
+
+  # Der wichtigste Handgriff dieser Prüfung: OHNE den Heimatordner
+  # nachsehen. Mit ihm sieht der Sandkasten das Bauverzeichnis dieses
+  # Rechners – und lud daraus klaglos ONNX Runtime, das im Bündel fehlte.
+  # Auf jedem anderen Rechner wären damit sämtliche KI-Funktionen
+  # ausgefallen, ohne dass hier etwas aufgefallen wäre.
+  titel "Wie es auf einem fremden Rechner aussieht"
+  # Der Suchpfad muss derselbe sein wie im Startskript, sonst prüft man
+  # etwas anderes als das, was beim Start passiert.
+  fremd() { flatpak run --nofilesystem=home --nofilesystem=/media \
+      --nofilesystem=/run/media --command=sh "$KENNUNG" \
+      -c "export LD_LIBRARY_PATH=/app/photo_vault/lib; $1" 2>&1; }
+
+  if flatpak info "$KENNUNG" >/dev/null 2>&1; then
+    ungeloest=$(fremd 'ldd /app/photo_vault/lib/*.so 2>/dev/null | grep "not found"' | sort -u)
+    if [ -z "$ungeloest" ]; then
+      gut "alle Bibliotheken der App liegen im Bündel"
+    else
+      fehler "ausserhalb des Bündels gesucht:"
+      printf '%s\n' "$ungeloest" | sed 's/^/      /'
+    fi
+    if fremd 'ldd /app/photo_vault/lib/libflutter_onnxruntime_plugin.so' |
+        grep -q "libonnxruntime.so.1 => /app/"; then
+      gut "ONNX Runtime kommt aus dem Bündel (alle KI-Funktionen)"
+    else
+      fehler "ONNX Runtime nicht aus dem Bündel – KI-Funktionen fielen aus"
+    fi
+  else
+    hinweis "nicht eingespielt – mit --installieren wiederholen"
+  fi
 fi
 
 printf '\n'

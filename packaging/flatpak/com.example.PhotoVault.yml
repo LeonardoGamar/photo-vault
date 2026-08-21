@@ -222,6 +222,14 @@ modules:
     build-commands:
       - install -d /app/photo_vault
       - cp -a bundle/. /app/photo_vault/
+      # ONNX Runtime landet NICHT im Flutter-Bündel: dort liegt nur ein
+      # Verweis ins Leere (libonnxruntime.so → libonnxruntime.so.1, das es
+      # nicht gibt). Auf dem Baurechner fällt das nicht auf, weil das
+      # Plugin eine RUNPATH ins Bauverzeichnis trägt und der Heimatordner
+      # freigegeben ist – auf jedem anderen Rechner fielen sämtliche
+      # KI-Funktionen aus. Die echte Datei muss also mit hinein.
+      - install -Dm644 $(find ort -name 'libonnxruntime.so.*' -type f | head -1)
+        /app/photo_vault/lib/libonnxruntime.so.1
       - install -Dm755 photo_vault.sh /app/bin/photo_vault
       - install -Dm644 app_icon.png /app/share/icons/hicolor/256x256/apps/com.example.PhotoVault.png
       - install -Dm644 app_icon_512.png /app/share/icons/hicolor/512x512/apps/com.example.PhotoVault.png
@@ -231,6 +239,9 @@ modules:
       - type: dir
         path: ../../build/linux/x64/release/bundle
         dest: bundle
+      - type: dir
+        path: ../../build/linux/x64/release/plugins/flutter_onnxruntime/onnxruntime
+        dest: ort
       - type: file
         path: photo_vault.sh
       - type: file

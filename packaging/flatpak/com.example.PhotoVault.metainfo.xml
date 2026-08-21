@@ -68,6 +68,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.8.2" date="2026-08-21">
+      <description>
+        <p>The Linux package now ships ONNX Runtime itself – without it, every AI feature failed on any machine other than the build machine.</p>
+        <p xml:lang="de">Das Linux-Paket bringt ONNX Runtime jetzt selbst mit – ohne sie fiel auf jedem anderen als dem Baurechner jede KI-Funktion aus.</p>
+      </description>
+    </release>
     <release version="1.8.1" date="2026-08-21">
       <description>
         <p>Security and packaging fixes: the macOS build no longer ships a debug entitlement, the Linux sandbox keeps credential directories out, and the tools screen reports honestly on Linux.</p>
