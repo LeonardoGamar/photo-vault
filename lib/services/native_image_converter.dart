@@ -79,6 +79,27 @@ class NativeImageConverter {
   static Future<Map<String, bool>> verfuegbareWerkzeuge() async =>
       _linux ? await LinuxImageTools.pruefeWerkzeuge() : const <String, bool>{};
 
+  /// Ob die Bildumwandlung hier arbeiten kann – und was ihr gegebenenfalls
+  /// fehlt.
+  ///
+  /// Der Werkzeuge-Bildschirm fragte dafür bisher [isSupported], und das
+  /// liefert ausserhalb von macOS grundsätzlich `false`. Unter Linux stand
+  /// dort deshalb „inaktiv", während HEIC, RAW und Video nachweislich
+  /// funktionierten – eine falsche Auskunft, und noch dazu mit dem Rat,
+  /// eine Swift-Datei ins Xcode-Projekt einzubinden.
+  static Future<({bool bereit, List<String> fehlende})>
+      bildwerkzeugstand() async {
+    if (_linux) {
+      final vorhanden = await LinuxImageTools.pruefeWerkzeuge();
+      final fehlende = [
+        for (final e in vorhanden.entries)
+          if (!e.value) e.key,
+      ]..sort();
+      return (bereit: fehlende.isEmpty, fehlende: fehlende);
+    }
+    return (bereit: await isSupported(), fehlende: const <String>[]);
+  }
+
   /// Was die Objektivkorrektur für eine bestimmte Datei leisten kann.
   ///
   /// Gemessen an der echten Bibliothek war die bisherige Auskunft („nur

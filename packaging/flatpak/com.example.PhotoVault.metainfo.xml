@@ -68,6 +68,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.8.1" date="2026-08-21">
+      <description>
+        <p>Security and packaging fixes: the macOS build no longer ships a debug entitlement, the Linux sandbox keeps credential directories out, and the tools screen reports honestly on Linux.</p>
+        <p xml:lang="de">Sicherheit und Paketierung: Der macOS-Bau trägt keine Debug-Berechtigung mehr, der Linux-Sandkasten lässt Zugangsdaten aussen vor, und der Werkzeuge-Bildschirm gibt unter Linux ehrlich Auskunft.</p>
+      </description>
+    </release>
     <release version="1.8.0" date="2026-08-21">
       <description>
         <p>Text recognition now works on Linux; the application is available as a Flatpak.</p>

@@ -7,6 +7,12 @@ project(runner LANGUAGES CXX)
 set(BINARY_NAME "photo_vault")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
+# NICHT ändern, ohne die Daten mitzunehmen: Aus dieser Kennung leitet sich
+# der Ablageort ab (~/.local/share/<id>/ bzw. im Flatpak
+# ~/.var/app/…/data/<id>/). Ein Wechsel lässt die Bibliothek einer bereits
+# benutzten Installation verschwinden – der Startbildschirm käme wieder,
+# als wäre die App neu. Die Zuordnung von Fenster und Starter läuft
+# stattdessen über StartupWMClass in der .desktop-Datei.
 set(APPLICATION_ID "com.example.photo_vault")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
@@ -56,6 +62,19 @@ pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
+
+# Härtung des Programms. Die selbst gebauten Bibliotheken im Flatpak haben
+# vollen RELRO, sofortige Bindung und Stapelschutz; das Flutter-Programm
+# hatte davon nichts, weil die Vorlage keine Angaben dazu macht. Es kostet
+# nichts messbares und schliesst die Lücke.
+target_compile_options(${BINARY_NAME} PRIVATE
+  -fstack-protector-strong
+  -D_FORTIFY_SOURCE=2
+)
+target_link_options(${BINARY_NAME} PRIVATE
+  -Wl,-z,relro
+  -Wl,-z,now
+)
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)

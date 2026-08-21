@@ -506,9 +506,42 @@ Screenshot-Dienst über D-Bus, und wurzelloses Xwayland liefert bei
 `x11grab` nur Schwarz. `xwd` und ImageMagick fehlen auf der Maschine und
 liessen sich ohne `sudo` nicht nachinstallieren.
 
-**Rechte:** `--filesystem=home` samt `/media` und `/run/media`. Über das
+**Rechte:** `--filesystem=home` samt `/media`, `/run/media` und den
+gvfs-Pfaden – ohne die letzten beiden wäre eine Bibliothek auf einer
+Netzfreigabe, die der Dateimanager eingehängt hat, im Sandkasten schlicht
+nicht vorhanden (Shotwell führt sie aus demselben Grund). Über das
 Dateiportal ginge nur die Auswahl, nicht das fortlaufende Lesen tausender
 Dateien im gewählten Bibliotheksordner.
+
+Zum Vergleich, an den Flathub-Angaben abgelesen: digiKam verlangt dasselbe
+(`home`, `/media`, `/run/media`), darktable sogar `host` – also das ganze
+Dateisystem. Shotwell kommt mit `xdg-pictures` aus, kann dafür aber auch
+keine frei gewählte Bibliothek irgendwo im Heimatordner.
+
+**Was der Heimatordner nicht einschliesst:** `~/.ssh`, `~/.gnupg` und
+`~/.local/share/keyrings` sind ausdrücklich ausgenommen
+(`--nofilesystem=…`). Eine Fotoverwaltung hat dort nichts zu suchen, und
+die Bildparser im Bündel – libheif, libde265, LibRaw – packen fremde
+Dateien aus und sind ein beliebtes Angriffsziel. Nachgemessen: Im
+Sandkasten ist `~/.ssh` ein leerer Ordner, draussen liegt eine Datei darin;
+`~/Bilder` bleibt lesbar. In der Ausgabe von `flatpak info
+--show-permissions` tauchen die Ausnahmen **nicht** auf – sie stehen in den
+Metadaten als `!~/.ssh` und sind nur dort zu sehen.
+
+**Aus der zehnten Prüfrunde nachgezogen:**
+
+* Die **Fensterklasse** hiess `com.example.photo_vault`, der Starter
+  erwartete `photo_vault` – beides falsch. Damit ordnet die Arbeitsumgebung
+  das Fenster keinem Starter zu: kein Symbol, kein Name in der Leiste. Jetzt
+  heissen Kennung, Starter und Fensterklasse einheitlich
+  `com.example.PhotoVault`, gegengemessen mit `xwininfo`.
+* Das **Flutter-Programm war ungehärtet** – RELRO nur teilweise, keine
+  sofortige Bindung, kein Stapelschutz –, während alle selbst gebauten
+  Bibliotheken beides hatten. Die Vorlage von `flutter create` macht dazu
+  keine Angaben. Mit `-fstack-protector-strong`, `_FORTIFY_SOURCE=2` und
+  `-Wl,-z,relro,-z,now` in `linux/CMakeLists.txt` gemessen behoben.
+* **zenity 4.0.5 → 4.2.2** und ein **512er-Symbol** dazu; bisher gab es nur
+  256 Pixel, was auf grossen Anzeigen sichtbar unscharf wird.
 
 **Offen:** Die Kennung `com.example.PhotoVault` ist ein Platzhalter und im
 Bauplan als solcher vermerkt – vor einer öffentlichen Verteilung gehört

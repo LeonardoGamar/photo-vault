@@ -26,4 +26,7 @@ PRODUCT_BUNDLE_IDENTIFIER = com.example.photoVault
 PRODUCT_BUNDLE_IDENTIFIER[config=Debug] = com.example.photoVault.test
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+// Steht im Finder unter „Informationen". „com.example" stammt aus der
+// Vorlage und gehört durch den eigenen Namen ersetzt, sobald die Kennung
+// gewechselt wird.
+PRODUCT_COPYRIGHT = Copyright © 2026 Photo Vault. All rights reserved.

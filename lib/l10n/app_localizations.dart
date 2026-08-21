@@ -2391,6 +2391,18 @@ abstract class AppTexte {
   /// **'Inaktiv – native Swift-Datei muss noch ins Xcode-Projekt eingebunden werden (siehe README). JPG/PNG/WebP/GIF/BMP/TIFF funktionieren auch ohne das.'**
   String get werkzHeicInaktiv;
 
+  /// Statuszeile der Bildumwandlung, wenn alle externen Werkzeuge da sind
+  ///
+  /// In de, this message translates to:
+  /// **'Aktiv – iPhone-Fotos (HEIC) und RAW-Dateien (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2 & Co.) werden über die mitgelieferten Werkzeuge unterstützt.'**
+  String get werkzHeicWerkzeugeAktiv;
+
+  /// Statuszeile der Bildumwandlung, wenn Werkzeuge fehlen
+  ///
+  /// In de, this message translates to:
+  /// **'Eingeschränkt – es fehlen: {namen}. Die davon abhängigen Formate bleiben ohne Vorschau; JPG/PNG/WebP/GIF/BMP/TIFF funktionieren weiter.'**
+  String werkzHeicWerkzeugeFehlen(String namen);
+
   /// No description provided for @werkzVorschauNeuUntertitel.
   ///
   /// In de, this message translates to:

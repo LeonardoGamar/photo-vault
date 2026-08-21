@@ -12,4 +12,4 @@ Categories=Graphics;Photography;Viewer;
 Keywords=photo;image;raw;library;
 Keywords[de]=Foto;Bild;RAW;Bibliothek;
 StartupNotify=true
-StartupWMClass=photo_vault
+StartupWMClass=com.example.photo_vault

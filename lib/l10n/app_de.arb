@@ -678,6 +678,19 @@
   "werkzHeicTitel": "HEIC/HEIF & RAW-Unterstützung",
   "werkzHeicAktiv": "Aktiv – iPhone-Fotos (HEIC) und RAW-Dateien (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2 & Co.) werden über die native macOS-Bildkonvertierung unterstützt.",
   "werkzHeicInaktiv": "Inaktiv – native Swift-Datei muss noch ins Xcode-Projekt eingebunden werden (siehe README). JPG/PNG/WebP/GIF/BMP/TIFF funktionieren auch ohne das.",
+  "werkzHeicWerkzeugeAktiv": "Aktiv – iPhone-Fotos (HEIC) und RAW-Dateien (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2 & Co.) werden über die mitgelieferten Werkzeuge unterstützt.",
+  "@werkzHeicWerkzeugeAktiv": {
+    "description": "Statuszeile der Bildumwandlung, wenn alle externen Werkzeuge da sind"
+  },
+  "werkzHeicWerkzeugeFehlen": "Eingeschränkt – es fehlen: {namen}. Die davon abhängigen Formate bleiben ohne Vorschau; JPG/PNG/WebP/GIF/BMP/TIFF funktionieren weiter.",
+  "@werkzHeicWerkzeugeFehlen": {
+    "description": "Statuszeile der Bildumwandlung, wenn Werkzeuge fehlen",
+    "placeholders": {
+      "namen": {
+        "type": "String"
+      }
+    }
+  },
   "werkzVorschauNeuUntertitel": "Für alle Fotos oder nur für noch fehlende",
   "werkzAbschnittEntwicklung": "Entwicklung",
   "werkzNeuRendernTitel": "Entwickelte Fotos neu rendern",
@@ -2806,9 +2819,24 @@
   "stammbaumTafelFertig": "Die Tafel wurde geschrieben.",
   "aufgWirdErmittelt": "Wird ermittelt …",
   "aufgAbgebrochenBei": "Abgebrochen bei {erledigt} von {gesamt}",
-  "@aufgAbgebrochenBei": {"placeholders": {"erledigt": {"type": "int"}, "gesamt": {"type": "int"}}},
+  "@aufgAbgebrochenBei": {
+    "placeholders": {
+      "erledigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
   "aufgFertigMit": "Fertig – {gesamt} bearbeitet",
-  "@aufgFertigMit": {"placeholders": {"gesamt": {"type": "int"}}},
+  "@aufgFertigMit": {
+    "placeholders": {
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
   "beendenTitel": "Es wird noch ausgewertet",
   "beendenText": "Beim Beenden geht die gerade bearbeitete Datei verloren; alles bereits Ausgewertete bleibt erhalten. Noch am Laufen:",
   "beendenTrotzdem": "Trotzdem beenden",
@@ -2819,7 +2847,13 @@
   "werkzUebersetzeBeschreibungen": "Übersetze Bildbeschreibungen …",
   "werkzAlleUebersetzt": "Alle Beschreibungen sind übersetzt.",
   "werkzLaeuftSchon": "Läuft bereits als Hintergrundaufgabe: {titel}",
-  "@werkzLaeuftSchon": {"placeholders": {"titel": {"type": "String"}}},
+  "@werkzLaeuftSchon": {
+    "placeholders": {
+      "titel": {
+        "type": "String"
+      }
+    }
+  },
   "aufgLaeuftSchon": "Diese Auswertung läuft bereits.",
   "aufgAndereLaeuft": "Es läuft bereits eine andere Auswertung. Teure Auswertungen laufen nacheinander, damit nicht mehrere KI-Modelle gleichzeitig im Speicher liegen.",
   "aufgAnalyseLaeuft": "Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.",
@@ -2830,16 +2864,43 @@
   "infoKiPlatzhalterDe": "Deutsche Fassung eintragen",
   "infoKiPlatzhalterEn": "Englische Fassung eintragen",
   "duplGefunden": "{gruppen} Gruppen mit {fotos} Fotos",
-  "@duplGefunden": {"placeholders": {"gruppen": {"type": "int"}, "fotos": {"type": "int"}}},
+  "@duplGefunden": {
+    "placeholders": {
+      "gruppen": {
+        "type": "int"
+      },
+      "fotos": {
+        "type": "int"
+      }
+    }
+  },
   "duplNichtsGefunden": "Keine Gruppen gefunden",
   "duplGruppeIgnorieren": "Übergehen",
   "duplGruppeIgnoriert": "{anzahl} Fotos werden bei der Duplikatsuche künftig übergangen.",
-  "@duplGruppeIgnoriert": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@duplGruppeIgnoriert": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "duplAusnahmenZahl": "{anzahl} übergangen",
-  "@duplAusnahmenZahl": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@duplAusnahmenZahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "duplAusnahmenTitel": "Übergangene wieder anzeigen",
   "duplAusnahmenFrage": "{anzahl} Paare sind von der Suche ausgenommen. Sollen alle wieder berücksichtigt werden?",
-  "@duplAusnahmenFrage": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@duplAusnahmenFrage": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "duplAusnahmenLoeschen": "Alle wieder anzeigen",
   "entwNurMitCoreImage": "Schärfe, Rauschunterdrückung, Klarheit und Vignettierung brauchen Rechenschritte, die es nur unter macOS gibt. Die übrigen Regler wirken hier vollständig.",
   "modellOcrTitel": "Texterkennung (PaddleOCR)",

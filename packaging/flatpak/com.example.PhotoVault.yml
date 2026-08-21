@@ -33,6 +33,21 @@ finish-args:
   - --filesystem=home
   - --filesystem=/media
   - --filesystem=/run/media
+  # Liegt die Bibliothek auf einer Netzfreigabe, die der Dateimanager
+  # eingehängt hat (Samba, NFS, MTP), führt der Weg dorthin über gvfs.
+  # Ohne diese beiden Zeilen ist ein solcher Ordner im Sandkasten schlicht
+  # nicht vorhanden – Shotwell und Rawtherapee führen sie aus demselben
+  # Grund.
+  - --filesystem=xdg-run/gvfs
+  - --filesystem=xdg-run/gvfsd
+  # Der Heimatordner muss offen sein, Zugangsdaten darin nicht. Eine
+  # Fotoverwaltung hat in .ssh, .gnupg und dem Schlüsselbund nichts zu
+  # suchen – und die Bildparser, die hier fremde Dateien auspacken
+  # (libheif, libde265, LibRaw), sind ein beliebtes Ziel. Nachgemessen:
+  # ~/.ssh verschwindet, ~/Bilder bleibt lesbar.
+  - --nofilesystem=home/.ssh
+  - --nofilesystem=home/.gnupg
+  - --nofilesystem=home/.local/share/keyrings
 
 cleanup:
   - /include
@@ -196,8 +211,8 @@ modules:
     buildsystem: meson
     sources:
       - type: archive
-        url: https://download.gnome.org/sources/zenity/4.0/zenity-4.0.5.tar.xz
-        sha256: 8a3ffe7751bed497a758229ece07be9114ad4e46a066abae4e5f31d6da4c0e9e
+        url: https://download.gnome.org/sources/zenity/4.2/zenity-4.2.2.tar.xz
+        sha256: 019186a996096ef4fc356e21577b5673f5baa3a29ac8e3d608b753371c18018d
 
   # --- Die Anwendung selbst ----------------------------------------------
   # Der Flutter-Bau läuft VOR flatpak-builder (tool/flatpak_bauen.sh):
@@ -209,6 +224,7 @@ modules:
       - cp -a bundle/. /app/photo_vault/
       - install -Dm755 photo_vault.sh /app/bin/photo_vault
       - install -Dm644 app_icon.png /app/share/icons/hicolor/256x256/apps/com.example.PhotoVault.png
+      - install -Dm644 app_icon_512.png /app/share/icons/hicolor/512x512/apps/com.example.PhotoVault.png
       - install -Dm644 com.example.PhotoVault.desktop /app/share/applications/com.example.PhotoVault.desktop
       - install -Dm644 com.example.PhotoVault.metainfo.xml /app/share/metainfo/com.example.PhotoVault.metainfo.xml
     sources:
@@ -219,6 +235,8 @@ modules:
         path: photo_vault.sh
       - type: file
         path: ../../assets/icon/app_icon.png
+      - type: file
+        path: ../../assets/icon/app_icon_512.png
       - type: file
         path: com.example.PhotoVault.desktop
       - type: file

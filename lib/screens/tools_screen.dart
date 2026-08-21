@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
@@ -33,7 +35,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
   // Ändert sich nie während der Laufzeit (native Fähigkeit des Rechners) –
   // einmalig statt inline in build() abgefragt, damit ein FutureBuilder
   // nicht bei jedem Rebuild neu in den Ladezustand zurückfällt.
-  late final Future<bool> _nativeConversionSupportedFuture = NativeImageConverter.isSupported();
+  late final Future<({bool bereit, List<String> fehlende})>
+      _bildwerkzeugstandFuture = NativeImageConverter.bildwerkzeugstand();
 
   /// Zeigt einen Fortschrittsdialog über einem Nachholvorgang.
   ///
@@ -436,17 +439,30 @@ class _ToolsScreenState extends State<ToolsScreen> {
           Card(
             child: Column(
               children: [
-                FutureBuilder<bool>(
-                  future: _nativeConversionSupportedFuture,
+                FutureBuilder<({bool bereit, List<String> fehlende})>(
+                  future: _bildwerkzeugstandFuture,
                   builder: (context, snapshot) {
-                    final supported = snapshot.data ?? false;
+                    final stand = snapshot.data;
+                    final bereit = stand?.bereit ?? false;
+                    // Unter Linux hängt die Umwandlung an externen
+                    // Werkzeugen, nicht an einer nativen Anbindung – dann
+                    // muss die Auskunft auch die Werkzeuge nennen.
+                    final ueberWerkzeuge = Platform.isLinux;
+                    final text = bereit
+                        ? (ueberWerkzeuge
+                            ? t.werkzHeicWerkzeugeAktiv
+                            : t.werkzHeicAktiv)
+                        : (ueberWerkzeuge
+                            ? t.werkzHeicWerkzeugeFehlen(
+                                (stand?.fehlende ?? const <String>[]).join(', '))
+                            : t.werkzHeicInaktiv);
                     return ListTile(
                       leading: Icon(
-                        supported ? Icons.check_circle_outline : Icons.error_outline,
-                        color: supported ? Colors.green : Colors.orange,
+                        bereit ? Icons.check_circle_outline : Icons.error_outline,
+                        color: bereit ? Colors.green : Colors.orange,
                       ),
                       title: Text(t.werkzHeicTitel),
-                      subtitle: Text(supported ? t.werkzHeicAktiv : t.werkzHeicInaktiv),
+                      subtitle: Text(text),
                       isThreeLine: true,
                     );
                   },

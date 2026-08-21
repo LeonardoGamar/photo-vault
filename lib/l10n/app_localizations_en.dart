@@ -1377,6 +1377,15 @@ class AppTexteEn extends AppTexte {
       'Inactive – the native Swift file still has to be added to the Xcode project (see the README). JPG/PNG/WebP/GIF/BMP/TIFF work without it.';
 
   @override
+  String get werkzHeicWerkzeugeAktiv =>
+      'Active – iPhone photos (HEIC) and RAW files (DNG, CR2/CR3, NEF, ARW, RAF, ORF, RW2 and the rest) go through the bundled tools.';
+
+  @override
+  String werkzHeicWerkzeugeFehlen(String namen) {
+    return 'Limited – missing: $namen. The formats that depend on them stay without a preview; JPG/PNG/WebP/GIF/BMP/TIFF keep working.';
+  }
+
+  @override
   String get werkzVorschauNeuUntertitel =>
       'For every photo, or only for the ones still missing';
 
