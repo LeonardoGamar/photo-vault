@@ -59,8 +59,13 @@ beides sichergestellt wird, steht in
 ## Herunterladen
 
 Fertige Fassungen liegen unter [Releases](../../releases): für macOS als
-Universal Binary, also nativ auf Apple Silicon **und** Intel, ab macOS
-10.15 – und für Linux als Flatpak-Bündel.
+Universal Binary, also nativ auf Apple Silicon **und** Intel, **ab macOS
+14.0** – und für Linux als Flatpak-Bündel.
+
+Die Mindestversion gibt nicht die App vor, sondern das Paket, über das die
+KI-Modelle laufen (`flutter_onnxruntime` verlangt macOS 14.0). Der eigene
+native Code kommt mit älteren Fassungen zurecht und schaltet
+Einzelfunktionen ab, wo eine Schnittstelle fehlt.
 
 ### Linux
 
