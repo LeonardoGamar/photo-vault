@@ -7877,6 +7877,36 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Alle wieder anzeigen'**
   String get duplAusnahmenLoeschen;
+
+  /// No description provided for @entwNurMitCoreImage.
+  ///
+  /// In de, this message translates to:
+  /// **'Schärfe, Rauschunterdrückung, Klarheit und Vignettierung brauchen Rechenschritte, die es nur unter macOS gibt. Die übrigen Regler wirken hier vollständig.'**
+  String get entwNurMitCoreImage;
+
+  /// No description provided for @modellOcrTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Texterkennung (PaddleOCR)'**
+  String get modellOcrTitel;
+
+  /// No description provided for @modellOcrText.
+  ///
+  /// In de, this message translates to:
+  /// **'Findet Text in Fotos und liest ihn – zwei Modelle, zusammen 13,7 MB. Deckt das lateinische Alphabet samt Umlauten und ß ab. Unter macOS nicht nötig: Dort erledigt das Apples Vision-Framework ohne Download.'**
+  String get modellOcrText;
+
+  /// No description provided for @modellOcrLizenz.
+  ///
+  /// In de, this message translates to:
+  /// **'Apache 2.0 (PaddleOCR)'**
+  String get modellOcrLizenz;
+
+  /// No description provided for @aufgOcrModell.
+  ///
+  /// In de, this message translates to:
+  /// **'das Texterkennungs-Modell'**
+  String get aufgOcrModell;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

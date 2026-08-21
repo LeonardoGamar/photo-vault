@@ -30,6 +30,7 @@ import '../services/import_service.dart';
 import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
+import '../services/ocr_service.dart';
 import '../services/modell_halter.dart';
 import '../services/platform/folder_access.dart';
 import '../services/native_image_converter.dart';
@@ -148,6 +149,11 @@ class LibraryState extends ChangeNotifier {
       _leererHalter('translate-en-de');
   ModellHalter<TranslationService> uebersetzungDeEnHalter =
       _leererHalter('translate-de-en');
+
+  /// Texterkennung ohne Betriebssystem-Hilfe – nur ausserhalb von macOS
+  /// gebraucht, wo Apples Vision-Framework die Arbeit besser und ohne
+  /// Download erledigt.
+  ModellHalter<OcrService> ocrHalter = _leererHalter('Texterkennung');
 
   static ModellHalter<T> _leererHalter<T>(String name) => ModellHalter<T>(
         name: name,
@@ -454,6 +460,12 @@ class LibraryState extends ChangeNotifier {
       laden: () => TranslationService.load(_modelsDir!, Uebersetzungsrichtung.deEn),
       entsorgen: (s) => s.dispose(),
     );
+    ocrHalter = ModellHalter<OcrService>(
+      name: 'Texterkennung',
+      installiert: OcrService.isAvailable(_modelsDir!),
+      laden: () => OcrService.load(_modelsDir!),
+      entsorgen: (s) => s.dispose(),
+    );
     captioningHalter = ModellHalter<FlorenceCaptioningService>(
       name: 'Bildbeschreibung',
       installiert: FlorenceCaptioningService.isAvailable(_modelsDir!),
@@ -527,6 +539,10 @@ class LibraryState extends ChangeNotifier {
   bool get segmentationAvailable => segmentationHalter.installiert;
   bool get captioningAvailable => captioningHalter.installiert;
   bool get uebersetzungEnDeAvailable => uebersetzungEnDeHalter.installiert;
+
+  /// Ob Text erkannt werden kann – über das Betriebssystem (macOS) oder
+  /// über das nachgeladene Modell (überall sonst).
+  bool get ocrAvailable => Platform.isMacOS || ocrHalter.installiert;
   bool get geoDataAvailable => geocoder != null;
 
   bool isModelInstalled(ModelCatalogEntry entry) =>
@@ -1572,21 +1588,57 @@ class LibraryState extends ChangeNotifier {
 
   Stream<ImportProgress> backfillOcrText() async* {
     final assets = await db.assetsForOcrBackfill();
-    var done = 0;
-    yield ImportProgress(0, assets.length);
-    for (final asset in assets) {
-      // Pro Foto abgesichert: Ein einzelner Fehlschlag (beschädigte Datei,
-      // Fehler im nativen Aufruf) darf nicht den ganzen Lauf abbrechen.
-      try {
-        final text = await NativeImageConverter.recognizeText(_decodableFile(asset));
-        if (text != null) {
-          await db.setOcrResult(asset.id, text);
-        }
-      } catch (e) {
-        debugPrint('Texterkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+    if (assets.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
+
+    // Auf macOS erledigt das Vision-Framework die Arbeit ohne Modell und
+    // ohne Download; überall sonst braucht es die beiden ONNX-Modelle.
+    // Das Modell wird für den ganzen Lauf EINMAL geliehen, nicht je Foto –
+    // dasselbe Muster wie bei den Bildbeschreibungen.
+    final ueberSystem = Platform.isMacOS;
+    OcrService? modell;
+    if (!ueberSystem) {
+      modell = await ocrHalter.leihen();
+      if (modell == null) {
+        yield ImportProgress(0, 0);
+        return;
       }
-      done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+    }
+
+    try {
+      var done = 0;
+      yield ImportProgress(0, assets.length);
+      for (final asset in assets) {
+        // Pro Foto abgesichert: Ein einzelner Fehlschlag (beschädigte
+        // Datei, Fehler im nativen Aufruf) darf nicht den ganzen Lauf
+        // abbrechen.
+        try {
+          String? text;
+          if (ueberSystem) {
+            text = await NativeImageConverter.recognizeText(_decodableFile(asset));
+          } else {
+            final bild = await _decodeAsset(asset);
+            if (bild != null) text = await modell!.erkenneText(bild);
+          }
+          if (text != null) {
+            await db.setOcrResult(asset.id, text);
+          }
+        } on LesungLiefertNichts catch (e) {
+          // NICHT als leeres Ergebnis speichern: Das Foto würde als
+          // durchsucht vermerkt und nach einer Reparatur nie wieder
+          // drankommen. Es bleibt offen, der Lauf geht weiter.
+          debugPrint('Texterkennung: ${e.stellen} Stellen mit Schrift in '
+              '${asset.originalFileName}, keine lesbar – Foto bleibt offen.');
+        } catch (e) {
+          debugPrint('Texterkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+        }
+        done++;
+        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+      }
+    } finally {
+      if (!ueberSystem) ocrHalter.zurueckgeben();
     }
   }
 

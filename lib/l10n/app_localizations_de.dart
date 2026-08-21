@@ -4932,4 +4932,21 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get duplAusnahmenLoeschen => 'Alle wieder anzeigen';
+
+  @override
+  String get entwNurMitCoreImage =>
+      'Schärfe, Rauschunterdrückung, Klarheit und Vignettierung brauchen Rechenschritte, die es nur unter macOS gibt. Die übrigen Regler wirken hier vollständig.';
+
+  @override
+  String get modellOcrTitel => 'Texterkennung (PaddleOCR)';
+
+  @override
+  String get modellOcrText =>
+      'Findet Text in Fotos und liest ihn – zwei Modelle, zusammen 13,7 MB. Deckt das lateinische Alphabet samt Umlauten und ß ab. Unter macOS nicht nötig: Dort erledigt das Apples Vision-Framework ohne Download.';
+
+  @override
+  String get modellOcrLizenz => 'Apache 2.0 (PaddleOCR)';
+
+  @override
+  String get aufgOcrModell => 'das Texterkennungs-Modell';
 }

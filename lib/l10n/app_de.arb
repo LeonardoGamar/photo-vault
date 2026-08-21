@@ -2840,5 +2840,10 @@
   "duplAusnahmenTitel": "Übergangene wieder anzeigen",
   "duplAusnahmenFrage": "{anzahl} Paare sind von der Suche ausgenommen. Sollen alle wieder berücksichtigt werden?",
   "@duplAusnahmenFrage": {"placeholders": {"anzahl": {"type": "int"}}},
-  "duplAusnahmenLoeschen": "Alle wieder anzeigen"
+  "duplAusnahmenLoeschen": "Alle wieder anzeigen",
+  "entwNurMitCoreImage": "Schärfe, Rauschunterdrückung, Klarheit und Vignettierung brauchen Rechenschritte, die es nur unter macOS gibt. Die übrigen Regler wirken hier vollständig.",
+  "modellOcrTitel": "Texterkennung (PaddleOCR)",
+  "modellOcrText": "Findet Text in Fotos und liest ihn – zwei Modelle, zusammen 13,7 MB. Deckt das lateinische Alphabet samt Umlauten und ß ab. Unter macOS nicht nötig: Dort erledigt das Apples Vision-Framework ohne Download.",
+  "modellOcrLizenz": "Apache 2.0 (PaddleOCR)",
+  "aufgOcrModell": "das Texterkennungs-Modell"
 }

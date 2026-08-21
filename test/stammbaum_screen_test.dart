@@ -16,6 +16,8 @@ import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
 
+import 'goldbilder.dart';
+
 /// Der Stammbaum-Bildschirm.
 ///
 /// Geprüft wird, was man an einem Bildschirmfoto nicht sieht: dass die
@@ -329,7 +331,7 @@ void main() {
       find.byType(StammbaumScreen),
       matchesGoldenFile('golden/stammbaum.png'),
     );
-  });
+  }, skip: nurAufReferenzplattform);
 
   testWidgets('so sieht der Baum mit Partner und Kindern aus', (tester) async {
     // Der zweite Fall: eine Person mit Eltern darüber, Partner daneben und
@@ -343,7 +345,7 @@ void main() {
       find.byType(StammbaumScreen),
       matchesGoldenFile('golden/stammbaum_voll.png'),
     );
-  });
+  }, skip: nurAufReferenzplattform);
 
   testWidgets('so sieht die Verwandtenliste aus', (tester) async {
     // Die Sicht, in der die entfernteren Bezeichnungen überhaupt erst
@@ -358,7 +360,7 @@ void main() {
       find.byType(StammbaumScreen),
       matchesGoldenFile('golden/stammbaum_verwandte.png'),
     );
-  });
+  }, skip: nurAufReferenzplattform);
 
   testWidgets('der Fächer lässt sich vorlesen', (tester) async {
     // Ein CustomPaint ist für die Sprachausgabe eine leere Fläche. Ohne
@@ -384,7 +386,7 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(find.byType(StammbaumScreen),
         matchesGoldenFile('golden/stammbaum_sanduhr.png'));
-  });
+  }, skip: nurAufReferenzplattform);
 
   testWidgets('die Sanduhr zeigt mehrere Generationen auf einmal',
       (tester) async {
@@ -411,7 +413,7 @@ void main() {
       find.byType(StammbaumScreen),
       matchesGoldenFile('golden/stammbaum_faecher.png'),
     );
-  });
+  }, skip: nurAufReferenzplattform);
 
   testWidgets('eine Person ohne Verwandtschaft bekommt eine Erklärung',
       (tester) async {

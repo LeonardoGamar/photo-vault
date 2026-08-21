@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
@@ -24,11 +24,21 @@ class LinuxImageTools {
   static Map<String, bool>? _verfuegbar;
 
   /// Gebrauchte Werkzeuge und wofür.
+  ///
+  /// `ffprobe` steht einzeln dabei, obwohl es meist zusammen mit `ffmpeg`
+  /// installiert wird: [videoDauer] ruft ausschliesslich ffprobe auf. Nur
+  /// ffmpeg zu prüfen hiesse, eine Verfügbarkeit zu behaupten, die man
+  /// nicht geprüft hat – und die Videolänge fiele still auf null zurück.
   static const werkzeuge = <String, String>{
     'heif-convert': 'HEIC/HEIF-Fotos (Paket libheif-examples)',
     'dcraw_emu': 'RAW-Fotos (Paket libraw-bin)',
     'ffmpeg': 'Video-Vorschaubilder und Videoschnitt',
+    'ffprobe': 'Videolänge (Teil von ffmpeg)',
   };
+
+  /// Verwirft das gemerkte Ergebnis – für Tests und für den Fall, dass
+  /// jemand ein Werkzeug nachinstalliert, ohne die App neu zu starten.
+  static void vergissWerkzeuge() => _verfuegbar = null;
 
   /// Prüft einmalig, welche Werkzeuge im PATH liegen.
   static Future<Map<String, bool>> pruefeWerkzeuge() async {
@@ -40,10 +50,39 @@ class LinuxImageTools {
     return _verfuegbar = ergebnis;
   }
 
+  /// Ob [befehl] im PATH liegt.
+  ///
+  /// Selbst nachgesehen statt `which` aufzurufen. `which` ist ein eigenes
+  /// Programm (debianutils), kein eingebauter Befehl – in einem knapp
+  /// geschnürten Flatpak- oder Container-Abbild fehlt es leicht. Dann
+  /// meldete diese Prüfung „kein einziges Werkzeug vorhanden", obwohl alle
+  /// da sind, und die halbe App schaltete sich grundlos ab. Nebenbei
+  /// entfällt ein Prozessstart je Werkzeug.
+  @visibleForTesting
+  static Future<bool> imPfad(String befehl) => _vorhanden(befehl);
+
   static Future<bool> _vorhanden(String befehl) async {
+    // Ein Pfad im Namen wäre keine PATH-Suche mehr – dann direkt prüfen.
+    if (befehl.contains(Platform.pathSeparator)) {
+      return _istAusfuehrbar(befehl);
+    }
+    final pfad = Platform.environment['PATH'];
+    if (pfad == null || pfad.isEmpty) return false;
+    for (final ordner in pfad.split(':')) {
+      if (ordner.isEmpty) continue;
+      if (await _istAusfuehrbar(p.join(ordner, befehl))) return true;
+    }
+    return false;
+  }
+
+  static Future<bool> _istAusfuehrbar(String pfad) async {
     try {
-      final r = await Process.run('which', [befehl]);
-      return r.exitCode == 0;
+      final datei = File(pfad);
+      if (!await datei.exists()) return false;
+      // Vorhanden genügt nicht – ein Verzeichnis oder eine nicht
+      // ausführbare Datei gleichen Namens darf nicht als Werkzeug gelten.
+      final rechte = (await datei.stat()).mode;
+      return rechte & 0x49 != 0; // --x--x--x
     } catch (_) {
       return false;
     }
@@ -156,6 +195,7 @@ class LinuxImageTools {
 
   /// Videolänge in Sekunden über ffprobe (Teil von ffmpeg).
   static Future<double?> videoDauer(File datei) async {
+    if ((await pruefeWerkzeuge())['ffprobe'] != true) return null;
     try {
       final r = await Process.run('ffprobe', [
         '-v', 'error',

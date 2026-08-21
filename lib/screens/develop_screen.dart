@@ -18,6 +18,7 @@ import '../l10n/app_localizations.dart';
 import '../services/asset_display_path.dart';
 import '../services/cube_lut.dart';
 import '../services/develop_color.dart';
+import '../services/develop_render.dart';
 import '../services/histogram.dart';
 import '../services/modell_halter.dart';
 import '../services/native_image_converter.dart';
@@ -2133,17 +2134,34 @@ class _DevelopScreenState extends State<DevelopScreen> {
         const Divider(color: Colors.white24),
         _slider(AppTexte.of(context).entwKontrast, _contrast, -1, 1, (v) => setState(() => _contrast = v)),
         _slider(AppTexte.of(context).entwSchatten, _shadows, -1, 1, (v) => setState(() => _shadows = v)),
-        _slider(AppTexte.of(context).entwSchaerfe, _sharpness, 0, 1, (v) => setState(() => _sharpness = v)),
-        _slider(AppTexte.of(context).entwRauschunterdrueckung, _noiseReduction, 0, 1, (v) => setState(() => _noiseReduction = v)),
-        // Klarheit und Vignettierung sind reine Core-Image-Filter, wie
-        // Schärfe und Rauschunterdrückung darüber – der Shader kennt sie
-        // nicht. `liveVorschau: false` sorgt dafür, dass die Vorschau nicht
+        // Diese vier kennt nur Core Image. Wo der Shader das gespeicherte
+        // Ergebnis erzeugt (siehe DevelopRender), tun sie nichts – dann
+        // lassen sie sich auch nicht bedienen, statt sich bewegen zu lassen
+        // und wirkungslos zu bleiben. Der Hinweis darunter sagt, warum.
+        //
+        // `liveVorschau: false` sorgt dafür, dass die Vorschau nicht
         // während des Ziehens auf den Shader umschaltet und den Wert
         // scheinbar zurücknimmt.
+        _slider(AppTexte.of(context).entwSchaerfe, _sharpness, 0, 1,
+            (v) => setState(() => _sharpness = v),
+            enabled: !DevelopRender.istMassgeblich),
+        _slider(AppTexte.of(context).entwRauschunterdrueckung, _noiseReduction, 0, 1,
+            (v) => setState(() => _noiseReduction = v),
+            enabled: !DevelopRender.istMassgeblich),
         _slider(AppTexte.of(context).entwKlarheit, _clarity, -1, 1,
-            (v) => setState(() => _clarity = v), liveVorschau: false),
+            (v) => setState(() => _clarity = v),
+            liveVorschau: false, enabled: !DevelopRender.istMassgeblich),
         _slider(AppTexte.of(context).entwVignettierung, _vignette, -1, 1,
-            (v) => setState(() => _vignette = v), liveVorschau: false),
+            (v) => setState(() => _vignette = v),
+            liveVorschau: false, enabled: !DevelopRender.istMassgeblich),
+        if (DevelopRender.istMassgeblich)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Text(
+              AppTexte.of(context).entwNurMitCoreImage,
+              style: const TextStyle(fontSize: 11, color: Colors.white54),
+            ),
+          ),
         const Divider(color: Colors.white24),
         _lutBedienfeld(),
         const Divider(color: Colors.white24),

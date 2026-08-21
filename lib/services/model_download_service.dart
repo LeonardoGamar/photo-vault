@@ -107,8 +107,13 @@ class ModelDownloadService {
   }
 
   Future<void> deleteEntry(ModelCatalogEntry entry) async {
-    for (final file in entry.files) {
-      final f = File(p.join(modelsDir, file.fileName));
+    for (final name in [
+      ...entry.files.map((f) => f.fileName),
+      // Selbst erzeugte Dateien gehören mit weg. Wer etwas anlegt, muss
+      // aufräumen, sonst tut es niemand – siehe [raeumeAbgeloesteModelle].
+      ...entry.abgeleiteteDateien,
+    ]) {
+      final f = File(p.join(modelsDir, name));
       if (await f.exists()) await f.delete();
     }
   }
@@ -122,8 +127,11 @@ class ModelDownloadService {
   /// schon synchron auf Vorhandensein (siehe [isEntryInstalled]).
   int belegteBytes(ModelCatalogEntry entry) {
     var summe = 0;
-    for (final f in entry.files) {
-      final datei = File(p.join(modelsDir, f.fileName));
+    for (final name in [
+      ...entry.files.map((f) => f.fileName),
+      ...entry.abgeleiteteDateien,
+    ]) {
+      final datei = File(p.join(modelsDir, name));
       if (datei.existsSync()) summe += datei.lengthSync();
     }
     return summe;

@@ -61,6 +61,43 @@ List<double> developUniforms(
   ];
 }
 
+/// Belegt alle Uniforms und Abtaster des Entwickeln-Shaders.
+///
+/// Eine Stelle für beide Wege – die Live-Vorschau (siehe
+/// [DevelopPreviewPainter]) und das gespeicherte Ergebnis (siehe
+/// DevelopRender). Zwei Fassungen davon wären die naheliegendste Art, dass
+/// Vorschau und Ergebnis auseinanderlaufen, ohne dass es jemandem auffällt:
+/// Ein hier vergessener Regler wirkt dann in der Vorschau und im Bild
+/// unterschiedlich.
+void setzeDevelopUniforms(
+  ui.FragmentShader shader, {
+  required DevelopAdjustments adjustments,
+  required double breite,
+  required double hoehe,
+  required ui.Image bild,
+  required ui.Image curveLut,
+  required ui.Image colorCube,
+  required int wuerfelKante,
+}) {
+  final werte = developUniforms(adjustments, wuerfelKante: wuerfelKante);
+  shader
+    ..setFloat(0, breite)
+    ..setFloat(1, hoehe)
+    ..setFloat(_iExposure, werte[0])
+    ..setFloat(_iTemperature, werte[1])
+    ..setFloat(_iTint, werte[2])
+    ..setFloat(_iContrast, werte[3])
+    ..setFloat(_iShadows, werte[4])
+    ..setFloat(_iApplyWhiteBalance, werte[5])
+    ..setFloat(_iCurveActive, werte[6])
+    ..setFloat(_iMixerActive, werte[7])
+    ..setFloat(_iCubeSize, werte[8]);
+  shader
+    ..setImageSampler(_sTexture, bild)
+    ..setImageSampler(_sCurveLut, curveLut)
+    ..setImageSampler(_sColorCube, colorCube);
+}
+
 /// Zeichnet [image] durch den Entwickeln-Shader.
 class DevelopPreviewPainter extends CustomPainter {
   final ui.FragmentShader shader;
@@ -98,24 +135,16 @@ class DevelopPreviewPainter extends CustomPainter {
     final links = (size.width - breite) / 2;
     final oben = (size.height - hoehe) / 2;
 
-    shader
-      ..setFloat(0, breite)
-      ..setFloat(1, hoehe);
-    final werte = developUniforms(adjustments, wuerfelKante: wuerfelKante);
-    shader
-      ..setFloat(_iExposure, werte[0])
-      ..setFloat(_iTemperature, werte[1])
-      ..setFloat(_iTint, werte[2])
-      ..setFloat(_iContrast, werte[3])
-      ..setFloat(_iShadows, werte[4])
-      ..setFloat(_iApplyWhiteBalance, werte[5])
-      ..setFloat(_iCurveActive, werte[6])
-      ..setFloat(_iMixerActive, werte[7])
-      ..setFloat(_iCubeSize, werte[8]);
-    shader
-      ..setImageSampler(_sTexture, image)
-      ..setImageSampler(_sCurveLut, curveLut)
-      ..setImageSampler(_sColorCube, colorCube);
+    setzeDevelopUniforms(
+      shader,
+      adjustments: adjustments,
+      breite: breite,
+      hoehe: hoehe,
+      bild: image,
+      curveLut: curveLut,
+      colorCube: colorCube,
+      wuerfelKante: wuerfelKante,
+    );
 
     canvas.save();
     canvas.translate(links, oben);
@@ -185,19 +214,19 @@ class _DevelopShaderPreviewState extends State<DevelopShaderPreview> {
   Future<void> _baueTexturen() async {
     final token = ++_token;
 
-    _platzhalter ??= await _texturVon(Uint8List.fromList([0, 0, 0, 255]), 1, 1);
+    _platzhalter ??= await texturVonBytes(Uint8List.fromList([0, 0, 0, 255]), 1, 1);
 
     final kurve = widget.adjustments.toneCurve;
     final mischer = widget.adjustments.colorMixer;
 
     final neueKurve = kurve.istNeutral
         ? null
-        : await _texturVon(
+        : await texturVonBytes(
             packCurveLutForTexture(buildCurveLut(kurve)), curveLutSize, 1);
 
     final neuerWuerfel = mischer.istNeutral
         ? null
-        : await _texturVon(
+        : await texturVonBytes(
             packColorCubeForTexture(
               buildColorCube(mischer, size: colorCubePreviewSize),
               size: colorCubePreviewSize,
@@ -263,7 +292,7 @@ class _DevelopShaderPreviewState extends State<DevelopShaderPreview> {
 /// Streifen erkennbar, weder beim Ziehen noch im Vergleich zum nativen
 /// Render danach. Es bleibt deshalb bei 8 Bit; `rgbaFloat32` wäre die
 /// Nachbesserung, falls sich das an anderem Material doch zeigt.
-Future<ui.Image> _texturVon(Uint8List bytes, int breite, int hoehe) {
+Future<ui.Image> texturVonBytes(Uint8List bytes, int breite, int hoehe) {
   final fertig = Completer<ui.Image>();
   ui.decodeImageFromPixels(
     bytes,

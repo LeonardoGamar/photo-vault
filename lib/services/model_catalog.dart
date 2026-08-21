@@ -17,6 +17,7 @@
 library;
 
 import '../l10n/app_localizations.dart';
+import 'ocr_service.dart';
 
 class ModelFile {
   final String fileName; // Zieldateiname im models-Ordner
@@ -39,10 +40,19 @@ class ModelCatalogEntry {
   final String sourceUrl;
   final List<ModelFile> files;
 
+  /// Dateien, die die App aus den heruntergeladenen selbst erzeugt.
+  ///
+  /// Sie stehen in keinem Download und haben keine Prüfsumme – aber sie
+  /// liegen im selben Ordner, belegen Platz und müssen beim Löschen des
+  /// Eintrags mit verschwinden. Ohne diese Liste bliebe eine solche Datei
+  /// für immer liegen, weil niemand mehr weiss, wozu sie gehört.
+  final List<String> abgeleiteteDateien;
+
   const ModelCatalogEntry({
     required this.id,
     required this.sourceUrl,
     required this.files,
+    this.abgeleiteteDateien = const [],
   });
 }
 
@@ -66,6 +76,7 @@ String modellTitel(AppTexte t, String id) => switch (id) {
       'inpainting_lama' => t.modellLamaTitel,
       'translation_en_de' => t.modellEnDeTitel,
       'translation_de_en' => t.modellDeEnTitel,
+      'ocr_ppocr_latin' => t.modellOcrTitel,
       // Lieber die Kennung als eine leere Karte: Ein neu aufgenommenes
       // Modell fällt so sofort auf, statt still ohne Namen dazustehen.
       _ => id,
@@ -82,6 +93,7 @@ String modellBeschreibung(AppTexte t, String id) => switch (id) {
       'inpainting_lama' => t.modellLamaText,
       'translation_en_de' => t.modellEnDeText,
       'translation_de_en' => t.modellDeEnText,
+      'ocr_ppocr_latin' => t.modellOcrText,
       _ => '',
     };
 
@@ -96,6 +108,7 @@ String modellLizenz(AppTexte t, String id) => switch (id) {
       'inpainting_lama' => t.modellLamaLizenz,
       'translation_en_de' => t.modellEnDeLizenz,
       'translation_de_en' => t.modellDeEnLizenz,
+      'ocr_ppocr_latin' => t.modellOcrLizenz,
       _ => '',
     };
 
@@ -387,6 +400,50 @@ class ModelCatalog {
     ],
   );
 
+  /// Texterkennung: PaddleOCR-Paar aus Finden (DBNet) und Lesen (CRNN).
+  ///
+  /// Zwei Modelle, weil OCR zwei verschiedene Aufgaben sind: Das erste
+  /// findet, WO Text steht, das zweite liest, WAS dort steht. Zusammen
+  /// 13,7 MB – eines der kleinsten Gespanne im Katalog.
+  ///
+  /// **Das Findemodell ist das chinesische, das Lesemodell das
+  /// lateinische.** Kein Versehen: Wo Schrift steht, hängt nicht von der
+  /// Sprache ab, und für diese Richtung gibt es nur die eine gepflegte
+  /// Fassung. Beim Lesen ist die Sprache dagegen entscheidend – die
+  /// chinesische Zeichentabelle kennt weder `ö` noch `Ä`, `Ö`, `ß` oder
+  /// `€` (nachgesehen, nicht vermutet), aus „Straße" würde „Strae".
+  ///
+  /// An einer deutschen Testtafel gemessen: 95,5 % der Zeichen richtig,
+  /// zwei von vier Zeilen fehlerfrei – „Straße des 17. Juni 135" und
+  /// „Preis: 12,50 EUR" ohne einen einzigen Fehler.
+  ///
+  /// Wird nur ausserhalb von macOS gebraucht; dort ist Apples
+  /// Vision-Framework besser und kostet keinen Download.
+  static const ocrPaddle = ModelCatalogEntry(
+    id: 'ocr_ppocr_latin',
+    sourceUrl: 'https://github.com/PaddlePaddle/PaddleOCR',
+    files: [
+      ModelFile(
+        'ocr_det.onnx',
+        'https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx',
+        'd2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9',
+      ),
+      ModelFile(
+        'ocr_rec.onnx',
+        'https://huggingface.co/cycloneboy/latin_PP-OCRv3_rec_infer/resolve/main/model.onnx',
+        'e986ac261c2fe3118879d76d68a00186540911838543da9a0a6e7dd096b965b2',
+      ),
+      ModelFile(
+        'ocr_dict.txt',
+        'https://huggingface.co/cycloneboy/latin_PP-OCRv3_rec_infer/resolve/main/latin_dict.txt',
+        'ab1fcc6dbb5ae074d0e8966984ee977ed9d62976abd96c6461a0cdb684ddec90',
+      ),
+    ],
+    // Beim ersten Laden aus ocr_rec.onnx erzeugt, weil HardSwish im
+    // Flutter-Prozess unter Linux null liefert – siehe OcrService.
+    abgeleiteteDateien: [OcrService.lesungUmgebaut],
+  );
+
   /// LaMa (Large Mask Inpainting), fp32 – füllt eine markierte Stelle aus
   /// der Umgebung neu auf, für die Objektentfernung im Bildeditor.
   ///
@@ -421,5 +478,6 @@ class ModelCatalog {
     inpainting,
     translationEnDe,
     translationDeEn,
+    ocrPaddle,
   ];
 }

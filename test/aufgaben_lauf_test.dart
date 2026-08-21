@@ -15,6 +15,7 @@ import 'package:photo_vault/services/eye_state_service.dart';
 import 'package:photo_vault/services/face_engine_service.dart';
 import 'package:photo_vault/services/florence_captioning_service.dart';
 import 'package:photo_vault/services/modell_halter.dart';
+import 'package:photo_vault/services/ocr_service.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/services/translation_service.dart';
 import 'package:photo_vault/state/library_state.dart';
@@ -52,7 +53,11 @@ void main() {
       ..clipBildHalter = halter<ClipService>('CLIP-Bild', installiert: false)
       ..clipTextHalter = halter<ClipService>('CLIP-Text', installiert: false)
       ..uebersetzungEnDeHalter = halter<TranslationService>('Übersetzung', installiert: false)
-      ..captioningHalter = halter<FlorenceCaptioningService>('Bildbeschreibung', installiert: false);
+      ..captioningHalter = halter<FlorenceCaptioningService>('Bildbeschreibung', installiert: false)
+      // Ausdrücklich gesetzt: Ohne das hinge die Karte an
+      // Platform.isMacOS und der Test prüfte je nach Rechner etwas
+      // anderes.
+      ..ocrHalter = halter<OcrService>('OCR', installiert: true);
   });
 
   tearDown(() async {

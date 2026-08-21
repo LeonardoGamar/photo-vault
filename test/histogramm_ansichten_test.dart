@@ -6,6 +6,8 @@ import 'package:photo_vault/services/histogram.dart';
 import 'package:photo_vault/theme/app_theme.dart';
 import 'package:photo_vault/widgets/histogram_view.dart';
 
+import 'goldbilder.dart';
+
 /// Die vier Anzeigen des Histogramm-Bedienfelds.
 ///
 /// Eine Waveform lässt sich schlecht behaupten – man muss sie ansehen.
@@ -91,7 +93,7 @@ void main() {
       find.byType(HistogramView),
       matchesGoldenFile('golden/waveform.png'),
     );
-  });
+  }, skip: nurAufReferenzplattform);
 
   testWidgets('so sieht die Parade aus', (tester) async {
     await zeige(tester);
@@ -101,5 +103,5 @@ void main() {
       find.byType(HistogramView),
       matchesGoldenFile('golden/parade.png'),
     );
-  });
+  }, skip: nurAufReferenzplattform);
 }

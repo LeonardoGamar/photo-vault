@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.example.PhotoVault</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Photo Vault</name>
+  <summary>Manage, search and develop photos on your own machine</summary>
+  <summary xml:lang="de">Fotos auf dem eigenen Rechner verwalten, durchsuchen und entwickeln</summary>
+
+  <description>
+    <p>
+      Photo Vault keeps a photo library on the machine it runs on. Nothing is
+      uploaded: importing, searching, face grouping, captioning and RAW
+      development all happen locally.
+    </p>
+    <p xml:lang="de">
+      Photo Vault verwaltet eine Fotobibliothek auf dem Rechner, auf dem es
+      läuft. Nichts wird hochgeladen – Einlesen, Suchen, Gesichter gruppieren,
+      Beschreiben und RAW-Entwicklung geschehen vollständig vor Ort.
+    </p>
+    <p>Included:</p>
+    <p xml:lang="de">Enthalten sind:</p>
+    <ul>
+      <li>Timeline, albums, map, calendar and people views</li>
+      <li xml:lang="de">Zeitleiste, Alben, Karte, Kalender und Personen</li>
+      <li>Non-destructive RAW development with curves and masks</li>
+      <li xml:lang="de">Zerstörungsfreie RAW-Entwicklung mit Kurven und Masken</li>
+      <li>Optional local AI models for search, captions, faces and text</li>
+      <li xml:lang="de">Wahlweise lokale KI-Modelle für Suche, Beschreibungen, Gesichter und Text</li>
+      <li>Encrypted vault and encrypted backups</li>
+      <li xml:lang="de">Verschlüsselter Tresor und verschlüsselte Sicherungen</li>
+    </ul>
+    <p>
+      AI models are not shipped with the application. They are downloaded on
+      request from their public sources and can be removed again at any time.
+    </p>
+    <p xml:lang="de">
+      Die KI-Modelle liegen der Anwendung nicht bei. Sie werden auf Wunsch aus
+      ihren öffentlichen Quellen geladen und lassen sich jederzeit wieder
+      entfernen.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">com.example.PhotoVault.desktop</launchable>
+
+  <!-- Platzhalter, wie die Kennung selbst: vor einer öffentlichen
+       Verteilung durch die eigene Domäne ersetzen. -->
+  <url type="homepage">https://example.com/photo-vault</url>
+  <developer id="com.example">
+    <name>Photo Vault</name>
+  </developer>
+
+  <categories>
+    <category>Graphics</category>
+    <category>Photography</category>
+  </categories>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="1.8.0" date="2026-08-21">
+      <description>
+        <p>Text recognition now works on Linux; the application is available as a Flatpak.</p>
+        <p xml:lang="de">Texterkennung läuft jetzt auch unter Linux; die Anwendung gibt es als Flatpak.</p>
+      </description>
+    </release>
+    <release version="1.7.0" date="2026-08-20">
+      <description>
+        <p>Ignore duplicate groups in future scans; show the number of findings.</p>
+        <p xml:lang="de">Duplikatgruppen bei künftigen Prüfungen übergehen, Anzahl der Funde anzeigen.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -4,6 +4,8 @@ import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/widgets/timeline_scrubber.dart';
 
+import 'goldbilder.dart';
+
 /// Der Regler ist reine Oberfläche, aber eine mit Fallstricken: Er zeichnet
 /// in einem [Stack] mit festen Abständen, und seine Beschriftungen sind in
 /// beiden Sprachen unterschiedlich lang. Diese Prüfungen halten fest, dass
@@ -306,5 +308,5 @@ void main() {
       find.byType(TimelineScrubber),
       matchesGoldenFile('golden/zeitleiste.png'),
     );
-  });
+  }, skip: nurAufReferenzplattform);
 }

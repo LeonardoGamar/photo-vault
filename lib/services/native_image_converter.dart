@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import 'cube_lut.dart';
 import 'develop_color.dart';
+import 'develop_render.dart';
 import 'platform/linux_image_tools.dart';
 import 'raw_formats.dart';
 
@@ -158,6 +159,19 @@ class NativeImageConverter {
     int maxDimension = 2048,
     double quality = 0.9,
   }) async {
+    // Ausserhalb von macOS gibt es kein Core Image. Dort rechnet derselbe
+    // Shader, der auch die Live-Vorschau zeichnet – siehe DevelopRender.
+    // Vorher war das der einzige Regler-Satz der App, der auf manchen
+    // Plattformen schlicht wirkungslos blieb.
+    if (DevelopRender.istMassgeblich) {
+      return DevelopRender.rendere(
+        file,
+        adjustments: adjustments,
+        masks: masks,
+        maxDimension: maxDimension,
+        quality: (quality * 100).round().clamp(1, 100),
+      );
+    }
     if (!await isSupported()) return null;
     try {
       return await _channel.invokeMethod<Uint8List>('developImage', {

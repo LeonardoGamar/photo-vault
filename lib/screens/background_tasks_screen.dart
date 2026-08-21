@@ -691,6 +691,10 @@ class BackgroundTasksScreen extends StatelessWidget {
             stufe: Analysestufe.texterkennung,
             description: t.aufgOcrText,
             pendingCount: () => library.db.countOcrBackfill(),
+            // Auf macOS immer verfügbar (Vision-Framework), sonst erst mit
+            // den beiden nachgeladenen Modellen.
+            unavailableReason:
+                _modelHint(t, library.ocrAvailable, t.aufgOcrModell, t.aufgWoModelle),
             actions: [
               _TaskAction(
                 label: t.aufgFehlende,

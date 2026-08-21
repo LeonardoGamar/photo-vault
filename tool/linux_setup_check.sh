@@ -33,6 +33,30 @@ pruefe() { # name  befehl  paket  kategorie(build|laufzeit)  zweck
   fi
 }
 
+# Vorhandenes heif-convert heisst NICHT, dass HEIC gelesen werden kann.
+#
+# Beim ersten Lauf auf Ubuntu 26.04 war libheif-examples installiert, und
+# trotzdem scheiterte jede Umwandlung mit „Decoder plugin generated an
+# error: Unspecified". Der Grund: libheif liefert die Codecs seit 1.20 als
+# eigene Plugin-Pakete, und Ubuntu installiert von Haus aus nur die
+# AV1-Plugins – für HEVC, also genau das, was in jeder iPhone-Datei steckt,
+# ist keines dabei. „heif-convert ist da" hätte hier grün gemeldet und jedes
+# iPhone-Foto wäre unsichtbar geblieben.
+#
+# Deshalb wird nicht das Programm geprüft, sondern seine Fähigkeit.
+pruefe_heic_dekoder() {
+  if heif-convert --list-decoders 2>/dev/null |
+       awk '/^HEIC decoders:/{gefunden=1; next} /decoders:|uncompressed/{gefunden=0} gefunden && NF' |
+       grep -q .; then
+    printf '  %s✓%s %-16s %s\n' "$GRUEN" "$AUS" 'HEVC-Dekoder' 'entschlüsselt den Inhalt von HEIC'
+  else
+    printf '  %s!%s %-16s %s\n' "$GELB" "$AUS" 'HEVC-Dekoder' 'entschlüsselt den Inhalt von HEIC'
+    printf '      → sudo apt install libheif-plugin-libde265\n'
+    printf '        (ohne ihn scheitert JEDE HEIC-Datei, obwohl heif-convert da ist)\n'
+    fehlt_laufzeit=$((fehlt_laufzeit+1))
+  fi
+}
+
 pruefe_lib() { # name  pkg-config-name  paket  zweck
   local name="$1" pc="$2" paket="$3" zweck="$4"
   if pkg-config --exists "$pc" 2>/dev/null; then
@@ -50,6 +74,12 @@ printf 'System: %s\n' "$(uname -sr)"
 
 titel 'Zum Bauen nötig'
 pruefe 'Flutter SDK'  flutter     'https://docs.flutter.dev/get-started/install/linux' build 'Compiler und Werkzeuge'
+# Ohne git bricht das flutter-Kommando SOFORT ab ("Unable to find git in your
+# PATH") – noch bevor irgendetwas übersetzt wird. Auf einer frisch
+# aufgesetzten Ubuntu-Maschine ist git nicht dabei; beim ersten echten Lauf
+# war das prompt der erste Stolperstein, und die Prüfung hat ihn nicht
+# genannt, weil sie git für selbstverständlich hielt.
+pruefe 'git'          git         'sudo apt install git'                              build 'wird vom Flutter-Werkzeug vorausgesetzt'
 pruefe 'clang'        clang       'sudo apt install clang'                            build 'C++-Compiler für den Linux-Build'
 pruefe 'cmake'        cmake       'sudo apt install cmake'                            build 'Build-System'
 pruefe 'ninja'        ninja       'sudo apt install ninja-build'                      build 'Build-System'
@@ -61,7 +91,11 @@ pruefe 'mpv-Bibliothek' mpv       'sudo apt install libmpv-dev mpv'             
 pruefe 'ffmpeg'       ffmpeg      'sudo apt install ffmpeg'                        laufzeit 'Video-Vorschaubild und -Zuschnitt'
 pruefe 'ffprobe'      ffprobe     'sudo apt install ffmpeg'                        laufzeit 'Videolänge ermitteln'
 pruefe 'heif-convert' heif-convert 'sudo apt install libheif-examples'             laufzeit 'HEIC/HEIF-Fotos (iPhone)'
+pruefe_heic_dekoder
 pruefe 'dcraw_emu'    dcraw_emu   'sudo apt install libraw-bin'                    laufzeit 'RAW-Fotos'
+
+titel 'Nur für die Fernprüfung (optional)'
+pruefe 'xvfb-run'     xvfb-run    'sudo apt install xvfb'                          laufzeit 'App ohne Bildschirm starten (SSH)'
 
 titel 'Noch nicht umgesetzt'
 printf '  Entwickeln (Regler wirken noch nicht auf das gespeicherte Bild)\n'
