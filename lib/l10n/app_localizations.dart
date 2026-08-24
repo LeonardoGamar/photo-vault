@@ -7967,6 +7967,36 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln.'**
   String get karteGlobusZoomHinweis;
+
+  /// No description provided for @karteHineinzoomen.
+  ///
+  /// In de, this message translates to:
+  /// **'Näher heran'**
+  String get karteHineinzoomen;
+
+  /// No description provided for @karteHerauszoomen.
+  ///
+  /// In de, this message translates to:
+  /// **'Weiter weg'**
+  String get karteHerauszoomen;
+
+  /// No description provided for @karteStandortZeigen.
+  ///
+  /// In de, this message translates to:
+  /// **'Mein Standort'**
+  String get karteStandortZeigen;
+
+  /// No description provided for @karteStandortNichtErmittelbar.
+  ///
+  /// In de, this message translates to:
+  /// **'Standort nicht ermittelbar. Prüfe unter Systemeinstellungen → Datenschutz & Sicherheit → Ortungsdienste, ob Photo Vault fragen darf.'**
+  String get karteStandortNichtErmittelbar;
+
+  /// No description provided for @karteStandortSuche.
+  ///
+  /// In de, this message translates to:
+  /// **'Standort wird ermittelt …'**
+  String get karteStandortSuche;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

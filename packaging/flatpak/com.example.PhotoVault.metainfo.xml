@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.4" date="2026-08-24">
+      <description>
+        <p>Both map views get zoom buttons and, on macOS, a button for your own location.</p>
+        <p>The 3D globe felt unresponsive when zooming in. It was not the zoom but the pins: the grouping grid kept getting finer than the globe can show, so a library with 1092 located photos ended up drawing 910 separate pins and needed 262 ms per frame. The grid now stops refining where the globe stops adding detail.</p>
+        <p>Tapping the timeline icon jumps back to the newest photos, in both the grid and the list view.</p>
+        <p xml:lang="de">Beide Kartenansichten bekommen Zoomknöpfe und, unter macOS, einen Knopf für den eigenen Standort.</p>
+        <p xml:lang="de">Der 3D-Globus wirkte beim Hereinzoomen wie eingefroren. Schuld war nicht der Zoom, sondern die Pins: Das Raster wurde feiner, als der Globus zeigen kann – bei 1092 verorteten Fotos entstanden 910 einzelne Pins, und ein Einzelbild brauchte 262 ms. Das Raster hört jetzt dort auf, wo auch der Globus aufhört, Detail zu zeigen.</p>
+        <p xml:lang="de">Ein Tippen auf das Zeitleisten-Symbol springt zu den neuesten Fotos zurück – im Raster wie in der Listenansicht.</p>
+      </description>
+    </release>
     <release version="1.9.3" date="2026-08-24">
       <description>
         <p>Canon CR3 photos now show camera, lens and — more importantly — the right capture date.</p>

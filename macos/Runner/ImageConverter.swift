@@ -32,6 +32,7 @@
 
 import AVFoundation
 import Cocoa
+import CoreLocation
 import CoreImage
 import FlutterMacOS
 import ImageIO
@@ -67,6 +68,13 @@ class ImageConverterChannel: NSObject {
                             result(nil)
                         }
                     }
+                }
+            case "currentLocation":
+                // Einmalige Standortabfrage fuer den Knopf in der
+                // Kartenansicht. Bewusst kein Dauerabo: Die App verfolgt
+                // niemanden, sie zeigt einmal an, wo man gerade ist.
+                Standortgeber.geteilt.einmalHolen { antwort in
+                    DispatchQueue.main.async { result(antwort) }
                 }
             case "cameraMetadata":
                 // Aufnahmewerte fuer Dateien, aus denen package:exif nichts
@@ -895,5 +903,96 @@ class ImageConverterChannel: NSObject {
         session.exportAsynchronously {
             completion(session.status == .completed)
         }
+    }
+}
+
+
+/// Einmalige Standortabfrage ueber CoreLocation.
+///
+/// Warum eine eigene Klasse und kein Einzeiler: CLLocationManager
+/// antwortet ueber einen Delegierten, nicht als Rueckgabewert, und er muss
+/// am Leben bleiben, bis die Antwort da ist. Eine lokale Variable waere
+/// vorher abgeraeumt – der Rueckruf kaeme nie.
+///
+/// Rueckgabe an Flutter: eine Map mit breite/laenge/genauigkeit, oder nil.
+/// Ein `nil` heisst „kein Standort", nicht „Fehler" – die Oberflaeche
+/// sagt dann, dass nichts zu holen war, statt eine Ausnahme zu zeigen.
+private final class Standortgeber: NSObject, CLLocationManagerDelegate {
+    static let geteilt = Standortgeber()
+
+    private let verwalter = CLLocationManager()
+    private var wartende: [([String: Any]?) -> Void] = []
+    private let schloss = NSLock()
+    private var laeuft = false
+
+    override init() {
+        super.init()
+        verwalter.delegate = self
+        verwalter.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    }
+
+    func einmalHolen(_ fertig: @escaping ([String: Any]?) -> Void) {
+        schloss.lock()
+        wartende.append(fertig)
+        let schonUnterwegs = laeuft
+        laeuft = true
+        schloss.unlock()
+        if schonUnterwegs { return }
+
+        DispatchQueue.main.async {
+            // Ohne Erlaubnis fragt requestLocation nicht nach, sondern
+            // liefert stillschweigend nichts. Erst fragen, dann holen.
+            let stand = self.verwalter.authorizationStatus
+            if stand == .notDetermined {
+                self.verwalter.requestWhenInUseAuthorization()
+                // Die Antwort kommt ueber locationManagerDidChangeAuthorization.
+                return
+            }
+            if stand == .denied || stand == .restricted {
+                self.antworten(nil)
+                return
+            }
+            self.verwalter.requestLocation()
+        }
+
+        // Nicht ewig warten: Ohne Sichtverbindung zu WLAN-Ortung oder GPS
+        // antwortet CoreLocation gar nicht. Zwoelf Sekunden sind laenger
+        // als jede erfolgreiche Abfrage hier gedauert hat.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) {
+            self.antworten(nil)
+        }
+    }
+
+    private func antworten(_ werte: [String: Any]?) {
+        schloss.lock()
+        let offen = wartende
+        wartende.removeAll()
+        laeuft = false
+        schloss.unlock()
+        for r in offen { r(werte) }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        switch manager.authorizationStatus {
+        case .authorized, .authorizedAlways:
+            manager.requestLocation()
+        case .denied, .restricted:
+            antworten(nil)
+        default:
+            break
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations orte: [CLLocation]) {
+        guard let ort = orte.last else { antworten(nil); return }
+        antworten([
+            "breite": ort.coordinate.latitude,
+            "laenge": ort.coordinate.longitude,
+            "genauigkeit": ort.horizontalAccuracy,
+        ])
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        antworten(nil)
     }
 }

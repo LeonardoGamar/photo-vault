@@ -195,6 +195,42 @@ class NativeImageConverter {
     );
   }
 
+  /// Ob diese Plattform den eigenen Standort ermitteln kann.
+  ///
+  /// Bisher nur macOS: Dort gibt es CoreLocation und den nativen Kanal
+  /// ohnehin. Unter Linux liefe das über GeoClue, unter Windows über
+  /// `Windows.Devices.Geolocation` – beides eigene Anbindungen, die es
+  /// hier noch nicht gibt. Statt einen Knopf anzubieten, der dort nichts
+  /// tut, wird er gar nicht erst gezeigt.
+  static bool get standortMoeglich => Platform.isMacOS;
+
+  /// Der aktuelle Standort, einmalig abgefragt.
+  ///
+  /// `null` heisst „nicht zu ermitteln" – kein Recht erteilt, keine
+  /// Ortung verfügbar oder die Abfrage lief in ihre Zeitgrenze. Der
+  /// Aufrufer sagt das dem Nutzer, statt es zu verschlucken.
+  static Future<({double breite, double laenge, double genauigkeit})?>
+      aktuellerStandort() async {
+    if (!standortMoeglich || !await isSupported()) return null;
+    try {
+      final antwort =
+          await _channel.invokeMapMethod<String, dynamic>('currentLocation');
+      if (antwort == null) return null;
+      final breite = (antwort['breite'] as num?)?.toDouble();
+      final laenge = (antwort['laenge'] as num?)?.toDouble();
+      if (breite == null || laenge == null) return null;
+      return (
+        breite: breite,
+        laenge: laenge,
+        genauigkeit: (antwort['genauigkeit'] as num?)?.toDouble() ?? -1,
+      );
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
   /// Grenze, die keine ist – grösser als jeder existierende Bildsensor.
   ///
   /// Beide nativen Wege verkleinern nur (`downscale` gibt das Bild

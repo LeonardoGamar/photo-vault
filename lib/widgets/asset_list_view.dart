@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -19,7 +20,7 @@ import '../widgets/star_rating.dart';
 /// Welche Spalten erscheinen, hängt von der Fensterbreite ab. Alle immer zu
 /// zeigen hiesse, sie auf schmalen Fenstern auf je zwanzig Punkte zu
 /// quetschen; dann steht überall „…".
-class AssetListView extends StatelessWidget {
+class AssetListView extends StatefulWidget {
   final List<AssetData> assets;
   final StoragePaths paths;
   final ListenGruppierung gruppierung;
@@ -27,6 +28,12 @@ class AssetListView extends StatelessWidget {
   final void Function(AssetData asset) onTap;
   final void Function(AssetData asset) onLongPress;
   final String? highlightAssetId;
+
+  /// Jede Änderung springt an den Listenanfang – zu den neuesten Fotos.
+  /// Siehe [MonthGroupedAssetGrid.nachObenSignal]; die Listenansicht muss
+  /// dasselbe tun, sonst hinge das Verhalten daran, welche Darstellung
+  /// gerade gewählt ist.
+  final ValueListenable<int>? nachObenSignal;
 
   const AssetListView({
     super.key,
@@ -37,6 +44,7 @@ class AssetListView extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     this.highlightAssetId,
+    this.nachObenSignal,
   });
 
   /// Ab welcher Breite eine Spalte noch sinnvoll ist.
@@ -57,42 +65,79 @@ class AssetListView extends StatelessWidget {
   }
 
   @override
+  State<AssetListView> createState() => _AssetListViewState();
+}
+
+class _AssetListViewState extends State<AssetListView> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.nachObenSignal?.addListener(_nachOben);
+  }
+
+  @override
+  void didUpdateWidget(covariant AssetListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nachObenSignal != widget.nachObenSignal) {
+      oldWidget.nachObenSignal?.removeListener(_nachOben);
+      widget.nachObenSignal?.addListener(_nachOben);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.nachObenSignal?.removeListener(_nachOben);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _nachOben() {
+    if (!mounted || !_scrollController.hasClients) return;
+    if (_scrollController.offset <= 0) return;
+    _scrollController.animateTo(0,
+        duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final gruppen = gruppiereAssets(assets, gruppierung);
+    final gruppen = gruppiereAssets(widget.assets, widget.gruppierung);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final breite = constraints.maxWidth;
-        final zeigeKamera = breite >= _breiteKamera;
-        final zeigeBelichtung = breite >= _breiteBelichtung;
-        final zeigeBewertung = breite >= _breiteBewertung;
+        final zeigeKamera = breite >= AssetListView._breiteKamera;
+        final zeigeBelichtung = breite >= AssetListView._breiteBelichtung;
+        final zeigeBewertung = breite >= AssetListView._breiteBewertung;
 
         // Eine flache Liste aus Kopfzeilen und Fotos: So bleibt das Bauen
         // faul, auch wenn eine Gruppe mehrere tausend Fotos enthält.
         final eintraege = <Object>[];
         for (final gruppe in gruppen) {
-          if (gruppierung != ListenGruppierung.keine) eintraege.add(gruppe.schluessel);
+          if (widget.gruppierung != ListenGruppierung.keine) eintraege.add(gruppe.schluessel);
           eintraege.addAll(gruppe.assets);
         }
 
         return ListView.builder(
+          controller: _scrollController,
           itemCount: eintraege.length,
           itemBuilder: (context, index) {
             final eintrag = eintraege[index];
             if (eintrag is String) {
-              return _Kopfzeile(titel: _gruppentitel(context, eintrag));
+              return _Kopfzeile(titel: widget._gruppentitel(context, eintrag));
             }
             final asset = eintrag as AssetData;
             return _Zeile(
               asset: asset,
-              paths: paths,
-              ausgewaehlt: selectedIds.contains(asset.id),
-              hervorgehoben: asset.id == highlightAssetId,
+              paths: widget.paths,
+              ausgewaehlt: widget.selectedIds.contains(asset.id),
+              hervorgehoben: asset.id == widget.highlightAssetId,
               zeigeKamera: zeigeKamera,
               zeigeBelichtung: zeigeBelichtung,
               zeigeBewertung: zeigeBewertung,
-              onTap: () => onTap(asset),
-              onLongPress: () => onLongPress(asset),
+              onTap: () => widget.onTap(asset),
+              onLongPress: () => widget.onLongPress(asset),
             );
           },
         );

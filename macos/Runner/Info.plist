@@ -24,6 +24,10 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>$(PRODUCT_COPYRIGHT)</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Zeigt deinen aktuellen Standort auf der Karte an. Der Standort wird nur angezeigt und weder gespeichert noch verschickt.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Zeigt deinen aktuellen Standort auf der Karte an. Der Standort wird nur angezeigt und weder gespeichert noch verschickt.</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>

@@ -1870,5 +1870,10 @@
   "werkzDatumStarten": "Correct",
   "werkzKorrigiereDatum": "Reading capture data from RAW photos …",
   "werkzKeineRawFotos": "No RAW photos in the library.",
-  "karteGlobusZoomHinweis": "Zooming in further shows no extra detail – the Earth texture is a single image. Tap a pin to switch to the map at that spot."
+  "karteGlobusZoomHinweis": "Zooming in further shows no extra detail – the Earth texture is a single image. Tap a pin to switch to the map at that spot.",
+  "karteHineinzoomen": "Zoom in",
+  "karteHerauszoomen": "Zoom out",
+  "karteStandortZeigen": "My location",
+  "karteStandortNichtErmittelbar": "Could not determine your location. Check System Settings → Privacy & Security → Location Services to see whether Photo Vault may ask.",
+  "karteStandortSuche": "Determining location …"
 }

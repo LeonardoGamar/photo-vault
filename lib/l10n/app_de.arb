@@ -2914,5 +2914,10 @@
   "werkzDatumStarten": "Richtigstellen",
   "werkzKorrigiereDatum": "Lese Aufnahmedaten aus RAW-Fotos …",
   "werkzKeineRawFotos": "Keine RAW-Fotos in der Bibliothek.",
-  "karteGlobusZoomHinweis": "Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln."
+  "karteGlobusZoomHinweis": "Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln.",
+  "karteHineinzoomen": "Näher heran",
+  "karteHerauszoomen": "Weiter weg",
+  "karteStandortZeigen": "Mein Standort",
+  "karteStandortNichtErmittelbar": "Standort nicht ermittelbar. Prüfe unter Systemeinstellungen → Datenschutz & Sicherheit → Ortungsdienste, ob Photo Vault fragen darf.",
+  "karteStandortSuche": "Standort wird ermittelt …"
 }

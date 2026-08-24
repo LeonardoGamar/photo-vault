@@ -4985,4 +4985,20 @@ class AppTexteDe extends AppTexte {
   @override
   String get karteGlobusZoomHinweis =>
       'Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln.';
+
+  @override
+  String get karteHineinzoomen => 'Näher heran';
+
+  @override
+  String get karteHerauszoomen => 'Weiter weg';
+
+  @override
+  String get karteStandortZeigen => 'Mein Standort';
+
+  @override
+  String get karteStandortNichtErmittelbar =>
+      'Standort nicht ermittelbar. Prüfe unter Systemeinstellungen → Datenschutz & Sicherheit → Ortungsdienste, ob Photo Vault fragen darf.';
+
+  @override
+  String get karteStandortSuche => 'Standort wird ermittelt …';
 }

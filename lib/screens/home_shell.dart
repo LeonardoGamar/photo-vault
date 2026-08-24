@@ -213,6 +213,13 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
+  /// Zähler, den das Zeitleisten-Symbol hochzählt. Die Zeitleiste springt
+  /// bei jeder Änderung zu den neuesten Fotos.
+  ///
+  /// Ein Zähler statt eines Schalters: Zweimal tippen muss zweimal
+  /// wirken, auch wenn man zwischendurch nichts anderes getan hat.
+  final ValueNotifier<int> _zeitleisteNachOben = ValueNotifier(0);
+
   // labelType.selected zeigt den Namen nur beim ausgewählten Eintrag an
   // (siehe Kommentar unten) – beim Hovern über einen NICHT ausgewählten
   // Eintrag mit der Maus soll er trotzdem kurz sichtbar werden, kombiniert
@@ -329,6 +336,23 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   @override
+  void dispose() {
+    _zeitleisteNachOben.dispose();
+    super.dispose();
+  }
+
+  /// Ein Tippen in der Navigation.
+  ///
+  /// Das Zeitleisten-Symbol tut mehr als umschalten: Es springt zu den
+  /// neuesten Fotos zurück – auch dann, wenn die Zeitleiste schon offen
+  /// ist und weit unten steht. Genau dafür greift man im Zweifel danach.
+  void _zielGewaehlt(int i) {
+    if (i == 0) _zeitleisteNachOben.value++;
+    if (i == _index) return;
+    setState(() => _index = i);
+  }
+
+  @override
   Widget build(BuildContext context) {
     // "Foto in der Timeline anzeigen" (Kontextmenü der Vollbildansicht):
     // einmalig auf den Timeline-Tab wechseln und die Ziel-ID durchreichen,
@@ -343,7 +367,10 @@ class _HomeShellState extends State<HomeShell> {
 
     final pages = [
       TimelineScreen(
-          library: widget.library, highlightAssetId: pendingHighlight),
+        library: widget.library,
+        highlightAssetId: pendingHighlight,
+        nachObenSignal: _zeitleisteNachOben,
+      ),
       ExploreScreen(library: widget.library),
       CalendarScreen(library: widget.library),
       MapScreen(library: widget.library),
@@ -385,8 +412,7 @@ class _HomeShellState extends State<HomeShell> {
                     if (wide)
                       NavigationRail(
                         selectedIndex: _index,
-                        onDestinationSelected: (i) =>
-                            setState(() => _index = i),
+                        onDestinationSelected: _zielGewaehlt,
                         // "selected" statt "all": bei 9 Einträgen würde die Rail mit
                         // Label unter jedem Icon bei normaler Fensterhöhe überlaufen.
                         labelType: NavigationRailLabelType.selected,
@@ -464,7 +490,7 @@ class _HomeShellState extends State<HomeShell> {
             ? null
             : NavigationBar(
                 selectedIndex: _index,
-                onDestinationSelected: (i) => setState(() => _index = i),
+                onDestinationSelected: _zielGewaehlt,
                 destinations: [
                   for (var i = 0; i < navLabels.length; i++)
                     NavigationDestination(

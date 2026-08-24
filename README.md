@@ -173,7 +173,10 @@ echter Hardware.
   oder wahlweise auf einem interaktiven 3D-Globus; lokale Umkehr-Geokodierung
   (GPS → Stadt/Land) über den offenen GeoNames-Datensatz, komplett offline.
   Dicht beieinanderliegende Fotos werden zoomabhängig zu einem Marker
-  zusammengefasst und rücken beim Hineinzoomen wieder auseinander
+  zusammengefasst und rücken beim Hineinzoomen wieder auseinander. Beide
+  Ansichten haben Zoomknöpfe; wo die Plattform es hergibt (derzeit macOS)
+  auch einen Knopf auf den eigenen Standort – einmalig abgefragt, nur
+  angezeigt, nicht gespeichert
 - **Statistiken** – Anzahl Medien, Speicherplatz, Fotos/Videos pro Jahr,
   Saisonalität pro Monat, häufigste Kameras
 - **Import** – Mehrfachauswahl über den nativen Dateidialog oder direkt von
@@ -847,7 +850,13 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 
 ### Technische Altlasten
 
-- **Der 3D-Globus zeigt ab Zoomstufe 3 nichts Neues mehr.** Er rendert
+- **Der 3D-Globus zeigt ab Zoomstufe 3 nichts Neues mehr** – und rastert
+  seine Pins seit 1.9.4 auch nicht feiner. Vorher wurde das Raster beim
+  Hereinzoomen immer feiner, bis fast jedes Foto einen eigenen Pin hatte;
+  bei 1092 verorteten Fotos waren das 910 Pins und 262 ms je Einzelbild.
+  Bei vier Bildern in der Sekunde wirkt eine Zoomgeste nicht langsam,
+  sondern wirkungslos – genau so wurde es auch gemeldet. Gedeckelt sind
+  es 259 Pins und 79 ms. Er rendert
   eine einzelne Erdtextur (8192×4096) ohne Kachel-Nachladen; weiteres
   Heranzoomen vergrössert nur. Gemessen auf echter GPU (Kantenschärfe
   über den Alpen – bei 0°/0° blickt der Globus auf offenen Atlantik, wo

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
@@ -53,6 +54,14 @@ class MonthGroupedAssetGrid extends StatefulWidget {
   /// Bibliothek enthält) passiert nichts Zusätzliches.
   final VoidCallback? onScrollNearEnd;
 
+  /// Jede Änderung dieses Werts springt an den Anfang der Liste – also zu
+  /// den neuesten Fotos, denn sortiert wird absteigend.
+  ///
+  /// Ein Zähler und kein `bool`: Zweimal hintereinander „nach oben" muss
+  /// zweimal wirken. Ein Schalter, der schon auf `true` steht, löst beim
+  /// zweiten Mal nichts aus.
+  final ValueListenable<int>? nachObenSignal;
+
   const MonthGroupedAssetGrid({
     super.key,
     required this.assets,
@@ -63,6 +72,7 @@ class MonthGroupedAssetGrid extends StatefulWidget {
     this.selectedIds,
     this.highlightAssetId,
     this.onScrollNearEnd,
+    this.nachObenSignal,
   });
 
   @override
@@ -89,16 +99,30 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     super.initState();
     _maybeHandleHighlight();
     _scrollController.addListener(_handleScroll);
+    widget.nachObenSignal?.addListener(_nachOben);
   }
 
   @override
   void didUpdateWidget(covariant MonthGroupedAssetGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
     _maybeHandleHighlight();
+    if (oldWidget.nachObenSignal != widget.nachObenSignal) {
+      oldWidget.nachObenSignal?.removeListener(_nachOben);
+      widget.nachObenSignal?.addListener(_nachOben);
+    }
+  }
+
+  /// An den Anfang – dorthin, wo die neuesten Fotos stehen.
+  void _nachOben() {
+    if (!mounted || !_scrollController.hasClients) return;
+    if (_scrollController.offset <= 0) return;
+    _scrollController.animateTo(0,
+        duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
   }
 
   @override
   void dispose() {
+    widget.nachObenSignal?.removeListener(_nachOben);
     _scrollController.removeListener(_handleScroll);
     _scrollController.dispose();
     super.dispose();

@@ -4961,4 +4961,20 @@ class AppTexteEn extends AppTexte {
   @override
   String get karteGlobusZoomHinweis =>
       'Zooming in further shows no extra detail – the Earth texture is a single image. Tap a pin to switch to the map at that spot.';
+
+  @override
+  String get karteHineinzoomen => 'Zoom in';
+
+  @override
+  String get karteHerauszoomen => 'Zoom out';
+
+  @override
+  String get karteStandortZeigen => 'My location';
+
+  @override
+  String get karteStandortNichtErmittelbar =>
+      'Could not determine your location. Check System Settings → Privacy & Security → Location Services to see whether Photo Vault may ask.';
+
+  @override
+  String get karteStandortSuche => 'Determining location …';
 }

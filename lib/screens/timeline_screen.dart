@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
@@ -21,7 +22,16 @@ class TimelineScreen extends StatefulWidget {
   /// Siehe [MonthGroupedAssetGrid.highlightAssetId].
   final String? highlightAssetId;
 
-  const TimelineScreen({super.key, required this.library, this.highlightAssetId});
+  /// Jede Änderung springt zu den neuesten Fotos – ausgelöst vom Tippen
+  /// auf das Zeitleisten-Symbol in der Navigation.
+  final ValueListenable<int>? nachObenSignal;
+
+  const TimelineScreen({
+    super.key,
+    required this.library,
+    this.highlightAssetId,
+    this.nachObenSignal,
+  });
 
   @override
   State<TimelineScreen> createState() => _TimelineScreenState();
@@ -235,6 +245,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                           gruppierung: _gruppierung,
                           selectedIds: _selected,
                           highlightAssetId: widget.highlightAssetId,
+                          nachObenSignal: widget.nachObenSignal,
                           onLongPress: (asset) => _toggle(asset.id),
                           onTap: (asset) => _selected.isNotEmpty
                               ? _toggle(asset.id)
@@ -244,6 +255,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                           assets: assets,
                           paths: widget.library.paths,
                           highlightAssetId: widget.highlightAssetId,
+                          nachObenSignal: widget.nachObenSignal,
                           selectedIds: _selected,
                           onLongPress: (asset) => _toggle(asset.id),
                           onHeaderTap: _toggleGroup,

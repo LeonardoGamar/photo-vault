@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart' as ll;
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/map_clustering.dart';
+import '../services/native_image_converter.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -59,8 +60,15 @@ class _MapScreenState extends State<MapScreen> {
   bool _globePointsSynced = false;
   double? _lastGroupedZoomBucket;
 
-  /// Aktuelle Globus-Zoomstufe – nur für den Hinweis oben.
+  /// Aktuelle Globus-Zoomstufe – für den Hinweis oben und die Knöpfe.
   double _globusZoom = 0;
+
+  /// Steuert die flache Karte von aussen (Zoomknöpfe, Standortsprung).
+  final MapController _flacheKarte = MapController();
+
+  /// Läuft gerade eine Standortabfrage? Der Knopf zeigt dann einen
+  /// Kreisel und nimmt keinen zweiten Auftrag an.
+  bool _standortLaeuft = false;
 
   // Zuletzt genutzte flache Kartenansicht (Hell/Dunkel) – Ziel, wenn man
   // vom Globus über einen Pin "auf die Karte springt" (siehe
@@ -146,7 +154,18 @@ class _MapScreenState extends State<MapScreen> {
   /// Punkte auf der kleinen Kugelfläche), bis knapp über GPS-Genauigkeit
   /// (~55m) beim tiefsten unterstützten Zoom.
   double _gridDegreesForZoom(double zoom) {
-    final scale = math.pow(2.0, zoom).toDouble();
+    // Nicht feiner rastern, als der Globus zeigen kann. Ab
+    // [zoomHinweisAb] kommt kein zusätzliches Detail mehr dazu (siehe
+    // dort) – ein feineres Raster erzeugt dann nur noch mehr Pins, und
+    // jeder Pin ist ein eigenes Flutter-Widget mit Gestenerkennung.
+    //
+    // Gemessen an 1092 verorteten Fotos, wie sie eine echte Bibliothek
+    // hat: ohne diese Deckelung wuchs die Pinzahl beim Hereinzoomen von
+    // 222 auf 910, und das Einzelbild brauchte am Ende 262 ms. Bei vier
+    // Bildern je Sekunde wirkt der Globus nicht langsam, sondern kaputt –
+    // Zoomgesten scheinen dann gar nichts zu tun.
+    final wirksam = math.min(zoom, zoomHinweisAb);
+    final scale = math.pow(2.0, wirksam).toDouble();
     return (0.3 / scale).clamp(0.0005, 0.3);
   }
 
@@ -426,6 +445,22 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           Positioned(
+            right: 8,
+            bottom: 8,
+            child: _Kartensteuerung(
+              beiNaeher: _globusZoom >= (_globeController?.maxZoom ?? 6)
+                  ? null
+                  : () => _globusZoomen(1),
+              beiWeiter: _globusZoom <= (_globeController?.minZoom ?? -1)
+                  ? null
+                  : () => _globusZoomen(-1),
+              beiStandort: NativeImageConverter.standortMoeglich
+                  ? _zumStandort
+                  : null,
+              standortLaeuft: _standortLaeuft,
+            ),
+          ),
+          Positioned(
             left: 8,
             bottom: 8,
             child: Text(
@@ -446,7 +481,30 @@ class _MapScreenState extends State<MapScreen> {
     // Vorschaubilds, und zwar auf den meisten Markern.
     final gruppen = gruppiereFuerKarte(located, _flacherZoom,
         (a) => (breite: a.latitude!, laenge: a.longitude!));
+    // Die flache Karte bekommt dieselbe Leiste – deshalb ein Stack um
+    // sie herum. FlutterMap selbst kann keine festen Aufsätze.
+    return Stack(
+      children: [
+        Positioned.fill(child: _flacheKarteBauen(located, gruppen, isDark)),
+        Positioned(
+          right: 8,
+          bottom: 24,
+          child: _Kartensteuerung(
+            beiNaeher: () => _flachZoomen(1),
+            beiWeiter: () => _flachZoomen(-1),
+            beiStandort:
+                NativeImageConverter.standortMoeglich ? _zumStandort : null,
+            standortLaeuft: _standortLaeuft,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _flacheKarteBauen(List<AssetData> located,
+      Map<String, List<AssetData>> gruppen, bool isDark) {
     return FlutterMap(
+      mapController: _flacheKarte,
       options: MapOptions(
         initialCenter: _pendingFlatFocus ?? _averageCenter(located),
         initialZoom: _pendingFlatZoom ?? _standardZoom,
@@ -478,6 +536,62 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  // --- Knöpfe ----------------------------------------------------------
+
+  /// Ein Zoomschritt auf dem Globus.
+  ///
+  /// Selbst geklemmt und nicht `setZoom` überlassen: Dessen Klemmung ist
+  /// wirkungslos – liegt der Wert ausserhalb, setzt die Bibliothek eine
+  /// lokale Variable und lässt `zoom` unverändert. Ausserdem greift im
+  /// Debug-Bau vorher eine Zusicherung.
+  void _globusZoomen(double schritt) {
+    final c = _ensureGlobeController();
+    final neu = (c.zoom + schritt).clamp(c.minZoom, c.maxZoom);
+    if (neu == c.zoom) return;
+    c.setZoom(neu);
+    _onGlobeZoomChanged(neu);
+  }
+
+  void _flachZoomen(double schritt) {
+    final kamera = _flacheKarte.camera;
+    final neu = (kamera.zoom + schritt)
+        .clamp(kamera.minZoom ?? 1.0, kamera.maxZoom ?? 18.0);
+    if (neu == kamera.zoom) return;
+    _flacheKarte.move(kamera.center, neu);
+  }
+
+  /// Springt auf den eigenen Standort – auf beiden Kartenarten.
+  ///
+  /// Nur auf Plattformen mit Ortungsanbindung überhaupt aufrufbar (siehe
+  /// [NativeImageConverter.standortMoeglich]); der Knopf fehlt sonst.
+  Future<void> _zumStandort() async {
+    setState(() => _standortLaeuft = true);
+    final ort = await NativeImageConverter.aktuellerStandort();
+    if (!mounted) return;
+    setState(() => _standortLaeuft = false);
+    if (ort == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppTexte.of(context).karteStandortNichtErmittelbar),
+      ));
+      return;
+    }
+    if (_mode == _MapViewMode.globe) {
+      final c = _ensureGlobeController();
+      c.focusOnCoordinates(GlobeCoordinates(ort.breite, ort.laenge),
+          animate: true);
+      // Nah genug, um die Gegend zu erkennen, aber nicht so nah, dass nur
+      // noch verwaschene Textur zu sehen ist (siehe [zoomHinweisAb]).
+      final ziel = math.min(zoomHinweisAb, c.maxZoom);
+      if (c.zoom < ziel) {
+        c.setZoom(ziel);
+        _onGlobeZoomChanged(ziel);
+      }
+    } else {
+      _flacheKarte.move(ll.LatLng(ort.breite, ort.laenge), 14);
+      setState(() => _flacherZoom = 14);
+    }
+  }
+
   /// Gruppiert neu, sobald sich die Zoomstufe um einen ganzen Schritt
   /// geändert hat.
   ///
@@ -488,6 +602,100 @@ class _MapScreenState extends State<MapScreen> {
     final stufe = camera.zoom.roundToDouble();
     if (stufe == _flacherZoom) return;
     setState(() => _flacherZoom = stufe);
+  }
+}
+
+/// Die Knopfleiste, die auf beiden Kartenarten rechts unten sitzt.
+///
+/// Bewusst ein gemeinsames Widget für Globus und flache Karte: Zwei
+/// Leisten, die gleich aussehen sollen, laufen sonst früher oder später
+/// auseinander. Was sie tun, unterscheidet sich – wie sie aussehen und
+/// wo sie sitzen, nicht.
+class _Kartensteuerung extends StatelessWidget {
+  final VoidCallback? beiNaeher;
+  final VoidCallback? beiWeiter;
+
+  /// `null` blendet den Standortknopf aus – auf Plattformen ohne
+  /// Ortungsanbindung. Ein Knopf, der nichts tun kann, wäre schlechter
+  /// als keiner.
+  final VoidCallback? beiStandort;
+
+  /// Während der Standort ermittelt wird: Kreisel statt Nadel.
+  final bool standortLaeuft;
+
+  const _Kartensteuerung({
+    this.beiNaeher,
+    this.beiWeiter,
+    this.beiStandort,
+    this.standortLaeuft = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+
+    Widget knopf({
+      required IconData symbol,
+      required String hinweis,
+      required VoidCallback? beiDruck,
+      Widget? statt,
+    }) {
+      return Tooltip(
+        message: hinweis,
+        child: InkResponse(
+          onTap: beiDruck,
+          radius: 22,
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Center(
+              child: statt ??
+                  Icon(symbol,
+                      size: 20,
+                      color: beiDruck == null
+                          ? farben.onSurfaceVariant.withValues(alpha: 0.4)
+                          : farben.onSurfaceVariant),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: farben.surfaceContainerHighest.withValues(alpha: 0.92),
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          knopf(
+              symbol: Icons.add,
+              hinweis: t.karteHineinzoomen,
+              beiDruck: beiNaeher),
+          Divider(height: 1, thickness: 1, color: farben.outlineVariant),
+          knopf(
+              symbol: Icons.remove,
+              hinweis: t.karteHerauszoomen,
+              beiDruck: beiWeiter),
+          if (beiStandort != null) ...[
+            Divider(height: 1, thickness: 1, color: farben.outlineVariant),
+            knopf(
+              symbol: Icons.my_location,
+              hinweis: standortLaeuft
+                  ? t.karteStandortSuche
+                  : t.karteStandortZeigen,
+              beiDruck: standortLaeuft ? null : beiStandort,
+              statt: standortLaeuft
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : null,
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
