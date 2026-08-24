@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.2" date="2026-08-24">
+      <description>
+        <p>Model downloads now resume instead of starting over.</p>
+        <p>A single interruption used to discard everything fetched so far — 352 MB for the largest model. Downloads now retry three times and continue where they left off; the checksum remains the guarantee. Connections that stall are cut off instead of waiting forever.</p>
+        <p>The Windows package explains itself: a readme stating that the folder is the program and where the data lives, plus a script that adds a Start menu shortcut.</p>
+        <p xml:lang="de">Modell-Downloads setzen fort, statt neu zu beginnen.</p>
+        <p xml:lang="de">Bisher verwarf ein einziger Abbruch alles Geladene – beim grössten Modell 352 MB. Jetzt wird dreimal versucht und dort weitergemacht, wo es aufhörte; die Prüfsumme bleibt die Garantie. Hängende Verbindungen werden abgebrochen, statt endlos zu warten.</p>
+        <p xml:lang="de">Das Windows-Paket erklärt sich selbst: eine Liesmich-Datei, die sagt, dass der Ordner das Programm ist und wo die Daten liegen, dazu ein Skript für einen Startmenü-Eintrag.</p>
+      </description>
+    </release>
     <release version="1.9.1" date="2026-08-24">
       <description>
         <p>Hardening and cleanup, no new features.</p>

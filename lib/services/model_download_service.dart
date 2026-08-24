@@ -47,10 +47,25 @@ class ModelDownloadProgress {
 /// [ModelCatalog] hinterlegten, öffentlichen Open-Source-Quellen
 /// (GitHub/HuggingFace), nie mit einem eigenen Server.
 class ModelDownloadService {
-  ModelDownloadService(this.modelsDir);
+  /// [datenGrenze] misst die Pause ZWISCHEN zwei Datenstücken, nicht die
+  /// Gesamtdauer – eine 350-MB-Datei darf also beliebig lange laufen, solange
+  /// sie überhaupt läuft. Beide Grenzen sind einstellbar, damit ein Test nicht
+  /// eine Minute auf eine absichtlich abgebrochene Verbindung warten muss.
+  ModelDownloadService(
+    this.modelsDir, {
+    Duration verbindungsGrenze = const Duration(seconds: 30),
+    Duration datenGrenze = const Duration(seconds: 60),
+  }) : _dio = Dio(BaseOptions(
+          connectTimeout: verbindungsGrenze,
+          receiveTimeout: datenGrenze,
+        ));
 
   final String modelsDir;
-  final Dio _dio = Dio();
+  final Dio _dio;
+
+  /// Wie oft eine einzelne Datei erneut versucht wird, bevor der Eintrag
+  /// als gescheitert gilt.
+  static const _versuche = 3;
 
   bool isEntryInstalled(ModelCatalogEntry entry) {
     return entry.files.every((f) => File(p.join(modelsDir, f.fileName)).existsSync());
@@ -64,31 +79,94 @@ class ModelDownloadService {
       for (final file in entry.files) {
         final targetPath = p.join(modelsDir, file.fileName);
         final tmpPath = '$targetPath.part';
-        try {
-          await _dio.download(
-            file.url,
-            tmpPath,
-            onReceiveProgress: (received, total) {
-              controller.add(ModelDownloadProgress(file.fileName, received, total));
-            },
-          );
+        final erwartet = file.sha256.toLowerCase();
 
-          final actualHash = await _sha256OfFile(File(tmpPath));
-          final expectedHash = file.sha256.toLowerCase();
-          if (actualHash != expectedHash) {
-            await File(tmpPath).delete();
-            controller.addError(ModellDownloadFehler.pruefsumme(
-                file.fileName, actualHash, expectedHash));
-            await controller.close();
-            return;
+        Object? letzterFehler;
+        String? letzteFalscheSumme;
+
+        // Mehrere Anläufe, und zwar dort weiter, wo der vorige aufhörte.
+        // Vorher verwarf ein einziger Abbruch alles Geladene: Bei
+        // clip_image_encoder.onnx sind das 352 MB, die komplett noch einmal
+        // durch die Leitung mussten. Die Prüfsumme unten bleibt die
+        // Garantie – geht beim Fortsetzen irgendetwas schief, fällt es
+        // dort auf und der Versuch beginnt von vorn.
+        for (var versuch = 1; versuch <= _versuche; versuch++) {
+          // Ein Zug statt zweier: `exists()` und danach `length()` sind zwei
+          // Blicke auf die Platte, und dazwischen kann die Datei weg sein.
+          // Genau daran ist der erste Lauf dieses Tests gescheitert.
+          var schonDa = 0;
+          try {
+            schonDa = await File(tmpPath).length();
+          } on FileSystemException {
+            schonDa = 0;
           }
+          try {
+            await _dio.download(
+              file.url,
+              tmpPath,
+              // Ohne das wäre der Fortschritt nach jedem Abbruch weg – und
+              // damit der ganze Sinn dieser Schleife.
+              deleteOnError: false,
+              fileAccessMode:
+                  schonDa > 0 ? FileAccessMode.append : FileAccessMode.write,
+              options: Options(
+                headers: schonDa > 0 ? {'range': 'bytes=$schonDa-'} : null,
+                // Beim Fortsetzen wird 206 VERLANGT. Ein Server, der Range
+                // nicht kann, antwortet mit 200 und dem ganzen Inhalt – der
+                // würde an die halbe Datei angehängt und ergäbe Unsinn.
+                // Lieber hier scheitern und unten von vorn anfangen.
+                validateStatus: (s) =>
+                    s != null && (schonDa > 0 ? s == 206 : s == 200),
+              ),
+              onReceiveProgress: (received, total) {
+                controller.add(ModelDownloadProgress(
+                  file.fileName,
+                  schonDa + received,
+                  total > 0 ? schonDa + total : total,
+                ));
+              },
+            );
 
-          await File(tmpPath).rename(targetPath);
-        } catch (e) {
-          final partial = File(tmpPath);
-          if (await partial.exists()) await partial.delete();
-          controller.addError(
-              ModellDownloadFehler.uebertragung(file.fileName, '$e'));
+            final tatsaechlich = await _sha256OfFile(File(tmpPath));
+            if (tatsaechlich == erwartet) {
+              await File(tmpPath).rename(targetPath);
+              letzterFehler = null;
+              letzteFalscheSumme = null;
+              break;
+            }
+
+            // Falsche Prüfsumme: Der Rumpf ist unbrauchbar, ein weiterer
+            // Anlauf darf nicht darauf aufsetzen.
+            letzteFalscheSumme = tatsaechlich;
+            letzterFehler = null;
+            if (await File(tmpPath).exists()) await File(tmpPath).delete();
+          } catch (e) {
+            letzterFehler = e;
+            letzteFalscheSumme = null;
+            // Wurde das Fortsetzen abgelehnt, ist die halbe Datei wertlos;
+            // bei einem gewöhnlichen Abbruch bleibt sie als Vorschuss für
+            // den nächsten Anlauf liegen.
+            final abgelehnt = e is DioException &&
+                e.response != null &&
+                e.response!.statusCode != 206 &&
+                schonDa > 0;
+            if (abgelehnt && await File(tmpPath).exists()) {
+              await File(tmpPath).delete();
+            }
+          }
+        }
+
+        if (letzteFalscheSumme != null) {
+          controller.addError(ModellDownloadFehler.pruefsumme(
+              file.fileName, letzteFalscheSumme, erwartet));
+          await controller.close();
+          return;
+        }
+        if (letzterFehler != null) {
+          final rest = File(tmpPath);
+          if (await rest.exists()) await rest.delete();
+          controller.addError(ModellDownloadFehler.uebertragung(
+              file.fileName, '$letzterFehler'));
           await controller.close();
           return;
         }

@@ -496,8 +496,12 @@ Download-Button:
 | OPUS-MT de→en | Deutsche Suchanfragen und Schlagwörter für die Bildsuche übersetzen | Apache-2.0 (Helsinki-NLP) | Xenova/HuggingFace |
 
 Ein Klick auf "Herunterladen" lädt die Dateien direkt von GitHub bzw.
-HuggingFace in `~/Library/Application Support/PhotoVault/models/` – kein
-manuelles Kopieren nötig. Danach werden neu importierte Fotos automatisch
+HuggingFace in den `models/`-Ordner der App (der Pfad je Plattform steht
+unter [Architektur](#architektur)) – kein manuelles Kopieren nötig.
+Bricht ein Download ab, wird er beim nächsten Versuch **fortgesetzt**
+statt neu begonnen, und jede Datei wird nach dem Laden gegen ihre
+Prüfsumme gehalten. Bei den grösseren Modellen macht das den Unterschied
+zwischen „nochmal 400 MB" und „die letzten zwei". Danach werden neu importierte Fotos automatisch
 analysiert; die jeweilige Funktion schaltet sich in der UI automatisch
 frei, sobald das Modell installiert ist. Ohne Download laufen alle anderen
 Funktionen normal weiter.
@@ -714,11 +718,21 @@ Bildformate und das Design-Theme ab. Es werden **keine Beispielfotos
 benötigt** – Testbilder entstehen zur Laufzeit, die Suite läuft direkt nach
 dem Klonen durch.
 
-HEIC/HEIF und RAW lassen sich damit allerdings nicht automatisiert prüfen:
-sie laufen über die native macOS-Schicht, die in `flutter test` nicht
+HEIC/HEIF und RAW lassen sich auf macOS nicht automatisiert prüfen: Sie
+laufen dort über die native Schicht, die in `flutter test` nicht
 existiert. Für eine echte Prüfung lädt `tool/fetch_format_samples.sh`
 Beispieldateien aus öffentlichen Quellen – Details und Lizenzhinweise in
-[test/fixtures/README.md](test/fixtures/README.md).
+[test/fixtures/README.md](test/fixtures/README.md). Unter Linux und
+Windows geht es direkt: `test/werkzeuge_echt_test.dart` ruft die echten
+Werkzeuge gegen echte Dateien auf – HEIC, AVIF, RAW, Video-Vorschaubild
+und Video-Zuschnitt.
+
+Tests, die Dateien aus dem Netz holen, tragen die Marke `netz` und laufen
+**nicht** mit; sie zögen 1,4 GB bei jedem Lauf:
+
+```bash
+flutter test --tags netz --run-skipped test/modell_download_probe_test.dart
+```
 
 ## Lizenz
 

@@ -66,6 +66,21 @@ Copy-Item "$Bundle\*" $Paket -Recurse -Force
 # Die Werkzeuge in einen Unterordner "tools". Genau dort sucht
 # DesktopImageTools zuerst, noch vor dem PATH - siehe suchpfade() dort.
 Copy-Item $Werkzeuge "$Paket\tools" -Recurse -Force
+
+# Beilagen: Der Ordner IST das Programm, und das steht nirgends sonst.
+# Ohne LIESMICH.txt bleibt offen, wo die eigenen Daten liegen und was beim
+# Loeschen des Ordners passiert; ohne die .cmd taucht die App nie unter
+# "Programme" auf, weil ein Ordner zum Auspacken sich nirgends eintraegt.
+$Beilagen = "$Wurzel\packaging\windows"
+foreach ($datei in 'LIESMICH.txt', 'Verknuepfung-anlegen.cmd') {
+  if (-not (Test-Path "$Beilagen\$datei")) {
+    Schlecht "$datei fehlt unter packaging\windows"
+    exit 1
+  }
+  Copy-Item "$Beilagen\$datei" "$Paket\$datei" -Force
+}
+Gut "LIESMICH.txt und Verknuepfung-anlegen.cmd beigelegt"
+
 $mb = ((Get-ChildItem $Paket -Recurse -File | Measure-Object Length -Sum).Sum / 1MB)
 Gut ("{0:N0} MB unter {1}" -f $mb, $Paket)
 
