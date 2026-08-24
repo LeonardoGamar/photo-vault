@@ -120,7 +120,7 @@ if [ "$pruefen" -eq 1 ]; then
       gut "$name läuft"
     fi
   }
-  laeuft heif-convert heif-convert --version
+  laeuft heif-dec heif-dec --version
   laeuft dcraw_emu dcraw_emu
   laeuft ffmpeg ffmpeg -hide_banner -version
   laeuft ffprobe ffprobe -hide_banner -version
@@ -129,12 +129,23 @@ if [ "$pruefen" -eq 1 ]; then
   # Das eigentliche Versprechen dieses Pakets: Vorhandensein genügt nicht,
   # libheif muss den Bildinhalt auch auspacken können. Genau daran ist der
   # erste Versuch auf echter Hardware gescheitert.
-  if im_sandkasten heif-convert --list-decoders 2>&1 |
+  if im_sandkasten heif-dec --list-decoders 2>&1 |
       awk '/HEIC decoders:/{gefunden=1; next} /decoders:/{gefunden=0} gefunden && NF' |
       grep -q .; then
     gut "libheif hat einen HEVC-Dekoder"
   else
     fehler "libheif ohne HEVC-Dekoder – HEIC-Fotos blieben unsichtbar"
+  fi
+
+  # Dasselbe für AVIF. Seit dem AVIF-Fix laufen .avif-Dateien über
+  # libheif statt über den RAW-Entwickler – ohne dav1d im Bündel wären sie
+  # danach genauso unsichtbar wie vorher, nur an anderer Stelle.
+  if im_sandkasten heif-dec --list-decoders 2>&1 |
+      awk '/AVIF decoders:/{gefunden=1; next} /decoders:|uncompressed/{gefunden=0} gefunden && NF' |
+      grep -q .; then
+    gut "libheif hat einen AVIF-Dekoder"
+  else
+    fehler "libheif ohne AVIF-Dekoder – AVIF-Fotos blieben unsichtbar"
   fi
 
   if im_sandkasten ffmpeg -hide_banner -decoders 2>/dev/null | grep -qE '^ V[.A-Z]* +hevc'; then

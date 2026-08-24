@@ -33,26 +33,26 @@ pruefe() { # name  befehl  paket  kategorie(build|laufzeit)  zweck
   fi
 }
 
-# Vorhandenes heif-convert heisst NICHT, dass HEIC gelesen werden kann.
+# Vorhandenes heif-dec heisst NICHT, dass HEIC gelesen werden kann.
 #
 # Beim ersten Lauf auf Ubuntu 26.04 war libheif-examples installiert, und
 # trotzdem scheiterte jede Umwandlung mit „Decoder plugin generated an
 # error: Unspecified". Der Grund: libheif liefert die Codecs seit 1.20 als
 # eigene Plugin-Pakete, und Ubuntu installiert von Haus aus nur die
 # AV1-Plugins – für HEVC, also genau das, was in jeder iPhone-Datei steckt,
-# ist keines dabei. „heif-convert ist da" hätte hier grün gemeldet und jedes
+# ist keines dabei. „heif-dec ist da" hätte hier grün gemeldet und jedes
 # iPhone-Foto wäre unsichtbar geblieben.
 #
 # Deshalb wird nicht das Programm geprüft, sondern seine Fähigkeit.
 pruefe_heic_dekoder() {
-  if heif-convert --list-decoders 2>/dev/null |
+  if heif-dec --list-decoders 2>/dev/null |
        awk '/^HEIC decoders:/{gefunden=1; next} /decoders:|uncompressed/{gefunden=0} gefunden && NF' |
        grep -q .; then
     printf '  %s✓%s %-16s %s\n' "$GRUEN" "$AUS" 'HEVC-Dekoder' 'entschlüsselt den Inhalt von HEIC'
   else
     printf '  %s!%s %-16s %s\n' "$GELB" "$AUS" 'HEVC-Dekoder' 'entschlüsselt den Inhalt von HEIC'
     printf '      → sudo apt install libheif-plugin-libde265\n'
-    printf '        (ohne ihn scheitert JEDE HEIC-Datei, obwohl heif-convert da ist)\n'
+    printf '        (ohne ihn scheitert JEDE HEIC-Datei, obwohl heif-dec da ist)\n'
     fehlt_laufzeit=$((fehlt_laufzeit+1))
   fi
 }
@@ -90,17 +90,24 @@ titel 'Zur Laufzeit – ohne diese fehlen einzelne Funktionen'
 pruefe 'mpv-Bibliothek' mpv       'sudo apt install libmpv-dev mpv'                laufzeit 'Videowiedergabe (media_kit)'
 pruefe 'ffmpeg'       ffmpeg      'sudo apt install ffmpeg'                        laufzeit 'Video-Vorschaubild und -Zuschnitt'
 pruefe 'ffprobe'      ffprobe     'sudo apt install ffmpeg'                        laufzeit 'Videolänge ermitteln'
-pruefe 'heif-convert' heif-convert 'sudo apt install libheif-examples'             laufzeit 'HEIC/HEIF-Fotos (iPhone)'
+pruefe 'heif-dec'     heif-dec    'sudo apt install libheif-examples'              laufzeit 'HEIC/HEIF-Fotos (iPhone)'
 pruefe_heic_dekoder
 pruefe 'dcraw_emu'    dcraw_emu   'sudo apt install libraw-bin'                    laufzeit 'RAW-Fotos'
 
 titel 'Nur für die Fernprüfung (optional)'
 pruefe 'xvfb-run'     xvfb-run    'sudo apt install xvfb'                          laufzeit 'App ohne Bildschirm starten (SSH)'
 
-titel 'Noch nicht umgesetzt'
-printf '  Entwickeln (Regler wirken noch nicht auf das gespeicherte Bild)\n'
-printf '  Texterkennung (OCR)\n'
-printf '  Siehe docs/plan_linux.md, Phasen 2, 3 und 5.\n'
+# Hier stand bis zuletzt „Noch nicht umgesetzt: Entwickeln, Texterkennung",
+# mit Verweis auf die Phasen 2, 3 und 5 des Linux-Plans. Alle drei sind
+# seit Langem fertig – der Hinweis war das Erste, was ein Linux-Nutzer beim
+# Aufsetzen zu lesen bekam, und er war schlicht falsch.
+titel 'Was ohne diese Werkzeuge fehlt'
+printf '  Ohne heif-dec:   iPhone-Fotos (HEIC) bleiben ohne Vorschau\n'
+printf '  Ohne dcraw_emu:  dasselbe für RAW-Dateien aller Hersteller\n'
+printf '  Ohne ffmpeg:     keine Videovorschau, kein Videoschnitt\n'
+printf '  Ohne ffprobe:    keine Videolänge in den Angaben\n'
+printf '  Alles andere – Entwickeln, Texterkennung, Gesichter – arbeitet\n'
+printf '  auch ohne sie.\n'
 
 titel 'Ergebnis'
 if [ "$fehlt_build" -gt 0 ]; then

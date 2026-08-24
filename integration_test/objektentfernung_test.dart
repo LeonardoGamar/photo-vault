@@ -23,8 +23,9 @@ void main() {
     final support = await getApplicationSupportDirectory();
     final modelle = p.join(support.path, 'PhotoVault', 'models');
     if (!InpaintingService.isAvailable(modelle)) {
-      // ignore: avoid_print
-      print('ÜBERSPRUNGEN: lama_fp32.onnx nicht in $modelle');
+      // markTestSkipped statt eines blossen return - sonst meldet sich
+      // ein Lauf ohne Modell als bestanden.
+      markTestSkipped('lama_fp32.onnx nicht installiert in $modelle');
       return;
     }
 
@@ -105,7 +106,10 @@ void main() {
   testWidgets('eine leere Maske ändert nichts', (tester) async {
     final support = await getApplicationSupportDirectory();
     final modelle = p.join(support.path, 'PhotoVault', 'models');
-    if (!InpaintingService.isAvailable(modelle)) return;
+    if (!InpaintingService.isAvailable(modelle)) {
+      markTestSkipped('lama_fp32.onnx nicht installiert in $modelle');
+      return;
+    }
 
     final bild = img.Image(width: 200, height: 200);
     img.fill(bild, color: img.ColorRgb8(100, 110, 120));

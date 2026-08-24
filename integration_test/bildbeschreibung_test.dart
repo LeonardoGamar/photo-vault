@@ -26,8 +26,12 @@ void main() {
     final support = await getApplicationSupportDirectory();
     final modelle = p.join(support.path, 'PhotoVault', 'models');
     if (!FlorenceCaptioningService.isAvailable(modelle)) {
-      // ignore: avoid_print
-      print('ÜBERSPRUNGEN: Florence-2 nicht in $modelle');
+      // markTestSkipped statt eines blossen return: Ein Test, der ohne
+      // Modell einfach zurückkehrt, meldet sich als bestanden. Beim
+      // Durchsehen einer Suite ist das von einem echten Lauf nicht zu
+      // unterscheiden – und genau dieser Test ist der einzige, der die
+      // Bildbeschreibung überhaupt prüft.
+      markTestSkipped('Florence-2 nicht installiert in $modelle');
       return;
     }
 

@@ -82,7 +82,13 @@ class VideoPlaybackController {
     if (_disposed) return false;
     try {
       await setLooping(loop);
-      await _player.open(Media(file.path), play: false);
+      // Absolut, nicht wie übergeben. libmpv ist eine native Bibliothek
+      // mit eigenem Arbeitsverzeichnis; ein relativer Pfad, den Dart
+      // klaglos auflöst, kommt dort als nicht vorhanden an – unter Windows
+      // gemessen: keine Dauer, keine Wiedergabe, keine Fehlermeldung.
+      // Die App reicht heute immer absolute Pfade herein, aber darauf
+      // sollte sich diese Stelle nicht verlassen müssen.
+      await _player.open(Media(file.absolute.path), play: false);
       await _awaitReady();
       _ready = true;
       return true;

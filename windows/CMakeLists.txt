@@ -43,6 +43,24 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
+
+  # Haertung, das Gegenstueck zu -z relro -z now unter Linux.
+  #
+  # ASLR, DEP und High-Entropy-Adressen bringt MSVC von sich aus mit --
+  # nachgemessen mit `dumpbin /headers`. Control Flow Guard aber nicht: In
+  # der Kopfzeile stand zwar "CF instrumented" (Flag 0x100), es fehlte
+  # jedoch die Funktionstabelle (0x400). Ohne die ist CFG zur Laufzeit
+  # wirkungslos -- der Code traegt die Pruefungen, aber niemand wertet sie
+  # aus. Genau die Sorte halbe Absicherung, die im Bericht wie eine ganze
+  # aussieht.
+  #
+  # /guard:cf braucht beide Seiten, Uebersetzer und Binder.
+  target_compile_options(${TARGET} PRIVATE /guard:cf)
+  target_link_options(${TARGET} PRIVATE /guard:cf)
+
+  # Schattenstapel (Intel CET). Wirkt nur auf Prozessoren, die es koennen;
+  # aeltere ignorieren die Markierung, das Programm laeuft dort unveraendert.
+  target_link_options(${TARGET} PRIVATE /CETCOMPAT)
 endfunction()
 
 # Flutter library and tool build rules.

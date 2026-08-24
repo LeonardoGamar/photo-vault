@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:integration_test/integration_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:photo_vault/services/ocr_service.dart';
 
 /// Texterkennung gegen die ECHTEN Modelle, nicht gegen Attrappen.
@@ -14,11 +15,23 @@ import 'package:photo_vault/services/ocr_service.dart';
 ///
 /// Aufruf auf der Linux-Maschine:
 ///   flutter test integration_test/ocr_test.dart -d linux
+
+/// Der Heimatordner des angemeldeten Benutzers.
+///
+/// `HOME` setzt Windows nicht; dort heisst die Variable `USERPROFILE`.
+/// Ohne diesen Zweig hiesse der gesuchte Ordner buchstäblich
+/// `null/ocr_modelle`, und der Test meldete „Modelle fehlen" – was wie ein
+/// fehlendes Modell aussieht und keins ist.
+String heimat() =>
+    Platform.environment['HOME'] ??
+    Platform.environment['USERPROFILE'] ??
+    Directory.current.path;
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  final ordner = '${Platform.environment['HOME']}/ocr_modelle';
-  final bildDatei = File('$ordner/probe_de.png');
+  final ordner = p.join(heimat(), 'ocr_modelle');
+  final bildDatei = File(p.join(ordner, 'probe_de.png'));
 
   testWidgets('liest deutschen Text samt Umlauten und ß', (tester) async {
     // Kein stilles Überspringen: Ein Test, der ohne Modelle grün meldet,

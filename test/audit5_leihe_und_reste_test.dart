@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/services/model_download_service.dart';
 import 'package:photo_vault/services/modell_halter.dart';
@@ -86,7 +87,9 @@ void main() {
       final entfernt = await dienst.raeumeAbgebrocheneDownloads();
 
       expect(entfernt, 2);
-      final uebrig = dir.listSync().map((e) => e.path.split('/').last).toSet();
+      // p.basename statt split('/'): Windows trennt mit Backslash, und
+      // der Vergleich lief dort gegen ganze Pfade statt gegen Dateinamen.
+      final uebrig = dir.listSync().map((e) => p.basename(e.path)).toSet();
       expect(uebrig, {'clip_text_encoder.onnx', 'vocab.json'},
           reason: 'nur die .part-Reste dürfen verschwinden');
     });

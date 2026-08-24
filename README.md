@@ -1,9 +1,9 @@
 # Photo Vault
 
 **Deine Fotobibliothek bleibt auf deinem Rechner.** Eine eigenständige
-Foto- und Videoverwaltung für **macOS und Linux** – mit Gesichtserkennung,
-Bildsuche in natürlicher Sprache und RAW-Entwicklung, aber **ohne Server,
-ohne Konto und ohne Cloud-Dienst**.
+Foto- und Videoverwaltung für **macOS, Linux und Windows** – mit
+Gesichtserkennung, Bildsuche in natürlicher Sprache und RAW-Entwicklung,
+aber **ohne Server, ohne Konto und ohne Cloud-Dienst**.
 
 Inspiriert von Immich, digiKam und Lightroom. Der Unterschied: Es gibt
 nichts, wo deine Fotos hochgeladen werden könnten. Die Datenbank ist eine
@@ -58,13 +58,18 @@ beides sichergestellt wird, steht in
 
 ## Herunterladen
 
-Fertige Fassungen liegen unter [Releases](../../releases): für macOS als
-Universal Binary, also nativ auf Apple Silicon **und** Intel, **ab macOS
-14.0** – und für Linux als Flatpak-Bündel.
+Fertige Fassungen liegen unter [Releases](../../releases) – für alle drei
+Plattformen:
 
-Die Mindestversion gibt nicht die App vor, sondern das Paket, über das die
-KI-Modelle laufen (`flutter_onnxruntime` verlangt macOS 14.0). Der eigene
-native Code kommt mit älteren Fassungen zurecht und schaltet
+| | Paket | Voraussetzung |
+|---|---|---|
+| **macOS** | Universal Binary, nativ auf Apple Silicon **und** Intel | ab macOS 14.0 |
+| **Linux** | Flatpak-Bündel | flatpak |
+| **Windows** | Verzeichnis zum Auspacken | Windows 10/11, x64 |
+
+Die macOS-Mindestversion gibt nicht die App vor, sondern das Paket, über
+das die KI-Modelle laufen (`flutter_onnxruntime` verlangt macOS 14.0). Der
+eigene native Code kommt mit älteren Fassungen zurecht und schaltet
 Einzelfunktionen ab, wo eine Schnittstelle fehlt.
 
 ### Linux
@@ -99,7 +104,26 @@ xattr -dr com.apple.quarantine "/Applications/Photo Vault.app"
 Wer das nicht möchte, baut die App selbst – siehe
 [Aus dem Quellcode bauen](#aus-dem-quellcode-bauen).
 
-### Für beide
+### Windows
+
+Archiv auspacken, `photo_vault.exe` starten. Es gibt bewusst kein
+Installationspaket – nichts wird in die Registrierung geschrieben, nichts
+verteilt sich über das System.
+
+Beim ersten Start meldet sich SmartScreen, weil die Anwendung nicht
+signiert ist (auch das erfordert ein kostenpflichtiges Zertifikat). Über
+**Weitere Informationen → Trotzdem ausführen** startet sie.
+
+Damit sie im Startmenü auftaucht, liegt `Verknuepfung-anlegen.cmd` bei –
+ein Doppelklick genügt. Wird der Ordner später verschoben, muss die
+Verknüpfung neu angelegt werden.
+
+Alles, was die App für iPhone-Fotos, RAW und Video braucht, liegt im
+Archiv. Windows böte für HEIC zwar eine eigene Schnittstelle an, öffnet
+damit aber nur, wer die HEVC-Erweiterung im Store kauft – eine
+Fotoverwaltung, die iPhone-Fotos erst nach einem Kauf anzeigt, ist keine.
+
+### Für alle
 
 Zu jedem Release gehört eine `SHA256SUMS.txt`. Prüfsumme des Downloads
 vergleichen:
@@ -107,6 +131,7 @@ vergleichen:
 ```bash
 shasum -a 256 PhotoVault-*-macos-universal.zip   # macOS
 sha256sum  PhotoVault-*-x86_64.flatpak           # Linux
+certutil -hashfile PhotoVault-*-windows-x64.zip SHA256   :: Windows
 ```
 
 Die App enthält **keine** KI-Modelle – die lädst du bei Bedarf in den
@@ -119,12 +144,18 @@ welche Modelle aus welcher Quelle stammen.
 |---|---|
 | macOS | vollständig unterstützt |
 | Linux | unterstützt, als Flatpak – vier Entwickeln-Regler fehlen, siehe unten |
-| Windows | geplant, nach Linux |
+| Windows | unterstützt, als Archiv – dieselben vier Regler fehlen |
 | iOS / Android | Code läuft grundsätzlich, aber nicht angepasst oder getestet |
 
-Was unter Linux anders gelöst ist, steht Phase für Phase in
-[docs/plan_linux.md](docs/plan_linux.md) – samt der Messwerte auf echter
-Hardware.
+**Es gibt keine Neben-Plattform.** Bibliothek, Entwickeln, Gesichter,
+Texterkennung, Bildbeschreibung, Objektentfernung, Videoschnitt und
+-wiedergabe laufen überall. Wo etwas anders ist, steht es unter
+[Bekannte Grenzen](#plattformen) – vollständig, nicht ausgewählt.
+
+Was ausserhalb von macOS anders gelöst ist, steht Phase für Phase in
+[docs/plan_linux.md](docs/plan_linux.md) und
+[docs/plan_windows.md](docs/plan_windows.md) – samt der Messwerte auf
+echter Hardware.
 
 ## Funktionen
 
@@ -330,8 +361,9 @@ Hardware.
 ## Aus dem Quellcode bauen
 
 **Für die reine Nutzung nicht nötig** – dafür genügt der Download oben.
-Weder das Flutter SDK noch Xcode müssen installiert sein, die
-`Photo Vault.app` und das Flatpak laufen eigenständig.
+Weder das Flutter SDK noch Xcode müssen installiert sein; die
+`Photo Vault.app`, das Flatpak und das Windows-Archiv laufen
+eigenständig.
 
 Dieser Abschnitt richtet sich an alle, die die App selbst bauen oder
 weiterentwickeln möchten. Voraussetzung dafür:
@@ -342,7 +374,7 @@ weiterentwickeln möchten. Voraussetzung dafür:
 cd photo_vault
 
 # Plattformordner generieren (überschreibt NICHT den vorhandenen lib/-Ordner)
-flutter create --platforms=macos,linux,ios,android .
+flutter create --platforms=macos,linux,windows,ios,android .
 
 # Abhängigkeiten installieren
 flutter pub get
@@ -367,8 +399,9 @@ flutter run -d linux
 Gebraucht werden neben dem Flutter SDK die Kommandozeilenwerkzeuge, über
 die HEIC, RAW und Video laufen: `heif-convert` (Paket `libheif-examples`,
 **samt HEVC-Dekoder**), `dcraw_emu` (`libraw-bin`) sowie
-`ffmpeg`/`ffprobe`. Fehlt eines davon, bleibt die App benutzbar, nur
-diese eine Fähigkeit fehlt.
+`ffmpeg`/`ffprobe`; zum Bauen ausserdem `libmpv-dev` für die
+Videowiedergabe. Fehlt ein Laufzeit-Werkzeug, bleibt die App benutzbar,
+nur diese eine Fähigkeit fehlt.
 
 Das Flatpak-Bündel, das die Werkzeuge in bekannten Fassungen mitbringt,
 entsteht mit:
@@ -379,6 +412,23 @@ tool/flatpak_bauen.sh --installieren --pruefen
 
 Bauplan und Metadaten liegen unter
 [packaging/flatpak/](packaging/flatpak/).
+
+### Windows
+
+Gebraucht werden Visual Studio Build Tools mit der Arbeitslast
+„Desktopentwicklung mit C++". Ob die Installation vollständig ist, sagt
+`vswhere -all` – ohne `-all` verschweigt es unvollständige Installationen.
+
+```powershell
+tool\windows_werkzeuge.ps1     # holt heif-dec, dcraw_emu, ffmpeg ins Paket
+tool\windows_bauen.ps1         # baut und schnuert das Archiv
+```
+
+`windows_werkzeuge.ps1` baut libheif selbst, statt ein Fertigpaket zu
+nehmen: Die üblichen Fertigpakete bringen 63 MB Abhängigkeiten mit, von
+denen die App vier braucht – der eigene Bau kommt auf 16 MB. Das Werkzeug
+heisst dort `heif-dec`; unter diesem Namen hat libheif `heif-convert` mit
+Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert

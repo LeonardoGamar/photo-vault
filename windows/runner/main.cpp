@@ -27,7 +27,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);
-  if (!window.Create(L"photo_vault", origin, size)) {
+  // Der Fenstertitel, wie ihn der Nutzer in der Taskleiste sieht. Er hiess
+  // bis hierher "photo_vault" – dasselbe Versaeumnis wie unter Linux, wo
+  // es bis 1.8.3 so stand. Er hat NICHTS mit dem Ablageort zu tun; der
+  // haengt an CompanyName und ProductName in Runner.rc.
+  if (!window.Create(L"Photo Vault", origin, size)) {
     return EXIT_FAILURE;
   }
   window.SetQuitOnClose(true);

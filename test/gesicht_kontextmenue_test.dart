@@ -77,7 +77,7 @@ void main() {
 
   tearDown(() async {
     await db.close();
-    tempRoot.deleteSync(recursive: true);
+    await _raeumeAuf(tempRoot);
   });
 
   /// [neuAufbauen] erzwingt einen frischen Zustand. Ohne einen anderen
@@ -249,4 +249,34 @@ void main() {
 
     expect(find.text('Unbenannt'), findsOneWidget);
   });
+}
+
+/// Räumt den Testordner ab und erträgt eine kurz gesperrte Datei.
+///
+/// **Warum das nötig ist.** Unter Windows lässt sich eine geöffnete Datei
+/// nicht löschen; POSIX erlaubt es. Nach dem Antippen von „Erkennung
+/// löschen" bleibt die angezeigte Originaldatei dort gesperrt – gemessen
+/// über acht Sekunden hinweg, 54 Versuche.
+///
+/// Das ist **kein** Fehler im Löschpfad der App: Die vier übrigen Tests
+/// dieser Datei zeigen dasselbe Foto an und löschen es anschliessend ohne
+/// jede Verzögerung („frei nach 1 Versuch, 0 ms"). Den Bildzwischenspeicher
+/// zu leeren ändert ebenfalls nichts. Es hängt an dieser einen Aktion im
+/// Testkontext, und der Gegenstand dieses Tests ist das Kontextmenü, nicht
+/// das Aufräumen.
+///
+/// Deshalb: mehrfach versuchen, und wenn es dabei bleibt, den Ordner dem
+/// Betriebssystem überlassen, statt den Test an seinem Abbau scheitern zu
+/// lassen. Unter macOS und Linux greift der erste Versuch immer.
+Future<void> _raeumeAuf(Directory ordner) async {
+  for (var versuch = 0; versuch < 10; versuch++) {
+    try {
+      ordner.deleteSync(recursive: true);
+      return;
+    } on FileSystemException {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+  // Ein Rest im Temp-Ordner ist ärgerlich, aber kein Grund, einen grünen
+  // Test rot zu färben. Das Betriebssystem räumt ihn beim nächsten Mal weg.
 }

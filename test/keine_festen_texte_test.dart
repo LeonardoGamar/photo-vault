@@ -36,17 +36,22 @@ void main() {
     'lib/services/import_service.dart',
     // Eine Aufstellung der gebrauchten Kommandozeilenwerkzeuge für
     // Entwickler; nirgends in der Oberfläche.
-    'lib/services/platform/linux_image_tools.dart',
+    'lib/services/platform/desktop_image_tools.dart',
   };
 
   List<String> zuPruefen() {
     final aus = <String>[];
     for (final e in Directory('lib').listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
-      if (e.path.endsWith('.g.dart')) continue;
-      if (e.path.contains('/l10n/')) continue; // Erzeugnisse und Sprachdateien
-      if (ausgenommen.contains(e.path)) continue;
-      aus.add(e.path);
+      // Einmal auf Schrägstriche bringen: Windows liefert Backslashes, und
+      // damit ging weder der l10n-Ausschluss noch die Ausnahmeliste auf –
+      // der Wächter meldete dort erzeugte Sprachdateien und das
+      // Schlagwort-Vokabular als Fund.
+      final pfad = e.path.replaceAll(r'\', '/');
+      if (pfad.endsWith('.g.dart')) continue;
+      if (pfad.contains('/l10n/')) continue; // Erzeugnisse und Sprachdateien
+      if (ausgenommen.any(pfad.endsWith)) continue;
+      aus.add(pfad);
     }
     aus.sort();
     return aus;
@@ -331,7 +336,7 @@ void main() {
     final quelltext = StringBuffer();
     for (final e in Directory('lib').listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
-      if (e.path.contains('/l10n/')) continue; // die Erzeugnisse selbst
+      if (e.path.replaceAll(r'\', '/').contains('/l10n/')) continue; // die Erzeugnisse selbst
       quelltext.write(e.readAsStringSync());
     }
     final text = quelltext.toString();

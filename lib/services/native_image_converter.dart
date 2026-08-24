@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'cube_lut.dart';
 import 'develop_color.dart';
 import 'develop_render.dart';
-import 'platform/linux_image_tools.dart';
+import 'platform/desktop_image_tools.dart';
 import 'raw_formats.dart';
 
 /// Formate, die Flutter (Skia) selbst nicht rendern kann und die das
@@ -53,8 +53,9 @@ class NativeImageConverter {
   /// Prüft (und cached), ob der native macOS-Kanal verfügbar ist (Swift-Datei
   /// muss dafür manuell ins Xcode-Projekt eingebunden sein, siehe README).
   ///
-  /// Unter Linux gibt es diesen Kanal nicht – dort übernimmt
-  /// [LinuxImageTools] über Kommandozeilenwerkzeuge, siehe [_linux].
+  /// Unter Linux und Windows gibt es diesen Kanal nicht – dort übernimmt
+  /// [DesktopImageTools] über Kommandozeilenwerkzeuge, siehe
+  /// [_ueberWerkzeuge].
   static Future<bool> isSupported() async {
     if (_supported != null) return _supported!;
     if (!Platform.isMacOS) {
@@ -70,14 +71,21 @@ class NativeImageConverter {
     return _supported!;
   }
 
-  /// Ob auf dieser Plattform der Linux-Weg (externe Werkzeuge) gilt.
-  static bool get _linux => Platform.isLinux;
+  /// Ob auf dieser Plattform der Werkzeug-Weg gilt statt des nativen
+  /// Kanals.
+  ///
+  /// Bewusst als Verneinung von macOS geschrieben und nicht als Aufzählung
+  /// von Linux und Windows: Der native Kanal ist die Ausnahme, nicht die
+  /// Regel. Stünde hier eine Aufzählung, hätte jede weitere Plattform
+  /// stillschweigend gar keine Bildumwandlung – so wie Windows es bis
+  /// hierher hatte.
+  static bool get _ueberWerkzeuge => !Platform.isMacOS;
 
   /// Welche Fähigkeiten hier verfügbar sind – für Diagnose und um in der
   /// UI ehrlich anzuzeigen, was fehlt. Leere Map = alles über den nativen
-  /// Kanal (macOS) bzw. gar nichts (Windows, noch nicht umgesetzt).
+  /// Kanal (macOS).
   static Future<Map<String, bool>> verfuegbareWerkzeuge() async =>
-      _linux ? await LinuxImageTools.pruefeWerkzeuge() : const <String, bool>{};
+      _ueberWerkzeuge ? await DesktopImageTools.pruefeWerkzeuge() : const <String, bool>{};
 
   /// Ob die Bildumwandlung hier arbeiten kann – und was ihr gegebenenfalls
   /// fehlt.
@@ -86,11 +94,12 @@ class NativeImageConverter {
   /// liefert ausserhalb von macOS grundsätzlich `false`. Unter Linux stand
   /// dort deshalb „inaktiv", während HEIC, RAW und Video nachweislich
   /// funktionierten – eine falsche Auskunft, und noch dazu mit dem Rat,
-  /// eine Swift-Datei ins Xcode-Projekt einzubinden.
+  /// eine Swift-Datei ins Xcode-Projekt einzubinden. Unter Windows gilt
+  /// seit der Werkzeugschicht dasselbe.
   static Future<({bool bereit, List<String> fehlende})>
       bildwerkzeugstand() async {
-    if (_linux) {
-      final vorhanden = await LinuxImageTools.pruefeWerkzeuge();
+    if (_ueberWerkzeuge) {
+      final vorhanden = await DesktopImageTools.pruefeWerkzeuge();
       final fehlende = [
         for (final e in vorhanden.entries)
           if (!e.value) e.key,
@@ -109,7 +118,7 @@ class NativeImageConverter {
   /// Korrektur steckt bereits in der Datei –, bei einer nicht lesbaren
   /// RAW-Datei dagegen schon.
   static Future<Objektivkorrekturstand> lensCorrectionStatus(File file) async {
-    if (_linux || !await isSupported()) return Objektivkorrekturstand.unbekannt;
+    if (_ueberWerkzeuge || !await isSupported()) return Objektivkorrekturstand.unbekannt;
     try {
       final antwort = await _channel.invokeMethod<String>(
           'lensCorrectionStatus', {'path': file.path});
@@ -146,8 +155,8 @@ class NativeImageConverter {
     double quality = 0.9,
   }) async {
     final grenze = maxDimension ?? _ohneBegrenzung;
-    if (_linux) {
-      return LinuxImageTools.convertToJpeg(file,
+    if (_ueberWerkzeuge) {
+      return DesktopImageTools.convertToJpeg(file,
           maxDimension: grenze, quality: (quality * 100).round());
     }
     if (!await isSupported()) return null;
@@ -216,8 +225,8 @@ class NativeImageConverter {
     File file, {
     int maxDimension = 800,
   }) async {
-    if (_linux) {
-      final r = await LinuxImageTools.videoThumbnail(file, maxDimension: maxDimension);
+    if (_ueberWerkzeuge) {
+      final r = await DesktopImageTools.videoThumbnail(file, maxDimension: maxDimension);
       return r == null ? null : VideoThumbnailResult(r.jpeg, r.dauerSekunden);
     }
     if (!await isSupported()) return null;
@@ -265,8 +274,8 @@ class NativeImageConverter {
     required double endSeconds,
     required String outputPath,
   }) async {
-    if (_linux) {
-      return LinuxImageTools.trimVideo(file,
+    if (_ueberWerkzeuge) {
+      return DesktopImageTools.trimVideo(file,
           startSekunden: startSeconds, endSekunden: endSeconds, zielPfad: outputPath);
     }
     if (!await isSupported()) return false;

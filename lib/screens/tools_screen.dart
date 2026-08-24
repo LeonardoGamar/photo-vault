@@ -444,10 +444,12 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   builder: (context, snapshot) {
                     final stand = snapshot.data;
                     final bereit = stand?.bereit ?? false;
-                    // Unter Linux hängt die Umwandlung an externen
-                    // Werkzeugen, nicht an einer nativen Anbindung – dann
-                    // muss die Auskunft auch die Werkzeuge nennen.
-                    final ueberWerkzeuge = Platform.isLinux;
+                    // Ausserhalb von macOS hängt die Umwandlung an
+                    // externen Werkzeugen, nicht an einer nativen
+                    // Anbindung – dann muss die Auskunft auch die
+                    // Werkzeuge nennen statt auf eine Swift-Datei zu
+                    // verweisen, die es hier gar nicht gibt.
+                    final ueberWerkzeuge = !Platform.isMacOS;
                     final text = bereit
                         ? (ueberWerkzeuge
                             ? t.werkzHeicWerkzeugeAktiv

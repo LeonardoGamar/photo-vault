@@ -68,6 +68,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.0" date="2026-08-23">
+      <description>
+        <p>Windows is now a supported platform, alongside macOS and Linux.</p>
+        <p>AVIF photos were handed to the RAW developer instead of libheif and stayed without a preview — on Linux as well. They now go through libheif, which has had an AVIF decoder all along.</p>
+      </description>
+    </release>
     <release version="1.8.3" date="2026-08-21">
       <description>
         <p>The Linux window is now titled “Photo Vault” and uses the desktop's own interface font.</p>

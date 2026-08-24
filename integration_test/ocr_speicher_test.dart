@@ -34,6 +34,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   test('wiederholte Modellläufe wachsen nicht weiter', () async {
+    // /proc gibt es nur unter Linux, deshalb genügt hier HOME.
     final ordner = '${Platform.environment['HOME']}/ocr_modelle';
     expect(OcrService.isAvailable(ordner), isTrue,
         reason: 'Modelle fehlen unter $ordner');
