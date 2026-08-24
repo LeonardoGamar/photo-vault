@@ -9,6 +9,10 @@ PRODUCT_NAME = Photo Vault
 // Der Testbau heißt anders, damit im Dock und im Programme-Ordner auf den
 // ersten Blick erkennbar ist, welche der beiden Fassungen offen ist.
 PRODUCT_NAME[config=Debug] = Photo Vault (Test)
+// Profile teilt sich die Kennung mit Debug (siehe unten) und braucht
+// deshalb denselben eigenen Namen: Zwei Bundles namens "Photo Vault"
+// im Programme-Ordner waeren nicht auseinanderzuhalten.
+PRODUCT_NAME[config=Profile] = Photo Vault (Test)
 
 // The application's bundle identifier
 //

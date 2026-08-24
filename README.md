@@ -599,18 +599,25 @@ und Gesichtserkennung verwendet; das Originalformat bleibt unverändert in
 Komponente übernimmt außerdem den nicht-destruktiven Video-Zuschnitt
 (AVFoundation) und die Objektivkorrektur für RAW-Import (CIRAWFilter).
 
-**Lösung auf Linux:** Dieselben Aufgaben übernimmt
-`lib/services/platform/linux_image_tools.dart` über etablierte
-Kommandozeilenwerkzeuge – `heif-convert` für HEIC/HEIF, `dcraw_emu` für
-RAW, `ffmpeg`/`ffprobe` für Video. Eigene FFI-Anbindungen an libheif,
-LibRaw und libavcodec zu bauen wäre der aufwendigere Weg zum selben
-Ergebnis gewesen; für keine dieser Bibliotheken gibt es ein brauchbares
-Dart-Paket. Im Flatpak sind die Werkzeuge mit im Bündel.
+**Lösung auf Linux und Windows:** Dieselben Aufgaben übernimmt
+`lib/services/platform/desktop_image_tools.dart` über etablierte
+Kommandozeilenwerkzeuge – `heif-convert` bzw. unter Windows `heif-dec`
+für HEIC/HEIF, `dcraw_emu` für RAW, `ffmpeg`/`ffprobe` für Video. Eigene
+FFI-Anbindungen an libheif, LibRaw und libavcodec zu bauen wäre der
+aufwendigere Weg zum selben Ergebnis gewesen; für keine dieser
+Bibliotheken gibt es ein brauchbares Dart-Paket. Im Flatpak wie im
+Windows-Archiv sind die Werkzeuge mit im Paket.
 
 **Der HEVC-Dekoder ist die Stolperstelle.** Manche Distribution liefert
 libheif ohne aus: `heif-convert` öffnet die Datei dann zwar, kann den
 Bildinhalt aber nicht auspacken. Das Flatpak kompiliert ihn deshalb fest
-ein, statt ihn zur Laufzeit zu suchen.
+ein, statt ihn zur Laufzeit zu suchen; unter Windows wird libheif aus
+demselben Grund selbst gebaut.
+
+**AVIF** liest dieselbe Bibliothek wie HEIC. Bis 1.9.0 wurden
+AVIF-Dateien allerdings an den RAW-Entwickler weitergereicht, der sie
+nicht öffnen kann – die Fotos blieben ohne Vorschau, obwohl der passende
+Dekoder die ganze Zeit vorhanden war.
 
 Status prüfbar unter **Werkzeuge → Vorschaubilder → HEIC/HEIF & RAW-
 Unterstützung**. JPG/PNG/WebP/GIF/BMP/TIFF funktionieren immer, unabhängig
@@ -687,7 +694,20 @@ lib/
   widgets/                       Wiederverwendbare UI-Bausteine
 ```
 
-Alle Daten liegen unter `~/Library/Application Support/PhotoVault/`:
+Alle Daten liegen im App-Support-Ordner der jeweiligen Plattform – in den
+Einstellungen auf einen beliebigen anderen Ordner verlegbar:
+
+| Plattform | Ort |
+|---|---|
+| macOS | `~/Library/Containers/com.example.photoVault/Data/Library/Application Support/com.example.photoVault/PhotoVault/` |
+| Linux (Flatpak) | `~/.var/app/com.example.PhotoVault/data/com.example.photo_vault/PhotoVault/` |
+| Windows | `%APPDATA%\com.example\photo_vault\PhotoVault\` |
+
+Der Sandbox-Container unter macOS und der Flatpak-Datenordner unter Linux
+sind keine Willkür: Beide entstehen aus der Bundle-Kennung, und beide
+sorgen dafür, dass ein Testbau die echte Bibliothek nicht anfassen kann.
+
+Darunter jeweils:
 
 ```
 library/
@@ -745,12 +765,12 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 
 ### Plattformen
 
-- **macOS und Linux sind beide nutzbar.** Auf macOS laufen HEIC-/RAW-
+- **Alle drei Plattformen sind nutzbar.** Auf macOS laufen HEIC-/RAW-
   Umwandlung, Entwickeln, Video-Vorschaubild, Video-Zuschnitt und
   Texterkennung über eine native Schicht
-  (`macos/Runner/ImageConverter.swift`); unter Linux übernehmen das
-  Kommandozeilenwerkzeuge, ein Fragment-Shader und ein nachladbares
-  ONNX-Modell.
+  (`macos/Runner/ImageConverter.swift`); unter Linux und Windows
+  übernehmen das Kommandozeilenwerkzeuge, ein Fragment-Shader und ein
+  nachladbares ONNX-Modell.
 - **Vier Entwickeln-Regler sind ausserhalb von macOS abgeschaltet** –
   Schärfe, Rauschunterdrückung, Klarheit, Vignettierung. Die ersten beiden
   brauchen Nachbarpixel, die ein Fragment-Shader so nicht sieht, die
@@ -761,7 +781,16 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   nachladbare Modelle aus der PaddleOCR-Familie (erst finden, dann lesen).
   An einer deutschen Testtafel gemessen: 95,5 % der Zeichen richtig,
   Umlaute und `ß` kommen durch.
-- **Windows** danach; dieselbe Struktur, andere Werkzeuge.
+- **Was unter Windows anders bleibt:** Bibliothek und Modelle liegen im
+  **Roaming**-Profil (`%APPDATA%`). Wer sein Profil über ein Netzlaufwerk
+  synchronisiert, schleppt damit die gesamte Bibliothek mit. Ausserdem
+  gibt es dort keinen Sandkasten wie unter macOS und Linux – der
+  Entschlüsselungs-Zwischenspeicher des gesperrten Ordners liegt im
+  gemeinsamen `%TEMP%`.
+- **Was unter Linux anders bleibt:** Das Flatpak bekommt ein privates
+  `/tmp` im Arbeitsspeicher. Das schützt – nichts davon landet auf der
+  Platte –, begrenzt aber zugleich, was zwischengelagert werden kann;
+  gemessen sind 789 MB. Grosse Videos im gesperrten Ordner stossen daran.
 
 ### Funktionale Grenzen
 
@@ -812,12 +841,28 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   Mathematik steht deshalb nur einmal da, sonst liefen beide früher oder
   später auseinander, ohne dass es auffällt.
 - **Das OCR-Lesemodell wird beim ersten Laden umgeschrieben.** Sein
-  `HardSwish`-Rechenschritt liefert im Flutter-Prozess unter Linux
-  durchweg null – ein Fehler ausserhalb dieses Projekts, eingegrenzt auf
-  ein Modell mit einem einzigen Knoten und gemeldet. Da `HardSwish(x)` per
-  ONNX-Festlegung genau `x · HardSigmoid(x)` mit festen Beiwerten ist und
-  beide Teile richtig rechnen, ersetzt `lib/services/onnx_hardswish.dart`
-  die 27 betroffenen Knoten in der Modelldatei. Gegengerechnet: grösste
-  Abweichung 0,000. Reproduktion und Ausschlussliste unter
+  `HardSwish`-Rechenschritt lieferte im Flutter-Prozess unter Linux
+  durchweg null. **Die Ursache ist gefunden und lag nicht in diesem
+  Projekt:** ONNX bis 1.22 liest die Rümpfe funktionsdefinierter
+  Operatoren aus Text ein und wandelt Zahlen dabei mit einer Umwandlung
+  um, die der Spracheinstellung folgt. Wo das Dezimaltrennzeichen ein
+  Komma ist, wird aus dem Beiwert 1/6 eine Null – und der Schritt liefert
+  konstant null. Nur Linux war betroffen: Dessen GTK-Anlauf setzt die
+  Spracheinstellung des Systems, macOS und Windows tun das nicht. Behoben
+  in `flutter_onnxruntime` 1.8.4.
+
+  Die Umschreibung in `lib/services/onnx_hardswish.dart` bleibt liegen –
+  sie ersetzt die 27 betroffenen Knoten durch `x · HardSigmoid(x)`, was
+  die ONNX-Festlegung für `HardSwish` wörtlich ist, und ist
+  gegengerechnet (grösste Abweichung 0,000). Als Altlast steht sie hier,
+  weil sie seit 1.8.4 nichts mehr repariert.
+
+  **Der Schaden blieb auf das Lesemodell beschränkt.** Nachgemessen auf
+  einer deutschsprachigen Maschine, dieselbe Eingabe mit 1.8.3 und mit
+  1.8.4: CLIP-Text, Übersetzung, Bildbeschreibung, SAM-Einbettung und
+  Gesichts-Einbettung kommen bitgleich heraus. Für die dort benutzten
+  Operatoren hat ONNX Runtime eigene Kerne und nimmt den Textweg gar nicht
+  erst – anders als bei `HardSwish`, für den keiner existiert.
+  Reproduktion, Sonden und Ausschlussliste unter
   [docs/hardswish_fehler/](docs/hardswish_fehler/).
 - Siehe "Transparenz zu den technischen Risiken" oben.

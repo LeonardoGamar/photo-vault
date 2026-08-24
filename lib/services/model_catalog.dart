@@ -439,8 +439,10 @@ class ModelCatalog {
         'ab1fcc6dbb5ae074d0e8966984ee977ed9d62976abd96c6461a0cdb684ddec90',
       ),
     ],
-    // Beim ersten Laden aus ocr_rec.onnx erzeugt, weil HardSwish im
-    // Flutter-Prozess unter Linux null liefert – siehe OcrService.
+    // Beim ersten Laden aus ocr_rec.onnx erzeugt. Der Anlass – HardSwish
+    // lieferte unter deutscher Spracheinstellung null – ist seit
+    // flutter_onnxruntime 1.8.4 behoben; die Umformung bleibt als
+    // Absicherung, siehe OnnxHardswish.
     abgeleiteteDateien: [OcrService.lesungUmgebaut],
   );
 

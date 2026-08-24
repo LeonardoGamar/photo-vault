@@ -11,6 +11,81 @@ Soll      -0      -0      -0,3333 -0,2083  0      0,2917  0,6667  3
 Ist        0       0       0       0       0      0       0       0
 ```
 
+## Aufgelöst (24.08.2026)
+
+**Es war eine Frage der Spracheinstellung, nicht der Plattform.** ONNX
+(≤ 1.22) liest die Rümpfe funktionsdefinierter Operatoren aus ihrer
+Textform, mit einem `std::stof`, das der Locale folgt. GTK setzt die
+Prozess-Locale aus der Umgebung; unter Komma-Sprachen wie `de_DE` wird
+HardSwishs α = 1/6 dabei zu **0**, und der Schritt liefert durchweg null.
+
+Das erklärt auch, warum `Celu` und `Mish` unauffällig blieben, obwohl sie
+ebenfalls funktionsdefiniert sind: Ihre Rümpfe enthalten keine gebrochene
+Konstante, die falsch gelesen werden könnte.
+
+Und es erklärt, warum macOS nie betroffen war — nicht wegen des Systems,
+sondern weil dort `LC_NUMERIC` auf `C` steht und der Swift-Runner die
+Prozess-Locale gar nicht erst aus der Umgebung setzt.
+
+Oben: [onnx/onnx#8111](https://github.com/onnx/onnx/issues/8111), behoben
+durch [#8112](https://github.com/onnx/onnx/pull/8112) – die Nachbesserung
+hat aber weder onnx 1.22.0 noch eine ONNX-Runtime-Veröffentlichung
+erreicht. Dieselbe Ursache steckte hinter
+[microsoft/DirectML#736](https://github.com/microsoft/DirectML/issues/736),
+wo es `Gelu` traf.
+
+**Behoben im Plugin ab `flutter_onnxruntime` 1.8.4** (unser Bericht:
+[masicai/flutter_onnxruntime#73](https://github.com/masicai/flutter_onnxruntime/issues/73)).
+Es legt `LC_NUMERIC` über `uselocale` fadenlokal auf `C`, solange die
+Umgebung und die Sitzung angelegt werden – die Locale der Anwendung selbst
+bleibt unangetastet.
+
+Nachgemessen am 24.08. auf der Testmaschine unter `LC_NUMERIC=de_DE.UTF-8`
+mit 1.8.4, im echten Flutter-Prozess:
+
+```
+hardswish  -0.0000 -0.0000 -0.3333 -0.2083 0.0000 0.2917 0.6667 3.0000
+```
+
+Also die Referenzwerte, vorher achtmal null.
+
+**Waren andere Modelle auch betroffen?** Der Plugin-Kommentar nennt
+`LayerNormalization` und `Gelu` als weitere Rümpfe, die beim Anlegen der
+Sitzung gelesen werden – beide stecken in CLIP, Florence, SAM und der
+Übersetzung. Nachgemessen am 24.08. auf derselben deutschen Maschine, ein
+CLIP-Text-Embedding für dieselbe Eingabe:
+
+```
+1.8.4:  -0.010342 0.018376 0.038650 -0.031528 -0.053567 0.032077 …
+1.8.3:  -0.010342 0.018376 0.038650 -0.031528 -0.053567 0.032077 …
+```
+
+**Bitgleich.** Dasselbe für die übrigen Modelle, die ihre Ergebnisse
+dauerhaft ablegen – gleiches Verfahren, gleiche Maschine, nur die
+Plugin-Fassung getauscht:
+
+| | 1.8.3 gegen 1.8.4 |
+|---|---|
+| Übersetzung en→de | „ein rotes Fahrrad vor einer Steinmauer" – gleich |
+| Florence-Bildbeschreibung | „A colorful image of lines in a geometric pattern." – gleich |
+| SAM-Bild-Embedding (1.048.576 Werte) | Summe 17748,690397 – gleich |
+| Gesichts-Embedding (128 Werte) | Summe −0,019388 – gleich |
+
+ORT hat für `LayerNormalization` und `Gelu` eigene Kerne und nimmt den
+Textweg gar nicht erst – anders als bei `HardSwish`, für das keiner
+existiert. **Der Schaden blieb auf das Lesemodell beschränkt**; was unter
+Linux an Embeddings, Beschreibungen und Übersetzungen in der Datenbank
+steht, ist unverdächtig.
+
+Sonden: `integration_test/clip_locale_probe_test.dart` und
+`integration_test/locale_modelle_probe_test.dart`. Die zweite berechnet ihr
+Prüfbild, statt eine Datei zu laden – es geht nicht darum, ob das Ergebnis
+sinnvoll ist, sondern ob zwei Läufe dasselbe ergeben.
+
+**Die Ausschlussliste unten bleibt gültig** – sie war nur nie vollständig
+genug, um bis zur Ursache zu reichen. Was fehlte, war der Verdacht auf
+etwas ausserhalb des Rechenwegs: eine Textumwandlung.
+
 ## Nachstellen
 
 ```bash

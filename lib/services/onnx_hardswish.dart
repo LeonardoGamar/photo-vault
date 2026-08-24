@@ -7,13 +7,22 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 /// `Mul` – rechnerisch dasselbe, nur aus Schritten zusammengesetzt, die
 /// überall funktionieren.
 ///
-/// **Warum das nötig ist:** Im Flutter-Prozess unter Linux liefert
-/// `HardSwish` durchweg null. Nachgewiesen an einem Modell mit einem
-/// einzigen Knoten; dieselbe Datei, gerechnet von derselben
-/// `libonnxruntime.so` in einem gewöhnlichen Programm, stimmt. Betroffen
-/// ist allein dieser Schritt – `HardSigmoid`, `Sigmoid`, `Relu`, `Elu`,
-/// `Softplus`, `Celu` und `Mish` rechnen im selben Prozess richtig.
-/// Reproduktion und Ausschlussliste: `docs/hardswish_fehler/`.
+/// **Warum das nötig war:** Im Flutter-Prozess unter Linux lieferte
+/// `HardSwish` durchweg null. Die Ursache ist seit dem 24.08.2026 bekannt
+/// und liegt nicht an der Plattform, sondern an der Spracheinstellung:
+/// ONNX (≤ 1.22) liest die Rümpfe funktionsdefinierter Operatoren als
+/// Text, mit einem locale-abhängigen `std::stof`. GTK setzt die
+/// Prozess-Locale aus der Umgebung, und unter `de_DE` wird HardSwishs
+/// α = 1/6 dabei zu 0. Hergang, Messwerte und Belege:
+/// `docs/hardswish_fehler/`.
+///
+/// **Behoben ist es im Plugin ab `flutter_onnxruntime` 1.8.4**, das
+/// `LC_NUMERIC` fadenlokal auf `C` legt. Dieser Umbau ist damit nicht mehr
+/// zwingend – er bleibt trotzdem, aus demselben Grund, aus dem der
+/// Plugin-Autor seine Absicherung behält: Welche ONNX-Fassung hinter der
+/// ONNX Runtime steckt, ist nirgends festgenagelt, und `newlocale` kann
+/// scheitern. Eine Umformung, die nichts kostet und nichts verfälscht, ist
+/// der billigere Schutz als die Annahme, dass es nie wiederkommt.
 ///
 /// Das Lesemodell der Texterkennung hat einen MobileNetV3-Stamm mit 27
 /// `HardSwish`-Knoten; ab dem ersten ist alles Weitere wertlos. Deshalb

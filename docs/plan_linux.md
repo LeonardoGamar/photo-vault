@@ -389,6 +389,22 @@ falsch rechnet, lässt sich von aussen nicht weiter aufklären – dazu
 braucht es ONNX Runtime mit Symbolen. Die Reproduktion liegt unter
 `docs/hardswish_fehler/` und ist klein genug, um sie zu melden.
 
+> **Nachtrag 24.08.2026 – aufgelöst, und einer der Schlüsse oben war
+> falsch.** Es lag sehr wohl an der Funktionsdefinition: ONNX (≤ 1.22)
+> liest deren Rümpfe als **Text**, mit einem locale-abhängigen
+> `std::stof`. GTK setzt die Prozess-Locale aus der Umgebung, und unter
+> `de_DE` wird HardSwishs α = 1/6 zu 0.
+>
+> Der Umkehrschluss „`Celu` und `Mish` sind auch Funktionen und stimmen,
+> also liegt es nicht daran" ging fehl, weil deren Rümpfe **keine
+> gebrochene Konstante** enthalten. Und „nur in einem bestimmten
+> Adressraum" war die richtige Beobachtung mit der falschen Erklärung:
+> Der Kindprozess rechnete nicht wegen des Adressraums richtig, sondern
+> weil er GTK nie startete und damit unter `C` blieb.
+>
+> Behoben im Plugin ab `flutter_onnxruntime` 1.8.4. Einzelheiten,
+> Messwerte und die Verweise nach oben: `docs/hardswish_fehler/`.
+
 **Warum das Findemodell trotzdem läuft:** Es benutzt `Relu` und `Clip`,
 kein `HardSwish`. An einem echten Bild geprüft: Summe 13629,77 gegen
 13629,78 auf macOS, gleiche Zahl gefundener Punkte (13702). Der Fehler

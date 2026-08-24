@@ -87,11 +87,15 @@ class OcrService {
   /// Liefert den Pfad, aus dem das Lesemodell wirklich geladen wird.
   ///
   /// Das heruntergeladene Modell enthält 27 `HardSwish`-Knoten, und die
-  /// liefern im Flutter-Prozess unter Linux durchweg null (siehe
-  /// [HardswishUmbau] und `docs/hardswish_fehler/`). Deshalb wird beim
-  /// ersten Laden eine umgebaute Fassung daneben abgelegt, in der jeder
-  /// dieser Knoten durch `HardSigmoid` und `Mul` ersetzt ist – rechnerisch
-  /// dasselbe, nachgemessen bitgleich.
+  /// lieferten im Flutter-Prozess unter deutscher Spracheinstellung
+  /// durchweg null (siehe [HardswishUmbau] und `docs/hardswish_fehler/`).
+  /// Deshalb wird beim ersten Laden eine umgebaute Fassung daneben
+  /// abgelegt, in der jeder dieser Knoten durch `HardSigmoid` und `Mul`
+  /// ersetzt ist – rechnerisch dasselbe, nachgemessen bitgleich.
+  ///
+  /// Seit `flutter_onnxruntime` 1.8.4 ist die Ursache behoben und der
+  /// Umbau nicht mehr zwingend. Er bleibt als Absicherung; die Begründung
+  /// steht bei [HardswishUmbau].
   ///
   /// **Die heruntergeladene Datei bleibt unangetastet.** Sie ist durch ihre
   /// Prüfsumme gedeckt; die umgebaute Fassung ist eine abgeleitete Kopie
@@ -149,7 +153,9 @@ class OcrService {
   /// Genau dieser Zustand trat unter Linux auf, bis der `HardSwish`-Umbau
   /// ihn behob (siehe [lesemodellPfad] – dort steht auch, warum). Die
   /// Sicherung bleibt trotzdem: Sie kostet nichts und fängt den nächsten
-  /// Fall dieser Art ebenso ab.
+  /// Fall dieser Art ebenso ab. Wie berechtigt das ist, hat sich gezeigt –
+  /// die Ursache lag nicht dort, wo alle Messungen sie vermutet hatten,
+  /// sondern in einer Textumwandlung unter deutscher Spracheinstellung.
   Future<String> erkenneText(img.Image bild) async {
     final stellen = await _findeStellen(bild);
     if (stellen.isEmpty) return '';

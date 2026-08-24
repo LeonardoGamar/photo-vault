@@ -291,16 +291,27 @@ Windows   1122 grün, 12 übersprungen
 Beide Seiten zählen 1134 Tests; welche übersprungen werden, ist der
 einzige Unterschied.
 
-### Nicht nachgeprüft: Linux
+### Nachgeprüft: Linux (24.08.2026)
 
-Die Linux-Testmaschine ist derzeit nicht erreichbar – sie teilt sich die
-Adresse 192.168.10.34 mit dem Windows-Rechner, und dort antwortet
-Windows. `test/linux_werkzeuge_echt_test.dart` (`@TestOn('linux')`) ist
-mit umbenannt, aber seit der Umbenennung **nicht gelaufen**. Der
-Übersetzer deckt den Namenswechsel ab, das Verhalten unter Linux ändert
-sich rechnerisch nicht (Trenner und Ausführungsbit bleiben, es kommt nur
-der Programmordner vorne dazu) – geprüft ist das damit aber nicht.
-Nachzuholen, sobald eine der beiden Maschinen eine feste Adresse hat.
+Beim Schreiben dieses Plans teilten sich Linux- und Windows-Testmaschine
+eine Adresse; unter ihr antwortete Windows, und der umbenannte Test war
+seit der Umbenennung nie gelaufen. Seit dem 24.08.2026 sind es zwei
+getrennte Rechner mit je eigener Adresse, und die Prüfung ist nachgeholt.
+
+`test/werkzeuge_echt_test.dart` – so heisst die Datei inzwischen, und sie
+trägt `@TestOn('linux || windows')` statt nur `linux` – gegen echte
+Werkzeuge auf der Linux-Maschine:
+
+```
+HEIC wird gelesen, skaliert und behält seinen Inhalt        ✓
+AVIF wird über libheif gelesen, nicht über den RAW-Entwickler ✓
+RAW wird entwickelt, skaliert und lässt das Original in Ruhe  ✓
+Video Vorschaubild und Länge                                  ✓
+Video Zuschnitt trifft die verlangte Länge                    ✓
+```
+
+Damit ist die Vermutung von damals – der Namenswechsel ändert am
+Verhalten nichts – nicht mehr Vermutung, sondern gemessen.
 
 ## Phase 2 — erledigt (2026-08-22)
 
