@@ -85,9 +85,17 @@ pruefe 'cmake'        cmake       'sudo apt install cmake'                      
 pruefe 'ninja'        ninja       'sudo apt install ninja-build'                      build 'Build-System'
 pruefe 'pkg-config'   pkg-config  'sudo apt install pkg-config'                       build 'Bibliothekssuche'
 pruefe_lib 'GTK 3'    gtk+-3.0    'sudo apt install libgtk-3-dev'                            'Fensterrahmen der App'
+# Dasselbe Muster wie bei git darüber, nur eine Stufe subtiler: Bis
+# Prüfrunde 12 stand libmpv unten bei „zur Laufzeit", und geprüft wurde das
+# PROGRAMM mpv. Beides falsch. media_kit_video sucht beim Bauen über
+# pkg-config nach der Bibliothek; fehlen die Entwicklungsdateien, bricht
+# CMake ab („Target links to PkgConfig::mpv but the target was not found"),
+# und zwar bevor irgendetwas übersetzt wird. Eine Maschine mit dem
+# mpv-Programm, aber ohne libmpv-dev, kam durch die Prüfung und scheiterte
+# dann am Bau.
+pruefe_lib 'libmpv'   mpv         'sudo apt install libmpv-dev'                              'Videowiedergabe (media_kit) – auch zum BAUEN nötig'
 
 titel 'Zur Laufzeit – ohne diese fehlen einzelne Funktionen'
-pruefe 'mpv-Bibliothek' mpv       'sudo apt install libmpv-dev mpv'                laufzeit 'Videowiedergabe (media_kit)'
 pruefe 'ffmpeg'       ffmpeg      'sudo apt install ffmpeg'                        laufzeit 'Video-Vorschaubild und -Zuschnitt'
 pruefe 'ffprobe'      ffprobe     'sudo apt install ffmpeg'                        laufzeit 'Videolänge ermitteln'
 pruefe 'heif-dec'     heif-dec    'sudo apt install libheif-examples'              laufzeit 'HEIC/HEIF-Fotos (iPhone)'

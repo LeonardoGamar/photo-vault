@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.1" date="2026-08-24">
+      <description>
+        <p>Hardening and cleanup, no new features.</p>
+        <p>The Linux package no longer carries search paths pointing into the build machine's directories: a library placed in one of them was loaded in preference to the bundled one. The sandbox now also keeps other apps' private data, browser profiles and further credential directories out.</p>
+        <p>Three AI services released their tensors after the call instead of in a finally block — native memory stayed allocated whenever a step threw. The macOS build enables the Hardened Runtime, so injected libraries are ignored.</p>
+        <p xml:lang="de">Härtung und Aufräumen, keine neuen Funktionen.</p>
+        <p xml:lang="de">Das Linux-Paket trägt keine Suchpfade auf Verzeichnisse des Baurechners mehr: Eine dort abgelegte Bibliothek wurde vor der mitgelieferten geladen. Der Sandkasten lässt jetzt auch die privaten Daten anderer Anwendungen, Browserprofile und weitere Zugangsdaten aussen vor.</p>
+        <p xml:lang="de">Drei KI-Dienste gaben ihre Tensoren hinter dem Aufruf frei statt in einem finally – warf ein Schritt, blieb nativer Speicher liegen. Der macOS-Bau schaltet die Hardened Runtime ein, eingeschleuste Bibliotheken werden dadurch ignoriert.</p>
+      </description>
+    </release>
     <release version="1.9.0" date="2026-08-23">
       <description>
         <p>Windows is now a supported platform, alongside macOS and Linux.</p>

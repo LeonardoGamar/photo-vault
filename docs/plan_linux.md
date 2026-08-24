@@ -93,10 +93,16 @@ tool/linux_setup_check.sh
 ```
 
 Das Skript prüft Bau-Voraussetzungen (Flutter, clang, cmake, ninja,
-pkg-config, GTK 3) und Laufzeit-Werkzeuge (libmpv, ffmpeg, heif-convert,
-dcraw_emu) und nennt zu jedem fehlenden Stück den Installationsbefehl.
-Fehlende Laufzeit-Werkzeuge verhindern den Build nicht – sie kosten nur
-einzelne Funktionen.
+pkg-config, GTK 3, **libmpv-dev**) und Laufzeit-Werkzeuge (ffmpeg,
+heif-dec, dcraw_emu) und nennt zu jedem fehlenden Stück den
+Installationsbefehl. Fehlende Laufzeit-Werkzeuge verhindern den Build
+nicht – sie kosten nur einzelne Funktionen.
+
+`libmpv` steht bewusst oben bei den Bau-Voraussetzungen: `media_kit_video`
+sucht beim Bauen über pkg-config danach, und ohne die Entwicklungsdateien
+bricht CMake ab, bevor irgendetwas übersetzt wird. Bis Prüfrunde 12 stand
+es unten und wurde am Programm `mpv` geprüft – eine Maschine mit dem
+Programm, aber ohne `libmpv-dev`, kam durch und scheiterte dann am Bau.
 
 Auf Debian/Ubuntu meist in einem Rutsch:
 

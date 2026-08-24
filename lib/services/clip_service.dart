@@ -154,14 +154,23 @@ class ClipService {
     }
 
     final inputTensor = await OrtValue.fromList(chw, [1, 3, _imageSize, _imageSize]);
-    final outputs = await session.run({session.inputNames.first: inputTensor});
-    final outputTensor = outputs[imageOutputName] ?? outputs[session.outputNames.first]!;
-    final raw = await outputTensor.asFlattenedList();
-    await inputTensor.dispose();
-    for (final v in outputs.values) {
-      await v.dispose();
+    // Freigeben gehört ins finally, nicht dahinter: Wirft run(), das
+    // Auspacken oder der !-Zugriff, bliebe der Tensor sonst als nativer
+    // Speicher liegen, den der Dart-Sammler nie zurückholt. Dieser Pfad
+    // läuft beim Import über jedes Foto – ein Stapel mit kaputten Dateien
+    // summiert sich (Prüfrunde 12).
+    Map<String, OrtValue>? outputs;
+    try {
+      outputs = await session.run({session.inputNames.first: inputTensor});
+      final outputTensor = outputs[imageOutputName] ?? outputs[session.outputNames.first]!;
+      final raw = await outputTensor.asFlattenedList();
+      return _l2Normalize(Float32List.fromList(raw.map((e) => (e as num).toDouble()).toList()));
+    } finally {
+      await inputTensor.dispose();
+      for (final v in outputs?.values ?? const <OrtValue>[]) {
+        await v.dispose();
+      }
     }
-    return _l2Normalize(Float32List.fromList(raw.map((e) => (e as num).toDouble()).toList()));
   }
 
   Future<Float32List> embedText(String text) async {
@@ -173,16 +182,20 @@ class ClipService {
     final tokenIds = Int64List.fromList(tokenizer.encode(text));
 
     final idsTensor = await OrtValue.fromList(tokenIds, [1, ClipTokenizer.contextLength]);
-    final outputs = await session.run({
-      session.inputNames.first: idsTensor,
-    });
-    final outputTensor = outputs[textOutputName] ?? outputs[session.outputNames.first]!;
-    final raw = await outputTensor.asFlattenedList();
-    await idsTensor.dispose();
-    for (final v in outputs.values) {
-      await v.dispose();
+    Map<String, OrtValue>? outputs;
+    try {
+      outputs = await session.run({
+        session.inputNames.first: idsTensor,
+      });
+      final outputTensor = outputs[textOutputName] ?? outputs[session.outputNames.first]!;
+      final raw = await outputTensor.asFlattenedList();
+      return _l2Normalize(Float32List.fromList(raw.map((e) => (e as num).toDouble()).toList()));
+    } finally {
+      await idsTensor.dispose();
+      for (final v in outputs?.values ?? const <OrtValue>[]) {
+        await v.dispose();
+      }
     }
-    return _l2Normalize(Float32List.fromList(raw.map((e) => (e as num).toDouble()).toList()));
   }
 
   Float32List _l2Normalize(Float32List vector) {

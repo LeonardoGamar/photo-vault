@@ -114,15 +114,19 @@ class EyeStateService {
     }
 
     final inputTensor = await OrtValue.fromList(chw, [1, 3, _eyeStateInputHeight, _eyeStateInputWidth]);
-    final outputs = await _session.run({_session.inputNames.first: inputTensor});
-    final outputTensor = outputs[_session.outputNames.first]!;
-    final raw = await outputTensor.asFlattenedList();
-    await inputTensor.dispose();
-    for (final v in outputs.values) {
-      await v.dispose();
+    Map<String, OrtValue>? outputs;
+    try {
+      outputs = await _session.run({_session.inputNames.first: inputTensor});
+      final outputTensor = outputs[_session.outputNames.first]!;
+      final raw = await outputTensor.asFlattenedList();
+      if (raw.isEmpty) return null;
+      return (raw.first as num).toDouble().clamp(0.0, 1.0);
+    } finally {
+      await inputTensor.dispose();
+      for (final v in outputs?.values ?? const <OrtValue>[]) {
+        await v.dispose();
+      }
     }
-    if (raw.isEmpty) return null;
-    return (raw.first as num).toDouble().clamp(0.0, 1.0);
   }
 
   Future<void> dispose() async {

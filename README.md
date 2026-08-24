@@ -95,6 +95,9 @@ Start. So wird sie trotzdem geöffnet:
 1. `Photo Vault.app` nach `/Programme` ziehen
 2. Rechtsklick auf die App → **Öffnen** → im Dialog erneut **Öffnen**
 
+Die Anwendung läuft mit **Hardened Runtime** und ignoriert damit
+eingeschleuste Bibliotheken – trotz fehlender Beglaubigung.
+
 Nur beim ersten Start nötig. Alternativ im Terminal:
 
 ```bash
@@ -339,6 +342,19 @@ echter Hardware.
   fest. Wird eine Datei gekürzt oder werden Blöcke vertauscht, fällt das beim
   Entschlüsseln auf, statt eine stillschweigend verkürzte Datei zu liefern.
   Dateien im vorherigen Format werden unverändert weiter gelesen.
+- **Hardened Runtime auf macOS** – die Anwendung ignoriert eingeschleuste
+  Bibliotheken. Gemessen mit einer eigens gebauten Testbibliothek: ohne die
+  Härtung lief fremder Code im Prozess mit, mit ihr nicht mehr. Die Prüfung
+  „Library Validation" bleibt dabei aus – sie vergleicht
+  Entwickler-Kennungen, und eine ad-hoc signierte Anwendung hat keine; jede
+  mitgelieferte Bibliothek gälte als fremd und die Anwendung startete gar
+  nicht.
+- **Der Linux-Sandkasten lässt eine Menge aussen vor** – neben `~/.ssh`,
+  `~/.gnupg` und dem Schlüsselbund auch `~/.var/app` (die Daten aller
+  anderen Flatpaks, Passwortspeicher eingeschlossen), `~/.config`,
+  `~/.pki`, `~/.aws`, `~/.kube`, `~/.docker` sowie Browser- und
+  Mailprofile. Der Grund: Die Programmteile, die hier fremde Dateien
+  auspacken – libheif, libde265, LibRaw –, sind ein beliebtes Ziel.
 - **Manuelles Cloud-Backup** – kopiert neue Dateien (optional verschlüsselt
   mit einer Passphrase) in einen frei wählbaren Ordner (z.B. deinen
   Dropbox-/Google-Drive-Sync-Ordner) und wieder zurück

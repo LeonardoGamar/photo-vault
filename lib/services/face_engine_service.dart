@@ -93,67 +93,74 @@ class FaceEngineService {
     }
 
     final inputTensor = await OrtValue.fromList(chw, [1, 3, _yunetInputSize, _yunetInputSize]);
-    final outputs = await _detector.run({_detector.inputNames.first: inputTensor});
+    // Freigeben gehört ins finally, nicht dahinter: Wirft run() oder das
+    // Auspacken der Ausgabezweige, bliebe der Eingabetensor als nativer
+    // Speicher liegen, den der Dart-Sammler nie zurückholt. Dieser Pfad
+    // läuft beim Import über jedes Foto (Prüfrunde 12).
+    Map<String, OrtValue>? outputs;
+    try {
+      outputs = await _detector.run({_detector.inputNames.first: inputTensor});
 
-    final candidates = <DetectedFace>[];
-    for (final stride in _yunetStrides) {
-      final gridSize = _yunetInputSize ~/ stride;
-      final cls = await _asDoubleList(outputs['cls_$stride']);
-      final obj = await _asDoubleList(outputs['obj_$stride']);
-      final bbox = await _asDoubleList(outputs['bbox_$stride']);
-      // Landmarks sind optional: manche YuNet-Exporte liefern diesen
-      // Ausgabezweig nicht. Ohne ihn wird weiterhin erkannt, nur ohne die
-      // Möglichkeit zur Ausrichtung vor dem SFace-Embedding (siehe
-      // [alignFace]).
-      final kps = await _asDoubleList(outputs['kps_$stride']);
-      if (cls == null || obj == null || bbox == null) continue;
+      final candidates = <DetectedFace>[];
+      for (final stride in _yunetStrides) {
+        final gridSize = _yunetInputSize ~/ stride;
+        final cls = await _asDoubleList(outputs['cls_$stride']);
+        final obj = await _asDoubleList(outputs['obj_$stride']);
+        final bbox = await _asDoubleList(outputs['bbox_$stride']);
+        // Landmarks sind optional: manche YuNet-Exporte liefern diesen
+        // Ausgabezweig nicht. Ohne ihn wird weiterhin erkannt, nur ohne die
+        // Möglichkeit zur Ausrichtung vor dem SFace-Embedding (siehe
+        // [alignFace]).
+        final kps = await _asDoubleList(outputs['kps_$stride']);
+        if (cls == null || obj == null || bbox == null) continue;
 
-      for (var r = 0; r < gridSize; r++) {
-        for (var c = 0; c < gridSize; c++) {
-          final cellIdx = r * gridSize + c;
-          if (cellIdx >= cls.length || cellIdx >= obj.length) continue;
-          final score = FacePostprocess.combinedScore(cls[cellIdx], obj[cellIdx]);
-          if (score < scoreThreshold) continue;
+        for (var r = 0; r < gridSize; r++) {
+          for (var c = 0; c < gridSize; c++) {
+            final cellIdx = r * gridSize + c;
+            if (cellIdx >= cls.length || cellIdx >= obj.length) continue;
+            final score = FacePostprocess.combinedScore(cls[cellIdx], obj[cellIdx]);
+            if (score < scoreThreshold) continue;
 
-          final bboxOffset = cellIdx * 4;
-          if (bboxOffset + 3 >= bbox.length) continue;
+            final bboxOffset = cellIdx * 4;
+            if (bboxOffset + 3 >= bbox.length) continue;
 
-          List<double>? landmarks;
-          if (kps != null) {
-            final kpsOffset = cellIdx * 10;
-            if (kpsOffset + 9 < kps.length) {
-              landmarks = FacePostprocess.decodeLandmarks(
-                row: r,
-                col: c,
-                stride: stride,
-                kps: kps.sublist(kpsOffset, kpsOffset + 10),
-                inputSize: _yunetInputSize,
-              );
+            List<double>? landmarks;
+            if (kps != null) {
+              final kpsOffset = cellIdx * 10;
+              if (kpsOffset + 9 < kps.length) {
+                landmarks = FacePostprocess.decodeLandmarks(
+                  row: r,
+                  col: c,
+                  stride: stride,
+                  kps: kps.sublist(kpsOffset, kpsOffset + 10),
+                  inputSize: _yunetInputSize,
+                );
+              }
             }
-          }
 
-          candidates.add(FacePostprocess.decodeBox(
-            row: r,
-            col: c,
-            stride: stride,
-            dx: bbox[bboxOffset],
-            dy: bbox[bboxOffset + 1],
-            dw: bbox[bboxOffset + 2],
-            dh: bbox[bboxOffset + 3],
-            inputSize: _yunetInputSize,
-            score: score,
-            landmarks: landmarks,
-          ));
+            candidates.add(FacePostprocess.decodeBox(
+              row: r,
+              col: c,
+              stride: stride,
+              dx: bbox[bboxOffset],
+              dy: bbox[bboxOffset + 1],
+              dw: bbox[bboxOffset + 2],
+              dh: bbox[bboxOffset + 3],
+              inputSize: _yunetInputSize,
+              score: score,
+              landmarks: landmarks,
+            ));
+          }
         }
       }
-    }
 
-    await inputTensor.dispose();
-    for (final v in outputs.values) {
-      await v.dispose();
+      return FacePostprocess.nonMaxSuppression(candidates, iouThreshold: 0.3);
+    } finally {
+      await inputTensor.dispose();
+      for (final v in outputs?.values ?? const <OrtValue>[]) {
+        await v.dispose();
+      }
     }
-
-    return FacePostprocess.nonMaxSuppression(candidates, iouThreshold: 0.3);
   }
 
   /// Berechnet ein Embedding für ein erkanntes Gesicht: richtet es, falls
@@ -190,14 +197,18 @@ class FaceEngineService {
     }
 
     final inputTensor = await OrtValue.fromList(chw, [1, 3, _sfaceInputSize, _sfaceInputSize]);
-    final outputs = await recognizer.run({recognizer.inputNames.first: inputTensor});
-    final raw = await _asDoubleList(outputs.values.first);
-    await inputTensor.dispose();
-    for (final v in outputs.values) {
-      await v.dispose();
+    Map<String, OrtValue>? outputs;
+    try {
+      outputs = await recognizer.run({recognizer.inputNames.first: inputTensor});
+      final raw = await _asDoubleList(outputs.values.first);
+      if (raw == null) return null;
+      return _l2Normalize(Float32List.fromList(raw));
+    } finally {
+      await inputTensor.dispose();
+      for (final v in outputs?.values ?? const <OrtValue>[]) {
+        await v.dispose();
+      }
     }
-    if (raw == null) return null;
-    return _l2Normalize(Float32List.fromList(raw));
   }
 
   /// Referenz-Landmarks (rechtes Auge, linkes Auge, Nasenspitze, rechter und

@@ -189,15 +189,18 @@ class OcrService {
 
     final tensor = await OrtValue.fromList(eingabe, [1, 3, nh, nw]);
     List<double> karte;
+    // Auch die Ausgaben gehören ins finally, nicht in den try-Rumpf: Wirft
+    // asFlattenedList(), blieben sie sonst liegen (Prüfrunde 12).
+    Map<String, OrtValue>? aus;
     try {
-      final aus = await _erkennung.run({_erkennung.inputNames.first: tensor});
+      aus = await _erkennung.run({_erkennung.inputNames.first: tensor});
       final roh = await aus.values.first.asFlattenedList();
       karte = roh.cast<num>().map((e) => e.toDouble()).toList();
-      for (final v in aus.values) {
-        await v.dispose();
-      }
     } finally {
       await tensor.dispose();
+      for (final v in aus?.values ?? const <OrtValue>[]) {
+        await v.dispose();
+      }
     }
 
     final kaesten = _zusammenhaengendeFlecken(karte, nw, nh);
@@ -311,14 +314,12 @@ class OcrService {
 
     final tensor =
         await OrtValue.fromList(eingabe, [1, 3, _leseHoehe, zielBreite]);
+    Map<String, OrtValue>? aus;
     try {
-      final aus = await _lesung.run({_lesung.inputNames.first: tensor});
+      aus = await _lesung.run({_lesung.inputNames.first: tensor});
       final wert = aus.values.first;
       final form = wert.shape;
       final roh = (await wert.asFlattenedList()).cast<num>();
-      for (final v in aus.values) {
-        await v.dispose();
-      }
       // [1, Schritte, Klassen]
       final schritte = form.length >= 2 ? form[form.length - 2] : 0;
       final klassen = form.isNotEmpty ? form.last : 0;
@@ -328,6 +329,9 @@ class OcrService {
       return '';
     } finally {
       await tensor.dispose();
+      for (final v in aus?.values ?? const <OrtValue>[]) {
+        await v.dispose();
+      }
     }
   }
 

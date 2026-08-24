@@ -48,6 +48,21 @@ finish-args:
   - --nofilesystem=home/.ssh
   - --nofilesystem=home/.gnupg
   - --nofilesystem=home/.local/share/keyrings
+  # Dasselbe Argument, nur weitergedacht (Prüfrunde 12): Wo sonst noch
+  # Zugangsdaten im Heimatordner liegen, hat eine Fotoverwaltung genauso
+  # wenig zu suchen. ~/.var/app ist der wichtigste davon – dort liegen die
+  # privaten Daten aller anderen Flatpaks, Passwortspeicher inbegriffen.
+  # Die App selbst braucht keinen dieser Pfade: Ihre eigenen Daten liegen
+  # unter ~/.var/app/com.example.PhotoVault, das die Sandbox ohnehin
+  # einhängt und was eine Ausnahme auf ~/.var/app nicht berührt.
+  - --nofilesystem=home/.var/app
+  - --nofilesystem=home/.config
+  - --nofilesystem=home/.pki
+  - --nofilesystem=home/.aws
+  - --nofilesystem=home/.kube
+  - --nofilesystem=home/.docker
+  - --nofilesystem=home/.mozilla
+  - --nofilesystem=home/.thunderbird
 
 cleanup:
   - /include

@@ -22,8 +22,16 @@ PRODUCT_NAME[config=Debug] = Photo Vault (Test)
 // Preis: Auch der Modellordner ist getrennt (er liegt im Container, siehe
 // LibraryState.initialize). Wer im Testbau KI-Funktionen braucht, lädt die
 // Modelle dort einmal separat.
+//
+// Profile gehört aus demselben Grund dazu wie Debug: Ein Profile-Bau dient
+// dem Messen, und messen heisst starten. Ohne eigene Kennung liefe er im
+// Container der produktiven App – genau das, was die Trennung verhindern
+// soll. Aufgefallen in Prüfrunde 12, als für macOS keine Laufzeitmessung
+// möglich war: Release ist tabu, Debug misst wegen JIT etwas anderes, und
+// Profile hätte die echten Fotos angefasst.
 PRODUCT_BUNDLE_IDENTIFIER = com.example.photoVault
 PRODUCT_BUNDLE_IDENTIFIER[config=Debug] = com.example.photoVault.test
+PRODUCT_BUNDLE_IDENTIFIER[config=Profile] = com.example.photoVault.test
 
 // The copyright displayed in application information
 // Steht im Finder unter „Informationen". „com.example" stammt aus der

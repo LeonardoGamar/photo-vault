@@ -45,7 +45,7 @@ hinweis(){ printf '  %s•%s %s\n' "$GELB" "$AUS" "$1"; }
 titel "Voraussetzungen"
 
 mangel=0
-for befehl in flatpak flatpak-builder flutter; do
+for befehl in flatpak flatpak-builder flutter patchelf; do
   if command -v "$befehl" >/dev/null 2>&1; then
     gut "$befehl"
   else
@@ -55,7 +55,7 @@ for befehl in flatpak flatpak-builder flutter; do
 done
 if [ "$mangel" -ne 0 ]; then
   printf '\n  Nachzuholen:\n'
-  printf '    sudo apt install flatpak flatpak-builder\n'
+  printf '    sudo apt install flatpak flatpak-builder patchelf\n'
   printf '    flatpak remote-add --if-not-exists --user flathub \\\n'
   printf '        https://dl.flathub.org/repo/flathub.flatpakrepo\n'
   exit 1
@@ -79,6 +79,63 @@ titel "Flutter-Bündel bauen"
 BUENDEL="$WURZEL/build/linux/x64/release/bundle"
 [ -x "$BUENDEL/photo_vault" ] || { fehler "kein Bündel unter $BUENDEL"; exit 1; }
 gut "$(du -sh "$BUENDEL" | cut -f1) unter build/linux/x64/release/bundle"
+
+titel "Baupfade aus den Bibliotheken entfernen"
+# Die Plugin-Bibliotheken tragen nach `flutter build linux` einen RUNPATH
+# auf Verzeichnisse DIESES Rechners, etwa
+# /home/…/photo_vault/linux/flutter/ephemeral. Der wandert unverändert ins
+# Flatpak. Dass das Startskript LD_LIBRARY_PATH setzt, deckt es nur zu:
+# Der RUNPATH bleibt ein Suchpfad vor den Systempfaden, der Sandkasten
+# sieht den Heimatordner, und bei `flatpak run --command=…` ist
+# LD_LIBRARY_PATH gar nicht gesetzt. Wer dort eine .so ablegt, bekommt sie
+# geladen (Prüfrunde 12).
+#
+# Entfernt werden nur ABSOLUTE Einträge. Was mit $ORIGIN beginnt, ist
+# relativ zur Datei selbst, gehört zum Bündel und muss bleiben – die
+# Hauptdatei findet ihre Bibliotheken über $ORIGIN/lib.
+gestrichen=0
+while IFS= read -r datei; do
+  alt="$(patchelf --print-rpath "$datei" 2>/dev/null)" || continue
+  [ -n "$alt" ] || continue
+  neu=""
+  entfernt=""
+  IFS=':' read -ra teile <<< "$alt"
+  for teil in "${teile[@]}"; do
+    [ -n "$teil" ] || continue
+    case "$teil" in
+      '$ORIGIN'*) neu="${neu:+$neu:}$teil" ;;
+      *)          entfernt="${entfernt:+$entfernt, }$teil" ;;
+    esac
+  done
+  [ -n "$entfernt" ] || continue
+  if [ -n "$neu" ]; then
+    patchelf --set-rpath "$neu" "$datei" || exit 1
+  else
+    patchelf --remove-rpath "$datei" || exit 1
+  fi
+  hinweis "$(basename "$datei"): $entfernt"
+  gestrichen=$((gestrichen + 1))
+done < <(find "$BUENDEL" -type f \( -name '*.so*' -o -name 'photo_vault' \))
+
+if [ "$gestrichen" -eq 0 ]; then
+  gut "keine Baupfade vorhanden"
+else
+  gut "$gestrichen Datei(en) bereinigt"
+fi
+
+# Gegenprobe an Ort und Stelle: Nach dem Streichen darf keine einzige
+# mitgelieferte Datei mehr einen absoluten Suchpfad tragen. Ohne diese
+# Zeile fiele ein Tippfehler oben erst auf einem fremden Rechner auf.
+uebrig="$(while IFS= read -r datei; do
+  patchelf --print-rpath "$datei" 2>/dev/null | tr ':' '\n' |
+    grep -v '^\$ORIGIN' | grep -v '^$' | sed "s|^|  $(basename "$datei"): |"
+done < <(find "$BUENDEL" -type f \( -name '*.so*' -o -name 'photo_vault' \)))"
+if [ -n "$uebrig" ]; then
+  fehler "es bleiben absolute Suchpfade übrig:"
+  printf '%s\n' "$uebrig"
+  exit 1
+fi
+gut "nur noch \$ORIGIN-relative Suchpfade"
 
 titel "Flatpak bauen"
 # --force-clean, weil ein halber Bauort aus einem abgebrochenen Lauf sonst
@@ -185,6 +242,23 @@ if [ "$pruefen" -eq 1 ]; then
       gut "ONNX Runtime kommt aus dem Bündel (alle KI-Funktionen)"
     else
       fehler "ONNX Runtime nicht aus dem Bündel – KI-Funktionen fielen aus"
+    fi
+
+    # Am EINGESPIELTEN Paket nachsehen, nicht am Bündel davor: Geprüft
+    # gehört, was ausgeliefert wird. Ein Bauschritt, der stillschweigend
+    # übersprungen wurde, fiele oben nicht auf.
+    ORT="$(flatpak info --show-location "$KENNUNG" 2>/dev/null)/files/photo_vault"
+    if [ -d "$ORT" ]; then
+      rest="$(while IFS= read -r datei; do
+        patchelf --print-rpath "$datei" 2>/dev/null | tr ':' '\n' |
+          grep -v '^\$ORIGIN' | grep -v '^$' | sed "s|^|      $(basename "$datei"): |"
+      done < <(find "$ORT" -type f \( -name '*.so*' -o -name 'photo_vault' \)))"
+      if [ -z "$rest" ]; then
+        gut "kein Baupfad im ausgelieferten Paket"
+      else
+        fehler "Baupfade im ausgelieferten Paket:"
+        printf '%s\n' "$rest"
+      fi
     fi
   else
     hinweis "nicht eingespielt – mit --installieren wiederholen"
