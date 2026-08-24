@@ -119,6 +119,10 @@ if ($Pruefen) {
   foreach ($w in @(
       @{ n = 'heif-dec.exe';   a = @('--version') }
       @{ n = 'dcraw_emu.exe';  a = @() }
+      # Ohne raw-identify bleiben Kamera, Objektiv und Aufnahmedatum von
+      # CR3-Dateien leer - dem Format, das die uebliche EXIF-Bibliothek
+      # gar nicht lesen kann. Ohne Argument gibt es seine Hilfe aus.
+      @{ n = 'raw-identify.exe'; a = @() }
       @{ n = 'ffmpeg.exe';     a = @('-hide_banner', '-version') }
       @{ n = 'ffprobe.exe';    a = @('-hide_banner', '-version') })) {
     $e = ImPaket $w.n $w.a

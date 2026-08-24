@@ -4958,4 +4958,31 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgOcrModell => 'das Texterkennungs-Modell';
+
+  @override
+  String get werkzDatumTitel => 'Aufnahmedatum aus RAW-Fotos nachtragen';
+
+  @override
+  String get werkzDatumText =>
+      'Liest Datum, Kamera und Objektiv direkt aus RAW-Dateien. Nötig für Formate wie Canons CR3, aus denen beim Import nichts gelesen werden konnte – deren Fotos tragen das Datum der Datei statt der Aufnahme.';
+
+  @override
+  String get werkzDatumFrageTitel => 'Aufnahmedatum richtigstellen?';
+
+  @override
+  String get werkzDatumFrage =>
+      'Fotos, deren Aufnahmedatum bisher vom Dateizeitstempel stammte, bekommen das echte Datum aus der RAW-Datei. Sie rücken damit in der Zeitleiste und im Kalender an die richtige Stelle und werden auf der Festplatte in den passenden Monatsordner verschoben.\n\nDie Fotos selbst werden nicht verändert. Rückgängig machen lässt sich der Lauf nicht.';
+
+  @override
+  String get werkzDatumStarten => 'Richtigstellen';
+
+  @override
+  String get werkzKorrigiereDatum => 'Lese Aufnahmedaten aus RAW-Fotos …';
+
+  @override
+  String get werkzKeineRawFotos => 'Keine RAW-Fotos in der Bibliothek.';
+
+  @override
+  String get karteGlobusZoomHinweis =>
+      'Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln.';
 }

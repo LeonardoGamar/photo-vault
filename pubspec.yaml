@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 1.9.2
+version: 1.9.3
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -137,7 +137,7 @@ flutter:
   generate: true
   assets:
     - assets/icon/app_icon.png
-    - assets/globe/2k_earth_daymap.jpg
+    - assets/globe/8k_earth_daymap.jpg
     - assets/globe/2k_stars_milky_way.jpg
 
   # Entwickeln-Regler als GPU-Shader (siehe widgets/develop_preview.dart) –

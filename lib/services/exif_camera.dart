@@ -91,3 +91,32 @@ CameraInfo parseExifCameraInfo(Map<String, IfdTag> tags) {
     focalLength35mm: readInt('EXIF FocalLengthIn35mmFilm')?.toDouble(),
   );
 }
+
+/// Wandelt einen EXIF-Zeitstempel („yyyy:MM:dd HH:mm:ss") in ein Datum.
+///
+/// Steht hier und nicht im ImportService, weil inzwischen zwei Wege ihn
+/// brauchen: die EXIF-Tags aus `package:exif` und die Antwort des nativen
+/// Kanals für Dateien, die `package:exif` nicht lesen kann.
+DateTime? exifDatumAusText(String? roh) {
+  if (roh == null) return null;
+  final teile = roh.trim().split(' ');
+  if (teile.length != 2) return null;
+  final datum = teile[0].split(':');
+  final zeit = teile[1].split(':');
+  if (datum.length != 3 || zeit.length != 3) return null;
+  try {
+    final jahr = int.parse(datum[0]);
+    // Kameras schreiben bei ungestellter Uhr „0000:00:00 00:00:00".
+    if (jahr < 1990) return null;
+    return DateTime(
+      jahr,
+      int.parse(datum[1]),
+      int.parse(datum[2]),
+      int.parse(zeit[0]),
+      int.parse(zeit[1]),
+      int.parse(zeit[2]),
+    );
+  } catch (_) {
+    return null;
+  }
+}

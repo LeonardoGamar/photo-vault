@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'cube_lut.dart';
 import 'develop_color.dart';
 import 'develop_render.dart';
+import 'exif_camera.dart';
 import 'platform/desktop_image_tools.dart';
+import 'raw_identify_parser.dart';
 import 'raw_formats.dart';
 
 /// Formate, die Flutter (Skia) selbst nicht rendern kann und die das
@@ -134,6 +136,63 @@ class NativeImageConverter {
     } on MissingPluginException {
       return Objektivkorrekturstand.unbekannt;
     }
+  }
+
+  /// Aufnahmewerte samt Aufnahmezeitpunkt über den nativen Weg.
+  ///
+  /// Der Rückfall für Dateien, aus denen `package:exif` nichts
+  /// herausbekommt. Konkret: CR3, Canons neueres RAW-Format. Es ist ein
+  /// ISO-BMFF-Container wie MP4, kein TIFF – `package:exif` liest dort
+  /// NULL Tags, gemessen an echten Dateien. Die Folge war nicht nur eine
+  /// leere Info-Ansicht: Auch das Aufnahmedatum fehlte und fiel auf den
+  /// Zeitstempel der Datei zurück, was 56 % einer Beispielbibliothek in
+  /// den falschen Monat einsortierte.
+  ///
+  /// macOS liest über ImageIO, Linux und Windows über `raw-identify`.
+  /// Beide wurden an derselben Datei gegeneinander gehalten und liefern
+  /// dieselben Werte – bis auf die Belichtungskorrektur, die
+  /// `raw-identify` nicht ausgibt.
+  static Future<Aufnahmedaten> readCameraMetadata(File file) async {
+    if (_ueberWerkzeuge) return DesktopImageTools.leseAufnahmedaten(file);
+    if (!await isSupported()) return Aufnahmedaten.leer;
+    try {
+      final antwort = await _channel
+          .invokeMapMethod<String, dynamic>('cameraMetadata', {'path': file.path});
+      if (antwort == null) return Aufnahmedaten.leer;
+      return _ausImageIo(antwort);
+    } on PlatformException {
+      return Aufnahmedaten.leer;
+    } on MissingPluginException {
+      return Aufnahmedaten.leer;
+    }
+  }
+
+  static Aufnahmedaten _ausImageIo(Map<String, dynamic> m) {
+    String? text(String k) {
+      final v = m[k];
+      if (v is! String) return null;
+      final t = v.trim();
+      return t.isEmpty ? null : t;
+    }
+
+    double? zahl(String k) => (m[k] as num?)?.toDouble();
+
+    final kb = zahl('FocalLenIn35mmFilm');
+    return Aufnahmedaten(
+      CameraInfo(
+        make: text('Make'),
+        model: text('Model'),
+        lensModel: text('LensModel'),
+        focalLengthMm: zahl('FocalLength'),
+        fNumber: zahl('FNumber'),
+        iso: zahl('ISO')?.round(),
+        exposureTimeSeconds: zahl('ExposureTime'),
+        exposureBiasEv: zahl('ExposureBiasValue'),
+        // 0 heisst hier „nicht überliefert", nicht „0 mm".
+        focalLength35mm: (kb == null || kb == 0) ? null : kb,
+      ),
+      exifDatumAusText(text('DateTimeOriginal')),
+    );
   }
 
   /// Grenze, die keine ist – grösser als jeder existierende Bildsensor.

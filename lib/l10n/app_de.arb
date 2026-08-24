@@ -2906,5 +2906,13 @@
   "modellOcrTitel": "Texterkennung (PaddleOCR)",
   "modellOcrText": "Findet Text in Fotos und liest ihn – zwei Modelle, zusammen 13,7 MB. Deckt das lateinische Alphabet samt Umlauten und ß ab. Unter macOS nicht nötig: Dort erledigt das Apples Vision-Framework ohne Download.",
   "modellOcrLizenz": "Apache 2.0 (PaddleOCR)",
-  "aufgOcrModell": "das Texterkennungs-Modell"
+  "aufgOcrModell": "das Texterkennungs-Modell",
+  "werkzDatumTitel": "Aufnahmedatum aus RAW-Fotos nachtragen",
+  "werkzDatumText": "Liest Datum, Kamera und Objektiv direkt aus RAW-Dateien. Nötig für Formate wie Canons CR3, aus denen beim Import nichts gelesen werden konnte – deren Fotos tragen das Datum der Datei statt der Aufnahme.",
+  "werkzDatumFrageTitel": "Aufnahmedatum richtigstellen?",
+  "werkzDatumFrage": "Fotos, deren Aufnahmedatum bisher vom Dateizeitstempel stammte, bekommen das echte Datum aus der RAW-Datei. Sie rücken damit in der Zeitleiste und im Kalender an die richtige Stelle und werden auf der Festplatte in den passenden Monatsordner verschoben.\n\nDie Fotos selbst werden nicht verändert. Rückgängig machen lässt sich der Lauf nicht.",
+  "werkzDatumStarten": "Richtigstellen",
+  "werkzKorrigiereDatum": "Lese Aufnahmedaten aus RAW-Fotos …",
+  "werkzKeineRawFotos": "Keine RAW-Fotos in der Bibliothek.",
+  "karteGlobusZoomHinweis": "Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln."
 }

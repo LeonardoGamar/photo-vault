@@ -571,6 +571,11 @@ im Hintergrund laufen sollen:
   erstellen*, für HEIC/RAW-Fotos, die vor Einrichtung der nativen
   Bildkonvertierung importiert wurden; ebenso **entwickelte Fotos neu
   rendern**
+- **Aufnahmedatum aus RAW-Fotos nachtragen** – liest Datum, Kamera und
+  Objektiv direkt aus RAW-Dateien und sortiert die Fotos an die richtige
+  Stelle, auch im Monatsordner auf der Platte. Der einzige
+  Nachtrage-Lauf, der vorhandene Angaben ändert statt nur zu ergänzen,
+  und deshalb der einzige mit Rückfrage
 - **Orte & Kameradaten einlesen** – GPS aus den Fotos übernehmen, daraus
   Land/Bundesland/Stadt auflösen, Kameramodelle nachtragen und
   **Kamera-Presets** verwalten
@@ -613,6 +618,21 @@ libheif ohne aus: `heif-convert` öffnet die Datei dann zwar, kann den
 Bildinhalt aber nicht auspacken. Das Flatpak kompiliert ihn deshalb fest
 ein, statt ihn zur Laufzeit zu suchen; unter Windows wird libheif aus
 demselben Grund selbst gebaut.
+
+**Aufnahmewerte aus RAW-Dateien** gehen einen eigenen Weg. Die übliche
+EXIF-Bibliothek liest nur TIFF- und JPEG-Strukturen – Canons **CR3** ist
+aber ein ISO-BMFF-Container wie MP4 und liefert dort gemessen **null
+Angaben**. Kamera und Objektiv blieben leer, und weil aus derselben
+Quelle das Aufnahmedatum kommt, fiel auch das auf den Zeitstempel der
+Datei zurück: In einer Bibliothek mit 909 CR3-Fotos lagen 891 Daten
+falsch, 517 davon im falschen Monat.
+
+Kommt aus einer RAW-Datei nichts, fragt die App deshalb das System bzw.
+das mitgelieferte Werkzeug: **ImageIO** unter macOS, **`raw-identify`**
+(LibRaw) unter Linux und Windows. An derselben Datei gegeneinander
+gehalten liefern beide dieselben Werte; nur die Belichtungskorrektur
+gibt `raw-identify` nicht aus. Für bereits importierte Fotos gibt es
+**Werkzeuge → Aufnahmedatum aus RAW-Fotos nachtragen**.
 
 **AVIF** liest dieselbe Bibliothek wie HEIC. Bis 1.9.0 wurden
 AVIF-Dateien allerdings an den RAW-Entwickler weitergereicht, der sie
@@ -827,6 +847,31 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 
 ### Technische Altlasten
 
+- **Der 3D-Globus zeigt ab Zoomstufe 3 nichts Neues mehr.** Er rendert
+  eine einzelne Erdtextur (8192×4096) ohne Kachel-Nachladen; weiteres
+  Heranzoomen vergrössert nur. Gemessen auf echter GPU (Kantenschärfe
+  über den Alpen – bei 0°/0° blickt der Globus auf offenen Atlantik, wo
+  jede Auflösung gleich strukturlos ist):
+
+  | Zoom | 2K | 4K | 8K |
+  |---:|---:|---:|---:|
+  | 0 | 375 | 535 | 596 |
+  | 2 | 109 | 156 | 174 |
+  | 3 | 96 | 151 | 200 |
+  | 4 | 81 | 131 | 182 |
+
+  Ab Stufe 3 erscheint deshalb ein Hinweis, der auf den Pin-Tipp
+  verweist: Er wechselt an derselben Stelle in die kachelbasierte Karte.
+  Echte Detailschärfe bräuchte Kacheln statt eines Bildes – bei Zoom 6
+  wäre die Kugel rund 100.000 Pixel breit gerendert, die Textur müsste
+  dafür etwa 200.000 × 100.000 Pixel gross sein.
+
+  Preis der grossen Textur: dekodiert 134 MB, während Flutters
+  Bildspeicher 105 MB fasst – sie wird also nie zwischengespeichert
+  (gemessen: „0 Bilder gehalten"). Dazu legt `flutter_earth_globe`
+  unbedingt eine zweite Kopie als `Uint32List` an, auch für den
+  Shader-Weg, der sie nicht braucht. Die Kartenansicht lässt den Globus
+  beim Verlassen deshalb ausdrücklich los.
 - Für die 360°-Kugelansicht wird `panorama_viewer` genutzt, nicht das
   ebenfalls eingebundene `flutter_earth_globe`: Letzteres rendert auf dem
   Testgerät nur Texturen aus gebündelten Assets sichtbar (mit identischem

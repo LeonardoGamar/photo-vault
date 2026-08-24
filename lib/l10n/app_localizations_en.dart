@@ -4934,4 +4934,31 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get aufgOcrModell => 'the text recognition model';
+
+  @override
+  String get werkzDatumTitel => 'Read capture date from RAW photos';
+
+  @override
+  String get werkzDatumText =>
+      'Reads date, camera and lens straight from RAW files. Needed for formats such as Canon\'s CR3, which yielded nothing on import – those photos carry the file\'s timestamp instead of the capture time.';
+
+  @override
+  String get werkzDatumFrageTitel => 'Correct the capture date?';
+
+  @override
+  String get werkzDatumFrage =>
+      'Photos whose capture date came from the file timestamp will get the real date from the RAW file. They move to the right place in the timeline and calendar, and on disk into the matching month folder.\n\nThe photos themselves are not modified. The run cannot be undone.';
+
+  @override
+  String get werkzDatumStarten => 'Correct';
+
+  @override
+  String get werkzKorrigiereDatum => 'Reading capture data from RAW photos …';
+
+  @override
+  String get werkzKeineRawFotos => 'No RAW photos in the library.';
+
+  @override
+  String get karteGlobusZoomHinweis =>
+      'Zooming in further shows no extra detail – the Earth texture is a single image. Tap a pin to switch to the map at that spot.';
 }

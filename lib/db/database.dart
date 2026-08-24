@@ -1963,6 +1963,37 @@ class AppDatabase extends _$AppDatabase {
       assets.cameraMake.isNull() &
       assets.cameraModel.isNull());
 
+  /// Setzt Aufnahmezeitpunkt und – falls der Monat wechselt – den neuen
+  /// Ablageort einer Datei.
+  ///
+  /// Beides zusammen, weil beides zusammengehört: Der Ordner unter
+  /// `originals/` wird aus dem Aufnahmedatum gebildet. Ein neues Datum
+  /// ohne neuen Pfad hiesse, dass die Ablage auf der Platte nicht mehr zu
+  /// dem passt, was die App anzeigt.
+  Future<void> setAufnahmezeitpunkt(String assetId, DateTime zeitpunkt,
+          {String? neuerPfad}) =>
+      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+        fileCreatedAt: Value(zeitpunkt),
+        relativePath:
+            neuerPfad == null ? const Value.absent() : Value(neuerPfad),
+      ));
+
+  /// RAW-Fotos, deren Aufnahmedatum aus dem Dateizeitstempel stammen
+  /// könnte – Kandidaten für die Datumskorrektur.
+  ///
+  /// Warum RAW: `package:exif` liest nur TIFF/JPEG. Formate wie CR3
+  /// (ISO-BMFF-Container) liefern dort NULL Tags, und dann fällt der
+  /// Import auf `lastModified()` der Quelldatei zurück. Bei JPEG-Fotos
+  /// gibt es diesen Weg nicht – deren Datum kam immer aus den EXIF-Daten
+  /// oder es gab keines.
+  ///
+  /// Bewusst ohne weitere Einschränkung: Ob ein Datum wirklich falsch ist,
+  /// weiss erst der Vergleich mit der Datei. Diese Abfrage grenzt nur die
+  /// Menge ein, die überhaupt betroffen sein kann.
+  Future<List<AssetData>> assetsFuerDatumskorrektur() => (select(assets)
+        ..where((t) => t.type.equals('IMAGE') & t.isTrashed.equals(false)))
+      .get();
+
   /// Setzt das Ergebnis der Texterkennung (siehe ImageConverter.swift
   /// `recognizeText`) – [text] darf leer sein (kein Text im Bild gefunden),
   /// `ocrScanned` unterscheidet das von "noch nicht gescannt".

@@ -14,6 +14,7 @@ import 'exif_camera.dart';
 import 'exif_gps.dart';
 import 'native_image_converter.dart';
 import 'raw_formats.dart';
+import 'raw_identify_parser.dart';
 import 'storage_paths.dart';
 
 const _imageExtensions = {
@@ -123,8 +124,9 @@ class ImportService {
       }
 
       final assetId = _uuid.v4();
-      final exifMeta =
-          isImage ? await _readExifMetadata(bytes!) : const _ExifMetadata(null, null, CameraInfo());
+      final exifMeta = isImage
+          ? await _readExifMetadata(bytes!, sourceFile, ext)
+          : const _ExifMetadata(null, null, CameraInfo());
       final fileCreatedAt = exifMeta.date ?? await sourceFile.lastModified();
 
       final relativePath = _paths.originalRelativePath(fileCreatedAt, assetId, ext);
@@ -289,13 +291,30 @@ class ImportService {
   /// Liest Aufnahmedatum, GPS-Ort und Kamera-/Objektiv-Angaben in einem
   /// Durchlauf aus den EXIF-Daten eines Fotos (alles steckt im selben
   /// `readExifFromBytes`-Ergebnis).
-  Future<_ExifMetadata> _readExifMetadata(Uint8List bytes) async {
+  Future<_ExifMetadata> _readExifMetadata(
+      Uint8List bytes, File datei, String endung) async {
+    Map<String, IfdTag> tags = const {};
     try {
-      final tags = await readExifFromBytes(bytes);
-      return _ExifMetadata(_parseExifDate(tags), parseExifGps(tags), parseExifCameraInfo(tags));
+      tags = await readExifFromBytes(bytes);
     } catch (_) {
-      return const _ExifMetadata(null, null, CameraInfo());
+      // Bleibt leer – der Rückfall unten greift.
     }
+    final datum = exifDatumAusText(_rohesExifDatum(tags));
+    final kamera = parseExifCameraInfo(tags);
+    final gps = parseExifGps(tags);
+
+    // Nur nachfassen, wenn wirklich nichts ankam UND es sich um ein
+    // RAW-Format handelt. Ein Screenshot ohne EXIF ist der Normalfall und
+    // soll keinen Prozessstart je Datei auslösen; eine RAW-Datei ohne
+    // jeden Tag dagegen ist ein Hinweis auf ein Format, das
+    // `package:exif` nicht kennt – gemessen: CR3 liefert dort NULL Tags.
+    if (datum == null && kamera.isEmpty && rawImageExtensions.contains(endung)) {
+      final nativ = await NativeImageConverter.readCameraMetadata(datei);
+      if (!nativ.isEmpty) {
+        return _ExifMetadata(nativ.zeitpunkt, gps, nativ.kamera);
+      }
+    }
+    return _ExifMetadata(datum, gps, kamera);
   }
 
   /// Liest nur die Kamera-/Objektiv-Angaben aus den EXIF-Daten einer bereits
@@ -303,37 +322,37 @@ class ImportService {
   /// Werkzeugen (Fotos, die vor Einführung dieser Funktion importiert
   /// wurden). Gibt eine leere [CameraInfo] zurück, wenn nichts gefunden wird
   /// oder die Datei nicht gelesen werden kann.
-  Future<CameraInfo> readCameraInfo(File file) async {
+  Future<CameraInfo> readCameraInfo(File file) async =>
+      (await readAufnahmedaten(file)).kamera;
+
+  /// Kamera-/Objektivangaben UND Aufnahmezeitpunkt einer bereits
+  /// importierten Datei – für das nachträgliche Einlesen in den
+  /// Werkzeugen.
+  ///
+  /// Denselben Rückfall wie beim Import: Liefert `package:exif` bei einer
+  /// RAW-Datei gar nichts, wird der native Weg gefragt.
+  Future<Aufnahmedaten> readAufnahmedaten(File file) async {
+    Map<String, IfdTag> tags = const {};
     try {
-      final tags = await readExifFromBytes(await file.readAsBytes());
-      return parseExifCameraInfo(tags);
+      tags = await readExifFromBytes(await file.readAsBytes());
     } catch (_) {
-      return const CameraInfo();
+      // Bleibt leer – der Rückfall unten greift.
     }
+    final kamera = parseExifCameraInfo(tags);
+    final datum = exifDatumAusText(_rohesExifDatum(tags));
+    if (kamera.isEmpty &&
+        datum == null &&
+        rawImageExtensions.contains(p.extension(file.path).toLowerCase())) {
+      final nativ = await NativeImageConverter.readCameraMetadata(file);
+      if (!nativ.isEmpty) return nativ;
+    }
+    return Aufnahmedaten(kamera, datum);
   }
 
-  DateTime? _parseExifDate(Map<String, IfdTag> tags) {
-    final raw = tags['EXIF DateTimeOriginal']?.printable ?? tags['Image DateTime']?.printable;
-    if (raw == null) return null;
-    // EXIF-Format: "yyyy:MM:dd HH:mm:ss"
-    final parts = raw.split(' ');
-    if (parts.length != 2) return null;
-    final datePart = parts[0].split(':');
-    final timePart = parts[1].split(':');
-    if (datePart.length != 3 || timePart.length != 3) return null;
-    try {
-      return DateTime(
-        int.parse(datePart[0]),
-        int.parse(datePart[1]),
-        int.parse(datePart[2]),
-        int.parse(timePart[0]),
-        int.parse(timePart[1]),
-        int.parse(timePart[2]),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
+  /// Der Zeitstempel, wie er in den Tags steht – umgewandelt wird er von
+  /// [exifDatumAusText], damit der native Weg dieselbe Umwandlung nutzt.
+  String? _rohesExifDatum(Map<String, IfdTag> tags) =>
+      tags['EXIF DateTimeOriginal']?.printable ?? tags['Image DateTime']?.printable;
 }
 
 class _ExifMetadata {

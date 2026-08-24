@@ -28,6 +28,15 @@ enum _MapViewMode { light, dark, globe }
 /// Zoomstufe beim Öffnen der flachen Karte ohne bestimmtes Ziel.
 const double _standardZoom = 6;
 
+/// Ab dieser Globus-Zoomstufe erscheint der Hinweis, dass weiteres
+/// Heranzoomen kein zusätzliches Detail mehr bringt.
+///
+/// Nicht geraten: Bis Stufe 3 wächst die gemessene Schärfe der 8K-Textur
+/// noch mit (596 → 307 → 174 → 200), danach fällt sie ab und bricht zur
+/// Höchststufe hin ganz ein (182 → 11). Ab hier vergrössert die Ansicht
+/// also nur noch, statt mehr zu zeigen.
+const double zoomHinweisAb = 3;
+
 /// Scrollbare Kartenansicht (OpenStreetMap) über alle Fotos/Videos mit
 /// bekanntem Ort – aus EXIF-GPS-Daten beim Import übernommen oder manuell in
 /// der Info-Ansicht eines Assets gesetzt (siehe [AssetInfoSheet]).
@@ -49,6 +58,9 @@ class _MapScreenState extends State<MapScreen> {
   FlutterEarthGlobeController? _globeController;
   bool _globePointsSynced = false;
   double? _lastGroupedZoomBucket;
+
+  /// Aktuelle Globus-Zoomstufe – nur für den Hinweis oben.
+  double _globusZoom = 0;
 
   // Zuletzt genutzte flache Kartenansicht (Hell/Dunkel) – Ziel, wenn man
   // vom Globus über einen Pin "auf die Karte springt" (siehe
@@ -151,7 +163,7 @@ class _MapScreenState extends State<MapScreen> {
 
   FlutterEarthGlobeController _ensureGlobeController() {
     return _globeController ??= FlutterEarthGlobeController(
-      surface: const AssetImage('assets/globe/2k_earth_daymap.jpg'),
+      surface: const AssetImage('assets/globe/8k_earth_daymap.jpg'),
       background: const AssetImage('assets/globe/2k_stars_milky_way.jpg'),
       isRotating: false,
       // 0 statt des Standards 1 – der gerenderte Radius ist
@@ -163,9 +175,23 @@ class _MapScreenState extends State<MapScreen> {
       // innerhalb einer Stadt lassen sich erst bei starkem Reinzoomen
       // auseinanderhalten (siehe _gridDegreesForZoom). Straßen-/Gebäude-
       // Detailgrad zeigt aber selbst dieser Zoom nicht – die Erdtextur ist
-      // ein einzelnes, niedrig aufgelöstes (2048×1024px) Bild ohne
-      // Kachel-Nachladen wie bei der flachen Karte; dafür bleibt die
-      // Hell/Dunkel-Kartenansicht (echte OSM-Kacheln) die richtige Wahl.
+      // ein einzelnes Bild ohne Kachel-Nachladen wie bei der flachen
+      // Karte; dafür bleibt die Hell/Dunkel-Kartenansicht (echte
+      // OSM-Kacheln) die richtige Wahl.
+      //
+      // Die Textur ist 8192×4096 statt vormals 2048×1024. Gemessen auf
+      // echter GPU (Laplace-Schärfe der Bildmitte über den Alpen, weil
+      // 0°/0° auf offenen Atlantik zeigt und dort jede Auflösung gleich
+      // strukturlos ist):
+      //
+      //   Zoom      0      1      2      3      4      6
+      //   2K      316    186     94     84     72    4,6
+      //   8K      596    307    174    200    182   11,0
+      //
+      // Also rund doppelt so scharf auf jeder Stufe. Ab [zoomHinweisAb]
+      // bringt weiteres Heranzoomen trotzdem nichts mehr an Detail –
+      // darauf weist die Ansicht dann hin, statt es den Nutzer selbst
+      // herausfinden zu lassen.
       maxZoom: 6,
     );
   }
@@ -218,8 +244,18 @@ class _MapScreenState extends State<MapScreen> {
     // einer laufenden Zoomgeste – sonst würde bei jedem Pixel Scroll-Delta
     // die komplette Punktliste neu aufgebaut.
     final bucket = zoom.roundToDouble();
-    if (bucket == _lastGroupedZoomBucket) return;
+    if (bucket == _lastGroupedZoomBucket) {
+      // Der Hinweis hängt an derselben gerundeten Stufe: Ohne diese
+      // Rückkehr bliebe er beim Feinzoom innerhalb einer Stufe stehen,
+      // mit einem setState je Einzelbild.
+      return;
+    }
     _lastGroupedZoomBucket = bucket;
+    if ((bucket >= zoomHinweisAb) != (_globusZoom >= zoomHinweisAb)) {
+      setState(() => _globusZoom = bucket);
+    } else {
+      _globusZoom = bucket;
+    }
     _syncGlobePoints(zoom: bucket);
   }
 
@@ -234,6 +270,29 @@ class _MapScreenState extends State<MapScreen> {
         _pendingFlatFocus = null;
         _pendingFlatZoom = null;
         _flacherZoom = _standardZoom;
+        // Sonst stünde der Zoomhinweis beim nächsten Öffnen des Globus
+        // sofort da, obwohl der wieder bei Stufe 0 beginnt.
+        _globusZoom = 0;
+        _lastGroupedZoomBucket = null;
+        // Den Globus-Regler loslassen, sobald die Ansicht verlassen wird.
+        //
+        // Die Erdtextur ist 8192×4096 und damit dekodiert 134 MB. Flutters
+        // Bildspeicher fasst 105 MB, sie passt also nicht hinein –
+        // gemessen: „0 Bilder gehalten". Behalten wird sie trotzdem,
+        // nämlich von diesem Regler, und der lag bisher bis zum
+        // Programmende herum. Dazu legt die Bibliothek in `loadSurface`
+        // unbedingt eine zweite Kopie als Uint32List an (für ihren
+        // CPU-Zeichenweg, den der Desktop gar nicht nimmt) – zusammen rund
+        // 268 MB, dauerhaft, nach einem einzigen Blick auf den Globus.
+        //
+        // Kein `dispose()`: Den internen AnimationController räumt
+        // `RotatingGlobeState.dispose()` bereits ab, ein zweiter Aufruf
+        // führte reproduzierbar zu „disposed more than once". Die Referenz
+        // fallen zu lassen genügt.
+        //
+        // Preis: Beim nächsten Öffnen wird die Textur neu dekodiert.
+        _globeController = null;
+        _globePointsSynced = false;
       }
     });
     if (mode == _MapViewMode.globe && !_globePointsSynced) {
@@ -331,6 +390,41 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
           ),
+          // Der Hinweis steht oben und nicht unten: Unten sitzt schon der
+          // Texturnachweis, und beim Zoomen schaut man auf die Mitte.
+          if (_globusZoom >= zoomHinweisAb)
+            Positioned(
+              left: 8,
+              right: 8,
+              top: 8,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          AppTexte.of(context).karteGlobusZoomHinweis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             left: 8,
             bottom: 8,

@@ -68,6 +68,26 @@ class ImageConverterChannel: NSObject {
                         }
                     }
                 }
+            case "cameraMetadata":
+                // Aufnahmewerte fuer Dateien, aus denen package:exif nichts
+                // herausbekommt. Anlass war CR3: Canons neueres RAW-Format
+                // ist ein ISO-BMFF-Container (wie MP4), kein TIFF - und
+                // package:exif kann nur TIFF/JPEG. Gemessen kamen dort NULL
+                // Tags heraus, womit weder Kamera noch Objektiv noch das
+                // Aufnahmedatum ankamen; das Datum fiel auf den Zeitstempel
+                // der Datei zurueck und sortierte die Fotos in den falschen
+                // Monat. ImageIO liest denselben Container problemlos.
+                guard
+                    let args = call.arguments as? [String: Any],
+                    let path = args["path"] as? String
+                else {
+                    result(FlutterError(code: "bad_args", message: "path fehlt", details: nil))
+                    return
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let werte = cameraMetadata(path: path)
+                    DispatchQueue.main.async { result(werte) }
+                }
             case "lensCorrectionStatus":
                 // Sagt für EINE Datei, was der Objektivkorrektur-Schalter im
                 // Entwickeln-Bildschirm tatsächlich bewirken würde. Vorher
@@ -343,6 +363,66 @@ class ImageConverterChannel: NSObject {
     ///   greift auch die übrige RAW-Entwicklung nicht, und der Nutzer sollte
     ///   das erfahren, statt sich über wirkungslose Regler zu wundern.
     @available(macOS 12.0, *)
+    /// Aufnahmewerte ueber ImageIO – derselbe Weg, den auch der Finder
+    /// und Fotos.app nehmen. Liefert eine Map fuer den Method-Channel;
+    /// fehlende Werte fehlen schlicht, statt als 0 dazustehen.
+    ///
+    /// Zur ISO-Zeile: Kanonisch waere `ISOSpeedRatings`, doch Canon-CR3
+    /// legt den Wert unter `ISOSpeed` ab. Beide zu lesen kostet eine Zeile
+    /// und war an einer echten Datei noetig – mit nur dem kanonischen
+    /// Schluessel kam ISO nicht an.
+    private static func cameraMetadata(path: String) -> [String: Any]? {
+        let url = URL(fileURLWithPath: path)
+        guard
+            let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+            let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [String: Any]
+        else { return nil }
+
+        let tiff = props[kCGImagePropertyTIFFDictionary as String] as? [String: Any] ?? [:]
+        let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] ?? [:]
+        let aux = props[kCGImagePropertyExifAuxDictionary as String] as? [String: Any] ?? [:]
+
+        var werte: [String: Any] = [:]
+        func text(_ schluessel: String, _ quellen: [[String: Any]]) {
+            for q in quellen {
+                if let v = q[schluessel] as? String, !v.trimmingCharacters(in: .whitespaces).isEmpty {
+                    werte[schluessel] = v
+                    return
+                }
+            }
+        }
+        func zahl(_ ziel: String, _ schluessel: [String], _ quellen: [[String: Any]]) {
+            for k in schluessel {
+                for q in quellen {
+                    if let v = q[k] as? NSNumber {
+                        werte[ziel] = v.doubleValue
+                        return
+                    }
+                    // ISOSpeedRatings steht als Feld da, nicht als Einzelwert.
+                    if let a = q[k] as? [NSNumber], let erste = a.first {
+                        werte[ziel] = erste.doubleValue
+                        return
+                    }
+                }
+            }
+        }
+
+        text("Make", [tiff])
+        text("Model", [tiff])
+        text("LensModel", [exif, aux])
+        zahl("FocalLength", ["FocalLength"], [exif])
+        zahl("FocalLenIn35mmFilm", ["FocalLenIn35mmFilm"], [exif])
+        zahl("FNumber", ["FNumber"], [exif])
+        zahl("ISO", ["ISOSpeedRatings", "ISOSpeed"], [exif, aux])
+        zahl("ExposureTime", ["ExposureTime"], [exif])
+        zahl("ExposureBiasValue", ["ExposureBiasValue"], [exif])
+        text("DateTimeOriginal", [exif])
+        if werte["DateTimeOriginal"] == nil, let d = exif["DateTimeDigitized"] as? String {
+            werte["DateTimeOriginal"] = d
+        }
+        return werte.isEmpty ? nil : werte
+    }
+
     private static func lensCorrectionStatus(path: String) -> String {
         let url = URL(fileURLWithPath: path)
         guard rawExtensions.contains(url.pathExtension.lowercased()) else {

@@ -1862,5 +1862,13 @@
   "modellOcrTitel": "Text recognition (PaddleOCR)",
   "modellOcrText": "Finds text in photos and reads it – two models, 13.7 MB together. Covers the Latin alphabet including umlauts and ß. Not needed on macOS: Apple's Vision framework does it there without a download.",
   "modellOcrLizenz": "Apache 2.0 (PaddleOCR)",
-  "aufgOcrModell": "the text recognition model"
+  "aufgOcrModell": "the text recognition model",
+  "werkzDatumTitel": "Read capture date from RAW photos",
+  "werkzDatumText": "Reads date, camera and lens straight from RAW files. Needed for formats such as Canon's CR3, which yielded nothing on import – those photos carry the file's timestamp instead of the capture time.",
+  "werkzDatumFrageTitel": "Correct the capture date?",
+  "werkzDatumFrage": "Photos whose capture date came from the file timestamp will get the real date from the RAW file. They move to the right place in the timeline and calendar, and on disk into the matching month folder.\n\nThe photos themselves are not modified. The run cannot be undone.",
+  "werkzDatumStarten": "Correct",
+  "werkzKorrigiereDatum": "Reading capture data from RAW photos …",
+  "werkzKeineRawFotos": "No RAW photos in the library.",
+  "karteGlobusZoomHinweis": "Zooming in further shows no extra detail – the Earth texture is a single image. Tap a pin to switch to the map at that spot."
 }

@@ -27,6 +27,7 @@ import '../services/face_engine_service.dart';
 import '../services/face_postprocess.dart';
 import '../services/geo_data_download_service.dart';
 import '../services/import_service.dart';
+import '../services/raw_formats.dart';
 import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
@@ -1384,6 +1385,86 @@ class LibraryState extends ChangeNotifier {
       }
       done++;
       yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+    }
+  }
+
+  /// Trägt Aufnahmedatum, Kamera und Objektiv für RAW-Fotos nach, deren
+  /// Metadaten beim Import nicht gelesen werden konnten – und verschiebt
+  /// die Datei, wenn sich dadurch der Monat ändert.
+  ///
+  /// Anlass: `package:exif` liest nur TIFF/JPEG. Bei CR3 (ISO-BMFF, wie
+  /// MP4) kamen NULL Tags heraus, und der Import fiel für das Datum auf
+  /// den Zeitstempel der Quelldatei zurück. Das ist der teurere Schaden:
+  /// In einer Bibliothek mit 909 CR3-Dateien lagen 891 Daten falsch, 517
+  /// davon im falschen Monat und 236 im falschen Jahr.
+  ///
+  /// Reihenfolge beim Verschieben: erst die Datei umhängen, dann die
+  /// Datenbank. Scheitert die Datenbank, wird die Datei zurückgelegt.
+  /// Andersherum zeigte die Datenbank auf einen Pfad, den es noch nicht
+  /// gibt.
+  Stream<ImportProgress> korrigiereAufnahmedaten() async* {
+    final alle = await db.assetsFuerDatumskorrektur();
+    // Nur RAW: Bei JPEG gab es den Rückfall auf den Dateizeitstempel nie,
+    // dort kam das Datum immer aus den EXIF-Daten oder gar nicht.
+    final kandidaten = [
+      for (final a in alle)
+        if (rawImageExtensions.contains(p.extension(a.relativePath).toLowerCase())) a,
+    ];
+    var done = 0;
+    yield ImportProgress(0, kandidaten.length);
+    for (final asset in kandidaten) {
+      final datei = paths.absolute(asset.relativePath);
+      if (await datei.exists()) {
+        final daten = await importService.readAufnahmedaten(datei);
+        if (!daten.kamera.isEmpty) {
+          await db.setCameraMetadata(asset.id, daten.kamera);
+          await applyCameraPreset(asset.id,
+              cameraMake: daten.kamera.make, cameraModel: daten.kamera.model);
+        }
+        final neu = daten.zeitpunkt;
+        // Eine Minute Spielraum: Sekundenbruchteile und Rundungen der
+        // verschiedenen Wege sollen keine Verschiebung auslösen.
+        if (neu != null &&
+            neu.difference(asset.fileCreatedAt).abs() > const Duration(minutes: 1)) {
+          await _datumUmschreiben(asset, neu);
+        }
+      }
+      done++;
+      yield ImportProgress(done, kandidaten.length,
+          currentFile: asset.originalFileName);
+    }
+  }
+
+  Future<void> _datumUmschreiben(AssetData asset, DateTime neu) async {
+    final alterPfad = asset.relativePath;
+    final neuerPfad = paths.originalRelativePath(
+        neu, asset.id, p.extension(alterPfad).toLowerCase());
+    if (neuerPfad == alterPfad) {
+      await db.setAufnahmezeitpunkt(asset.id, neu);
+      return;
+    }
+    final quelle = paths.absolute(alterPfad);
+    final ziel = paths.absolute(neuerPfad);
+    try {
+      await ziel.parent.create(recursive: true);
+      await quelle.rename(ziel.path);
+    } on FileSystemException catch (e) {
+      debugPrint('Datumskorrektur: ${asset.id} nicht verschiebbar: $e');
+      // Das Datum trotzdem richtigstellen – ein falsch einsortierter
+      // Ordner ist das kleinere Übel gegenüber einem falschen Datum in
+      // Zeitleiste, Kalender und Suche.
+      await db.setAufnahmezeitpunkt(asset.id, neu);
+      return;
+    }
+    try {
+      await db.setAufnahmezeitpunkt(asset.id, neu, neuerPfad: neuerPfad);
+    } catch (e) {
+      // Zurücklegen, sonst zeigt die Datenbank auf eine Datei, die dort
+      // nicht mehr liegt.
+      try {
+        await ziel.rename(quelle.path);
+      } catch (_) {}
+      rethrow;
     }
   }
 

@@ -108,6 +108,45 @@ void main() {
     }, skip: !vorlage.existsSync() ? 'Vorlage fehlt' : null);
   });
 
+  group('Aufnahmewerte aus RAW', () {
+    /// Genau die Datei, an der der Fehler auffiel: eine Canon EOS R10 im
+    /// CR3-Format. CC0 von raw.pixls.us, geholt von
+    /// `tool/fetch_format_samples.sh`.
+    ///
+    /// Warum nicht die DNG-Probe von oben: DNG ist TIFF-basiert, dort hat
+    /// `package:exif` immer gelesen. CR3 ist ein ISO-BMFF-Container wie
+    /// MP4 – erst dort liefert es NULL Tags, und erst dort wird
+    /// `raw-identify` gebraucht.
+    final vorlage = File(p.join('test', 'fixtures', 'samples', 'canon_eos_r10.cr3'));
+
+    test('raw-identify liefert Kamera, Objektiv und Aufnahmezeitpunkt', () async {
+      if (await hole('raw-identify') == null) return;
+      final quelle = File(p.join(temp.path, 'aufnahme.cr3'));
+      quelle.writeAsBytesSync(vorlage.readAsBytesSync());
+
+      final d = await DesktopImageTools.leseAufnahmedaten(quelle);
+
+      // Dieselben Werte, die ImageIO auf macOS aus derselben Datei liest –
+      // gegeneinander gehalten, damit die Bibliothek nicht davon abhängt,
+      // auf welchem System importiert wurde.
+      expect(d.kamera.model, 'Canon EOS R10');
+      expect(d.kamera.make, 'Canon');
+      expect(d.kamera.lensModel, 'EF50mm f/1.8 STM');
+      expect(d.kamera.iso, 1600);
+      expect(d.kamera.fNumber, closeTo(1.8, 0.001));
+      expect(d.kamera.focalLengthMm, closeTo(50.0, 0.001));
+      expect(d.zeitpunkt, DateTime(2022, 8, 19, 19, 19, 28));
+    }, skip: !vorlage.existsSync()
+        ? 'test/fixtures/samples/canon_eos_r10.cr3 fehlt – tool/fetch_format_samples.sh'
+        : null);
+
+    test('fehlt das Werkzeug, kommt Leeres zurück statt einer Ausnahme', () async {
+      final unbekannt = File(p.join(temp.path, 'gibtsnicht.cr3'));
+      final d = await DesktopImageTools.leseAufnahmedaten(unbekannt);
+      expect(d.isEmpty, isTrue);
+    });
+  });
+
   group('RAW', () {
     /// Eine echte Kameradatei, nicht im Repository.
     ///

@@ -310,6 +310,37 @@ class _ToolsScreenState extends State<ToolsScreen> {
     );
   }
 
+  Future<void> _runDatumskorrektur() async {
+    // Nachfragen, weil dieser Lauf Nutzerdaten anfasst: Er schreibt
+    // Aufnahmedaten um und verschiebt Dateien auf der Platte. Alle anderen
+    // Nachtrage-Läufe ergänzen nur Fehlendes.
+    final los = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppTexte.of(context).werkzDatumFrageTitel),
+        content: Text(AppTexte.of(context).werkzDatumFrage),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(AppTexte.of(context).werkzDatumStarten),
+          ),
+        ],
+      ),
+    );
+    if (los != true || !mounted) return;
+
+    final t = AppTexte.of(context);
+    await _zeigeFortschritt(
+      titel: t.werkzKorrigiereDatum,
+      wennLeer: t.werkzKeineRawFotos,
+      schluessel: 'aufnahmedatum',
+      lauf: widget.library.korrigiereAufnahmedaten(),
+    );
+  }
+
   Future<void> _runXmpSidecarExport() async {
     final t = AppTexte.of(context);
     await _zeigeFortschritt(
@@ -539,6 +570,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _runCameraMetadataBackfill,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.event_repeat_outlined),
+                  title: Text(t.werkzDatumTitel),
+                  subtitle: Text(t.werkzDatumText),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _runDatumskorrektur,
                 ),
                 const Divider(height: 1),
                 ListTile(

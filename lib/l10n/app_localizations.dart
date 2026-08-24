@@ -7919,6 +7919,54 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'das Texterkennungs-Modell'**
   String get aufgOcrModell;
+
+  /// No description provided for @werkzDatumTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmedatum aus RAW-Fotos nachtragen'**
+  String get werkzDatumTitel;
+
+  /// No description provided for @werkzDatumText.
+  ///
+  /// In de, this message translates to:
+  /// **'Liest Datum, Kamera und Objektiv direkt aus RAW-Dateien. Nötig für Formate wie Canons CR3, aus denen beim Import nichts gelesen werden konnte – deren Fotos tragen das Datum der Datei statt der Aufnahme.'**
+  String get werkzDatumText;
+
+  /// No description provided for @werkzDatumFrageTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmedatum richtigstellen?'**
+  String get werkzDatumFrageTitel;
+
+  /// No description provided for @werkzDatumFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos, deren Aufnahmedatum bisher vom Dateizeitstempel stammte, bekommen das echte Datum aus der RAW-Datei. Sie rücken damit in der Zeitleiste und im Kalender an die richtige Stelle und werden auf der Festplatte in den passenden Monatsordner verschoben.\n\nDie Fotos selbst werden nicht verändert. Rückgängig machen lässt sich der Lauf nicht.'**
+  String get werkzDatumFrage;
+
+  /// No description provided for @werkzDatumStarten.
+  ///
+  /// In de, this message translates to:
+  /// **'Richtigstellen'**
+  String get werkzDatumStarten;
+
+  /// No description provided for @werkzKorrigiereDatum.
+  ///
+  /// In de, this message translates to:
+  /// **'Lese Aufnahmedaten aus RAW-Fotos …'**
+  String get werkzKorrigiereDatum;
+
+  /// No description provided for @werkzKeineRawFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine RAW-Fotos in der Bibliothek.'**
+  String get werkzKeineRawFotos;
+
+  /// No description provided for @karteGlobusZoomHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln.'**
+  String get karteGlobusZoomHinweis;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../raw_identify_parser.dart';
+
 /// Die Bildfähigkeiten für alle Plattformen ohne Apples ImageIO – also
 /// Linux und Windows.
 ///
@@ -39,6 +41,7 @@ class DesktopImageTools {
   static const werkzeuge = <String, String>{
     'heif-dec': 'HEIC/HEIF-Fotos (Linux: Paket libheif-examples)',
     'dcraw_emu': 'RAW-Fotos (Linux: Paket libraw-bin)',
+    'raw-identify': 'Kamera/Objektiv aus RAW-Fotos (Linux: Paket libraw-bin)',
     'ffmpeg': 'Video-Vorschaubilder und Videoschnitt',
     'ffprobe': 'Videolänge (Teil von ffmpeg)',
   };
@@ -73,6 +76,29 @@ class DesktopImageTools {
   /// auspackte. Betrifft Linux genauso; unter macOS fällt es nicht auf,
   /// weil ImageIO AVIF selbst kann.
   static const libheifEndungen = {'.heic', '.heif', '.avif', '.avifs'};
+
+  /// Liest Kamera, Objektiv, Aufnahmewerte und Aufnahmezeitpunkt aus einer
+  /// RAW-Datei über `raw-identify` (LibRaw).
+  ///
+  /// Gebraucht wird das, weil `package:exif` nur TIFF/JPEG kann. Canons
+  /// CR3 ist ein ISO-BMFF-Container wie MP4 – dort kamen gemessen NULL
+  /// Tags heraus, und damit fehlten Kamera, Objektiv UND das
+  /// Aufnahmedatum. `raw-identify` gehört zu demselben Paket wie
+  /// `dcraw_emu`, war aus dem Flatpak aber ausdrücklich wegaufgeräumt.
+  ///
+  /// Gibt [Aufnahmedaten.leer] zurück, wenn das Werkzeug fehlt oder die
+  /// Datei nichts hergibt – nie eine Ausnahme.
+  static Future<Aufnahmedaten> leseAufnahmedaten(File datei) async {
+    final pfad = await aufruf('raw-identify');
+    if (pfad == null) return Aufnahmedaten.leer;
+    try {
+      final ergebnis = await Process.run(pfad, ['-v', datei.path]);
+      if (ergebnis.exitCode != 0) return Aufnahmedaten.leer;
+      return parseRawIdentify(ergebnis.stdout as String);
+    } on ProcessException {
+      return Aufnahmedaten.leer;
+    }
+  }
 
   /// Verwirft das gemerkte Ergebnis – für Tests und für den Fall, dass
   /// jemand ein Werkzeug nachinstalliert, ohne die App neu zu starten.

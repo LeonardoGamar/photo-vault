@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.3" date="2026-08-24">
+      <description>
+        <p>Canon CR3 photos now show camera, lens and — more importantly — the right capture date.</p>
+        <p>CR3 is an ISO-BMFF container, not TIFF, and the usual EXIF library reads nothing from it. Camera and lens stayed empty, and the capture date fell back to the file timestamp: in a library of 909 CR3 photos, 891 dates were wrong, 517 of them in the wrong month. Tools now offers a run that reads the real values straight from the RAW file and files the photos where they belong.</p>
+        <p>The 3D globe uses a texture four times as wide. Beyond zoom level 3 it now says so instead of letting you find out.</p>
+        <p xml:lang="de">Canon-CR3-Fotos zeigen wieder Kamera, Objektiv – und vor allem das richtige Aufnahmedatum.</p>
+        <p xml:lang="de">CR3 ist ein ISO-BMFF-Container, kein TIFF; die übliche EXIF-Bibliothek liest daraus nichts. Kamera und Objektiv blieben leer, und das Aufnahmedatum fiel auf den Zeitstempel der Datei zurück: In einer Bibliothek mit 909 CR3-Fotos lagen 891 Daten falsch, 517 davon im falschen Monat. Die Werkzeuge bieten jetzt einen Lauf an, der die echten Werte direkt aus der RAW-Datei liest und die Fotos dorthin einsortiert, wo sie hingehören.</p>
+        <p xml:lang="de">Der 3D-Globus nutzt eine viermal so breite Textur. Ab Zoomstufe 3 sagt er jetzt, dass mehr nicht kommt, statt es einen selbst herausfinden zu lassen.</p>
+      </description>
+    </release>
     <release version="1.9.2" date="2026-08-24">
       <description>
         <p>Model downloads now resume instead of starting over.</p>

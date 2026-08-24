@@ -23,6 +23,11 @@ ZIEL="$WURZEL/test/fixtures/samples"
 # Name | Quelle | SHA-256
 PROBEN=(
   "iphone_6s_plus.dng|https://raw.pixls.us/data/Apple/iPhone%206s%20Plus/IMG_0853.DNG|845fee4f09c832af3728778737f5ae9b99124debb821b6e2066b94aed1daa91c"
+  # CR3 ist der Grund, warum es die Metadatenlesung ueber raw-identify
+  # ueberhaupt gibt: Es ist ein ISO-BMFF-Container wie MP4, kein TIFF, und
+  # package:exif liest dort NULL Tags. Eine DNG-Probe kann das nicht
+  # abdecken - DNG ist TIFF-basiert und funktionierte immer.
+  "canon_eos_r10.cr3|https://raw.pixls.us/getfile.php/5871/nice/Canon%20-%20EOS%20R10%20-%203%3A2.CR3|5d2e076d38e7835d4c4f13dc2030a913cc573a31d7199b60777d23a25ccc3ef9"
 )
 
 pruefsumme() {

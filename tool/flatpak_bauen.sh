@@ -78,6 +78,18 @@ titel "Flutter-Bündel bauen"
 ( cd "$WURZEL" && flutter build linux --release ) || exit 1
 BUENDEL="$WURZEL/build/linux/x64/release/bundle"
 [ -x "$BUENDEL/photo_vault" ] || { fehler "kein Bündel unter $BUENDEL"; exit 1; }
+
+# kernel_blob.bin ist der JIT-Schnappschuss eines Debug-Baus. In einem
+# Release-Bündel hat er nichts zu suchen – dort rechnet libapp.so, und
+# zwar vorübersetzt. Flutter räumt flutter_assets aber nicht auf: Lag dort
+# einmal ein Debug-Bau, bleibt die Datei liegen und wandert mit ins Paket.
+# Gemessen: 72 MB, die das Bündel von 23 auf 40 MB aufgebläht haben, ohne
+# dass sie je ausgeführt worden wären.
+if [ -f "$BUENDEL/data/flutter_assets/kernel_blob.bin" ]; then
+  fehler "kernel_blob.bin im Release-Bündel – Reste eines Debug-Baus."
+  printf '        Erst aufräumen, dann erneut:  flutter clean\n'
+  exit 1
+fi
 gut "$(du -sh "$BUENDEL" | cut -f1) unter build/linux/x64/release/bundle"
 
 titel "Baupfade aus den Bibliotheken entfernen"
@@ -179,6 +191,9 @@ if [ "$pruefen" -eq 1 ]; then
   }
   laeuft heif-dec heif-dec --version
   laeuft dcraw_emu dcraw_emu
+  # Ohne raw-identify bleiben Kamera, Objektiv und Aufnahmedatum von
+  # RAW-Dateien leer, deren Format package:exif nicht kennt (CR3).
+  laeuft raw-identify raw-identify
   laeuft ffmpeg ffmpeg -hide_banner -version
   laeuft ffprobe ffprobe -hide_banner -version
   laeuft zenity zenity --version

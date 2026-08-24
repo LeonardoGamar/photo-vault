@@ -12,7 +12,7 @@
 # libheif kommt nicht als Download, sondern wird gebaut - siehe
 # tool\windows_libheif.sh und die Begruendung dort.
 [CmdletBinding()]
-param([string]$Ziel = "$PSScriptRoot\..\build\windows\werkzeuge")
+param([string]$Ziel)
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'   # sonst kostet die Fortschrittsanzeige mehr Zeit als der Download
@@ -37,6 +37,17 @@ function Titel($t) { Write-Host ""; Write-Host $t; Write-Host ('-' * $t.Length) 
 function Gut($t)   { Write-Host "  [ok] $t" -ForegroundColor Green }
 function Schlecht($t) { Write-Host "  [!!] $t" -ForegroundColor Red }
 
+# Erst hier aufloesen, nicht in der param()-Zeile: Dort ist
+# $PSScriptRoot LEER. Gemessen auf der Testmaschine:
+#
+#   param-Default : [\..\build\windows\werkzeuge]
+#   PSScriptRoot  : [C:\Users\...\photo_vault\tool]   (im Rumpf richtig)
+#   aufgeloest    : [C:\build\windows\werkzeuge]
+#
+# Das Skript hat seine Werkzeuge also ins Wurzelverzeichnis der Platte
+# geschrieben statt ins Projekt - und dabei jedes Mal "[ok]" gemeldet.
+# Ins Paket kam, was vom allerersten Lauf zufaellig im Projektordner lag.
+if (-not $Ziel) { $Ziel = Join-Path $PSScriptRoot '..\build\windows\werkzeuge' }
 $Ziel = [System.IO.Path]::GetFullPath($Ziel)
 # Leeren, nicht ergaenzen. Ein Werkzeug aus einem frueheren, halb
 # gescheiterten Lauf bliebe sonst liegen und wanderte ins Paket - und
@@ -92,12 +103,30 @@ Expand-Archive (Join-Path $Zwischen 'ffmpeg-lgpl-shared.zip') $ffmpeg
 # dcraw_emu braucht genau eine DLL, ffmpeg bringt seine eigenen mit.
 Copy-Item (Get-ChildItem $libraw -Recurse -Filter 'dcraw_emu.exe').FullName $Ziel -Force
 Copy-Item (Get-ChildItem $libraw -Recurse -Filter 'libraw.dll').FullName $Ziel -Force
-Gut "dcraw_emu.exe + libraw.dll"
+# raw-identify liest Kamera, Objektiv und Aufnahmezeitpunkt aus RAW-Dateien.
+# package:exif kann nur TIFF/JPEG - bei Canons CR3 (ISO-BMFF-Container wie
+# MP4) kamen NULL Tags heraus, und das Aufnahmedatum fiel auf den
+# Zeitstempel der Datei zurueck. Es liegt im selben Archiv wie dcraw_emu
+# und braucht dieselbe DLL, kostet also nur diese Zeile.
+Copy-Item (Get-ChildItem $libraw -Recurse -Filter 'raw-identify.exe').FullName $Ziel -Force
+Gut "dcraw_emu.exe + raw-identify.exe + libraw.dll"
+
+# Nachsehen statt behaupten. Die Meldung oben stand hier auch dann, wenn
+# nichts angekommen war - so ist der falsche Zielordner monatelang nicht
+# aufgefallen.
+function Belegt($name) {
+  if (-not (Test-Path (Join-Path $Ziel $name))) {
+    Schlecht "$name ist nicht in $Ziel angekommen"
+    exit 1
+  }
+}
+foreach ($n in 'dcraw_emu.exe', 'raw-identify.exe', 'libraw.dll') { Belegt $n }
 
 foreach ($n in 'ffmpeg.exe', 'ffprobe.exe') {
   Copy-Item (Get-ChildItem $ffmpeg -Recurse -Filter $n | Select-Object -First 1).FullName $Ziel -Force
 }
 Get-ChildItem $ffmpeg -Recurse -Filter '*.dll' | ForEach-Object { Copy-Item $_.FullName $Ziel -Force }
+foreach ($n in 'ffmpeg.exe', 'ffprobe.exe') { Belegt $n }
 Gut "ffmpeg.exe, ffprobe.exe samt DLLs"
 
 Titel "libheif bauen"

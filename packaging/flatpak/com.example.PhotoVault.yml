@@ -154,6 +154,15 @@ modules:
     # neu gegen /app/lib und legt es richtig ab.
     post-install:
       - ./libtool --mode=install /usr/bin/install -m755 bin/dcraw_emu /app/bin/dcraw_emu
+      # raw-identify liest Kamera, Objektiv und Aufnahmezeitpunkt aus
+      # RAW-Dateien. Gebraucht wird es, weil package:exif nur TIFF/JPEG
+      # kann: Canons CR3 ist ein ISO-BMFF-Container wie MP4 und liefert
+      # dort NULL Tags - weder Kamera noch Objektiv noch das Datum kamen
+      # an, und das Datum fiel auf den Zeitstempel der Datei zurueck.
+      # Stand vorher in der Aufraeumliste unten, zusammen mit den echten
+      # Messprogrammen. Das war fuer alle anderen richtig und fuer dieses
+      # eine falsch.
+      - ./libtool --mode=install /usr/bin/install -m755 bin/raw-identify /app/bin/raw-identify
     # LibRaw legt bei `make install` seine sämtlichen Beispiel- und
     # Messprogramme ab. Ein Fotoverwalter, der einen
     # postprocessing_benchmark mitliefert, hat schlicht nicht aufgeräumt.
@@ -164,7 +173,6 @@ modules:
       - /bin/mem_image
       - /bin/multirender_test
       - /bin/postprocessing_benchmark
-      - /bin/raw-identify
       - /bin/rawtextdump
       - /bin/simple_dcraw
       - /bin/unprocessed_raw
