@@ -96,6 +96,23 @@ foreach ($dll in 'onnxruntime.dll', 'libmpv-2.dll', 'flutter_windows.dll') {
   }
 }
 
+# Der Ortungshelfer liegt NEBEN photo_vault.exe, nicht in tools\ - dort
+# sucht DesktopImageTools zuerst. Geprueft wird, dass er startet und eine
+# Zeile JSON ausgibt, nicht dass diese Maschine gerade eine Position hat:
+# Ohne WLAN oder mit abgeschalteter Ortung ist {"fehler":...} die richtige
+# Antwort, und das ist keine Frage der Paketierung.
+if (Test-Path "$Paket\pv_standort.exe") {
+  $ortAus = & "$Paket\pv_standort.exe" 2>&1 | Out-String
+  if ($ortAus -match '^\s*\{.*\}\s*$') {
+    $quelle = if ($ortAus -match '"quelle":"([^"]+)"') { $Matches[1] } else { 'kein Ort' }
+    Gut ("pv_standort.exe laeuft ({0})" -f $quelle)
+  } else {
+    Schlecht ("pv_standort.exe: unerwartete Ausgabe: {0}" -f ($ortAus -split "`n")[0])
+  }
+} else {
+  Schlecht "pv_standort.exe fehlt im Paket (Standortknopf faellt aus)"
+}
+
 if ($Pruefen) {
   Titel "Werkzeuge - ohne den PATH dieses Rechners"
   # Der wichtigste Handgriff dieser Pruefung. Mit dem eigenen PATH faende

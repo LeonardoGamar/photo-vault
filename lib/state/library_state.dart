@@ -20,6 +20,7 @@ import '../services/blur_detection.dart';
 import '../services/florence_captioning_service.dart';
 import '../services/clip_service.dart';
 import '../services/develop_color.dart';
+import '../services/speicher_rueckgabe.dart';
 import '../services/translation_service.dart';
 import '../services/embedding_codec.dart';
 import '../services/eye_state_service.dart';
@@ -485,13 +486,26 @@ class LibraryState extends ChangeNotifier {
   /// Benutzung sind (siehe ModellHalter.freigebenWennUnbenutzt) – regelmäßig
   /// per Timer aufgerufen, siehe [initialize].
   Future<void> _sweepIdleModels() async {
+    var etwasFreigegeben = false;
     for (final halter in _alleHalter) {
-      await halter.freigebenWennUnbenutzt();
+      if (await halter.freigebenWennUnbenutzt()) etwasFreigegeben = true;
     }
     for (final halter in _retiredHalters) {
-      await halter.freigebenWennUnbenutzt();
+      if (await halter.freigebenWennUnbenutzt()) etwasFreigegeben = true;
     }
     _retiredHalters.removeWhere((h) => !h.istGeladen && !h.laedtGerade);
+
+    // Eine geschlossene ONNX-Sitzung gibt ihren Speicher an die
+    // C-Bibliothek zurück – die behält ihn aber. Gemessen auf einer
+    // Linux-Instanz nach längerer Modellarbeit: 2,4 GB belegt, davon
+    // 1,5 GB liegengebliebener Heap; ein `malloc_trim(0)` gab davon
+    // 692 MB ans System zurück (siehe [SpeicherRueckgabe]).
+    //
+    // Bewusst nur nach einer tatsächlichen Freigabe und nicht bei jedem
+    // Durchlauf: Der Aufruf geht alle Arenen durch, und während eines
+    // laufenden Imports gäbe er Seiten zurück, die sofort wieder
+    // angefordert werden.
+    if (etwasFreigegeben) SpeicherRueckgabe.jetzt();
   }
 
   /// Wird nach einem Modell-Download/-Löschen in den Einstellungen
@@ -1432,6 +1446,51 @@ class LibraryState extends ChangeNotifier {
       done++;
       yield ImportProgress(done, kandidaten.length,
           currentFile: asset.originalFileName);
+    }
+  }
+
+  /// Holt Fotos aus dem Papierkorb zurück – und stellt dabei ihr
+  /// Aufnahmedatum richtig, falls es beim Import nicht gelesen werden
+  /// konnte.
+  ///
+  /// Warum hier und nicht in [AppDatabase.restoreFromTrash]: Das Datum
+  /// steht in der Datei, und die Datenbankschicht kennt keine Dateien.
+  ///
+  /// Warum überhaupt: [korrigiereAufnahmedaten] überspringt den
+  /// Papierkorb – dort stört ein falsches Datum niemanden, weil die Fotos
+  /// weder in der Zeitleiste noch im Kalender auftauchen. Beim
+  /// Zurückholen ändert sich das schlagartig: Ohne diesen Schritt käme
+  /// ein CR3-Foto mit dem Zeitstempel seiner Datei zurück und landete
+  /// wieder im falschen Monat. Gemessen an einer echten Bibliothek waren
+  /// das 36 von 36 der noch falsch datierten Fotos.
+  ///
+  /// Nur RAW-Dateien: Bei JPEG kam das Datum immer aus den EXIF-Daten,
+  /// dort gibt es nichts nachzuholen.
+  Future<void> ausPapierkorbHolen(List<String> assetIds) async {
+    // Erst zurückholen. Scheitert das Nachlesen danach, ist das Foto
+    // trotzdem wieder da – nur mit dem Datum, das es vorher hatte.
+    await db.restoreFromTrash(assetIds);
+
+    for (final id in assetIds) {
+      final asset = await db.assetById(id);
+      if (asset == null) continue;
+      final endung = p.extension(asset.relativePath).toLowerCase();
+      if (!rawImageExtensions.contains(endung)) continue;
+
+      final datei = paths.absolute(asset.relativePath);
+      if (!await datei.exists()) continue;
+      final daten = await importService.readAufnahmedaten(datei);
+
+      if (!daten.kamera.isEmpty && (asset.cameraModel ?? '').isEmpty) {
+        await db.setCameraMetadata(id, daten.kamera);
+        await applyCameraPreset(id,
+            cameraMake: daten.kamera.make, cameraModel: daten.kamera.model);
+      }
+      final neu = daten.zeitpunkt;
+      if (neu != null &&
+          neu.difference(asset.fileCreatedAt).abs() > const Duration(minutes: 1)) {
+        await _datumUmschreiben(asset, neu);
+      }
     }
   }
 

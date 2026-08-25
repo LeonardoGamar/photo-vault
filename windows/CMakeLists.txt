@@ -70,6 +70,11 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
+# Kleines Hilfsprogramm fuer die Standortabfrage (WinRT Geolocation).
+# Liegt neben der Anwendung und wird von DesktopImageTools aufgerufen -
+# siehe standort/pv_standort.cpp fuer die Begruendung.
+add_subdirectory("standort")
+
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
@@ -91,6 +96,10 @@ set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
+# Muss neben photo_vault.exe landen: Dort sucht DesktopImageTools zuerst.
+install(TARGETS pv_standort RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

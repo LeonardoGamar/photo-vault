@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -6,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 import '../raw_identify_parser.dart';
+import '../standort_parser.dart';
 
 /// Die Bildfähigkeiten für alle Plattformen ohne Apples ImageIO – also
 /// Linux und Windows.
@@ -97,6 +99,42 @@ class DesktopImageTools {
       return parseRawIdentify(ergebnis.stdout as String);
     } on ProcessException {
       return Aufnahmedaten.leer;
+    }
+  }
+
+  /// Der Ortungshelfer, der neben der Anwendung liegt.
+  ///
+  /// Bewusst **nicht** in [werkzeuge]: Diese Liste ist die gemeinsame
+  /// Werkzeugdiagnose für Linux und Windows. Den Helfer gibt es nur unter
+  /// Windows – in der Linux-Diagnose stünde er auf ewig als „fehlt", und
+  /// eine Prüfliste, die dauerhaft rot ist, liest irgendwann niemand mehr.
+  static const standortHelfer = 'pv_standort';
+
+  /// Der aktuelle Standort über Windows' eigene Ortung.
+  ///
+  /// `null` heisst „nicht zu ermitteln": kein Helfer, keine Erlaubnis,
+  /// keine Antwort – oder eine Antwort, der nicht zu trauen ist. Die
+  /// Beurteilung steckt in [parseStandort]; hier wird nur aufgerufen.
+  ///
+  /// Unter Linux gibt es das nicht. GeoClue wäre da, endet aber bei
+  /// beacondb, und das kannte im Test keinen einzigen Zugangspunkt der
+  /// Umgebung – siehe docs/ortung.md.
+  static Future<Ortung?> standort() async {
+    if (!Platform.isWindows) return null;
+    final pfad = await _findePfad(standortHelfer);
+    if (pfad == null) return null;
+    try {
+      // Der Helfer bricht nach zwölf Sekunden selbst ab; die Grenze hier
+      // ist nur der Notnagel, falls er gar nicht erst hochkommt. Deshalb
+      // genügt es, das Warten zu beenden – ein Prozess, der sich selbst
+      // begrenzt, muss nicht auch noch erschlagen werden.
+      final ergebnis = await Process.run(pfad, const <String>[])
+          .timeout(const Duration(seconds: 20));
+      return parseStandort(ergebnis.stdout as String);
+    } on ProcessException {
+      return null;
+    } on TimeoutException {
+      return null;
     }
   }
 

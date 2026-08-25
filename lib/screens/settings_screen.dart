@@ -261,6 +261,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// gegriffen hat, steht als Zahl in [BackupProgress.grenzeOffen] und wird
   /// erst hier zu einem Satz.
   static String _backupZeile(AppTexte t, BackupProgress p) {
+    if (p.fehlgeschlagen != null) return t.backupNichtGesichert(p.fehlgeschlagen!);
     if (p.grenzeOffen != null) return t.backupGrenzeErreicht(p.grenzeOffen!);
     return '${p.done} / ${p.total}'
         '${p.currentFile != null ? ' — ${p.currentFile}' : ''}';

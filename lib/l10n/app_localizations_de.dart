@@ -3199,6 +3199,11 @@ class AppTexteDe extends AppTexte {
   }
 
   @override
+  String backupNichtGesichert(int anzahl) {
+    return '$anzahl Datei(en) konnten nicht gesichert werden – sie werden beim nächsten Lauf erneut versucht';
+  }
+
+  @override
   String get backupPassphraseNoetig =>
       'Dieses Backup ist verschlüsselt – eine Passphrase wird benötigt.';
 

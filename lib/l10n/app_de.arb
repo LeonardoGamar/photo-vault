@@ -1664,6 +1664,14 @@
       }
     }
   },
+  "backupNichtGesichert": "{anzahl} Datei(en) konnten nicht gesichert werden – sie werden beim nächsten Lauf erneut versucht",
+  "@backupNichtGesichert": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "backupPassphraseNoetig": "Dieses Backup ist verschlüsselt – eine Passphrase wird benötigt.",
   "downloadPruefsummeFehler": "Prüfsumme von {datei} stimmt nicht mit der erwarteten SHA-256 überein (erhalten {erhalten}, erwartet {erwartet}) – Download verworfen. Die Datei am Server hat sich möglicherweise geändert oder wurde beim Transfer verändert.",
   "@downloadPruefsummeFehler": {

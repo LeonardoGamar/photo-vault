@@ -174,9 +174,11 @@ echter Hardware.
   (GPS → Stadt/Land) über den offenen GeoNames-Datensatz, komplett offline.
   Dicht beieinanderliegende Fotos werden zoomabhängig zu einem Marker
   zusammengefasst und rücken beim Hineinzoomen wieder auseinander. Beide
-  Ansichten haben Zoomknöpfe; wo die Plattform es hergibt (derzeit macOS)
-  auch einen Knopf auf den eigenen Standort – einmalig abgefragt, nur
-  angezeigt, nicht gespeichert
+  Ansichten haben Zoomknöpfe; wo die Plattform es hergibt (**macOS und
+  Windows**) auch einen Knopf auf den eigenen Standort – einmalig
+  abgefragt, nur angezeigt, nicht gespeichert. Gemessen: macOS ±35 m,
+  Windows ±19 m bei 15 m tatsächlicher Abweichung. Unter Linux fehlt der
+  Knopf mit Absicht, siehe `docs/ortung.md`
 - **Statistiken** – Anzahl Medien, Speicherplatz, Fotos/Videos pro Jahr,
   Saisonalität pro Monat, häufigste Kameras
 - **Import** – Mehrfachauswahl über den nativen Dateidialog oder direkt von
@@ -360,7 +362,12 @@ echter Hardware.
   auspacken – libheif, libde265, LibRaw –, sind ein beliebtes Ziel.
 - **Manuelles Cloud-Backup** – kopiert neue Dateien (optional verschlüsselt
   mit einer Passphrase) in einen frei wählbaren Ordner (z.B. deinen
-  Dropbox-/Google-Drive-Sync-Ordner) und wieder zurück
+  Dropbox-/Google-Drive-Sync-Ordner) und wieder zurück. Geschrieben wird
+  über eine Zwischendatei, damit ein Cloud-Programm nie eine halbfertige
+  Datei zu sehen bekommt; passt sie dort nicht hinein (unter Flatpak fasst
+  der Zwischenspeicher 789 MiB, Videos sind grösser), wird neben dem Ziel
+  geschrieben. Eine Datei, die scheitert, bricht den Lauf nicht ab – sie
+  gilt als nicht gesichert und wird gemeldet
 
 ### Bedienung
 
@@ -849,6 +856,15 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   eigenen Wörter.
 
 ### Technische Altlasten
+
+- **Unter Linux behält die C-Bibliothek freigegebenen Speicher.** Die
+  KI-Modelle werden alle zwei Minuten freigegeben, wenn sie niemand
+  benutzt – der Platz geht damit an glibc zurück, aber nicht ans System.
+  Gemessen an einer Instanz nach knapp dreizehn Stunden: 2,4 GB belegt,
+  davon 1,5 GB im Heap bei nur 62 MB Dart-Heap. Seit 1.9.5 wird nach jeder
+  Freigabe `malloc_trim` gerufen (692 MB kamen dabei zurück, Kosten
+  1–17 ms). Vollständig wird der Heap dadurch nicht leer: Was zwischen
+  noch benutzten Objekten liegt, bleibt liegen.
 
 - **Der 3D-Globus zeigt ab Zoomstufe 3 nichts Neues mehr** – und rastert
   seine Pins seit 1.9.4 auch nicht feiner. Vorher wurde das Raster beim

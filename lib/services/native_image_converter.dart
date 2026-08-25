@@ -197,12 +197,17 @@ class NativeImageConverter {
 
   /// Ob diese Plattform den eigenen Standort ermitteln kann.
   ///
-  /// Bisher nur macOS: Dort gibt es CoreLocation und den nativen Kanal
-  /// ohnehin. Unter Linux liefe das über GeoClue, unter Windows über
-  /// `Windows.Devices.Geolocation` – beides eigene Anbindungen, die es
-  /// hier noch nicht gibt. Statt einen Knopf anzubieten, der dort nichts
-  /// tut, wird er gar nicht erst gezeigt.
-  static bool get standortMoeglich => Platform.isMacOS;
+  /// macOS über CoreLocation, Windows über `Windows.Devices.Geolocation`
+  /// (im Hilfsprogramm `pv_standort`, siehe [DesktopImageTools.standort]).
+  ///
+  /// **Linux fehlt mit Absicht.** GeoClue wäre da und ist sogar schon auf
+  /// beacondb umgestellt, den Nachfolger der abgeschalteten
+  /// Mozilla-Datenbank. Nur kannte beacondb am 25.08.2026 im Test keinen
+  /// einzigen der 13 Zugangspunkte in der Umgebung – HTTP 404. Übrig
+  /// bliebe der IP-Rückfall, und der lag 271 km daneben bei behaupteten
+  /// 25 km. Ein Knopf, der zuverlässig die falsche Stadt zeigt, ist
+  /// schlechter als keiner. Siehe docs/ortung.md.
+  static bool get standortMoeglich => Platform.isMacOS || Platform.isWindows;
 
   /// Der aktuelle Standort, einmalig abgefragt.
   ///
@@ -211,7 +216,17 @@ class NativeImageConverter {
   /// Aufrufer sagt das dem Nutzer, statt es zu verschlucken.
   static Future<({double breite, double laenge, double genauigkeit})?>
       aktuellerStandort() async {
-    if (!standortMoeglich || !await isSupported()) return null;
+    if (!standortMoeglich) return null;
+    if (Platform.isWindows) {
+      final ort = await DesktopImageTools.standort();
+      if (ort == null) return null;
+      return (
+        breite: ort.breite,
+        laenge: ort.laenge,
+        genauigkeit: ort.genauigkeit,
+      );
+    }
+    if (!await isSupported()) return null;
     try {
       final antwort =
           await _channel.invokeMapMethod<String, dynamic>('currentLocation');

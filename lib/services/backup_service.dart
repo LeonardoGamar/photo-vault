@@ -32,7 +32,16 @@ class BackupProgress {
   /// eigentlich ein Dateiname erwartet wird.
   final int? grenzeOffen;
 
-  BackupProgress(this.done, this.total, {this.currentFile, this.grenzeOffen});
+  /// Wie viele Dateien in diesem Lauf nicht gesichert werden konnten –
+  /// sonst null.
+  ///
+  /// Auch das eine Zahl statt eines Satzes, aus demselben Grund wie
+  /// [grenzeOffen]. Sie muss sichtbar werden: Eine Sicherung, die einzelne
+  /// Dateien auslässt, darf nicht wie eine vollständige aussehen.
+  final int? fehlgeschlagen;
+
+  BackupProgress(this.done, this.total,
+      {this.currentFile, this.grenzeOffen, this.fehlgeschlagen});
 }
 
 /// Kopiert die Bibliothek manuell in einen vom Nutzer gewählten Ordner.
@@ -49,13 +58,119 @@ class BackupProgress {
 /// damit sich ein verschlüsseltes Backup auch auf einem komplett anderen
 /// Rechner allein mit der Passphrase wiederherstellen lässt.
 class BackupService {
-  BackupService(this._db, this._paths);
+  BackupService(this._db, this._paths, {Directory? zwischenlager})
+      : _festesZwischenlager = zwischenlager;
 
   final AppDatabase _db;
   final StoragePaths _paths;
+
+  /// Ein vorgegebenes Zwischenlager statt eines frisch angelegten im
+  /// System-Temp. **Nur für Tests**: Anders liesse sich der Fall „das
+  /// Zwischenlager taugt nicht" nicht nachstellen, ohne ein Dateisystem
+  /// mit fester Grösse anzulegen. Wird nicht aufgeräumt – wer es
+  /// vorgibt, räumt es auch weg.
+  final Directory? _festesZwischenlager;
   final _uuid = const Uuid();
 
   static const _backupFolderName = 'PhotoVault-Backup';
+
+  /// Ab welcher Grösse das Zwischenlager im System-Temp nachweislich nicht
+  /// mehr reicht – `null`, solange nichts daran gescheitert ist.
+  ///
+  /// Selbst geeicht statt vorher ausgerechnet: Dart kennt keinen
+  /// portablen Weg, den freien Platz eines Dateisystems zu erfragen, und
+  /// ihn über FFI je Plattform zu holen wäre viel Maschinerie für eine
+  /// Zahl, die sich hier von selbst ergibt. Die erste zu grosse Datei
+  /// bezahlt einen vergeblichen Schreibversuch, alle weiteren nicht mehr.
+  int? _zwischenlagerGrenze;
+
+  /// Der geeichte Wert – nur für Tests. Er unterscheidet zwei Fälle, die
+  /// sich von aussen sonst nicht auseinanderhalten lassen: „das
+  /// Zwischenlager taugt nicht" (Wert gesetzt) und „das Ziel taugt nicht"
+  /// (Wert bleibt `null`).
+  @visibleForTesting
+  int? get zwischenlagerGrenze => _zwischenlagerGrenze;
+
+  /// Schreibt eine Datei über eine Zwischenablage und legt sie erst
+  /// fertig ins Ziel.
+  ///
+  /// **Warum überhaupt eine Zwischendatei.** Cloud-Clients beginnen sonst,
+  /// halbfertige Dateien hochzuladen. Das Umbenennen am Ende ist innerhalb
+  /// desselben Dateisystems atomar – der Client sieht die Datei entweder
+  /// gar nicht oder vollständig.
+  ///
+  /// **Warum zwei mögliche Orte.** Bevorzugt wird das System-Temp: Es
+  /// liegt ausserhalb des Sync-Ordners, der Client sieht die Zwischendatei
+  /// also nie. Unter Flatpak ist `/tmp` aber ein **tmpfs von 789 MiB**
+  /// (nachgemessen am 25.08.2026), und in einer echten Bibliothek liegen
+  /// Videos bis 9,1 GB. Für die passt das Zwischenlager nicht – und weil
+  /// tmpfs im Arbeitsspeicher liegt, kostete der Versuch obendrein RAM.
+  /// Dann wird neben dem Ziel geschrieben: dasselbe Dateisystem, also
+  /// weiterhin ein atomares Umbenennen, keine Grössengrenze und ein
+  /// Schreibvorgang weniger. Der Preis ist, dass ein Sync-Client die
+  /// `.pv-teil`-Datei kurz sieht.
+  ///
+  /// [quellGroesse] dient nur der Eichung von [_zwischenlagerGrenze].
+  Future<void> _ueberZwischendatei({
+    required Directory zwischenlager,
+    required File ziel,
+    required int quellGroesse,
+    required Future<void> Function(File zwischen) schreibe,
+  }) async {
+    final vermutlichZuGross = _zwischenlagerGrenze != null &&
+        quellGroesse >= _zwischenlagerGrenze!;
+
+    if (!vermutlichZuGross) {
+      final zwischen = File(p.join(zwischenlager.path, 'teil'));
+      var imLager = false;
+      try {
+        await schreibe(zwischen);
+        imLager = true;
+      } on FileSystemException catch (e) {
+        // Kein Platz (oder sonst ein Problem) im Zwischenlager. Merken,
+        // damit die nächste grosse Datei den Umweg gar nicht erst geht.
+        _zwischenlagerGrenze = quellGroesse;
+        debugPrint('Zwischenlager fasst $quellGroesse Bytes nicht ($e) – '
+            'ab jetzt wird neben dem Ziel geschrieben');
+        await _wegwerfen(zwischen);
+      }
+      if (imLager) {
+        // Ab hier ist das Zwischenlager aus dem Spiel. Scheitert das
+        // Ablegen, liegt es am Ziel – und dann hilft es nicht, es dort
+        // noch einmal zu versuchen. Diese Unterscheidung ist nicht
+        // theoretisch: Ohne sie eichte ein unschreibbares Ziel die
+        // Grenze des Zwischenlagers und nahm dem restlichen Lauf die
+        // Eigenschaft, für die es überhaupt da ist.
+        try {
+          await _verschiebe(zwischen, ziel);
+        } catch (_) {
+          await _wegwerfen(zwischen);
+          rethrow;
+        }
+        return;
+      }
+    }
+
+    final daneben = File('${ziel.path}.pv-teil');
+    try {
+      await schreibe(daneben);
+      await _verschiebe(daneben, ziel);
+    } catch (_) {
+      await _wegwerfen(daneben);
+      rethrow;
+    }
+  }
+
+  /// Löscht eine Zwischendatei, ohne den eigentlichen Fehler zu verdecken.
+  Future<void> _wegwerfen(File datei) async {
+    try {
+      if (await datei.exists()) await datei.delete();
+    } catch (_) {
+      // Ein liegengebliebener Rest ist ärgerlich, aber kein Grund, den
+      // Lauf abzubrechen – und schon gar keiner, den echten Fehler zu
+      // überschreiben.
+    }
+  }
 
   /// Führt ein inkrementelles Backup durch: nur Originaldateien, die noch
   /// nicht als gesichert markiert sind, werden kopiert. Die Metadaten
@@ -76,14 +191,11 @@ class BackupService {
     final originalsOut = Directory(p.join(backupRoot.path, 'originals'));
     await originalsOut.create(recursive: true);
 
-    // Lokaler Zwischenspeicher: Verschlüsseln bzw. Kopieren passiert hier,
-    // erst die fertige Datei wandert ins Ziel. Zwei Gründe: Cloud-Clients
-    // beginnen sonst, halbfertige Dateien hochzuladen; und das Ziel kann
-    // ein langsames Netzlaufwerk sein, auf dem man nicht mehrfach schreiben
-    // will. Liegt bewusst im System-Temp – geht er verloren (Neustart),
-    // wird die betroffene Datei beim nächsten Lauf einfach neu erzeugt,
-    // denn markiert wird erst nach erfolgreicher Ablage im Ziel.
-    final staging = await Directory.systemTemp.createTemp('pv_backup_stage_');
+    // Zwischenlager – warum und was passiert, wenn es nicht reicht: siehe
+    // [_ueberZwischendatei]. Geht es verloren (Neustart), entsteht kein
+    // Schaden: Markiert wird erst nach erfolgreicher Ablage im Ziel.
+    final staging = _festesZwischenlager ??
+        await Directory.systemTemp.createTemp('pv_backup_stage_');
 
     final pending = await _db.assetsNotBackedUp();
     var done = 0;
@@ -91,6 +203,7 @@ class BackupService {
     var geschriebeneBytes = 0;
     var abgebrochenWegenLimit = false;
     final backedUpIds = <String>[];
+    var fehlgeschlagen = 0;
 
     // XMP-Sidecars nur für unverschlüsselte Backups: bei einem verschlüsselten
     // Backup (encryptionKey != null) würde eine im Klartext danebenliegende
@@ -108,46 +221,66 @@ class BackupService {
         }
 
         final source = _paths.absolute(asset.relativePath);
-        if (await source.exists()) {
-          // Verschlüsselt: flach unter data/ mit abgeleitetem Namen, damit
-          // weder Aufnahmezeitraum noch Dateiformat sichtbar bleiben.
-          // Unverschlüsselt: weiterhin die lesbare Ordnerstruktur, damit
-          // sich so ein Backup auch ohne die App durchsehen lässt.
-          final target = encryptionKey != null
-              ? File(p.join(backupRoot.path, VerschluesselteNamen.ordner,
-                  await VerschluesselteNamen.fuerPruefsumme(asset.checksum, encryptionKey)))
-              : File(p.join(originalsOut.path,
-                  asset.relativePath.replaceFirst('originals${Platform.pathSeparator}', '')));
-          await target.parent.create(recursive: true);
+        // Je Datei abgesichert: Vorher stand die ganze Schleife in einem
+        // try/finally ohne catch – eine einzige Datei, die sich nicht
+        // schreiben liess, brach den kompletten Lauf ab, und alles
+        // dahinter wurde nie gesichert. Genau das passierte unter Flatpak
+        // beim ersten Video über 789 MB.
+        try {
+          if (await source.exists()) {
+            // Verschlüsselt: flach unter data/ mit abgeleitetem Namen, damit
+            // weder Aufnahmezeitraum noch Dateiformat sichtbar bleiben.
+            // Unverschlüsselt: weiterhin die lesbare Ordnerstruktur, damit
+            // sich so ein Backup auch ohne die App durchsehen lässt.
+            final target = encryptionKey != null
+                ? File(p.join(backupRoot.path, VerschluesselteNamen.ordner,
+                    await VerschluesselteNamen.fuerPruefsumme(asset.checksum, encryptionKey)))
+                : File(p.join(originalsOut.path,
+                    asset.relativePath.replaceFirst('originals${Platform.pathSeparator}', '')));
+            await target.parent.create(recursive: true);
 
-          // Erst in den Zwischenspeicher schreiben …
-          final zwischen = File(p.join(staging.path, 'teil'));
-          if (encryptionKey != null) {
-            await VaultCrypto.encryptFile(source, zwischen, encryptionKey);
-          } else {
-            await source.copy(zwischen.path);
+            final quellGroesse = await source.length();
+            await _ueberZwischendatei(
+              zwischenlager: staging,
+              ziel: target,
+              quellGroesse: quellGroesse,
+              schreibe: (zwischen) async {
+                if (encryptionKey != null) {
+                  await VaultCrypto.encryptFile(source, zwischen, encryptionKey);
+                } else {
+                  await source.copy(zwischen.path);
+                }
+              },
+            );
+
+            if (encryptionKey == null) {
+              final xmp = buildXmpPacket(asset, tagsByAssetId![asset.id] ?? const []);
+              await File(_paths.xmpSidecarPath(target.path)).writeAsString(xmp);
+            }
+
+            totalBytes += quellGroesse;
+            geschriebeneBytes += await target.length();
           }
-          // … und erst die vollständige Datei ins Ziel legen.
-          await _verschiebe(zwischen, target);
-
-          if (encryptionKey == null) {
-            final xmp = buildXmpPacket(asset, tagsByAssetId![asset.id] ?? const []);
-            await File(_paths.xmpSidecarPath(target.path)).writeAsString(xmp);
-          }
-
-          final groesse = await target.length();
-          totalBytes += await source.length();
-          geschriebeneBytes += groesse;
+          backedUpIds.add(asset.id);
+        } catch (e) {
+          // Nicht markieren – die Datei kommt beim nächsten Lauf wieder
+          // dran. Gezählt wird sie trotzdem, sonst sähe ein Lauf mit
+          // Ausfällen aus wie ein vollständiger.
+          fehlgeschlagen++;
+          debugPrint('Sicherung von ${asset.originalFileName} '
+              'fehlgeschlagen: $e');
         }
-        backedUpIds.add(asset.id);
         done++;
         yield BackupProgress(done, pending.length, currentFile: asset.originalFileName);
       }
     } finally {
-      // Reste immer wegräumen, auch bei Fehlern.
-      try {
-        await staging.delete(recursive: true);
-      } catch (_) {}
+      // Reste immer wegräumen, auch bei Fehlern – aber nur das selbst
+      // angelegte Lager. Ein vorgegebenes gehört dem Aufrufer.
+      if (_festesZwischenlager == null) {
+        try {
+          await staging.delete(recursive: true);
+        } catch (_) {}
+      }
     }
 
     if (backedUpIds.isNotEmpty) {
@@ -178,6 +311,11 @@ class BackupService {
         pending.length,
         grenzeOffen: pending.length - done,
       );
+    }
+    // Nach der Mengenmeldung, damit sie das letzte Wort hat: Ausgelassene
+    // Dateien sind die wichtigere Nachricht.
+    if (fehlgeschlagen > 0) {
+      yield BackupProgress(done, pending.length, fehlgeschlagen: fehlgeschlagen);
     }
   }
 
@@ -533,12 +671,14 @@ class BackupService {
     await _writeEncryptedDatabaseSnapshot(backupRoot, encryptionKey);
     await _writeKeyEnvelope(backupRoot);
 
-    final staging = await Directory.systemTemp.createTemp('pv_autobackup_stage_');
+    final staging = _festesZwischenlager ??
+        await Directory.systemTemp.createTemp('pv_autobackup_stage_');
     final pending = await _db.assetsNotAutoBackedUp();
     var done = 0;
     var geschriebeneBytes = 0;
     var abgebrochenWegenLimit = false;
     final autoBackedUpIds = <String>[];
+    var fehlgeschlagen = 0;
     yield BackupProgress(0, pending.length);
 
     try {
@@ -548,25 +688,40 @@ class BackupService {
           break;
         }
         final source = _paths.absolute(asset.relativePath);
-        if (await source.exists()) {
-          // Automatische Backups sind immer verschlüsselt – daher stets die
-          // flache, namenlose Ablage (siehe VerschluesselteNamen).
-          final target = File(p.join(backupRoot.path, VerschluesselteNamen.ordner,
-              await VerschluesselteNamen.fuerPruefsumme(asset.checksum, encryptionKey)));
-          await target.parent.create(recursive: true);
-          final zwischen = File(p.join(staging.path, 'teil'));
-          await VaultCrypto.encryptFile(source, zwischen, encryptionKey);
-          await _verschiebe(zwischen, target);
-          geschriebeneBytes += await target.length();
+        // Je Datei abgesichert – hier wiegt es schwerer als beim manuellen
+        // Lauf: Dieser läuft ungefragt im Hintergrund, ein Abbruch fiele
+        // also niemandem auf.
+        try {
+          if (await source.exists()) {
+            // Automatische Backups sind immer verschlüsselt – daher stets die
+            // flache, namenlose Ablage (siehe VerschluesselteNamen).
+            final target = File(p.join(backupRoot.path, VerschluesselteNamen.ordner,
+                await VerschluesselteNamen.fuerPruefsumme(asset.checksum, encryptionKey)));
+            await target.parent.create(recursive: true);
+            await _ueberZwischendatei(
+              zwischenlager: staging,
+              ziel: target,
+              quellGroesse: await source.length(),
+              schreibe: (zwischen) =>
+                  VaultCrypto.encryptFile(source, zwischen, encryptionKey),
+            );
+            geschriebeneBytes += await target.length();
+          }
+          autoBackedUpIds.add(asset.id);
+        } catch (e) {
+          fehlgeschlagen++;
+          debugPrint('Automatische Sicherung von ${asset.originalFileName} '
+              'fehlgeschlagen: $e');
         }
-        autoBackedUpIds.add(asset.id);
         done++;
         yield BackupProgress(done, pending.length, currentFile: asset.originalFileName);
       }
     } finally {
-      try {
-        await staging.delete(recursive: true);
-      } catch (_) {}
+      if (_festesZwischenlager == null) {
+        try {
+          await staging.delete(recursive: true);
+        } catch (_) {}
+      }
     }
 
     if (autoBackedUpIds.isNotEmpty) {
@@ -576,6 +731,9 @@ class BackupService {
     if (abgebrochenWegenLimit) {
       yield BackupProgress(done, pending.length,
           grenzeOffen: pending.length - done);
+    }
+    if (fehlgeschlagen > 0) {
+      yield BackupProgress(done, pending.length, fehlgeschlagen: fehlgeschlagen);
     }
   }
 

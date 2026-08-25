@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.5" date="2026-08-25">
+      <description>
+        <p>Windows can now find your own location on the map, and it does it well: measured at 19 m claimed accuracy with 15 m actual deviation.</p>
+        <p>Linux hands memory back. After longer work with the AI models, up to 692 MB were sitting unused in the C library instead of going back to the system - not a leak in the program, but not free either.</p>
+        <p>Backups no longer break on large files. Under Flatpak the temporary area holds 789 MiB; a single video above that used to abort the whole run, and everything behind it was never backed up.</p>
+        <p xml:lang="de">Windows findet jetzt den eigenen Standort auf der Karte, und zwar gut: gemessen 19 m behauptete Genauigkeit bei 15 m tatsächlicher Abweichung.</p>
+        <p xml:lang="de">Linux gibt Speicher zurück. Nach längerer Arbeit mit den KI-Modellen lagen bis zu 692 MB ungenutzt in der C-Bibliothek, statt ans System zurückzugehen - kein Leck im Programm, aber auch nicht umsonst.</p>
+        <p xml:lang="de">Die Sicherung bricht nicht mehr an grossen Dateien. Unter Flatpak fasst der Zwischenspeicher 789 MiB; ein einziges Video darüber brach bisher den ganzen Lauf ab, und alles dahinter wurde nie gesichert.</p>
+      </description>
+    </release>
     <release version="1.9.4" date="2026-08-24">
       <description>
         <p>Both map views get zoom buttons and, on macOS, a button for your own location.</p>

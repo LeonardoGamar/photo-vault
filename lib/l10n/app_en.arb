@@ -902,6 +902,7 @@
   "aktualisierungKeineVeroeffentlichungen": "No releases found.",
   "aktualisierungKeineVersion": "No version number in the response.",
   "backupGrenzeErreicht": "Limit reached – {anzahl} file(s) follow on the next run",
+  "backupNichtGesichert": "{anzahl} file(s) could not be backed up – they will be retried on the next run",
   "backupPassphraseNoetig": "This backup is encrypted – a passphrase is needed.",
   "downloadPruefsummeFehler": "The checksum of {datei} does not match the expected SHA-256 (got {erhalten}, expected {erwartet}) – the download was discarded. The file on the server may have changed, or it was altered in transit.",
   "downloadFehlgeschlagen": "Downloading {datei} failed: {fehler}",

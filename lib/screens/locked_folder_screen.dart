@@ -240,7 +240,7 @@ class _LockedTrashGrid extends StatelessWidget {
                     child: IconButton(
                       icon: const Icon(Icons.restore_from_trash_outlined, color: Colors.white, size: 18),
                       tooltip: AppTexte.of(context).gesperrtWiederherstellen,
-                      onPressed: () => library.db.restoreFromTrash([asset.id]),
+                      onPressed: () => library.ausPapierkorbHolen([asset.id]),
                     ),
                   ),
                 ),

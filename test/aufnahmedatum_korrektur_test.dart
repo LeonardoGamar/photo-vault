@@ -174,6 +174,64 @@ void main() {
     expect(asset.fileCreatedAt, DateTime(2026, 5, 8));
   });
 
+  group('aus dem Papierkorb zurückholen', () {
+    /// Der Korrekturlauf überspringt den Papierkorb – dort stört ein
+    /// falsches Datum niemanden. Beim Zurückholen ändert sich das, und
+    /// genau dort muss nachgelesen werden.
+    test('holt zurück UND stellt das Datum richtig', () async {
+      final alt = await legeAn(
+        id: 'p1',
+        inDerDatenbank: DateTime(2026, 5, 8, 23, 40),
+        imBild: DateTime(2025, 11, 30, 8, 11),
+      );
+      await db.moveToTrash(['p1']);
+      // Der normale Lauf lässt es liegen – das ist Absicht.
+      await lauf();
+      expect((await db.assetById('p1'))!.fileCreatedAt,
+          DateTime(2026, 5, 8, 23, 40));
+
+      await library.ausPapierkorbHolen(['p1']);
+
+      final asset = (await db.assetById('p1'))!;
+      expect(asset.isTrashed, isFalse);
+      expect(asset.fileCreatedAt, DateTime(2025, 11, 30, 8, 11));
+      expect(asset.relativePath, contains(p.join('2025', '11')));
+      expect(await paths.absolute(asset.relativePath).exists(), isTrue);
+      expect(await paths.absolute(alt).exists(), isFalse);
+    });
+
+    test('JPEG kommt unverändert zurück', () async {
+      final alt = await legeAn(
+        id: 'p2',
+        inDerDatenbank: DateTime(2026, 5, 8),
+        imBild: DateTime(2020, 1, 2, 3, 4, 5),
+        endung: '.jpg',
+      );
+      await db.moveToTrash(['p2']);
+      await library.ausPapierkorbHolen(['p2']);
+      final asset = (await db.assetById('p2'))!;
+      expect(asset.isTrashed, isFalse);
+      expect(asset.fileCreatedAt, DateTime(2026, 5, 8));
+      expect(asset.relativePath, alt);
+    });
+
+    test('fehlende Datei verhindert das Zurückholen nicht', () async {
+      final alt = await legeAn(
+        id: 'p3',
+        inDerDatenbank: DateTime(2026, 5, 8),
+        imBild: DateTime(2025, 11, 30),
+      );
+      await db.moveToTrash(['p3']);
+      await paths.absolute(alt).delete();
+
+      await library.ausPapierkorbHolen(['p3']);
+
+      // Zurückgeholt ist wichtiger als datiert: Wer sein Foto wiederhaben
+      // will, soll es wiederbekommen, auch wenn die Datei fehlt.
+      expect((await db.assetById('p3'))!.isTrashed, isFalse);
+    });
+  });
+
   test('zweiter Lauf ändert nichts mehr', () async {
     await legeAn(
       id: 'a7',

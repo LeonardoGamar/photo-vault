@@ -5513,6 +5513,12 @@ abstract class AppTexte {
   /// **'Grenze erreicht – {anzahl} Datei(en) folgen beim nächsten Lauf'**
   String backupGrenzeErreicht(int anzahl);
 
+  /// No description provided for @backupNichtGesichert.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Datei(en) konnten nicht gesichert werden – sie werden beim nächsten Lauf erneut versucht'**
+  String backupNichtGesichert(int anzahl);
+
   /// No description provided for @backupPassphraseNoetig.
   ///
   /// In de, this message translates to:

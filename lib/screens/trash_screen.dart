@@ -60,7 +60,7 @@ class _TrashScreenState extends State<TrashScreen> {
               tooltip: AppTexte.of(context).einstWiederherstellen,
               icon: const Icon(Icons.restore_from_trash_outlined),
               onPressed: () async {
-                await widget.library.db.restoreFromTrash(_selected.toList());
+                await widget.library.ausPapierkorbHolen(_selected.toList());
                 if (!mounted) return;
                 setState(() => _selected.clear());
               },
