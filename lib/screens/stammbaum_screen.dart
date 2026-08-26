@@ -436,7 +436,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       letterSpacing: 1.1,
-                      color: Theme.of(dialog).colorScheme.outline,
+                      color: Theme.of(dialog).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -1269,7 +1269,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                   Text(spanne,
                       style: TextStyle(
                           fontSize: 12,
-                          color: Theme.of(context).colorScheme.outline)),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ],
             ),
@@ -1286,7 +1286,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
             width: 420,
             child: Text(text,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
           ),
         ),
       );
@@ -1388,7 +1388,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                 AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.md),
             child: Text(
               t.stammbaumListeKopf(fokus.name, eintraege.length),
-              style: TextStyle(color: Theme.of(context).colorScheme.outline),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           );
         }
@@ -1418,7 +1418,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
               if (spanne != null)
                 Text(spanne,
                     style: TextStyle(
-                        color: Theme.of(context).colorScheme.outline,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12)),
               Builder(
                 builder: (knopfKontext) => IconButton(
@@ -1594,7 +1594,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       letterSpacing: 1.1,
-                      color: Theme.of(context).colorScheme.outline,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -1811,7 +1811,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                   child: Text(
                     t.stammbaumLeer,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
@@ -1840,7 +1840,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
           style: TextStyle(
             fontSize: 10,
             letterSpacing: 1.2,
-            color: Theme.of(context).colorScheme.outline,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
       );
@@ -2358,7 +2358,7 @@ class _LebensdatenDialogState extends State<_LebensdatenDialog> {
             child: Text(
               t.stammbaumGeschlechtHinweis,
               style: TextStyle(
-                  fontSize: 11, color: Theme.of(context).colorScheme.outline),
+                  fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
           _Datumszeile(
@@ -2376,7 +2376,7 @@ class _LebensdatenDialogState extends State<_LebensdatenDialog> {
           const SizedBox(height: AppSpacing.md),
           Text(
             t.stammbaumNurJahrHinweis,
-            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ],
       ),

@@ -7,6 +7,7 @@ import '../state/hintergrundlauf.dart';
 import '../services/native_image_converter.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
 import '../widgets/progress_dialog.dart';
 import 'asset_viewer_screen.dart';
 import 'automation_rules_screen.dart';
@@ -480,7 +481,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     return ListTile(
                       leading: Icon(
                         bereit ? Icons.check_circle_outline : Icons.error_outline,
-                        color: bereit ? Colors.green : Colors.orange,
+                        color: bereit
+                            ? context.semantik.erfolg
+                            : context.semantik.warnung,
                       ),
                       title: Text(t.werkzHeicTitel),
                       subtitle: Text(text),

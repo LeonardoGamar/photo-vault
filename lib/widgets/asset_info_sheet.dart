@@ -755,7 +755,7 @@ class _KiBeschreibung extends StatelessWidget {
                 style: Theme.of(context)
                     .textTheme
                     .labelSmall
-                    ?.copyWith(color: farben.outline),
+                    ?.copyWith(color: farben.onSurfaceVariant),
               ),
             ),
             for (final istDeutsch in [true, false])
@@ -789,7 +789,7 @@ class _KiBeschreibung extends StatelessWidget {
               style: Theme.of(context)
                   .textTheme
                   .labelSmall
-                  ?.copyWith(color: farben.outline)),
+                  ?.copyWith(color: farben.onSurfaceVariant)),
         ],
       ],
     );
@@ -817,7 +817,7 @@ class _Sprachknopf extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: aktiv ? FontWeight.w700 : FontWeight.w400,
-            color: aktiv ? farben.primary : farben.outline,
+            color: aktiv ? farben.primary : farben.onSurfaceVariant,
           ),
         ),
       ),

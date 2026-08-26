@@ -156,4 +156,79 @@ void main() {
     expect(mit.single.ortBreite, closeTo(37.215, 0.001),
         reason: 'Springfield/MO hat 169.176 Einwohner, /IL nur 114.230');
   });
+
+  /// Zwei Eigenschaften, die man am Ergebnis nicht sieht und die deshalb
+  /// verlorengehen könnten: **wie oft** dieser Weg die Datenbank fragt
+  /// und **wie oft** er schreibt.
+  ///
+  /// Beides trägt, weil der Lauf bei jedem Start stattfindet, sobald auch
+  /// nur ein Ereignis einen Ort trägt, den das Verzeichnis nicht kennt:
+  /// Der bleibt ohne Koordinate und steht beim nächsten Start wieder da.
+  group('der Lauf bei jedem Start', () {
+    Future<void> foto(String id, double breite, double laenge) =>
+        db.insertAsset(AssetsCompanion.insert(
+          id: id,
+          relativePath: 'originals/$id.jpg',
+          originalFileName: '$id.jpg',
+          type: 'IMAGE',
+          fileSizeBytes: const Value(1),
+          checksum: id,
+          fileCreatedAt: DateTime(2026),
+          importedAt: DateTime(2026),
+          latitude: Value(breite),
+          longitude: Value(laenge),
+        ));
+
+    test('der Schwerpunkt kommt als eine Zeile, nicht als tausend',
+        () async {
+      // Die Gegenprobe zur Abkürzung: Das Aggregat muss denselben Punkt
+      // liefern wie der Mittelwert über die vollen Zeilen. Weicht eine
+      // der beiden Bedingungen ab – Papierkorb, gesperrt, Live-Photo –,
+      // fällt dieser Vergleich auseinander.
+      await foto('a1', 52.0, 9.0);
+      await foto('a2', 54.0, 11.0);
+      await foto('a3', 50.0, 7.0);
+      // Ein gesperrtes und ein gelöschtes Foto: Beide dürfen den
+      // Schwerpunkt nicht verschieben.
+      await foto('a4', 0.0, 0.0);
+      await db.setAssetsLocked(['a4'], true);
+      await foto('a5', 80.0, 80.0);
+      await db.moveToTrash(['a5']);
+
+      final voll = await db.assetsWithLocation();
+      final erwartetB =
+          voll.map((a) => a.latitude!).reduce((x, y) => x + y) / voll.length;
+      final erwartetL =
+          voll.map((a) => a.longitude!).reduce((x, y) => x + y) / voll.length;
+
+      final kurz = await db.schwerpunktVerorteterFotos();
+      expect(kurz, isNotNull);
+      expect(kurz!.breite, closeTo(erwartetB, 1e-9));
+      expect(kurz.laenge, closeTo(erwartetL, 1e-9));
+      expect(voll, hasLength(3), reason: 'gesperrt und gelöscht fallen raus');
+    });
+
+    test('ohne ein einziges verortetes Foto gibt es keinen Schwerpunkt',
+        () async {
+      // `avg()` über null Zeilen ist NULL, nicht 0. Käme hier (0, 0)
+      // heraus, zöge ein mehrdeutiger Ortsname vor Westafrika.
+      expect(await db.schwerpunktVerorteterFotos(), isNull);
+    });
+
+    test('der Sammelweg trifft jede Zeile einzeln', () async {
+      // Die Falle beim Zusammenfassen: ein `where`, das für alle Zeilen
+      // gilt – dann bekämen 50 Ereignisse denselben Punkt. Deshalb
+      // bekommt hier jedes einen eigenen, und der Test zählt sie.
+      for (var i = 0; i < 50; i++) {
+        await ereignis('f$i', ort: 'Berlin');
+      }
+      await db.setzeEreignisorte({
+        for (var i = 0; i < 50; i++) 'f$i': (breite: 52.0 + i, laenge: 9.0),
+      });
+      final danach = await db.ereignisseMitKoordinate();
+      expect(danach, hasLength(50));
+      expect(danach.map((e) => e.ortBreite).toSet(), hasLength(50),
+          reason: 'jede Zeile bekam ihren eigenen Wert, nicht alle denselben');
+    });
+  });
 }

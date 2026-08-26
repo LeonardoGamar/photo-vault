@@ -83,5 +83,20 @@ void main() {
       expect(quelle, contains('_kachelAnbieter ??='),
           reason: 'sonst ist es kein Einzelstueck, sondern eine Fabrik');
     });
+
+    test('die Landschaft benutzt denselben Speicher', () {
+      // Befund der 15. Pruefrunde: Sie holte ihre Kacheln mit einem
+      // blanken http.Client - dieselben OpenTopoMap-Bilder, die die
+      // Routenkarte einen Knopfdruck vorher schon geholt hatte. Beim
+      // zweiten Oeffnen derselben Wanderung lud sie alles noch einmal,
+      // und ohne Netz gar nichts.
+      final quelle = quellen
+          .firstWhere((q) => q.$1.endsWith('gelaende_laden.dart')).$2;
+      expect(quelle, contains('kartenKachelspeicher()'),
+          reason: 'sonst geht die Landschaft am Speicher vorbei');
+      expect(quelle, contains('kachelNochmalVersuchen'),
+          reason: 'ein 404 von OpenTopoMap heisst „noch nicht gerendert" '
+              'und wurde hier zu einem dauerhaften Loch im Gelaende');
+    });
   });
 }

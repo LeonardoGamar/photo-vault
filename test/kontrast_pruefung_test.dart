@@ -59,11 +59,44 @@ void main() {
             'onSurfaceVariant waere die Farbe des Themas');
   });
 
-  test('der Umriss ist keine Textfarbe', () {
-    // people_screen.dart:877 setzt `colorScheme.outline` als Textfarbe bei
-    // 9 Punkten. `outline` ist fuer Linien gedacht, nicht fuer Schrift.
-    final wert = kontrast(dunkel.outline, dunkel.surface);
-    expect(wert, greaterThan(4.5),
-        reason: 'outline auf surface ergibt ${wert.toStringAsFixed(2)}:1');
+  /// **Diese Pruefung gab es schon – und sie sah nur die Haelfte.**
+  ///
+  /// Sie stand allein gegen das dunkle Thema, und dort besteht `outline`
+  /// mit 5,85:1. Im hellen Thema sind es 4,28:1, und auf einer Karte –
+  /// wo die meisten dieser Beschriftungen tatsaechlich stehen – 3,48:1.
+  /// Der Satz im alten Kommentar war richtig, nur ungeprueft: `outline`
+  /// ist fuer Linien gedacht, nicht fuer Schrift.
+  ///
+  /// Gefunden in der 15. Pruefrunde an 41 Stellen im Quelltext.
+  group('der Umriss ist keine Textfarbe', () {
+    for (final (name, schema) in [
+      ('hell', buildLightTheme().colorScheme),
+      ('dunkel', buildDarkTheme().colorScheme),
+    ]) {
+      // Zwei Gruende, nicht einer: Die Grundflaeche und die Karte, auf der
+      // in dieser App die allermeisten Hinweistexte liegen.
+      for (final (wo, grund) in [
+        ('Grundflaeche', schema.surface),
+        ('Karte', schema.surfaceContainerHighest),
+      ]) {
+        test('zweitrangiger Text, $name, auf der $wo', () {
+          final ausweich = kontrast(schema.onSurfaceVariant, grund);
+          expect(ausweich, greaterThan(4.5),
+              reason: 'onSurfaceVariant ist die Farbe des Themas fuer '
+                  'zweitrangigen Text und ergibt hier '
+                  '${ausweich.toStringAsFixed(2)}:1');
+        });
+      }
+    }
+
+    test('und outline taugt im hellen Thema nachweislich nicht dafuer', () {
+      // Die Gegenprobe zum Obigen: Sie haelt fest, WARUM getauscht wurde.
+      // Sollte Material die Palette einmal aendern, faellt dieser Test –
+      // und dann darf man neu entscheiden.
+      final hell = buildLightTheme().colorScheme;
+      expect(kontrast(hell.outline, hell.surface), lessThan(4.5));
+      expect(kontrast(hell.outline, hell.surfaceContainerHighest),
+          lessThan(4.5));
+    });
   });
 }

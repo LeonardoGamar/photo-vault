@@ -121,7 +121,7 @@ class _EmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: height,
-      child: Center(child: Text(text, style: TextStyle(color: Theme.of(context).colorScheme.outline))),
+      child: Center(child: Text(text, style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
     );
   }
 }
@@ -232,7 +232,7 @@ class _LocationsPreviewState extends State<_LocationsPreview> {
                       alignment: Alignment.center,
                       child: Text(
                         AppTexte.of(context).ohneOrtLeer,
-                        style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     )
                   // IgnorePointer: die Vorschau soll nur als Ganzes zur
@@ -414,7 +414,7 @@ class _LocationGroupTile extends StatelessWidget {
                 group.country!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
           ],
         ),

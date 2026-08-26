@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -85,6 +86,72 @@ void main() {
                   '${wert.toStringAsFixed(2)}:1');
         }
       }
+    });
+
+    test('der Loeschknopf traegt die Fehlerfarbe des Themas', () {
+      // `Colors.red` mit weisser Schrift ergibt 3,68:1 – ausgerechnet an
+      // dem Knopf, bei dem man sicher sein muss, was man drueckt.
+      for (final theme in [buildLightTheme(), buildDarkTheme()]) {
+        final s = theme.colorScheme;
+        expect(kontrast(s.onError, s.error), greaterThanOrEqualTo(4.5),
+            reason: 'Knopfschrift auf ${theme.brightness.name}');
+        expect(kontrast(Colors.white, Colors.red), lessThan(4.5),
+            reason: 'die Gegenprobe: warum es nicht Colors.red ist');
+      }
+    });
+  });
+
+  /// Eine Quelltext-Pruefung nach dem Muster von
+  /// `keine_festen_texte_test.dart`.
+  ///
+  /// [AppSemantik] wurde in Pruefrunde 4 genau dafuer angelegt, dass
+  /// `Colors.green` und `Colors.orange` aus dem Quelltext verschwinden –
+  /// sie sind fuer dunklen Grund gemacht und kommen auf heller Flaeche
+  /// auf 2,65:1 bzw. 2,05:1, wo ein bedeutungstragendes Symbol 3:1
+  /// braucht. In Pruefrunde 15 standen sie noch an fuenf Stellen: Die
+  /// Umstellung hatte die Datei erwischt, in der sie oft vorkamen, und
+  /// die uebrigen nicht.
+  group('die Ampelfarben stehen nicht mehr im Quelltext', () {
+    /// Bildschirme, die bewusst dauerhaft dunkel sind – dort gilt
+    /// [DunkleFlaeche], und dort sind diese Farben richtig.
+    const dunkleFlaechen = [
+      'develop_screen.dart',
+      'image_editor_screen.dart',
+      'asset_viewer_screen.dart',
+      'video_trim_screen.dart',
+      'tone_curve_editor.dart',
+      'histogram_view.dart',
+      'color_mixer_panel.dart',
+      'develop_preview.dart',
+      'live_photo_view.dart',
+      // Sternchen auf schwarzem Halbton ueber dem Foto.
+      'stack_review_screen.dart',
+    ];
+
+    final verdaechtig = RegExp(r'Colors\.(green|orange|red)\b');
+
+    test('nicht als Farbe auf einer Flaeche, die dem Thema folgt', () {
+      final treffer = <String>[];
+      for (final datei in Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.dart'))) {
+        if (datei.path.contains('/theme/')) continue;
+        if (dunkleFlaechen.any(datei.path.endsWith)) continue;
+        final zeilen = datei.readAsLinesSync();
+        for (var i = 0; i < zeilen.length; i++) {
+          // Kommentare duerfen die Farben nennen – sie erklaeren dort
+          // gerade, warum sie nicht benutzt werden.
+          final z = zeilen[i].trimLeft();
+          if (z.startsWith('//') || z.startsWith('///')) continue;
+          if (verdaechtig.hasMatch(zeilen[i])) {
+            treffer.add('${datei.path}:${i + 1}: ${z.trim()}');
+          }
+        }
+      }
+      expect(treffer, isEmpty,
+          reason: 'AppSemantik.erfolg/.warnung bzw. colorScheme.error '
+              'sind die Farben dieser App:\n${treffer.join('\n')}');
     });
   });
 }

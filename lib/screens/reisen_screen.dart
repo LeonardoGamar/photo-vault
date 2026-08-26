@@ -172,7 +172,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
                   const SizedBox(height: AppSpacing.lg),
                   Text(t.reisenSuchtNoch,
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.outline)),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             )
@@ -250,7 +250,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
                         child: Text(
                           t.reisenLeer,
                           style: TextStyle(
-                              color: Theme.of(context).colorScheme.outline),
+                              color: Theme.of(context).colorScheme.onSurfaceVariant),
                         ),
                       ),
                   ],

@@ -574,33 +574,28 @@ class LibraryState extends ChangeNotifier {
     // Der Schwerpunkt der verorteten Fotos als Anhaltspunkt bei
     // mehrdeutigen Namen: Wer seine Bilder überwiegend in einer Gegend
     // aufgenommen hat, meint mit „Springfield" eher das dortige.
-    final verortet = await db.assetsWithLocation();
-    double? mitteBreite;
-    double? mitteLaenge;
-    if (verortet.isNotEmpty) {
-      var summeBreite = 0.0;
-      var summeLaenge = 0.0;
-      for (final a in verortet) {
-        summeBreite += a.latitude!;
-        summeLaenge += a.longitude!;
-      }
-      mitteBreite = summeBreite / verortet.length;
-      mitteLaenge = summeLaenge / verortet.length;
-    }
+    //
+    // Als eine Zeile aus der Datenbank und nicht als 1091 – dieser Weg
+    // läuft bei jedem Start, sobald auch nur ein Ereignis einen Ort
+    // trägt, den die Ortsliste nicht kennt (der bleibt ohne Koordinate
+    // und steht beim nächsten Mal wieder hier). Siehe
+    // [AppDatabase.schwerpunktVerorteterFotos] für die Messung.
+    final mitte = await db.schwerpunktVerorteterFotos();
 
-    var getroffen = 0;
+    final gefunden = <String, ({double breite, double laenge})>{};
     for (final ereignis in offen) {
       final treffer = geo.sucheOrt(
         ereignis.ort!,
-        naheBreite: mitteBreite,
-        naheLaenge: mitteLaenge,
+        naheBreite: mitte?.breite,
+        naheLaenge: mitte?.laenge,
       );
       if (treffer == null) continue;
-      await db.setzeEreignisort(ereignis.id,
-          breite: treffer.breite, laenge: treffer.laenge);
-      getroffen++;
+      gefunden[ereignis.id] = (breite: treffer.breite, laenge: treffer.laenge);
     }
-    debugPrint('Ereignisorte nachgetragen: $getroffen von ${offen.length}');
+    // Ein Schreibvorgang für alle, nicht einer je Ereignis.
+    if (gefunden.isNotEmpty) await db.setzeEreignisorte(gefunden);
+    debugPrint(
+        'Ereignisorte nachgetragen: ${gefunden.length} von ${offen.length}');
   }
 
   // Beide CLIP-Halter prüfen dieselben Dateien – einer genügt als Auskunft.

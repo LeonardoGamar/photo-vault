@@ -174,7 +174,7 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: AppSpacing.lg),
                   Text(t.aktivitaetenSuchtNoch,
-                      style: TextStyle(color: farben.outline)),
+                      style: TextStyle(color: farben.onSurfaceVariant)),
                 ],
               ),
             )

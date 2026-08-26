@@ -90,7 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (eigene > 0) ...[
               const SizedBox(height: 10),
               Text(t.spracheVokabularSelbstAngelegt(eigene),
-                  style: TextStyle(color: Theme.of(context).colorScheme.outline)),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ],
         ),
@@ -1009,7 +1009,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(t.spracheHinweis,
                         style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context).colorScheme.outline)),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant)),
                   ],
                 ),
               );
@@ -1210,7 +1210,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstKiHinweis,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         FutureBuilder<bool>(
@@ -1321,7 +1321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstVokabularText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
@@ -1382,14 +1382,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstOrteText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
           child: ListTile(
             leading: Icon(
               widget.library.geoDataAvailable ? Icons.check_circle : Icons.cloud_download_outlined,
-              color: widget.library.geoDataAvailable ? Colors.green : null,
+              color: widget.library.geoDataAvailable
+                  ? context.semantik.erfolg
+                  : null,
             ),
             title: Text(AppTexte.of(context).einstGeoTitel),
             subtitle: Text(
@@ -1574,7 +1576,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                 child: Text(
                   AppTexte.of(context).einstBackupZielHinweis,
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ),
             ],
@@ -1587,7 +1589,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstBackupAutoHinweis,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
@@ -1717,7 +1719,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstPapierkorbText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
@@ -1779,7 +1781,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstResetText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
@@ -1849,7 +1851,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Text(
                       AppTexte.of(context).einstAktualisierungHinweis,
                       style: TextStyle(
-                          fontSize: 12, color: Theme.of(context).colorScheme.outline),
+                          fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                   ),
                   if (_aktualisierungsstand != null)
@@ -1860,7 +1862,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             : Icons.check_circle_outline,
                         color: _aktualisierungsstand!.istNeuereVerfuegbar
                             ? Theme.of(context).colorScheme.primary
-                            : Colors.green,
+                            : context.semantik.erfolg,
                       ),
                       title: Text(_aktualisierungsstand!.istNeuereVerfuegbar
                           ? AppTexte.of(context).einstAktualisierungNeuer(_aktualisierungsstand!.neueste)
@@ -1975,7 +1977,7 @@ class _ModelCard extends StatelessWidget {
       child: ListTile(
         leading: Icon(
           installed ? Icons.check_circle : Icons.cloud_download_outlined,
-          color: installed ? Colors.green : null,
+          color: installed ? context.semantik.erfolg : null,
         ),
         title: Text(modellTitel(AppTexte.of(context), entry.id)),
         subtitle: Text([

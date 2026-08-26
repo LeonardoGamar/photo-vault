@@ -151,7 +151,24 @@ const kartenSpeicherGrenze = 300 * 1024 * 1024;
 /// jedem Neuaufbau, `TileLayer.didUpdateWidget` entsorgt den alten
 /// Anbieter aber nicht – jeder Aufbau hinterliesse einen offenen
 /// HTTP-Client.
-void kartenSpeicherEinrichten() =>
+///
+/// Auch [kartenKachelspeicher] führt hierher – siehe dort.
+void kartenSpeicherEinrichten() => kartenKachelspeicher();
+
+/// Der eine Kachelspeicher dieser App, zum Mitbenutzen.
+///
+/// Nicht nur die Karten holen Kacheln: Die Geländeansicht holt dieselben
+/// OpenTopoMap-Bilder und dazu die Höhenkacheln
+/// (`services/gelaende_laden.dart`). Ginge sie am Speicher vorbei, lüde
+/// sie beim zweiten Öffnen derselben Wanderung alles noch einmal – und
+/// ohne Netz gar nichts, während die Karte daneben ihre Kacheln von der
+/// Platte nimmt.
+///
+/// Die Angaben stehen bei jedem Aufruf dabei und nicht nur beim ersten.
+/// Sie wirken zwar ohnehin nur beim ersten – aber so kann kein zweiter
+/// Aufrufer versehentlich ANDERE mitgeben und sich wundern, dass sie
+/// nichts tun. Genau das prüft `karten_kachelspeicher_test.dart`.
+MapCachingProvider kartenKachelspeicher() =>
     BuiltInMapCachingProvider.getOrCreateInstance(
       overrideFreshAge: kartenKachelFrische,
       maxCacheSize: kartenSpeicherGrenze,
@@ -301,8 +318,10 @@ Widget buildMapAttribution(BuildContext context, {Kartenstil? stil}) {
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: Text(
               gewaehlt.namensnennung,
+              // Elf statt neun Punkte: Ein Rechtevermerk soll nicht ins
+              // Auge springen, aber lesbar sein muss er (15. Pruefrunde).
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 11,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),

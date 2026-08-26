@@ -139,8 +139,17 @@ Future<bool> confirmDialog(BuildContext context, String title, String message) a
         TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(AppTexte.of(context).allgAbbrechen)),
+        // Die Farbe des Themas für Fehler und nicht `Colors.red`: Weiss
+        // auf `Colors.red` ergibt 3,68:1, wo Knopfschrift 4,5:1 braucht –
+        // ausgerechnet an dem Knopf, bei dem man sicher sein muss, was
+        // man drückt. `onError` auf `error` sind 6,46:1. Und beide Farben
+        // gehören zusammen: Wer nur den Grund austauscht, lässt die
+        // Schrift auf der Vorgabe stehen.
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+            foregroundColor: Theme.of(context).colorScheme.onError,
+          ),
           onPressed: () => Navigator.pop(context, true),
           child: Text(AppTexte.of(context).allgLoeschen),
         ),

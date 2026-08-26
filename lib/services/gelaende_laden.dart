@@ -14,9 +14,16 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter_map/flutter_map.dart'
+    show CachedMapTile, CachedMapTileMetadata, MapCachingProvider;
 import 'package:http/http.dart' as http;
 
-import '../widgets/mini_location_map.dart' show Kartenstil;
+import '../widgets/mini_location_map.dart'
+    show
+        Kartenstil,
+        kachelNochmalVersuchen,
+        kartenKachelFrische,
+        kartenKachelspeicher;
 import 'gelaendekacheln.dart';
 
 /// Wie lange auf eine einzelne Kachel gewartet wird.
@@ -24,6 +31,96 @@ import 'gelaendekacheln.dart';
 /// Acht Sekunden. Eine Landschaft, die auf die letzte von sechzehn
 /// Kacheln unbegrenzt wartet, erscheint nie.
 const Duration gelaendeZeitgrenze = Duration(seconds: 8);
+
+/// Der Kachelspeicher, den auch die Karten benutzen.
+///
+/// **Es ist derselbe** – eingerichtet in `kartenSpeicherEinrichten()` beim
+/// Start, 300 MB, dreissig Tage frisch. Das ist der Kern dieser Funktion
+/// und nicht ihr Nebeneffekt: Die Landschaft holt dieselben
+/// OpenTopoMap-Kacheln, die die Routenkarte einen Knopfdruck vorher schon
+/// geholt hat. Ohne den gemeinsamen Speicher lädt sie dieselben Bilder
+/// ein zweites Mal, und beim nächsten Öffnen ein drittes.
+///
+/// Am echten Speicher gemessen, ein Ausschnitt im Harz
+/// (`integration_test/gelaende_speicher_test.dart`):
+///
+/// ```
+/// 1. Öffnen: 32 Abrufe, 906 ms
+/// 2. Öffnen:  0 Abrufe,  26 ms
+/// ```
+///
+/// Und ohne Netz erscheint die Landschaft weiterhin, statt „konnte
+/// nicht geladen werden" zu melden.
+///
+/// Angelegt wird er weiterhin an genau einer Stelle – in
+/// `mini_location_map.dart`; hier wird er nur geholt.
+MapCachingProvider _gemeinsamerSpeicher() => kartenKachelspeicher();
+
+/// Holt eine Kachel – erst aus dem Speicher, dann aus dem Netz.
+///
+/// Drei Dinge, die der frühere Weg nicht tat:
+///
+/// 1. **Aus dem Speicher lesen.** Siehe [_gemeinsamerSpeicher].
+/// 2. **Bei 404 noch einmal fragen.** OpenTopoMap rendert Kacheln bei
+///    Bedarf und antwortet auf eine noch nicht fertige nicht mit „warte",
+///    sondern mit 404 – ausführlich begründet bei
+///    [kachelNochmalVersuchen]. Die Karte hält sich seit Prüfrunde 12
+///    daran, die Landschaft nicht: Dort wurde daraus ein dauerhaftes Loch
+///    im Gelände.
+/// 3. **Eine abgelaufene Kachel ist besser als keine.** Wer ohne Netz
+///    unterwegs ist, bekam bisher „konnte nicht geladen werden", obwohl
+///    die Kacheln auf der Platte lagen.
+Future<Uint8List?> _holeRoh(
+  http.Client netz,
+  MapCachingProvider speicher,
+  String url, {
+  Map<String, String> kopf = const {},
+}) async {
+  CachedMapTile? gespeichert;
+  if (speicher.isSupported) {
+    try {
+      gespeichert = await speicher.getTile(url);
+    } catch (_) {
+      // Ein beschädigter Eintrag ist kein Grund, die Kachel aufzugeben –
+      // sie wird gleich frisch geholt.
+      gespeichert = null;
+    }
+    if (gespeichert != null && !gespeichert.metadata.isStale) {
+      return gespeichert.bytes;
+    }
+  }
+
+  for (var versuch = 0; versuch < 2; versuch++) {
+    try {
+      final antwort =
+          await netz.get(Uri.parse(url), headers: kopf).timeout(gelaendeZeitgrenze);
+      if (antwort.statusCode == 200) {
+        if (speicher.isSupported) {
+          try {
+            await speicher.putTile(
+              url: url,
+              metadata: CachedMapTileMetadata(
+                staleAt: DateTime.timestamp().add(kartenKachelFrische),
+                lastModified: null,
+                etag: null,
+              ),
+              bytes: antwort.bodyBytes,
+            );
+          } catch (_) {
+            // Nicht speichern können heisst nicht, nicht anzeigen können.
+          }
+        }
+        return antwort.bodyBytes;
+      }
+      if (!kachelNochmalVersuchen(antwort.statusCode)) break;
+    } catch (_) {
+      // Zeitüberschreitung oder abgerissene Verbindung: einmal noch.
+    }
+  }
+
+  // Nichts aus dem Netz – dann lieber die abgelaufene Kachel als ein Loch.
+  return gespeichert?.bytes;
+}
 
 /// Holt die Geländehöhen für einen Ausschnitt.
 ///
@@ -37,6 +134,7 @@ Future<Hoehengitter?> ladeHoehengitter({
   required double nord,
   required double ost,
   required http.Client netz,
+  MapCachingProvider? speicher,
   int hoechstensKacheln = 16,
   int hoechsteStufe = gelaendeHoechsteStufe,
 }) async {
@@ -49,9 +147,10 @@ Future<Hoehengitter?> ladeHoehengitter({
     hoechsteStufe: hoechsteStufe,
   );
   final adressen = kacheladressen(bereich);
+  final sp = speicher ?? _gemeinsamerSpeicher();
 
   final bilder = await Future.wait([
-    for (final a in adressen) _holeKachel(netz, a.z, a.x, a.y),
+    for (final a in adressen) _holeKachel(netz, sp, a.z, a.x, a.y),
   ]);
   final da = [
     for (final b in bilder)
@@ -69,13 +168,12 @@ Future<Hoehengitter?> ladeHoehengitter({
   );
 }
 
-Future<Kachelbild?> _holeKachel(http.Client netz, int z, int x, int y) async {
+Future<Kachelbild?> _holeKachel(
+    http.Client netz, MapCachingProvider speicher, int z, int x, int y) async {
   try {
-    final antwort = await netz
-        .get(Uri.parse(kacheladresse(z, x, y)))
-        .timeout(gelaendeZeitgrenze);
-    if (antwort.statusCode != 200) return null;
-    final rgba = await _nachRgba(antwort.bodyBytes);
+    final roh = await _holeRoh(netz, speicher, kacheladresse(z, x, y));
+    if (roh == null) return null;
+    final rgba = await _nachRgba(roh);
     return rgba == null ? null : (x: x, y: y, rgba: rgba);
   } catch (_) {
     // Eine einzelne Kachel darf ausfallen, ohne die Landschaft
@@ -110,6 +208,7 @@ Future<ui.Image?> ladeKartenbild({
   required double nord,
   required double ost,
   required http.Client netz,
+  MapCachingProvider? speicher,
   Kartenstil stil = Kartenstil.topo,
   int hoechstensKacheln = 16,
   int hoechsteStufe = gelaendeHoechsteStufe,
@@ -127,9 +226,10 @@ Future<ui.Image?> ladeKartenbild({
     hoechsteStufe: hoechsteStufe,
   );
   final adressen = kacheladressen(bereich);
+  final sp = speicher ?? _gemeinsamerSpeicher();
 
   final bilder = await Future.wait([
-    for (final a in adressen) _holeKartenkachel(netz, stil, a.z, a.x, a.y),
+    for (final a in adressen) _holeKartenkachel(netz, sp, stil, a.z, a.x, a.y),
   ]);
   if (bilder.every((b) => b == null)) return null;
 
@@ -158,23 +258,23 @@ Future<ui.Image?> ladeKartenbild({
   return bild;
 }
 
-Future<ui.Image?> _holeKartenkachel(
-    http.Client netz, Kartenstil stil, int z, int x, int y) async {
+Future<ui.Image?> _holeKartenkachel(http.Client netz,
+    MapCachingProvider speicher, Kartenstil stil, int z, int x, int y) async {
   final vorlage = stil.kachelUrl
       .replaceAll('{s}',
           stil.unterbereiche.isEmpty ? '' : stil.unterbereiche.first)
       .replaceAll('{r}', '');
   try {
-    final antwort = await netz
-        .get(
-          Uri.parse(kacheladresse(z, x, y, vorlage: vorlage)),
-          // OpenTopoMap bittet ausdrücklich um eine aussagekräftige
-          // Kennung statt der Vorgabe der Bibliothek.
-          headers: const {'User-Agent': 'com.example.photoVault'},
-        )
-        .timeout(gelaendeZeitgrenze);
-    if (antwort.statusCode != 200) return null;
-    final codec = await ui.instantiateImageCodec(antwort.bodyBytes);
+    final roh = await _holeRoh(
+      netz,
+      speicher,
+      kacheladresse(z, x, y, vorlage: vorlage),
+      // OpenTopoMap bittet ausdrücklich um eine aussagekräftige Kennung
+      // statt der Vorgabe der Bibliothek.
+      kopf: const {'User-Agent': 'com.example.photoVault'},
+    );
+    if (roh == null) return null;
+    final codec = await ui.instantiateImageCodec(roh);
     try {
       return (await codec.getNextFrame()).image;
     } finally {

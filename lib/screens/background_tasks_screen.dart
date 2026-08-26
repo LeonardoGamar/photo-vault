@@ -100,7 +100,7 @@ class _Laufanzeige extends StatelessWidget {
             lauf.datei!,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, color: farben.outline),
+            style: TextStyle(fontSize: 11, color: farben.onSurfaceVariant),
           ),
       ],
     );
@@ -314,7 +314,7 @@ class _Aufgabenrahmen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(beschreibung,
-                        style: TextStyle(fontSize: 13, color: farben.outline)),
+                        style: TextStyle(fontSize: 13, color: farben.onSurfaceVariant)),
                     const SizedBox(height: AppSpacing.md),
                     inhalt,
                   ],

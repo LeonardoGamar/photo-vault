@@ -860,7 +860,7 @@ class _PeopleGrid extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodySmall
-                      ?.copyWith(fontSize: 9, color: Theme.of(context).colorScheme.outline)),
+                      ?.copyWith(fontSize: 9, color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
         );
@@ -930,7 +930,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
               Expanded(
                 child: Text(
                   AppTexte.of(context).personenSchwellenHinweis,
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ),
               OutlinedButton.icon(
@@ -981,7 +981,7 @@ class _UnassignedFacesGrid extends StatelessWidget {
               children: [
                 Text(
                   AppTexte.of(context).personenDoppelklickHinweis,
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
+                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -1082,7 +1082,7 @@ class _IgnorierteGesichter extends StatelessWidget {
             gesamt > faces.length
                 ? AppTexte.of(context).personenIgnoriertTeilHinweis(faces.length, gesamt)
                 : AppTexte.of(context).personenIgnoriertHinweis,
-            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.outline),
+            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Expanded(

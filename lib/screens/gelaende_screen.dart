@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart'
+    show DisabledMapCachingProvider, MapCachingProvider;
 import 'package:http/http.dart' as http;
 
 import '../l10n/app_localizations.dart';
@@ -26,7 +28,8 @@ class GelaendeScreen extends StatefulWidget {
   final String titel;
 
   /// Nur für Tests: Wer hier etwas hereinreicht, holt keine Kacheln aus
-  /// dem Netz.
+  /// dem Netz – und geht dann auch am gemeinsamen Kachelspeicher vorbei,
+  /// damit ein Test nicht davon abhängt, was auf dieser Platte liegt.
   final http.Client? netz;
 
   const GelaendeScreen({
@@ -68,6 +71,8 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
   Future<void> _laden() async {
     setState(() => _laedt = true);
     final netz = widget.netz ?? http.Client();
+    final MapCachingProvider? speicher =
+        widget.netz == null ? null : const DisabledMapCachingProvider();
     try {
       var sued = double.infinity;
       var nord = double.negativeInfinity;
@@ -93,7 +98,12 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
       ost += randL;
 
       final gitter = await ladeHoehengitter(
-          sued: sued, west: west, nord: nord, ost: ost, netz: netz);
+          sued: sued,
+          west: west,
+          nord: nord,
+          ost: ost,
+          netz: netz,
+          speicher: speicher);
       if (!mounted) return;
       if (gitter == null) {
         setState(() {
@@ -103,7 +113,12 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
         return;
       }
       final karte = await ladeKartenbild(
-          sued: sued, west: west, nord: nord, ost: ost, netz: netz);
+          sued: sued,
+          west: west,
+          nord: nord,
+          ost: ost,
+          netz: netz,
+          speicher: speicher);
       if (!mounted) {
         karte?.dispose();
         return;
@@ -166,7 +181,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
                   const CircularProgressIndicator(),
                   const SizedBox(height: AppSpacing.lg),
                   Text(t.gelaendeLaedt,
-                      style: TextStyle(color: farben.outline)),
+                      style: TextStyle(color: farben.onSurfaceVariant)),
                 ],
               ),
             )
@@ -220,7 +235,17 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
   }
 }
 
+/// Die beiden Zeilen am unteren Rand: links die Bedienung, rechts die
+/// Quellen.
+///
+/// **Elf Punkte und nicht neun.** Links steht keine Namensnennung,
+/// sondern die Anleitung – wie man dreht, kippt und zoomt. Neun Punkte
+/// sind die Groesse, in der man Rechtevermerke wegschaut; sie war hier
+/// zugleich die Groesse, in der die einzige Erklaerung der Bedienung
+/// stand (15. Pruefrunde).
 class _Fussnote extends StatelessWidget {
+  static const double schriftgroesse = 11;
+
   final String text;
   const _Fussnote(this.text);
 
@@ -235,7 +260,7 @@ class _Fussnote extends StatelessWidget {
           child: Text(
             text,
             style: TextStyle(
-              fontSize: 9,
+              fontSize: schriftgroesse,
               color: Theme.of(context).colorScheme.onSurface,
             ),
           ),

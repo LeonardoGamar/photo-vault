@@ -444,10 +444,10 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
             const SizedBox(height: 12),
             if (people.isEmpty)
               Text(AppTexte.of(context).suchoptKeinePersonenBenannt,
-                  style: TextStyle(color: Theme.of(context).colorScheme.outline))
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
             else if (filtered.isEmpty)
               Text(AppTexte.of(context).suchoptKeinePersonenGefunden,
-                  style: TextStyle(color: Theme.of(context).colorScheme.outline))
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
             else
               SizedBox(
                 height: 96,

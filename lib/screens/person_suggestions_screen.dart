@@ -94,7 +94,7 @@ class _PersonSuggestionsScreenState extends State<PersonSuggestionsScreen> {
             child: Text(
               t.vorschlagHinweis,
               style: TextStyle(
-                  fontSize: 12, color: Theme.of(context).colorScheme.outline),
+                  fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
           Expanded(
