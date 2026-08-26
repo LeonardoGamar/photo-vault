@@ -68,6 +68,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
       'type', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _dateiformatMeta =
+      const VerificationMeta('dateiformat');
+  @override
+  late final GeneratedColumn<String> dateiformat = GeneratedColumn<String>(
+      'dateiformat', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _fileCreatedAtMeta =
       const VerificationMeta('fileCreatedAt');
   @override
@@ -378,6 +384,7 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         restoredRelativePath,
         checksum,
         type,
+        dateiformat,
         fileCreatedAt,
         importedAt,
         isFavorite,
@@ -493,6 +500,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           _typeMeta, type.isAcceptableOrUnknown(data['type']!, _typeMeta));
     } else if (isInserting) {
       context.missing(_typeMeta);
+    }
+    if (data.containsKey('dateiformat')) {
+      context.handle(
+          _dateiformatMeta,
+          dateiformat.isAcceptableOrUnknown(
+              data['dateiformat']!, _dateiformatMeta));
     }
     if (data.containsKey('file_created_at')) {
       context.handle(
@@ -750,6 +763,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.string, data['${effectivePrefix}checksum'])!,
       type: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
+      dateiformat: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}dateiformat']),
       fileCreatedAt: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}file_created_at'])!,
       importedAt: attachedDatabase.typeMapping
@@ -874,6 +889,18 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   final String? restoredRelativePath;
   final String checksum;
   final String type;
+
+  /// Dateiformat, kleingeschrieben und ohne Punkt (`dng`, `cr3`, `jpg`).
+  ///
+  /// Eine eigene Spalte und kein `LIKE '%.dng'` auf dem Dateinamen: Jenes
+  /// kann keinen Index benutzen und liest bei jedem Suchlauf die ganze
+  /// Tabelle. Bei 100.000 Fotos wäre das ein Filter, den niemand benutzt.
+  ///
+  /// **Nullable, und leerer Text ist etwas anderes:** Eine Datei ohne
+  /// Endung hat kein Format. „Unbekannt" und „keins" sind zwei
+  /// verschiedene Aussagen – dieselbe Regel wie bei
+  /// `Objektivkorrekturstand` und `Tiefenmaskenstand`.
+  final String? dateiformat;
   final DateTime fileCreatedAt;
   final DateTime importedAt;
   final bool isFavorite;
@@ -1025,6 +1052,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       this.restoredRelativePath,
       required this.checksum,
       required this.type,
+      this.dateiformat,
       required this.fileCreatedAt,
       required this.importedAt,
       required this.isFavorite,
@@ -1090,6 +1118,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
     }
     map['checksum'] = Variable<String>(checksum);
     map['type'] = Variable<String>(type);
+    if (!nullToAbsent || dateiformat != null) {
+      map['dateiformat'] = Variable<String>(dateiformat);
+    }
     map['file_created_at'] = Variable<DateTime>(fileCreatedAt);
     map['imported_at'] = Variable<DateTime>(importedAt);
     map['is_favorite'] = Variable<bool>(isFavorite);
@@ -1211,6 +1242,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           : Value(restoredRelativePath),
       checksum: Value(checksum),
       type: Value(type),
+      dateiformat: dateiformat == null && nullToAbsent
+          ? const Value.absent()
+          : Value(dateiformat),
       fileCreatedAt: Value(fileCreatedAt),
       importedAt: Value(importedAt),
       isFavorite: Value(isFavorite),
@@ -1327,6 +1361,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           serializer.fromJson<String?>(json['restoredRelativePath']),
       checksum: serializer.fromJson<String>(json['checksum']),
       type: serializer.fromJson<String>(json['type']),
+      dateiformat: serializer.fromJson<String?>(json['dateiformat']),
       fileCreatedAt: serializer.fromJson<DateTime>(json['fileCreatedAt']),
       importedAt: serializer.fromJson<DateTime>(json['importedAt']),
       isFavorite: serializer.fromJson<bool>(json['isFavorite']),
@@ -1388,6 +1423,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'restoredRelativePath': serializer.toJson<String?>(restoredRelativePath),
       'checksum': serializer.toJson<String>(checksum),
       'type': serializer.toJson<String>(type),
+      'dateiformat': serializer.toJson<String?>(dateiformat),
       'fileCreatedAt': serializer.toJson<DateTime>(fileCreatedAt),
       'importedAt': serializer.toJson<DateTime>(importedAt),
       'isFavorite': serializer.toJson<bool>(isFavorite),
@@ -1444,6 +1480,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           Value<String?> restoredRelativePath = const Value.absent(),
           String? checksum,
           String? type,
+          Value<String?> dateiformat = const Value.absent(),
           DateTime? fileCreatedAt,
           DateTime? importedAt,
           bool? isFavorite,
@@ -1507,6 +1544,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
             : this.restoredRelativePath,
         checksum: checksum ?? this.checksum,
         type: type ?? this.type,
+        dateiformat: dateiformat.present ? dateiformat.value : this.dateiformat,
         fileCreatedAt: fileCreatedAt ?? this.fileCreatedAt,
         importedAt: importedAt ?? this.importedAt,
         isFavorite: isFavorite ?? this.isFavorite,
@@ -1590,6 +1628,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           : this.restoredRelativePath,
       checksum: data.checksum.present ? data.checksum.value : this.checksum,
       type: data.type.present ? data.type.value : this.type,
+      dateiformat:
+          data.dateiformat.present ? data.dateiformat.value : this.dateiformat,
       fileCreatedAt: data.fileCreatedAt.present
           ? data.fileCreatedAt.value
           : this.fileCreatedAt,
@@ -1692,6 +1732,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('restoredRelativePath: $restoredRelativePath, ')
           ..write('checksum: $checksum, ')
           ..write('type: $type, ')
+          ..write('dateiformat: $dateiformat, ')
           ..write('fileCreatedAt: $fileCreatedAt, ')
           ..write('importedAt: $importedAt, ')
           ..write('isFavorite: $isFavorite, ')
@@ -1750,6 +1791,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         restoredRelativePath,
         checksum,
         type,
+        dateiformat,
         fileCreatedAt,
         importedAt,
         isFavorite,
@@ -1807,6 +1849,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.restoredRelativePath == this.restoredRelativePath &&
           other.checksum == this.checksum &&
           other.type == this.type &&
+          other.dateiformat == this.dateiformat &&
           other.fileCreatedAt == this.fileCreatedAt &&
           other.importedAt == this.importedAt &&
           other.isFavorite == this.isFavorite &&
@@ -1862,6 +1905,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<String?> restoredRelativePath;
   final Value<String> checksum;
   final Value<String> type;
+  final Value<String?> dateiformat;
   final Value<DateTime> fileCreatedAt;
   final Value<DateTime> importedAt;
   final Value<bool> isFavorite;
@@ -1916,6 +1960,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.restoredRelativePath = const Value.absent(),
     this.checksum = const Value.absent(),
     this.type = const Value.absent(),
+    this.dateiformat = const Value.absent(),
     this.fileCreatedAt = const Value.absent(),
     this.importedAt = const Value.absent(),
     this.isFavorite = const Value.absent(),
@@ -1971,6 +2016,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.restoredRelativePath = const Value.absent(),
     required String checksum,
     required String type,
+    this.dateiformat = const Value.absent(),
     required DateTime fileCreatedAt,
     required DateTime importedAt,
     this.isFavorite = const Value.absent(),
@@ -2032,6 +2078,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<String>? restoredRelativePath,
     Expression<String>? checksum,
     Expression<String>? type,
+    Expression<String>? dateiformat,
     Expression<DateTime>? fileCreatedAt,
     Expression<DateTime>? importedAt,
     Expression<bool>? isFavorite,
@@ -2092,6 +2139,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
         'restored_relative_path': restoredRelativePath,
       if (checksum != null) 'checksum': checksum,
       if (type != null) 'type': type,
+      if (dateiformat != null) 'dateiformat': dateiformat,
       if (fileCreatedAt != null) 'file_created_at': fileCreatedAt,
       if (importedAt != null) 'imported_at': importedAt,
       if (isFavorite != null) 'is_favorite': isFavorite,
@@ -2150,6 +2198,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<String?>? restoredRelativePath,
       Value<String>? checksum,
       Value<String>? type,
+      Value<String?>? dateiformat,
       Value<DateTime>? fileCreatedAt,
       Value<DateTime>? importedAt,
       Value<bool>? isFavorite,
@@ -2206,6 +2255,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       restoredRelativePath: restoredRelativePath ?? this.restoredRelativePath,
       checksum: checksum ?? this.checksum,
       type: type ?? this.type,
+      dateiformat: dateiformat ?? this.dateiformat,
       fileCreatedAt: fileCreatedAt ?? this.fileCreatedAt,
       importedAt: importedAt ?? this.importedAt,
       isFavorite: isFavorite ?? this.isFavorite,
@@ -2289,6 +2339,9 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
+    }
+    if (dateiformat.present) {
+      map['dateiformat'] = Variable<String>(dateiformat.value);
     }
     if (fileCreatedAt.present) {
       map['file_created_at'] = Variable<DateTime>(fileCreatedAt.value);
@@ -2436,6 +2489,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('restoredRelativePath: $restoredRelativePath, ')
           ..write('checksum: $checksum, ')
           ..write('type: $type, ')
+          ..write('dateiformat: $dateiformat, ')
           ..write('fileCreatedAt: $fileCreatedAt, ')
           ..write('importedAt: $importedAt, ')
           ..write('isFavorite: $isFavorite, ')
@@ -14080,6 +14134,7 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<String?> restoredRelativePath,
   required String checksum,
   required String type,
+  Value<String?> dateiformat,
   required DateTime fileCreatedAt,
   required DateTime importedAt,
   Value<bool> isFavorite,
@@ -14135,6 +14190,7 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<String?> restoredRelativePath,
   Value<String> checksum,
   Value<String> type,
+  Value<String?> dateiformat,
   Value<DateTime> fileCreatedAt,
   Value<DateTime> importedAt,
   Value<bool> isFavorite,
@@ -14224,6 +14280,9 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get dateiformat => $composableBuilder(
+      column: $table.dateiformat, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get fileCreatedAt => $composableBuilder(
       column: $table.fileCreatedAt, builder: (column) => ColumnFilters(column));
@@ -14405,6 +14464,9 @@ class $$AssetsTableOrderingComposer
 
   ColumnOrderings<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get dateiformat => $composableBuilder(
+      column: $table.dateiformat, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get fileCreatedAt => $composableBuilder(
       column: $table.fileCreatedAt,
@@ -14590,6 +14652,9 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
 
+  GeneratedColumn<String> get dateiformat => $composableBuilder(
+      column: $table.dateiformat, builder: (column) => column);
+
   GeneratedColumn<DateTime> get fileCreatedAt => $composableBuilder(
       column: $table.fileCreatedAt, builder: (column) => column);
 
@@ -14750,6 +14815,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> restoredRelativePath = const Value.absent(),
             Value<String> checksum = const Value.absent(),
             Value<String> type = const Value.absent(),
+            Value<String?> dateiformat = const Value.absent(),
             Value<DateTime> fileCreatedAt = const Value.absent(),
             Value<DateTime> importedAt = const Value.absent(),
             Value<bool> isFavorite = const Value.absent(),
@@ -14805,6 +14871,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             restoredRelativePath: restoredRelativePath,
             checksum: checksum,
             type: type,
+            dateiformat: dateiformat,
             fileCreatedAt: fileCreatedAt,
             importedAt: importedAt,
             isFavorite: isFavorite,
@@ -14860,6 +14927,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> restoredRelativePath = const Value.absent(),
             required String checksum,
             required String type,
+            Value<String?> dateiformat = const Value.absent(),
             required DateTime fileCreatedAt,
             required DateTime importedAt,
             Value<bool> isFavorite = const Value.absent(),
@@ -14915,6 +14983,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             restoredRelativePath: restoredRelativePath,
             checksum: checksum,
             type: type,
+            dateiformat: dateiformat,
             fileCreatedAt: fileCreatedAt,
             importedAt: importedAt,
             isFavorite: isFavorite,

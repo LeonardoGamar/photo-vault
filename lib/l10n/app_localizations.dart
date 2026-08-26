@@ -3412,6 +3412,18 @@ abstract class AppTexte {
   /// **'Farbmarkierung'**
   String get suchoptFarbmarkierung;
 
+  /// No description provided for @suchoptDateiformat.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateiformat'**
+  String get suchoptDateiformat;
+
+  /// No description provided for @suchoptNurRaw.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur RAW'**
+  String get suchoptNurRaw;
+
   /// No description provided for @farbeRot.
   ///
   /// In de, this message translates to:
@@ -3723,6 +3735,30 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Zum Vergleichen gedrückt halten'**
   String get entwVergleichen;
+
+  /// No description provided for @entwVorher.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorher'**
+  String get entwVorher;
+
+  /// No description provided for @entwNachher.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachher'**
+  String get entwNachher;
+
+  /// No description provided for @entwTrennstrich.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorher/Nachher nebeneinander (Strich zum Ziehen)'**
+  String get entwTrennstrich;
+
+  /// No description provided for @entwTrennstrichWartet.
+  ///
+  /// In de, this message translates to:
+  /// **'Das unbearbeitete Bild wird noch berechnet – einen Moment.'**
+  String get entwTrennstrichWartet;
 
   /// No description provided for @entwMaskeErstellen.
   ///
@@ -5987,6 +6023,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Dunkel'**
   String get karteDunkel;
+
+  /// No description provided for @karteTopografie.
+  ///
+  /// In de, this message translates to:
+  /// **'Topografie'**
+  String get karteTopografie;
 
   /// No description provided for @karteGlobus.
   ///

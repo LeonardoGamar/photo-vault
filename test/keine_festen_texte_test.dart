@@ -81,6 +81,7 @@ void main() {
     // wörtlich so dastehen – übersetzt wäre er nicht mehr gültig.
     '© OpenStreetMap contributors',
     '© OpenStreetMap contributors © CARTO',
+    '© OpenStreetMap contributors, SRTM | © opentopomap.org (CC-BY-SA)',
     // Bezeichner, die nie jemand liest: Dateiname im Bibliotheksordner,
     // `heroTag` zweier Knöpfe, `ValueKey` dreier Bausteine.
     'vault.key',

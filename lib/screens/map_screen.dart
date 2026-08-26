@@ -24,7 +24,7 @@ import 'asset_viewer_screen.dart';
 /// eigener, vom Nutzer gewählter Zustand statt am App-Theme (siehe
 /// [buildMapTileLayer]) – die App ist permanent dunkel eingefärbt, ohne
 /// diesen Umschalter gäbe es also nie helle Kacheln zu sehen.
-enum _MapViewMode { light, dark, globe }
+enum _MapViewMode { light, dark, topo, globe }
 
 /// Zoomstufe beim Öffnen der flachen Karte ohne bestimmtes Ziel.
 const double _standardZoom = 6;
@@ -343,6 +343,7 @@ class _MapScreenState extends State<MapScreen> {
             icon: Icon(switch (_mode) {
               _MapViewMode.light => Icons.light_mode_outlined,
               _MapViewMode.dark => Icons.dark_mode_outlined,
+              _MapViewMode.topo => Icons.terrain_outlined,
               _MapViewMode.globe => Icons.public,
             }),
             onSelected: _setMode,
@@ -351,6 +352,8 @@ class _MapScreenState extends State<MapScreen> {
                   AppTexte.of(context).karteHell),
               _modeMenuItem(_MapViewMode.dark, Icons.dark_mode_outlined,
                   AppTexte.of(context).karteDunkel),
+              _modeMenuItem(_MapViewMode.topo, Icons.terrain_outlined,
+                  AppTexte.of(context).karteTopografie),
               _modeMenuItem(_MapViewMode.globe, Icons.public,
                   AppTexte.of(context).karteGlobus),
             ],
@@ -472,7 +475,15 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
-    final isDark = _mode == _MapViewMode.dark;
+    // Der Kartenstil folgt der Nutzerwahl, nicht dem App-Theme: Die App
+    // ist permanent dunkel, das Theme lieferte also nie helle Kacheln.
+    final stil = switch (_mode) {
+      _MapViewMode.light => Kartenstil.hell,
+      _MapViewMode.topo => Kartenstil.topo,
+      // Der Globus zeichnet keine Kacheln; der Wert wird dann nicht
+      // benutzt, muss aber existieren.
+      _MapViewMode.dark || _MapViewMode.globe => Kartenstil.dunkel,
+    };
     // Ein Marker je Gruppe statt je Foto. Vorher stand für jedes verortete
     // Foto ein eigener Marker auf der Karte, jeder mit seiner vollen
     // 400×300-Vorschau: Bei 1140 Fotos waren das 498 MB dekodierte Bitmaps
@@ -485,7 +496,7 @@ class _MapScreenState extends State<MapScreen> {
     // sie herum. FlutterMap selbst kann keine festen Aufsätze.
     return Stack(
       children: [
-        Positioned.fill(child: _flacheKarteBauen(located, gruppen, isDark)),
+        Positioned.fill(child: _flacheKarteBauen(located, gruppen, stil)),
         Positioned(
           right: 8,
           bottom: 24,
@@ -502,7 +513,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Widget _flacheKarteBauen(List<AssetData> located,
-      Map<String, List<AssetData>> gruppen, bool isDark) {
+      Map<String, List<AssetData>> gruppen, Kartenstil stil) {
     return FlutterMap(
       mapController: _flacheKarte,
       options: MapOptions(
@@ -511,8 +522,8 @@ class _MapScreenState extends State<MapScreen> {
         onPositionChanged: _onFlatPositionChanged,
       ),
       children: [
-        buildMapTileLayer(context, dark: isDark),
-        buildMapAttribution(context, dark: isDark),
+        buildMapTileLayer(context, stil: stil),
+        buildMapAttribution(context, stil: stil),
         MarkerLayer(
           markers: [
             for (final gruppe in gruppen.values)

@@ -28,6 +28,16 @@ class SearchFilters {
   final bool notInAnyAlbum;
   final int? minRating;
   final Set<String> colorLabels;
+
+  /// Dateiformate, kleingeschrieben und ohne Punkt (`dng`, `cr3`).
+  /// Leer heisst „alle" – wie bei [colorLabels].
+  ///
+  /// Bewusst KEIN eigenes Feld für „nur RAW": Die Gruppe füllt in der
+  /// Oberfläche nur diesen Satz mit den RAW-Endungen, die in der
+  /// Bibliothek tatsächlich vorkommen. So bleibt in der Abfrage eine
+  /// einzige Wahrheit – und eine gespeicherte Suche findet morgen
+  /// dasselbe wie heute, statt sich mit jedem neuen Format zu ändern.
+  final Set<String> formate;
   final int? minIso;
   final int? maxIso;
   final double? minFNumber;
@@ -57,6 +67,7 @@ class SearchFilters {
     this.notInAnyAlbum = false,
     this.minRating,
     this.colorLabels = const {},
+    this.formate = const {},
     this.minIso,
     this.maxIso,
     this.minFNumber,
@@ -84,6 +95,7 @@ class SearchFilters {
       !notInAnyAlbum &&
       minRating == null &&
       colorLabels.isEmpty &&
+      formate.isEmpty &&
       minIso == null &&
       maxIso == null &&
       minFNumber == null &&
@@ -124,6 +136,7 @@ class SearchFilters {
     int? minRating,
     bool clearMinRating = false,
     Set<String>? colorLabels,
+    Set<String>? formate,
     int? minIso,
     bool clearMinIso = false,
     int? maxIso,
@@ -158,6 +171,7 @@ class SearchFilters {
       notInAnyAlbum: notInAnyAlbum ?? this.notInAnyAlbum,
       minRating: clearMinRating ? null : (minRating ?? this.minRating),
       colorLabels: colorLabels ?? this.colorLabels,
+      formate: formate ?? this.formate,
       minIso: clearMinIso ? null : (minIso ?? this.minIso),
       maxIso: clearMaxIso ? null : (maxIso ?? this.maxIso),
       minFNumber: clearMinFNumber ? null : (minFNumber ?? this.minFNumber),
@@ -191,6 +205,7 @@ class SearchFilters {
         'notInAnyAlbum': notInAnyAlbum,
         'minRating': minRating,
         'colorLabels': colorLabels.toList(),
+        'formate': formate.toList(),
         'minIso': minIso,
         'maxIso': maxIso,
         'minFNumber': minFNumber,
@@ -219,6 +234,7 @@ class SearchFilters {
         notInAnyAlbum: json['notInAnyAlbum'] as bool? ?? false,
         minRating: json['minRating'] as int?,
         colorLabels: (json['colorLabels'] as List<dynamic>? ?? const []).cast<String>().toSet(),
+        formate: (json['formate'] as List<dynamic>? ?? const []).cast<String>().toSet(),
         minIso: json['minIso'] as int?,
         maxIso: json['maxIso'] as int?,
         minFNumber: (json['minFNumber'] as num?)?.toDouble(),

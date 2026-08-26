@@ -54,6 +54,18 @@ class Assets extends Table {
   TextColumn get restoredRelativePath => text().nullable()();
   TextColumn get checksum => text().unique()();
   TextColumn get type => text()(); // 'IMAGE' oder 'VIDEO'
+
+  /// Dateiformat, kleingeschrieben und ohne Punkt (`dng`, `cr3`, `jpg`).
+  ///
+  /// Eine eigene Spalte und kein `LIKE '%.dng'` auf dem Dateinamen: Jenes
+  /// kann keinen Index benutzen und liest bei jedem Suchlauf die ganze
+  /// Tabelle. Bei 100.000 Fotos wäre das ein Filter, den niemand benutzt.
+  ///
+  /// **Nullable, und leerer Text ist etwas anderes:** Eine Datei ohne
+  /// Endung hat kein Format. „Unbekannt" und „keins" sind zwei
+  /// verschiedene Aussagen – dieselbe Regel wie bei
+  /// `Objektivkorrekturstand` und `Tiefenmaskenstand`.
+  TextColumn get dateiformat => text().nullable()();
   DateTimeColumn get fileCreatedAt => dateTime()();
   DateTimeColumn get importedAt => dateTime()();
   BoolColumn get isFavorite => boolean().withDefault(const Constant(false))();
@@ -992,7 +1004,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 47;
+  int get schemaVersion => 48;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1063,6 +1075,7 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
           await _createPerformanceIndices(m);
           await _createIndicesV14(m);
+          await _createIndicesV48(m);
           await _seedAiTagVocabulary();
         },
         onUpgrade: (m, from, to) async {
@@ -1353,7 +1366,43 @@ class AppDatabase extends _$AppDatabase {
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
           }
+          if (from < 48) {
+            // Dateiformat als eigene, indexierte Spalte – Suche nach
+            // „nur DNG" ohne Tabellen-Scan.
+            await _addColumnIfMissing(
+                m, assets, assets.dateiformat, 'assets', 'dateiformat');
+            await _trageDateiformateNach();
+            await _createIndicesV48(m);
+          }
         },
+      );
+
+  /// Füllt [Assets.dateiformat] für den Bestand aus dem Dateinamen.
+  ///
+  /// **Eine einzige Anweisung, nicht ein Aufruf je Foto.** Bei 8.000
+  /// Fotos wäre der Unterschied noch zu verschmerzen; bei 100.000 wäre es
+  /// eine Migration, bei der man denkt, die App sei hängen geblieben.
+  ///
+  /// Die Endung ist alles hinter dem LETZTEN Punkt – `rindex` statt
+  /// `instr`. Ein Dateiname wie `Urlaub.2019.jpg` hat zwei Punkte, und
+  /// `2019.jpg` wäre kein Format.
+  ///
+  /// Namen ohne Punkt bleiben `NULL`: Sie haben kein Format, und das ist
+  /// etwas anderes als ein unbekanntes.
+  Future<void> _trageDateiformateNach() => customStatement(
+        'UPDATE assets SET dateiformat = nullif(lower(substr('
+        '  original_file_name,'
+        '  length(rtrim(original_file_name,'
+        "    replace(original_file_name, '.', ''))) + 1)), '') "
+        'WHERE dateiformat IS NULL '
+        "  AND instr(original_file_name, '.') > 0",
+      );
+
+  /// Index für den Formatfilter. Teilindex: Fotos ohne Format sind der
+  /// seltene Fall und werden nie gesucht.
+  Future<void> _createIndicesV48(Migrator m) => customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_assets_dateiformat '
+        'ON assets (dateiformat) WHERE dateiformat IS NOT NULL',
       );
 
   /// Legt [spalte] nur an, wenn sie in [tabellenName] noch fehlt.
@@ -3264,6 +3313,13 @@ class AppDatabase extends _$AppDatabase {
       query.where((t) => t.type.equals('VIDEO'));
     }
 
+    // Leerer Satz heisst „alle" – nicht „keins". Ein `isIn([])` waere
+    // sonst eine Bedingung, die nie zutrifft, und die Suche bliebe ohne
+    // erkennbaren Grund leer.
+    if (filters.formate.isNotEmpty) {
+      query.where((t) => t.dateiformat.isIn(filters.formate.toList()));
+    }
+
     if (filters.favoritesOnly) {
       query.where((t) => t.isFavorite.equals(true));
     }
@@ -3336,6 +3392,12 @@ class AppDatabase extends _$AppDatabase {
   Future<List<String>> distinctCameraMakes() => _distinctNonNullValues(assets.cameraMake);
   Future<List<String>> distinctCameraModels() => _distinctNonNullValues(assets.cameraModel);
   Future<List<String>> distinctLensModels() => _distinctNonNullValues(assets.lensModel);
+
+  /// Alle in der Bibliothek vorkommenden Dateiformate – für die
+  /// Auswahlliste im Suchfeld. Bewusst aus dem Bestand statt aus einer
+  /// festen Liste: Angeboten wird, was da ist, nicht was die App könnte.
+  Future<List<String>> distinctDateiformate() =>
+      _distinctNonNullValues(assets.dateiformat);
 
   /// Alle in der Bibliothek bereits vorkommenden Kamera-Kombinationen
   /// (Hersteller + Modell zusammen, nicht unabhängig wie

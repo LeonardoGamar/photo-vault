@@ -120,6 +120,19 @@ class _DevelopScreenState extends State<DevelopScreen> {
   bool _loadingOriginalPreview = false;
   bool _showingOriginal = false;
 
+  /// Position des Vorher/Nachher-Trennstrichs, 0…1 auf dem dargestellten
+  /// Bild. `null` heisst „aus".
+  ///
+  /// Bewusst nicht gespeichert – ein Vergleich ist eine Handlung, kein
+  /// Zustand des Fotos. Dasselbe Argument wie bei
+  /// [_beschneidungZeigen].
+  double? _trennstrich;
+
+  /// Seitenverhältnis der aktuellen Vorschau, aus [BildAuswertung]. Ohne
+  /// das sässe der Trennstrich auf dem Widget statt auf dem Bild – bei
+  /// `BoxFit.contain` zwei verschiedene Rechtecke.
+  double? _vorschauSeitenverhaeltnis;
+
   /// Ob beschnittene Stellen im Bild markiert werden. Bewusst NICHT
   /// gespeichert: Das ist ein Blick beim Arbeiten, keine Eigenschaft des
   /// Fotos - und beim naechsten Oeffnen will man das Bild sehen, nicht die
@@ -157,6 +170,15 @@ class _DevelopScreenState extends State<DevelopScreen> {
         bedienbar: _shaderMoeglich,
         zieht: _dragging,
         warnungAn: _beschneidungZeigen,
+      );
+
+  /// Ob der Vorher/Nachher-Trennstrich gerade zu sehen ist. Getrennt vom
+  /// Umschalter, weil „eingeschaltet" und „zeigbar" zwei Dinge sind –
+  /// dieselbe Lehre wie bei der Beschneidungswarnung.
+  bool get _zeigeTrennstrich => trennstrichZeigen(
+        eingeschaltet: _trennstrich != null,
+        originalDa: _originalPreviewBytes != null,
+        shaderLaeuft: _zeigeShaderVorschau,
       );
 
   /// Tonwertverteilung der aktuell angezeigten Vorschau (siehe
@@ -584,6 +606,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
       setState(() {
         _histogram = auswertung?.histogramm;
         _waveform = auswertung?.waveform;
+        // Fällt beim Dekodieren ohnehin an (siehe BildAuswertung) – der
+        // Trennstrich braucht es, um auf dem Bild zu sitzen und nicht auf
+        // dem Widget.
+        _vorschauSeitenverhaeltnis = auswertung?.seitenverhaeltnis;
         _histogramPending = false;
       });
     } catch (_) {
@@ -607,6 +633,45 @@ class _DevelopScreenState extends State<DevelopScreen> {
     );
     _loadingOriginalPreview = false;
     if (mounted && bytes != null) setState(() => _originalPreviewBytes = bytes);
+  }
+
+  /// Schaltet den Vorher/Nachher-Trennstrich um.
+  ///
+  /// Beim Einschalten muss das unbearbeitete Bild angefordert werden –
+  /// bisher geschah das nur beim Gedrueckt-Halten. Ohne diesen Aufruf
+  /// bliebe der Strich stumm aus (siehe [trennstrichZeigen]), und man
+  /// suchte den Fehler beim Knopf.
+  void _trennstrichUmschalten() {
+    if (_trennstrich == null) {
+      _ensureOriginalPreviewLoaded();
+      setState(() => _trennstrich = 0.5);
+    } else {
+      setState(() => _trennstrich = null);
+    }
+  }
+
+  /// Vorher und Nachher nebeneinander, getrennt durch einen ziehbaren
+  /// Strich.
+  ///
+  /// Beide Bilder liegen bereits vor – links das unbearbeitete, rechts das
+  /// entwickelte. Es entsteht kein zusaetzlicher Render.
+  Widget _buildTrennstrichVergleich() {
+    final verhaeltnis = _vorschauSeitenverhaeltnis;
+    // Ohne bekanntes Seitenverhaeltnis waere die Lage des Strichs geraten.
+    // Dann lieber das normale Bild zeigen, bis die Auswertung da ist.
+    if (verhaeltnis == null) {
+      return Image.memory(_previewBytes!, gaplessPlayback: true, fit: BoxFit.contain);
+    }
+
+    return VorherNachherVergleich(
+      original: _originalPreviewBytes!,
+      bearbeitet: _previewBytes!,
+      seitenverhaeltnis: verhaeltnis,
+      anteil: _trennstrich!,
+      beiVerschieben: (a) => setState(() => _trennstrich = a),
+      vorherText: AppTexte.of(context).entwVorher,
+      nachherText: AppTexte.of(context).entwNachher,
+    );
   }
 
   /// Übernimmt einen vergangenen, dauerhaft gespeicherten Entwickeln-Stand
@@ -1688,6 +1753,17 @@ class _DevelopScreenState extends State<DevelopScreen> {
           // Reglerspalte: Sie beurteilt das Bild, sie stellt nichts ein.
           // Nur bei der Shader-Vorschau anbietbar - die Markierung entsteht
           // im Shader, ein fertig gerendertes JPEG traegt sie nicht.
+          // Der Vorher/Nachher-Strich. Wie die Beschneidungswarnung ein
+          // Blick auf das Bild, keine Einstellung daran - deshalb hier
+          // neben ihr und nicht in der Reglerspalte.
+          IconButton(
+            icon: Icon(_trennstrich != null
+                ? Icons.compare
+                : Icons.compare_outlined),
+            color: _trennstrich != null ? Colors.amber : Colors.white70,
+            tooltip: AppTexte.of(context).entwTrennstrich,
+            onPressed: _trennstrichUmschalten,
+          ),
           IconButton(
             icon: Icon(_beschneidungZeigen
                 ? Icons.report_problem
@@ -1756,13 +1832,15 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                                 adjustments: _currentAdjustments(),
                                                 beschneidungZeigen: _beschneidungZeigen,
                                               )
-                                            : Image.memory(
-                                                (_showingOriginal && _originalPreviewBytes != null)
-                                                    ? _originalPreviewBytes!
-                                                    : _previewBytes!,
-                                                gaplessPlayback: true,
-                                                fit: BoxFit.contain,
-                                              ),
+                                            : (_zeigeTrennstrich && !_showingOriginal)
+                                                ? _buildTrennstrichVergleich()
+                                                : Image.memory(
+                                                    (_showingOriginal && _originalPreviewBytes != null)
+                                                        ? _originalPreviewBytes!
+                                                        : _previewBytes!,
+                                                    gaplessPlayback: true,
+                                                    fit: BoxFit.contain,
+                                                  ),
                                       ),
                                       if (_showingOriginal)
                                         Positioned(
@@ -1785,6 +1863,29 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                             AppTexte.of(context).entwVergleichen,
                                             style: const TextStyle(
                                                 color: DunkleFlaeche.hinweis, fontSize: 11),
+                                          ),
+                                        ),
+                                      // Der Strich ist an, aber das
+                                      // unbearbeitete Bild wird noch
+                                      // gerechnet. Ohne diesen Hinweis
+                                      // sähe der Knopf wirkungslos aus -
+                                      // und man suchte den Fehler dort.
+                                      if (_trennstrich != null &&
+                                          _originalPreviewBytes == null)
+                                        Positioned(
+                                          top: 8,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: AppSpacing.xs),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black54,
+                                              borderRadius:
+                                                  BorderRadius.circular(AppRadius.pill),
+                                            ),
+                                            child: Text(
+                                                AppTexte.of(context).entwTrennstrichWartet,
+                                                style: const TextStyle(
+                                                    color: Colors.white, fontSize: 12)),
                                           ),
                                         ),
                                       // Solange die Warnung an ist, zeigt

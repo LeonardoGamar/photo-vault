@@ -151,6 +151,10 @@ class ImportService {
         relativePath: relativePath,
         checksum: checksum,
         type: isImage ? 'IMAGE' : 'VIDEO',
+        // Aus DEM Namen, unter dem die Datei kam - nicht aus dem
+        // Ablagepfad. Der Ablagepfad traegt eine vereinheitlichte Endung,
+        // und dann stuende bei jedem Foto dasselbe Format.
+        dateiformat: Value(dateiformatAus(p.basename(filePath))),
         fileCreatedAt: fileCreatedAt,
         importedAt: DateTime.now(),
         thumbnailRelativePath: Value(thumbResult.thumbnailRelativePath),

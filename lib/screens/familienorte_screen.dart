@@ -154,8 +154,8 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
         },
       ),
       children: [
-        buildMapTileLayer(context, dark: true),
-        buildMapAttribution(context, dark: true),
+        buildMapTileLayer(context, stil: Kartenstil.dunkel),
+        buildMapAttribution(context, stil: Kartenstil.dunkel),
         MarkerLayer(
           markers: [
             for (final gruppe in gruppen.values)

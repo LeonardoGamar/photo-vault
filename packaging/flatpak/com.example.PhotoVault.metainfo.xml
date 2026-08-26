@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.10.0" date="2026-08-25">
+      <description>
+        <p>Before and after side by side while developing: both versions in one image, with a divider you can drag, so a particular spot can be compared instead of just the overall impression. Press-and-hold stays alongside it - it is quicker for a short look.</p>
+        <p>Search by file format: only DNG, only CR3, or all RAW formats at once. What the library actually contains is offered, not a fixed list of everything readable.</p>
+        <p>A topographic map style with contour lines and hill shading, via OpenTopoMap - no key, no account, like the other tiles.</p>
+        <p xml:lang="de">Vorher und Nachher nebeneinander beim Entwickeln: beide Fassungen in einem Bild, mit einem ziehbaren Strich dazwischen - so laesst sich eine bestimmte Stelle vergleichen statt nur der Gesamteindruck. Das Gedrueckt-Halten bleibt daneben bestehen, es ist schneller fuer den kurzen Blick.</p>
+        <p xml:lang="de">Suche nach Dateiformaten: nur DNG, nur CR3, oder mit einem Griff alle RAW-Formate. Angeboten wird, was in der Bibliothek tatsaechlich vorkommt, nicht eine feste Liste aller lesbaren Formate.</p>
+        <p xml:lang="de">Ein topografischer Kartenstil mit Hoehenlinien und Gelaendeschummerung ueber OpenTopoMap - ohne Schluessel, ohne Konto, wie die uebrigen Kacheln auch.</p>
+      </description>
+    </release>
     <release version="1.9.7" date="2026-08-25">
       <description>
         <p>Fixes the clipping warning added in 1.9.6. The calculation behind it was right, but the button could not be pressed: it was tied to "the preview is running right now", and that was only true while a slider was being dragged. Turning the warning on now keeps the marks on screen, hands off the sliders.</p>

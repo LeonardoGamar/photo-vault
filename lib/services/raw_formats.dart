@@ -24,3 +24,28 @@ const rawImageExtensions = {
   '.rwl', '.raw', // Leica
   '.dxo', // DxO
 };
+
+/// Dieselben Endungen ohne Punkt – die Schreibweise, in der das Format in
+/// der Datenbank steht (siehe `Assets.dateiformat`).
+///
+/// Abgeleitet und nicht abgeschrieben: Eine zweite Liste von Hand wäre
+/// die naheliegendste Art, dass beide auseinanderlaufen, ohne dass es
+/// jemandem auffällt.
+final rawDateiformate = {
+  for (final e in rawImageExtensions) e.substring(1),
+};
+
+/// Das Dateiformat eines Namens – kleingeschrieben, ohne Punkt.
+///
+/// `null`, wenn der Name keine Endung hat. Bewusst nicht der leere Text:
+/// „hat kein Format" und „Format unbekannt" sind zwei verschiedene
+/// Aussagen, und nur die erste stimmt hier.
+///
+/// Alles hinter dem LETZTEN Punkt – `Urlaub.2019.jpg` ist `jpg`, nicht
+/// `2019.jpg`. Die Migration in `database.dart` rechnet dasselbe in SQL;
+/// beide sind gegen dieselben Beispiele geprüft.
+String? dateiformatAus(String dateiname) {
+  final punkt = dateiname.lastIndexOf('.');
+  if (punkt < 0 || punkt == dateiname.length - 1) return null;
+  return dateiname.substring(punkt + 1).toLowerCase();
+}

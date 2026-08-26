@@ -374,7 +374,24 @@ WaveformData computeWaveform(img.Image image) {
 class BildAuswertung {
   final HistogramData histogramm;
   final WaveformData waveform;
-  const BildAuswertung(this.histogramm, this.waveform);
+
+  /// Die Masse des ausgewerteten Bildes.
+  ///
+  /// Mitgenommen, weil sie hier ohnehin anfallen: Das Dekodieren ist der
+  /// teure Teil, und wer die Masse sonst bräuchte, müsste dafür ein
+  /// zweites Mal dekodieren. Der Vorher/Nachher-Trennstrich im
+  /// Entwickeln-Bildschirm braucht sie, um auf dem tatsächlich
+  /// dargestellten Bild zu sitzen statt auf dem Widget – bei
+  /// `BoxFit.contain` sind das zwei verschiedene Rechtecke.
+  final int breite;
+  final int hoehe;
+
+  const BildAuswertung(this.histogramm, this.waveform,
+      {required this.breite, required this.hoehe});
+
+  /// Breite geteilt durch Höhe. Null-sicher: ein Bild ohne Höhe gibt es
+  /// nicht, aber ein Teilen durch Null wäre der unangenehmere Fehler.
+  double get seitenverhaeltnis => hoehe == 0 ? 1 : breite / hoehe;
 }
 
 /// Dekodiert [bytes] und berechnet Histogramm UND Waveform.
@@ -387,7 +404,12 @@ class BildAuswertung {
 BildAuswertung? computeBildAuswertung(Uint8List bytes) {
   final decoded = img.decodeImage(bytes);
   if (decoded == null) return null;
-  return BildAuswertung(computeHistogram(decoded), computeWaveform(decoded));
+  return BildAuswertung(
+    computeHistogram(decoded),
+    computeWaveform(decoded),
+    breite: decoded.width,
+    hoehe: decoded.height,
+  );
 }
 
 /// Dekodiert [bytes] und berechnet daraus die Tonwertverteilung – eine

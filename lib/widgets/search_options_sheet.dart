@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/blur_detection.dart';
+import '../services/raw_formats.dart';
 import '../services/search_filters.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -46,6 +47,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
   late bool _notInAnyAlbum;
   int? _minRating;
   late Set<String> _colorLabels;
+  late Set<String> _formate;
   late final TextEditingController _minIsoController;
   late final TextEditingController _maxIsoController;
   late final TextEditingController _minFNumberController;
@@ -70,6 +72,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
   late final Future<List<String>> _cameraMakesFuture = widget.library.db.distinctCameraMakes();
   late final Future<List<String>> _cameraModelsFuture = widget.library.db.distinctCameraModels();
   late final Future<List<String>> _lensModelsFuture = widget.library.db.distinctLensModels();
+  late final Future<List<String>> _formateFuture = widget.library.db.distinctDateiformate();
 
   // Kaskadierend (Land -> Bundesland -> Stadt): jede Ebene schränkt die
   // darunterliegende ein, deshalb nicht `late final`, sondern bei jeder
@@ -109,6 +112,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
     _notInAnyAlbum = f.notInAnyAlbum;
     _minRating = f.minRating;
     _colorLabels = f.colorLabels.toSet();
+    _formate = f.formate.toSet();
     _minIsoController = TextEditingController(text: f.minIso?.toString() ?? '');
     _maxIsoController = TextEditingController(text: f.maxIso?.toString() ?? '');
     _minFNumberController = TextEditingController(text: f.minFNumber?.toString() ?? '');
@@ -171,6 +175,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
       _notInAnyAlbum = false;
       _minRating = null;
       _colorLabels = {};
+      _formate = {};
       _minIsoController.clear();
       _maxIsoController.clear();
       _minFNumberController.clear();
@@ -200,6 +205,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
         notInAnyAlbum: _notInAnyAlbum,
         minRating: _minRating,
         colorLabels: _colorLabels,
+        formate: _formate,
         minIso: int.tryParse(_minIsoController.text.trim()),
         maxIso: int.tryParse(_maxIsoController.text.trim()),
         minFNumber: double.tryParse(_minFNumberController.text.trim().replaceAll(',', '.')),
@@ -785,7 +791,66 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _formatAuswahl(),
       ],
+    );
+  }
+
+  /// Die Dateiformate, die in der Bibliothek tatsaechlich vorkommen.
+  ///
+  /// Angeboten wird, was da ist - keine feste Liste aller Formate, die
+  /// die App lesen koennte. Eine Auswahl, die zu null Treffern fuehrt,
+  /// ist keine Auswahl.
+  Widget _formatAuswahl() {
+    return FutureBuilder<List<String>>(
+      future: _formateFuture,
+      builder: (context, snapshot) {
+        final vorhanden = snapshot.data ?? const <String>[];
+        if (vorhanden.isEmpty) return const SizedBox.shrink();
+
+        // Nur die RAW-Formate, die es hier auch gibt. Ein Knopf, der
+        // 26 Endungen auswaehlt, von denen 23 nirgends vorkommen, waere
+        // eine Auswahl ohne Wirkung.
+        final rawVorhanden =
+            vorhanden.where(rawDateiformate.contains).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppTexte.of(context).suchoptDateiformat,
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (rawVorhanden.isNotEmpty)
+                  FilterChip(
+                    label: Text(AppTexte.of(context).suchoptNurRaw),
+                    // Ausgewaehlt nur, wenn ALLE vorhandenen RAW-Formate
+                    // drin sind - sonst saehe der Knopf gesetzt aus,
+                    // waehrend die Suche einen Teil davon auslaesst.
+                    selected: rawVorhanden.every(_formate.contains),
+                    onSelected: (gewaehlt) => setState(() {
+                      gewaehlt
+                          ? _formate.addAll(rawVorhanden)
+                          : _formate.removeAll(rawVorhanden);
+                    }),
+                  ),
+                for (final format in vorhanden)
+                  FilterChip(
+                    label: Text(format.toUpperCase()),
+                    selected: _formate.contains(format),
+                    onSelected: (gewaehlt) => setState(() {
+                      gewaehlt ? _formate.add(format) : _formate.remove(format);
+                    }),
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 

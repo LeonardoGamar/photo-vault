@@ -1964,6 +1964,12 @@ class AppTexteEn extends AppTexte {
   String get suchoptFarbmarkierung => 'Colour label';
 
   @override
+  String get suchoptDateiformat => 'File format';
+
+  @override
+  String get suchoptNurRaw => 'RAW only';
+
+  @override
   String get farbeRot => 'Red';
 
   @override
@@ -2137,6 +2143,20 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get entwVergleichen => 'Press and hold to compare';
+
+  @override
+  String get entwVorher => 'Before';
+
+  @override
+  String get entwNachher => 'After';
+
+  @override
+  String get entwTrennstrich =>
+      'Before and after side by side (drag the divider)';
+
+  @override
+  String get entwTrennstrichWartet =>
+      'The unedited image is still being rendered – one moment.';
 
   @override
   String get entwMaskeErstellen => 'Create a mask';
@@ -3484,6 +3504,9 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get karteDunkel => 'Dark';
+
+  @override
+  String get karteTopografie => 'Topographic';
 
   @override
   String get karteGlobus => 'Globe';
