@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:http/http.dart';
+import 'package:http/retry.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../theme/app_spacing.dart';
@@ -122,6 +127,86 @@ void kartenSpeicherEinrichten() =>
       maxCacheSize: kartenSpeicherGrenze,
     );
 
+/// Bei welchen Statuscodes ein zweiter Versuch sinnvoll ist.
+///
+/// **404 steht hier mit Absicht, und das ist der Kern der Sache.**
+/// OpenTopoMap rendert Kacheln bei Bedarf; ist eine noch nicht fertig,
+/// antwortet der Server nicht mit „warte", sondern mit 404. An einer
+/// echten Kartenfahrt im Alpenraum gemessen:
+///
+/// ```
+/// 170 Kachelabrufe -> 126 x 200, 44 x 404   (alle auf Stufe 17)
+/// dieselben 404-Kacheln Sekunden später -> 200, in 70-90 ms
+/// ```
+///
+/// Dieselbe Fahrt kurz darauf: 142 Abrufe, kein einziger Fehler. Es ist
+/// also nichts, was man beim Programmieren sieht – und für den
+/// Betrachter bleibt eine graue Lücke im Kartenbild, dauerhaft.
+///
+/// Denn ohne diese Liste hilft niemand nach: Der Vorgabe-[RetryClient]
+/// von flutter_map wiederholt **allein bei 503**, und
+/// [EvictErrorTileStrategy.none] behält die gescheiterte Kachel für
+/// immer. Ein einziger Fehlschlag wird so zu einem Loch, das bis zum
+/// nächsten Programmstart bleibt.
+///
+/// Bei OSM und CARTO ist ein 404 dagegen echt. Der Preis dafür sind
+/// zwei überflüssige Abrufe für eine Kachel, die es ohnehin nicht gibt –
+/// gegenüber einer Lücke im Bild ist das der bessere Handel.
+bool kachelNochmalVersuchen(int status) =>
+    status == 404 || // noch nicht gerendert, siehe oben
+    status == 408 || // Zeitüberschreitung beim Server
+    status == 429 || // zu viele Abrufe, gleich wieder gut
+    (status >= 500 && status < 600);
+
+/// Ob ein geworfener Fehler einen zweiten Versuch verdient.
+///
+/// Abgebrochene Abrufe gehören ausdrücklich **nicht** dazu: flutter_map
+/// bricht selbst ab, wenn eine Kachel beim schnellen Ziehen gar nicht
+/// mehr gebraucht wird. Die zu wiederholen hiesse, dem Server Arbeit für
+/// Bilder aufzuladen, die niemand mehr sieht.
+bool kachelFehlerNochmalVersuchen(Object fehler) {
+  if (fehler is ClientException) {
+    final m = fehler.message.toLowerCase();
+    if (m.contains('cancel') || m.contains('abort')) return false;
+    return true;
+  }
+  return fehler is SocketException ||
+      fehler is HttpException ||
+      fehler is TimeoutException;
+}
+
+/// Wartezeit vor dem Versuch nach dem [versuch]-ten Fehlschlag.
+///
+/// Kurz genug, dass die Kachel noch im Bild ist, wenn sie ankommt, und
+/// lang genug, dass ein Renderer sie fertigstellen kann. Zwei Versuche
+/// sind die Obergrenze: Die Kachelserver werden gespendet.
+Duration kachelWartezeit(int versuch) =>
+    Duration(milliseconds: 400 * (versuch + 1) * (versuch + 1));
+
+/// Wie oft ein gescheiterter Kachelabruf wiederholt wird.
+const kachelVersuche = 2;
+
+NetworkTileProvider? _kachelAnbieter;
+
+/// Der gemeinsame Kachelanbieter samt Wiederholungen.
+///
+/// Ein **Einzelstück**, aus demselben Grund wie beim Speicher: Ein
+/// eigener Anbieter je Aufbau wäre ein Leck, denn
+/// `TileLayer.didUpdateWidget` entsorgt den alten nicht. Hier ist es
+/// zusätzlich ungefährlich, den einen weiterzureichen – der Anbieter
+/// schliesst in `dispose()` nur einen selbst erzeugten HTTP-Client, und
+/// unserer wird von aussen übergeben.
+NetworkTileProvider kartenKachelAnbieter() => _kachelAnbieter ??=
+    NetworkTileProvider(
+      httpClient: RetryClient(
+        Client(),
+        retries: kachelVersuche,
+        when: (antwort) => kachelNochmalVersuchen(antwort.statusCode),
+        whenError: (fehler, _) => kachelFehlerNochmalVersuchen(fehler),
+        delay: kachelWartezeit,
+      ),
+    );
+
 /// Liefert die Kacheln des gewählten Stils.
 ///
 /// Ohne [stil] richtet sich das nach dem Theme – da die App aber permanent
@@ -139,6 +224,12 @@ TileLayer buildMapTileLayer(BuildContext context, {Kartenstil? stil}) {
     // OpenTopoMap bittet ausdrücklich um einen aussagekräftigen
     // User-Agent statt der Vorgabe der Bibliothek.
     userAgentPackageName: 'com.example.photoVault',
+    tileProvider: kartenKachelAnbieter(),
+    // Bleibt eine Kachel auch nach den Wiederholungen aus, wird sie
+    // beim Wegscrollen weggeworfen statt behalten. Die Vorgabe
+    // `none` hiesse: Wer zu der Stelle zurückkehrt, sieht dieselbe
+    // Lücke wieder - ohne dass je ein neuer Versuch stattfände.
+    evictErrorTileStrategy: EvictErrorTileStrategy.notVisible,
   );
 }
 

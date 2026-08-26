@@ -68,6 +68,14 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.10.2" date="2026-08-25">
+      <description>
+        <p>Grey holes in the map heal themselves again. OpenTopoMap renders tiles on demand and reports "not found" while a tile is still being drawn - a state that lasts seconds. It became permanent through two library defaults: a second attempt was made only for "service overloaded", and a failed tile was kept rather than discarded, so nothing ever asked for it again. Measured on a real map journey: 44 of 170 tile requests were refused, and the very same tiles arrived seconds later in 70-90 ms.</p>
+        <p>A refused tile request is now retried twice, after 0.4 and 1.6 seconds, and a tile that still fails is discarded when scrolled away, so returning to that spot means a fresh attempt. Aborted requests are deliberately not retried: those arise from fast panning and concern tiles nobody is looking at any more.</p>
+        <p xml:lang="de">Graue Loecher in der Karte verschwinden wieder von selbst. OpenTopoMap rechnet Kacheln erst auf Anforderung aus und meldet "nicht vorhanden", solange eine noch entsteht - ein Zustand von Sekunden. Dauerhaft wurde er durch zwei Vorgaben der Kartenbibliothek: Ein zweiter Versuch fand nur bei "Dienst ueberlastet" statt, und eine gescheiterte Kachel wurde behalten statt verworfen, womit sie nie wieder angefordert wurde. An einer echten Kartenfahrt gemessen: 44 von 170 Abrufen abgewiesen, dieselben Kacheln Sekunden spaeter in 70-90 ms da.</p>
+        <p xml:lang="de">Ein abgewiesener Kachelabruf wird jetzt zweimal wiederholt, nach 0,4 und 1,6 Sekunden; bleibt die Kachel aus, wird sie beim Wegscrollen verworfen - wer zurueckkehrt, bekommt einen frischen Versuch statt derselben Luecke. Abgebrochene Abrufe werden bewusst nicht wiederholt: Sie entstehen beim schnellen Ziehen und betreffen Kacheln, die niemand mehr ansieht.</p>
+      </description>
+    </release>
     <release version="1.10.1" date="2026-08-25">
       <description>
         <p>The topographic map loads faster, and stays fast. OpenTopoMap renders tiles on demand and gives the freshly rendered - that is, the most expensive - tiles the shortest shelf life: a few hours, against seven days for tiles that already existed. Once a tile expired, the app asked the server again before showing anything, so the same area was slow again the next day.</p>

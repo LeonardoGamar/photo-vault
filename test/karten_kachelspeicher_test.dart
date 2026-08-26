@@ -59,18 +59,29 @@ void main() {
       expect(stellen.single, endsWith('mini_location_map.dart'));
     });
 
-    test('niemand baut sich einen eigenen NetworkTileProvider', () {
-      // Der waere die naheliegende Loesung gewesen und ein Leck:
-      // buildMapTileLayer laeuft bei jedem Neuaufbau, und
+    test('der Kachelanbieter wird an genau EINER Stelle gebaut', () {
+      // Dieselbe Falle wie beim Speicher, nur schaerfer:
+      // buildMapTileLayer laeuft bei JEDEM Neuaufbau, und
       // TileLayer.didUpdateWidget entsorgt den alten Anbieter NICHT -
-      // jeder Aufbau hinterliesse einen offenen HTTP-Client.
+      // ein Anbieter je Aufbau hinterliesse jedes Mal einen offenen
+      // HTTP-Client. Deshalb gibt es genau ein Exemplar.
       final stellen = [
         for (final (pfad, inhalt) in quellen)
           if (inhalt.contains('NetworkTileProvider(')) pfad
       ];
-      expect(stellen, isEmpty,
-          reason: 'flutter_map legt ihn selbst an und holt sich dabei '
-              'unser Einzelstueck; gefunden in: $stellen');
+      expect(stellen, hasLength(1), reason: 'gefunden in: $stellen');
+      expect(stellen.single, endsWith('mini_location_map.dart'));
+    });
+
+    test('das Einzelstueck wird wirklich wiederverwendet', () {
+      // Der Unterschied zwischen „einmal geschrieben" und „einmal
+      // erzeugt": Stuende dort `=>  NetworkTileProvider(...)` ohne
+      // Zwischenspeicher, faende der Test oben trotzdem eine Stelle -
+      // und es entstuende bei jedem Aufbau ein neuer Anbieter.
+      final quelle = quellen
+          .firstWhere((q) => q.$1.endsWith('mini_location_map.dart')).$2;
+      expect(quelle, contains('_kachelAnbieter ??='),
+          reason: 'sonst ist es kein Einzelstueck, sondern eine Fabrik');
     });
   });
 }

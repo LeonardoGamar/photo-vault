@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 1.10.1
+version: 1.10.2
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -121,6 +121,13 @@ dependencies:
   # direkte Abhängigkeit, da xmp_writer.dart XmlBuilder direkt nutzt.
   xml: ^7.0.1
   pdf: ^3.13.0
+
+  # Wiederholung gescheiterter Kachelabrufe (RetryClient) – bisher nur
+  # transitiv über flutter_map vorhanden, jetzt direkt, weil
+  # mini_location_map.dart den Client selbst zusammenstellt: Die Vorgabe
+  # wiederholt allein bei 503, OpenTopoMap antwortet aber mit 404,
+  # solange eine Kachel noch gerendert wird.
+  http: ^1.6.0
 
 dev_dependencies:
   integration_test:
