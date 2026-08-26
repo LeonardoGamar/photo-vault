@@ -5860,4 +5860,7 @@ class AppTexteEn extends AppTexte {
   @override
   String get weltkarteOhneUmriss =>
       'Small territories such as the Vatican have no outline; they stay a dot.';
+
+  @override
+  String get stammbaumSchwaeger => 'Siblings-in-law';
 }

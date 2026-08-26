@@ -230,6 +230,17 @@ class Stammbaumausschnitt {
   /// Die Eltern der Partner.
   final List<String> schwiegereltern;
 
+  /// Schwager und Schwägerin: die Partner der Geschwister **und** die
+  /// Geschwister der Partner.
+  ///
+  /// **Eine Liste und nicht zwei.** Die beiden Wege dorthin sind
+  /// verschieden, das Ergebnis ist es nicht – [verwandtschaftsgrad]
+  /// kennt für beide nur `Gradart.schwager`, und im Sprachgebrauch gibt
+  /// es die Unterscheidung auch nicht. Der Baum nannte diese Personen
+  /// bisher gar nicht, obwohl der Verwandtschaftsrechner sie beim Namen
+  /// nennt: Er sagte „Schwager", und der Baum zeigte niemanden.
+  final List<String> schwaeger;
+
   /// Je Person: ob sie ihrerseits Eltern bzw. Kinder hat, die hier nicht
   /// gezeigt werden.
   final Map<String, bool> weitereOben;
@@ -247,6 +258,7 @@ class Stammbaumausschnitt {
     this.onkelTanten = const [],
     this.neffenNichten = const [],
     this.schwiegereltern = const [],
+    this.schwaeger = const [],
   });
 
   /// „Leer" heißt weiterhin: um die Person herum steht niemand. Die
@@ -264,8 +276,8 @@ class Stammbaumausschnitt {
 /// Kennungen. Ohne feste Reihenfolge sprängen die Karten bei jedem Aufbau
 /// umher, weil die Mengen oben unsortiert sind.
 ///
-/// [seitenlinien] nimmt Grosseltern, Onkel und Tanten, Neffen und Nichten
-/// sowie Schwiegereltern dazu. Standardmäßig aus: Der schmale Ausschnitt
+/// [seitenlinien] nimmt Grosseltern, Onkel und Tanten, Neffen und Nichten,
+/// Schwiegereltern sowie Schwager und Schwägerin dazu. Standardmäßig aus: Der schmale Ausschnitt
 /// ist der, der auf jedem Fenster steht, und wer nur die gerade Linie
 /// sucht, soll sie nicht zwischen Seitenästen suchen müssen.
 Stammbaumausschnitt ausschnittUm(
@@ -289,13 +301,19 @@ Stammbaumausschnitt ausschnittUm(
   // und zwei Karten für einen Menschen sind kein Baum, sondern ein
   // Fehler.
   final kern = {fokus, ...eltern, ...geschwister, ...partner, ...kinder};
-  List<String> ohneKern(Iterable<String> ids, Set<String> schon) =>
-      sortiert(ids.where((id) => !kern.contains(id) && !schon.contains(id)));
+  // Das `toSet()` ist nicht kosmetisch: Eine Person kann auf zwei Wegen
+  // in dieselbe Liste geraten. Ein Schwager, der zugleich der Bruder der
+  // eigenen Frau IST – zwei Geschwister haben zwei Geschwister geheiratet
+  // –, kam sonst zweimal. Dasselbe gilt für Grosseltern, wenn die Eltern
+  // Cousins sind. Beides kommt in echten Familien vor.
+  List<String> ohneKern(Iterable<String> ids, Set<String> schon) => sortiert(
+      ids.toSet().where((id) => !kern.contains(id) && !schon.contains(id)));
 
   var grosseltern = const <String>[];
   var onkelTanten = const <String>[];
   var neffenNichten = const <String>[];
   var schwiegereltern = const <String>[];
+  var schwaeger = const <String>[];
   if (seitenlinien) {
     final belegt = <String>{};
     grosseltern = ohneKern(
@@ -309,6 +327,13 @@ Stammbaumausschnitt ausschnittUm(
     belegt.addAll(schwiegereltern);
     neffenNichten =
         ohneKern([for (final g in geschwister) ...netz.kinder(g)], belegt);
+    belegt.addAll(neffenNichten);
+    // Beide Richtungen, wie im Verwandtschaftsrechner: der Partner meines
+    // Geschwisters und das Geschwister meines Partners.
+    schwaeger = ohneKern([
+      for (final g in geschwister) ...netz.partner(g),
+      for (final p in partner) ...netz.geschwister(p),
+    ], belegt);
   }
 
   // Ein Hinweis bedeutet: „von dieser Person geht es weiter, aber das
@@ -328,6 +353,7 @@ Stammbaumausschnitt ausschnittUm(
     ...onkelTanten,
     ...neffenNichten,
     ...schwiegereltern,
+    ...schwaeger,
   };
   final weitereOben = <String, bool>{};
   final weitereUnten = <String, bool>{};
@@ -346,6 +372,7 @@ Stammbaumausschnitt ausschnittUm(
     onkelTanten: onkelTanten,
     neffenNichten: neffenNichten,
     schwiegereltern: schwiegereltern,
+    schwaeger: schwaeger,
     weitereOben: weitereOben,
     weitereUnten: weitereUnten,
   );

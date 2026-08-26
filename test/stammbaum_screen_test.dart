@@ -647,12 +647,44 @@ void main() {
     expect(find.text('Oma'), findsOneWidget);
   });
 
-  testWidgets('so sieht der Baum mit Seitenaesten aus', (tester) async {
-    // Der Blick, um den es bei diesem Wunsch ging: Grosseltern oben,
-    // Onkel neben den Eltern, Neffen unter den Geschwistern.
+  testWidgets('der Schwager steht neben dem Geschwister', (tester) async {
+    // Der gemeldete Fehler: Der Verwandtschaftsrechner nannte ihn
+    // „Schwager", der Baum zeigte ihn nicht. Nachgestellt ist die Lage
+    // aus der echten Bibliothek – die Schwester hat einen Partner.
     tester.view.physicalSize = const Size(1600, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
+    await db.createPerson(
+        PeopleCompanion.insert(id: 'schwager', name: 'Schwager'));
+    await db.fuegeBeziehungHinzu(
+        'schwester', 'schwager', Verwandtschaft.partner);
+
+    await zeige(tester, 'kind');
+    // Ohne Seitenäste bleibt es beim schmalen Ausschnitt.
+    expect(find.text('Schwager'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Seitenäste'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Schwager und Schwägerin'), findsOneWidget);
+    // Die Karte selbst – die Person heisst hier wie ihre Rolle, deshalb
+    // zweimal derselbe Text und zwei Treffer.
+    expect(find.text('Schwager'), findsOneWidget);
+  });
+
+  testWidgets('so sieht der Baum mit Seitenaesten aus', (tester) async {
+    // Der Blick, um den es bei diesem Wunsch ging: Grosseltern oben,
+    // Onkel neben den Eltern, Neffen unter den Geschwistern, und seit
+    // der Beschwerde auch der Schwager neben der Schwester. Ein
+    // Referenzbild, das einen der Aeste weglaesst, behauptet, es gaebe
+    // ihn nicht.
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await db.createPerson(
+        PeopleCompanion.insert(id: 'schwager', name: 'Schwager'));
+    await db.fuegeBeziehungHinzu(
+        'schwester', 'schwager', Verwandtschaft.partner);
     await zeige(tester, 'kind');
     await tester.tap(find.widgetWithText(FilterChip, 'Seitenäste'));
     await tester.pumpAndSettle();

@@ -17,6 +17,7 @@ import '../widgets/person_picker_dialog.dart';
 import 'face_cluster_review_screen.dart';
 import 'face_review_screen.dart';
 import 'person_detail_screen.dart';
+import '../widgets/meldung_mit_knopf.dart';
 
 /// Zeigt benannte Personen als Grid sowie – darunter – alle noch nicht
 /// zugeordneten erkannten Gesichter. Die lokale YuNet-Engine erkennt nur
@@ -214,9 +215,9 @@ class _PeopleScreenState extends State<PeopleScreen>
     });
     await _entferneAusRaster(betroffen, nachIgnoriert: true);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppTexte.of(context).personenIgnoriertMeldung(betroffen.length)),
-      action: SnackBarAction(
+    ScaffoldMessenger.of(context).showSnackBar(meldungMitKnopf(
+      inhalt: Text(AppTexte.of(context).personenIgnoriertMeldung(betroffen.length)),
+      knopf: SnackBarAction(
         label: AppTexte.of(context).allgRueckgaengig,
         // Hier bewusst der vollständige Neuaufbau: Das Zurückholen muss
         // die Gesichter wieder an ihren Platz im Raster setzen, und deren

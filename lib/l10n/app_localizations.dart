@@ -9220,6 +9220,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Für kleine Gebiete wie den Vatikan liegt kein Umriss vor; sie bleiben ein Punkt.'**
   String get weltkarteOhneUmriss;
+
+  /// No description provided for @stammbaumSchwaeger.
+  ///
+  /// In de, this message translates to:
+  /// **'Schwager und Schwägerin'**
+  String get stammbaumSchwaeger;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

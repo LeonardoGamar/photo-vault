@@ -2,13 +2,15 @@
 #
 # Baut Photo Vault als Flatpak.
 #
-# Aufruf:  tool/flatpak_bauen.sh [--installieren] [--pruefen]
+# Aufruf:  tool/flatpak_bauen.sh [--installieren] [--pruefen] [--buendel]
 #
 #   --installieren  Das fertige Paket für den angemeldeten Benutzer
 #                   einspielen (flatpak install --user).
 #   --pruefen       Nach dem Bau im Sandkasten nachsehen, ob die
 #                   mitgelieferten Werkzeuge wirklich da sind und können,
 #                   was sie sollen.
+#   --buendel       Die einzelne .flatpak-Datei zum Weitergeben erzeugen
+#                   und auf den Schreibtisch legen.
 #
 # Der Flutter-Bau läuft bewusst VOR flatpak-builder: flatpak-builder
 # arbeitet ohne Netzzugang, `flutter build` braucht aber die Pakete aus
@@ -26,13 +28,17 @@ LAUFZEIT="org.gnome.Platform"
 LAUFZEIT_FASSUNG="49"
 BAUORT="$WURZEL/build/flatpak"
 LAGER="$WURZEL/build/flatpak-repo"
+# Woher die Laufzeit kommt, wenn sie auf dem Zielrechner fehlt.
+LAUFZEIT_QUELLE="https://dl.flathub.org/repo/flathub.flatpakrepo"
 
 installieren=0
 pruefen=0
+buendel=0
 for arg in "$@"; do
   case "$arg" in
     --installieren) installieren=1 ;;
     --pruefen) pruefen=1 ;;
+    --buendel) buendel=1 ;;
     *) printf '%sUnbekannte Angabe: %s%s\n' "$ROT" "$arg" "$AUS"; exit 2 ;;
   esac
 done
@@ -156,6 +162,39 @@ flatpak-builder --force-clean --user --repo="$LAGER" \
   --install-deps-from=flathub \
   "$BAUORT" "$BAUPLAN" || exit 1
 gut "Paket gebaut"
+
+if [ "$buendel" -eq 1 ]; then
+  titel "Bündel schnüren"
+  # **--runtime-repo ist der Grund, warum dieser Schritt hier steht und
+  # nicht von Hand getippt wird.** Ohne die Angabe trägt die .flatpak-Datei
+  # keine Quelle für ihre Laufzeit. Auf einem Rechner, der
+  # org.gnome.Platform//49 schon hat, fällt das nie auf – auf jedem
+  # anderen hat das Einspielen nichts, woraus es die Laufzeit holen
+  # könnte. Die Bündel bis einschliesslich 1.13.0 waren so gebaut.
+  fassung="$(sed -n 's/^version: *\([0-9.]*\).*/\1/p' "$WURZEL/pubspec.yaml")"
+  ziel="${BUENDELZIEL:-$HOME/Desktop}/PhotoVault-$fassung-x86_64.flatpak"
+  flatpak build-bundle --runtime-repo="$LAUFZEIT_QUELLE" \
+    "$LAGER" "$ziel" "$KENNUNG" || exit 1
+  gut "$(du -h "$ziel" | cut -f1)  $ziel"
+
+  # Nachsehen, ob die Angabe wirklich in der Datei steht. Ein Schalter,
+  # den man setzt und nie nachprüft, ist eine Hoffnung.
+  if grep -qa 'flathub.flatpakrepo' "$ziel"; then
+    gut "Laufzeitquelle im Bündel eingetragen"
+  else
+    fehler "keine Laufzeitquelle im Bündel – Einspielen wird anderswo scheitern"
+  fi
+
+  # **Discover kann diese Datei nicht einspielen, und das liegt nicht an
+  # ihr.** Nachgestellt mit `plasma-discover --local-filename`: Die
+  # Programmseite erscheint, der Knopf lässt sich drücken, und im
+  # Protokoll steht `Failed to find remote ref: Remote "Lokales Paket"
+  # not found`. Discover sucht einen Ursprung, den es selbst nie anlegt.
+  # Aus einem richtigen Ursprung heraus findet es dasselbe Paket sofort.
+  # Deshalb steht der Weg hier, statt dass ihn jeder selbst suchen muss.
+  hinweis "Einspielen: flatpak install --user --bundle \"$ziel\""
+  hinweis "Discover scheitert an .flatpak-Dateien (Remote „Lokales Paket\" not found)"
+fi
 
 if [ "$installieren" -eq 1 ]; then
   titel "Einspielen"

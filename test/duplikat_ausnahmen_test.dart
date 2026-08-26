@@ -16,6 +16,7 @@ import 'package:photo_vault/services/modell_halter.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
+import 'package:photo_vault/widgets/meldung_mit_knopf.dart';
 
 /// „Diese beiden sind schon in Ordnung so" – die Duplikatsuche zeigte
 /// dieselbe Gruppe bisher bei jedem Aufruf wieder, ohne dass man sie hätte
@@ -213,6 +214,29 @@ void main() {
       // ging es.
       await zeige(tester);
       expect(find.text('Keine Gruppen gefunden'), findsOneWidget);
+    });
+
+    testWidgets('die Meldung dazu verschwindet von selbst', (tester) async {
+      // Der gemeldete Fehler: „2 Fotos werden bei der Duplikatsuche
+      // künftig übergangen" blieb stehen, auch nach zwanzig Sekunden.
+      // Nicht unsere Schuld, aber unser Problem – Flutter lässt jede
+      // Meldung mit Knopf liegen (siehe meldung_mit_knopf.dart).
+      await lege('a', vektor(0.01));
+      await lege('b', vektor(0.02));
+      await zeige(tester);
+
+      await tester.tap(find.text('Übergehen'));
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(SnackBar), findsOneWidget);
+      // Der Knopf ist da, solange die Meldung steht.
+      expect(find.text('Rückgängig'), findsOneWidget);
+
+      await tester.pump(meldungMitKnopfDauer + const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
     });
   });
 }

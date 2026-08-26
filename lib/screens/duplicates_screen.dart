@@ -12,6 +12,7 @@ import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
 import 'second_library_compare_screen.dart';
+import '../widgets/meldung_mit_knopf.dart';
 
 /// Gruppiert Fotos, deren CLIP-Bild-Embeddings sich sehr ähnlich sind
 /// (Kosinus-Ähnlichkeit über einer einstellbaren Schwelle). Das findet nicht
@@ -171,9 +172,9 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     });
     final melder = ScaffoldMessenger.of(context);
     melder.hideCurrentSnackBar();
-    melder.showSnackBar(SnackBar(
-      content: Text(AppTexte.of(context).duplGruppeIgnoriert(group.length)),
-      action: SnackBarAction(
+    melder.showSnackBar(meldungMitKnopf(
+      inhalt: Text(AppTexte.of(context).duplGruppeIgnoriert(group.length)),
+      knopf: SnackBarAction(
         label: AppTexte.of(context).allgRueckgaengig,
         // Einzeln zurücknehmen statt alles: Wer sich vertippt hat, will
         // diese eine Gruppe zurück, nicht die Arbeit einer halben Stunde.

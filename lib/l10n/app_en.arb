@@ -2460,5 +2460,6 @@
   "weltkarteLegendeFotos": "Filled, solid outline: evidenced by located photos.",
   "weltkarteLegendeHand": "Pale, dotted outline: marked by hand, without a photo.",
   "weltkarteLegendeGeplant": "Nearly empty, dashed outline: planned – does not count as visited.",
-  "weltkarteOhneUmriss": "Small territories such as the Vatican have no outline; they stay a dot."
+  "weltkarteOhneUmriss": "Small territories such as the Vatican have no outline; they stay a dot.",
+  "stammbaumSchwaeger": "Siblings-in-law"
 }

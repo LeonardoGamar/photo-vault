@@ -1684,14 +1684,23 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     final onkelTanten = [for (final id in a.onkelTanten) _nachId[id]!];
     final neffenNichten = [for (final id in a.neffenNichten) _nachId[id]!];
     final schwiegereltern = [for (final id in a.schwiegereltern) _nachId[id]!];
+    final schwaeger = [for (final id in a.schwaeger) _nachId[id]!];
 
-    final links = _gruppe(t.stammbaumGeschwister, geschwister, a);
+    // Schwager und Schwägerin stehen in derselben Reihe wie die
+    // Geschwister – sie sind dieselbe Generation – und links davon, weil
+    // dort schon alles Angeheiratete und Seitliche sitzt. Als eigene
+    // Gruppe mit eigener Beschriftung: Sie unter „Geschwister" zu
+    // mischen wäre die kürzere Zeile und die falsche Aussage.
+    final links = _seiteLinks(t, geschwister, schwaeger, a);
     final rechts = _gruppe(t.stammbaumPartner, partner, a, verbunden: true);
     // Die Breiten sind ausrechenbar, weil eine Karte immer gleich breit
     // ist – siehe [_karteBreite]. Genau das braucht die Reihe unten: In
     // einem waagerecht rollbaren Bereich ist die Breite unbegrenzt, und
     // ein `Expanded` hat dort nichts, wovon es einen Anteil nehmen könnte.
-    final linksBreite = _reiheBreite(geschwister.length);
+    final linksBreite = _reiheBreite(geschwister.length) +
+        (schwaeger.isEmpty
+            ? 0.0
+            : AppSpacing.xxl + _reiheBreite(schwaeger.length));
     final rechtsBreite = partner.isEmpty
         ? 0.0
         : AppSpacing.lg + _reiheBreite(partner.length);
@@ -1828,7 +1837,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     ]);
   }
 
-  Widget _beschriftung(String text) => Padding(
+  Widget _beschriftung(String text, {bool einzeilig = false}) => Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         // Bewusst nicht in Großbuchstaben umgewandelt: Der Text kommt aus
         // der Übersetzung, und ihn im Quelltext umzuformen hiesse, für
@@ -1836,6 +1845,9 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
         // sich über Größe, Sperrung und Farbe genug ab.
         child: Text(
           text,
+          maxLines: einzeilig ? 1 : null,
+          softWrap: !einzeilig,
+          overflow: einzeilig ? TextOverflow.ellipsis : TextOverflow.clip,
           style: TextStyle(
             fontSize: 10,
             letterSpacing: 1.2,
@@ -1866,6 +1878,31 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// zutreffend. Geschwister bekommen ihn nicht: Sie hängen nicht an der
   /// Person in der Mitte, sondern an den gemeinsamen Eltern, und eine Linie
   /// zwischen ihnen behauptete etwas Falsches.
+  /// Die linke Seite der mittleren Reihe: Schwäger, dann Geschwister.
+  ///
+  /// Zwei Gruppen nebeneinander statt einer, weil beide ihre eigene
+  /// Beschriftung brauchen. Die Reihenfolge ist die des Abstands zur
+  /// Person in der Mitte: das eigene Geschwister näher, sein Partner
+  /// weiter aussen.
+  Widget? _seiteLinks(
+    AppTexte t,
+    List<PersonData> geschwister,
+    List<PersonData> schwaeger,
+    Stammbaumausschnitt a,
+  ) {
+    final g = _gruppe(t.stammbaumGeschwister, geschwister, a);
+    final s = _gruppe(t.stammbaumSchwaeger, schwaeger, a);
+    if (s == null) return g;
+    if (g == null) return s;
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      s,
+      // Weiter auseinander als sonst: Beide Gruppen tragen eine
+      // Beschriftung, die über ihre Karten hinausragen darf.
+      const SizedBox(width: AppSpacing.xxl),
+      g,
+    ]);
+  }
+
   Widget? _gruppe(
     String titel,
     List<PersonData> personen,
@@ -1884,11 +1921,23 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       clipBehavior: Clip.none,
       children: [
         _reihe(personen, a, bezug: verbunden ? _Bezug.partner : _Bezug.keiner),
+        // **Ausserhalb der Gruppenbreite gezeichnet, in einer Zeile.**
+        // Mit `left: 0, right: 0` ist die Beschriftung so breit wie die
+        // Gruppe – über einer einzelnen Karte bricht ein langer Titel
+        // dann auf drei Zeilen um und schiebt sich über die Karte.
+        // Aufgefallen bei „Schwager und Schwägerin"; „Neffen und Nichten"
+        // und „Schwiegereltern" hätten es über einer Karte genauso
+        // getroffen, nur hatte das noch niemand ausprobiert. Der
+        // Überstand ist begrenzt und endet notfalls mit drei Punkten:
+        // Zwei lange Beschriftungen nebeneinander sollen sich berühren
+        // dürfen, aber nicht ineinanderlaufen.
         Positioned(
           top: -16,
-          left: 0,
-          right: 0,
-          child: Center(child: _beschriftung(titel)),
+          left: -AppSpacing.xxl,
+          right: -AppSpacing.xxl,
+          child: Center(
+            child: _beschriftung(titel, einzeilig: true),
+          ),
         ),
       ],
     );

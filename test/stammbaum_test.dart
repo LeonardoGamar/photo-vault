@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/services/stammbaum.dart';
+import 'package:photo_vault/services/verwandtschaftsgrad.dart';
 
 /// Die Verwandtschaftslogik.
 ///
@@ -214,17 +215,96 @@ void main() {
       expect(a.onkelTanten, isEmpty);
       expect(a.neffenNichten, isEmpty);
       expect(a.schwiegereltern, isEmpty);
+      expect(a.schwaeger, isEmpty);
       // Und der Kern ist unveraendert.
       expect(a.eltern, ['mutter', 'vater']);
       expect(a.geschwister, ['schwester']);
     });
 
-    test('mit Anforderung kommen die vier Aeste dazu', () {
+    test('mit Anforderung kommen die Aeste dazu', () {
       final a = ausschnittUm(netz, 'ich', alle, seitenlinien: true);
       expect(a.grosseltern, ['oma', 'opa']);
       expect(a.onkelTanten, ['onkel']);
       expect(a.neffenNichten, ['neffe']);
       expect(a.schwiegereltern, ['schwiegervater']);
+    });
+
+    group('Schwager und Schwaegerin', () {
+      // Der gemeldete Fehler: Der Verwandtschaftsrechner sagt „Schwager",
+      // der Baum zeigte niemanden. Nachgestellt ist die Lage aus der
+      // echten Bibliothek: Marco und Jenni sind Geschwister, Jenni ist
+      // mit Marcel zusammen, Marco mit Marly. Marcel ist Marcos Schwager,
+      // Jenni ist Marlys Schwaegerin.
+      final familie = Verwandtschaftsnetz([
+        kante('marco', 'nicki', Verwandtschaft.elternteil),
+        kante('jenni', 'nicki', Verwandtschaft.elternteil),
+        partnerKanteFuer('jenni', 'marcel'),
+        partnerKanteFuer('marco', 'marly'),
+      ]);
+      const namen = ['jenni', 'marcel', 'marco', 'marly', 'nicki'];
+
+      test('der Partner des Geschwisters', () {
+        final a = ausschnittUm(familie, 'marco', namen, seitenlinien: true);
+        expect(a.geschwister, ['jenni']);
+        expect(a.partner, ['marly']);
+        expect(a.schwaeger, ['marcel']);
+      });
+
+      test('und das Geschwister des Partners – dieselbe Liste', () {
+        // Aus Marlys Sicht fuehrt der Weg ueber den Partner statt ueber
+        // das Geschwister. Herauskommen soll dasselbe: eine Person, die
+        // im Bild steht.
+        final a = ausschnittUm(familie, 'marly', namen, seitenlinien: true);
+        expect(a.geschwister, isEmpty);
+        expect(a.partner, ['marco']);
+        expect(a.schwaeger, ['jenni']);
+      });
+
+      test('was der Rechner Schwager nennt, steht auch im Baum', () {
+        // Die Gegenprobe gegen die zweite Quelle: Fuer jede Person, die
+        // verwandtschaftsgrad als Schwager bezeichnet, muss der Ausschnitt
+        // sie auch fuehren. Genau dieser Widerspruch war der Fehler.
+        for (final ich in namen) {
+          final a = ausschnittUm(familie, ich, namen, seitenlinien: true);
+          for (final anderer in namen) {
+            if (anderer == ich) continue;
+            final grad = bestimmeGrad(familie, ich, anderer);
+            if (grad.art == Gradart.schwager) {
+              expect(a.schwaeger, contains(anderer),
+                  reason: '$anderer ist $ich seine Schwaegerschaft');
+            }
+          }
+        }
+      });
+
+      test('ein Schwager, der schon Geschwister ist, steht nur einmal', () {
+        // Zwei Geschwister heiraten zwei Geschwister: Dann ist der
+        // Schwager zugleich der Partner. Zwei Karten fuer einen Menschen
+        // waeren kein Baum.
+        final doppelt = Verwandtschaftsnetz([
+          kante('ich', 'vater', Verwandtschaft.elternteil),
+          kante('schwester', 'vater', Verwandtschaft.elternteil),
+          partnerKanteFuer('ich', 'gattin'),
+          kante('gattin', 'schwiegervater', Verwandtschaft.elternteil),
+          kante('schwager', 'schwiegervater', Verwandtschaft.elternteil),
+          partnerKanteFuer('schwester', 'schwager'),
+        ]);
+        const wer = [
+          'gattin', 'ich', 'schwager', 'schwester', 'schwiegervater', 'vater'
+        ];
+        final a = ausschnittUm(doppelt, 'ich', wer, seitenlinien: true);
+        // Zwei Wege zu derselben Person – „Partner meiner Schwester" und
+        // „Bruder meiner Frau" – ergeben einen Eintrag, nicht zwei.
+        expect(a.schwaeger, ['schwager']);
+        // Und nicht zusaetzlich unter den Schwiegereltern oder sonstwo.
+        expect(a.schwiegereltern, ['schwiegervater']);
+        final alleGezeigt = [
+          ...a.eltern, ...a.geschwister, ...a.partner, ...a.kinder,
+          ...a.grosseltern, ...a.onkelTanten, ...a.neffenNichten,
+          ...a.schwiegereltern, ...a.schwaeger,
+        ];
+        expect(alleGezeigt.toSet().length, alleGezeigt.length);
+      });
     });
 
     test('niemand steht zweimal im Bild', () {
@@ -252,6 +332,22 @@ void main() {
       // Nach der uebergebenen Reihenfolge, nicht nach Zufall: 'oma' vor
       // 'opa', weil die Liste es so sagt.
       expect(a.grosseltern, ['oma', 'opa']);
+    });
+
+    test('auch Grosseltern stehen nur einmal', () {
+      // Derselbe Weg wie beim doppelten Schwager, eine Generation hoeher:
+      // Sind die Eltern Cousins, haben sie eine gemeinsame Grossmutter,
+      // und die stand vorher zweimal in der Reihe.
+      final cousins = Verwandtschaftsnetz([
+        kante('ich', 'vater', Verwandtschaft.elternteil),
+        kante('ich', 'mutter', Verwandtschaft.elternteil),
+        kante('vater', 'ahnin', Verwandtschaft.elternteil),
+        kante('mutter', 'ahnin', Verwandtschaft.elternteil),
+      ]);
+      final a = ausschnittUm(cousins, 'ich',
+          const ['ahnin', 'ich', 'mutter', 'vater'],
+          seitenlinien: true);
+      expect(a.grosseltern, ['ahnin']);
     });
 
     test('Seitenaeste allein machen den Ausschnitt nicht „nicht leer"', () {

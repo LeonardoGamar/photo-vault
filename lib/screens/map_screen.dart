@@ -187,13 +187,12 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   ll.LatLng _averageCenter(List<AssetData> assets) {
-    var latSum = 0.0, lngSum = 0.0;
-    for (final a in assets) {
-      latSum += a.latitude!;
-      lngSum += a.longitude!;
-    }
-    return ll.LatLng(latSum / assets.length, lngSum / assets.length);
+    final s = schwerpunktVon(assets, _koordinateVon);
+    return ll.LatLng(s.breite, s.laenge);
   }
+
+  static ({double breite, double laenge}) _koordinateVon(AssetData a) =>
+      (breite: a.latitude!, laenge: a.longitude!);
 
   /// Rastergröße (in Grad) für die Gruppierung auf dem Globus – abhängig
   /// vom aktuellen Zoom, damit dicht beieinanderliegende Fotos beim Reinzoomen sichtbar
@@ -276,10 +275,15 @@ class _MapScreenState extends State<MapScreen> {
     final groups = _gruppiereNachRaster(located, _gridDegreesForZoom(zoom));
     for (final entry in groups.entries) {
       final group = entry.value;
-      final first = group.first;
+      // Der Schwerpunkt und nicht das erste Foto der Gruppe: Bei 0,3 Grad
+      // Rasterweite lag der Pin sonst bis zu zwanzig Kilometer daneben und
+      // sprang beim Zoomen auf ein anderes Foto, weil sich mit dem Raster
+      // auch die Gruppen ändern. Dieselbe Rechnung wie auf der flachen
+      // Karte, die den Schwerpunkt seit jeher benutzt.
+      final mitte = schwerpunktVon(group, _koordinateVon);
       controller.addPoint(Point(
         id: entry.key,
-        coordinates: GlobeCoordinates(first.latitude!, first.longitude!),
+        coordinates: GlobeCoordinates(mitte.breite, mitte.laenge),
         // Der GPU-gezeichnete Punkt selbst bleibt unsichtbar (Alpha 0) –
         // die eigentliche Pin-Nadel ist unten ein normales Flutter-Widget
         // (siehe labelBuilder), das sich exakt an dieselbe Position

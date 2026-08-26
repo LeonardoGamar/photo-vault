@@ -5889,4 +5889,7 @@ class AppTexteDe extends AppTexte {
   @override
   String get weltkarteOhneUmriss =>
       'Für kleine Gebiete wie den Vatikan liegt kein Umriss vor; sie bleiben ein Punkt.';
+
+  @override
+  String get stammbaumSchwaeger => 'Schwager und Schwägerin';
 }

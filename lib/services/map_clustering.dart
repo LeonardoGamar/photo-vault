@@ -59,3 +59,30 @@ Map<String, List<T>> gruppiereFuerKarte<T>(
   }
   return gruppen;
 }
+
+/// Der Punkt, der eine Gruppe vertritt: ihr Schwerpunkt.
+///
+/// **Nicht der erste Eintrag.** Genau das stand auf dem Globus, und dort
+/// ist eine Rasterzelle beim Überblick 0,3 Grad breit – rund 33 km. Der
+/// Pin saß also auf irgendeinem Foto der Gruppe statt in ihrer Mitte und
+/// sprang bei jedem Zoomschritt auf ein anderes, weil sich mit dem Raster
+/// auch die Gruppen ändern. Die flache Karte hat den Schwerpunkt seit
+/// jeher benutzt; hier steht er, damit beide Ansichten dieselbe Rechnung
+/// verwenden und nicht zwei Antworten auf dieselbe Frage geben.
+///
+/// **Der Datumswechsel ist kein Fall für diese Funktion.** Ein Mittelwert
+/// aus 179° und −179° wäre 0° – mitten im Atlantik. Er kann hier nicht
+/// vorkommen: [gruppiereFuerKarte] schlüsselt nach gerundeter Zellnummer,
+/// und beiderseits von ±180 sind das verschiedene Zellen.
+({double breite, double laenge}) schwerpunktVon<T>(
+  List<T> gruppe,
+  ({double breite, double laenge}) Function(T) koordinate,
+) {
+  var breite = 0.0, laenge = 0.0;
+  for (final p in gruppe) {
+    final k = koordinate(p);
+    breite += k.breite;
+    laenge += k.laenge;
+  }
+  return (breite: breite / gruppe.length, laenge: laenge / gruppe.length);
+}
