@@ -21,10 +21,16 @@ uniform float uTemperature; // Kelvin, 2000 … 12000
 uniform float uTint;        // -100 … +100
 uniform float uContrast;    // -1 … +1
 uniform float uShadows;     // -1 … +1
+uniform float uHighlights;  // -1 … +1
 uniform float uApplyWhiteBalance; // 0 = aus (Automatik)
 uniform float uCurveActive;       // 0 = keine Tonwertkurve
 uniform float uMixerActive;       // 0 = kein Farbmischer
 uniform float uCubeSize;          // Kantenlänge des Farbwürfels
+
+// Beschneidungswarnung: 0 = aus. NUR für die Anzeige – im Renderpfad
+// (develop_render.dart) muss hier eine 0 stehen, sonst tragen die
+// exportierten Dateien die Markierungen. Dafür gibt es einen eigenen Test.
+uniform float uClipWarn;
 
 uniform sampler2D uTexture;
 
@@ -127,6 +133,16 @@ void main() {
     c += uShadows * 0.35 * gewicht;
   }
 
+  // 4b. Lichter – der Spiegel dazu: helle Bereiche absenken bzw. anheben,
+  //     Schatten kaum antasten. Dieselbe Gewichtung, nur andersherum, und
+  //     derselbe Faktor 0,35. Ein negativer Wert holt einen überstrahlten
+  //     Himmel zurück; das ist der Fall, für den es RAW gibt.
+  if (abs(uHighlights) > 0.001) {
+    float luma = dot(clamp(c, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722));
+    float gewicht = smoothstep(0.4, 1.0, luma);
+    c += uHighlights * 0.35 * gewicht;
+  }
+
   // 5. Tonwertkurve und Farbmischer – bewusst NACH der Rückrechnung nach
   //    sRGB. Beide sind auf Anzeigewerte bezogen (Konvention von Lightroom
   //    und darktable); linear angewendet ergäbe dieselbe gezeichnete Kurve
@@ -137,6 +153,19 @@ void main() {
   }
   if (uMixerActive > 0.5) {
     srgb = farbwuerfel(srgb);
+  }
+
+  // Beschneidungswarnung ganz am Ende: Sie beurteilt, was tatsächlich
+  // herauskommt, nicht einen Zwischenstand. Rot für ausgefressen, Blau für
+  // abgesoffen – die Konvention, die auch Lightroom und darktable nutzen.
+  if (uClipWarn > 0.5) {
+    float hoch = max(max(srgb.r, srgb.g), srgb.b);
+    float tief = min(min(srgb.r, srgb.g), srgb.b);
+    if (hoch >= 0.996) {
+      srgb = vec3(1.0, 0.0, 0.0);
+    } else if (tief <= 0.004) {
+      srgb = vec3(0.0, 0.35, 1.0);
+    }
   }
 
   fragColor = vec4(srgb, quelle.a);

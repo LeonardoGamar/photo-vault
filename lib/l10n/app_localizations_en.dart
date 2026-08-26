@@ -1793,6 +1793,14 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String get auswVorgabeAnwenden => 'Apply preset';
+
+  @override
+  String auswVorgabeAnwendenTitel(int anzahl) {
+    return 'Apply preset to $anzahl photo(s)';
+  }
+
+  @override
   String auswUebertragenTitel(int anzahl) {
     return 'Paste develop settings onto $anzahl photo(s)?';
   }
@@ -2209,6 +2217,61 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get entwKontrast => 'Contrast';
+
+  @override
+  String get entwBeschneidungWarnung =>
+      'Show clipping (red = blown, blue = crushed)';
+
+  @override
+  String get entwVorgabeSichern => 'Save as preset';
+
+  @override
+  String get entwVorgabeAnwenden => 'Apply preset';
+
+  @override
+  String get entwVorgabeWaehlen => 'Choose a preset';
+
+  @override
+  String get entwVorgabeName => 'Preset name';
+
+  @override
+  String get entwKeineVorgaben => 'There is no develop preset yet.';
+
+  @override
+  String entwVorgabeGesichert(String name) {
+    return 'Preset “$name” saved';
+  }
+
+  @override
+  String entwVorgabeNameVergeben(String name) {
+    return 'A preset named “$name” already exists.';
+  }
+
+  @override
+  String get entwAutomatisch => 'Auto exposure and contrast';
+
+  @override
+  String get entwAutomatikOhneHistogramm => 'No histogram yet – one moment.';
+
+  @override
+  String get entwTiefenmaske => 'Mask from depth map';
+
+  @override
+  String get entwTiefenmaskeName => 'Depth';
+
+  @override
+  String get entwTiefenKeine =>
+      'This photo carries no depth map. Only portrait shots from newer iPhones do.';
+
+  @override
+  String get entwTiefenNichtLesbar => 'The depth map could not be evaluated.';
+
+  @override
+  String get entwTiefenNurMacos =>
+      'This photo may carry a depth map – only the macOS build can read it. There the depth data comes from Apple\'s ImageIO; on Linux and Windows the path runs through LibRaw and libheif, which do not expose the auxiliary image.';
+
+  @override
+  String get entwLichter => 'Highlights';
 
   @override
   String get entwSchatten => 'Shadows';

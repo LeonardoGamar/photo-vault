@@ -19,6 +19,7 @@ import '../services/backup_service.dart';
 import '../services/blur_detection.dart';
 import '../services/florence_captioning_service.dart';
 import '../services/clip_service.dart';
+import '../services/cube_lut.dart';
 import '../services/develop_color.dart';
 import '../services/speicher_rueckgabe.dart';
 import '../services/translation_service.dart';
@@ -1246,6 +1247,7 @@ class LibraryState extends ChangeNotifier {
           tint: settings.tint,
           contrast: settings.contrast,
           shadows: settings.shadows,
+          highlights: settings.highlights,
           sharpness: settings.sharpness,
           noiseReduction: settings.noiseReduction,
           lensCorrectionEnabled: settings.lensCorrectionEnabled,
@@ -1264,6 +1266,7 @@ class LibraryState extends ChangeNotifier {
                   tint: mask.tint,
                   contrast: mask.contrast,
                   shadows: mask.shadows,
+                  highlights: mask.highlights,
                   sharpness: mask.sharpness,
                   noiseReduction: mask.noiseReduction,
                 ),
@@ -1286,6 +1289,7 @@ class LibraryState extends ChangeNotifier {
               tint: Value(settings.tint),
               contrast: Value(settings.contrast),
               shadows: Value(settings.shadows),
+              highlights: Value(settings.highlights),
               sharpness: Value(settings.sharpness),
               noiseReduction: Value(settings.noiseReduction),
               lensCorrectionEnabled: Value(settings.lensCorrectionEnabled),
@@ -1636,6 +1640,89 @@ class LibraryState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Lädt eine Farbtabelle, wenn eine hinterlegt ist.
+  ///
+  /// Fehlt die `.cube`-Datei inzwischen, wird ohne sie übertragen statt
+  /// abzubrechen: Der Rest der Werte ist deswegen nicht falsch, und ein
+  /// Abbruch mitten in einer Auswahl wäre die schlechtere Antwort.
+  Future<CubeLut?> _ladeLut(String? relativerPfad) async {
+    if (relativerPfad == null) return null;
+    try {
+      return parseCubeLut(await paths.absolute(relativerPfad).readAsString());
+    } catch (e) {
+      debugPrint('Farbtabelle $relativerPfad nicht lesbar: $e');
+      return null;
+    }
+  }
+
+  /// Baut aus einem gespeicherten Reglerstand einen übertragbaren Satz.
+  ///
+  /// Klarheit, Vignette und Farbtabelle wandern mit. Bis 1.9.5 taten sie
+  /// das nicht – ein kopierter „Look" liess ausgerechnet das weg, was ihn
+  /// ausmacht, und niemand sah, dass etwas fehlte.
+  Future<Entwicklungswerte> _werteAus(
+    DevelopSettingsData d, {
+    String? quellAssetId,
+  }) async =>
+      Entwicklungswerte(
+        regler: DevelopAdjustments(
+          exposure: d.exposure,
+          temperature: d.temperature,
+          tint: d.tint,
+          contrast: d.contrast,
+          shadows: d.shadows,
+          highlights: d.highlights,
+          sharpness: d.sharpness,
+          noiseReduction: d.noiseReduction,
+          clarity: d.clarity,
+          vignette: d.vignette,
+          lensCorrectionEnabled: d.lensCorrectionEnabled,
+          // Kurve und Mischer gehören genauso zur Entwicklung wie die
+          // Regler. Ohne sie übernähme das Ziel die Belichtung, aber nicht
+          // die Gradation.
+          toneCurve: toneCurveAus(d.toneCurveJson),
+          colorMixer: colorMixerAus(d.colorMixerJson),
+          lut: await _ladeLut(d.lutPath),
+          lutStrength: d.lutStrength,
+        ),
+        lutPath: d.lutPath,
+        toneCurveJson: d.toneCurveJson,
+        colorMixerJson: d.colorMixerJson,
+        quellAssetId: quellAssetId,
+      );
+
+  Future<Entwicklungswerte?> _ausZwischenablage() async {
+    final q = _kopierteEntwicklung;
+    if (q == null) return null;
+    return _werteAus(q, quellAssetId: q.assetId);
+  }
+
+  /// Dasselbe aus einer benannten Vorgabe. Ohne Quellfoto – eine Vorgabe
+  /// gehört zu keinem.
+  Future<Entwicklungswerte> werteAusVorgabe(DevelopPresetData v) => _werteAus(
+        DevelopSettingsData(
+          // Der Bezeichner wird nie benutzt: [quellAssetId] bleibt null,
+          // also überspringt die Übertragung kein Foto.
+          assetId: '',
+          exposure: v.exposure,
+          temperature: v.temperature,
+          tint: v.tint,
+          contrast: v.contrast,
+          shadows: v.shadows,
+          highlights: v.highlights,
+          sharpness: v.sharpness,
+          noiseReduction: v.noiseReduction,
+          lensCorrectionEnabled: v.lensCorrectionEnabled,
+          clarity: v.clarity,
+          vignette: v.vignette,
+          lutPath: v.lutPath,
+          lutStrength: v.lutStrength,
+          toneCurveJson: v.toneCurveJson,
+          colorMixerJson: v.colorMixerJson,
+          updatedAt: v.erstelltAm,
+        ),
+      );
+
   /// Überträgt die kopierten Einstellungen auf [zielIds] und rendert jedes
   /// Zielfoto dabei neu – ohne das Rendern bliebe die Änderung unsichtbar,
   /// weil die Anzeige aus der entwickelten Datei kommt und nicht aus den
@@ -1650,8 +1737,14 @@ class LibraryState extends ChangeNotifier {
   /// Der bisherige Stand jedes Zielfotos wandert über [saveDevelopResult]
   /// in dessen Verlauf; ein versehentlicher Übertrag lässt sich also je
   /// Foto im Entwickeln-Bildschirm wieder zurückholen.
-  Stream<ImportProgress> uebertrageEntwicklung(List<String> zielIds) async* {
-    final quelle = _kopierteEntwicklung;
+  Stream<ImportProgress> uebertrageEntwicklung(
+    List<String> zielIds, {
+    Entwicklungswerte? vorgabe,
+  }) async* {
+    // Ohne [vorgabe] gilt die Zwischenablage. Beides läuft ab hier durch
+    // denselben Code – eine zweite Fassung des Übertragungswegs vergässe
+    // beim nächsten neuen Regler etwas, ohne dass es auffiele.
+    final quelle = vorgabe ?? await _ausZwischenablage();
     if (quelle == null) {
       yield ImportProgress(0, 0);
       return;
@@ -1663,25 +1756,11 @@ class LibraryState extends ChangeNotifier {
     for (final id in zielIds) {
       final a = await db.assetById(id);
       if (a == null || a.isLocked || a.type != 'IMAGE') continue;
-      if (a.id == quelle.assetId) continue;
+      if (a.id == quelle.quellAssetId) continue;
       ziele.add(a);
     }
 
-    final werte = DevelopAdjustments(
-      exposure: quelle.exposure,
-      temperature: quelle.temperature,
-      tint: quelle.tint,
-      contrast: quelle.contrast,
-      shadows: quelle.shadows,
-      sharpness: quelle.sharpness,
-      noiseReduction: quelle.noiseReduction,
-      lensCorrectionEnabled: quelle.lensCorrectionEnabled,
-      // Kurve und Mischer gehören genauso zur Entwicklung wie die Regler.
-      // Ohne diese beiden Zeilen übernähme das Ziel die Belichtung, aber
-      // nicht die Gradation – und niemand sähe, dass etwas fehlt.
-      toneCurve: toneCurveAus(quelle.toneCurveJson),
-      colorMixer: colorMixerAus(quelle.colorMixerJson),
-    );
+    final werte = quelle.regler;
 
     var done = 0;
     yield ImportProgress(0, ziele.length);
@@ -1709,9 +1788,14 @@ class LibraryState extends ChangeNotifier {
             tint: Value(werte.tint),
             contrast: Value(werte.contrast),
             shadows: Value(werte.shadows),
+            highlights: Value(werte.highlights),
             sharpness: Value(werte.sharpness),
             noiseReduction: Value(werte.noiseReduction),
             lensCorrectionEnabled: Value(werte.lensCorrectionEnabled),
+            clarity: Value(werte.clarity),
+            vignette: Value(werte.vignette),
+            lutPath: Value(quelle.lutPath),
+            lutStrength: Value(werte.lutStrength),
             toneCurveJson: Value(quelle.toneCurveJson),
             colorMixerJson: Value(quelle.colorMixerJson),
             updatedAt: DateTime.now(),

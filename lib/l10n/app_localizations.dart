@@ -3106,6 +3106,18 @@ abstract class AppTexte {
   /// **'{anzahl} Foto(s) exportieren'**
   String auswExportTitel(int anzahl);
 
+  /// No description provided for @auswVorgabeAnwenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorgabe anwenden'**
+  String get auswVorgabeAnwenden;
+
+  /// No description provided for @auswVorgabeAnwendenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorgabe auf {anzahl} Foto(s) anwenden'**
+  String auswVorgabeAnwendenTitel(int anzahl);
+
   /// No description provided for @auswUebertragenTitel.
   ///
   /// In de, this message translates to:
@@ -3861,6 +3873,102 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Kontrast'**
   String get entwKontrast;
+
+  /// No description provided for @entwBeschneidungWarnung.
+  ///
+  /// In de, this message translates to:
+  /// **'Beschneidung anzeigen (Rot = ausgefressen, Blau = abgesoffen)'**
+  String get entwBeschneidungWarnung;
+
+  /// No description provided for @entwVorgabeSichern.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Vorgabe sichern'**
+  String get entwVorgabeSichern;
+
+  /// No description provided for @entwVorgabeAnwenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorgabe anwenden'**
+  String get entwVorgabeAnwenden;
+
+  /// No description provided for @entwVorgabeWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorgabe wählen'**
+  String get entwVorgabeWaehlen;
+
+  /// No description provided for @entwVorgabeName.
+  ///
+  /// In de, this message translates to:
+  /// **'Name der Vorgabe'**
+  String get entwVorgabeName;
+
+  /// No description provided for @entwKeineVorgaben.
+  ///
+  /// In de, this message translates to:
+  /// **'Es gibt noch keine Entwicklungs-Vorgabe.'**
+  String get entwKeineVorgaben;
+
+  /// No description provided for @entwVorgabeGesichert.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorgabe „{name}“ gesichert'**
+  String entwVorgabeGesichert(String name);
+
+  /// No description provided for @entwVorgabeNameVergeben.
+  ///
+  /// In de, this message translates to:
+  /// **'Es gibt bereits eine Vorgabe namens „{name}“.'**
+  String entwVorgabeNameVergeben(String name);
+
+  /// No description provided for @entwAutomatisch.
+  ///
+  /// In de, this message translates to:
+  /// **'Belichtung und Kontrast automatisch'**
+  String get entwAutomatisch;
+
+  /// No description provided for @entwAutomatikOhneHistogramm.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch kein Histogramm – einen Moment.'**
+  String get entwAutomatikOhneHistogramm;
+
+  /// No description provided for @entwTiefenmaske.
+  ///
+  /// In de, this message translates to:
+  /// **'Maske aus der Tiefenkarte'**
+  String get entwTiefenmaske;
+
+  /// No description provided for @entwTiefenmaskeName.
+  ///
+  /// In de, this message translates to:
+  /// **'Tiefe'**
+  String get entwTiefenmaskeName;
+
+  /// No description provided for @entwTiefenKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieses Foto bringt keine Tiefenkarte mit. Nur Porträtaufnahmen neuerer iPhones tragen eine.'**
+  String get entwTiefenKeine;
+
+  /// No description provided for @entwTiefenNichtLesbar.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Tiefenkarte liess sich nicht auswerten.'**
+  String get entwTiefenNichtLesbar;
+
+  /// No description provided for @entwTiefenNurMacos.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieses Foto könnte eine Tiefenkarte mitbringen – lesen kann sie nur die macOS-Fassung. Dort kommen die Tiefendaten aus Apples ImageIO; unter Linux und Windows läuft der Weg über LibRaw und libheif, und die geben das Hilfsbild nicht heraus.'**
+  String get entwTiefenNurMacos;
+
+  /// No description provided for @entwLichter.
+  ///
+  /// In de, this message translates to:
+  /// **'Lichter'**
+  String get entwLichter;
 
   /// No description provided for @entwSchatten.
   ///

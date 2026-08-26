@@ -84,6 +84,7 @@ void main() {
       exposure: 0.75,
       contrast: -0.2,
       shadows: 0,
+      highlights: 0,
       sharpness: 0,
       noiseReduction: 0,
       clarity: 0,

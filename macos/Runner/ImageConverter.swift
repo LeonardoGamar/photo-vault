@@ -96,6 +96,24 @@ class ImageConverterChannel: NSObject {
                     let werte = cameraMetadata(path: path)
                     DispatchQueue.main.async { result(werte) }
                 }
+            case "depthMask":
+                // Die Tiefenkarte eines Porträtfotos als Graustufenmaske.
+                // Nur macOS: Die Daten liegen als Hilfsbild im
+                // HEIC-Container, und ImageIO gibt sie heraus - LibRaw und
+                // libheif, die unter Linux und Windows den Weg machen, tun
+                // das nicht. Der Dart-Teil sagt das dem Nutzer, statt den
+                // Eintrag stillschweigend wegzulassen.
+                guard
+                    let args = call.arguments as? [String: Any],
+                    let path = args["path"] as? String
+                else {
+                    result(FlutterError(code: "bad_args", message: "path fehlt", details: nil))
+                    return
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let antwort = depthMask(path: path)
+                    DispatchQueue.main.async { result(antwort) }
+                }
             case "lensCorrectionStatus":
                 // Sagt für EINE Datei, was der Objektivkorrektur-Schalter im
                 // Entwickeln-Bildschirm tatsächlich bewirken würde. Vorher
@@ -129,6 +147,7 @@ class ImageConverterChannel: NSObject {
                     tint: (args["tint"] as? NSNumber)?.floatValue,
                     contrast: (args["contrast"] as? NSNumber)?.floatValue ?? 0,
                     shadows: (args["shadows"] as? NSNumber)?.floatValue ?? 0,
+                    highlights: (args["highlights"] as? NSNumber)?.floatValue ?? 0,
                     sharpness: (args["sharpness"] as? NSNumber)?.floatValue ?? 0,
                     noiseReduction: (args["noiseReduction"] as? NSNumber)?.floatValue ?? 0,
                     clarity: (args["clarity"] as? NSNumber)?.floatValue ?? 0,
@@ -151,6 +170,7 @@ class ImageConverterChannel: NSObject {
                             tint: (m["tint"] as? NSNumber)?.floatValue,
                             contrast: (m["contrast"] as? NSNumber)?.floatValue ?? 0,
                             shadows: (m["shadows"] as? NSNumber)?.floatValue ?? 0,
+                            highlights: (m["highlights"] as? NSNumber)?.floatValue ?? 0,
                             sharpness: (m["sharpness"] as? NSNumber)?.floatValue ?? 0,
                             noiseReduction: (m["noiseReduction"] as? NSNumber)?.floatValue ?? 0,
                             clarity: (m["clarity"] as? NSNumber)?.floatValue ?? 0,
@@ -354,6 +374,116 @@ class ImageConverterChannel: NSObject {
         "dxo", // DxO
     ]
 
+    /// Die Tiefenkarte eines Fotos als Graustufen-PNG.
+    ///
+    /// **Warum das ueberhaupt geht:** Ein Porträtfoto neuerer iPhones
+    /// traegt neben dem Bild ein Hilfsbild mit der Entfernung je Pixel.
+    /// ImageIO gibt es heraus; daraus wird hier eine Maske, wie sie die
+    /// App ohnehin schon kennt (DevelopMasks: ein Graustufen-PNG plus
+    /// eigene Reglerwerte). Es entsteht also keine neue Maschinerie -
+    /// nur eine neue Quelle fuer dieselbe Maske.
+    ///
+    /// **Disparitaet, nicht Entfernung.** Apple liefert meist
+    /// `kCGImageAuxiliaryDataTypeDisparity` - den Kehrwert der
+    /// Entfernung. Hoher Wert heisst nah. Das passt zur Maske: Weiss ist
+    /// das Nahe, also das Motiv. Wer den Hintergrund treffen will,
+    /// kehrt die Maske um - dafuer gibt es den Schalter im
+    /// Maskeneditor.
+    ///
+    /// Normiert wird auf das tatsaechlich vorkommende Wertepaar, nicht auf
+    /// einen festen Bereich: Eine Innenaufnahme spannt vielleicht 0,5 bis
+    /// 2 Meter, eine Landschaft 2 bis 50. Feste Grenzen ergaeben in einem
+    /// der beiden Faelle eine fast einfarbige Maske.
+    ///
+    /// Rueckgabe: `stand` immer, `png` nur bei `verfuegbar`.
+    private static func depthMask(path: String) -> [String: Any] {
+        guard let quelle = CGImageSourceCreateWithURL(
+            URL(fileURLWithPath: path) as CFURL, nil)
+        else {
+            return ["stand": "nichtLesbar"]
+        }
+
+        // Disparitaet zuerst, Tiefe als Rueckfall - beides kommt vor, und
+        // AVDepthData rechnet ohnehin um.
+        var info: CFDictionary?
+        for art in [kCGImageAuxiliaryDataTypeDisparity, kCGImageAuxiliaryDataTypeDepth] {
+            if let gefunden = CGImageSourceCopyAuxiliaryDataInfoAtIndex(quelle, 0, art) {
+                info = gefunden
+                break
+            }
+        }
+        guard let daten = info as? [AnyHashable: Any] else {
+            return ["stand": "keineTiefendaten"]
+        }
+
+        guard let tiefe = try? AVDepthData(fromDictionaryRepresentation: daten) else {
+            return ["stand": "nichtLesbar"]
+        }
+        // Auf ein einheitliches Format bringen: Die Kamera liefert je nach
+        // Geraet 16-Bit-Halbfliess- oder 32-Bit-Fliesskomma.
+        let umgerechnet = tiefe.converting(
+            toDepthDataType: kCVPixelFormatType_DisparityFloat32)
+        let puffer = umgerechnet.depthDataMap
+
+        CVPixelBufferLockBaseAddress(puffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(puffer, .readOnly) }
+
+        let breite = CVPixelBufferGetWidth(puffer)
+        let hoehe = CVPixelBufferGetHeight(puffer)
+        let zeilenBytes = CVPixelBufferGetBytesPerRow(puffer)
+        guard let basis = CVPixelBufferGetBaseAddress(puffer), breite > 0, hoehe > 0 else {
+            return ["stand": "nichtLesbar"]
+        }
+
+        // Erst das Wertepaar suchen, dann normieren. NaN kommt vor, wo die
+        // Kamera nichts messen konnte - solche Stellen werden spaeter
+        // schwarz, zaehlen aber nicht in die Spanne hinein.
+        var kleinster = Float.greatestFiniteMagnitude
+        var groesster = -Float.greatestFiniteMagnitude
+        for y in 0..<hoehe {
+            let zeile = basis.advanced(by: y * zeilenBytes).assumingMemoryBound(to: Float.self)
+            for x in 0..<breite {
+                let w = zeile[x]
+                if w.isFinite {
+                    if w < kleinster { kleinster = w }
+                    if w > groesster { groesster = w }
+                }
+            }
+        }
+        guard kleinster < groesster else { return ["stand": "nichtLesbar"] }
+        let spanne = groesster - kleinster
+
+        var grau = [UInt8](repeating: 0, count: breite * hoehe)
+        for y in 0..<hoehe {
+            let zeile = basis.advanced(by: y * zeilenBytes).assumingMemoryBound(to: Float.self)
+            for x in 0..<breite {
+                let w = zeile[x]
+                grau[y * breite + x] = w.isFinite
+                    ? UInt8(max(0, min(255, ((w - kleinster) / spanne) * 255)))
+                    : 0
+            }
+        }
+
+        guard
+            let farbraum = CGColorSpace(name: CGColorSpace.linearGray),
+            let kontext = CGContext(
+                data: &grau, width: breite, height: hoehe, bitsPerComponent: 8,
+                bytesPerRow: breite, space: farbraum,
+                bitmapInfo: CGImageAlphaInfo.none.rawValue),
+            let bild = kontext.makeImage(),
+            let png = encodePng(bild)
+        else {
+            return ["stand": "nichtLesbar"]
+        }
+
+        return [
+            "stand": "verfuegbar",
+            "png": FlutterStandardTypedData(bytes: png),
+            "breite": breite,
+            "hoehe": hoehe,
+        ]
+    }
+
     /// Was die Objektivkorrektur für diese eine Datei leisten kann.
     ///
     /// Vier Antworten, weil sie zu vier verschiedenen Sätzen in der
@@ -508,6 +638,8 @@ class ImageConverterChannel: NSObject {
         let tint: Float?
         let contrast: Float
         let shadows: Float
+        /// Lichter, -1..1 - das Gegenstueck zu shadows.
+        let highlights: Float
         let sharpness: Float
         let noiseReduction: Float
         let clarity: Float
@@ -596,7 +728,11 @@ class ImageConverterChannel: NSObject {
             // deshalb als Nachkette auf seiner Ausgabe. Dieselbe Funktion
             // wie im Nicht-RAW-Zweig, die beiden Pfade teilen sich hier
             // erstmals Code, statt ihn zu spiegeln.
-            output = filter.outputImage.map { applyCurveAndMixer($0, adjustments) }
+            output = filter.outputImage.map {
+                // Reihenfolge wie im Shader: Lichter nach dem Kontrast
+                // (den CIRAWFilter oben erledigt), vor Kurve und Mischer.
+                applyCurveAndMixer(lichterAnwenden($0, adjustments.highlights), adjustments)
+            }
         } else {
             guard let source = CIImage(contentsOf: url, options: [.applyOrientationProperty: true])
             else { return nil }
@@ -666,6 +802,51 @@ class ImageConverterChannel: NSObject {
     ///
     /// Die Tabellen kommen fertig aus Dart – hier wird nichts gerechnet,
     /// nur übergeben (siehe [DevelopAdjustments.curveLut]).
+    /// Der Lichter-Regler als eigener Kern.
+    ///
+    /// Warum nicht `CIHighlightShadowAdjust`: Dessen `inputHighlightAmount`
+    /// reicht von 0 bis 1 mit 1 = neutral - es kann Lichter nur
+    /// zuruecknehmen, nicht anheben. Der Regler in der Oberflaeche geht
+    /// aber wie der Tiefen-Regler von -1 bis +1, und ein einseitiger
+    /// Lichter-Regler neben einem zweiseitigen Tiefen-Regler waere kaputt.
+    ///
+    /// Die Rechnung ist Zeile fuer Zeile dieselbe wie in
+    /// `shaders/develop_adjustments.frag`, Schritt 4b. Genau das ist der
+    /// Zweck: Die Live-Vorschau laeuft ueber den Shader, das gespeicherte
+    /// Ergebnis hier - laufen die beiden auseinander, sieht der Nutzer beim
+    /// Speichern ein anderes Bild als beim Ziehen.
+    ///
+    /// Core Image rechnet im linearen Arbeitsraum, der Shader an dieser
+    /// Stelle ebenfalls (die Ruecknahme nach sRGB kommt erst danach) - die
+    /// Werte, auf die der Kern trifft, sind also dieselben.
+    ///
+    /// **Bewusst ungleich:** Die Tiefen laufen weiter ueber `shadowBias`
+    /// bzw. `CIHighlightShadowAdjust`. Sie auf denselben Kern umzustellen
+    /// waere sauberer, wuerde aber jede bereits gespeicherte Entwicklung
+    /// anders aussehen lassen - die Werte werden bei jeder Anzeige neu
+    /// angewandt, es gibt kein eingebranntes Ergebnis.
+    private static let lichterKern: CIColorKernel? = CIColorKernel(source: """
+        kernel vec4 lichter(__sample s, float betrag) {
+          vec3 c = s.rgb;
+          float luma = dot(clamp(c, 0.0, 1.0), vec3(0.2126, 0.7152, 0.0722));
+          float gewicht = smoothstep(0.4, 1.0, luma);
+          c += betrag * 0.35 * gewicht;
+          return vec4(c, s.a);
+        }
+        """)
+
+    /// Wendet den Lichter-Regler an. Bei 0 oder fehlendem Kern bleibt das
+    /// Bild unveraendert - ein nicht uebersetzbarer Kern darf die
+    /// Entwicklung nicht scheitern lassen, nur diesen einen Regler.
+    private static func lichterAnwenden(_ image: CIImage, _ betrag: Float) -> CIImage {
+        guard betrag != 0, let kern = lichterKern else { return image }
+        let raus = kern.apply(
+            extent: image.extent,
+            arguments: [image, betrag]
+        )
+        return raus ?? image
+    }
+
     private static func applyCurveAndMixer(_ input: CIImage, _ a: DevelopAdjustments) -> CIImage {
         var image = input
         guard let raum = CGColorSpace(name: CGColorSpace.sRGB) else { return image }
@@ -725,6 +906,7 @@ class ImageConverterChannel: NSObject {
             f.setValue(1.0 + a.shadows, forKey: "inputShadowAmount")
             image = f.outputImage ?? image
         }
+        image = lichterAnwenden(image, a.highlights)
         // Tonwertkurve und Farbmischer wirken auf dem tonkorrigierten Bild,
         // aber VOR Schärfe und Rauschunterdrückung: Eine steile Kurve nach
         // dem Schärfen würde dessen Säume mit verstärken. Im RAW-Zweig
@@ -792,6 +974,19 @@ class ImageConverterChannel: NSObject {
         guard longSide > CGFloat(maxDimension), longSide > 0 else { return image }
         let scale = CGFloat(maxDimension) / longSide
         return image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    }
+
+    /// Verlustfrei, anders als [encodeJpeg]. Fuer eine Maske ist das keine
+    /// Feinheit: JPEG saeumt Kanten, und eine Maske besteht praktisch nur
+    /// aus Kanten - die Saeume laegen als Schleier neben dem Motiv.
+    private static func encodePng(_ image: CGImage) -> Data? {
+        let data = NSMutableData()
+        guard let ziel = CGImageDestinationCreateWithData(
+            data, UTType.png.identifier as CFString, 1, nil
+        ) else { return nil }
+        CGImageDestinationAddImage(ziel, image, nil)
+        guard CGImageDestinationFinalize(ziel) else { return nil }
+        return data as Data
     }
 
     private static func encodeJpeg(_ image: CGImage, quality: Double) -> Data? {

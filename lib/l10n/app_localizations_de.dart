@@ -1806,6 +1806,14 @@ class AppTexteDe extends AppTexte {
   }
 
   @override
+  String get auswVorgabeAnwenden => 'Vorgabe anwenden';
+
+  @override
+  String auswVorgabeAnwendenTitel(int anzahl) {
+    return 'Vorgabe auf $anzahl Foto(s) anwenden';
+  }
+
+  @override
   String auswUebertragenTitel(int anzahl) {
     return 'Entwicklung auf $anzahl Foto(s) übertragen?';
   }
@@ -2224,6 +2232,63 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get entwKontrast => 'Kontrast';
+
+  @override
+  String get entwBeschneidungWarnung =>
+      'Beschneidung anzeigen (Rot = ausgefressen, Blau = abgesoffen)';
+
+  @override
+  String get entwVorgabeSichern => 'Als Vorgabe sichern';
+
+  @override
+  String get entwVorgabeAnwenden => 'Vorgabe anwenden';
+
+  @override
+  String get entwVorgabeWaehlen => 'Vorgabe wählen';
+
+  @override
+  String get entwVorgabeName => 'Name der Vorgabe';
+
+  @override
+  String get entwKeineVorgaben => 'Es gibt noch keine Entwicklungs-Vorgabe.';
+
+  @override
+  String entwVorgabeGesichert(String name) {
+    return 'Vorgabe „$name“ gesichert';
+  }
+
+  @override
+  String entwVorgabeNameVergeben(String name) {
+    return 'Es gibt bereits eine Vorgabe namens „$name“.';
+  }
+
+  @override
+  String get entwAutomatisch => 'Belichtung und Kontrast automatisch';
+
+  @override
+  String get entwAutomatikOhneHistogramm =>
+      'Noch kein Histogramm – einen Moment.';
+
+  @override
+  String get entwTiefenmaske => 'Maske aus der Tiefenkarte';
+
+  @override
+  String get entwTiefenmaskeName => 'Tiefe';
+
+  @override
+  String get entwTiefenKeine =>
+      'Dieses Foto bringt keine Tiefenkarte mit. Nur Porträtaufnahmen neuerer iPhones tragen eine.';
+
+  @override
+  String get entwTiefenNichtLesbar =>
+      'Die Tiefenkarte liess sich nicht auswerten.';
+
+  @override
+  String get entwTiefenNurMacos =>
+      'Dieses Foto könnte eine Tiefenkarte mitbringen – lesen kann sie nur die macOS-Fassung. Dort kommen die Tiefendaten aus Apples ImageIO; unter Linux und Windows läuft der Weg über LibRaw und libheif, und die geben das Hilfsbild nicht heraus.';
+
+  @override
+  String get entwLichter => 'Lichter';
 
   @override
   String get entwSchatten => 'Schatten';

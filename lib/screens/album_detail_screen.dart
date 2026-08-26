@@ -180,6 +180,8 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                               }
 
                             : null,
+                        onApplyPreset: () =>
+                            runBatchApplyPreset(context, widget.library, _selected.toList()),
                         onFavorite: () async {
                           await runBatchFavorite(widget.library, _selected.toList());
                           if (mounted) setState(_selected.clear);

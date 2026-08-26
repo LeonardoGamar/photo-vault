@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -51,6 +52,154 @@ class HistogramData {
     }
     return peak;
   }
+}
+
+/// Wo ein Bild beschnitten ist – je Kanal, für beide Enden.
+///
+/// „Beschnitten" heisst: Der Tonwert liegt an der äussersten Stufe, dort
+/// steckt also keine Zeichnung mehr. Bei den Lichtern ist das der Fall,
+/// für den es den Lichter-Regler gibt; bei den Tiefen der, in dem
+/// Aufhellen nichts mehr zutage fördert.
+///
+/// Als eigener Typ und nicht als vier `bool`, weil die Farbe der Warnung
+/// davon abhängt, WELCHER Kanal anschlägt: Ein ausgefressener Rotkanal in
+/// einem Sonnenuntergang ist etwas anderes als ein durchweg weisser Fleck.
+class Beschneidung {
+  /// Je Kanal, ob die unterste Stufe (0) über der Schwelle liegt.
+  final bool tiefenRot, tiefenGruen, tiefenBlau;
+
+  /// Je Kanal, ob die oberste Stufe (255) über der Schwelle liegt.
+  final bool lichterRot, lichterGruen, lichterBlau;
+
+  const Beschneidung({
+    this.tiefenRot = false,
+    this.tiefenGruen = false,
+    this.tiefenBlau = false,
+    this.lichterRot = false,
+    this.lichterGruen = false,
+    this.lichterBlau = false,
+  });
+
+  static const keine = Beschneidung();
+
+  bool get tiefen => tiefenRot || tiefenGruen || tiefenBlau;
+  bool get lichter => lichterRot || lichterGruen || lichterBlau;
+  bool get irgendwas => tiefen || lichter;
+
+  /// Alle drei Kanäle betroffen – dann ist die Stelle wirklich schwarz
+  /// bzw. weiss und nicht nur ein Kanal übersteuert.
+  bool get tiefenNeutral => tiefenRot && tiefenGruen && tiefenBlau;
+  bool get lichterNeutral => lichterRot && lichterGruen && lichterBlau;
+}
+
+/// Ab welchem Anteil eine Randstufe als beschnitten gilt.
+///
+/// Nicht null: Ein einzelnes schwarzes Pixel in einer Nachtaufnahme ist
+/// kein Grund für eine Warnung, sonst leuchtet sie immer und niemand
+/// schaut mehr hin. Ein Promille der ausgewerteten Pixel ist die Grenze,
+/// ab der es eine Fläche ist und kein Ausreisser.
+const beschneidungsSchwelle = 0.001;
+
+/// Wertet aus, was an den Enden des Histogramms liegt.
+///
+/// Reine Rechnung auf [HistogramData] – deshalb ohne Bild und ohne
+/// Oberfläche prüfbar. Bei einem leeren Histogramm ist nichts
+/// beschnitten, nicht alles: „noch nichts gemessen" ist keine Warnung.
+Beschneidung beschneidungAus(
+  HistogramData daten, {
+  double schwelle = beschneidungsSchwelle,
+}) {
+  if (daten.isEmpty) return Beschneidung.keine;
+  final grenze = daten.sampleCount * schwelle;
+  bool ueber(List<int> kanal, int stufe) => kanal[stufe] > grenze;
+  const oben = histogramBinCount - 1;
+  return Beschneidung(
+    tiefenRot: ueber(daten.red, 0),
+    tiefenGruen: ueber(daten.green, 0),
+    tiefenBlau: ueber(daten.blue, 0),
+    lichterRot: ueber(daten.red, oben),
+    lichterGruen: ueber(daten.green, oben),
+    lichterBlau: ueber(daten.blue, oben),
+  );
+}
+
+/// Vorschlagswerte für Belichtung und Kontrast, aus dem Histogramm
+/// abgeleitet.
+///
+/// Bewusst Werte und kein Modus: Die Automatik **setzt die Regler**,
+/// statt unsichtbar im Hintergrund zu wirken. Wer sie benutzt, sieht
+/// danach, was sie getan hat, kann nachjustieren und findet es im Verlauf
+/// wieder. Der vorhandene „Auto-Weissabgleich" ist etwas anderes – ein
+/// Schalter, der den Weissabgleich dem Dekoder überlässt.
+class Automatikwerte {
+  /// Belichtung in EV, wie der Regler sie erwartet (-3 … 3).
+  final double belichtung;
+
+  /// Kontrast, -1 … 1.
+  final double kontrast;
+
+  const Automatikwerte({required this.belichtung, required this.kontrast});
+
+  static const neutral = Automatikwerte(belichtung: 0, kontrast: 0);
+}
+
+/// Welcher Anteil an jedem Ende beim Suchen des Schwarz- und Weisspunkts
+/// übergangen wird.
+///
+/// Ein halbes Prozent: Fast jedes Foto hat ein paar sehr dunkle und ein
+/// paar sehr helle Pixel – eine Spiegelung, ein Sensorfehler, ein Stück
+/// Himmel. Nähme man das Minimum und Maximum wörtlich, bestimmten diese
+/// Ausreisser die ganze Belichtung.
+const automatikRandanteil = 0.005;
+
+/// Leitet aus [daten] ab, wie Belichtung und Kontrast stehen sollten.
+///
+/// Das Verfahren, kurz: Schwarz- und Weisspunkt als Perzentile bestimmen,
+/// die Bildmitte auf mittleres Grau ziehen (das ergibt die Belichtung) und
+/// den genutzten Tonwertumfang auf den vollen strecken (das ergibt den
+/// Kontrast). Reine Rechnung – prüfbar ohne Bild.
+///
+/// Bei einem leeren Histogramm kommt [Automatikwerte.neutral] zurück:
+/// „nichts gemessen" ist kein Grund, an den Reglern zu drehen.
+Automatikwerte automatikAus(
+  HistogramData daten, {
+  double randanteil = automatikRandanteil,
+}) {
+  if (daten.isEmpty) return Automatikwerte.neutral;
+
+  final grenze = daten.sampleCount * randanteil;
+  final luma = daten.luminance;
+
+  int perzentil(bool vonUnten) {
+    var summe = 0.0;
+    for (var i = 0; i < histogramBinCount; i++) {
+      final stufe = vonUnten ? i : histogramBinCount - 1 - i;
+      summe += luma[stufe];
+      if (summe > grenze) return stufe;
+    }
+    return vonUnten ? 0 : histogramBinCount - 1;
+  }
+
+  final schwarz = perzentil(true);
+  final weiss = perzentil(false);
+  final umfang = weiss - schwarz;
+
+  // Ein Bild ohne Tonwertumfang (einfarbige Fläche) lässt sich nicht
+  // strecken. Dann bleibt der Kontrast, wie er ist.
+  if (umfang <= 1) return Automatikwerte.neutral;
+
+  // Kontrast: Wie weit reicht der genutzte Umfang am vollen vorbei?
+  // Nutzt ein Bild nur die Hälfte, verdoppelt ein Kontrast von +1 sie.
+  final streckung = (histogramBinCount - 1) / umfang;
+  final kontrast = (streckung - 1).clamp(0.0, 1.0);
+
+  // Belichtung: Die Mitte des genutzten Umfangs soll auf mittleres Grau.
+  // In EV gerechnet, weil der Regler EV ist – ein Faktor 2 ist ein EV.
+  final mitte = (schwarz + weiss) / 2;
+  final faktor = mitte <= 0 ? 1.0 : 127.5 / mitte;
+  final belichtung = (math.log(faktor) / math.ln2).clamp(-3.0, 3.0);
+
+  return Automatikwerte(belichtung: belichtung, kontrast: kontrast);
 }
 
 /// Zielgröße der längsten Kante vor der Auswertung. Ein Histogramm ist eine

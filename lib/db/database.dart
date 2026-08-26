@@ -261,6 +261,52 @@ class CameraPresetTags extends Table {
   Set<Column> get primaryKey => {presetId, tagId};
 }
 
+/// Eine benannte Entwicklung, die sich auf beliebige Fotos anwenden lässt.
+///
+/// Der Schritt über das blosse Kopieren: Einstellungen von einem Foto aufs
+/// nächste zu übertragen gab es schon (siehe
+/// `LibraryState.uebertrageEntwicklung`), aber die Zwischenablage hält
+/// genau einen Stand und vergisst ihn beim Beenden. Eine Vorgabe hat einen
+/// Namen und bleibt – „Innenaufnahme Kunstlicht", „Winterlandschaft".
+///
+/// Dieselben Wertspalten wie [DevelopSettings], nur ohne `assetId`: Eine
+/// Vorgabe gehört zu keinem Foto. **Masken fehlen mit Absicht** – aus
+/// demselben Grund, aus dem sie schon beim Kopieren fehlen: Eine Maske um
+/// einen Kopf auf Foto A liegt auf Foto B irgendwo im Nichts.
+///
+/// Muster: [ExportPresets] und [CameraPresets]. Die dritte Vorgabenart in
+/// derselben App, und die einzige, die bisher fehlte – dabei ist sie die,
+/// nach der am ehesten jemand sucht.
+@DataClassName('DevelopPresetData')
+class DevelopPresets extends Table {
+  IntColumn get id => integer().autoIncrement()();
+
+  /// Angezeigter Name. Eindeutig, damit die Auswahlliste eindeutig bleibt.
+  TextColumn get name => text().unique()();
+
+  RealColumn get exposure => real().withDefault(const Constant(0))();
+  RealColumn get temperature => real().nullable()();
+  RealColumn get tint => real().nullable()();
+  RealColumn get contrast => real().withDefault(const Constant(0))();
+  RealColumn get shadows => real().withDefault(const Constant(0))();
+  RealColumn get highlights => real().withDefault(const Constant(0))();
+  RealColumn get sharpness => real().withDefault(const Constant(0))();
+  RealColumn get noiseReduction => real().withDefault(const Constant(0))();
+  BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
+  RealColumn get clarity => real().withDefault(const Constant(0))();
+  RealColumn get vignette => real().withDefault(const Constant(0))();
+
+  /// Der Pfad der Farbtabelle wandert mit. Zeigt er ins Leere, weil die
+  /// `.cube`-Datei inzwischen fehlt, greift die Vorgabe ohne sie – der
+  /// Rest der Werte ist deswegen nicht falsch.
+  TextColumn get lutPath => text().nullable()();
+  RealColumn get lutStrength => real().withDefault(const Constant(1))();
+  TextColumn get toneCurveJson => text().nullable()();
+  TextColumn get colorMixerJson => text().nullable()();
+
+  DateTimeColumn get erstelltAm => dateTime()();
+}
+
 /// Eine benannte Ausgabe-Vorgabe für den Export – Grösse, Format, Qualität,
 /// Dateibenennung und ob die XMP-Beistelldatei mitgeschrieben wird.
 ///
@@ -366,6 +412,14 @@ class DevelopSettings extends Table {
   RealColumn get tint => real().nullable()(); // Grün/Magenta, null = Kamera-Weißabgleich
   RealColumn get contrast => real().withDefault(const Constant(0))(); // -1..1
   RealColumn get shadows => real().withDefault(const Constant(0))(); // -1..1
+
+  /// Lichter, -1..1 – das Gegenstück zu [shadows].
+  ///
+  /// Kam erst mit Schema 46 dazu, und das war eine echte Lücke: Bei RAW
+  /// ist der Spielraum in den Lichtern der Grund, überhaupt RAW zu
+  /// fotografieren. Ein überstrahlter Himmel steckt in der Datei, es gab
+  /// nur keinen Griff dafür.
+  RealColumn get highlights => real().withDefault(const Constant(0))();
   RealColumn get sharpness => real().withDefault(const Constant(0))(); // 0..1
   RealColumn get noiseReduction => real().withDefault(const Constant(0))(); // 0..1
   BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
@@ -436,6 +490,12 @@ class DevelopHistory extends Table {
   RealColumn get tint => real().nullable()();
   RealColumn get contrast => real()();
   RealColumn get shadows => real()();
+
+  /// Wie in [DevelopSettings]. Mit Vorgabewert statt `real()()`, weil die
+  /// Spalte einer bestehenden Tabelle hinzugefügt wird: Für die Einträge,
+  /// die es beim Umstieg auf Schema 46 schon gab, ist neutral die einzig
+  /// richtige Antwort – damals gab es den Regler nicht.
+  RealColumn get highlights => real().withDefault(const Constant(0))();
   RealColumn get sharpness => real()();
   RealColumn get noiseReduction => real()();
   BoolColumn get lensCorrectionEnabled => boolean()();
@@ -479,6 +539,11 @@ class DevelopMasks extends Table {
   RealColumn get tint => real().nullable()();
   RealColumn get contrast => real().withDefault(const Constant(0))();
   RealColumn get shadows => real().withDefault(const Constant(0))();
+
+  /// Wie in [DevelopSettings] – eine Maske kann Lichter genauso
+  /// zurückholen wie das ganze Bild, und meistens will man genau das:
+  /// den Himmel, nicht die Wiese darunter.
+  RealColumn get highlights => real().withDefault(const Constant(0))();
   RealColumn get sharpness => real().withDefault(const Constant(0))();
   RealColumn get noiseReduction => real().withDefault(const Constant(0))();
   BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
@@ -909,6 +974,7 @@ class DuplikatAusnahmen extends Table {
   AiTagVocabulary,
   AutomationRules,
   AutomationRuleTags,
+  DevelopPresets,
   ExportPresets,
   PersonBeziehungen,
   Lebensereignisse,
@@ -926,7 +992,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 45;
+  int get schemaVersion => 47;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1267,6 +1333,25 @@ class AppDatabase extends _$AppDatabase {
             // Ausnahmen der Duplikatsuche. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich die Suche wie zuvor.
             await m.createTable(duplikatAusnahmen);
+          }
+          if (from < 46) {
+            // Der Lichter-Regler. Vorgabe 0 heisst neutral: Jede bereits
+            // gespeicherte Entwicklung sieht nach der Migration genauso
+            // aus wie davor – niemand findet sein Bild verändert vor.
+            await _addColumnIfMissing(
+                m, developSettings, developSettings.highlights,
+                'develop_settings', 'highlights');
+            await _addColumnIfMissing(
+                m, developMasks, developMasks.highlights,
+                'develop_masks', 'highlights');
+            await _addColumnIfMissing(
+                m, developHistory, developHistory.highlights,
+                'develop_history', 'highlights');
+          }
+          if (from < 47) {
+            // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
+            // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(developPresets);
           }
         },
       );
@@ -2532,6 +2617,7 @@ class AppDatabase extends _$AppDatabase {
             tint: Value(previous.tint),
             contrast: previous.contrast,
             shadows: previous.shadows,
+            highlights: Value(previous.highlights),
             sharpness: previous.sharpness,
             noiseReduction: previous.noiseReduction,
             lensCorrectionEnabled: previous.lensCorrectionEnabled,
@@ -2850,6 +2936,37 @@ class AppDatabase extends _$AppDatabase {
   /// zusätzlichen Namens-Lookup.
   Future<void> tagAssetById(String assetId, String tagId) => into(assetTags)
       .insertOnConflictUpdate(AssetTagsCompanion.insert(assetId: assetId, tagId: tagId));
+
+  // -----------------------------------------------------------------------
+  // Entwicklungs-Vorgaben (benannte Reglerstände)
+  // -----------------------------------------------------------------------
+
+  Stream<List<DevelopPresetData>> watchDevelopPresets() =>
+      (select(developPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+
+  Future<List<DevelopPresetData>> alleDevelopPresets() =>
+      (select(developPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+
+  /// Legt eine Vorgabe an oder aktualisiert sie – wie
+  /// [upsertExportPreset], samt derselben Begründung: Der Konflikt wird
+  /// über die Nummer aufgelöst, nicht über den Namen. Ein zweiter Eintrag
+  /// mit belegtem Namen soll nicht stillschweigend den ersten
+  /// überschreiben.
+  Future<void> upsertDevelopPreset(DevelopPresetsCompanion vorgabe) =>
+      into(developPresets).insertOnConflictUpdate(vorgabe);
+
+  /// Ob [name] schon vergeben ist – [ausserId] nimmt die gerade
+  /// bearbeitete Vorgabe aus.
+  Future<bool> developPresetNameVergeben(String name, {int? ausserId}) async {
+    final abfrage = select(developPresets)..where((t) => t.name.equals(name));
+    if (ausserId != null) {
+      abfrage.where((t) => t.id.equals(ausserId).not());
+    }
+    return (await abfrage.get()).isNotEmpty;
+  }
+
+  Future<void> deleteDevelopPreset(int id) =>
+      (delete(developPresets)..where((t) => t.id.equals(id))).go();
 
   // -----------------------------------------------------------------------
   // Export-Voreinstellungen (benannte Ausgabe-Vorgaben)

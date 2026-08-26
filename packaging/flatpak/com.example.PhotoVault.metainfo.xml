@@ -68,6 +68,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.6" date="2026-08-25">
+      <description>
+        <p>Developing gets what it was missing: a highlights slider. Shadows had one, highlights did not - and with RAW the headroom in the highlights is the reason to shoot RAW at all. macOS uses a custom colour kernel with exactly the shader formula the other platforms use; measured deviation between them: 0.0.</p>
+        <p>A clipping warning shows where highlights are blown and shadows crushed - as marks in the histogram and, on request, directly in the image.</p>
+        <p>Develop settings can be saved under a name and applied to any number of photos. While rebuilding this, copying a development turned out to have been dropping clarity, vignette and colour table - that is fixed too. An automatic button derives exposure, contrast and black point from the histogram and writes them into the sliders, where they stay visible and adjustable.</p>
+        <p>On macOS, portrait photos with a depth map can turn that map into a mask, so the background can be darkened without tracing it by hand.</p>
+        <p xml:lang="de">Das Entwickeln bekommt, was ihm gefehlt hat: einen Lichter-Regler. Die Tiefen hatten einen, die Lichter nicht - und bei RAW ist der Spielraum in den Lichtern der Grund, überhaupt RAW zu fotografieren. macOS rechnet dafür einen eigenen Farbkernel mit genau der Formel des Shaders der anderen Plattformen; gemessene Abweichung: 0,0.</p>
+        <p xml:lang="de">Eine Beschneidungswarnung zeigt, wo Lichter ausgefressen und Tiefen abgesoffen sind - als Marken im Histogramm und auf Wunsch direkt im Bild.</p>
+        <p xml:lang="de">Entwicklungseinstellungen lassen sich unter einem Namen sichern und auf beliebig viele Fotos anwenden. Beim Umbau fiel auf, dass das Kopieren einer Entwicklung bisher Klarheit, Vignette und Farbtabelle weggelassen hat - auch das ist repariert. Ein Automatik-Knopf leitet Belichtung, Kontrast und Schwarzpunkt aus dem Histogramm her und schreibt sie in die Regler, wo sie sichtbar und nachjustierbar bleiben.</p>
+        <p xml:lang="de">Unter macOS entsteht aus der Tiefenkarte eines Porträtfotos eine Maske - damit lässt sich der Hintergrund abdunkeln, ohne ihn von Hand zu umranden.</p>
+      </description>
+    </release>
     <release version="1.9.5" date="2026-08-25">
       <description>
         <p>Windows can now find your own location on the map, and it does it well: measured at 19 m claimed accuracy with 15 m actual deviation.</p>

@@ -120,6 +120,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
   bool _loadingOriginalPreview = false;
   bool _showingOriginal = false;
 
+  /// Ob beschnittene Stellen im Bild markiert werden. Bewusst NICHT
+  /// gespeichert: Das ist ein Blick beim Arbeiten, keine Eigenschaft des
+  /// Fotos - und beim naechsten Oeffnen will man das Bild sehen, nicht die
+  /// Warnfarben.
+  bool _beschneidungZeigen = false;
+
   // --- Live-Vorschau per GPU-Shader ------------------------------------
   // Während des Regler-Ziehens rechnet der Shader sofort auf der
   // neutralen Basis; nach dem Loslassen ersetzt der native Render das Bild
@@ -152,6 +158,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
   double _tint = 0;
   double _contrast = 0;
   double _shadows = 0;
+  double _highlights = 0;
   double _sharpness = 0;
   double _noiseReduction = 0;
   double _clarity = 0;
@@ -197,6 +204,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
   double _maskTint = 0;
   double _maskContrast = 0;
   double _maskShadows = 0;
+  double _maskHighlights = 0;
   double _maskSharpness = 0;
   double _maskNoiseReduction = 0;
 
@@ -319,6 +327,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _exposure = settings.exposure;
       _contrast = settings.contrast;
       _shadows = settings.shadows;
+      _highlights = settings.highlights;
       _sharpness = settings.sharpness;
       _noiseReduction = settings.noiseReduction;
       _clarity = settings.clarity;
@@ -459,6 +468,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
         tint: _autoWhiteBalance ? null : _tint,
         contrast: _contrast,
         shadows: _shadows,
+        highlights: _highlights,
         sharpness: _sharpness,
         noiseReduction: _noiseReduction,
         clarity: _clarity,
@@ -483,6 +493,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
               tint: _maskAutoWhiteBalance ? null : _maskTint,
               contrast: _maskContrast,
               shadows: _maskShadows,
+              highlights: _maskHighlights,
               sharpness: _maskSharpness,
               noiseReduction: _maskNoiseReduction,
             )
@@ -492,6 +503,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
               tint: mask.tint,
               contrast: mask.contrast,
               shadows: mask.shadows,
+              highlights: mask.highlights,
               sharpness: mask.sharpness,
               noiseReduction: mask.noiseReduction,
             );
@@ -590,6 +602,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _exposure = entry.exposure;
       _contrast = entry.contrast;
       _shadows = entry.shadows;
+      _highlights = entry.highlights;
       _sharpness = entry.sharpness;
       _noiseReduction = entry.noiseReduction;
       _clarity = entry.clarity;
@@ -647,6 +660,145 @@ class _DevelopScreenState extends State<DevelopScreen> {
   /// Legt den AKTUELLEN Reglerstand in die Zwischenablage – nicht den
   /// zuletzt gespeicherten. Andernfalls käme man nie zum Kopieren: Das
   /// Speichern schliesst diesen Bildschirm (Fehlerbericht).
+  /// Setzt Belichtung und Kontrast auf das, was das Histogramm nahelegt.
+  ///
+  /// Bewusst kein Modus, sondern ein Griff an die Regler: Man sieht
+  /// danach, was die Automatik getan hat, kann nachjustieren und findet es
+  /// im Verlauf wieder. Der „Auto-Weissabgleich" daneben ist etwas
+  /// anderes – ein Schalter, der den Weissabgleich dem Dekoder überlässt.
+  ///
+  /// Rechnet auf dem Histogramm des ZULETZT gerenderten Standes. Wer
+  /// zweimal hintereinander drückt, bekommt beim zweiten Mal kaum noch
+  /// eine Änderung – das ist richtig so und nicht etwa ein Fehler.
+  void _automatisch() {
+    final daten = _histogram;
+    if (daten == null || daten.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppTexte.of(context).entwAutomatikOhneHistogramm)));
+      return;
+    }
+    final werte = automatikAus(daten);
+    setState(() {
+      // Auf den bisherigen Stand aufgesetzt, nicht ersetzt: Das Histogramm
+      // beschreibt das Bild MIT den aktuellen Reglern.
+      _exposure = (_exposure + werte.belichtung).clamp(-3.0, 3.0);
+      _contrast = (_contrast + werte.kontrast).clamp(-1.0, 1.0);
+    });
+    _scheduleRerender();
+  }
+
+  /// Legt den AKTUELLEN Reglerstand als benannte Vorgabe ab.
+  ///
+  /// Wie beim Kopieren der aktuelle und nicht der gespeicherte Stand: Das
+  /// Speichern schliesst diesen Bildschirm, man käme sonst nie dazu.
+  Future<void> _alsVorgabeSichern() async {
+    final t = AppTexte.of(context);
+    final feld = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.entwVorgabeSichern),
+        content: TextField(
+          controller: feld,
+          autofocus: true,
+          decoration: InputDecoration(hintText: t.entwVorgabeName),
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, feld.text.trim()),
+              child: Text(t.allgSpeichern)),
+        ],
+      ),
+    );
+    feld.dispose();
+    if (name == null || name.isEmpty || !mounted) return;
+
+    // Der Name ist eindeutig. Ein zweiter Eintrag darf den ersten nicht
+    // stillschweigend ersetzen - gefragt wird vorher, nicht hinterher.
+    if (await widget.db.developPresetNameVergeben(name)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t.entwVorgabeNameVergeben(name))));
+      return;
+    }
+
+    final a = _currentAdjustments();
+    await widget.db.upsertDevelopPreset(DevelopPresetsCompanion.insert(
+      name: name,
+      exposure: Value(a.exposure),
+      temperature: Value(a.temperature),
+      tint: Value(a.tint),
+      contrast: Value(a.contrast),
+      shadows: Value(a.shadows),
+      highlights: Value(a.highlights),
+      sharpness: Value(a.sharpness),
+      noiseReduction: Value(a.noiseReduction),
+      lensCorrectionEnabled: Value(a.lensCorrectionEnabled),
+      clarity: Value(a.clarity),
+      vignette: Value(a.vignette),
+      lutPath: Value(_lutPfad),
+      lutStrength: Value(a.lutStrength),
+      toneCurveJson: Value(_toneCurve.istNeutral ? null : _toneCurve.encode()),
+      colorMixerJson:
+          Value(_colorMixer.istNeutral ? null : _colorMixer.encode()),
+      erstelltAm: DateTime.now(),
+    ));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(t.entwVorgabeGesichert(name))));
+  }
+
+  /// Setzt eine Vorgabe in die Regler – wie beim Einsetzen aus der
+  /// Zwischenablage: sichtbar und nachjustierbar, nicht sofort gespeichert.
+  Future<void> _vorgabeAnwenden() async {
+    final t = AppTexte.of(context);
+    final vorgaben = await widget.db.alleDevelopPresets();
+    if (!mounted) return;
+    if (vorgaben.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(t.entwKeineVorgaben)));
+      return;
+    }
+    final gewaehlt = await showDialog<DevelopPresetData>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(t.entwVorgabeWaehlen),
+        children: [
+          for (final v in vorgaben)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, v),
+              child: Text(v.name),
+            ),
+        ],
+      ),
+    );
+    if (gewaehlt == null || !mounted) return;
+    await _ladeLut(gewaehlt.lutPath);
+    if (!mounted) return;
+    setState(() {
+      _exposure = gewaehlt.exposure;
+      _autoWhiteBalance = gewaehlt.temperature == null;
+      _temperature = gewaehlt.temperature ?? _temperature;
+      _tint = gewaehlt.tint ?? _tint;
+      _contrast = gewaehlt.contrast;
+      _shadows = gewaehlt.shadows;
+      _highlights = gewaehlt.highlights;
+      _sharpness = gewaehlt.sharpness;
+      _noiseReduction = gewaehlt.noiseReduction;
+      _clarity = gewaehlt.clarity;
+      _vignette = gewaehlt.vignette;
+      _lensCorrectionEnabled = gewaehlt.lensCorrectionEnabled;
+      _lutStaerke = gewaehlt.lutStrength;
+      _toneCurve = toneCurveAus(gewaehlt.toneCurveJson);
+      _colorMixer = colorMixerAus(gewaehlt.colorMixerJson);
+    });
+    _scheduleRerender();
+  }
+
   void _kopiereEinstellungen() {
     final a = _currentAdjustments();
     widget.onEinstellungenKopieren!(DevelopSettingsData(
@@ -656,6 +808,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       tint: a.tint,
       contrast: a.contrast,
       shadows: a.shadows,
+      highlights: a.highlights,
       sharpness: a.sharpness,
       noiseReduction: a.noiseReduction,
       clarity: a.clarity,
@@ -686,6 +839,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       if (w.tint != null) _tint = w.tint!;
       _contrast = w.contrast;
       _shadows = w.shadows;
+      _highlights = w.highlights;
       _sharpness = w.sharpness;
       _noiseReduction = w.noiseReduction;
       _clarity = w.clarity;
@@ -737,6 +891,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
         tint: Value(adjustments.tint),
         contrast: Value(adjustments.contrast),
         shadows: Value(adjustments.shadows),
+        highlights: Value(adjustments.highlights),
         sharpness: Value(adjustments.sharpness),
         noiseReduction: Value(adjustments.noiseReduction),
         clarity: Value(adjustments.clarity),
@@ -765,6 +920,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
           tint: Value(_maskAutoWhiteBalance ? null : _maskTint),
           contrast: Value(_maskContrast),
           shadows: Value(_maskShadows),
+          highlights: Value(_maskHighlights),
           sharpness: Value(_maskSharpness),
           noiseReduction: Value(_maskNoiseReduction),
         ),
@@ -832,6 +988,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _maskExposure = mask.exposure;
       _maskContrast = mask.contrast;
       _maskShadows = mask.shadows;
+      _maskHighlights = mask.highlights;
       _maskSharpness = mask.sharpness;
       _maskNoiseReduction = mask.noiseReduction;
       _maskAutoWhiteBalance = mask.temperature == null;
@@ -1160,6 +1317,56 @@ class _DevelopScreenState extends State<DevelopScreen> {
     _scheduleRerender();
   }
 
+  /// Legt eine Maske aus der Tiefenkarte des Fotos an.
+  ///
+  /// Der Unterschied zu allem anderen im Maskeneditor: Hier wird nichts
+  /// gezeichnet und nichts angeklickt. Die Kamera hat beim Auslösen
+  /// gemessen, wie weit jeder Punkt entfernt war – das liegt als
+  /// Hilfsbild in der Datei und wird hier zur Maske. Hell ist nah, also
+  /// das Motiv; wer den Hintergrund treffen will, kehrt die Maske um.
+  ///
+  /// Nur unter macOS (siehe [Tiefenmaskenstand]). Der Knopf steht
+  /// trotzdem überall – und sagt, warum er hier nicht kann, statt zu
+  /// fehlen.
+  Future<void> _tiefenmaskeAnlegen() async {
+    final t = AppTexte.of(context);
+    setState(() => _computingMask = true);
+    final ergebnis = await NativeImageConverter.tiefenmaske(
+        widget.paths.absolute(widget.asset.relativePath));
+    if (!mounted) return;
+    setState(() => _computingMask = false);
+
+    if (ergebnis.stand != Tiefenmaskenstand.verfuegbar) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(switch (ergebnis.stand) {
+          Tiefenmaskenstand.nichtAufDieserPlattform => t.entwTiefenNurMacos,
+          Tiefenmaskenstand.nichtLesbar => t.entwTiefenNichtLesbar,
+          _ => t.entwTiefenKeine,
+        }),
+        duration: const Duration(seconds: 6),
+      ));
+      return;
+    }
+
+    final name = t.entwTiefenmaskeName;
+    final relativePath = widget.paths.maskRelativePath(const Uuid().v4());
+    final datei = widget.paths.absolute(relativePath);
+    await datei.parent.create(recursive: true);
+    await datei.writeAsBytes(ergebnis.png!);
+
+    await widget.db.createDevelopMask(DevelopMasksCompanion.insert(
+      assetId: widget.asset.id,
+      maskRelativePath: relativePath,
+      label: name,
+      createdAt: DateTime.now(),
+    ));
+    final frisch = await widget.db.masksForAsset(widget.asset.id);
+    if (!mounted) return;
+    setState(() => _masks = frisch);
+    _selectMask(_masks.last);
+    _scheduleRerender();
+  }
+
   // --- Vektor-Masken: Zieh-Gesten -----------------------------------------
 
   void _handleShapePanStart(DragStartDetails details, Size widgetSize) {
@@ -1417,6 +1624,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
             onPressed: (_saving || _maskEditMode) ? null : () => _startMaskCreation(),
           ),
           IconButton(
+            icon: const Icon(Icons.blur_on_outlined),
+            tooltip: AppTexte.of(context).entwTiefenmaske,
+            onPressed:
+                (_saving || _maskEditMode) ? null : _tiefenmaskeAnlegen,
+          ),
+          IconButton(
             icon: const Icon(Icons.history),
             tooltip: AppTexte.of(context).entwVerlauf,
             onPressed: _saving ? null : _showHistory,
@@ -1427,6 +1640,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
               tooltip: AppTexte.of(context).entwEinstellungenKopieren,
               onPressed: _saving ? null : _kopiereEinstellungen,
             ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_outlined),
+            tooltip: AppTexte.of(context).entwAutomatisch,
+            onPressed: _saving ? null : _automatisch,
+          ),
+          IconButton(
+            icon: const Icon(Icons.bookmark_add_outlined),
+            tooltip: AppTexte.of(context).entwVorgabeSichern,
+            onPressed: _saving ? null : _alsVorgabeSichern,
+          ),
+          IconButton(
+            icon: const Icon(Icons.bookmarks_outlined),
+            tooltip: AppTexte.of(context).entwVorgabeAnwenden,
+            onPressed: _saving ? null : _vorgabeAnwenden,
+          ),
           if (widget.kopierteEinstellungen?.call() != null)
             IconButton(
               icon: const Icon(Icons.content_paste_go_outlined),
@@ -1437,6 +1665,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
             onPressed: _saving ? null : _reset,
             child: Text(AppTexte.of(context).einstZuruecksetzen,
                 style: const TextStyle(color: Colors.white70)),
+          ),
+          // Die Beschneidungswarnung gehoert neben das Bild, nicht in die
+          // Reglerspalte: Sie beurteilt das Bild, sie stellt nichts ein.
+          // Nur bei der Shader-Vorschau anbietbar - die Markierung entsteht
+          // im Shader, ein fertig gerendertes JPEG traegt sie nicht.
+          IconButton(
+            icon: Icon(_beschneidungZeigen
+                ? Icons.report_problem
+                : Icons.report_problem_outlined),
+            color: _beschneidungZeigen ? Colors.amber : Colors.white70,
+            tooltip: AppTexte.of(context).entwBeschneidungWarnung,
+            onPressed: _zeigeShaderVorschau
+                ? () => setState(
+                    () => _beschneidungZeigen = !_beschneidungZeigen)
+                : null,
           ),
           if (_saving)
             const Padding(
@@ -1488,6 +1731,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                                 shader: _shader,
                                                 image: _shaderBasis!,
                                                 adjustments: _currentAdjustments(),
+                                                beschneidungZeigen: _beschneidungZeigen,
                                               )
                                             : Image.memory(
                                                 (_showingOriginal && _originalPreviewBytes != null)
@@ -2133,6 +2377,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
             enabled: !_autoWhiteBalance, liveVorschau: false),
         const Divider(color: Colors.white24),
         _slider(AppTexte.of(context).entwKontrast, _contrast, -1, 1, (v) => setState(() => _contrast = v)),
+        _slider(AppTexte.of(context).entwLichter, _highlights, -1, 1, (v) => setState(() => _highlights = v)),
         _slider(AppTexte.of(context).entwSchatten, _shadows, -1, 1, (v) => setState(() => _shadows = v)),
         // Diese vier kennt nur Core Image. Wo der Shader das gespeicherte
         // Ergebnis erzeugt (siehe DevelopRender), tun sie nichts – dann
@@ -2249,6 +2494,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
         _slider(AppTexte.of(context).entwTint, _maskTint, -100, 100, (v) => setState(() => _maskTint = v), enabled: !_maskAutoWhiteBalance),
         const Divider(color: Colors.white24),
         _slider(AppTexte.of(context).entwKontrast, _maskContrast, -1, 1, (v) => setState(() => _maskContrast = v)),
+        _slider(AppTexte.of(context).entwLichter, _maskHighlights, -1, 1,
+            (v) => setState(() => _maskHighlights = v)),
         _slider(AppTexte.of(context).entwSchatten, _maskShadows, -1, 1, (v) => setState(() => _maskShadows = v)),
         _slider(AppTexte.of(context).entwSchaerfe, _maskSharpness, 0, 1, (v) => setState(() => _maskSharpness = v)),
         _slider(AppTexte.of(context).entwRauschunterdrueckung, _maskNoiseReduction, 0, 1, (v) => setState(() => _maskNoiseReduction = v)),

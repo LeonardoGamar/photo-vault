@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
 import 'cube_lut.dart';
 import 'develop_color.dart';
@@ -16,6 +17,42 @@ import 'raw_formats.dart';
 /// unabhängig davon, ob ein direkter Dekodierversuch zufällig teilweise
 /// klappen würde.
 const heicAndRawExtensions = {'.heic', '.heif', '.avif', '.avifs', ...rawImageExtensions};
+
+/// Was sich für ein Foto an Tiefendaten holen lässt.
+///
+/// Ein eigener Typ statt eines `bool` – aus demselben Grund wie bei
+/// [Objektivkorrekturstand]: „dieses Foto hat keine Tiefenkarte" und
+/// „dieses Foto hat eine, aber wir kommen hier nicht heran" sind für den
+/// Nutzer zwei verschiedene Nachrichten. Ein `bool` könnte nur die erste
+/// erzählen, und die wäre dann falsch.
+///
+/// Der Satz dazu entsteht erst im Bildschirm, nicht hier – dieselbe Regel
+/// wie bei [Objektivkorrekturstand] und `RestaurierungsGrund`.
+enum Tiefenmaskenstand {
+  /// Die Datei bringt keine Tiefenkarte mit. Der Normalfall: Nur
+  /// Porträtaufnahmen neuerer iPhones tragen eine.
+  keineTiefendaten,
+
+  /// Vorhanden und ausgewertet – die Maske liegt bereit.
+  verfuegbar,
+
+  /// Die Datei könnte eine tragen, aber diese Plattform liest sie nicht.
+  ///
+  /// Unter macOS kommen die Tiefendaten aus Apples ImageIO. Unter Linux
+  /// und Windows läuft der Weg über LibRaw und libheif, und die geben das
+  /// Hilfsbild nicht heraus. Deshalb wird der Eintrag dort **gezeigt und
+  /// erklärt**, statt zu fehlen: Ein Foto, das die Funktion auf einem
+  /// anderen Rechner hätte, soll das auch sagen.
+  nichtAufDieserPlattform,
+
+  /// Tiefenkarte vorhanden, Auswertung gescheitert – etwa weil alle Werte
+  /// gleich sind und sich nichts normieren lässt.
+  nichtLesbar,
+}
+
+/// Das Ergebnis einer Tiefenabfrage: der Zustand und, wenn es etwas gibt,
+/// die fertige Maske als PNG.
+typedef Tiefenmaske = ({Tiefenmaskenstand stand, Uint8List? png});
 
 /// Wrapper um einen MethodChannel zur nativen macOS-Bildkonvertierung via
 /// ImageIO (siehe native/macos_image_convert/ImageConverter.swift). Deckt
@@ -135,6 +172,60 @@ class NativeImageConverter {
       return Objektivkorrekturstand.unbekannt;
     } on MissingPluginException {
       return Objektivkorrekturstand.unbekannt;
+    }
+  }
+
+  /// Welche Endungen überhaupt eine Tiefenkarte tragen können.
+  ///
+  /// Gebraucht, um unter Linux und Windows den richtigen Satz zu sagen:
+  /// Dort lässt sich nicht nachsehen, ob eine Datei eine Tiefenkarte hat,
+  /// also wird nach dem Format entschieden. Bei einem JPEG wäre der
+  /// Hinweis „hier ginge etwas, nur nicht auf dieser Plattform" schlicht
+  /// falsch – Tiefendaten kommen aus dem HEIC-Container der
+  /// iPhone-Porträtaufnahme.
+  static const tiefenFaehigeEndungen = {'.heic', '.heif'};
+
+  /// Die Tiefenkarte eines Fotos als Maske.
+  ///
+  /// Nur unter macOS auswertbar (siehe [Tiefenmaskenstand]); anderswo
+  /// kommt [Tiefenmaskenstand.nichtAufDieserPlattform] zurück, wenn die
+  /// Datei überhaupt eine tragen könnte, sonst
+  /// [Tiefenmaskenstand.keineTiefendaten].
+  ///
+  /// Das Ergebnis ist ein Graustufen-PNG, wie es `DevelopMasks` ohnehin
+  /// erwartet – hell ist nah. Es entsteht also keine neue Maskenart, nur
+  /// eine neue Quelle für dieselbe.
+  static Future<Tiefenmaske> tiefenmaske(File file) async {
+    final endung = p.extension(file.path).toLowerCase();
+    if (!Platform.isMacOS || _ueberWerkzeuge) {
+      return (
+        stand: tiefenFaehigeEndungen.contains(endung)
+            ? Tiefenmaskenstand.nichtAufDieserPlattform
+            : Tiefenmaskenstand.keineTiefendaten,
+        png: null,
+      );
+    }
+    if (!await isSupported()) {
+      return (stand: Tiefenmaskenstand.keineTiefendaten, png: null);
+    }
+    try {
+      final antwort = await _channel
+          .invokeMapMethod<String, dynamic>('depthMask', {'path': file.path});
+      final stand = switch (antwort?['stand']) {
+        'verfuegbar' => Tiefenmaskenstand.verfuegbar,
+        'keineTiefendaten' => Tiefenmaskenstand.keineTiefendaten,
+        _ => Tiefenmaskenstand.nichtLesbar,
+      };
+      // Ohne Bild ist „verfuegbar" gelogen – dann lieber „nicht lesbar".
+      final png = antwort?['png'] as Uint8List?;
+      if (stand == Tiefenmaskenstand.verfuegbar && png == null) {
+        return (stand: Tiefenmaskenstand.nichtLesbar, png: null);
+      }
+      return (stand: stand, png: png);
+    } on PlatformException {
+      return (stand: Tiefenmaskenstand.nichtLesbar, png: null);
+    } on MissingPluginException {
+      return (stand: Tiefenmaskenstand.keineTiefendaten, png: null);
     }
   }
 
@@ -425,6 +516,10 @@ class DevelopAdjustments {
   final double? tint; // -100..100, null = Kamera-Weißabgleich
   final double contrast; // -1..1
   final double shadows; // -1..1
+
+  /// Lichter, -1..1 – das Gegenstück zu [shadows]. Negativ holt einen
+  /// überstrahlten Himmel zurück.
+  final double highlights;
   final double sharpness; // 0..1
   final double noiseReduction; // 0..1
 
@@ -458,6 +553,7 @@ class DevelopAdjustments {
     this.tint,
     this.contrast = 0,
     this.shadows = 0,
+    this.highlights = 0,
     this.sharpness = 0,
     this.noiseReduction = 0,
     this.clarity = 0,
@@ -491,6 +587,7 @@ class DevelopAdjustments {
         'tint': tint,
         'contrast': contrast,
         'shadows': shadows,
+        'highlights': highlights,
         'sharpness': sharpness,
         'noiseReduction': noiseReduction,
         'clarity': clarity,
@@ -503,6 +600,40 @@ class DevelopAdjustments {
           'colorCubeSize': colorCubeSize,
         },
       };
+}
+
+/// Ein vollständiger Satz Entwicklungswerte, losgelöst von einem Foto.
+///
+/// Gebraucht, weil zwei Quellen dasselbe liefern sollen: die
+/// Zwischenablage („Einstellungen kopieren") und eine benannte
+/// Entwicklungs-Vorgabe. Ohne diesen gemeinsamen Träger stünde der
+/// Übertragungsweg zweimal da – und die zweite Fassung vergässe beim
+/// nächsten neuen Regler etwas, ohne dass es auffiele.
+///
+/// [regler] ist das, was zum Rendern gebraucht wird (samt geladener
+/// Farbtabelle); die drei Textfelder sind das, was zum Speichern gebraucht
+/// wird. Beides getrennt, weil Kurve und Mischer als JSON in der
+/// Datenbank stehen, aber ausgerechnet an den Renderer gehen.
+class Entwicklungswerte {
+  final DevelopAdjustments regler;
+
+  /// Pfad der Farbtabelle relativ zur Bibliothek – wandert unverändert in
+  /// die Zieleinstellungen, damit das Zielfoto dieselbe Datei benennt.
+  final String? lutPath;
+  final String? toneCurveJson;
+  final String? colorMixerJson;
+
+  /// Das Foto, von dem die Werte stammen – wird beim Übertragen
+  /// übersprungen. Bei einer Vorgabe `null`: Sie gehört zu keinem Foto.
+  final String? quellAssetId;
+
+  const Entwicklungswerte({
+    required this.regler,
+    this.lutPath,
+    this.toneCurveJson,
+    this.colorMixerJson,
+    this.quellAssetId,
+  });
 }
 
 /// Eine KI-Objektmaske (siehe MaskEditor/DevelopMasks) für

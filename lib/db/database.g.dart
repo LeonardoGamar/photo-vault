@@ -7472,6 +7472,14 @@ class $DevelopSettingsTable extends DevelopSettings
       type: DriftSqlType.double,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _highlightsMeta =
+      const VerificationMeta('highlights');
+  @override
+  late final GeneratedColumn<double> highlights = GeneratedColumn<double>(
+      'highlights', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _sharpnessMeta =
       const VerificationMeta('sharpness');
   @override
@@ -7554,6 +7562,7 @@ class $DevelopSettingsTable extends DevelopSettings
         tint,
         contrast,
         shadows,
+        highlights,
         sharpness,
         noiseReduction,
         lensCorrectionEnabled,
@@ -7603,6 +7612,12 @@ class $DevelopSettingsTable extends DevelopSettings
     if (data.containsKey('shadows')) {
       context.handle(_shadowsMeta,
           shadows.isAcceptableOrUnknown(data['shadows']!, _shadowsMeta));
+    }
+    if (data.containsKey('highlights')) {
+      context.handle(
+          _highlightsMeta,
+          highlights.isAcceptableOrUnknown(
+              data['highlights']!, _highlightsMeta));
     }
     if (data.containsKey('sharpness')) {
       context.handle(_sharpnessMeta,
@@ -7677,6 +7692,8 @@ class $DevelopSettingsTable extends DevelopSettings
           .read(DriftSqlType.double, data['${effectivePrefix}contrast'])!,
       shadows: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}shadows'])!,
+      highlights: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}highlights'])!,
       sharpness: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}sharpness'])!,
       noiseReduction: attachedDatabase.typeMapping.read(
@@ -7715,6 +7732,14 @@ class DevelopSettingsData extends DataClass
   final double? tint;
   final double contrast;
   final double shadows;
+
+  /// Lichter, -1..1 – das Gegenstück zu [shadows].
+  ///
+  /// Kam erst mit Schema 46 dazu, und das war eine echte Lücke: Bei RAW
+  /// ist der Spielraum in den Lichtern der Grund, überhaupt RAW zu
+  /// fotografieren. Ein überstrahlter Himmel steckt in der Datei, es gab
+  /// nur keinen Griff dafür.
+  final double highlights;
   final double sharpness;
   final double noiseReduction;
   final bool lensCorrectionEnabled;
@@ -7753,6 +7778,7 @@ class DevelopSettingsData extends DataClass
       this.tint,
       required this.contrast,
       required this.shadows,
+      required this.highlights,
       required this.sharpness,
       required this.noiseReduction,
       required this.lensCorrectionEnabled,
@@ -7776,6 +7802,7 @@ class DevelopSettingsData extends DataClass
     }
     map['contrast'] = Variable<double>(contrast);
     map['shadows'] = Variable<double>(shadows);
+    map['highlights'] = Variable<double>(highlights);
     map['sharpness'] = Variable<double>(sharpness);
     map['noise_reduction'] = Variable<double>(noiseReduction);
     map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
@@ -7805,6 +7832,7 @@ class DevelopSettingsData extends DataClass
       tint: tint == null && nullToAbsent ? const Value.absent() : Value(tint),
       contrast: Value(contrast),
       shadows: Value(shadows),
+      highlights: Value(highlights),
       sharpness: Value(sharpness),
       noiseReduction: Value(noiseReduction),
       lensCorrectionEnabled: Value(lensCorrectionEnabled),
@@ -7834,6 +7862,7 @@ class DevelopSettingsData extends DataClass
       tint: serializer.fromJson<double?>(json['tint']),
       contrast: serializer.fromJson<double>(json['contrast']),
       shadows: serializer.fromJson<double>(json['shadows']),
+      highlights: serializer.fromJson<double>(json['highlights']),
       sharpness: serializer.fromJson<double>(json['sharpness']),
       noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
       lensCorrectionEnabled:
@@ -7857,6 +7886,7 @@ class DevelopSettingsData extends DataClass
       'tint': serializer.toJson<double?>(tint),
       'contrast': serializer.toJson<double>(contrast),
       'shadows': serializer.toJson<double>(shadows),
+      'highlights': serializer.toJson<double>(highlights),
       'sharpness': serializer.toJson<double>(sharpness),
       'noiseReduction': serializer.toJson<double>(noiseReduction),
       'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
@@ -7877,6 +7907,7 @@ class DevelopSettingsData extends DataClass
           Value<double?> tint = const Value.absent(),
           double? contrast,
           double? shadows,
+          double? highlights,
           double? sharpness,
           double? noiseReduction,
           bool? lensCorrectionEnabled,
@@ -7894,6 +7925,7 @@ class DevelopSettingsData extends DataClass
         tint: tint.present ? tint.value : this.tint,
         contrast: contrast ?? this.contrast,
         shadows: shadows ?? this.shadows,
+        highlights: highlights ?? this.highlights,
         sharpness: sharpness ?? this.sharpness,
         noiseReduction: noiseReduction ?? this.noiseReduction,
         lensCorrectionEnabled:
@@ -7917,6 +7949,8 @@ class DevelopSettingsData extends DataClass
       tint: data.tint.present ? data.tint.value : this.tint,
       contrast: data.contrast.present ? data.contrast.value : this.contrast,
       shadows: data.shadows.present ? data.shadows.value : this.shadows,
+      highlights:
+          data.highlights.present ? data.highlights.value : this.highlights,
       sharpness: data.sharpness.present ? data.sharpness.value : this.sharpness,
       noiseReduction: data.noiseReduction.present
           ? data.noiseReduction.value
@@ -7948,6 +7982,7 @@ class DevelopSettingsData extends DataClass
           ..write('tint: $tint, ')
           ..write('contrast: $contrast, ')
           ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
@@ -7970,6 +8005,7 @@ class DevelopSettingsData extends DataClass
       tint,
       contrast,
       shadows,
+      highlights,
       sharpness,
       noiseReduction,
       lensCorrectionEnabled,
@@ -7990,6 +8026,7 @@ class DevelopSettingsData extends DataClass
           other.tint == this.tint &&
           other.contrast == this.contrast &&
           other.shadows == this.shadows &&
+          other.highlights == this.highlights &&
           other.sharpness == this.sharpness &&
           other.noiseReduction == this.noiseReduction &&
           other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
@@ -8009,6 +8046,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
   final Value<double?> tint;
   final Value<double> contrast;
   final Value<double> shadows;
+  final Value<double> highlights;
   final Value<double> sharpness;
   final Value<double> noiseReduction;
   final Value<bool> lensCorrectionEnabled;
@@ -8027,6 +8065,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     this.tint = const Value.absent(),
     this.contrast = const Value.absent(),
     this.shadows = const Value.absent(),
+    this.highlights = const Value.absent(),
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
@@ -8046,6 +8085,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     this.tint = const Value.absent(),
     this.contrast = const Value.absent(),
     this.shadows = const Value.absent(),
+    this.highlights = const Value.absent(),
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
@@ -8066,6 +8106,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     Expression<double>? tint,
     Expression<double>? contrast,
     Expression<double>? shadows,
+    Expression<double>? highlights,
     Expression<double>? sharpness,
     Expression<double>? noiseReduction,
     Expression<bool>? lensCorrectionEnabled,
@@ -8085,6 +8126,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       if (tint != null) 'tint': tint,
       if (contrast != null) 'contrast': contrast,
       if (shadows != null) 'shadows': shadows,
+      if (highlights != null) 'highlights': highlights,
       if (sharpness != null) 'sharpness': sharpness,
       if (noiseReduction != null) 'noise_reduction': noiseReduction,
       if (lensCorrectionEnabled != null)
@@ -8107,6 +8149,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       Value<double?>? tint,
       Value<double>? contrast,
       Value<double>? shadows,
+      Value<double>? highlights,
       Value<double>? sharpness,
       Value<double>? noiseReduction,
       Value<bool>? lensCorrectionEnabled,
@@ -8125,6 +8168,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
       tint: tint ?? this.tint,
       contrast: contrast ?? this.contrast,
       shadows: shadows ?? this.shadows,
+      highlights: highlights ?? this.highlights,
       sharpness: sharpness ?? this.sharpness,
       noiseReduction: noiseReduction ?? this.noiseReduction,
       lensCorrectionEnabled:
@@ -8160,6 +8204,9 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
     }
     if (shadows.present) {
       map['shadows'] = Variable<double>(shadows.value);
+    }
+    if (highlights.present) {
+      map['highlights'] = Variable<double>(highlights.value);
     }
     if (sharpness.present) {
       map['sharpness'] = Variable<double>(sharpness.value);
@@ -8207,6 +8254,7 @@ class DevelopSettingsCompanion extends UpdateCompanion<DevelopSettingsData> {
           ..write('tint: $tint, ')
           ..write('contrast: $contrast, ')
           ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
@@ -8273,6 +8321,14 @@ class $DevelopHistoryTable extends DevelopHistory
   late final GeneratedColumn<double> shadows = GeneratedColumn<double>(
       'shadows', aliasedName, false,
       type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _highlightsMeta =
+      const VerificationMeta('highlights');
+  @override
+  late final GeneratedColumn<double> highlights = GeneratedColumn<double>(
+      'highlights', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _sharpnessMeta =
       const VerificationMeta('sharpness');
   @override
@@ -8351,6 +8407,7 @@ class $DevelopHistoryTable extends DevelopHistory
         tint,
         contrast,
         shadows,
+        highlights,
         sharpness,
         noiseReduction,
         lensCorrectionEnabled,
@@ -8408,6 +8465,12 @@ class $DevelopHistoryTable extends DevelopHistory
           shadows.isAcceptableOrUnknown(data['shadows']!, _shadowsMeta));
     } else if (isInserting) {
       context.missing(_shadowsMeta);
+    }
+    if (data.containsKey('highlights')) {
+      context.handle(
+          _highlightsMeta,
+          highlights.isAcceptableOrUnknown(
+              data['highlights']!, _highlightsMeta));
     }
     if (data.containsKey('sharpness')) {
       context.handle(_sharpnessMeta,
@@ -8490,6 +8553,8 @@ class $DevelopHistoryTable extends DevelopHistory
           .read(DriftSqlType.double, data['${effectivePrefix}contrast'])!,
       shadows: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}shadows'])!,
+      highlights: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}highlights'])!,
       sharpness: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}sharpness'])!,
       noiseReduction: attachedDatabase.typeMapping.read(
@@ -8529,6 +8594,12 @@ class DevelopHistoryData extends DataClass
   final double? tint;
   final double contrast;
   final double shadows;
+
+  /// Wie in [DevelopSettings]. Mit Vorgabewert statt `real()()`, weil die
+  /// Spalte einer bestehenden Tabelle hinzugefügt wird: Für die Einträge,
+  /// die es beim Umstieg auf Schema 46 schon gab, ist neutral die einzig
+  /// richtige Antwort – damals gab es den Regler nicht.
+  final double highlights;
   final double sharpness;
   final double noiseReduction;
   final bool lensCorrectionEnabled;
@@ -8555,6 +8626,7 @@ class DevelopHistoryData extends DataClass
       this.tint,
       required this.contrast,
       required this.shadows,
+      required this.highlights,
       required this.sharpness,
       required this.noiseReduction,
       required this.lensCorrectionEnabled,
@@ -8579,6 +8651,7 @@ class DevelopHistoryData extends DataClass
     }
     map['contrast'] = Variable<double>(contrast);
     map['shadows'] = Variable<double>(shadows);
+    map['highlights'] = Variable<double>(highlights);
     map['sharpness'] = Variable<double>(sharpness);
     map['noise_reduction'] = Variable<double>(noiseReduction);
     map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
@@ -8609,6 +8682,7 @@ class DevelopHistoryData extends DataClass
       tint: tint == null && nullToAbsent ? const Value.absent() : Value(tint),
       contrast: Value(contrast),
       shadows: Value(shadows),
+      highlights: Value(highlights),
       sharpness: Value(sharpness),
       noiseReduction: Value(noiseReduction),
       lensCorrectionEnabled: Value(lensCorrectionEnabled),
@@ -8639,6 +8713,7 @@ class DevelopHistoryData extends DataClass
       tint: serializer.fromJson<double?>(json['tint']),
       contrast: serializer.fromJson<double>(json['contrast']),
       shadows: serializer.fromJson<double>(json['shadows']),
+      highlights: serializer.fromJson<double>(json['highlights']),
       sharpness: serializer.fromJson<double>(json['sharpness']),
       noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
       lensCorrectionEnabled:
@@ -8663,6 +8738,7 @@ class DevelopHistoryData extends DataClass
       'tint': serializer.toJson<double?>(tint),
       'contrast': serializer.toJson<double>(contrast),
       'shadows': serializer.toJson<double>(shadows),
+      'highlights': serializer.toJson<double>(highlights),
       'sharpness': serializer.toJson<double>(sharpness),
       'noiseReduction': serializer.toJson<double>(noiseReduction),
       'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
@@ -8684,6 +8760,7 @@ class DevelopHistoryData extends DataClass
           Value<double?> tint = const Value.absent(),
           double? contrast,
           double? shadows,
+          double? highlights,
           double? sharpness,
           double? noiseReduction,
           bool? lensCorrectionEnabled,
@@ -8702,6 +8779,7 @@ class DevelopHistoryData extends DataClass
         tint: tint.present ? tint.value : this.tint,
         contrast: contrast ?? this.contrast,
         shadows: shadows ?? this.shadows,
+        highlights: highlights ?? this.highlights,
         sharpness: sharpness ?? this.sharpness,
         noiseReduction: noiseReduction ?? this.noiseReduction,
         lensCorrectionEnabled:
@@ -8726,6 +8804,8 @@ class DevelopHistoryData extends DataClass
       tint: data.tint.present ? data.tint.value : this.tint,
       contrast: data.contrast.present ? data.contrast.value : this.contrast,
       shadows: data.shadows.present ? data.shadows.value : this.shadows,
+      highlights:
+          data.highlights.present ? data.highlights.value : this.highlights,
       sharpness: data.sharpness.present ? data.sharpness.value : this.sharpness,
       noiseReduction: data.noiseReduction.present
           ? data.noiseReduction.value
@@ -8758,6 +8838,7 @@ class DevelopHistoryData extends DataClass
           ..write('tint: $tint, ')
           ..write('contrast: $contrast, ')
           ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
@@ -8781,6 +8862,7 @@ class DevelopHistoryData extends DataClass
       tint,
       contrast,
       shadows,
+      highlights,
       sharpness,
       noiseReduction,
       lensCorrectionEnabled,
@@ -8802,6 +8884,7 @@ class DevelopHistoryData extends DataClass
           other.tint == this.tint &&
           other.contrast == this.contrast &&
           other.shadows == this.shadows &&
+          other.highlights == this.highlights &&
           other.sharpness == this.sharpness &&
           other.noiseReduction == this.noiseReduction &&
           other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
@@ -8822,6 +8905,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
   final Value<double?> tint;
   final Value<double> contrast;
   final Value<double> shadows;
+  final Value<double> highlights;
   final Value<double> sharpness;
   final Value<double> noiseReduction;
   final Value<bool> lensCorrectionEnabled;
@@ -8840,6 +8924,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     this.tint = const Value.absent(),
     this.contrast = const Value.absent(),
     this.shadows = const Value.absent(),
+    this.highlights = const Value.absent(),
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
@@ -8859,6 +8944,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     this.tint = const Value.absent(),
     required double contrast,
     required double shadows,
+    this.highlights = const Value.absent(),
     required double sharpness,
     required double noiseReduction,
     required bool lensCorrectionEnabled,
@@ -8885,6 +8971,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     Expression<double>? tint,
     Expression<double>? contrast,
     Expression<double>? shadows,
+    Expression<double>? highlights,
     Expression<double>? sharpness,
     Expression<double>? noiseReduction,
     Expression<bool>? lensCorrectionEnabled,
@@ -8904,6 +8991,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       if (tint != null) 'tint': tint,
       if (contrast != null) 'contrast': contrast,
       if (shadows != null) 'shadows': shadows,
+      if (highlights != null) 'highlights': highlights,
       if (sharpness != null) 'sharpness': sharpness,
       if (noiseReduction != null) 'noise_reduction': noiseReduction,
       if (lensCorrectionEnabled != null)
@@ -8926,6 +9014,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       Value<double?>? tint,
       Value<double>? contrast,
       Value<double>? shadows,
+      Value<double>? highlights,
       Value<double>? sharpness,
       Value<double>? noiseReduction,
       Value<bool>? lensCorrectionEnabled,
@@ -8944,6 +9033,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
       tint: tint ?? this.tint,
       contrast: contrast ?? this.contrast,
       shadows: shadows ?? this.shadows,
+      highlights: highlights ?? this.highlights,
       sharpness: sharpness ?? this.sharpness,
       noiseReduction: noiseReduction ?? this.noiseReduction,
       lensCorrectionEnabled:
@@ -8981,6 +9071,9 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
     }
     if (shadows.present) {
       map['shadows'] = Variable<double>(shadows.value);
+    }
+    if (highlights.present) {
+      map['highlights'] = Variable<double>(highlights.value);
     }
     if (sharpness.present) {
       map['sharpness'] = Variable<double>(sharpness.value);
@@ -9026,6 +9119,7 @@ class DevelopHistoryCompanion extends UpdateCompanion<DevelopHistoryData> {
           ..write('tint: $tint, ')
           ..write('contrast: $contrast, ')
           ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
@@ -9389,6 +9483,14 @@ class $DevelopMasksTable extends DevelopMasks
       type: DriftSqlType.double,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _highlightsMeta =
+      const VerificationMeta('highlights');
+  @override
+  late final GeneratedColumn<double> highlights = GeneratedColumn<double>(
+      'highlights', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _sharpnessMeta =
       const VerificationMeta('sharpness');
   @override
@@ -9438,6 +9540,7 @@ class $DevelopMasksTable extends DevelopMasks
         tint,
         contrast,
         shadows,
+        highlights,
         sharpness,
         noiseReduction,
         lensCorrectionEnabled,
@@ -9499,6 +9602,12 @@ class $DevelopMasksTable extends DevelopMasks
       context.handle(_shadowsMeta,
           shadows.isAcceptableOrUnknown(data['shadows']!, _shadowsMeta));
     }
+    if (data.containsKey('highlights')) {
+      context.handle(
+          _highlightsMeta,
+          highlights.isAcceptableOrUnknown(
+              data['highlights']!, _highlightsMeta));
+    }
     if (data.containsKey('sharpness')) {
       context.handle(_sharpnessMeta,
           sharpness.isAcceptableOrUnknown(data['sharpness']!, _sharpnessMeta));
@@ -9554,6 +9663,8 @@ class $DevelopMasksTable extends DevelopMasks
           .read(DriftSqlType.double, data['${effectivePrefix}contrast'])!,
       shadows: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}shadows'])!,
+      highlights: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}highlights'])!,
       sharpness: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}sharpness'])!,
       noiseReduction: attachedDatabase.typeMapping.read(
@@ -9584,6 +9695,11 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
   final double? tint;
   final double contrast;
   final double shadows;
+
+  /// Wie in [DevelopSettings] – eine Maske kann Lichter genauso
+  /// zurückholen wie das ganze Bild, und meistens will man genau das:
+  /// den Himmel, nicht die Wiese darunter.
+  final double highlights;
   final double sharpness;
   final double noiseReduction;
   final bool lensCorrectionEnabled;
@@ -9607,6 +9723,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
       this.tint,
       required this.contrast,
       required this.shadows,
+      required this.highlights,
       required this.sharpness,
       required this.noiseReduction,
       required this.lensCorrectionEnabled,
@@ -9628,6 +9745,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
     }
     map['contrast'] = Variable<double>(contrast);
     map['shadows'] = Variable<double>(shadows);
+    map['highlights'] = Variable<double>(highlights);
     map['sharpness'] = Variable<double>(sharpness);
     map['noise_reduction'] = Variable<double>(noiseReduction);
     map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
@@ -9651,6 +9769,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
       tint: tint == null && nullToAbsent ? const Value.absent() : Value(tint),
       contrast: Value(contrast),
       shadows: Value(shadows),
+      highlights: Value(highlights),
       sharpness: Value(sharpness),
       noiseReduction: Value(noiseReduction),
       lensCorrectionEnabled: Value(lensCorrectionEnabled),
@@ -9674,6 +9793,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
       tint: serializer.fromJson<double?>(json['tint']),
       contrast: serializer.fromJson<double>(json['contrast']),
       shadows: serializer.fromJson<double>(json['shadows']),
+      highlights: serializer.fromJson<double>(json['highlights']),
       sharpness: serializer.fromJson<double>(json['sharpness']),
       noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
       lensCorrectionEnabled:
@@ -9696,6 +9816,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
       'tint': serializer.toJson<double?>(tint),
       'contrast': serializer.toJson<double>(contrast),
       'shadows': serializer.toJson<double>(shadows),
+      'highlights': serializer.toJson<double>(highlights),
       'sharpness': serializer.toJson<double>(sharpness),
       'noiseReduction': serializer.toJson<double>(noiseReduction),
       'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
@@ -9714,6 +9835,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
           Value<double?> tint = const Value.absent(),
           double? contrast,
           double? shadows,
+          double? highlights,
           double? sharpness,
           double? noiseReduction,
           bool? lensCorrectionEnabled,
@@ -9729,6 +9851,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
         tint: tint.present ? tint.value : this.tint,
         contrast: contrast ?? this.contrast,
         shadows: shadows ?? this.shadows,
+        highlights: highlights ?? this.highlights,
         sharpness: sharpness ?? this.sharpness,
         noiseReduction: noiseReduction ?? this.noiseReduction,
         lensCorrectionEnabled:
@@ -9752,6 +9875,8 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
       tint: data.tint.present ? data.tint.value : this.tint,
       contrast: data.contrast.present ? data.contrast.value : this.contrast,
       shadows: data.shadows.present ? data.shadows.value : this.shadows,
+      highlights:
+          data.highlights.present ? data.highlights.value : this.highlights,
       sharpness: data.sharpness.present ? data.sharpness.value : this.sharpness,
       noiseReduction: data.noiseReduction.present
           ? data.noiseReduction.value
@@ -9778,6 +9903,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
           ..write('tint: $tint, ')
           ..write('contrast: $contrast, ')
           ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
@@ -9798,6 +9924,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
       tint,
       contrast,
       shadows,
+      highlights,
       sharpness,
       noiseReduction,
       lensCorrectionEnabled,
@@ -9816,6 +9943,7 @@ class DevelopMaskData extends DataClass implements Insertable<DevelopMaskData> {
           other.tint == this.tint &&
           other.contrast == this.contrast &&
           other.shadows == this.shadows &&
+          other.highlights == this.highlights &&
           other.sharpness == this.sharpness &&
           other.noiseReduction == this.noiseReduction &&
           other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
@@ -9833,6 +9961,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
   final Value<double?> tint;
   final Value<double> contrast;
   final Value<double> shadows;
+  final Value<double> highlights;
   final Value<double> sharpness;
   final Value<double> noiseReduction;
   final Value<bool> lensCorrectionEnabled;
@@ -9848,6 +9977,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
     this.tint = const Value.absent(),
     this.contrast = const Value.absent(),
     this.shadows = const Value.absent(),
+    this.highlights = const Value.absent(),
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
@@ -9864,6 +9994,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
     this.tint = const Value.absent(),
     this.contrast = const Value.absent(),
     this.shadows = const Value.absent(),
+    this.highlights = const Value.absent(),
     this.sharpness = const Value.absent(),
     this.noiseReduction = const Value.absent(),
     this.lensCorrectionEnabled = const Value.absent(),
@@ -9883,6 +10014,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
     Expression<double>? tint,
     Expression<double>? contrast,
     Expression<double>? shadows,
+    Expression<double>? highlights,
     Expression<double>? sharpness,
     Expression<double>? noiseReduction,
     Expression<bool>? lensCorrectionEnabled,
@@ -9899,6 +10031,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
       if (tint != null) 'tint': tint,
       if (contrast != null) 'contrast': contrast,
       if (shadows != null) 'shadows': shadows,
+      if (highlights != null) 'highlights': highlights,
       if (sharpness != null) 'sharpness': sharpness,
       if (noiseReduction != null) 'noise_reduction': noiseReduction,
       if (lensCorrectionEnabled != null)
@@ -9919,6 +10052,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
       Value<double?>? tint,
       Value<double>? contrast,
       Value<double>? shadows,
+      Value<double>? highlights,
       Value<double>? sharpness,
       Value<double>? noiseReduction,
       Value<bool>? lensCorrectionEnabled,
@@ -9934,6 +10068,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
       tint: tint ?? this.tint,
       contrast: contrast ?? this.contrast,
       shadows: shadows ?? this.shadows,
+      highlights: highlights ?? this.highlights,
       sharpness: sharpness ?? this.sharpness,
       noiseReduction: noiseReduction ?? this.noiseReduction,
       lensCorrectionEnabled:
@@ -9973,6 +10108,9 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
     if (shadows.present) {
       map['shadows'] = Variable<double>(shadows.value);
     }
+    if (highlights.present) {
+      map['highlights'] = Variable<double>(highlights.value);
+    }
     if (sharpness.present) {
       map['sharpness'] = Variable<double>(sharpness.value);
     }
@@ -10005,6 +10143,7 @@ class DevelopMasksCompanion extends UpdateCompanion<DevelopMaskData> {
           ..write('tint: $tint, ')
           ..write('contrast: $contrast, ')
           ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
           ..write('sharpness: $sharpness, ')
           ..write('noiseReduction: $noiseReduction, ')
           ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
@@ -11974,6 +12113,860 @@ class AutomationRuleTagsCompanion extends UpdateCompanion<AutomationRuleTag> {
   }
 }
 
+class $DevelopPresetsTable extends DevelopPresets
+    with TableInfo<$DevelopPresetsTable, DevelopPresetData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DevelopPresetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: true,
+      defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'));
+  static const VerificationMeta _exposureMeta =
+      const VerificationMeta('exposure');
+  @override
+  late final GeneratedColumn<double> exposure = GeneratedColumn<double>(
+      'exposure', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _temperatureMeta =
+      const VerificationMeta('temperature');
+  @override
+  late final GeneratedColumn<double> temperature = GeneratedColumn<double>(
+      'temperature', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _tintMeta = const VerificationMeta('tint');
+  @override
+  late final GeneratedColumn<double> tint = GeneratedColumn<double>(
+      'tint', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _contrastMeta =
+      const VerificationMeta('contrast');
+  @override
+  late final GeneratedColumn<double> contrast = GeneratedColumn<double>(
+      'contrast', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _shadowsMeta =
+      const VerificationMeta('shadows');
+  @override
+  late final GeneratedColumn<double> shadows = GeneratedColumn<double>(
+      'shadows', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _highlightsMeta =
+      const VerificationMeta('highlights');
+  @override
+  late final GeneratedColumn<double> highlights = GeneratedColumn<double>(
+      'highlights', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _sharpnessMeta =
+      const VerificationMeta('sharpness');
+  @override
+  late final GeneratedColumn<double> sharpness = GeneratedColumn<double>(
+      'sharpness', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _noiseReductionMeta =
+      const VerificationMeta('noiseReduction');
+  @override
+  late final GeneratedColumn<double> noiseReduction = GeneratedColumn<double>(
+      'noise_reduction', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lensCorrectionEnabledMeta =
+      const VerificationMeta('lensCorrectionEnabled');
+  @override
+  late final GeneratedColumn<bool> lensCorrectionEnabled =
+      GeneratedColumn<bool>('lens_correction_enabled', aliasedName, false,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintIsAlways(
+              'CHECK ("lens_correction_enabled" IN (0, 1))'),
+          defaultValue: const Constant(true));
+  static const VerificationMeta _clarityMeta =
+      const VerificationMeta('clarity');
+  @override
+  late final GeneratedColumn<double> clarity = GeneratedColumn<double>(
+      'clarity', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _vignetteMeta =
+      const VerificationMeta('vignette');
+  @override
+  late final GeneratedColumn<double> vignette = GeneratedColumn<double>(
+      'vignette', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _lutPathMeta =
+      const VerificationMeta('lutPath');
+  @override
+  late final GeneratedColumn<String> lutPath = GeneratedColumn<String>(
+      'lut_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _lutStrengthMeta =
+      const VerificationMeta('lutStrength');
+  @override
+  late final GeneratedColumn<double> lutStrength = GeneratedColumn<double>(
+      'lut_strength', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _toneCurveJsonMeta =
+      const VerificationMeta('toneCurveJson');
+  @override
+  late final GeneratedColumn<String> toneCurveJson = GeneratedColumn<String>(
+      'tone_curve_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _colorMixerJsonMeta =
+      const VerificationMeta('colorMixerJson');
+  @override
+  late final GeneratedColumn<String> colorMixerJson = GeneratedColumn<String>(
+      'color_mixer_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _erstelltAmMeta =
+      const VerificationMeta('erstelltAm');
+  @override
+  late final GeneratedColumn<DateTime> erstelltAm = GeneratedColumn<DateTime>(
+      'erstellt_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        name,
+        exposure,
+        temperature,
+        tint,
+        contrast,
+        shadows,
+        highlights,
+        sharpness,
+        noiseReduction,
+        lensCorrectionEnabled,
+        clarity,
+        vignette,
+        lutPath,
+        lutStrength,
+        toneCurveJson,
+        colorMixerJson,
+        erstelltAm
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'develop_presets';
+  @override
+  VerificationContext validateIntegrity(Insertable<DevelopPresetData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('exposure')) {
+      context.handle(_exposureMeta,
+          exposure.isAcceptableOrUnknown(data['exposure']!, _exposureMeta));
+    }
+    if (data.containsKey('temperature')) {
+      context.handle(
+          _temperatureMeta,
+          temperature.isAcceptableOrUnknown(
+              data['temperature']!, _temperatureMeta));
+    }
+    if (data.containsKey('tint')) {
+      context.handle(
+          _tintMeta, tint.isAcceptableOrUnknown(data['tint']!, _tintMeta));
+    }
+    if (data.containsKey('contrast')) {
+      context.handle(_contrastMeta,
+          contrast.isAcceptableOrUnknown(data['contrast']!, _contrastMeta));
+    }
+    if (data.containsKey('shadows')) {
+      context.handle(_shadowsMeta,
+          shadows.isAcceptableOrUnknown(data['shadows']!, _shadowsMeta));
+    }
+    if (data.containsKey('highlights')) {
+      context.handle(
+          _highlightsMeta,
+          highlights.isAcceptableOrUnknown(
+              data['highlights']!, _highlightsMeta));
+    }
+    if (data.containsKey('sharpness')) {
+      context.handle(_sharpnessMeta,
+          sharpness.isAcceptableOrUnknown(data['sharpness']!, _sharpnessMeta));
+    }
+    if (data.containsKey('noise_reduction')) {
+      context.handle(
+          _noiseReductionMeta,
+          noiseReduction.isAcceptableOrUnknown(
+              data['noise_reduction']!, _noiseReductionMeta));
+    }
+    if (data.containsKey('lens_correction_enabled')) {
+      context.handle(
+          _lensCorrectionEnabledMeta,
+          lensCorrectionEnabled.isAcceptableOrUnknown(
+              data['lens_correction_enabled']!, _lensCorrectionEnabledMeta));
+    }
+    if (data.containsKey('clarity')) {
+      context.handle(_clarityMeta,
+          clarity.isAcceptableOrUnknown(data['clarity']!, _clarityMeta));
+    }
+    if (data.containsKey('vignette')) {
+      context.handle(_vignetteMeta,
+          vignette.isAcceptableOrUnknown(data['vignette']!, _vignetteMeta));
+    }
+    if (data.containsKey('lut_path')) {
+      context.handle(_lutPathMeta,
+          lutPath.isAcceptableOrUnknown(data['lut_path']!, _lutPathMeta));
+    }
+    if (data.containsKey('lut_strength')) {
+      context.handle(
+          _lutStrengthMeta,
+          lutStrength.isAcceptableOrUnknown(
+              data['lut_strength']!, _lutStrengthMeta));
+    }
+    if (data.containsKey('tone_curve_json')) {
+      context.handle(
+          _toneCurveJsonMeta,
+          toneCurveJson.isAcceptableOrUnknown(
+              data['tone_curve_json']!, _toneCurveJsonMeta));
+    }
+    if (data.containsKey('color_mixer_json')) {
+      context.handle(
+          _colorMixerJsonMeta,
+          colorMixerJson.isAcceptableOrUnknown(
+              data['color_mixer_json']!, _colorMixerJsonMeta));
+    }
+    if (data.containsKey('erstellt_am')) {
+      context.handle(
+          _erstelltAmMeta,
+          erstelltAm.isAcceptableOrUnknown(
+              data['erstellt_am']!, _erstelltAmMeta));
+    } else if (isInserting) {
+      context.missing(_erstelltAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DevelopPresetData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DevelopPresetData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      exposure: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}exposure'])!,
+      temperature: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}temperature']),
+      tint: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}tint']),
+      contrast: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}contrast'])!,
+      shadows: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}shadows'])!,
+      highlights: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}highlights'])!,
+      sharpness: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}sharpness'])!,
+      noiseReduction: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}noise_reduction'])!,
+      lensCorrectionEnabled: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool,
+          data['${effectivePrefix}lens_correction_enabled'])!,
+      clarity: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}clarity'])!,
+      vignette: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vignette'])!,
+      lutPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}lut_path']),
+      lutStrength: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}lut_strength'])!,
+      toneCurveJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tone_curve_json']),
+      colorMixerJson: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}color_mixer_json']),
+      erstelltAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}erstellt_am'])!,
+    );
+  }
+
+  @override
+  $DevelopPresetsTable createAlias(String alias) {
+    return $DevelopPresetsTable(attachedDatabase, alias);
+  }
+}
+
+class DevelopPresetData extends DataClass
+    implements Insertable<DevelopPresetData> {
+  final int id;
+
+  /// Angezeigter Name. Eindeutig, damit die Auswahlliste eindeutig bleibt.
+  final String name;
+  final double exposure;
+  final double? temperature;
+  final double? tint;
+  final double contrast;
+  final double shadows;
+  final double highlights;
+  final double sharpness;
+  final double noiseReduction;
+  final bool lensCorrectionEnabled;
+  final double clarity;
+  final double vignette;
+
+  /// Der Pfad der Farbtabelle wandert mit. Zeigt er ins Leere, weil die
+  /// `.cube`-Datei inzwischen fehlt, greift die Vorgabe ohne sie – der
+  /// Rest der Werte ist deswegen nicht falsch.
+  final String? lutPath;
+  final double lutStrength;
+  final String? toneCurveJson;
+  final String? colorMixerJson;
+  final DateTime erstelltAm;
+  const DevelopPresetData(
+      {required this.id,
+      required this.name,
+      required this.exposure,
+      this.temperature,
+      this.tint,
+      required this.contrast,
+      required this.shadows,
+      required this.highlights,
+      required this.sharpness,
+      required this.noiseReduction,
+      required this.lensCorrectionEnabled,
+      required this.clarity,
+      required this.vignette,
+      this.lutPath,
+      required this.lutStrength,
+      this.toneCurveJson,
+      this.colorMixerJson,
+      required this.erstelltAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['exposure'] = Variable<double>(exposure);
+    if (!nullToAbsent || temperature != null) {
+      map['temperature'] = Variable<double>(temperature);
+    }
+    if (!nullToAbsent || tint != null) {
+      map['tint'] = Variable<double>(tint);
+    }
+    map['contrast'] = Variable<double>(contrast);
+    map['shadows'] = Variable<double>(shadows);
+    map['highlights'] = Variable<double>(highlights);
+    map['sharpness'] = Variable<double>(sharpness);
+    map['noise_reduction'] = Variable<double>(noiseReduction);
+    map['lens_correction_enabled'] = Variable<bool>(lensCorrectionEnabled);
+    map['clarity'] = Variable<double>(clarity);
+    map['vignette'] = Variable<double>(vignette);
+    if (!nullToAbsent || lutPath != null) {
+      map['lut_path'] = Variable<String>(lutPath);
+    }
+    map['lut_strength'] = Variable<double>(lutStrength);
+    if (!nullToAbsent || toneCurveJson != null) {
+      map['tone_curve_json'] = Variable<String>(toneCurveJson);
+    }
+    if (!nullToAbsent || colorMixerJson != null) {
+      map['color_mixer_json'] = Variable<String>(colorMixerJson);
+    }
+    map['erstellt_am'] = Variable<DateTime>(erstelltAm);
+    return map;
+  }
+
+  DevelopPresetsCompanion toCompanion(bool nullToAbsent) {
+    return DevelopPresetsCompanion(
+      id: Value(id),
+      name: Value(name),
+      exposure: Value(exposure),
+      temperature: temperature == null && nullToAbsent
+          ? const Value.absent()
+          : Value(temperature),
+      tint: tint == null && nullToAbsent ? const Value.absent() : Value(tint),
+      contrast: Value(contrast),
+      shadows: Value(shadows),
+      highlights: Value(highlights),
+      sharpness: Value(sharpness),
+      noiseReduction: Value(noiseReduction),
+      lensCorrectionEnabled: Value(lensCorrectionEnabled),
+      clarity: Value(clarity),
+      vignette: Value(vignette),
+      lutPath: lutPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lutPath),
+      lutStrength: Value(lutStrength),
+      toneCurveJson: toneCurveJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(toneCurveJson),
+      colorMixerJson: colorMixerJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorMixerJson),
+      erstelltAm: Value(erstelltAm),
+    );
+  }
+
+  factory DevelopPresetData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DevelopPresetData(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      exposure: serializer.fromJson<double>(json['exposure']),
+      temperature: serializer.fromJson<double?>(json['temperature']),
+      tint: serializer.fromJson<double?>(json['tint']),
+      contrast: serializer.fromJson<double>(json['contrast']),
+      shadows: serializer.fromJson<double>(json['shadows']),
+      highlights: serializer.fromJson<double>(json['highlights']),
+      sharpness: serializer.fromJson<double>(json['sharpness']),
+      noiseReduction: serializer.fromJson<double>(json['noiseReduction']),
+      lensCorrectionEnabled:
+          serializer.fromJson<bool>(json['lensCorrectionEnabled']),
+      clarity: serializer.fromJson<double>(json['clarity']),
+      vignette: serializer.fromJson<double>(json['vignette']),
+      lutPath: serializer.fromJson<String?>(json['lutPath']),
+      lutStrength: serializer.fromJson<double>(json['lutStrength']),
+      toneCurveJson: serializer.fromJson<String?>(json['toneCurveJson']),
+      colorMixerJson: serializer.fromJson<String?>(json['colorMixerJson']),
+      erstelltAm: serializer.fromJson<DateTime>(json['erstelltAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'exposure': serializer.toJson<double>(exposure),
+      'temperature': serializer.toJson<double?>(temperature),
+      'tint': serializer.toJson<double?>(tint),
+      'contrast': serializer.toJson<double>(contrast),
+      'shadows': serializer.toJson<double>(shadows),
+      'highlights': serializer.toJson<double>(highlights),
+      'sharpness': serializer.toJson<double>(sharpness),
+      'noiseReduction': serializer.toJson<double>(noiseReduction),
+      'lensCorrectionEnabled': serializer.toJson<bool>(lensCorrectionEnabled),
+      'clarity': serializer.toJson<double>(clarity),
+      'vignette': serializer.toJson<double>(vignette),
+      'lutPath': serializer.toJson<String?>(lutPath),
+      'lutStrength': serializer.toJson<double>(lutStrength),
+      'toneCurveJson': serializer.toJson<String?>(toneCurveJson),
+      'colorMixerJson': serializer.toJson<String?>(colorMixerJson),
+      'erstelltAm': serializer.toJson<DateTime>(erstelltAm),
+    };
+  }
+
+  DevelopPresetData copyWith(
+          {int? id,
+          String? name,
+          double? exposure,
+          Value<double?> temperature = const Value.absent(),
+          Value<double?> tint = const Value.absent(),
+          double? contrast,
+          double? shadows,
+          double? highlights,
+          double? sharpness,
+          double? noiseReduction,
+          bool? lensCorrectionEnabled,
+          double? clarity,
+          double? vignette,
+          Value<String?> lutPath = const Value.absent(),
+          double? lutStrength,
+          Value<String?> toneCurveJson = const Value.absent(),
+          Value<String?> colorMixerJson = const Value.absent(),
+          DateTime? erstelltAm}) =>
+      DevelopPresetData(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        exposure: exposure ?? this.exposure,
+        temperature: temperature.present ? temperature.value : this.temperature,
+        tint: tint.present ? tint.value : this.tint,
+        contrast: contrast ?? this.contrast,
+        shadows: shadows ?? this.shadows,
+        highlights: highlights ?? this.highlights,
+        sharpness: sharpness ?? this.sharpness,
+        noiseReduction: noiseReduction ?? this.noiseReduction,
+        lensCorrectionEnabled:
+            lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+        clarity: clarity ?? this.clarity,
+        vignette: vignette ?? this.vignette,
+        lutPath: lutPath.present ? lutPath.value : this.lutPath,
+        lutStrength: lutStrength ?? this.lutStrength,
+        toneCurveJson:
+            toneCurveJson.present ? toneCurveJson.value : this.toneCurveJson,
+        colorMixerJson:
+            colorMixerJson.present ? colorMixerJson.value : this.colorMixerJson,
+        erstelltAm: erstelltAm ?? this.erstelltAm,
+      );
+  DevelopPresetData copyWithCompanion(DevelopPresetsCompanion data) {
+    return DevelopPresetData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      exposure: data.exposure.present ? data.exposure.value : this.exposure,
+      temperature:
+          data.temperature.present ? data.temperature.value : this.temperature,
+      tint: data.tint.present ? data.tint.value : this.tint,
+      contrast: data.contrast.present ? data.contrast.value : this.contrast,
+      shadows: data.shadows.present ? data.shadows.value : this.shadows,
+      highlights:
+          data.highlights.present ? data.highlights.value : this.highlights,
+      sharpness: data.sharpness.present ? data.sharpness.value : this.sharpness,
+      noiseReduction: data.noiseReduction.present
+          ? data.noiseReduction.value
+          : this.noiseReduction,
+      lensCorrectionEnabled: data.lensCorrectionEnabled.present
+          ? data.lensCorrectionEnabled.value
+          : this.lensCorrectionEnabled,
+      clarity: data.clarity.present ? data.clarity.value : this.clarity,
+      vignette: data.vignette.present ? data.vignette.value : this.vignette,
+      lutPath: data.lutPath.present ? data.lutPath.value : this.lutPath,
+      lutStrength:
+          data.lutStrength.present ? data.lutStrength.value : this.lutStrength,
+      toneCurveJson: data.toneCurveJson.present
+          ? data.toneCurveJson.value
+          : this.toneCurveJson,
+      colorMixerJson: data.colorMixerJson.present
+          ? data.colorMixerJson.value
+          : this.colorMixerJson,
+      erstelltAm:
+          data.erstelltAm.present ? data.erstelltAm.value : this.erstelltAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DevelopPresetData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('exposure: $exposure, ')
+          ..write('temperature: $temperature, ')
+          ..write('tint: $tint, ')
+          ..write('contrast: $contrast, ')
+          ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
+          ..write('sharpness: $sharpness, ')
+          ..write('noiseReduction: $noiseReduction, ')
+          ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('clarity: $clarity, ')
+          ..write('vignette: $vignette, ')
+          ..write('lutPath: $lutPath, ')
+          ..write('lutStrength: $lutStrength, ')
+          ..write('toneCurveJson: $toneCurveJson, ')
+          ..write('colorMixerJson: $colorMixerJson, ')
+          ..write('erstelltAm: $erstelltAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      name,
+      exposure,
+      temperature,
+      tint,
+      contrast,
+      shadows,
+      highlights,
+      sharpness,
+      noiseReduction,
+      lensCorrectionEnabled,
+      clarity,
+      vignette,
+      lutPath,
+      lutStrength,
+      toneCurveJson,
+      colorMixerJson,
+      erstelltAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DevelopPresetData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.exposure == this.exposure &&
+          other.temperature == this.temperature &&
+          other.tint == this.tint &&
+          other.contrast == this.contrast &&
+          other.shadows == this.shadows &&
+          other.highlights == this.highlights &&
+          other.sharpness == this.sharpness &&
+          other.noiseReduction == this.noiseReduction &&
+          other.lensCorrectionEnabled == this.lensCorrectionEnabled &&
+          other.clarity == this.clarity &&
+          other.vignette == this.vignette &&
+          other.lutPath == this.lutPath &&
+          other.lutStrength == this.lutStrength &&
+          other.toneCurveJson == this.toneCurveJson &&
+          other.colorMixerJson == this.colorMixerJson &&
+          other.erstelltAm == this.erstelltAm);
+}
+
+class DevelopPresetsCompanion extends UpdateCompanion<DevelopPresetData> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<double> exposure;
+  final Value<double?> temperature;
+  final Value<double?> tint;
+  final Value<double> contrast;
+  final Value<double> shadows;
+  final Value<double> highlights;
+  final Value<double> sharpness;
+  final Value<double> noiseReduction;
+  final Value<bool> lensCorrectionEnabled;
+  final Value<double> clarity;
+  final Value<double> vignette;
+  final Value<String?> lutPath;
+  final Value<double> lutStrength;
+  final Value<String?> toneCurveJson;
+  final Value<String?> colorMixerJson;
+  final Value<DateTime> erstelltAm;
+  const DevelopPresetsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.exposure = const Value.absent(),
+    this.temperature = const Value.absent(),
+    this.tint = const Value.absent(),
+    this.contrast = const Value.absent(),
+    this.shadows = const Value.absent(),
+    this.highlights = const Value.absent(),
+    this.sharpness = const Value.absent(),
+    this.noiseReduction = const Value.absent(),
+    this.lensCorrectionEnabled = const Value.absent(),
+    this.clarity = const Value.absent(),
+    this.vignette = const Value.absent(),
+    this.lutPath = const Value.absent(),
+    this.lutStrength = const Value.absent(),
+    this.toneCurveJson = const Value.absent(),
+    this.colorMixerJson = const Value.absent(),
+    this.erstelltAm = const Value.absent(),
+  });
+  DevelopPresetsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    this.exposure = const Value.absent(),
+    this.temperature = const Value.absent(),
+    this.tint = const Value.absent(),
+    this.contrast = const Value.absent(),
+    this.shadows = const Value.absent(),
+    this.highlights = const Value.absent(),
+    this.sharpness = const Value.absent(),
+    this.noiseReduction = const Value.absent(),
+    this.lensCorrectionEnabled = const Value.absent(),
+    this.clarity = const Value.absent(),
+    this.vignette = const Value.absent(),
+    this.lutPath = const Value.absent(),
+    this.lutStrength = const Value.absent(),
+    this.toneCurveJson = const Value.absent(),
+    this.colorMixerJson = const Value.absent(),
+    required DateTime erstelltAm,
+  })  : name = Value(name),
+        erstelltAm = Value(erstelltAm);
+  static Insertable<DevelopPresetData> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<double>? exposure,
+    Expression<double>? temperature,
+    Expression<double>? tint,
+    Expression<double>? contrast,
+    Expression<double>? shadows,
+    Expression<double>? highlights,
+    Expression<double>? sharpness,
+    Expression<double>? noiseReduction,
+    Expression<bool>? lensCorrectionEnabled,
+    Expression<double>? clarity,
+    Expression<double>? vignette,
+    Expression<String>? lutPath,
+    Expression<double>? lutStrength,
+    Expression<String>? toneCurveJson,
+    Expression<String>? colorMixerJson,
+    Expression<DateTime>? erstelltAm,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (exposure != null) 'exposure': exposure,
+      if (temperature != null) 'temperature': temperature,
+      if (tint != null) 'tint': tint,
+      if (contrast != null) 'contrast': contrast,
+      if (shadows != null) 'shadows': shadows,
+      if (highlights != null) 'highlights': highlights,
+      if (sharpness != null) 'sharpness': sharpness,
+      if (noiseReduction != null) 'noise_reduction': noiseReduction,
+      if (lensCorrectionEnabled != null)
+        'lens_correction_enabled': lensCorrectionEnabled,
+      if (clarity != null) 'clarity': clarity,
+      if (vignette != null) 'vignette': vignette,
+      if (lutPath != null) 'lut_path': lutPath,
+      if (lutStrength != null) 'lut_strength': lutStrength,
+      if (toneCurveJson != null) 'tone_curve_json': toneCurveJson,
+      if (colorMixerJson != null) 'color_mixer_json': colorMixerJson,
+      if (erstelltAm != null) 'erstellt_am': erstelltAm,
+    });
+  }
+
+  DevelopPresetsCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? name,
+      Value<double>? exposure,
+      Value<double?>? temperature,
+      Value<double?>? tint,
+      Value<double>? contrast,
+      Value<double>? shadows,
+      Value<double>? highlights,
+      Value<double>? sharpness,
+      Value<double>? noiseReduction,
+      Value<bool>? lensCorrectionEnabled,
+      Value<double>? clarity,
+      Value<double>? vignette,
+      Value<String?>? lutPath,
+      Value<double>? lutStrength,
+      Value<String?>? toneCurveJson,
+      Value<String?>? colorMixerJson,
+      Value<DateTime>? erstelltAm}) {
+    return DevelopPresetsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      exposure: exposure ?? this.exposure,
+      temperature: temperature ?? this.temperature,
+      tint: tint ?? this.tint,
+      contrast: contrast ?? this.contrast,
+      shadows: shadows ?? this.shadows,
+      highlights: highlights ?? this.highlights,
+      sharpness: sharpness ?? this.sharpness,
+      noiseReduction: noiseReduction ?? this.noiseReduction,
+      lensCorrectionEnabled:
+          lensCorrectionEnabled ?? this.lensCorrectionEnabled,
+      clarity: clarity ?? this.clarity,
+      vignette: vignette ?? this.vignette,
+      lutPath: lutPath ?? this.lutPath,
+      lutStrength: lutStrength ?? this.lutStrength,
+      toneCurveJson: toneCurveJson ?? this.toneCurveJson,
+      colorMixerJson: colorMixerJson ?? this.colorMixerJson,
+      erstelltAm: erstelltAm ?? this.erstelltAm,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (exposure.present) {
+      map['exposure'] = Variable<double>(exposure.value);
+    }
+    if (temperature.present) {
+      map['temperature'] = Variable<double>(temperature.value);
+    }
+    if (tint.present) {
+      map['tint'] = Variable<double>(tint.value);
+    }
+    if (contrast.present) {
+      map['contrast'] = Variable<double>(contrast.value);
+    }
+    if (shadows.present) {
+      map['shadows'] = Variable<double>(shadows.value);
+    }
+    if (highlights.present) {
+      map['highlights'] = Variable<double>(highlights.value);
+    }
+    if (sharpness.present) {
+      map['sharpness'] = Variable<double>(sharpness.value);
+    }
+    if (noiseReduction.present) {
+      map['noise_reduction'] = Variable<double>(noiseReduction.value);
+    }
+    if (lensCorrectionEnabled.present) {
+      map['lens_correction_enabled'] =
+          Variable<bool>(lensCorrectionEnabled.value);
+    }
+    if (clarity.present) {
+      map['clarity'] = Variable<double>(clarity.value);
+    }
+    if (vignette.present) {
+      map['vignette'] = Variable<double>(vignette.value);
+    }
+    if (lutPath.present) {
+      map['lut_path'] = Variable<String>(lutPath.value);
+    }
+    if (lutStrength.present) {
+      map['lut_strength'] = Variable<double>(lutStrength.value);
+    }
+    if (toneCurveJson.present) {
+      map['tone_curve_json'] = Variable<String>(toneCurveJson.value);
+    }
+    if (colorMixerJson.present) {
+      map['color_mixer_json'] = Variable<String>(colorMixerJson.value);
+    }
+    if (erstelltAm.present) {
+      map['erstellt_am'] = Variable<DateTime>(erstelltAm.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DevelopPresetsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('exposure: $exposure, ')
+          ..write('temperature: $temperature, ')
+          ..write('tint: $tint, ')
+          ..write('contrast: $contrast, ')
+          ..write('shadows: $shadows, ')
+          ..write('highlights: $highlights, ')
+          ..write('sharpness: $sharpness, ')
+          ..write('noiseReduction: $noiseReduction, ')
+          ..write('lensCorrectionEnabled: $lensCorrectionEnabled, ')
+          ..write('clarity: $clarity, ')
+          ..write('vignette: $vignette, ')
+          ..write('lutPath: $lutPath, ')
+          ..write('lutStrength: $lutStrength, ')
+          ..write('toneCurveJson: $toneCurveJson, ')
+          ..write('colorMixerJson: $colorMixerJson, ')
+          ..write('erstelltAm: $erstelltAm')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $ExportPresetsTable extends ExportPresets
     with TableInfo<$ExportPresetsTable, ExportPresetData> {
   @override
@@ -13032,6 +14025,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $AutomationRulesTable(this);
   late final $AutomationRuleTagsTable automationRuleTags =
       $AutomationRuleTagsTable(this);
+  late final $DevelopPresetsTable developPresets = $DevelopPresetsTable(this);
   late final $ExportPresetsTable exportPresets = $ExportPresetsTable(this);
   late final $PersonBeziehungenTable personBeziehungen =
       $PersonBeziehungenTable(this);
@@ -13068,6 +14062,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         aiTagVocabulary,
         automationRules,
         automationRuleTags,
+        developPresets,
         exportPresets,
         personBeziehungen,
         lebensereignisse
@@ -16643,6 +17638,7 @@ typedef $$DevelopSettingsTableCreateCompanionBuilder = DevelopSettingsCompanion
   Value<double?> tint,
   Value<double> contrast,
   Value<double> shadows,
+  Value<double> highlights,
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
@@ -16663,6 +17659,7 @@ typedef $$DevelopSettingsTableUpdateCompanionBuilder = DevelopSettingsCompanion
   Value<double?> tint,
   Value<double> contrast,
   Value<double> shadows,
+  Value<double> highlights,
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
@@ -16702,6 +17699,9 @@ class $$DevelopSettingsTableFilterComposer
 
   ColumnFilters<double> get shadows => $composableBuilder(
       column: $table.shadows, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<double> get sharpness => $composableBuilder(
       column: $table.sharpness, builder: (column) => ColumnFilters(column));
@@ -16764,6 +17764,9 @@ class $$DevelopSettingsTableOrderingComposer
   ColumnOrderings<double> get shadows => $composableBuilder(
       column: $table.shadows, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<double> get sharpness => $composableBuilder(
       column: $table.sharpness, builder: (column) => ColumnOrderings(column));
 
@@ -16825,6 +17828,9 @@ class $$DevelopSettingsTableAnnotationComposer
 
   GeneratedColumn<double> get shadows =>
       $composableBuilder(column: $table.shadows, builder: (column) => column);
+
+  GeneratedColumn<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => column);
 
   GeneratedColumn<double> get sharpness =>
       $composableBuilder(column: $table.sharpness, builder: (column) => column);
@@ -16890,6 +17896,7 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             Value<double?> tint = const Value.absent(),
             Value<double> contrast = const Value.absent(),
             Value<double> shadows = const Value.absent(),
+            Value<double> highlights = const Value.absent(),
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
@@ -16909,6 +17916,7 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             tint: tint,
             contrast: contrast,
             shadows: shadows,
+            highlights: highlights,
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
@@ -16928,6 +17936,7 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             Value<double?> tint = const Value.absent(),
             Value<double> contrast = const Value.absent(),
             Value<double> shadows = const Value.absent(),
+            Value<double> highlights = const Value.absent(),
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
@@ -16947,6 +17956,7 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             tint: tint,
             contrast: contrast,
             shadows: shadows,
+            highlights: highlights,
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
@@ -16990,6 +18000,7 @@ typedef $$DevelopHistoryTableCreateCompanionBuilder = DevelopHistoryCompanion
   Value<double?> tint,
   required double contrast,
   required double shadows,
+  Value<double> highlights,
   required double sharpness,
   required double noiseReduction,
   required bool lensCorrectionEnabled,
@@ -17010,6 +18021,7 @@ typedef $$DevelopHistoryTableUpdateCompanionBuilder = DevelopHistoryCompanion
   Value<double?> tint,
   Value<double> contrast,
   Value<double> shadows,
+  Value<double> highlights,
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
@@ -17051,6 +18063,9 @@ class $$DevelopHistoryTableFilterComposer
 
   ColumnFilters<double> get shadows => $composableBuilder(
       column: $table.shadows, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<double> get sharpness => $composableBuilder(
       column: $table.sharpness, builder: (column) => ColumnFilters(column));
@@ -17115,6 +18130,9 @@ class $$DevelopHistoryTableOrderingComposer
 
   ColumnOrderings<double> get shadows => $composableBuilder(
       column: $table.shadows, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<double> get sharpness => $composableBuilder(
       column: $table.sharpness, builder: (column) => ColumnOrderings(column));
@@ -17181,6 +18199,9 @@ class $$DevelopHistoryTableAnnotationComposer
   GeneratedColumn<double> get shadows =>
       $composableBuilder(column: $table.shadows, builder: (column) => column);
 
+  GeneratedColumn<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => column);
+
   GeneratedColumn<double> get sharpness =>
       $composableBuilder(column: $table.sharpness, builder: (column) => column);
 
@@ -17246,6 +18267,7 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             Value<double?> tint = const Value.absent(),
             Value<double> contrast = const Value.absent(),
             Value<double> shadows = const Value.absent(),
+            Value<double> highlights = const Value.absent(),
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
@@ -17265,6 +18287,7 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             tint: tint,
             contrast: contrast,
             shadows: shadows,
+            highlights: highlights,
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
@@ -17284,6 +18307,7 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             Value<double?> tint = const Value.absent(),
             required double contrast,
             required double shadows,
+            Value<double> highlights = const Value.absent(),
             required double sharpness,
             required double noiseReduction,
             required bool lensCorrectionEnabled,
@@ -17303,6 +18327,7 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             tint: tint,
             contrast: contrast,
             shadows: shadows,
+            highlights: highlights,
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
@@ -17504,6 +18529,7 @@ typedef $$DevelopMasksTableCreateCompanionBuilder = DevelopMasksCompanion
   Value<double?> tint,
   Value<double> contrast,
   Value<double> shadows,
+  Value<double> highlights,
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
@@ -17521,6 +18547,7 @@ typedef $$DevelopMasksTableUpdateCompanionBuilder = DevelopMasksCompanion
   Value<double?> tint,
   Value<double> contrast,
   Value<double> shadows,
+  Value<double> highlights,
   Value<double> sharpness,
   Value<double> noiseReduction,
   Value<bool> lensCorrectionEnabled,
@@ -17564,6 +18591,9 @@ class $$DevelopMasksTableFilterComposer
 
   ColumnFilters<double> get shadows => $composableBuilder(
       column: $table.shadows, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<double> get sharpness => $composableBuilder(
       column: $table.sharpness, builder: (column) => ColumnFilters(column));
@@ -17621,6 +18651,9 @@ class $$DevelopMasksTableOrderingComposer
   ColumnOrderings<double> get shadows => $composableBuilder(
       column: $table.shadows, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<double> get sharpness => $composableBuilder(
       column: $table.sharpness, builder: (column) => ColumnOrderings(column));
 
@@ -17676,6 +18709,9 @@ class $$DevelopMasksTableAnnotationComposer
   GeneratedColumn<double> get shadows =>
       $composableBuilder(column: $table.shadows, builder: (column) => column);
 
+  GeneratedColumn<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => column);
+
   GeneratedColumn<double> get sharpness =>
       $composableBuilder(column: $table.sharpness, builder: (column) => column);
 
@@ -17727,6 +18763,7 @@ class $$DevelopMasksTableTableManager extends RootTableManager<
             Value<double?> tint = const Value.absent(),
             Value<double> contrast = const Value.absent(),
             Value<double> shadows = const Value.absent(),
+            Value<double> highlights = const Value.absent(),
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
@@ -17743,6 +18780,7 @@ class $$DevelopMasksTableTableManager extends RootTableManager<
             tint: tint,
             contrast: contrast,
             shadows: shadows,
+            highlights: highlights,
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
@@ -17759,6 +18797,7 @@ class $$DevelopMasksTableTableManager extends RootTableManager<
             Value<double?> tint = const Value.absent(),
             Value<double> contrast = const Value.absent(),
             Value<double> shadows = const Value.absent(),
+            Value<double> highlights = const Value.absent(),
             Value<double> sharpness = const Value.absent(),
             Value<double> noiseReduction = const Value.absent(),
             Value<bool> lensCorrectionEnabled = const Value.absent(),
@@ -17775,6 +18814,7 @@ class $$DevelopMasksTableTableManager extends RootTableManager<
             tint: tint,
             contrast: contrast,
             shadows: shadows,
+            highlights: highlights,
             sharpness: sharpness,
             noiseReduction: noiseReduction,
             lensCorrectionEnabled: lensCorrectionEnabled,
@@ -18786,6 +19826,376 @@ typedef $$AutomationRuleTagsTableProcessedTableManager = ProcessedTableManager<
     ),
     AutomationRuleTag,
     PrefetchHooks Function()>;
+typedef $$DevelopPresetsTableCreateCompanionBuilder = DevelopPresetsCompanion
+    Function({
+  Value<int> id,
+  required String name,
+  Value<double> exposure,
+  Value<double?> temperature,
+  Value<double?> tint,
+  Value<double> contrast,
+  Value<double> shadows,
+  Value<double> highlights,
+  Value<double> sharpness,
+  Value<double> noiseReduction,
+  Value<bool> lensCorrectionEnabled,
+  Value<double> clarity,
+  Value<double> vignette,
+  Value<String?> lutPath,
+  Value<double> lutStrength,
+  Value<String?> toneCurveJson,
+  Value<String?> colorMixerJson,
+  required DateTime erstelltAm,
+});
+typedef $$DevelopPresetsTableUpdateCompanionBuilder = DevelopPresetsCompanion
+    Function({
+  Value<int> id,
+  Value<String> name,
+  Value<double> exposure,
+  Value<double?> temperature,
+  Value<double?> tint,
+  Value<double> contrast,
+  Value<double> shadows,
+  Value<double> highlights,
+  Value<double> sharpness,
+  Value<double> noiseReduction,
+  Value<bool> lensCorrectionEnabled,
+  Value<double> clarity,
+  Value<double> vignette,
+  Value<String?> lutPath,
+  Value<double> lutStrength,
+  Value<String?> toneCurveJson,
+  Value<String?> colorMixerJson,
+  Value<DateTime> erstelltAm,
+});
+
+class $$DevelopPresetsTableFilterComposer
+    extends Composer<_$AppDatabase, $DevelopPresetsTable> {
+  $$DevelopPresetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get exposure => $composableBuilder(
+      column: $table.exposure, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get temperature => $composableBuilder(
+      column: $table.temperature, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get tint => $composableBuilder(
+      column: $table.tint, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get contrast => $composableBuilder(
+      column: $table.contrast, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get shadows => $composableBuilder(
+      column: $table.shadows, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get sharpness => $composableBuilder(
+      column: $table.sharpness, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get noiseReduction => $composableBuilder(
+      column: $table.noiseReduction,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get lensCorrectionEnabled => $composableBuilder(
+      column: $table.lensCorrectionEnabled,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get clarity => $composableBuilder(
+      column: $table.clarity, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vignette => $composableBuilder(
+      column: $table.vignette, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get lutPath => $composableBuilder(
+      column: $table.lutPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get erstelltAm => $composableBuilder(
+      column: $table.erstelltAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$DevelopPresetsTableOrderingComposer
+    extends Composer<_$AppDatabase, $DevelopPresetsTable> {
+  $$DevelopPresetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get exposure => $composableBuilder(
+      column: $table.exposure, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get temperature => $composableBuilder(
+      column: $table.temperature, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get tint => $composableBuilder(
+      column: $table.tint, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get contrast => $composableBuilder(
+      column: $table.contrast, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get shadows => $composableBuilder(
+      column: $table.shadows, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get sharpness => $composableBuilder(
+      column: $table.sharpness, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get noiseReduction => $composableBuilder(
+      column: $table.noiseReduction,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get lensCorrectionEnabled => $composableBuilder(
+      column: $table.lensCorrectionEnabled,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get clarity => $composableBuilder(
+      column: $table.clarity, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vignette => $composableBuilder(
+      column: $table.vignette, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get lutPath => $composableBuilder(
+      column: $table.lutPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get erstelltAm => $composableBuilder(
+      column: $table.erstelltAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$DevelopPresetsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DevelopPresetsTable> {
+  $$DevelopPresetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get exposure =>
+      $composableBuilder(column: $table.exposure, builder: (column) => column);
+
+  GeneratedColumn<double> get temperature => $composableBuilder(
+      column: $table.temperature, builder: (column) => column);
+
+  GeneratedColumn<double> get tint =>
+      $composableBuilder(column: $table.tint, builder: (column) => column);
+
+  GeneratedColumn<double> get contrast =>
+      $composableBuilder(column: $table.contrast, builder: (column) => column);
+
+  GeneratedColumn<double> get shadows =>
+      $composableBuilder(column: $table.shadows, builder: (column) => column);
+
+  GeneratedColumn<double> get highlights => $composableBuilder(
+      column: $table.highlights, builder: (column) => column);
+
+  GeneratedColumn<double> get sharpness =>
+      $composableBuilder(column: $table.sharpness, builder: (column) => column);
+
+  GeneratedColumn<double> get noiseReduction => $composableBuilder(
+      column: $table.noiseReduction, builder: (column) => column);
+
+  GeneratedColumn<bool> get lensCorrectionEnabled => $composableBuilder(
+      column: $table.lensCorrectionEnabled, builder: (column) => column);
+
+  GeneratedColumn<double> get clarity =>
+      $composableBuilder(column: $table.clarity, builder: (column) => column);
+
+  GeneratedColumn<double> get vignette =>
+      $composableBuilder(column: $table.vignette, builder: (column) => column);
+
+  GeneratedColumn<String> get lutPath =>
+      $composableBuilder(column: $table.lutPath, builder: (column) => column);
+
+  GeneratedColumn<double> get lutStrength => $composableBuilder(
+      column: $table.lutStrength, builder: (column) => column);
+
+  GeneratedColumn<String> get toneCurveJson => $composableBuilder(
+      column: $table.toneCurveJson, builder: (column) => column);
+
+  GeneratedColumn<String> get colorMixerJson => $composableBuilder(
+      column: $table.colorMixerJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get erstelltAm => $composableBuilder(
+      column: $table.erstelltAm, builder: (column) => column);
+}
+
+class $$DevelopPresetsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $DevelopPresetsTable,
+    DevelopPresetData,
+    $$DevelopPresetsTableFilterComposer,
+    $$DevelopPresetsTableOrderingComposer,
+    $$DevelopPresetsTableAnnotationComposer,
+    $$DevelopPresetsTableCreateCompanionBuilder,
+    $$DevelopPresetsTableUpdateCompanionBuilder,
+    (
+      DevelopPresetData,
+      BaseReferences<_$AppDatabase, $DevelopPresetsTable, DevelopPresetData>
+    ),
+    DevelopPresetData,
+    PrefetchHooks Function()> {
+  $$DevelopPresetsTableTableManager(
+      _$AppDatabase db, $DevelopPresetsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DevelopPresetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DevelopPresetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DevelopPresetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<double> exposure = const Value.absent(),
+            Value<double?> temperature = const Value.absent(),
+            Value<double?> tint = const Value.absent(),
+            Value<double> contrast = const Value.absent(),
+            Value<double> shadows = const Value.absent(),
+            Value<double> highlights = const Value.absent(),
+            Value<double> sharpness = const Value.absent(),
+            Value<double> noiseReduction = const Value.absent(),
+            Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<double> clarity = const Value.absent(),
+            Value<double> vignette = const Value.absent(),
+            Value<String?> lutPath = const Value.absent(),
+            Value<double> lutStrength = const Value.absent(),
+            Value<String?> toneCurveJson = const Value.absent(),
+            Value<String?> colorMixerJson = const Value.absent(),
+            Value<DateTime> erstelltAm = const Value.absent(),
+          }) =>
+              DevelopPresetsCompanion(
+            id: id,
+            name: name,
+            exposure: exposure,
+            temperature: temperature,
+            tint: tint,
+            contrast: contrast,
+            shadows: shadows,
+            highlights: highlights,
+            sharpness: sharpness,
+            noiseReduction: noiseReduction,
+            lensCorrectionEnabled: lensCorrectionEnabled,
+            clarity: clarity,
+            vignette: vignette,
+            lutPath: lutPath,
+            lutStrength: lutStrength,
+            toneCurveJson: toneCurveJson,
+            colorMixerJson: colorMixerJson,
+            erstelltAm: erstelltAm,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String name,
+            Value<double> exposure = const Value.absent(),
+            Value<double?> temperature = const Value.absent(),
+            Value<double?> tint = const Value.absent(),
+            Value<double> contrast = const Value.absent(),
+            Value<double> shadows = const Value.absent(),
+            Value<double> highlights = const Value.absent(),
+            Value<double> sharpness = const Value.absent(),
+            Value<double> noiseReduction = const Value.absent(),
+            Value<bool> lensCorrectionEnabled = const Value.absent(),
+            Value<double> clarity = const Value.absent(),
+            Value<double> vignette = const Value.absent(),
+            Value<String?> lutPath = const Value.absent(),
+            Value<double> lutStrength = const Value.absent(),
+            Value<String?> toneCurveJson = const Value.absent(),
+            Value<String?> colorMixerJson = const Value.absent(),
+            required DateTime erstelltAm,
+          }) =>
+              DevelopPresetsCompanion.insert(
+            id: id,
+            name: name,
+            exposure: exposure,
+            temperature: temperature,
+            tint: tint,
+            contrast: contrast,
+            shadows: shadows,
+            highlights: highlights,
+            sharpness: sharpness,
+            noiseReduction: noiseReduction,
+            lensCorrectionEnabled: lensCorrectionEnabled,
+            clarity: clarity,
+            vignette: vignette,
+            lutPath: lutPath,
+            lutStrength: lutStrength,
+            toneCurveJson: toneCurveJson,
+            colorMixerJson: colorMixerJson,
+            erstelltAm: erstelltAm,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$DevelopPresetsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $DevelopPresetsTable,
+    DevelopPresetData,
+    $$DevelopPresetsTableFilterComposer,
+    $$DevelopPresetsTableOrderingComposer,
+    $$DevelopPresetsTableAnnotationComposer,
+    $$DevelopPresetsTableCreateCompanionBuilder,
+    $$DevelopPresetsTableUpdateCompanionBuilder,
+    (
+      DevelopPresetData,
+      BaseReferences<_$AppDatabase, $DevelopPresetsTable, DevelopPresetData>
+    ),
+    DevelopPresetData,
+    PrefetchHooks Function()>;
 typedef $$ExportPresetsTableCreateCompanionBuilder = ExportPresetsCompanion
     Function({
   Value<int> id,
@@ -19392,6 +20802,8 @@ class $AppDatabaseManager {
       $$AutomationRulesTableTableManager(_db, _db.automationRules);
   $$AutomationRuleTagsTableTableManager get automationRuleTags =>
       $$AutomationRuleTagsTableTableManager(_db, _db.automationRuleTags);
+  $$DevelopPresetsTableTableManager get developPresets =>
+      $$DevelopPresetsTableTableManager(_db, _db.developPresets);
   $$ExportPresetsTableTableManager get exportPresets =>
       $$ExportPresetsTableTableManager(_db, _db.exportPresets);
   $$PersonBeziehungenTableTableManager get personBeziehungen =>

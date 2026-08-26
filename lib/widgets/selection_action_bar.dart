@@ -41,6 +41,11 @@ class SelectionActionBar extends StatelessWidget {
   /// die diese Leiste benutzen, unverändert bleiben sollen.
   final VoidCallback? onPasteDevelop;
 
+  /// Wendet eine benannte Entwicklungs-Vorgabe an. Anders als
+  /// [onPasteDevelop] hängt der Knopf nicht davon ab, ob gerade etwas
+  /// kopiert wurde – eine Vorgabe liegt in der Datenbank und ist immer da.
+  final VoidCallback? onApplyPreset;
+
   /// Zwei Fotos nebeneinander stellen. Nur bei genau zwei ausgewählten
   /// gesetzt – bei drei wäre nicht zu erraten, welche zwei gemeint sind.
   final VoidCallback? onCompare;
@@ -59,6 +64,7 @@ class SelectionActionBar extends StatelessWidget {
     required this.onDelete,
     this.onCompare,
     this.onPasteDevelop,
+    this.onApplyPreset,
   });
 
   @override
@@ -98,6 +104,11 @@ class SelectionActionBar extends StatelessWidget {
                       icon: const Icon(Icons.auto_fix_high_outlined),
                       tooltip: t.auswEntwicklungUebertragen,
                       onPressed: onPasteDevelop),
+                if (onApplyPreset != null)
+                  IconButton(
+                      icon: const Icon(Icons.bookmarks_outlined),
+                      tooltip: t.auswVorgabeAnwenden,
+                      onPressed: onApplyPreset),
                 if (onCompare != null)
                   IconButton(
                       icon: const Icon(Icons.compare_outlined),
@@ -472,6 +483,59 @@ Future<_Exportwahl?> _frageExportgroesse(
         ],
       );
     },
+  );
+}
+
+/// Wendet eine benannte Entwicklungs-Vorgabe auf [assetIds] an.
+///
+/// Läuft durch denselben Weg wie das Übertragen aus der Zwischenablage
+/// (siehe [runBatchPasteDevelop]) – der Unterschied ist nur, woher die
+/// Werte kommen. Zwei Übertragungswege nebeneinander wären die
+/// naheliegendste Art, dass einer beim nächsten neuen Regler etwas
+/// vergisst.
+Future<void> runBatchApplyPreset(
+    BuildContext context, LibraryState library, List<String> assetIds) async {
+  final t = AppTexte.of(context);
+  final vorgaben = await library.db.alleDevelopPresets();
+  if (!context.mounted) return;
+  if (vorgaben.isEmpty) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(t.entwKeineVorgaben)));
+    return;
+  }
+
+  final gewaehlt = await showDialog<DevelopPresetData>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(AppTexte.of(context).auswVorgabeAnwendenTitel(assetIds.length)),
+      children: [
+        for (final v in vorgaben)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, v),
+            child: Text(v.name),
+          ),
+      ],
+    ),
+  );
+  if (gewaehlt == null || !context.mounted) return;
+
+  final werte = await library.werteAusVorgabe(gewaehlt);
+  if (!context.mounted) return;
+
+  // Vor dem Dialog auflösen, wie beim Übertragen: Der Mapper unten läuft
+  // lange nachdem dieser Kontext gültig war.
+  final keineGeeigneten = AppTexte.of(context).auswKeineGeeigneten;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => ProgressDialog(
+      title: AppTexte.of(context).auswUebertrageLaeuft,
+      stream: library.uebertrageEntwicklung(assetIds, vorgabe: werte).map(
+            (p) => p.total == 0
+                ? keineGeeigneten
+                : '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}',
+          ),
+    ),
   );
 }
 

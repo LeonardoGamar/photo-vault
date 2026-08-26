@@ -102,11 +102,26 @@ class _HistogramViewState extends State<HistogramView> {
                     style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 11),
                   ),
                 )
-              : CustomPaint(
-                  painter: istWelle
-                      ? _WaveformPainter(data: welle!, parade: _mode == HistogramMode.parade)
-                      : _HistogramPainter(data: data!, mode: _mode),
-                  size: Size.infinite,
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CustomPaint(
+                      painter: istWelle
+                          ? _WaveformPainter(
+                              data: welle!, parade: _mode == HistogramMode.parade)
+                          : _HistogramPainter(data: data!, mode: _mode),
+                      size: Size.infinite,
+                    ),
+                    // Nur ueber Histogramm und RGB, NICHT ueber Waveform
+                    // und Parade. Dort ist die waagerechte Achse die
+                    // Bildbreite und die senkrechte der Tonwert - eine
+                    // Marke am linken Rand hiesse dort "die linke
+                    // Bildkante", nicht "die Tiefen". Beschnittenes sieht
+                    // man in diesen beiden ohnehin: als Anhaeufung an der
+                    // oberen oder unteren Kante. Genau dafuer sind sie da.
+                    if (!istWelle && data != null && !data.isEmpty)
+                      _Beschneidungsmarken(beschneidungAus(data)),
+                  ],
                 ),
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -141,6 +156,48 @@ class _HistogramViewState extends State<HistogramView> {
           showSelectedIcon: false,
         ),
       ],
+    );
+  }
+}
+
+/// Die Marken an den beiden Enden – links abgesoffen, rechts ausgefressen.
+///
+/// Eingefärbt nach betroffenem Kanal: Schlagen alle drei an, ist die
+/// Stelle wirklich schwarz bzw. weiss; schlägt nur einer an, ist bloss
+/// dieser Kanal übersteuert, und das ist ein anderer Befund. Ein einzelner
+/// grauer Balken könnte das nicht sagen.
+class _Beschneidungsmarken extends StatelessWidget {
+  const _Beschneidungsmarken(this.beschneidung);
+
+  final Beschneidung beschneidung;
+
+  Color? _farbe(bool rot, bool gruen, bool blau) {
+    if (!rot && !gruen && !blau) return null;
+    if (rot && gruen && blau) return Colors.white;
+    // Ein oder zwei Kanäle: die Mischfarbe genau dieser Kanäle.
+    return Color.fromARGB(255, rot ? 255 : 0, gruen ? 255 : 0, blau ? 255 : 0);
+  }
+
+  Widget _balken(Color farbe, Alignment wo) => Align(
+        alignment: wo,
+        child: Container(width: 3, color: farbe),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final links = _farbe(beschneidung.tiefenRot, beschneidung.tiefenGruen,
+        beschneidung.tiefenBlau);
+    final rechts = _farbe(beschneidung.lichterRot, beschneidung.lichterGruen,
+        beschneidung.lichterBlau);
+    if (links == null && rechts == null) return const SizedBox.shrink();
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (links != null) _balken(links, Alignment.centerLeft),
+          if (rechts != null) _balken(rechts, Alignment.centerRight),
+        ],
+      ),
     );
   }
 }

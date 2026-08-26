@@ -19,10 +19,12 @@ const _iTemperature = 3;
 const _iTint = 4;
 const _iContrast = 5;
 const _iShadows = 6;
-const _iApplyWhiteBalance = 7;
-const _iCurveActive = 8;
-const _iMixerActive = 9;
-const _iCubeSize = 10;
+const _iHighlights = 7;
+const _iApplyWhiteBalance = 8;
+const _iCurveActive = 9;
+const _iMixerActive = 10;
+const _iCubeSize = 11;
+const _iClipWarn = 12;
 
 /// Reihenfolge der Bildabtaster – eigener Indexraum, ebenfalls nach
 /// Deklarationsreihenfolge.
@@ -46,6 +48,7 @@ const _sColorCube = 2;
 List<double> developUniforms(
   DevelopAdjustments a, {
   int wuerfelKante = colorCubePreviewSize,
+  bool beschneidungZeigen = false,
 }) {
   final automatisch = a.temperature == null;
   return [
@@ -54,10 +57,12 @@ List<double> developUniforms(
     a.tint ?? 0.0,
     a.contrast,
     a.shadows,
+    a.highlights,
     automatisch ? 0.0 : 1.0,
     a.toneCurve.istNeutral ? 0.0 : 1.0,
     a.colorMixer.istNeutral ? 0.0 : 1.0,
     wuerfelKante.toDouble(),
+    beschneidungZeigen ? 1.0 : 0.0,
   ];
 }
 
@@ -69,6 +74,12 @@ List<double> developUniforms(
 /// Vorschau und Ergebnis auseinanderlaufen, ohne dass es jemandem auffällt:
 /// Ein hier vergessener Regler wirkt dann in der Vorschau und im Bild
 /// unterschiedlich.
+///
+/// [beschneidungZeigen] ist bewusst mit `false` vorbelegt und nicht
+/// erforderlich: Der Renderpfad (DevelopRender) gibt es gar nicht erst an
+/// und kann die Markierungen damit auch nicht versehentlich in eine
+/// gespeicherte Datei schreiben. Sicher durch Weglassen, nicht durch
+/// Sorgfalt.
 void setzeDevelopUniforms(
   ui.FragmentShader shader, {
   required DevelopAdjustments adjustments,
@@ -78,8 +89,10 @@ void setzeDevelopUniforms(
   required ui.Image curveLut,
   required ui.Image colorCube,
   required int wuerfelKante,
+  bool beschneidungZeigen = false,
 }) {
-  final werte = developUniforms(adjustments, wuerfelKante: wuerfelKante);
+  final werte = developUniforms(adjustments,
+      wuerfelKante: wuerfelKante, beschneidungZeigen: beschneidungZeigen);
   shader
     ..setFloat(0, breite)
     ..setFloat(1, hoehe)
@@ -88,10 +101,12 @@ void setzeDevelopUniforms(
     ..setFloat(_iTint, werte[2])
     ..setFloat(_iContrast, werte[3])
     ..setFloat(_iShadows, werte[4])
-    ..setFloat(_iApplyWhiteBalance, werte[5])
-    ..setFloat(_iCurveActive, werte[6])
-    ..setFloat(_iMixerActive, werte[7])
-    ..setFloat(_iCubeSize, werte[8]);
+    ..setFloat(_iHighlights, werte[5])
+    ..setFloat(_iApplyWhiteBalance, werte[6])
+    ..setFloat(_iCurveActive, werte[7])
+    ..setFloat(_iMixerActive, werte[8])
+    ..setFloat(_iCubeSize, werte[9])
+    ..setFloat(_iClipWarn, werte[10]);
   shader
     ..setImageSampler(_sTexture, bild)
     ..setImageSampler(_sCurveLut, curveLut)
@@ -113,6 +128,10 @@ class DevelopPreviewPainter extends CustomPainter {
   final ui.Image colorCube;
   final int wuerfelKante;
 
+  /// Ob beschnittene Stellen im Bild markiert werden. Nur Anzeige – siehe
+  /// [setzeDevelopUniforms].
+  final bool beschneidungZeigen;
+
   DevelopPreviewPainter({
     required this.shader,
     required this.image,
@@ -120,6 +139,7 @@ class DevelopPreviewPainter extends CustomPainter {
     required this.curveLut,
     required this.colorCube,
     required this.wuerfelKante,
+    this.beschneidungZeigen = false,
   });
 
   @override
@@ -144,6 +164,7 @@ class DevelopPreviewPainter extends CustomPainter {
       curveLut: curveLut,
       colorCube: colorCube,
       wuerfelKante: wuerfelKante,
+      beschneidungZeigen: beschneidungZeigen,
     );
 
     canvas.save();
@@ -155,6 +176,7 @@ class DevelopPreviewPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant DevelopPreviewPainter alt) =>
       alt.adjustments != adjustments ||
+      alt.beschneidungZeigen != beschneidungZeigen ||
       !identical(alt.image, image) ||
       !identical(alt.curveLut, curveLut) ||
       !identical(alt.colorCube, colorCube);
@@ -172,11 +194,16 @@ class DevelopShaderPreview extends StatefulWidget {
   final ui.Image image;
   final DevelopAdjustments adjustments;
 
+  /// Ob beschnittene Stellen markiert werden – reine Anzeige, wandert nie
+  /// in eine gespeicherte Datei (siehe [setzeDevelopUniforms]).
+  final bool beschneidungZeigen;
+
   const DevelopShaderPreview({
     super.key,
     required this.shader,
     required this.image,
     required this.adjustments,
+    this.beschneidungZeigen = false,
   });
 
   @override
@@ -277,6 +304,7 @@ class _DevelopShaderPreviewState extends State<DevelopShaderPreview> {
         curveLut: _curveLut ?? platzhalter,
         colorCube: _colorCube ?? platzhalter,
         wuerfelKante: colorCubePreviewSize,
+        beschneidungZeigen: widget.beschneidungZeigen,
       ),
       size: Size.infinite,
     );

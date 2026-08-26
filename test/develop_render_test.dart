@@ -119,6 +119,91 @@ void main() {
     expect(rechts, closeTo(128, 6), reason: 'ausserhalb der Maske unverändert');
   });
 
+  test('Lichter senken helle Flaechen, Schatten lassen sie in Ruhe', () async {
+    // Der Regler, der bis 1.9.5 fehlte. Geprueft an einer hellen Flaeche:
+    // Dort greift die Lichter-Gewichtung voll, die Schatten-Gewichtung gar
+    // nicht - eine Verwechslung der beiden faellt damit auf.
+    final hell = legeGrau('hell.png', wert: 230);
+
+    final neutral = await DevelopRender.rendere(hell,
+        adjustments: const DevelopAdjustments());
+    final zurueck = await DevelopRender.rendere(hell,
+        adjustments: const DevelopAdjustments(highlights: -1));
+    final mitSchatten = await DevelopRender.rendere(hell,
+        adjustments: const DevelopAdjustments(shadows: -1));
+
+    final n = mittlereHelligkeit(neutral!);
+    expect(mittlereHelligkeit(zurueck!), lessThan(n - 10),
+        reason: 'Lichter -1 muss eine helle Flaeche deutlich absenken');
+    expect(mittlereHelligkeit(mitSchatten!), closeTo(n, 6),
+        reason: 'der Schatten-Regler darf hier fast nichts tun');
+  });
+
+  test('Lichter heben helle Flaechen auch an', () async {
+    // Die Gegenrichtung. Sie ist der Grund, warum unter macOS ein eigener
+    // Kern statt CIHighlightShadowAdjust benutzt wird - das kann nur
+    // zuruecknehmen (siehe ImageConverter.swift, lichterKern).
+    //
+    // Gemessen an dieser Stelle: 220 neutral -> 244 bei Lichter +1.
+    final hell = legeGrau('hell2.png', wert: 220);
+
+    final neutral = await DevelopRender.rendere(hell,
+        adjustments: const DevelopAdjustments());
+    final heller = await DevelopRender.rendere(hell,
+        adjustments: const DevelopAdjustments(highlights: 1));
+
+    expect(mittlereHelligkeit(heller!),
+        greaterThan(mittlereHelligkeit(neutral!) + 10));
+  });
+
+  test('Mitteltoene bleiben unberuehrt', () {
+    // Die Eigenschaft, die einen Lichter-Regler von der Belichtung
+    // unterscheidet: Bei mittlerem Grau ist die Gewichtung null, in beide
+    // Richtungen. Gemessen: 128 bleibt 128 bei -1 wie bei +1.
+    return () async {
+      final grau = legeGrau('mitte.png', wert: 128);
+      for (final wert in [-1.0, 1.0]) {
+        final raus = await DevelopRender.rendere(grau,
+            adjustments: DevelopAdjustments(highlights: wert));
+        expect(mittlereHelligkeit(raus!), closeTo(128, 2),
+            reason: 'Lichter $wert darf Mitteltoene nicht anfassen');
+      }
+    }();
+  });
+
+  test('das Endergebnis traegt KEINE Beschneidungsmarken', () async {
+    // Der wichtigste Test dieser Datei. Derselbe Shader zeichnet die
+    // Vorschau und rendert unter Linux und Windows die Endergebnisse.
+    // Stuende die Warnung im Renderpfad an, traege jede exportierte Datei
+    // rote und blaue Flaechen - und zwar genau dort, wo das Bild am
+    // ehesten hinschaut.
+    //
+    // Geprueft an einem Bild, das garantiert beschneidet: reines Weiss
+    // neben reinem Schwarz. Waere die Warnung an, muesste hier alles rot
+    // bzw. blau sein.
+    final bild = img.Image(width: 128, height: 128);
+    img.fill(bild, color: img.ColorRgb8(255, 255, 255));
+    img.fillRect(bild, x1: 0, y1: 0, x2: 63, y2: 127,
+        color: img.ColorRgb8(0, 0, 0));
+    final quelle = File(p.join(temp.path, 'extrem.png'))
+      ..writeAsBytesSync(img.encodePng(bild));
+
+    final bytes = await DevelopRender.rendere(quelle,
+        adjustments: const DevelopAdjustments());
+    final raus = img.decodeImage(bytes!)!;
+
+    // In der Mitte je Haelfte nachsehen - die Kante selbst ist durch die
+    // JPEG-Kompression weich.
+    final schwarz = raus.getPixel(20, 64);
+    final weiss = raus.getPixel(108, 64);
+    expect(schwarz.r, lessThan(40), reason: 'Schwarz muss schwarz bleiben');
+    expect(schwarz.b, lessThan(80),
+        reason: 'blau eingefaerbt heisst: die Warnung ist im Renderpfad an');
+    expect(weiss.r, greaterThan(215), reason: 'Weiss muss weiss bleiben');
+    expect(weiss.g, greaterThan(215),
+        reason: 'nur rot heisst: die Warnung ist im Renderpfad an');
+  });
+
   test('sagt, welche Regler dieser Weg nicht umsetzt', () {
     // Ein Regler, der sich bewegen lässt und nichts tut, ist die
     // unangenehmste Art von Fehler – deshalb benennt der Dienst sie, statt
