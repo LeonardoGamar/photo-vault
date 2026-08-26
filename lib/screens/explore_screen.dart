@@ -8,7 +8,7 @@ import '../services/search_filters.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
-import '../widgets/mini_location_map.dart' show buildMapAttribution, buildMapTileLayer;
+import '../widgets/mini_location_map.dart' show Kartenstil, buildMapAttribution, buildMapTileLayer;
 import '../widgets/pin_dialogs.dart';
 import 'album_detail_screen.dart';
 import 'albums_screen.dart';
@@ -226,7 +226,14 @@ class _LocationsPreviewState extends State<_LocationsPreview> {
                   // sein (das würde mit dem Tippen zum Öffnen kollidieren).
                   : IgnorePointer(
                       child: FlutterMap(
-                        options: MapOptions(initialCenter: _averageCenter(located), initialZoom: 4),
+                        options: MapOptions(
+                          initialCenter: _averageCenter(located),
+                          initialZoom: 4,
+                          // Sonst zoomt die Karte ueber die
+                          // vorhandenen Kacheln hinaus ins Leere –
+                          // siehe Kartenstil.hoechsteAnzeigeStufe.
+                          maxZoom: Kartenstil.dunkel.hoechsteAnzeigeStufe.toDouble(),
+                        ),
                         children: [
                           buildMapTileLayer(context),
                           buildMapAttribution(context),

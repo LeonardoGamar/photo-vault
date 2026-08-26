@@ -68,6 +68,14 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.10.5" date="2026-08-25">
+      <description>
+        <p>The map now stops where the tiles stop. Beyond a certain zoom level tiles appeared only partially or not at all - not because they failed to arrive, but because there was no upper limit at all. Above the last real tile level the map simply keeps magnifying the tile it has: at display level 24 a single tile covers 32,768 points, at level 28 more than half a million. No graphics unit can draw an image that size, so the screen looked as though tiles were failing to load.</p>
+        <p>Measured against the real servers: OpenStreetMap serves level 19 and refuses 20, CARTO still draws at 20, OpenTopoMap ends at 17 and returns a single-colour tile above it. Each source now knows its own limit, and the dark map gains a level it had been giving away. Zooming in reaches 19 on the topographic map, 21 on the light one and 22 on the dark one, with a picture present at every level - the last two levels are deliberately magnified beyond the real tiles, blurrier but there. The limit applies to all four maps in the app, and a check now guards against a new map being built without one.</p>
+        <p xml:lang="de">Die Karte hoert jetzt dort auf, wo die Kacheln aufhoeren. Ab einer bestimmten Zoomstufe kamen Kacheln nur noch teilweise oder gar nicht - nicht weil sie ausblieben, sondern weil es ueberhaupt keine Obergrenze gab. Oberhalb der letzten echten Kachelstufe vergroessert die Karte die vorhandene Kachel einfach weiter: auf Anzeigestufe 24 deckt eine einzige Kachel 32.768 Punkte ab, auf Stufe 28 ueber eine halbe Million. Ein Bild dieser Groesse kann keine Grafikeinheit mehr zeichnen, und am Bildschirm sah es aus, als wuerden die Kacheln nicht laden.</p>
+        <p xml:lang="de">An den echten Servern nachgemessen: OpenStreetMap liefert Stufe 19 und lehnt 20 ab, CARTO zeichnet auf 20 noch, OpenTopoMap endet bei 17 und gibt darueber eine einfarbige Kachel. Jede Quelle kennt ihre Grenze jetzt genau, und die dunkle Karte gewinnt eine Stufe hinzu, die sie bisher verschenkt hat. Hineinzoomen geht bis 19 auf der Topografiekarte, 21 auf der hellen und 22 auf der dunklen - auf jeder Stufe steht ein Bild. Die letzten zwei Stufen sind bewusst ueber die echten Kacheln hinaus erlaubt: vergroessert und unschaerfer, aber vorhanden. Die Grenze gilt in allen vier Karten der App, und eine Pruefung wacht darueber, dass keine neue Karte ohne sie entsteht.</p>
+      </description>
+    </release>
     <release version="1.10.4" date="2026-08-25">
       <description>
         <p>Zooming with a mouse that has no wheel. On the map and in the side-by-side comparison, a swipe on the mouse surface now zooms: up to zoom in, down to zoom out, roughly one zoom level per hundred points of travel. On the map the centre stays put instead of sliding away.</p>

@@ -148,6 +148,9 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
       options: MapOptions(
         initialCenter: _mitte(gezeigt),
         initialZoom: _standardZoom,
+        // Sonst zoomt die Karte ueber die vorhandenen Kacheln hinaus ins
+        // Leere – siehe Kartenstil.hoechsteAnzeigeStufe.
+        maxZoom: Kartenstil.dunkel.hoechsteAnzeigeStufe.toDouble(),
         onPositionChanged: (kamera, _) {
           final stufe = kamera.zoom.roundToDouble();
           if (stufe != _zoom) setState(() => _zoom = stufe);

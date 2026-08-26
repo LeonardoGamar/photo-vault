@@ -314,6 +314,7 @@ class _MapScreenState extends State<MapScreen> {
     // Absichtlich ohne `await`: Das Umschalten soll sofort geschehen, das
     // Merken darf hinterherlaufen.
     unawaited(widget.library.db.setzeKartenansicht(mode.alsText));
+    _zoomAufStilGrenzeZiehen(mode);
     setState(() {
       _mode = mode;
       if (mode != Kartenansicht.globus) {
@@ -553,13 +554,19 @@ class _MapScreenState extends State<MapScreen> {
     // (Magic Mouse) und ein Trackpad ueberhaupt zoomen koennen – die
     // Kartenbibliothek verschiebt bei solchen Gesten nur. Siehe
     // [WischZoom], dort steht auch, warum die Reihenfolge stimmt.
+    final hoechsteStufe = stil.hoechsteAnzeigeStufe.toDouble();
     return WischZoom(
       steuerung: _flacheKarte,
+      groesserZoom: hoechsteStufe,
       child: FlutterMap(
         mapController: _flacheKarte,
         options: MapOptions(
           initialCenter: _pendingFlatFocus ?? _averageCenter(located),
           initialZoom: _pendingFlatZoom ?? _standardZoom,
+          // Ohne diese Grenze zoomt die Karte ins Nichts – siehe
+          // [Kartenstil.hoechsteAnzeigeStufe]. Sie gilt für ALLE Wege
+          // hinein: Rad, Kneifen, Doppelklick-Ziehen und Wischen.
+          maxZoom: hoechsteStufe,
           onPositionChanged: _onFlatPositionChanged,
         ),
         children: [
@@ -605,10 +612,36 @@ class _MapScreenState extends State<MapScreen> {
     _onGlobeZoomChanged(neu);
   }
 
+  /// Holt den Zoom zurück, wenn der neue Stil weniger weit reicht.
+  ///
+  /// Die Stile hören unterschiedlich früh auf – CARTO trägt bis 20,
+  /// OpenTopoMap nur bis 17. Wer in der dunklen Karte weit hineingezoomt
+  /// hat und dann auf Topografie umschaltet, stünde sonst oberhalb der
+  /// neuen Grenze: Die Kartenoptionen lassen dort zwar nichts Neues mehr
+  /// zu, holen den bestehenden Stand aber nicht von selbst zurück.
+  void _zoomAufStilGrenzeZiehen(Kartenansicht neueAnsicht) {
+    if (neueAnsicht == Kartenansicht.globus) return;
+    final grenze = switch (neueAnsicht) {
+      Kartenansicht.hell => Kartenstil.hell,
+      Kartenansicht.topo => Kartenstil.topo,
+      Kartenansicht.dunkel || Kartenansicht.globus => Kartenstil.dunkel,
+    }
+        .hoechsteAnzeigeStufe
+        .toDouble();
+    if (_flacherZoom > grenze) _flacherZoom = grenze;
+    if (_pendingFlatZoom != null && _pendingFlatZoom! > grenze) {
+      _pendingFlatZoom = grenze;
+    }
+  }
+
   void _flachZoomen(double schritt) {
     final kamera = _flacheKarte.camera;
+    // Die Obergrenze kommt aus den Kartenoptionen und damit vom
+    // gewählten Stil. Vorher stand hier fest 18 – das passte zu keiner
+    // der drei Quellen und war zugleich die EINZIGE Grenze in der
+    // Karte: Rad, Kneifen und Wischen kannten gar keine.
     final neu = (kamera.zoom + schritt)
-        .clamp(kamera.minZoom ?? 1.0, kamera.maxZoom ?? 18.0);
+        .clamp(kamera.minZoom ?? 1.0, kamera.maxZoom ?? 19.0);
     if (neu == kamera.zoom) return;
     _flacheKarte.move(kamera.center, neu);
   }

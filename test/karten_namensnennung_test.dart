@@ -113,11 +113,23 @@ void main() {
     }
   });
 
-  test('OpenTopoMap hoert bei Stufe 17 auf', () {
-    // Die Karte laesst 18 zu. Ohne diese Angabe kaeme auf der letzten
-    // Stufe eine leere Kachel statt eines vergroesserten Bildes.
-    expect(Kartenstil.topo.hoechsteEchteStufe, 17);
-    expect(Kartenstil.hell.hoechsteEchteStufe, isNull);
-    expect(Kartenstil.dunkel.hoechsteEchteStufe, isNull);
+  test('jede Quelle nennt ihre letzte echte Stufe ausdruecklich', () {
+    // Frueher stand hier, dass nur OpenTopoMap eine Angabe hat und die
+    // beiden anderen sich auf die Vorgabe der Bibliothek verlassen. Das
+    // war zwei Mal unguenstig: OSM antwortet ab Stufe 20 mit 400, und
+    // CARTO traegt umgekehrt eine Stufe WEITER als die Vorgabe. Beides
+    // an echten Abrufen nachgemessen, mitten in Berlin.
+    //
+    // Ohne eigene Angabe war ausserdem keine Anzeigegrenze abzuleiten -
+    // und ohne die zoomt die Karte ins Nichts, siehe zoomgrenze_test.
+    expect(Kartenstil.topo.hoechsteEchteStufe, 17,
+        reason: 'darueber kommt eine einfarbige Kachel');
+    expect(Kartenstil.hell.hoechsteEchteStufe, 19,
+        reason: 'ab 20 antwortet OSM mit 400');
+    expect(Kartenstil.dunkel.hoechsteEchteStufe, 20,
+        reason: 'CARTO liefert auf 20 noch gezeichnete Kacheln');
+    for (final stil in Kartenstil.values) {
+      expect(stil.hoechsteEchteStufe, isNotNull, reason: stil.name);
+    }
   });
 }

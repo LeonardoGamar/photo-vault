@@ -24,6 +24,9 @@ enum Kartenstil {
   hell(
     kachelUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     namensnennung: '© OpenStreetMap contributors',
+    // Ausdrücklich, nicht über die Vorgabe: Ab Stufe 20 antwortet der
+    // Server mit 400, nachgemessen.
+    hoechsteEchteStufe: 19,
   ),
 
   /// CARTO Dark Matter, ebenfalls quelloffen/kostenlos und ohne
@@ -32,6 +35,10 @@ enum Kartenstil {
     kachelUrl: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     unterbereiche: ['a', 'b', 'c', 'd'],
     namensnennung: '© OpenStreetMap contributors © CARTO',
+    // Eine Stufe weiter als OSM: An echten Abrufen nachgemessen liefert
+    // CARTO auch auf Stufe 20 noch gezeichnete Kacheln, während OSM dort
+    // bereits mit 400 antwortet.
+    hoechsteEchteStufe: 20,
   ),
 
   /// OpenTopoMap: Höhenlinien und Schummerung. Das Relief steckt in den
@@ -73,6 +80,29 @@ enum Kartenstil {
   /// Höchste Stufe, für die der Anbieter echte Kacheln liefert. `null`
   /// heisst „so weit wie die Karte zoomt".
   final int? hoechsteEchteStufe;
+
+  /// Bis hierhin darf die Karte zoomen.
+  ///
+  /// **Ohne diese Grenze zoomt die Karte ins Nichts.** Oberhalb der
+  /// echten Stufe vergrössert flutter_map die letzte vorhandene Kachel
+  /// weiter und weiter: auf Anzeigestufe 24 deckt eine einzige
+  /// Topo-Kachel 32.768 Punkte ab, auf Stufe 28 über eine halbe Million.
+  /// So etwas kann keine Grafikeinheit mehr zeichnen – und am Bildschirm
+  /// sieht es aus, als würden die Kacheln „nicht mehr laden".
+  ///
+  /// Zwei Stufen darüber sind bewusst erlaubt statt hart bei der echten
+  /// Stufe abzuschneiden: Die Kachel wird dabei vierfach vergrössert,
+  /// also unschärfer, aber sie ist **da**. Ein hartes Ende fühlte sich
+  /// wie ein Defekt an, ein leerer Bildschirm erst recht.
+  ///
+  /// An den Servern nachgemessen, mitten in Berlin:
+  ///
+  /// ```
+  /// OSM     z19 200,  z20 400            -> harte Grenze bei 19
+  /// CARTO   z20 200 (3.765 B, Inhalt)    -> trägt bis 20
+  /// Topo    z17 200,  z18 200 aber 4.343 B einfarbig -> Ende bei 17
+  /// ```
+  int get hoechsteAnzeigeStufe => (hoechsteEchteStufe ?? 19) + 2;
 }
 
 /// Wie lange eine einmal geholte Kachel als frisch gilt.
@@ -320,6 +350,10 @@ class MiniLocationMap extends StatelessWidget {
               options: MapOptions(
                 initialCenter: center,
                 initialZoom: _hasLocation ? _pinZoom : _defaultZoom,
+                // Auch hier: ohne Grenze zoomt die Karte ueber die
+                // vorhandenen Kacheln hinaus – siehe
+                // [Kartenstil.hoechsteAnzeigeStufe].
+                maxZoom: _ausTheme(context).hoechsteAnzeigeStufe.toDouble(),
                 onTap: !editable
                     ? null
                     : (_, point) => onLocationChanged!(point.latitude, point.longitude),
