@@ -68,6 +68,14 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.9.7" date="2026-08-25">
+      <description>
+        <p>Fixes the clipping warning added in 1.9.6. The calculation behind it was right, but the button could not be pressed: it was tied to "the preview is running right now", and that was only true while a slider was being dragged. Turning the warning on now keeps the marks on screen, hands off the sliders.</p>
+        <p>With masks on the photo the button stays off - the marks are drawn over a neutral base that carries no mask effect, so they would be wrong there - and it now says so instead of silently doing nothing.</p>
+        <p xml:lang="de">Behebt die Beschneidungswarnung aus 1.9.6. Die Rechnung dahinter stimmte, aber der Knopf liess sich nicht druecken: Er hing daran, dass die Vorschau gerade laeuft, und das galt nur, solange man einen Regler zog. Warnung an heisst jetzt: Die Markierung bleibt stehen, auch ohne Hand am Regler.</p>
+        <p xml:lang="de">Liegen Masken im Bild, bleibt der Knopf aus - die Markierung entsteht ueber einer neutralen Grundlage ohne Maskenwirkung und waere dort falsch - und er sagt das jetzt, statt stumm nicht zu reagieren.</p>
+      </description>
+    </release>
     <release version="1.9.6" date="2026-08-25">
       <description>
         <p>Developing gets what it was missing: a highlights slider. Shadows had one, highlights did not - and with RAW the headroom in the highlights is the reason to shoot RAW at all. macOS uses a custom colour kernel with exactly the shader formula the other platforms use; measured deviation between them: 0.0.</p>

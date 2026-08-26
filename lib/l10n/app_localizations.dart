@@ -3880,6 +3880,18 @@ abstract class AppTexte {
   /// **'Beschneidung anzeigen (Rot = ausgefressen, Blau = abgesoffen)'**
   String get entwBeschneidungWarnung;
 
+  /// No description provided for @entwBeschneidungMitMasken.
+  ///
+  /// In de, this message translates to:
+  /// **'Beschneidung anzeigen geht nicht, solange Masken im Bild liegen – die Markierung entsteht in der Shader-Vorschau, und die kann Masken nicht darstellen.'**
+  String get entwBeschneidungMitMasken;
+
+  /// No description provided for @entwBeschneidungVorschauHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Beschneidungs-Vorschau – Schärfe, Rauschen, Klarheit und Vignette zeigt sie nicht'**
+  String get entwBeschneidungVorschauHinweis;
+
   /// No description provided for @entwVorgabeSichern.
   ///
   /// In de, this message translates to:

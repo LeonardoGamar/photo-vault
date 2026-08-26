@@ -343,3 +343,36 @@ Future<ui.FragmentShader?> ladeDevelopShader() async {
     return null;
   }
 }
+
+/// Ob der Knopf für die Beschneidungswarnung bedienbar ist.
+///
+/// Bewusst hier und nicht im Bildschirm: Die Regel ist so nachprüfbar,
+/// und der Fehler, den sie verhindert, war genau eine unprüfbare Regel.
+/// Der Knopf hing ursprünglich daran, dass die Shader-Vorschau gerade
+/// LÄUFT – und die lief nur beim Ziehen an einem Regler. Damit war er
+/// nur in dem Sekundenbruchteil zwischen Loslassen und fertigem Render
+/// anklickbar, also praktisch nie. Er war nicht kaputt, sondern
+/// unerreichbar, und das sieht man einem Bildschirm nicht an.
+///
+/// Masken schliessen ihn weiterhin aus: Die Markierung entsteht im
+/// Shader, und der zeichnet über einer neutralen Basis ohne
+/// Maskenwirkung.
+bool beschneidungBedienbar({
+  required bool maskenVorhanden,
+  required bool shaderGeladen,
+  required bool basisGeladen,
+}) =>
+    !maskenVorhanden && shaderGeladen && basisGeladen;
+
+/// Ob die Shader-Vorschau anstelle des nativen Renders gezeigt wird.
+///
+/// Zwei Anlässe: beim Ziehen (damit die Regler live wirken) und solange
+/// die Beschneidungswarnung an ist (die Markierung gibt es nur im
+/// Shader). [bedienbar] ist das Ergebnis von [beschneidungBedienbar] –
+/// ohne Shader oder mit Masken gibt es nichts zu zeigen.
+bool shaderVorschauZeigen({
+  required bool bedienbar,
+  required bool zieht,
+  required bool warnungAn,
+}) =>
+    bedienbar && (zieht || warnungAn);

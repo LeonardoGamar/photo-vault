@@ -134,12 +134,30 @@ class _DevelopScreenState extends State<DevelopScreen> {
   ui.Image? _shaderBasis;
   bool _dragging = false;
 
-  /// Shader-Vorschau nur, wenn sie auch stimmen kann: beim Ziehen, mit
-  /// geladener Basis und Shader – und ohne Masken, da die neutrale Basis
-  /// keine Maskenwirkung enthält und beim Ziehen sonst alle Masken
-  /// verschwinden und danach wieder auftauchen würden.
-  bool get _zeigeShaderVorschau =>
-      _dragging && _masks.isEmpty && _shader != null && _shaderBasis != null;
+  /// Ob der Shader die Vorschau überhaupt zeichnen KANN: Basis und
+  /// Programm geladen – und ohne Masken, da die neutrale Basis keine
+  /// Maskenwirkung enthält und sonst alle Masken verschwinden und danach
+  /// wieder auftauchen würden.
+  bool get _shaderMoeglich => beschneidungBedienbar(
+        maskenVorhanden: _masks.isNotEmpty,
+        shaderGeladen: _shader != null,
+        basisGeladen: _shaderBasis != null,
+      );
+
+  /// Ob sie auch gezeigt wird. Zwei Anlässe, und der zweite ist der
+  /// Grund für die Trennung von [_shaderMoeglich]:
+  ///
+  /// - **Beim Ziehen**, damit die Regler live wirken.
+  /// - **Solange die Beschneidungswarnung an ist** – die Markierung
+  ///   entsteht im Shader, ein fertig gerendertes JPEG trägt sie nicht.
+  ///   Hinge das weiter am Ziehen, wäre der Knopf dafür nur in dem
+  ///   Sekundenbruchteil zwischen Loslassen und fertigem Render
+  ///   anklickbar, also praktisch gar nicht.
+  bool get _zeigeShaderVorschau => shaderVorschauZeigen(
+        bedienbar: _shaderMoeglich,
+        zieht: _dragging,
+        warnungAn: _beschneidungZeigen,
+      );
 
   /// Tonwertverteilung der aktuell angezeigten Vorschau (siehe
   /// [_recomputeHistogram]). `null`, solange noch nichts berechnet wurde.
@@ -1675,8 +1693,13 @@ class _DevelopScreenState extends State<DevelopScreen> {
                 ? Icons.report_problem
                 : Icons.report_problem_outlined),
             color: _beschneidungZeigen ? Colors.amber : Colors.white70,
-            tooltip: AppTexte.of(context).entwBeschneidungWarnung,
-            onPressed: _zeigeShaderVorschau
+            // Nicht an _zeigeShaderVorschau haengen: das waere der
+            // Knopf, der genau dann klickbar ist, wenn man ihn nicht
+            // treffen kann. Mit Masken bleibt er aus - und sagt, warum.
+            tooltip: _shaderMoeglich
+                ? AppTexte.of(context).entwBeschneidungWarnung
+                : AppTexte.of(context).entwBeschneidungMitMasken,
+            onPressed: _shaderMoeglich
                 ? () => setState(
                     () => _beschneidungZeigen = !_beschneidungZeigen)
                 : null,
@@ -1762,6 +1785,35 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                             AppTexte.of(context).entwVergleichen,
                                             style: const TextStyle(
                                                 color: DunkleFlaeche.hinweis, fontSize: 11),
+                                          ),
+                                        ),
+                                      // Solange die Warnung an ist, zeigt
+                                      // der Shader das Bild - und der
+                                      // rechnet unter macOS NICHT dasselbe
+                                      // wie Core Image. Vier Regler fehlen
+                                      // darin. Wo der Shader ohnehin das
+                                      // Ergebnis erzeugt (Linux, Windows),
+                                      // gibt es nichts zu vermelden.
+                                      if (_beschneidungZeigen &&
+                                          !_dragging &&
+                                          !_showingOriginal &&
+                                          _shaderMoeglich &&
+                                          !DevelopRender.istMassgeblich)
+                                        Positioned(
+                                          top: 8,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: AppSpacing.xs),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black54,
+                                              borderRadius:
+                                                  BorderRadius.circular(AppRadius.pill),
+                                            ),
+                                            child: Text(
+                                                AppTexte.of(context)
+                                                    .entwBeschneidungVorschauHinweis,
+                                                style: const TextStyle(
+                                                    color: Colors.white, fontSize: 12)),
                                           ),
                                         ),
                                       if (_rendering)

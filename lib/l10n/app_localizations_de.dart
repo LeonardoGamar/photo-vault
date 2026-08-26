@@ -2238,6 +2238,14 @@ class AppTexteDe extends AppTexte {
       'Beschneidung anzeigen (Rot = ausgefressen, Blau = abgesoffen)';
 
   @override
+  String get entwBeschneidungMitMasken =>
+      'Beschneidung anzeigen geht nicht, solange Masken im Bild liegen – die Markierung entsteht in der Shader-Vorschau, und die kann Masken nicht darstellen.';
+
+  @override
+  String get entwBeschneidungVorschauHinweis =>
+      'Beschneidungs-Vorschau – Schärfe, Rauschen, Klarheit und Vignette zeigt sie nicht';
+
+  @override
   String get entwVorgabeSichern => 'Als Vorgabe sichern';
 
   @override
