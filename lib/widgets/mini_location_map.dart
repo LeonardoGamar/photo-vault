@@ -70,6 +70,58 @@ enum Kartenstil {
   final int? hoechsteEchteStufe;
 }
 
+/// Wie lange eine einmal geholte Kachel als frisch gilt.
+///
+/// **Ohne diese Angabe richtet sich flutter_map nach `max-age` der
+/// Antwort – und genau dort liegt das Problem.** OpenTopoMap rendert
+/// Kacheln bei Bedarf und gibt ausgerechnet den frisch gerenderten die
+/// kürzeste Haltbarkeit. Gemessen an echten Abrufen:
+///
+/// ```
+/// x-cache-status: MISS   max-age=15875   (4,4 h)   Abruf 1,72 s
+/// x-cache-status: MISS   max-age=13615   (3,8 h)   Abruf 1,63 s
+/// x-cache-status: MISS   max-age=12590   (3,5 h)   Abruf 1,48 s
+/// vorgerendert           max-age=604800  (7 Tage)  Abruf 0,09 s
+/// ```
+///
+/// Die teuersten Kacheln laufen also nach wenigen Stunden ab, und
+/// flutter_map macht dann **vor** der Anzeige einen blockierenden
+/// Rückfrage-Umlauf. Am selben Ort einen Tag später wartet man erneut.
+///
+/// Dreissig Tage sind hier vertretbar: Höhenlinien und Geländeschatten
+/// ändern sich über Jahre, nicht über Stunden, und die Karte ist
+/// Hintergrund für Fotopins, kein Navigationsgerät. Es schont zugleich
+/// die freiwillig betriebenen Kachelserver.
+const kartenKachelFrische = Duration(days: 30);
+
+/// Obergrenze des Kachelspeichers auf der Platte.
+///
+/// Die Vorgabe von flutter_map ist 1 GB. Für eine Fotoverwaltung, deren
+/// Karte ein Nebenschauplatz ist, wäre das viel; 300 MB fassen mehrere
+/// zehntausend Kacheln.
+const kartenSpeicherGrenze = 300 * 1024 * 1024;
+
+/// Richtet den Kachelspeicher ein. **Einmal beim Start, vor der ersten
+/// Karte.**
+///
+/// Der Weg über `getOrCreateInstance` ist Absicht und der Grund, warum
+/// hier kein eigener `NetworkTileProvider` gebaut wird: Der Speicher ist
+/// ein Einzelstück, dessen Angaben nur beim ERSTEN Aufruf wirken.
+/// flutter_map holt sich später von sich aus dasselbe Stück – und
+/// bekommt damit unsere Einstellungen, ohne dass wir uns in die
+/// Kachelabfrage einmischen müssen.
+///
+/// Ein eigener `NetworkTileProvider` wäre die naheliegende Lösung
+/// gewesen und wäre ein Leck geworden: [buildMapTileLayer] läuft bei
+/// jedem Neuaufbau, `TileLayer.didUpdateWidget` entsorgt den alten
+/// Anbieter aber nicht – jeder Aufbau hinterliesse einen offenen
+/// HTTP-Client.
+void kartenSpeicherEinrichten() =>
+    BuiltInMapCachingProvider.getOrCreateInstance(
+      overrideFreshAge: kartenKachelFrische,
+      maxCacheSize: kartenSpeicherGrenze,
+    );
+
 /// Liefert die Kacheln des gewählten Stils.
 ///
 /// Ohne [stil] richtet sich das nach dem Theme – da die App aber permanent

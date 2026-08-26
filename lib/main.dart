@@ -14,6 +14,7 @@ import 'screens/home_shell.dart';
 import 'services/beenden_waechter.dart';
 import 'state/library_state.dart';
 import 'theme/app_theme.dart';
+import 'widgets/mini_location_map.dart' show kartenSpeicherEinrichten;
 import 'widgets/beenden_dialog.dart';
 
 Future<void> main() async {
@@ -24,6 +25,9 @@ Future<void> main() async {
   // Sprache zur Laufzeit umschaltbar ist und die Datumsnamen sonst für
   // die jeweils andere fehlten.
   await initializeDateFormatting();
+  // Muss vor der ersten Karte laufen: Der Kachelspeicher ist ein
+  // Einzelstueck, dessen Angaben nur beim ersten Anlegen wirken.
+  kartenSpeicherEinrichten();
   runApp(const PhotoVaultApp());
 }
 

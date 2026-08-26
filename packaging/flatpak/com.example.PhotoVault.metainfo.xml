@@ -68,6 +68,14 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.10.1" date="2026-08-25">
+      <description>
+        <p>The topographic map loads faster, and stays fast. OpenTopoMap renders tiles on demand and gives the freshly rendered - that is, the most expensive - tiles the shortest shelf life: a few hours, against seven days for tiles that already existed. Once a tile expired, the app asked the server again before showing anything, so the same area was slow again the next day.</p>
+        <p>Fetched tiles now stay for 30 days regardless of what the server states, capped at 300 MB. Contour lines and hill shading change over years, not hours, and it spares the volunteer-run tile servers.</p>
+        <p xml:lang="de">Die topografische Karte laedt schneller, und zwar dauerhaft. OpenTopoMap rechnet Kacheln erst auf Anforderung aus und gibt ausgerechnet den frisch gerechneten - also den teuersten - die kuerzeste Haltbarkeit: wenige Stunden gegenueber sieben Tagen bei bereits vorhandenen. War eine Kachel abgelaufen, fragte die App vor dem Anzeigen erneut beim Server nach; dieselbe Gegend war am naechsten Tag also wieder langsam.</p>
+        <p xml:lang="de">Geholte Kacheln bleiben jetzt 30 Tage liegen, unabhaengig von der Angabe des Servers, begrenzt auf 300 MB. Hoehenlinien und Gelaendeschatten aendern sich ueber Jahre, nicht ueber Stunden - und es schont die freiwillig betriebenen Kachelserver.</p>
+      </description>
+    </release>
     <release version="1.10.0" date="2026-08-25">
       <description>
         <p>Before and after side by side while developing: both versions in one image, with a divider you can drag, so a particular spot can be compared instead of just the overall impression. Press-and-hold stays alongside it - it is quicker for a short look.</p>
