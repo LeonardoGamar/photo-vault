@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.10.3" date="2026-08-25">
+      <description>
+        <p>Developing needs far less memory on Linux and Windows. The rendering path there unpacked the source photo at full size purely to read its width and height from the pixels, then unpacked it a second time at the size actually wanted. Measured on a 24-megapixel photo: 348 ms and 96 MB for the measuring run, against 3 ms and no memory for reading the header, where those two numbers were all along. It is now unpacked once, straight to the size needed. macOS was not affected.</p>
+        <p>The map remembers the view you chose - light, dark, topographic or globe - across restarts, instead of falling back to the dark map every time the screen was reopened. The database moves from schema 48 to 49 for this; the migration runs by itself on first start.</p>
+        <p>Two quiet spots: a failure to delete the backup staging area is now reported rather than swallowed - the files there are unencrypted until they reach the destination, so a silent failure meant plaintext left behind with nothing said about it. And two image decoders now release their native memory instead of waiting for the collector.</p>
+        <p xml:lang="de">Das Entwickeln braucht unter Linux und Windows deutlich weniger Speicher. Der dortige Weg packte das Ausgangsfoto in voller Groesse aus, nur um Breite und Hoehe aus den Bildpunkten abzulesen, und packte es dann ein zweites Mal in der gewuenschten Groesse aus. An einem 24-Megapixel-Foto gemessen: 348 ms und 96 MB fuer den Messlauf, gegenueber 3 ms und keinem Speicher fuer das Lesen des Dateikopfs, in dem die beiden Zahlen die ganze Zeit standen. Ausgepackt wird jetzt einmal, gleich in der richtigen Groesse. macOS war nicht betroffen.</p>
+        <p xml:lang="de">Die Karte merkt sich die gewaehlte Ansicht - hell, dunkel, Topografie oder Globus - ueber einen Neustart hinweg, statt bei jedem Oeffnen wieder auf der dunklen Karte zu stehen. Die Datenbank wandert dafuer von Fassung 48 auf 49; die Migration laeuft beim ersten Start von selbst.</p>
+        <p xml:lang="de">Zwei stille Stellen: Ein fehlgeschlagenes Loeschen des Sicherungs-Zwischenlagers wird jetzt gemeldet statt verschluckt - die Dateien liegen dort unverschluesselt, bis sie am Ziel ankommen, ein lautloser Fehlschlag hiess also liegengebliebener Klartext, von dem niemand erfaehrt. Und zwei Bilddekoder geben ihren nativen Speicher jetzt selbst zurueck, statt auf den Aufraeumer zu warten.</p>
+      </description>
+    </release>
     <release version="1.10.2" date="2026-08-25">
       <description>
         <p>Grey holes in the map heal themselves again. OpenTopoMap renders tiles on demand and reports "not found" while a tile is still being drawn - a state that lasts seconds. It became permanent through two library defaults: a second attempt was made only for "service overloaded", and a failed tile was kept rather than discarded, so nothing ever asked for it again. Measured on a real map journey: 44 of 170 tile requests were refused, and the very same tiles arrived seconds later in 70-90 ms.</p>

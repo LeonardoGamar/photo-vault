@@ -325,6 +325,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
     try {
       final codec = await ui.instantiateImageCodec(bytes);
       final frame = await codec.getNextFrame();
+      // Der Dekoder selbst haelt nativen Speicher und wird hier nicht mehr
+      // gebraucht - das Bild aus dem Einzelbild lebt unabhaengig weiter.
+      codec.dispose();
       if (!mounted) {
         frame.image.dispose();
         return;

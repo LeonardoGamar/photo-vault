@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show compute, debugPrint;
+import 'package:flutter/foundation.dart' show compute, debugPrint, visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
@@ -131,20 +131,61 @@ class DevelopRender {
     if (bytes == null) return null;
 
     // Die Zielgrösse dem Dekoder überlassen: Er skaliert beim Dekodieren,
-    // statt erst ein 48-Megapixel-Bild aufzubauen und danach zu verkleinern.
-    final codec = await ui.instantiateImageCodec(bytes, targetWidth: null);
-    final erst = await codec.getNextFrame();
-    final voll = erst.image;
-    final laengste = voll.width > voll.height ? voll.width : voll.height;
-    if (laengste <= maxDimension) return voll;
-
-    final skaliert = await ui.instantiateImageCodec(
-      bytes,
-      targetWidth: voll.width >= voll.height ? maxDimension : null,
-      targetHeight: voll.height > voll.width ? maxDimension : null,
+    // statt erst ein 48-Megapixel-Bild aufzubauen und danach zu
+    // verkleinern.
+    //
+    // Der Weg über [ui.instantiateImageCodecWithSize] ist dafür
+    // wesentlich, nicht bloss hübscher. Wer die Ausgangsgrösse braucht,
+    // um die Zielgrösse auszurechnen, kommt leicht darauf, das Bild
+    // einmal ganz zu dekodieren und nachzumessen - und hat damit genau
+    // das getan, was er vermeiden wollte. Die Grösse steht im Dateikopf.
+    // An einem 24-Megapixel-JPEG gemessen:
+    //
+    //   ganz dekodieren, um nachzumessen   348 ms, 96 MB RGBA
+    //   Kopfdaten lesen                      3 ms,  0 MB
+    //
+    // `getTargetSize` bekommt genau diese Kopfdaten und entscheidet
+    // daraus; dekodiert wird danach ein einziges Mal, gleich in der
+    // richtigen Grösse.
+    final puffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+    // Den Puffer gibt `instantiateImageCodecWithSize` selbst wieder frei.
+    final codec = await ui.instantiateImageCodecWithSize(
+      puffer,
+      getTargetSize: (breite, hoehe) => zielGroesse(
+        breite: breite,
+        hoehe: hoehe,
+        maxKante: maxDimension,
+      ),
     );
-    voll.dispose();
-    return (await skaliert.getNextFrame()).image;
+    try {
+      return (await codec.getNextFrame()).image;
+    } finally {
+      codec.dispose();
+    }
+  }
+
+  /// Auf welche Grösse ein [breite] x [hoehe] grosses Bild dekodiert wird.
+  ///
+  /// Eigene Funktion, weil sie sonst nicht prüfbar wäre: Sie steckte in
+  /// einem Rückruf innerhalb einer Methode, die eine Datei liest und
+  /// einen Dekoder anwirft.
+  ///
+  /// Angegeben wird immer nur **eine** Kante; die andere rechnet der
+  /// Dekoder seitenverhältnistreu nach. Beide anzugeben hiesse, das Bild
+  /// bei krummem Verhältnis zu verzerren.
+  @visibleForTesting
+  static ui.TargetImageSize zielGroesse({
+    required int breite,
+    required int hoehe,
+    required int maxKante,
+  }) {
+    final laengste = breite > hoehe ? breite : hoehe;
+    // Kleiner als das Ziel: unverändert lassen. Hochrechnen brächte keine
+    // Bildinformation, kostete aber Speicher.
+    if (laengste <= maxKante) return const ui.TargetImageSize();
+    return breite >= hoehe
+        ? ui.TargetImageSize(width: maxKante)
+        : ui.TargetImageSize(height: maxKante);
   }
 
   /// Zeichnet Basis und Masken in einer Aufnahme.
@@ -235,7 +276,11 @@ class DevelopRender {
       final datei = File(pfad);
       if (!await datei.exists()) return null;
       final codec = await ui.instantiateImageCodec(await datei.readAsBytes());
-      return (await codec.getNextFrame()).image;
+      try {
+        return (await codec.getNextFrame()).image;
+      } finally {
+        codec.dispose();
+      }
     } catch (_) {
       return null;
     }

@@ -10704,6 +10704,14 @@ class $AppSettingsTable extends AppSettings
           type: DriftSqlType.double,
           requiredDuringInsert: false,
           defaultValue: const Constant(0.363));
+  static const VerificationMeta _kartenansichtMeta =
+      const VerificationMeta('kartenansicht');
+  @override
+  late final GeneratedColumn<String> kartenansicht = GeneratedColumn<String>(
+      'kartenansicht', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('dunkel'));
   static const VerificationMeta _translateCaptionsMeta =
       const VerificationMeta('translateCaptions');
   @override
@@ -10733,6 +10741,7 @@ class $AppSettingsTable extends AppSettings
         watchedFolderPath,
         watchedFolderToken,
         faceSimilarityThreshold,
+        kartenansicht,
         translateCaptions,
         translateSearchAndTags
       ];
@@ -10782,6 +10791,12 @@ class $AppSettingsTable extends AppSettings
               data['face_similarity_threshold']!,
               _faceSimilarityThresholdMeta));
     }
+    if (data.containsKey('kartenansicht')) {
+      context.handle(
+          _kartenansichtMeta,
+          kartenansicht.isAcceptableOrUnknown(
+              data['kartenansicht']!, _kartenansichtMeta));
+    }
     if (data.containsKey('translate_captions')) {
       context.handle(
           _translateCaptionsMeta,
@@ -10819,6 +10834,8 @@ class $AppSettingsTable extends AppSettings
       faceSimilarityThreshold: attachedDatabase.typeMapping.read(
           DriftSqlType.double,
           data['${effectivePrefix}face_similarity_threshold'])!,
+      kartenansicht: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}kartenansicht'])!,
       translateCaptions: attachedDatabase.typeMapping.read(
           DriftSqlType.bool, data['${effectivePrefix}translate_captions'])!,
       translateSearchAndTags: attachedDatabase.typeMapping.read(
@@ -10869,6 +10886,20 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// das irgendwo stand.
   final double faceSimilarityThreshold;
 
+  /// Zuletzt gewählte Kartenansicht: `'hell'`, `'dunkel'`, `'topo'` oder
+  /// `'globus'` (siehe `Kartenansicht` in map_screen.dart).
+  ///
+  /// Als Text und nicht als Zahl, aus demselben Grund wie bei [themeMode]:
+  /// Eine unbekannte Angabe fällt beim Lesen auf die dunkle Karte zurück,
+  /// statt den Start zu verhindern.
+  ///
+  /// Die Wahl lag bisher nur im Bildschirmzustand. Wer die
+  /// Topografiekarte einstellte und die Ansicht verliess, fand beim
+  /// nächsten Öffnen wieder die dunkle vor - ohne dass das irgendwo
+  /// stand. Derselbe Fall wie seinerzeit bei
+  /// [faceSimilarityThreshold].
+  final String kartenansicht;
+
   /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
   final bool translateCaptions;
 
@@ -10890,6 +10921,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       this.watchedFolderPath,
       this.watchedFolderToken,
       required this.faceSimilarityThreshold,
+      required this.kartenansicht,
       required this.translateCaptions,
       required this.translateSearchAndTags});
   @override
@@ -10907,6 +10939,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     }
     map['face_similarity_threshold'] =
         Variable<double>(faceSimilarityThreshold);
+    map['kartenansicht'] = Variable<String>(kartenansicht);
     map['translate_captions'] = Variable<bool>(translateCaptions);
     map['translate_search_and_tags'] = Variable<bool>(translateSearchAndTags);
     return map;
@@ -10925,6 +10958,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ? const Value.absent()
           : Value(watchedFolderToken),
       faceSimilarityThreshold: Value(faceSimilarityThreshold),
+      kartenansicht: Value(kartenansicht),
       translateCaptions: Value(translateCaptions),
       translateSearchAndTags: Value(translateSearchAndTags),
     );
@@ -10945,6 +10979,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           serializer.fromJson<String?>(json['watchedFolderToken']),
       faceSimilarityThreshold:
           serializer.fromJson<double>(json['faceSimilarityThreshold']),
+      kartenansicht: serializer.fromJson<String>(json['kartenansicht']),
       translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
       translateSearchAndTags:
           serializer.fromJson<bool>(json['translateSearchAndTags']),
@@ -10962,6 +10997,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       'watchedFolderToken': serializer.toJson<String?>(watchedFolderToken),
       'faceSimilarityThreshold':
           serializer.toJson<double>(faceSimilarityThreshold),
+      'kartenansicht': serializer.toJson<String>(kartenansicht),
       'translateCaptions': serializer.toJson<bool>(translateCaptions),
       'translateSearchAndTags': serializer.toJson<bool>(translateSearchAndTags),
     };
@@ -10975,6 +11011,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           Value<String?> watchedFolderPath = const Value.absent(),
           Value<String?> watchedFolderToken = const Value.absent(),
           double? faceSimilarityThreshold,
+          String? kartenansicht,
           bool? translateCaptions,
           bool? translateSearchAndTags}) =>
       AppSettingsData(
@@ -10991,6 +11028,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
             : this.watchedFolderToken,
         faceSimilarityThreshold:
             faceSimilarityThreshold ?? this.faceSimilarityThreshold,
+        kartenansicht: kartenansicht ?? this.kartenansicht,
         translateCaptions: translateCaptions ?? this.translateCaptions,
         translateSearchAndTags:
             translateSearchAndTags ?? this.translateSearchAndTags,
@@ -11012,6 +11050,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       faceSimilarityThreshold: data.faceSimilarityThreshold.present
           ? data.faceSimilarityThreshold.value
           : this.faceSimilarityThreshold,
+      kartenansicht: data.kartenansicht.present
+          ? data.kartenansicht.value
+          : this.kartenansicht,
       translateCaptions: data.translateCaptions.present
           ? data.translateCaptions.value
           : this.translateCaptions,
@@ -11031,6 +11072,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('watchedFolderPath: $watchedFolderPath, ')
           ..write('watchedFolderToken: $watchedFolderToken, ')
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
+          ..write('kartenansicht: $kartenansicht, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
@@ -11046,6 +11088,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       watchedFolderPath,
       watchedFolderToken,
       faceSimilarityThreshold,
+      kartenansicht,
       translateCaptions,
       translateSearchAndTags);
   @override
@@ -11059,6 +11102,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.watchedFolderPath == this.watchedFolderPath &&
           other.watchedFolderToken == this.watchedFolderToken &&
           other.faceSimilarityThreshold == this.faceSimilarityThreshold &&
+          other.kartenansicht == this.kartenansicht &&
           other.translateCaptions == this.translateCaptions &&
           other.translateSearchAndTags == this.translateSearchAndTags);
 }
@@ -11071,6 +11115,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<String?> watchedFolderPath;
   final Value<String?> watchedFolderToken;
   final Value<double> faceSimilarityThreshold;
+  final Value<String> kartenansicht;
   final Value<bool> translateCaptions;
   final Value<bool> translateSearchAndTags;
   const AppSettingsCompanion({
@@ -11081,6 +11126,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.watchedFolderPath = const Value.absent(),
     this.watchedFolderToken = const Value.absent(),
     this.faceSimilarityThreshold = const Value.absent(),
+    this.kartenansicht = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
   });
@@ -11092,6 +11138,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.watchedFolderPath = const Value.absent(),
     this.watchedFolderToken = const Value.absent(),
     this.faceSimilarityThreshold = const Value.absent(),
+    this.kartenansicht = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
   });
@@ -11103,6 +11150,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<String>? watchedFolderPath,
     Expression<String>? watchedFolderToken,
     Expression<double>? faceSimilarityThreshold,
+    Expression<String>? kartenansicht,
     Expression<bool>? translateCaptions,
     Expression<bool>? translateSearchAndTags,
   }) {
@@ -11117,6 +11165,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
         'watched_folder_token': watchedFolderToken,
       if (faceSimilarityThreshold != null)
         'face_similarity_threshold': faceSimilarityThreshold,
+      if (kartenansicht != null) 'kartenansicht': kartenansicht,
       if (translateCaptions != null) 'translate_captions': translateCaptions,
       if (translateSearchAndTags != null)
         'translate_search_and_tags': translateSearchAndTags,
@@ -11131,6 +11180,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<String?>? watchedFolderPath,
       Value<String?>? watchedFolderToken,
       Value<double>? faceSimilarityThreshold,
+      Value<String>? kartenansicht,
       Value<bool>? translateCaptions,
       Value<bool>? translateSearchAndTags}) {
     return AppSettingsCompanion(
@@ -11143,6 +11193,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       watchedFolderToken: watchedFolderToken ?? this.watchedFolderToken,
       faceSimilarityThreshold:
           faceSimilarityThreshold ?? this.faceSimilarityThreshold,
+      kartenansicht: kartenansicht ?? this.kartenansicht,
       translateCaptions: translateCaptions ?? this.translateCaptions,
       translateSearchAndTags:
           translateSearchAndTags ?? this.translateSearchAndTags,
@@ -11175,6 +11226,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       map['face_similarity_threshold'] =
           Variable<double>(faceSimilarityThreshold.value);
     }
+    if (kartenansicht.present) {
+      map['kartenansicht'] = Variable<String>(kartenansicht.value);
+    }
     if (translateCaptions.present) {
       map['translate_captions'] = Variable<bool>(translateCaptions.value);
     }
@@ -11195,6 +11249,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('watchedFolderPath: $watchedFolderPath, ')
           ..write('watchedFolderToken: $watchedFolderToken, ')
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
+          ..write('kartenansicht: $kartenansicht, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
@@ -19140,6 +19195,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<String?> watchedFolderPath,
   Value<String?> watchedFolderToken,
   Value<double> faceSimilarityThreshold,
+  Value<String> kartenansicht,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
 });
@@ -19152,6 +19208,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<String?> watchedFolderPath,
   Value<String?> watchedFolderToken,
   Value<double> faceSimilarityThreshold,
+  Value<String> kartenansicht,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
 });
@@ -19189,6 +19246,9 @@ class $$AppSettingsTableFilterComposer
   ColumnFilters<double> get faceSimilarityThreshold => $composableBuilder(
       column: $table.faceSimilarityThreshold,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get kartenansicht => $composableBuilder(
+      column: $table.kartenansicht, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions,
@@ -19233,6 +19293,10 @@ class $$AppSettingsTableOrderingComposer
       column: $table.faceSimilarityThreshold,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get kartenansicht => $composableBuilder(
+      column: $table.kartenansicht,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions,
       builder: (column) => ColumnOrderings(column));
@@ -19271,6 +19335,9 @@ class $$AppSettingsTableAnnotationComposer
 
   GeneratedColumn<double> get faceSimilarityThreshold => $composableBuilder(
       column: $table.faceSimilarityThreshold, builder: (column) => column);
+
+  GeneratedColumn<String> get kartenansicht => $composableBuilder(
+      column: $table.kartenansicht, builder: (column) => column);
 
   GeneratedColumn<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions, builder: (column) => column);
@@ -19312,6 +19379,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> watchedFolderPath = const Value.absent(),
             Value<String?> watchedFolderToken = const Value.absent(),
             Value<double> faceSimilarityThreshold = const Value.absent(),
+            Value<String> kartenansicht = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
@@ -19323,6 +19391,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             watchedFolderPath: watchedFolderPath,
             watchedFolderToken: watchedFolderToken,
             faceSimilarityThreshold: faceSimilarityThreshold,
+            kartenansicht: kartenansicht,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
           ),
@@ -19334,6 +19403,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> watchedFolderPath = const Value.absent(),
             Value<String?> watchedFolderToken = const Value.absent(),
             Value<double> faceSimilarityThreshold = const Value.absent(),
+            Value<String> kartenansicht = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
@@ -19345,6 +19415,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             watchedFolderPath: watchedFolderPath,
             watchedFolderToken: watchedFolderToken,
             faceSimilarityThreshold: faceSimilarityThreshold,
+            kartenansicht: kartenansicht,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
           ),

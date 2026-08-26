@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -19,12 +20,35 @@ import '../widgets/mini_location_map.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
 
-/// Die drei Darstellungen der Kartenansicht: helle/dunkle flache Karte
-/// (OpenStreetMap-Kacheln) oder ein interaktiver 3D-Globus. Bewusst als
+/// Die vier Darstellungen der Kartenansicht: helle, dunkle oder
+/// topografische flache Karte oder ein interaktiver 3D-Globus. Bewusst als
 /// eigener, vom Nutzer gewählter Zustand statt am App-Theme (siehe
 /// [buildMapTileLayer]) – die App ist permanent dunkel eingefärbt, ohne
 /// diesen Umschalter gäbe es also nie helle Kacheln zu sehen.
-enum _MapViewMode { light, dark, topo, globe }
+enum Kartenansicht {
+  hell('hell'),
+  dunkel('dunkel'),
+  topo('topo'),
+  globus('globus');
+
+  const Kartenansicht(this.alsText);
+
+  /// Wie die Wahl in der Datenbank steht.
+  ///
+  /// Ein eigener Text statt `name` oder des Index: Der Index verschöbe
+  /// sich, sobald jemand einen Eintrag dazwischenschiebt, und aus einer
+  /// gemerkten Topografiekarte würde stillschweigend eine andere Ansicht.
+  final String alsText;
+
+  /// Liest die gemerkte Wahl zurück.
+  ///
+  /// Unbekanntes fällt auf [dunkel] zurück statt zu werfen – dasselbe
+  /// Muster wie bei `themeMode` und `sprache`: Eine Angabe aus einer
+  /// neueren Fassung darf den Start nicht verhindern.
+  static Kartenansicht ausText(String? text) => values
+      .where((a) => a.alsText == text)
+      .followedBy([dunkel]).first;
+}
 
 /// Zoomstufe beim Öffnen der flachen Karte ohne bestimmtes Ziel.
 const double _standardZoom = 6;
@@ -51,7 +75,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   List<AssetData>? _located;
-  _MapViewMode _mode = _MapViewMode.dark;
+  Kartenansicht _mode = Kartenansicht.dunkel;
 
   // Lazy angelegt (GPU-Shader-Ressourcen) und nur befüllt, solange der
   // Globus-Modus tatsächlich schon einmal aktiv war – wer nie in den
@@ -73,7 +97,7 @@ class _MapScreenState extends State<MapScreen> {
   // Zuletzt genutzte flache Kartenansicht (Hell/Dunkel) – Ziel, wenn man
   // vom Globus über einen Pin "auf die Karte springt" (siehe
   // [_jumpToFlatMap]), statt dafür immer Dunkel zu erzwingen.
-  _MapViewMode _lastFlatMode = _MapViewMode.dark;
+  Kartenansicht _lastFlatMode = Kartenansicht.dunkel;
 
   // Von [_jumpToFlatMap] gesetzt, um die nächste flache Karte auf einen
   // bestimmten Ort statt auf den Durchschnitt aller Fotos zu zentrieren –
@@ -108,11 +132,18 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _load() async {
+    // Erst die gemerkte Ansicht, dann die Orte: Sonst baute der Bildschirm
+    // kurz die dunkle Karte auf und schaltete sichtbar um.
+    final gemerkt = Kartenansicht.ausText(await widget.library.db.kartenansicht());
     final assets = await widget.library.db.assetsWithLocation();
     if (!mounted) return;
-    setState(() => _located = assets);
+    setState(() {
+      _mode = gemerkt;
+      if (gemerkt != Kartenansicht.globus) _lastFlatMode = gemerkt;
+      _located = assets;
+    });
     _globePointsSynced = false;
-    if (_mode == _MapViewMode.globe) _syncGlobePoints(focus: true);
+    if (_mode == Kartenansicht.globus) _syncGlobePoints(focus: true);
   }
 
   void _openAsset(List<AssetData> assets, AssetData asset) {
@@ -278,10 +309,13 @@ class _MapScreenState extends State<MapScreen> {
     _syncGlobePoints(zoom: bucket);
   }
 
-  void _setMode(_MapViewMode mode) {
+  void _setMode(Kartenansicht mode) {
+    // Absichtlich ohne `await`: Das Umschalten soll sofort geschehen, das
+    // Merken darf hinterherlaufen.
+    unawaited(widget.library.db.setzeKartenansicht(mode.alsText));
     setState(() {
       _mode = mode;
-      if (mode != _MapViewMode.globe) {
+      if (mode != Kartenansicht.globus) {
         _lastFlatMode = mode;
         // Explizite Auswahl über das Menü statt eines Pin-Sprungs (siehe
         // [_jumpToFlatMap]) -> normale Übersicht statt eines noch aus
@@ -314,7 +348,7 @@ class _MapScreenState extends State<MapScreen> {
         _globePointsSynced = false;
       }
     });
-    if (mode == _MapViewMode.globe && !_globePointsSynced) {
+    if (mode == Kartenansicht.globus && !_globePointsSynced) {
       _syncGlobePoints(focus: true);
     }
   }
@@ -338,23 +372,23 @@ class _MapScreenState extends State<MapScreen> {
       appBar: AppBar(
         title: Text(AppTexte.of(context).karteTitel),
         actions: [
-          PopupMenuButton<_MapViewMode>(
+          PopupMenuButton<Kartenansicht>(
             tooltip: AppTexte.of(context).karteAnsicht,
             icon: Icon(switch (_mode) {
-              _MapViewMode.light => Icons.light_mode_outlined,
-              _MapViewMode.dark => Icons.dark_mode_outlined,
-              _MapViewMode.topo => Icons.terrain_outlined,
-              _MapViewMode.globe => Icons.public,
+              Kartenansicht.hell => Icons.light_mode_outlined,
+              Kartenansicht.dunkel => Icons.dark_mode_outlined,
+              Kartenansicht.topo => Icons.terrain_outlined,
+              Kartenansicht.globus => Icons.public,
             }),
             onSelected: _setMode,
             itemBuilder: (context) => [
-              _modeMenuItem(_MapViewMode.light, Icons.light_mode_outlined,
+              _modeMenuItem(Kartenansicht.hell, Icons.light_mode_outlined,
                   AppTexte.of(context).karteHell),
-              _modeMenuItem(_MapViewMode.dark, Icons.dark_mode_outlined,
+              _modeMenuItem(Kartenansicht.dunkel, Icons.dark_mode_outlined,
                   AppTexte.of(context).karteDunkel),
-              _modeMenuItem(_MapViewMode.topo, Icons.terrain_outlined,
+              _modeMenuItem(Kartenansicht.topo, Icons.terrain_outlined,
                   AppTexte.of(context).karteTopografie),
-              _modeMenuItem(_MapViewMode.globe, Icons.public,
+              _modeMenuItem(Kartenansicht.globus, Icons.public,
                   AppTexte.of(context).karteGlobus),
             ],
           ),
@@ -364,7 +398,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  PopupMenuItem<_MapViewMode> _modeMenuItem(_MapViewMode mode, IconData icon, String label) {
+  PopupMenuItem<Kartenansicht> _modeMenuItem(Kartenansicht mode, IconData icon, String label) {
     return PopupMenuItem(
       value: mode,
       child: Row(
@@ -395,7 +429,7 @@ class _MapScreenState extends State<MapScreen> {
       );
     }
 
-    if (_mode == _MapViewMode.globe) {
+    if (_mode == Kartenansicht.globus) {
       return Stack(
         children: [
           Positioned.fill(
@@ -478,11 +512,11 @@ class _MapScreenState extends State<MapScreen> {
     // Der Kartenstil folgt der Nutzerwahl, nicht dem App-Theme: Die App
     // ist permanent dunkel, das Theme lieferte also nie helle Kacheln.
     final stil = switch (_mode) {
-      _MapViewMode.light => Kartenstil.hell,
-      _MapViewMode.topo => Kartenstil.topo,
+      Kartenansicht.hell => Kartenstil.hell,
+      Kartenansicht.topo => Kartenstil.topo,
       // Der Globus zeichnet keine Kacheln; der Wert wird dann nicht
       // benutzt, muss aber existieren.
-      _MapViewMode.dark || _MapViewMode.globe => Kartenstil.dunkel,
+      Kartenansicht.dunkel || Kartenansicht.globus => Kartenstil.dunkel,
     };
     // Ein Marker je Gruppe statt je Foto. Vorher stand für jedes verortete
     // Foto ein eigener Marker auf der Karte, jeder mit seiner vollen
@@ -586,7 +620,7 @@ class _MapScreenState extends State<MapScreen> {
       ));
       return;
     }
-    if (_mode == _MapViewMode.globe) {
+    if (_mode == Kartenansicht.globus) {
       final c = _ensureGlobeController();
       c.focusOnCoordinates(GlobeCoordinates(ort.breite, ort.laenge),
           animate: true);

@@ -279,7 +279,14 @@ class BackupService {
       if (_festesZwischenlager == null) {
         try {
           await staging.delete(recursive: true);
-        } catch (_) {}
+        } catch (e) {
+          // Kein Grund, die Sicherung scheitern zu lassen - aber es muss
+          // gesagt werden: Im Zwischenlager liegen die Dateien im
+          // KLARTEXT. Bleibt es stehen, bleibt der Klartext liegen, und
+          // ein stiller Fehlschlag hiesse, dass niemand davon erfaehrt.
+          debugPrint('Zwischenlager ${staging.path} nicht geloescht: $e - '
+              'es enthaelt unverschluesselte Dateien.');
+        }
       }
     }
 
@@ -720,7 +727,14 @@ class BackupService {
       if (_festesZwischenlager == null) {
         try {
           await staging.delete(recursive: true);
-        } catch (_) {}
+        } catch (e) {
+          // Kein Grund, die Sicherung scheitern zu lassen - aber es muss
+          // gesagt werden: Im Zwischenlager liegen die Dateien im
+          // KLARTEXT. Bleibt es stehen, bleibt der Klartext liegen, und
+          // ein stiller Fehlschlag hiesse, dass niemand davon erfaehrt.
+          debugPrint('Zwischenlager ${staging.path} nicht geloescht: $e - '
+              'es enthaelt unverschluesselte Dateien.');
+        }
       }
     }
 

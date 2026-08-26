@@ -891,6 +891,20 @@ class AppSettings extends Table {
   /// das irgendwo stand.
   RealColumn get faceSimilarityThreshold => real().withDefault(const Constant(0.363))();
 
+  /// Zuletzt gewählte Kartenansicht: `'hell'`, `'dunkel'`, `'topo'` oder
+  /// `'globus'` (siehe `Kartenansicht` in map_screen.dart).
+  ///
+  /// Als Text und nicht als Zahl, aus demselben Grund wie bei [themeMode]:
+  /// Eine unbekannte Angabe fällt beim Lesen auf die dunkle Karte zurück,
+  /// statt den Start zu verhindern.
+  ///
+  /// Die Wahl lag bisher nur im Bildschirmzustand. Wer die
+  /// Topografiekarte einstellte und die Ansicht verliess, fand beim
+  /// nächsten Öffnen wieder die dunkle vor - ohne dass das irgendwo
+  /// stand. Derselbe Fall wie seinerzeit bei
+  /// [faceSimilarityThreshold].
+  TextColumn get kartenansicht => text().withDefault(const Constant('dunkel'))();
+
   /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
   BoolColumn get translateCaptions => boolean().withDefault(const Constant(false))();
 
@@ -1004,7 +1018,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 48;
+  int get schemaVersion => 49;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1365,6 +1379,12 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 49) {
+            // Die zuletzt gewählte Kartenansicht überdauert jetzt das
+            // Schliessen des Bildschirms.
+            await _addColumnIfMissing(m, appSettings, appSettings.kartenansicht,
+                'app_settings', 'kartenansicht');
           }
           if (from < 48) {
             // Dateiformat als eigene, indexierte Spalte – Suche nach
@@ -2186,6 +2206,19 @@ class AppDatabase extends _$AppDatabase {
       into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
         id: const Value(0),
         translateCaptions: Value(an),
+      ));
+
+  /// Die gemerkte Kartenansicht, als Text wie in der Spalte.
+  Future<String?> kartenansicht() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return row?.kartenansicht;
+  }
+
+  Future<void> setzeKartenansicht(String ansicht) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        kartenansicht: Value(ansicht),
       ));
 
   Future<void> setzeUebersetzeSucheUndTags(bool an) =>
