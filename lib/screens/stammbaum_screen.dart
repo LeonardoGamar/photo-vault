@@ -36,6 +36,7 @@ import 'familienorte_screen.dart';
 import 'familienstatistik_screen.dart';
 import 'lebenslauf_screen.dart';
 import 'person_detail_screen.dart';
+import '../services/meldungsdienst.dart';
 
 /// Breite und Höhe einer Personenkarte. Fest, weil die Verbindungslinien
 /// aus diesen beiden Zahlen und der Anzahl der Karten berechnet werden –
@@ -502,8 +503,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// Ein kurzer Hinweis am unteren Rand – für die Fälle, in denen der
   /// Wunsch verständlich, aber (noch) nicht ausführbar ist.
   void _kurzerHinweis(String text) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(text)));
+    melde.hinweis(text);
   }
 
   /// Fragt, über welche Bezugsperson die neue eingehängt werden soll.
@@ -546,13 +546,11 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
 
   void _meldeFehler(Beziehungsfehler fehler) {
     final t = AppTexte.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(switch (fehler) {
-        Beziehungsfehler.mitSichSelbst => t.stammbaumFehlerSelbst,
-        Beziehungsfehler.kreis => t.stammbaumFehlerKreis,
-        Beziehungsfehler.schonVorhanden => t.stammbaumFehlerVorhanden,
-      }),
-    ));
+    melde.warnung(switch (fehler) {
+          Beziehungsfehler.mitSichSelbst => t.stammbaumFehlerSelbst,
+          Beziehungsfehler.kreis => t.stammbaumFehlerKreis,
+          Beziehungsfehler.schonVorhanden => t.stammbaumFehlerVorhanden,
+        });
   }
 
   /// Das Menü einer Karte. [art] und [umgekehrt] beschreiben, wie die
@@ -724,8 +722,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     // der Fehler bei Adoptiv- und Pflegeeltern: Es passierte nichts, und
     // nichts sagte es.
     if (!entfernt && mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(t.stammbaumNichtsEntfernt)));
+      melde.warnung(t.stammbaumNichtsEntfernt);
     }
   }
 
@@ -781,9 +778,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     final assets = await widget.library.db.assetsFuerPersonen(ids);
     if (!mounted) return;
     if (assets.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t.stammbaumKeineFamilienfotos)),
-      );
+      melde.hinweis(t.stammbaumKeineFamilienfotos);
       return;
     }
     await Navigator.of(context).push(MaterialPageRoute(
@@ -817,9 +812,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     // Erst wenn BEIDES leer ist, gibt es nichts zu zeigen. Ein Stammbaum
     // kann verortete Ereignisse haben, ohne dass ein Foto verortet wäre.
     if (orte.isEmpty && ereignisse.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t.stammbaumKeineFamilienorte)),
-      );
+      melde.hinweis(t.stammbaumKeineFamilienorte);
       return;
     }
     await Navigator.of(context).push(MaterialPageRoute(
@@ -924,9 +917,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     );
     await File(mitTafelEndung(ziel)).writeAsBytes(bytes);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(t.stammbaumTafelFertig)),
-    );
+    melde.erfolg(t.stammbaumTafelFertig);
   }
 
   /// Schreibt den Bestand als GEDCOM-Datei.
@@ -966,9 +957,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     // Standard-Kodierung von `writeAsString` ist es nicht überall.
     await File(mitEndung(ziel)).writeAsString(inhalt, encoding: utf8);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(t.stammbaumGedcomFertig(_personen.length))),
-    );
+    melde.erfolg(t.stammbaumGedcomFertig(_personen.length));
   }
 
   /// Liest eine GEDCOM-Datei ein – der Weg *hinein*.

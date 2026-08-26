@@ -15,6 +15,7 @@ import 'color_label_picker.dart';
 import 'mini_location_map.dart';
 import 'person_picker_dialog.dart';
 import 'star_rating.dart';
+import '../services/meldungsdienst.dart';
 
 /// Info-Ansicht für ein einzelnes Asset (Foto/Video) in der Vollbildvorschau
 /// – Layout angelehnt an Google Fotos: Zeilen mit Icon, Titel und optionalem
@@ -180,11 +181,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     final unassigned = faces.where((f) => f.personId == null && !f.isIgnored).toList();
     if (unassigned.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            AppTexte.of(context).infoKeineUnbenannten,
-          ),
-        ));
+        melde.hinweis(AppTexte.of(context).infoKeineUnbenannten,);
       }
       return;
     }

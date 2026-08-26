@@ -17,6 +17,8 @@ import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
 import 'package:photo_vault/widgets/asset_thumbnail_tile.dart';
+import 'package:photo_vault/services/meldungsdienst.dart';
+import 'package:photo_vault/widgets/meldungsfenster.dart';
 
 /// Der Weg vom Vorschlag zur bestätigten Reise.
 ///
@@ -96,6 +98,9 @@ void main() {
   });
 
   tearDown(() async {
+    // Der Meldungsdienst ist ein Einzelstueck – was hier stehen
+    // bleibt, steht im naechsten Test noch da.
+    melde.verlaufLeeren();
     await db.close();
     tempRoot.deleteSync(recursive: true);
   });
@@ -109,6 +114,10 @@ void main() {
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
+      // Der Meldungsstapel gehoert dazu: Seit der Meldungszentrale
+      // erscheinen Meldungen dort und nicht mehr als SnackBar im
+      // Scaffold.
+      builder: (context, kind) => mitMeldungen(kind),
       home: ReisenScreen(library: library),
     ));
     await tester.pumpAndSettle();
@@ -281,7 +290,10 @@ void main() {
     // ohne es zu sagen, findet man nur durch Zufall wieder.
     await tester.tap(find.text('Als Titelbild'));
     await tester.pumpAndSettle();
-    expect(find.text('Titelbild gesetzt.'), findsOneWidget);
+    // Im Verlauf und nicht auf dem Schirm: `pumpAndSettle` laesst den
+    // ablaufenden Balken der Meldung bis zum Ende laufen, die Karte ist
+    // danach planmaessig weg.
+    expect(melde.verlauf.first.text, 'Titelbild gesetzt.');
     expect((await db.alleReisen()).single.titelbildAssetId, isNotNull);
   });
 
@@ -365,6 +377,10 @@ void main() {
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
+      // Der Meldungsstapel gehoert dazu: Seit der Meldungszentrale
+      // erscheinen Meldungen dort und nicht mehr als SnackBar im
+      // Scaffold.
+      builder: (context, kind) => mitMeldungen(kind),
       home: ReiseDetailScreen(
           library: library, reise: (await db.alleReisen()).single),
     ));

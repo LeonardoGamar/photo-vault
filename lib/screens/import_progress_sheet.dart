@@ -9,6 +9,7 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/camera_source_picker_dialog.dart';
 import 'asset_viewer_screen.dart';
+import '../services/meldungsdienst.dart';
 
 /// Fragt zunächst, ob einzelne Dateien, ein ganzer Ordner oder direkt eine
 /// angeschlossene Kamera/SD-Karte importiert werden sollen, und importiert
@@ -64,9 +65,7 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
     paths = await library.importService.collectSupportedFilesInFolder(folder);
     if (paths.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).importNichtsImOrdner)),
-        );
+        melde.hinweis(AppTexte.of(context).importNichtsImOrdner);
       }
       return;
     }
@@ -77,9 +76,7 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
     paths = await library.importService.collectSupportedFilesInFolder(dcimPath);
     if (paths.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).importNichtsAufDatentraeger)),
-        );
+        melde.hinweis(AppTexte.of(context).importNichtsAufDatentraeger);
       }
       return;
     }

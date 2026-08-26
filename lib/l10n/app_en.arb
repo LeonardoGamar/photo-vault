@@ -2461,5 +2461,237 @@
   "weltkarteLegendeHand": "Pale, dotted outline: marked by hand, without a photo.",
   "weltkarteLegendeGeplant": "Nearly empty, dashed outline: planned – does not count as visited.",
   "weltkarteOhneUmriss": "Small territories such as the Vatican have no outline; they stay a dot.",
-  "stammbaumSchwaeger": "Siblings-in-law"
+  "stammbaumSchwaeger": "Siblings-in-law",
+  "ortRegionen": "Regions · {besucht} of {gesamt}",
+  "@ortRegionen": {
+    "placeholders": {
+      "besucht": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "ortOrte": "Places · {besucht} of {gesamt}",
+  "@ortOrte": {
+    "placeholders": {
+      "besucht": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "ortFotos": "{anzahl, plural, =1{One photo} other{{anzahl} photos}}",
+  "@ortFotos": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "ortNichtsHier": "Nothing from here yet – no photo, and the dataset knows no further level below.",
+  "meldungenTitel": "Notifications",
+  "meldungenKeine": "Nothing to report yet.",
+  "meldungenGlocke": "Show notifications",
+  "meldungSchliessen": "Dismiss notification",
+  "meldungenAlleSchliessen": "Hide all",
+  "meldungenVerlaufLeeren": "Clear history",
+  "meldungWiederholt": "{anzahl}×",
+  "@meldungWiederholt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "meldungArtHinweis": "Note",
+  "meldungArtErfolg": "Done",
+  "meldungArtWarnung": "Warning",
+  "meldungArtFehler": "Error",
+  "aktivitaetenTitel": "Activities",
+  "aktivitaetenOeffnen": "Show activities",
+  "aktivitaetenVorschlaege": "Suggestions",
+  "aktivitaetenBestaetigte": "On trips",
+  "aktivitaetenOhneReise": "On their own",
+  "aktivitaetenLeer": "No activity yet. Hikes, bike rides and outings are detected from a day's photos – a handful of located pictures spanning at least three quarters of an hour are needed.",
+  "aktivitaetenSuchtNoch": "Looking for outings …",
+  "aktivitaetenBenennen": "Name activity",
+  "aktivitaetenUmbenennen": "Rename",
+  "aktivitaetenName": "Name",
+  "aktivitaetenLoeschen": "Delete activity",
+  "aktivitaetenLoeschenFrage": "Remove “{name}” from the list? The photos stay where they are.",
+  "@aktivitaetenLoeschenFrage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenNotiz": "Note",
+  "aktivitaetenArt": "Type",
+  "aktivitaetenArtAendern": "Change type",
+  "aktivitaetenStrecke": "{km} km",
+  "@aktivitaetenStrecke": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenDauer": "{stunden} h {minuten} min",
+  "@aktivitaetenDauer": {
+    "placeholders": {
+      "stunden": {
+        "type": "int"
+      },
+      "minuten": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenDauerKurz": "{minuten} min",
+  "@aktivitaetenDauerKurz": {
+    "placeholders": {
+      "minuten": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenAufnahmen": "{anzahl, plural, =1{One photo} other{{anzahl} photos}}",
+  "@aktivitaetenAufnahmen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenOhneOrt": "Out and about",
+  "aktivitaetenZuReise": "Part of: {reise}",
+  "@aktivitaetenZuReise": {
+    "placeholders": {
+      "reise": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenKeineRoute": "Too few located photos for a route.",
+  "aktivitaetenInDieserReise": "Outings",
+  "aktivitaetenAngelegt": "“{name}” recorded.",
+  "@aktivitaetenAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenEntfernt": "“{name}” removed.",
+  "@aktivitaetenEntfernt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aktArtWanderung": "Hike",
+  "aktArtRadtour": "Bike ride",
+  "aktArtAusflug": "Outing",
+  "aktArtBesichtigung": "Sightseeing",
+  "aktArtBootsfahrt": "Boat trip",
+  "aktArtSonstiges": "Other",
+  "aktivitaetenIstEine": "Yes, an outing",
+  "aktivitaetenKeine": "Not an outing",
+  "spurHinzufuegen": "Add GPX track",
+  "spurEntfernen": "Remove track",
+  "spurEntferntMeldung": "Track removed.",
+  "spurHinzugefuegtMeldung": "Track “{name}” added: {km} km.",
+  "@spurHinzugefuegtMeldung": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "spurTitel": "Recorded track",
+  "spurKennzahlen": "{km} km · ▲ {auf} m · ▼ {ab} m",
+  "@spurKennzahlen": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "auf": {
+        "type": "int"
+      },
+      "ab": {
+        "type": "int"
+      }
+    }
+  },
+  "spurKennzahlenOhneHoehe": "{km} km · no elevation data",
+  "@spurKennzahlenOhneHoehe": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "spurPunkte": "{anzahl} points",
+  "@spurPunkte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "spurHoehenprofil": "Elevation profile",
+  "spurOhneHoehen": "This file carries no elevations – without them there is no profile.",
+  "spurProfilBeschreibung": "Elevation profile over {km} km, from {tief} to {hoch} metres, {auf} metres of ascent.",
+  "@spurProfilBeschreibung": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "tief": {
+        "type": "int"
+      },
+      "hoch": {
+        "type": "int"
+      },
+      "auf": {
+        "type": "int"
+      }
+    }
+  },
+  "spurStelle": "{km} km · {hoehe} m",
+  "@spurStelle": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "hoehe": {
+        "type": "int"
+      }
+    }
+  },
+  "spurSchonDa": "This activity already has a track.",
+  "gelaendeTitel": "Terrain",
+  "gelaendeOeffnen": "Show terrain",
+  "gelaendeLaedt": "Fetching elevations …",
+  "gelaendeNichts": "No elevation data arrived for this area. The tiles live on the network; without a connection there is no landscape.",
+  "gelaendeBedienung": "Drag to rotate and tilt · scroll to zoom",
+  "gelaendeUeberhoeht": "Elevation exaggerated {faktor}×",
+  "@gelaendeUeberhoeht": {
+    "placeholders": {
+      "faktor": {
+        "type": "String"
+      }
+    }
+  },
+  "gelaendeNamensnennung": "Elevation: Tilezen / AWS Open Data · Map: OpenTopoMap (CC-BY-SA)",
+  "gelaendeErneut": "Try again"
 }

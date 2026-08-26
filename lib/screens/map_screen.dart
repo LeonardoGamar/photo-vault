@@ -22,6 +22,7 @@ import '../widgets/mini_location_map.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
 import 'lebenslauf_screen.dart';
+import '../services/meldungsdienst.dart';
 
 /// Die vier Darstellungen der Kartenansicht: helle, dunkle oder
 /// topografische flache Karte oder ein interaktiver 3D-Globus. Bewusst als
@@ -750,9 +751,7 @@ class _MapScreenState extends State<MapScreen> {
     if (!mounted) return;
     setState(() => _standortLaeuft = false);
     if (ort == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).karteStandortNichtErmittelbar),
-      ));
+      melde.warnung(AppTexte.of(context).karteStandortNichtErmittelbar);
       return;
     }
     if (_mode == Kartenansicht.globus) {

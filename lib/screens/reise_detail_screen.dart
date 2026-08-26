@@ -1,21 +1,20 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../services/reiseroute.dart';
-import '../services/storage_paths.dart';
 import '../widgets/asset_thumbnail_tile.dart';
-import '../widgets/mini_location_map.dart'
-    show buildMapAttribution, buildMapTileLayer, kartenHoechsteStufe;
+import '../widgets/routenkarte.dart';
 import '../widgets/namens_dialog.dart';
 import 'asset_viewer_screen.dart';
 import 'reisen_screen.dart' show reiseUnterzeile;
+import '../services/meldungsdienst.dart';
+import 'aktivitaet_detail_screen.dart';
+import 'aktivitaeten_screen.dart' show Aktivitaetszeile;
 
 /// Eine einzelne Reise.
 ///
@@ -39,6 +38,7 @@ class ReiseDetailScreen extends StatefulWidget {
 class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   late ReisenData _reise = widget.reise;
   List<AssetData> _aufnahmen = const [];
+  List<AktivitaetenData> _aktivitaeten = const [];
   bool _laedt = true;
 
   @override
@@ -50,9 +50,12 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   Future<void> _laden() async {
     final aufnahmen = await widget.library.db.aufnahmenDerReise(_reise.id);
     final frisch = await widget.library.db.reise(_reise.id);
+    final aktivitaeten =
+        await widget.library.db.aktivitaetenDerReise(_reise.id);
     if (!mounted) return;
     setState(() {
       _aufnahmen = aufnahmen;
+      _aktivitaeten = aktivitaeten;
       if (frisch != null) _reise = frisch;
       _laedt = false;
     });
@@ -175,8 +178,7 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
         _reise.id, ReisenCompanion(titelbildAssetId: Value(asset.id)));
     await _laden();
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(t.reisenTitelbildGesetzt)));
+    melde.erfolg(t.reisenTitelbildGesetzt);
   }
 
   Future<void> _entfernen() async {
@@ -207,6 +209,14 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   /// „Was habe ich in Rom fotografiert" ist eine eigene Frage, und ein
   /// Betrachter, der danach weiterblättert nach Florenz, beantwortet sie
   /// nur halb.
+  Future<void> _aktivitaetOeffnen(AktivitaetenData k) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          AktivitaetDetailScreen(library: widget.library, aktivitaet: k),
+    ));
+    if (mounted) await _laden();
+  }
+
   void _ortOeffnen(Aufenthaltsort ort) {
     final bilder = [
       for (final id in ort.aufnahmeIds)
@@ -290,7 +300,7 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                           Text(t.reisenRoute,
                               style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: AppSpacing.xs),
-                          _Routenkarte(
+                          Routenkarte(
                             route: _route,
                             orte: _orteMitBildern,
                             nachId: _nachId,
@@ -330,6 +340,33 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                     ),
                   ),
                 ),
+                // Die Unternehmungen dieser Reise – vor den Tagen, weil
+                // sie die Frage „was haben wir gemacht?" beantworten und
+                // die Tage nur die Frage „wann".
+                if (_aktivitaeten.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg,
+                          AppSpacing.md, AppSpacing.lg, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(t.aktivitaetenInDieserReise,
+                              style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: AppSpacing.xs),
+                          for (final k in _aktivitaeten)
+                            Aktivitaetszeile(
+                              aktivitaet: k,
+                              library: widget.library,
+                              // In der Liste einer Reise wäre der Name
+                              // bei jeder Zeile derselbe.
+                              reisename: null,
+                              onTippen: () => _aktivitaetOeffnen(k),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 // Die Tage als Kapitel. Ein durchgehendes Raster von
                 // dreihundertfünfzig Bildern beantwortet die Frage nicht,
                 // die man an eine Reise stellt: Was war wann?
@@ -419,189 +456,3 @@ class _Tageskopf extends StatelessWidget {
 ///
 /// Ohne Bedienung: Diese Karte beantwortet eine Frage („wo war das?"),
 /// sie ist kein Kartenbildschirm. Wer suchen will, hat den unter „Orte".
-class _Routenkarte extends StatelessWidget {
-  final List<Routenpunkt> route;
-  final List<Aufenthaltsort> orte;
-  final Map<String, AssetData> nachId;
-  final StoragePaths paths;
-  final void Function(Aufenthaltsort) beiOrt;
-
-  const _Routenkarte({
-    required this.route,
-    required this.orte,
-    required this.nachId,
-    required this.paths,
-    required this.beiOrt,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final farben = Theme.of(context).colorScheme;
-    final punkte = [for (final p in route) ll.LatLng(p.breite, p.laenge)];
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadius.sm),
-      child: SizedBox(
-        height: 240,
-        child: FlutterMap(
-          options: MapOptions(
-            // Der Ausschnitt wird auf die Strecke gelegt, nicht auf eine
-            // geratene Mitte mit geratener Zoomstufe.
-            initialCameraFit: CameraFit.coordinates(
-              coordinates: punkte,
-              padding: const EdgeInsets.all(AppSpacing.xxl),
-            ),
-            interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.none),
-            // Auch eine unbewegliche Karte braucht die Grenze: Das
-            // Einpassen auf die Strecke kann bei zwei dicht
-            // beieinanderliegenden Punkten über die höchste Stufe hinaus
-            // rechnen, für die es Kacheln gibt.
-            maxZoom: kartenHoechsteStufe(context),
-          ),
-          children: [
-            buildMapTileLayer(context),
-            PolylineLayer(polylines: [
-              Polyline(
-                points: punkte,
-                strokeWidth: 3,
-                color: farben.primary,
-              ),
-            ]),
-            MarkerLayer(markers: [
-              for (final (i, p) in punkte.indexed)
-                Marker(
-                  point: p,
-                  width: 14,
-                  height: 14,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      // Anfang und Ende betont: Eine Strecke ohne
-                      // erkennbare Richtung ist nur ein Strich.
-                      color: i == 0 || i == punkte.length - 1
-                          ? farben.primary
-                          : farben.surface,
-                      border: Border.all(color: farben.primary, width: 2),
-                    ),
-                  ),
-                ),
-            ]),
-            // Die Bilder liegen ueber der Strecke: Sie sind das, wonach man
-            // auf einer Reisekarte sucht.
-            MarkerLayer(markers: [
-              for (final ort in orte)
-                if (nachId[ort.aufnahmeIds.first] case final bild?)
-                  Marker(
-                    point: ll.LatLng(ort.breite, ort.laenge),
-                    width: 52,
-                    height: 52,
-                    child: _Ortsbild(
-                      bild: bild,
-                      paths: paths,
-                      anzahl: ort.aufnahmeIds.length,
-                      name: ort.name,
-                      beiTippen: () => beiOrt(ort),
-                    ),
-                  ),
-            ]),
-            buildMapAttribution(context),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Ein Aufenthaltsort als Bild auf der Karte.
-///
-/// Die Karte selbst bleibt unbeweglich (siehe [_Routenkarte]) – ein
-/// Tippen kommt trotzdem an, weil die Marke ein gewöhnliches Widget ist.
-/// Genau das ist der Grund für die Aufteilung: Eine Karte, die sich
-/// schieben lässt, würde inmitten einer rollbaren Seite jeden zweiten
-/// Wisch verschlucken.
-class _Ortsbild extends StatelessWidget {
-  final AssetData bild;
-  final StoragePaths paths;
-  final int anzahl;
-  final String? name;
-  final VoidCallback beiTippen;
-
-  const _Ortsbild({
-    required this.bild,
-    required this.paths,
-    required this.anzahl,
-    required this.name,
-    required this.beiTippen,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTexte.of(context);
-    final farben = Theme.of(context).colorScheme;
-    final pfad = bild.thumbnailRelativePath;
-    return Tooltip(
-      message: [
-        if (name case final n?) n,
-        t.reisenAufnahmen(anzahl),
-      ].join(' · '),
-      child: GestureDetector(
-        onTap: beiTippen,
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black45, blurRadius: 4),
-                  ],
-                  color: farben.surfaceContainerHighest,
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: pfad == null
-                    ? Icon(Icons.image_outlined,
-                        size: 18, color: farben.onSurfaceVariant)
-                    : Image.file(
-                        paths.absolute(pfad),
-                        fit: BoxFit.cover,
-                        // Die Marke ist 44 Punkte gross; die Vorschau auf
-                        // der Platte ist 400. Ohne diese Grenze läge bei
-                        // zwanzig Orten das Zwanzigfache im Speicher.
-                        cacheWidth: 132,
-                        errorBuilder: (_, __, ___) => Icon(
-                            Icons.image_not_supported_outlined,
-                            size: 18,
-                            color: farben.onSurfaceVariant),
-                      ),
-              ),
-              if (anzahl > 1)
-                Positioned(
-                  right: -6,
-                  top: -6,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.xs, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: farben.primary,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(color: Colors.white, width: 1),
-                    ),
-                    child: Text('$anzahl',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: farben.onPrimary)),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

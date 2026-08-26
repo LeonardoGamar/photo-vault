@@ -9,6 +9,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/selection_action_bar.dart' show confirmDialog;
 import 'asset_viewer_screen.dart';
+import '../services/meldungsdienst.dart';
 
 /// Gleicht DB-Zeilen gegen tatsächliche Dateien auf der Platte ab: fehlende
 /// Dateien, verwaiste Dateien ohne DB-Zeile, und (optional) Prüfsummen-
@@ -168,9 +169,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
           encryptedHeaderIssues: report.encryptedHeaderIssues,
           filesScanned: report.filesScanned,
         ));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppTexte.of(context).integVerwaisteGeloescht(geloescht))),
-    );
+    melde.erfolg(AppTexte.of(context).integVerwaisteGeloescht(geloescht));
   }
 
   static String _groesse(int bytes) => bytes >= 1024 * 1024 * 1024

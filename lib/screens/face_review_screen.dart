@@ -17,6 +17,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/asset_info_sheet.dart';
 import '../widgets/person_picker_dialog.dart';
+import '../services/meldungsdienst.dart';
 
 /// Zeigt ein Foto in Vollbild mit allen erkannten Gesichtern als Rahmen
 /// darüber. Tippen auf einen Rahmen ordnet dieses Gesicht einer Person zu
@@ -210,9 +211,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     if (face.isIgnored) {
       await widget.library.db.setFacesIgnored([face.id], false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).gesichtZurueckgeholt)),
-        );
+        melde.erfolg(AppTexte.of(context).gesichtZurueckgeholt);
       }
       _load();
       return;
@@ -459,9 +458,7 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).gesichtEmbeddingFehler('$e'))),
-        );
+        melde.fehler(AppTexte.of(context).gesichtEmbeddingFehler('$e'));
       }
     }
 

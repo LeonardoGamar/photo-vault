@@ -27,6 +27,7 @@ import '../widgets/progress_dialog.dart';
 import '../widgets/typed_confirm_dialog.dart';
 import 'background_tasks_screen.dart';
 import 'locked_folder_screen.dart';
+import '../services/meldungsdienst.dart';
 
 class SettingsScreen extends StatefulWidget {
   final LibraryState library;
@@ -112,9 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Wörtern und wären danach nie wieder erreichbar.
     widget.library.aiTaggingService.leereBegriffsCache();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppTexte.of(context).spracheVokabularFertig(anzahl))),
-    );
+    melde.erfolg(AppTexte.of(context).spracheVokabularFertig(anzahl));
   }
 
   /// Welche der unterstützten Sprachen bei "System" greift.
@@ -270,9 +269,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openInFinder(String path) async {
     final opened = await revealInFileManager(path);
     if (!opened && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppTexte.of(context).einstOrdnerNichtGeoeffnet(path))),
-      );
+      melde.warnung(AppTexte.of(context).einstOrdnerNichtGeoeffnet(path));
     }
   }
 
@@ -317,8 +314,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await widget.library.reloadModels();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(_fehlertext(context, e))));
+        melde.fehler(_fehlertext(context, e));
       }
     } finally {
       if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -373,8 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await widget.library.reloadGeoData();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(_fehlertext(context, e))));
+        melde.fehler(_fehlertext(context, e));
       }
     } finally {
       if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
@@ -431,11 +426,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner());
     final neue = await widget.library.pruefeUeberwachtenOrdner();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(neue > 0
-          ? AppTexte.of(context).einstUeberwachtUebernommen(neue)
-          : AppTexte.of(context).einstUeberwachtNichtsNeues),
-    ));
+    melde.hinweis(neue > 0
+        ? AppTexte.of(context).einstUeberwachtUebernommen(neue)
+        : AppTexte.of(context).einstUeberwachtNichtsNeues);
   }
 
   Future<void> _beendeUeberwachung() async {
@@ -488,11 +481,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await LibraryLocation.fuegeHinzu(picked);
     if (!mounted) return;
     setState(() => _bibliothekenFuture = LibraryLocation.bekannte());
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(vorhanden
-          ? AppTexte.of(context).einstBibBestehendHinzugefuegt
-          : AppTexte.of(context).einstBibLeerHinzugefuegt),
-    ));
+    melde.erfolg(vorhanden
+        ? AppTexte.of(context).einstBibBestehendHinzugefuegt
+        : AppTexte.of(context).einstBibLeerHinzugefuegt);
   }
 
   /// Streicht einen Eintrag aus der Liste. Die Fotos bleiben, wo sie sind.
@@ -515,9 +506,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     setState(() => _bibliothekenFuture = LibraryLocation.bekannte());
     if (!entfernt) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).einstBibNichtEntfernbar),
-      ));
+      melde.warnung(AppTexte.of(context).einstBibNichtEntfernbar);
     }
   }
 
@@ -609,7 +598,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop(); // Ladeanzeige schließen
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$errorPrefix: $e')));
+        melde.fehler('$errorPrefix: $e');
       }
     }
   }

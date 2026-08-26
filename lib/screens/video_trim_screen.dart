@@ -7,6 +7,7 @@ import '../services/native_image_converter.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/video_playback.dart';
+import '../services/meldungsdienst.dart';
 
 /// Nicht-destruktiver Video-Zuschnitt: Start-/Endpunkt über eine
 /// Bereichsleiste wählen, "Speichern" schneidet nativ über AVFoundation
@@ -96,9 +97,7 @@ class _VideoTrimScreenState extends State<VideoTrimScreen> {
     if (!success) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).videoZuschneidenFehler)),
-        );
+        melde.fehler(AppTexte.of(context).videoZuschneidenFehler);
       }
       return;
     }

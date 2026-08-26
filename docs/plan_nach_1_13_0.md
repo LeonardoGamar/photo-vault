@@ -23,7 +23,7 @@ entsteht, ist einer mehr, der danach umgestellt werden muss.
 
 ---
 
-## Stufe 1 — Die Ortsansicht (kein Schemawechsel)
+## Stufe 1 — Die Ortsansicht (kein Schemawechsel) — **erledigt**
 
 **Zwei Wünsche, ein Bildschirm.** „Klick auf ein Land soll die Regionen
 zeigen" und „Klick auf einen Pin soll die Fotos zeigen" enden beide bei
@@ -39,8 +39,14 @@ zwei Marken-Knöpfe (`weltkarte_screen.dart`, `_punktGewaehlt`).
 `SearchFilters` führt `locationCountry`, `locationState` und
 `locationCity`, und `database.dart` wertet sie in `queryAssets` aus
 (Zeilen 3508–3515). Die Frage „zeig mir die Fotos aus Niedersachsen" ist
-also bereits beantwortbar — es fehlt nur der Weg dorthin. `search_screen`
-nimmt fertige Filter entgegen.
+also bereits beantwortbar — es fehlt nur der Weg dorthin.
+
+**Nachgesehen und berichtigt:** `SearchScreen` nimmt *keine* fertigen
+Filter entgegen, es beginnt mit `const SearchFilters()`. Die Fotos werden
+deshalb in der Ortsansicht selbst über `queryAssets` geholt und als
+Raster eingebettet, statt auf die Suche zu verweisen. Das ist ohnehin der
+bessere Weg: Ein Ort ist kein Suchergebnis, und wer von dort zurückgeht,
+soll wieder beim Ort landen und nicht in einer Suchmaske.
 
 ### Umsetzung
 
@@ -74,7 +80,7 @@ Ort und zurück.
 
 ---
 
-## Stufe 2 — Die Meldungszentrale (kein Schemawechsel)
+## Stufe 2 — Die Meldungszentrale (kein Schemawechsel) — **erledigt**
 
 **82 Meldungen in 24 Dateien**, keine einzige mit eigener Dauer, keine
 Historie. Wer eine verpasst, hat sie verpasst.
@@ -112,9 +118,29 @@ gleicher Meldungen, Fehler bleiben). Widget-Tests für Stapel, Wegklicken
 und Historie. Der heutige Test, der Flutters `persist`-Verhalten
 festhält, bleibt bestehen, bis die letzte SnackBar weg ist.
 
+### Was beim Bauen anders kam als geplant
+
+- **Der Verlauf ist eine Tafel im Stapel, kein Dialog.** Der
+  Meldungsstapel hängt in `MaterialApp.builder` und liegt damit
+  *ausserhalb* des Navigators: Dort gibt es weder Overlay noch
+  Navigator, `showDialog` wäre also gar nicht möglich gewesen. Für die
+  Tooltips bringt das Fenster ein eigenes `Overlay` mit.
+- **Fristen laufen nur, solange jemand zusieht** (`hasListeners`). Ohne
+  das hing in jedem Widget-Test, dessen Bildschirm etwas meldet, eine
+  Uhr in der Luft, und der Rahmen brach mit „A Timer is still pending"
+  ab – in Tests, die mit Meldungen nichts zu tun haben.
+- **`meldung_mit_knopf.dart` ist samt Test entfallen**, weil keine
+  SnackBar mehr übrig ist. Die Lehre daraus steht jetzt im Kopf von
+  `meldungsdienst.dart`.
+- **`pumpAndSettle` lässt Meldungen verblassen.** Der ablaufende Balken
+  ist ein anstehendes Bild; `pumpAndSettle` läuft, bis keines mehr
+  aussteht, und ist danach über die Frist hinaus. Vier vorhandene Tests
+  suchten die Meldung deshalb vergeblich auf dem Schirm – sie lesen sie
+  jetzt aus dem Verlauf.
+
 ---
 
-## Stufe 3 — Aktivitäten (Schema 54)
+## Stufe 3 — Aktivitäten (Schema 54) — **erledigt**
 
 `Reisen` führt heute Name, Zeitraum, Notiz und Titelbild — mehr nicht.
 
@@ -139,9 +165,50 @@ Migration 53 → 54 an Kopien der echten Bibliotheken, SHA-256 davor und
 danach. Die Zuordnung als reine Funktion prüfen: Eine Aktivität ohne
 Reise, eine mit, eine, deren Zeitraum über den der Reise hinausragt.
 
+### Was beim Bauen anders kam als geplant
+
+- **Nicht `aufenthaltsorte`, sondern die Zeit.** Der Plan wollte die
+  vorhandene Ortsgruppierung wiederverwenden. Sie ist das falsche
+  Werkzeug: Ihr Radius von 15 km zerschneidet eine lange Wanderung und
+  wirft dafür die Vormittagswanderung mit dem Abendspaziergang in
+  derselben Stadt zusammen. Eine Aktivität ist ein **zusammenhängendes
+  Stück Zeit** – getrennt wird an einer Lücke von 90 Minuten und am
+  Kalendertag.
+- **Zwei Bedingungen, oder-verknüpft.** „Bewegung" allein striche die
+  Fahrt zum Wildpark (viele Bilder, kein Weg); „Entfernung von zu Hause"
+  allein striche die Sonntagswanderung vor der Haustür. Beides zu
+  verlangen striche beide, keines von beidem machte jeden Tag im eigenen
+  Garten zur Unternehmung.
+- **Die Art wird nur nach oben behauptet.** Zwischen zwei Aufnahmen
+  liegt mehr Weg als die Luftlinie und meist eine Pause – die gerechnete
+  Geschwindigkeit ist eine Untergrenze. Belegt ist daraus nur: „schneller
+  als 25 km/h heisst Fahrzeug". Nach unten wird der harmloseste Fall
+  gewählt, denn eine falsch geratene Art ist ein Klick, eine falsch
+  behauptete eine Unwahrheit in der Datenbank.
+- **`spurId` ist nicht dabei.** Der Plan sah die Spalte schon hier vor.
+  Eine Spalte, die kein Code liest, lässt sich nicht prüfen – und in
+  Stufe 4 gehört die Verbindung ohnehin auf die neue Seite
+  (`Spuren.aktivitaetId`), die dort ihre eigene Migration bekommt.
+- **`Routenkarte` ist aus `reise_detail_screen.dart` herausgelöst**, weil
+  eine Wanderung dieselbe Karte verdient wie eine Reise – nur mit
+  engeren Massen (100 m Mindestabstand statt 1 km, 200 m Ortsradius
+  statt 15 km).
+
+### Was die echte Bibliothek dazu sagt
+
+Gegen die Kopie der Produktivbibliothek gerechnet: **1091 verortete
+Aufnahmen von 7988**, daraus **16 Vorschläge** über zwölf Jahre – 6
+Wanderungen, 1 Radtour, 9 Besichtigungen. Keine Flut und kein
+Fehlschlag. Die längste: 39 Bilder über 338 Minuten und 18,7 km. Der
+Grund, dass es nicht mehr sind, ist keine zu strenge Regel, sondern die
+Ortsangabe: Sieben von acht Aufnahmen dieser Bibliothek haben gar keine
+Koordinate.
+
 ---
 
 ## Stufe 4 — GPX-Spuren, Höhenprofil und Gelände (Schema 55)
+
+**Erledigt** – Spur, Profil und Gelände.
 
 ### Der Blocker zuerst
 
@@ -164,6 +231,32 @@ gibt es kein Profil und keine Linie.
 `faecher_ansicht.dart` — dort steht auch, wie eine gemalte Fläche eine
 Beschreibung für die Sprachausgabe bekommt. Ein Finger auf dem Profil
 zeigt die Stelle auf der Karte und umgekehrt.
+
+### Was beim Bauen anders kam als geplant (Spur und Profil)
+
+- **Die Schwelle allein reicht nicht.** Sie wirkt gegen den *Abstand
+  zweier Messungen*, und der ist beim Rauschen doppelt so gross wie
+  dessen Ausschlag: Ein Gerät, das um ±3 m schwankt, springt zwischen
+  zwei Punkten um 6 m – über einer Schwelle von 5. Erst ein Mittel über
+  fünf Punkte nimmt dem Rauschen die Spitzen, die Schwelle fängt danach
+  den Rest. Gegengeprüft: dieselbe flache Runde ergibt ohne Glättung
+  über hundert Höhenmeter, mit Glättung sechs. Der Preis ist, dass ein
+  scharfer Knick ein paar Meter verliert – bei hundert gemessenen drei.
+- **Das Mitteln schrumpft symmetrisch**, damit die Enden stehen bleiben.
+  Ein einseitiges Fenster zöge den ersten Punkt in Richtung des zweiten;
+  ein Anstieg verlöre an beiden Enden Meter, die er hatte.
+- **Ein zweiter Lesepfad statt eines geänderten.** `liesGpx` behält
+  seinen Vertrag (nur Punkte mit Zeit, nach Zeit sortiert) – für das
+  Verorten von Fotos ist das richtig. Daneben steht `liesGpxPunkte`:
+  alle Punkte in der Reihenfolge der Datei, denn für eine Linie ist die
+  aufgezeichnete Folge die Aussage, und eine geplante Route hat gar
+  keine Zeit.
+- **Der Profilpunkt trägt seinen Spur-Index mit.** Daran hängt die Marke
+  auf der Karte: Das Profil kennt nur die Punkte *mit* Höhe, sein
+  eigener Index ist also nicht der Index in der Spur. Ohne den
+  mitgeführten Index müsste man die Strecke rückwärts suchen und
+  Kommazahlen vergleichen.
+- **Gemessen:** 10.000 Punkte als Stapel in 56 ms geschrieben.
 
 ### Das Gelände — ohne neue Bibliothek
 
@@ -207,6 +300,42 @@ Damit ist keine Fremdbibliothek nötig:
 Wenn die Landschaft bei einer echten Wanderung nicht **mehr** zeigt als
 Karte plus Profil, wird sie nicht ausgeliefert. Das entscheidest du am
 Bildschirm.
+
+**Am Bildschirm angesehen (Rhön bei Dipperz, 160 Punkte über sechs
+Kilometer): bestanden.** Die Karte ist lesbar – Ortsnamen, Höhenlinien,
+Höhenpunkte –, das Relief ist zu erkennen, und die Spur läuft sichtbar
+über einen Kamm an der Milseburg vorbei. Das ist die Auskunft, die weder
+die Karte noch das Profil geben.
+
+### Was das Bauen ergab
+
+- **Die Messung fiel anders aus als erwartet.** Selbst 130.000 Dreiecke
+  brauchen nur 4,71 ms – aber gemessen ist damit nur die Rechnung in
+  Dart, nicht die Arbeit der Grafikkarte. Gewählt wurde deshalb 96
+  (18.050 Dreiecke, 0,86 ms): Luft für langsamere Maschinen, und am
+  Bildschirm von 192 nicht zu unterscheiden.
+- **Zwei Zahlen mussten am Bildschirm nachjustiert werden**, nicht am
+  Schreibtisch: die Überhöhung von 2 auf 3 (mit 2 war ein Mittelgebirge
+  eine ebene Platte) und die Grundhelligkeit der Schattierung von 0,45
+  auf 0,72 (die Schattierung multipliziert die Karte – bei 0,45 war die
+  halbe Karte nicht mehr zu lesen).
+- **Und ein Fehler, den nur das Bild zeigte:** Die Grundfarbe des
+  Geländes muss Weiss sein, sobald eine Karte darauf liegt. `modulate`
+  multipliziert beides; ein sandiges Braun dunkelte die Karte ein
+  zweites Mal ab, und die Landschaft sah aus wie bei Nacht.
+- **Ein echter Fehler im Verkleinern:** „jeden n-ten Punkt nehmen" liess
+  den Ostrand weg, während das Rechteck weiter die volle Breite
+  behauptete – die Landschaft wäre gedehnt gewesen. Gefunden hat ihn ein
+  Test, nicht das Auge.
+- **Linux nachgeprüft, und zwar am Bild.** Genau hier lag der
+  MapLibre-Fehlschlag, deshalb nicht auf „müsste laufen" verlassen: auf
+  TestKubuntu gebaut, in der laufenden Plasma-Sitzung gestartet und
+  abfotografiert. Dasselbe Bild wie unter macOS – Textur, Relief, Spur.
+  `drawVertices` samt `ImageShader` und `modulate` läuft dort unter
+  Xwayland.
+- **Offen bleiben Windows und das Flatpak.** TestWindows war nicht
+  erreichbar; das Flatpak ist ein eigener Bau. Beides gehört zur
+  nächsten Auslieferung.
 
 ---
 

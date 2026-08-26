@@ -14,6 +14,7 @@ import '../widgets/fortschrittsbalken.dart';
 import 'laenderliste_screen.dart';
 import 'reise_detail_screen.dart';
 import 'weltkarte_screen.dart';
+import 'aktivitaeten_screen.dart';
 
 /// Die Reisen einer Bibliothek – bestätigte und vorgeschlagene.
 ///
@@ -146,6 +147,13 @@ class _ReisenScreenState extends State<ReisenScreen> {
             icon: const Icon(Icons.flag_outlined),
             onPressed: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => LaenderlisteScreen(library: widget.library),
+            )),
+          ),
+          IconButton(
+            tooltip: t.aktivitaetenOeffnen,
+            icon: const Icon(Icons.hiking),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => AktivitaetenScreen(library: widget.library),
             )),
           ),
           IconButton(

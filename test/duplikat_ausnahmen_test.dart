@@ -16,7 +16,8 @@ import 'package:photo_vault/services/modell_halter.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
-import 'package:photo_vault/widgets/meldung_mit_knopf.dart';
+import 'package:photo_vault/services/meldungsdienst.dart';
+import 'package:photo_vault/widgets/meldungsfenster.dart';
 
 /// „Diese beiden sind schon in Ordnung so" – die Duplikatsuche zeigte
 /// dieselbe Gruppe bisher bei jedem Aufruf wieder, ohne dass man sie hätte
@@ -33,6 +34,10 @@ void main() {
   tearDown(() async {
     await db.close();
     tempRoot.deleteSync(recursive: true);
+    // Der Meldungsdienst ist ein Einzelstück: Was ein Test stehen lässt,
+    // steht im nächsten noch da – samt laufender Uhr, über die der
+    // Rahmen dann stolpert.
+    melde.verlaufLeeren();
   });
 
   /// Zwei Vektoren, deren Kosinus-Ähnlichkeit über jeder sinnvollen Schwelle
@@ -171,6 +176,7 @@ void main() {
         localizationsDelegates: AppTexte.localizationsDelegates,
         supportedLocales: AppTexte.supportedLocales,
         theme: buildDarkTheme(),
+        builder: (context, kind) => mitMeldungen(kind),
         home: DuplicatesScreen(library: library),
       ));
       for (var i = 0; i < 20; i++) {
@@ -219,8 +225,9 @@ void main() {
     testWidgets('die Meldung dazu verschwindet von selbst', (tester) async {
       // Der gemeldete Fehler: „2 Fotos werden bei der Duplikatsuche
       // künftig übergangen" blieb stehen, auch nach zwanzig Sekunden.
-      // Nicht unsere Schuld, aber unser Problem – Flutter lässt jede
-      // Meldung mit Knopf liegen (siehe meldung_mit_knopf.dart).
+      // Ursache war Flutters Voreinstellung, jede SnackBar mit Knopf
+      // liegen zu lassen. Seit der Meldungszentrale steht die Frist an
+      // der Meldung selbst – dieser Test hält fest, dass sie greift.
       await lege('a', vektor(0.01));
       await lege('b', vektor(0.02));
       await zeige(tester);
@@ -230,13 +237,16 @@ void main() {
           () => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
-      expect(find.byType(SnackBar), findsOneWidget);
       // Der Knopf ist da, solange die Meldung steht.
       expect(find.text('Rückgängig'), findsOneWidget);
+      expect(melde.sichtbare.single.dauer, const Duration(seconds: 8));
 
-      await tester.pump(meldungMitKnopfDauer + const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 10));
       await tester.pumpAndSettle();
-      expect(find.byType(SnackBar), findsNothing);
+      expect(find.text('Rückgängig'), findsNothing);
+      expect(melde.sichtbare, isEmpty);
+      // Nachlesbar bleibt sie – das ist der Unterschied zur SnackBar.
+      expect(melde.verlauf, hasLength(1));
     });
   });
 }

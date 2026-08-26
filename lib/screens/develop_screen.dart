@@ -35,6 +35,7 @@ import '../widgets/develop_preview.dart';
 import '../widgets/histogram_view.dart';
 import '../widgets/tone_curve_editor.dart';
 import '../theme/app_theme.dart';
+import '../services/meldungsdienst.dart';
 
 /// Welche Art von Maske gerade erstellt/bearbeitet wird – KI-Auswahl (SAM-
 /// Punkt-Prompts, siehe SegmentationService) oder eine der drei editierbaren
@@ -443,9 +444,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _lut = null;
       _lutPfad = null;
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppTexte.of(context).entwLutFehlt(p.basename(relativerPfad))),
-        ));
+        melde.warnung(AppTexte.of(context).entwLutFehlt(p.basename(relativerPfad)));
       }
     }
   }
@@ -484,14 +483,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _scheduleRerender();
     } on CubeAusnahme catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_lutFehlertext(AppTexte.of(context), e)),
-      ));
+      melde.fehler(_lutFehlertext(AppTexte.of(context), e));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).entwLutNichtLesbar('$e')),
-      ));
+      melde.fehler(AppTexte.of(context).entwLutNichtLesbar('$e'));
     }
   }
 
@@ -760,8 +755,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
   void _automatisch() {
     final daten = _histogram;
     if (daten == null || daten.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppTexte.of(context).entwAutomatikOhneHistogramm)));
+      melde.hinweis(AppTexte.of(context).entwAutomatikOhneHistogramm);
       return;
     }
     final werte = automatikAus(daten);
@@ -807,8 +801,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     // stillschweigend ersetzen - gefragt wird vorher, nicht hinterher.
     if (await widget.db.developPresetNameVergeben(name)) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(t.entwVorgabeNameVergeben(name))));
+      melde.warnung(t.entwVorgabeNameVergeben(name));
       return;
     }
 
@@ -834,8 +827,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       erstelltAm: DateTime.now(),
     ));
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(t.entwVorgabeGesichert(name))));
+    melde.erfolg(t.entwVorgabeGesichert(name));
   }
 
   /// Setzt eine Vorgabe in die Regler – wie beim Einsetzen aus der
@@ -845,8 +837,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     final vorgaben = await widget.db.alleDevelopPresets();
     if (!mounted) return;
     if (vorgaben.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(t.entwKeineVorgaben)));
+      melde.hinweis(t.entwKeineVorgaben);
       return;
     }
     final gewaehlt = await showDialog<DevelopPresetData>(
@@ -906,9 +897,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       colorMixerJson: a.colorMixer.istNeutral ? null : a.colorMixer.encode(),
       updatedAt: DateTime.now(),
     ));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppTexte.of(context).entwKopiert),
-    ));
+    melde.erfolg(AppTexte.of(context).entwKopiert);
   }
 
   /// Setzt die kopierten Werte in die Regler. Bewusst ohne sofortiges
@@ -937,9 +926,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     });
     await _requestPreview();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppTexte.of(context).entwEingesetzt),
-    ));
+    melde.erfolg(AppTexte.of(context).entwEingesetzt);
   }
 
   Future<void> _save() async {
@@ -957,8 +944,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     if (bytes == null) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppTexte.of(context).entwSpeichernFehlgeschlagen)));
+        melde.fehler(AppTexte.of(context).entwSpeichernFehlgeschlagen);
       }
       return;
     }
@@ -1058,22 +1044,17 @@ class _DevelopScreenState extends State<DevelopScreen> {
     try {
       await queue.enqueue(widget.asset.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).entwRestaurierungEingereiht)),
-        );
+        melde.erfolg(AppTexte.of(context).entwRestaurierungEingereiht);
       }
     } on RestaurierungNichtVerfuegbar {
       // Der Dienst kennt keine Oberflächensprache und wirft deshalb einen
       // eigenen Typ statt eines fertigen Satzes.
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).restaurNichtVerfuegbar)),
-        );
+        melde.warnung(AppTexte.of(context).restaurNichtVerfuegbar);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(AppTexte.of(context).entwRestaurierungFehler('$e'))));
+        melde.fehler(AppTexte.of(context).entwRestaurierungFehler('$e'));
       }
     }
   }
@@ -1203,9 +1184,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _computingEmbedding = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).entwKiAuswahlLadefehler('$e'))),
-        );
+        melde.fehler(AppTexte.of(context).entwKiAuswahlLadefehler('$e'));
       }
       return;
     }
@@ -1229,9 +1208,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
       if (decoded == null) {
         if (mounted) {
           setState(() => _computingEmbedding = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppTexte.of(context).entwVorschauNichtDekodiert)),
-          );
+          melde.warnung(AppTexte.of(context).entwVorschauNichtDekodiert);
         }
         return;
       }
@@ -1250,9 +1227,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _computingEmbedding = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).entwKiAuswahlFehler('$e'))),
-        );
+        melde.fehler(AppTexte.of(context).entwKiAuswahlFehler('$e'));
       }
     } finally {
       if (!behalten) halter.zurueckgeben();
@@ -1447,14 +1422,14 @@ class _DevelopScreenState extends State<DevelopScreen> {
     setState(() => _computingMask = false);
 
     if (ergebnis.stand != Tiefenmaskenstand.verfuegbar) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(switch (ergebnis.stand) {
-          Tiefenmaskenstand.nichtAufDieserPlattform => t.entwTiefenNurMacos,
-          Tiefenmaskenstand.nichtLesbar => t.entwTiefenNichtLesbar,
-          _ => t.entwTiefenKeine,
-        }),
-        duration: const Duration(seconds: 6),
-      ));
+      // Als Warnung: Der Knopf ist gedrückt worden und hat nichts
+      // bewirkt. Die sechs Sekunden von früher braucht es nicht mehr –
+      // eine Warnung steht ohnehin acht.
+      melde.warnung(switch (ergebnis.stand) {
+        Tiefenmaskenstand.nichtAufDieserPlattform => t.entwTiefenNurMacos,
+        Tiefenmaskenstand.nichtLesbar => t.entwTiefenNichtLesbar,
+        _ => t.entwTiefenKeine,
+      });
       return;
     }
 
@@ -1581,9 +1556,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
     final height = widget.asset.heightPx;
     if (width == null || height == null || width <= 0 || height <= 0) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppTexte.of(context).entwAufloesungUnbekannt)),
-        );
+        melde.warnung(AppTexte.of(context).entwAufloesungUnbekannt);
       }
       return;
     }

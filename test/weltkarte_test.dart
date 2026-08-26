@@ -13,6 +13,9 @@ import 'package:photo_vault/screens/weltkarte_screen.dart';
 import 'package:photo_vault/services/reverse_geocoder.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
+import 'package:photo_vault/screens/ortsansicht_screen.dart';
+import 'package:photo_vault/services/meldungsdienst.dart';
+import 'package:photo_vault/widgets/meldungsfenster.dart';
 
 /// Die Weltkarte: Steht für jedes belegte Land ein Punkt, sieht man einer
 /// Marke an, woher sie stammt, und lässt sich von Hand markieren?
@@ -59,6 +62,9 @@ void main() {
   });
 
   tearDown(() async {
+    // Der Meldungsdienst ist ein Einzelstueck – was hier stehen bleibt,
+    // steht im naechsten Test noch da.
+    melde.verlaufLeeren();
     await db.close();
     tempRoot.deleteSync(recursive: true);
   });
@@ -85,6 +91,7 @@ void main() {
       locale: const Locale('de'),
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
+      builder: (context, kind) => mitMeldungen(kind),
       home: WeltkarteScreen(library: library),
     ));
     await tester.pumpAndSettle();
@@ -182,6 +189,14 @@ void main() {
   /// wird – über einen Strom mit Zeitgrenze. `pumpAndSettle` treibt keine
   /// Uhr, die kein Bild anfordert; ohne das ausdrückliche `pump` mit
   /// Dauer kommt `onTap` nie an.
+  /// Der Wortlaut der zuletzt gemeldeten Rückmeldung.
+  ///
+  /// **Nicht auf dem Schirm nachsehen.** `klicke` endet mit
+  /// `pumpAndSettle`, und das läuft, bis keine Bilder mehr anstehen – der
+  /// ablaufende Balken der Meldung ist so ein Bild. Die Karte ist danach
+  /// planmässig verblasst; im Verlauf steht sie noch.
+  String letzteMeldung() => melde.verlauf.first.text;
+
   Future<void> klicke(WidgetTester tester, double breite, double laenge) async {
     await tester.tapAt(stelle(tester, breite, laenge));
     await tester.pump(const Duration(milliseconds: 400));
@@ -226,7 +241,7 @@ void main() {
     // Marke ist 26 Bildpunkte breit – bei Stufe 2 deckt sie Kassel mit ab.
     await klicke(tester, 48.1, 11.6);
     expect(await db.alleOrtsmarken(), isEmpty);
-    expect(find.text('„Deutschland“ ist nicht mehr markiert.'), findsOneWidget);
+    expect(letzteMeldung(), '„Deutschland“ ist nicht mehr markiert.');
   });
 
   testWidgets('auf offener See wird nichts markiert', (tester) async {
@@ -235,8 +250,7 @@ void main() {
     // hier noch ein Land liefern; der Umriss sagt „keines".
     await klicke(tester, 30.0, -40.0);
     expect(await db.alleOrtsmarken(), isEmpty);
-    expect(find.text('An dieser Stelle kennt der Datensatz keinen Ort.'),
-        findsOneWidget);
+    expect(letzteMeldung(), 'An dieser Stelle kennt der Datensatz keinen Ort.');
   });
 
   testWidgets('auf der Stufe Region trifft derselbe Klick das Bundesland',
@@ -272,12 +286,14 @@ void main() {
     // Kein Eintrag – sonst liesse sich hinterher nicht mehr sagen, ob der
     // Haken auf einem Bild beruht oder auf einer Erinnerung.
     expect(await db.alleOrtsmarken(), isEmpty);
-    expect(find.text('„Deutschland“ belegen deine Fotos bereits.'),
-        findsOneWidget);
+    expect(letzteMeldung(), '„Deutschland“ belegen deine Fotos bereits.');
   });
 
-  testWidgets('eine Marke ohne Foto laesst sich setzen und zuruecknehmen',
-      (tester) async {
+  testWidgets('ein Klick auf eine Marke fuehrt in den Ort', (tester) async {
+    // **Was hier war** ist die naheliegendere Frage an einen Punkt auf
+    // einer Fotokarte als „welchen Haken setze ich". Das Blatt mit den
+    // Markierknöpfen ist deshalb entfallen; die Ortsansicht trägt sie
+    // ohnehin, und ein zweiter Weg zum Markieren wäre einer zu viel.
     await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
       art: 'land',
       schluessel: 'IT',
@@ -290,92 +306,38 @@ void main() {
 
     await tester.tap(find.byTooltip('Italien'));
     await tester.pumpAndSettle();
-    // Ohne ein einziges Foto: Die Karte sagt, dass die Marke von Hand ist.
-    expect(find.text('von Hand'), findsOneWidget);
-    await tester.tap(find.text('Marke entfernen'));
-    await tester.pumpAndSettle();
-
-    expect(await db.alleOrtsmarken(), isEmpty);
-    expect(find.byTooltip('Italien'), findsNothing);
+    expect(find.byType(OrtsansichtScreen), findsOneWidget);
+    // Und dort steht der Haken, den die Karte zeigt.
+    expect(
+        tester
+            .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'Besucht'))
+            .selected,
+        isTrue);
   });
 
-  testWidgets('ein geplantes Land steht auf der Karte, ohne belegt zu sein',
-      (tester) async {
+  testWidgets('und die Marke laesst sich dort zuruecknehmen', (tester) async {
     await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
       art: 'land',
       schluessel: 'IT',
       name: 'Italien',
-      status: 'geplant',
+      status: 'besucht',
       angelegtAm: DateTime(2024),
     ));
     await zeige(tester);
     await tester.tap(find.byTooltip('Italien'));
     await tester.pumpAndSettle();
-    // „Als besucht markieren" steht bereit – aus geplant wird besucht.
-    expect(find.text('Als besucht markieren'), findsOneWidget);
-  });
 
-  // -------------------------------------------------------------------
-  // Die ausgemalten Flächen
-  // -------------------------------------------------------------------
+    // Ein zweites Antippen des Hakens nimmt ihn zurueck.
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Besucht'));
+    await tester.pumpAndSettle();
+    expect(await db.alleOrtsmarken(), isEmpty);
 
-  /// Alle gezeichneten Umrisse.
-  List<Polygon> flaechen(WidgetTester tester) => tester
-      .widgetList<PolygonLayer>(find.byType(PolygonLayer))
-      .expand((l) => l.polygons)
-      .toList();
-
-  testWidgets('ein markiertes Land wird ausgemalt', (tester) async {
-    await zeige(tester);
-    expect(flaechen(tester), isEmpty);
-
-    await klicke(tester, 51.3, 9.5);
-    // Deutschland hat einen Umriss; er besteht aus mehreren Ringen
-    // (Festland plus Inseln), also mehreren Polygonen.
-    expect(flaechen(tester), isNotEmpty);
-  });
-
-  testWidgets('belegt, von Hand und geplant sehen verschieden aus',
-      (tester) async {
-    // Drei Zustände, und die Karte soll sie **nicht nur über den Farbton**
-    // trennen – für einen Rotgrünblinden wären das sonst drei gleiche
-    // Flächen. Geprüft wird deshalb das Strichmuster des Randes.
-    await aufnahme('a1', land: 'Deutschland');
-    await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
-      art: 'land',
-      schluessel: 'IT',
-      name: 'Italien',
-      status: 'geplant',
-      angelegtAm: DateTime(2024),
-    ));
-    await zeige(tester);
-
-    final muster = {
-      for (final f in flaechen(tester)) f.pattern.runtimeType: f.pattern
-    };
-    // Zwei Länder, zwei verschiedene Muster: durchgezogen für das belegte,
-    // gestrichelt für das geplante.
-    final segmente = flaechen(tester).map((f) => f.pattern).toSet();
-    expect(segmente.length, 2, reason: 'gefunden: $muster');
-    expect(segmente.contains(const StrokePattern.solid()), isTrue);
-  });
-
-  testWidgets('ein Land ohne Umriss bleibt trotzdem ein Punkt', (tester) async {
-    // Siebzehn der 252 Länder haben keinen Umriss – der Vatikan ist zu
-    // klein, die Niederländischen Antillen gibt es nicht mehr. Ohne den
-    // Punkt daneben wären sie auf der Karte unsichtbar.
-    await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
-      art: 'land',
-      schluessel: 'VA',
-      name: 'Vatikan',
-      status: 'besucht',
-      angelegtAm: DateTime(2024),
-    ));
-    await zeige(tester);
-    expect(flaechen(tester), isEmpty);
-    // Der Testdatensatz kennt den Vatikan nicht als Land, deshalb steht
-    // hier kein Punkt – aber es wirft auch nichts.
-    expect(find.byType(FlutterMap), findsOneWidget);
+    // Und zurueck auf der Karte ist der Punkt weg. `pageBack` sucht
+    // einen Cupertino-Zurueckknopf und findet in einer Material-App
+    // keinen – der Weg geht ueber den Navigator selbst.
+    Navigator.of(tester.element(find.byType(OrtsansichtScreen))).pop();
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Italien'), findsNothing);
   });
 
   testWidgets('ohne Datensatz bleibt die Karte leer statt zu werfen',

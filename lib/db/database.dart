@@ -745,6 +745,124 @@ class VerworfeneReisen extends Table {
   Set<Column> get primaryKey => {schluessel};
 }
 
+/// Eine bestätigte Aktivität – eine Wanderung, eine Radtour, ein
+/// Ausflug.
+///
+/// **Sie steht für sich und *kann* zu einer Reise gehören.** Deshalb ist
+/// [reiseId] nullable: Die Sonntagswanderung vor der Haustür braucht
+/// keine Reise, und eine Tabelle, die eine verlangt, zwänge dazu, eine
+/// zu erfinden.
+///
+/// Wie bei den Reisen gilt: **bestätigt.** Erkannt wird aus den
+/// Aufnahmen (siehe services/aktivitaeten.dart); was hier steht, hat
+/// jemand angesehen und benannt.
+class Aktivitaeten extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+
+  /// Die Art, als Name der Aufzählung `Aktivitaetsart` – nicht als
+  /// Index: Wer später eine Art dazwischenschiebt, verschöbe sonst alle
+  /// gespeicherten Zeilen.
+  TextColumn get art => text()();
+
+  DateTimeColumn get von => dateTime()();
+  DateTimeColumn get bis => dateTime()();
+
+  TextColumn get notiz => text().nullable()();
+
+  /// Die Reise, zu der sie gehört – oder `null`.
+  TextColumn get reiseId => text().nullable()();
+
+  DateTimeColumn get angelegtAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Welche Aufnahme zu welcher Aktivität gehört – ausdrücklich, aus
+/// demselben Grund wie bei [ReiseAufnahmen].
+class AktivitaetAufnahmen extends Table {
+  TextColumn get aktivitaetId => text()();
+  TextColumn get assetId => text()();
+
+  @override
+  Set<Column> get primaryKey => {aktivitaetId, assetId};
+}
+
+/// Ein abgelehnter Aktivitätsvorschlag. [schluessel] ist die Kennung der
+/// ersten Aufnahme des Vorschlags – wie bei [VerworfeneReisen].
+class VerworfeneAktivitaeten extends Table {
+  TextColumn get schluessel => text()();
+  DateTimeColumn get verworfenAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {schluessel};
+}
+
+/// Eine aufgezeichnete Spur – die GPX-Datei einer Wanderung oder
+/// Radtour.
+///
+/// **Bis Fassung 55 wurde sie gelesen und weggeworfen.** Eine GPX-Datei
+/// diente einmalig dazu, Fotos zu verorten, und war danach weg. Ohne sie
+/// gibt es weder Linie noch Höhenprofil.
+///
+/// Die Kennzahlen stehen hier und werden **nicht** bei jeder Anzeige neu
+/// gerechnet: Eine Spur mit zehntausend Punkten für eine Zeile in einer
+/// Liste durchzurechnen, wäre derselbe Fehler wie bei den
+/// Reise-Vorschaubildern.
+class Spuren extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+
+  /// Der Dateiname, aus dem sie kam – die einzige Herkunftsangabe, die
+  /// eine GPX-Datei verlässlich hergibt.
+  TextColumn get quelle => text()();
+
+  /// Die Aktivität, zu der sie gehört – oder `null`.
+  ///
+  /// **Die Verbindung liegt hier und nicht an der Aktivität.** Eine
+  /// Aktivität kann ohne Spur bestehen, eine Spur ohne Aktivität auch;
+  /// wer die Spalte auf die ältere Tabelle legte, müsste sie dort
+  /// nachträglich anbauen, damit sie meistens leer bleibt.
+  TextColumn get aktivitaetId => text().nullable()();
+
+  /// Erster und letzter Zeitstempel – `null`, wenn die Datei keine
+  /// führt (eine geplante Route etwa).
+  DateTimeColumn get von => dateTime().nullable()();
+  DateTimeColumn get bis => dateTime().nullable()();
+
+  IntColumn get punktzahl => integer()();
+  RealColumn get laengeKm => real()();
+
+  /// Auf- und Abstieg in Metern – `null`, wenn kein Punkt eine Höhe
+  /// trug. Null Meter Aufstieg und „keine Höhenangabe" sind zweierlei.
+  RealColumn get aufstieg => real().nullable()();
+  RealColumn get abstieg => real().nullable()();
+
+  DateTimeColumn get angelegtAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Die Punkte einer Spur, in der Reihenfolge der Datei.
+class Spurpunkte extends Table {
+  TextColumn get spurId => text()();
+
+  /// Die laufende Nummer. Sie und nicht die Zeit ordnet die Punkte: Eine
+  /// geplante Route hat gar keine Zeit, und eine Aufzeichnung mit zwei
+  /// gleichen Zeitstempeln wäre sonst nicht mehr eindeutig.
+  IntColumn get nummer => integer()();
+
+  RealColumn get breite => real()();
+  RealColumn get laenge => real()();
+  RealColumn get hoehe => real().nullable()();
+  DateTimeColumn get zeit => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {spurId, nummer};
+}
+
 /// Ein selbst gesetzter Haken auf der Weltkarte – ein Land, eine Region
 /// oder ein Ort, den du besucht hast oder besuchen willst.
 ///
@@ -1134,6 +1252,11 @@ class DuplikatAusnahmen extends Table {
   ReiseAufnahmen,
   VerworfeneReisen,
   Ortsmarken,
+  Aktivitaeten,
+  AktivitaetAufnahmen,
+  VerworfeneAktivitaeten,
+  Spuren,
+  Spurpunkte,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -1148,7 +1271,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 53;
+  int get schemaVersion => 55;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1174,6 +1297,29 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _createIndicesV51(Migrator m) => customStatement(
       'CREATE INDEX IF NOT EXISTS idx_reise_aufnahme_asset '
       'ON reise_aufnahmen (asset_id)');
+
+  Future<void> _createIndicesV55(Migrator m) async {
+    // Die Punkte einer Spur werden immer am Stück und in ihrer
+    // Reihenfolge geholt; ohne Index wäre das bei zehntausend Punkten je
+    // Spur ein Durchlauf über alle Spuren.
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_spurpunkte_spur '
+        'ON spurpunkte (spur_id, nummer)');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_spuren_aktivitaet '
+        'ON spuren (aktivitaet_id)');
+  }
+
+  Future<void> _createIndicesV54(Migrator m) async {
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_aktivitaet_aufnahme_asset '
+        'ON aktivitaet_aufnahmen (asset_id)');
+    // Die Aktivitäten einer Reise werden bei jedem Öffnen einer Reise
+    // geholt; ohne Index ist das ein Durchlauf über alle.
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_aktivitaeten_reise '
+        'ON aktivitaeten (reise_id)');
+  }
 
   Future<void> _createPerformanceIndices(Migrator m) async {
     await customStatement(
@@ -1231,6 +1377,8 @@ class AppDatabase extends _$AppDatabase {
           await _createIndicesV14(m);
           await _createIndicesV48(m);
           await _createIndicesV51(m);
+          await _createIndicesV54(m);
+          await _createIndicesV55(m);
           await _seedAiTagVocabulary();
         },
         onUpgrade: (m, from, to) async {
@@ -1520,6 +1668,21 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 55) {
+            // Aufgezeichnete Spuren. Zwei neue, anfangs leere Tabellen –
+            // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(spuren);
+            await m.createTable(spurpunkte);
+            await _createIndicesV55(m);
+          }
+          if (from < 54) {
+            // Aktivitäten. Drei neue, anfangs leere Tabellen – ohne
+            // einen einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(aktivitaeten);
+            await m.createTable(aktivitaetAufnahmen);
+            await m.createTable(verworfeneAktivitaeten);
+            await _createIndicesV54(m);
           }
           if (from < 53) {
             // Die Startzeit der KI-Restaurierung. Ohne sie liess sich
@@ -4451,6 +4614,148 @@ class AppDatabase extends _$AppDatabase {
       (delete(reiseAufnahmen)
             ..where((t) => t.reiseId.equals(reiseId) & t.assetId.equals(assetId)))
           .go();
+
+  // ---------------------------------------------------------------
+  // Aktivitäten. Dieselbe Bauart wie die Reisen darüber – bis auf die
+  // eine Stelle, an der sie sich unterscheiden: `reiseId` darf leer
+  // bleiben.
+
+  /// Alle Aktivitäten, jüngste zuerst.
+  Future<List<AktivitaetenData>> alleAktivitaeten() =>
+      (select(aktivitaeten)..orderBy([(t) => OrderingTerm.desc(t.von)])).get();
+
+  Future<AktivitaetenData?> aktivitaet(String id) =>
+      (select(aktivitaeten)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  /// Die Aktivitäten einer Reise, chronologisch **aufsteigend**.
+  ///
+  /// Anders als die Liste der Reisen: Innerhalb einer Reise liest man
+  /// vorwärts – erster Tag zuerst –, wie die Tageskapitel daneben.
+  Future<List<AktivitaetenData>> aktivitaetenDerReise(String reiseId) =>
+      (select(aktivitaeten)
+            ..where((t) => t.reiseId.equals(reiseId))
+            ..orderBy([(t) => OrderingTerm.asc(t.von)]))
+          .get();
+
+  /// Aktivitäten, die zu keiner Reise gehören – jüngste zuerst.
+  Future<List<AktivitaetenData>> aktivitaetenOhneReise() =>
+      (select(aktivitaeten)
+            ..where((t) => t.reiseId.isNull())
+            ..orderBy([(t) => OrderingTerm.desc(t.von)]))
+          .get();
+
+  /// Legt eine bestätigte Aktivität samt ihren Aufnahmen an – in einer
+  /// Transaktion, aus demselben Grund wie bei [reiseAnlegen].
+  Future<void> aktivitaetAnlegen(
+    AktivitaetenCompanion neue,
+    List<String> assetIds,
+  ) =>
+      transaction(() async {
+        await into(aktivitaeten).insert(neue);
+        await batch((b) => b.insertAll(aktivitaetAufnahmen, [
+              for (final id in assetIds)
+                AktivitaetAufnahmenCompanion.insert(
+                    aktivitaetId: neue.id.value, assetId: id),
+            ]));
+      });
+
+  Future<void> aktivitaetLoeschen(String id) => transaction(() async {
+        await (delete(aktivitaetAufnahmen)
+              ..where((t) => t.aktivitaetId.equals(id)))
+            .go();
+        await (delete(aktivitaeten)..where((t) => t.id.equals(id))).go();
+      });
+
+  Future<void> aktivitaetAendern(String id, AktivitaetenCompanion aenderung) =>
+      (update(aktivitaeten)..where((t) => t.id.equals(id))).write(aenderung);
+
+  /// Die Aufnahmen einer Aktivität, chronologisch. Gelöschte und
+  /// gesperrte fallen heraus – siehe die Regel über [aufnahmenDerReise].
+  Future<List<AssetData>> aufnahmenDerAktivitaet(String aktivitaetId) async {
+    final abfrage = select(assets).join([
+      innerJoin(aktivitaetAufnahmen,
+          aktivitaetAufnahmen.assetId.equalsExp(assets.id)),
+    ])
+      ..where(aktivitaetAufnahmen.aktivitaetId.equals(aktivitaetId) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
+      ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)]);
+    return [for (final z in await abfrage.get()) z.readTable(assets)];
+  }
+
+  /// Nur die erste Aufnahme – für das Vorschaubild in der Liste. Eigene
+  /// Abfrage mit `LIMIT 1`, aus demselben Grund wie
+  /// [ersteAufnahmeDerReise].
+  Future<AssetData?> ersteAufnahmeDerAktivitaet(String aktivitaetId) async {
+    final abfrage = select(assets).join([
+      innerJoin(aktivitaetAufnahmen,
+          aktivitaetAufnahmen.assetId.equalsExp(assets.id)),
+    ])
+      ..where(aktivitaetAufnahmen.aktivitaetId.equals(aktivitaetId) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
+      ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)])
+      ..limit(1);
+    final zeile = await abfrage.getSingleOrNull();
+    return zeile?.readTable(assets);
+  }
+
+  Future<Set<String>> zugeordneteAktivitaetsAufnahmen() async =>
+      {for (final z in await select(aktivitaetAufnahmen).get()) z.assetId};
+
+  /// Welche Aufnahme zu welcher Reise gehört – für die Zuordnung einer
+  /// Aktivität (siehe `reiseFuerAktivitaet`).
+  Future<Map<String, String>> reiseJeAufnahme() async =>
+      {for (final z in await select(reiseAufnahmen).get()) z.assetId: z.reiseId};
+
+  // ---------------------------------------------------------------
+  // Aufgezeichnete Spuren.
+
+  Future<List<SpurenData>> alleSpuren() =>
+      (select(spuren)..orderBy([(t) => OrderingTerm.desc(t.angelegtAm)])).get();
+
+  Future<List<SpurenData>> spurenDerAktivitaet(String aktivitaetId) =>
+      (select(spuren)
+            ..where((t) => t.aktivitaetId.equals(aktivitaetId))
+            ..orderBy([(t) => OrderingTerm.asc(t.angelegtAm)]))
+          .get();
+
+  /// Die Punkte einer Spur, in der Reihenfolge der Datei.
+  Future<List<SpurpunkteData>> punkteDerSpur(String spurId) =>
+      (select(spurpunkte)
+            ..where((t) => t.spurId.equals(spurId))
+            ..orderBy([(t) => OrderingTerm.asc(t.nummer)]))
+          .get();
+
+  /// Legt eine Spur samt ihren Punkten an.
+  ///
+  /// In einer Transaktion und als Stapel: Eine Aufzeichnung hat schnell
+  /// zehntausend Punkte, und zehntausend einzelne Einfügungen wären
+  /// zehntausend Schreibvorgänge.
+  Future<void> spurAnlegen(
+    SpurenCompanion spur,
+    List<SpurpunkteCompanion> punkte,
+  ) =>
+      transaction(() async {
+        await into(spuren).insert(spur);
+        await batch((b) => b.insertAll(spurpunkte, punkte));
+      });
+
+  Future<void> spurLoeschen(String id) => transaction(() async {
+        await (delete(spurpunkte)..where((t) => t.spurId.equals(id))).go();
+        await (delete(spuren)..where((t) => t.id.equals(id))).go();
+      });
+
+  Future<void> spurAendern(String id, SpurenCompanion aenderung) =>
+      (update(spuren)..where((t) => t.id.equals(id))).write(aenderung);
+
+  Future<Set<String>> verworfeneAktivitaetsvorschlaege() async =>
+      {for (final z in await select(verworfeneAktivitaeten).get()) z.schluessel};
+
+  Future<void> verwirfAktivitaetsvorschlag(String schluessel) =>
+      into(verworfeneAktivitaeten).insertOnConflictUpdate(
+          VerworfeneAktivitaetenCompanion.insert(
+              schluessel: schluessel, verworfenAm: DateTime.now()));
 
   Future<Set<String>> verworfeneReisevorschlaege() async =>
       {for (final z in await select(verworfeneReisen).get()) z.schluessel};

@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/laenderkatalog.dart';
+import '../services/ortsuebersicht.dart' show Ortsebene;
 import '../services/reisefortschritt.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import 'ortsansicht_screen.dart';
 
 /// Jedes Land der Welt, und was du davon gesehen hast.
 ///
@@ -104,6 +106,21 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
     await _laden();
   }
 
+  void _oeffne(Landstand land) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          builder: (_) => OrtsansichtScreen(
+            library: widget.library,
+            ebene: Ortsebene.land,
+            schluessel: land.iso,
+            name: land.name,
+          ),
+        ))
+        // Dort unten kann eine Marke gesetzt worden sein – auch auf einer
+        // Region, und die zählt im Balken dieser Liste mit.
+        .then((_) => _laden());
+  }
+
   Future<void> _markenmenue(Landstand land) async {
     final t = AppTexte.of(context);
     await showModalBottomSheet<void>(
@@ -200,7 +217,13 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, i) => _Landzeile(
         land: gezeigt[i],
-        beiTippen: () => _markenmenue(gezeigt[i]),
+        // Ein Klick führt jetzt hinein statt in ein Menü: Was in einem
+        // Land war, ist die naheliegendere Frage als „welchen Haken
+        // setze ich hier". Das Markieren steht drinnen weiterhin
+        // bereit – und zusätzlich auf dem langen Druck, für den, der
+        // durch die Liste geht und nur Haken setzt.
+        beiTippen: () => _oeffne(gezeigt[i]),
+        beiLangemDruck: () => _markenmenue(gezeigt[i]),
       ),
     );
   }
@@ -359,8 +382,13 @@ class _Werkzeugleiste extends StatelessWidget {
 class _Landzeile extends StatelessWidget {
   final Landstand land;
   final VoidCallback beiTippen;
+  final VoidCallback beiLangemDruck;
 
-  const _Landzeile({required this.land, required this.beiTippen});
+  const _Landzeile({
+    required this.land,
+    required this.beiTippen,
+    required this.beiLangemDruck,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -382,6 +410,7 @@ class _Landzeile extends StatelessWidget {
 
     return ListTile(
       onTap: beiTippen,
+      onLongPress: beiLangemDruck,
       leading: flagge == null
           ? const Icon(Icons.flag_outlined)
           // Nicht jede Plattform hat Flaggen in ihrer Schrift. Die Zeile

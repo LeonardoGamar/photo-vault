@@ -3500,5 +3500,237 @@
   "weltkarteLegendeHand": "Blass, gepunkteter Rand: von Hand markiert, ohne Foto.",
   "weltkarteLegendeGeplant": "Fast leer, gestrichelter Rand: geplant – zählt nicht als besucht.",
   "weltkarteOhneUmriss": "Für kleine Gebiete wie den Vatikan liegt kein Umriss vor; sie bleiben ein Punkt.",
-  "stammbaumSchwaeger": "Schwager und Schwägerin"
+  "stammbaumSchwaeger": "Schwager und Schwägerin",
+  "ortRegionen": "Regionen · {besucht} von {gesamt}",
+  "@ortRegionen": {
+    "placeholders": {
+      "besucht": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "ortOrte": "Orte · {besucht} von {gesamt}",
+  "@ortOrte": {
+    "placeholders": {
+      "besucht": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "ortFotos": "{anzahl, plural, =1{Ein Foto} other{{anzahl} Fotos}}",
+  "@ortFotos": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "ortNichtsHier": "Von hier gibt es noch nichts – kein Foto, und der Datensatz kennt keine weitere Ebene darunter.",
+  "meldungenTitel": "Meldungen",
+  "meldungenKeine": "Bisher nichts zu melden.",
+  "meldungenGlocke": "Meldungen ansehen",
+  "meldungSchliessen": "Meldung schliessen",
+  "meldungenAlleSchliessen": "Alle ausblenden",
+  "meldungenVerlaufLeeren": "Verlauf leeren",
+  "meldungWiederholt": "{anzahl}×",
+  "@meldungWiederholt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "meldungArtHinweis": "Hinweis",
+  "meldungArtErfolg": "Erledigt",
+  "meldungArtWarnung": "Warnung",
+  "meldungArtFehler": "Fehler",
+  "aktivitaetenTitel": "Aktivitäten",
+  "aktivitaetenOeffnen": "Aktivitäten ansehen",
+  "aktivitaetenVorschlaege": "Vorschläge",
+  "aktivitaetenBestaetigte": "Auf Reisen",
+  "aktivitaetenOhneReise": "Für sich",
+  "aktivitaetenLeer": "Noch keine Aktivität. Wanderungen, Radtouren und Ausflüge werden aus den Aufnahmen eines Tages erkannt – gebraucht werden eine Handvoll verortete Bilder über mindestens eine Dreiviertelstunde.",
+  "aktivitaetenSuchtNoch": "Sucht nach Unternehmungen …",
+  "aktivitaetenBenennen": "Aktivität benennen",
+  "aktivitaetenUmbenennen": "Umbenennen",
+  "aktivitaetenName": "Name",
+  "aktivitaetenLoeschen": "Aktivität löschen",
+  "aktivitaetenLoeschenFrage": "„{name}\" aus der Liste nehmen? Die Fotos bleiben, wo sie sind.",
+  "@aktivitaetenLoeschenFrage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenNotiz": "Notiz",
+  "aktivitaetenArt": "Art",
+  "aktivitaetenArtAendern": "Art ändern",
+  "aktivitaetenStrecke": "{km} km",
+  "@aktivitaetenStrecke": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenDauer": "{stunden} h {minuten} min",
+  "@aktivitaetenDauer": {
+    "placeholders": {
+      "stunden": {
+        "type": "int"
+      },
+      "minuten": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenDauerKurz": "{minuten} min",
+  "@aktivitaetenDauerKurz": {
+    "placeholders": {
+      "minuten": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenAufnahmen": "{anzahl, plural, =1{Ein Foto} other{{anzahl} Fotos}}",
+  "@aktivitaetenAufnahmen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenOhneOrt": "Unterwegs",
+  "aktivitaetenZuReise": "Gehört zu: {reise}",
+  "@aktivitaetenZuReise": {
+    "placeholders": {
+      "reise": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenKeineRoute": "Zu wenige verortete Aufnahmen für eine Strecke.",
+  "aktivitaetenInDieserReise": "Unternehmungen",
+  "aktivitaetenAngelegt": "„{name}\" eingetragen.",
+  "@aktivitaetenAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aktivitaetenEntfernt": "„{name}\" entfernt.",
+  "@aktivitaetenEntfernt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "aktArtWanderung": "Wanderung",
+  "aktArtRadtour": "Radtour",
+  "aktArtAusflug": "Ausflug",
+  "aktArtBesichtigung": "Besichtigung",
+  "aktArtBootsfahrt": "Bootsfahrt",
+  "aktArtSonstiges": "Sonstiges",
+  "aktivitaetenIstEine": "War eine Unternehmung",
+  "aktivitaetenKeine": "War keine",
+  "spurHinzufuegen": "GPX-Spur hinzufügen",
+  "spurEntfernen": "Spur entfernen",
+  "spurEntferntMeldung": "Spur entfernt.",
+  "spurHinzugefuegtMeldung": "Spur „{name}“ hinzugefügt: {km} km.",
+  "@spurHinzugefuegtMeldung": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "spurTitel": "Aufgezeichnete Spur",
+  "spurKennzahlen": "{km} km · ▲ {auf} m · ▼ {ab} m",
+  "@spurKennzahlen": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "auf": {
+        "type": "int"
+      },
+      "ab": {
+        "type": "int"
+      }
+    }
+  },
+  "spurKennzahlenOhneHoehe": "{km} km · keine Höhenangaben",
+  "@spurKennzahlenOhneHoehe": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "spurPunkte": "{anzahl} Punkte",
+  "@spurPunkte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "spurHoehenprofil": "Höhenprofil",
+  "spurOhneHoehen": "Diese Datei führt keine Höhen – ohne sie gibt es kein Profil.",
+  "spurProfilBeschreibung": "Höhenprofil über {km} km, von {tief} bis {hoch} Meter, {auf} Meter Aufstieg.",
+  "@spurProfilBeschreibung": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "tief": {
+        "type": "int"
+      },
+      "hoch": {
+        "type": "int"
+      },
+      "auf": {
+        "type": "int"
+      }
+    }
+  },
+  "spurStelle": "{km} km · {hoehe} m",
+  "@spurStelle": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "hoehe": {
+        "type": "int"
+      }
+    }
+  },
+  "spurSchonDa": "Diese Aktivität hat schon eine Spur.",
+  "gelaendeTitel": "Gelände",
+  "gelaendeOeffnen": "Gelände ansehen",
+  "gelaendeLaedt": "Holt Geländehöhen …",
+  "gelaendeNichts": "Für diesen Ausschnitt kamen keine Geländehöhen an. Die Kacheln liegen im Netz; ohne Verbindung gibt es keine Landschaft.",
+  "gelaendeBedienung": "Ziehen dreht und kippt · Rollen zoomt",
+  "gelaendeUeberhoeht": "Höhe {faktor}-fach überhöht",
+  "@gelaendeUeberhoeht": {
+    "placeholders": {
+      "faktor": {
+        "type": "String"
+      }
+    }
+  },
+  "gelaendeNamensnennung": "Höhen: Tilezen / AWS Open Data · Karte: OpenTopoMap (CC-BY-SA)",
+  "gelaendeErneut": "Noch einmal versuchen"
 }

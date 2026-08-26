@@ -34,6 +34,11 @@ Future<ReverseGeocoder> _geokodierer(Directory wurzel) async {
       citiesFile: staedte, admin1File: regionen, countryFile: laender);
 }
 
+/// **Ein Klick öffnet den Ort, ein langer Druck markiert.** Bis
+/// einschliesslich 1.13.1 tat ein Klick auf ein Land das Markieren; seit
+/// der Ortsansicht führt er hinein. Das Markenmenü liegt auf dem langen
+/// Druck, damit man eine Liste auch weiterhin durchhaken kann, ohne
+/// jedes Mal einen Bildschirm zu öffnen.
 void main() {
   late Directory tempRoot;
   late AppDatabase db;
@@ -126,7 +131,7 @@ void main() {
   testWidgets('eine von Hand gesetzte Marke landet in der Datenbank',
       (tester) async {
     await zeige(tester);
-    await tester.tap(find.text('Italien'));
+    await tester.longPress(find.text('Italien'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Als besucht markieren'));
     await tester.pumpAndSettle();
@@ -142,7 +147,7 @@ void main() {
   testWidgets('„geplant" faerbt die Zeile, zaehlt aber nicht als besucht',
       (tester) async {
     await zeige(tester);
-    await tester.tap(find.text('Italien'));
+    await tester.longPress(find.text('Italien'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Als geplant markieren'));
     await tester.pumpAndSettle();
@@ -156,13 +161,13 @@ void main() {
 
   testWidgets('eine Marke laesst sich wieder zuruecknehmen', (tester) async {
     await zeige(tester);
-    await tester.tap(find.text('Monaco'));
+    await tester.longPress(find.text('Monaco'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Als besucht markieren'));
     await tester.pumpAndSettle();
     expect(await db.alleOrtsmarken(), hasLength(1));
 
-    await tester.tap(find.text('Monaco'));
+    await tester.longPress(find.text('Monaco'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Marke entfernen'));
     await tester.pumpAndSettle();

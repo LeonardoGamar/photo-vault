@@ -18,6 +18,7 @@ import 'stack_review_screen.dart';
 import 'gpx_verortung_screen.dart';
 import 'statistics_screen.dart';
 import 'xmp_import_screen.dart';
+import '../services/meldungsdienst.dart';
 
 /// Eigenständiger Bereich für Werkzeuge, die nicht Teil des normalen
 /// Durchstöberns der Bibliothek sind: manueller Gesichts-Scan (inkl. der
@@ -61,11 +62,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
         widget.library.pruefeStart(schluessel, rechenintensiv: rechenintensiv);
     if (abweisung != null) {
       final offen = widget.library.lauf(schluessel);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(abweisung == Startabweisung.laeuftBereits && offen != null
-            ? AppTexte.of(context).werkzLaeuftSchon(offen.titel)
-            : abweisungstext(AppTexte.of(context), abweisung)),
-      ));
+      melde.warnung(abweisung == Startabweisung.laeuftBereits && offen != null
+          ? AppTexte.of(context).werkzLaeuftSchon(offen.titel)
+          : abweisungstext(AppTexte.of(context), abweisung));
       return Future<void>.value();
     }
     return showDialog<void>(
@@ -87,9 +86,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     final assets = await widget.library.db.assetsForCulling();
     if (!mounted) return;
     if (assets.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppTexte.of(context).werkzKeineUnbewerteten)),
-      );
+      melde.hinweis(AppTexte.of(context).werkzKeineUnbewerteten);
       return;
     }
     await Navigator.of(context).push(MaterialPageRoute(
@@ -107,9 +104,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
   Future<void> _runFaceRescan() async {
     if (!widget.library.faceDetectionAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).werkzYunetNoetig),
-      ));
+      melde.warnung(AppTexte.of(context).werkzYunetNoetig);
       return;
     }
 
@@ -199,9 +194,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
   Future<void> _runEmbeddingBackfill() async {
     if (!widget.library.clipAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).werkzClipNoetig),
-      ));
+      melde.warnung(AppTexte.of(context).werkzClipNoetig);
       return;
     }
     final alle = await showDialog<bool>(
@@ -238,9 +231,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
   Future<void> _runAiTaggingBackfill() async {
     if (!widget.library.clipAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).werkzClipNoetig),
-      ));
+      melde.warnung(AppTexte.of(context).werkzClipNoetig);
       return;
     }
     final onlyUntagged = await showDialog<bool>(
@@ -287,9 +278,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
   Future<void> _runLocationNameBackfill() async {
     if (!widget.library.geoDataAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).werkzGeoNoetig),
-      ));
+      melde.warnung(AppTexte.of(context).werkzGeoNoetig);
       return;
     }
     final t = AppTexte.of(context);
@@ -365,9 +354,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
   Future<void> _runCaptionBackfill() async {
     if (!widget.library.captioningAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).werkzBeschreibungsmodellNoetig),
-      ));
+      melde.warnung(AppTexte.of(context).werkzBeschreibungsmodellNoetig);
       return;
     }
     final t = AppTexte.of(context);
@@ -677,9 +664,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     widget.library.starteHintergrundanalyse();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(t.werkzAnalyseGestartet)),
-                    );
+                    melde.erfolg(t.werkzAnalyseGestartet);
                   },
                 ),
                 const Divider(height: 1),

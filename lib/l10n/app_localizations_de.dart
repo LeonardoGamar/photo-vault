@@ -5892,4 +5892,267 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get stammbaumSchwaeger => 'Schwager und Schwägerin';
+
+  @override
+  String ortRegionen(int besucht, int gesamt) {
+    return 'Regionen · $besucht von $gesamt';
+  }
+
+  @override
+  String ortOrte(int besucht, int gesamt) {
+    return 'Orte · $besucht von $gesamt';
+  }
+
+  @override
+  String ortFotos(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Fotos',
+      one: 'Ein Foto',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ortNichtsHier =>
+      'Von hier gibt es noch nichts – kein Foto, und der Datensatz kennt keine weitere Ebene darunter.';
+
+  @override
+  String get meldungenTitel => 'Meldungen';
+
+  @override
+  String get meldungenKeine => 'Bisher nichts zu melden.';
+
+  @override
+  String get meldungenGlocke => 'Meldungen ansehen';
+
+  @override
+  String get meldungSchliessen => 'Meldung schliessen';
+
+  @override
+  String get meldungenAlleSchliessen => 'Alle ausblenden';
+
+  @override
+  String get meldungenVerlaufLeeren => 'Verlauf leeren';
+
+  @override
+  String meldungWiederholt(int anzahl) {
+    return '$anzahl×';
+  }
+
+  @override
+  String get meldungArtHinweis => 'Hinweis';
+
+  @override
+  String get meldungArtErfolg => 'Erledigt';
+
+  @override
+  String get meldungArtWarnung => 'Warnung';
+
+  @override
+  String get meldungArtFehler => 'Fehler';
+
+  @override
+  String get aktivitaetenTitel => 'Aktivitäten';
+
+  @override
+  String get aktivitaetenOeffnen => 'Aktivitäten ansehen';
+
+  @override
+  String get aktivitaetenVorschlaege => 'Vorschläge';
+
+  @override
+  String get aktivitaetenBestaetigte => 'Auf Reisen';
+
+  @override
+  String get aktivitaetenOhneReise => 'Für sich';
+
+  @override
+  String get aktivitaetenLeer =>
+      'Noch keine Aktivität. Wanderungen, Radtouren und Ausflüge werden aus den Aufnahmen eines Tages erkannt – gebraucht werden eine Handvoll verortete Bilder über mindestens eine Dreiviertelstunde.';
+
+  @override
+  String get aktivitaetenSuchtNoch => 'Sucht nach Unternehmungen …';
+
+  @override
+  String get aktivitaetenBenennen => 'Aktivität benennen';
+
+  @override
+  String get aktivitaetenUmbenennen => 'Umbenennen';
+
+  @override
+  String get aktivitaetenName => 'Name';
+
+  @override
+  String get aktivitaetenLoeschen => 'Aktivität löschen';
+
+  @override
+  String aktivitaetenLoeschenFrage(String name) {
+    return '„$name\" aus der Liste nehmen? Die Fotos bleiben, wo sie sind.';
+  }
+
+  @override
+  String get aktivitaetenNotiz => 'Notiz';
+
+  @override
+  String get aktivitaetenArt => 'Art';
+
+  @override
+  String get aktivitaetenArtAendern => 'Art ändern';
+
+  @override
+  String aktivitaetenStrecke(String km) {
+    return '$km km';
+  }
+
+  @override
+  String aktivitaetenDauer(int stunden, int minuten) {
+    return '$stunden h $minuten min';
+  }
+
+  @override
+  String aktivitaetenDauerKurz(int minuten) {
+    return '$minuten min';
+  }
+
+  @override
+  String aktivitaetenAufnahmen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Fotos',
+      one: 'Ein Foto',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get aktivitaetenOhneOrt => 'Unterwegs';
+
+  @override
+  String aktivitaetenZuReise(String reise) {
+    return 'Gehört zu: $reise';
+  }
+
+  @override
+  String get aktivitaetenKeineRoute =>
+      'Zu wenige verortete Aufnahmen für eine Strecke.';
+
+  @override
+  String get aktivitaetenInDieserReise => 'Unternehmungen';
+
+  @override
+  String aktivitaetenAngelegt(String name) {
+    return '„$name\" eingetragen.';
+  }
+
+  @override
+  String aktivitaetenEntfernt(String name) {
+    return '„$name\" entfernt.';
+  }
+
+  @override
+  String get aktArtWanderung => 'Wanderung';
+
+  @override
+  String get aktArtRadtour => 'Radtour';
+
+  @override
+  String get aktArtAusflug => 'Ausflug';
+
+  @override
+  String get aktArtBesichtigung => 'Besichtigung';
+
+  @override
+  String get aktArtBootsfahrt => 'Bootsfahrt';
+
+  @override
+  String get aktArtSonstiges => 'Sonstiges';
+
+  @override
+  String get aktivitaetenIstEine => 'War eine Unternehmung';
+
+  @override
+  String get aktivitaetenKeine => 'War keine';
+
+  @override
+  String get spurHinzufuegen => 'GPX-Spur hinzufügen';
+
+  @override
+  String get spurEntfernen => 'Spur entfernen';
+
+  @override
+  String get spurEntferntMeldung => 'Spur entfernt.';
+
+  @override
+  String spurHinzugefuegtMeldung(String name, String km) {
+    return 'Spur „$name“ hinzugefügt: $km km.';
+  }
+
+  @override
+  String get spurTitel => 'Aufgezeichnete Spur';
+
+  @override
+  String spurKennzahlen(String km, int auf, int ab) {
+    return '$km km · ▲ $auf m · ▼ $ab m';
+  }
+
+  @override
+  String spurKennzahlenOhneHoehe(String km) {
+    return '$km km · keine Höhenangaben';
+  }
+
+  @override
+  String spurPunkte(int anzahl) {
+    return '$anzahl Punkte';
+  }
+
+  @override
+  String get spurHoehenprofil => 'Höhenprofil';
+
+  @override
+  String get spurOhneHoehen =>
+      'Diese Datei führt keine Höhen – ohne sie gibt es kein Profil.';
+
+  @override
+  String spurProfilBeschreibung(String km, int tief, int hoch, int auf) {
+    return 'Höhenprofil über $km km, von $tief bis $hoch Meter, $auf Meter Aufstieg.';
+  }
+
+  @override
+  String spurStelle(String km, int hoehe) {
+    return '$km km · $hoehe m';
+  }
+
+  @override
+  String get spurSchonDa => 'Diese Aktivität hat schon eine Spur.';
+
+  @override
+  String get gelaendeTitel => 'Gelände';
+
+  @override
+  String get gelaendeOeffnen => 'Gelände ansehen';
+
+  @override
+  String get gelaendeLaedt => 'Holt Geländehöhen …';
+
+  @override
+  String get gelaendeNichts =>
+      'Für diesen Ausschnitt kamen keine Geländehöhen an. Die Kacheln liegen im Netz; ohne Verbindung gibt es keine Landschaft.';
+
+  @override
+  String get gelaendeBedienung => 'Ziehen dreht und kippt · Rollen zoomt';
+
+  @override
+  String gelaendeUeberhoeht(String faktor) {
+    return 'Höhe $faktor-fach überhöht';
+  }
+
+  @override
+  String get gelaendeNamensnennung =>
+      'Höhen: Tilezen / AWS Open Data · Karte: OpenTopoMap (CC-BY-SA)';
+
+  @override
+  String get gelaendeErneut => 'Noch einmal versuchen';
 }

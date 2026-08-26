@@ -12,7 +12,7 @@ import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
 import 'second_library_compare_screen.dart';
-import '../widgets/meldung_mit_knopf.dart';
+import '../services/meldungsdienst.dart';
 
 /// Gruppiert Fotos, deren CLIP-Bild-Embeddings sich sehr ähnlich sind
 /// (Kosinus-Ähnlichkeit über einer einstellbaren Schwelle). Das findet nicht
@@ -99,11 +99,9 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
 
     if (vorschau.zuLoeschen.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(vorschau.uebersprungeneGruppen > 0
-            ? AppTexte.of(context).duplNichtsLoeschbar
-            : AppTexte.of(context).duplNichtsZuLoeschen),
-      ));
+      melde.hinweis(vorschau.uebersprungeneGruppen > 0
+          ? AppTexte.of(context).duplNichtsLoeschbar
+          : AppTexte.of(context).duplNichtsZuLoeschen);
       return;
     }
 
@@ -149,9 +147,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
 
     await widget.library.db.moveToTrash(vorschau.zuLoeschen.map((a) => a.id).toList());
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppTexte.of(context).duplVerschoben(vorschau.zuLoeschen.length)),
-    ));
+    melde.erfolg(AppTexte.of(context).duplVerschoben(vorschau.zuLoeschen.length));
     await _load();
   }
 
@@ -170,20 +166,18 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       _groups.remove(group);
       _ausnahmen = neueZahl;
     });
-    final melder = ScaffoldMessenger.of(context);
-    melder.hideCurrentSnackBar();
-    melder.showSnackBar(meldungMitKnopf(
-      inhalt: Text(AppTexte.of(context).duplGruppeIgnoriert(group.length)),
-      knopf: SnackBarAction(
-        label: AppTexte.of(context).allgRueckgaengig,
+    melde.hinweis(
+      AppTexte.of(context).duplGruppeIgnoriert(group.length),
+      aktion: (
+        beschriftung: AppTexte.of(context).allgRueckgaengig,
         // Einzeln zurücknehmen statt alles: Wer sich vertippt hat, will
         // diese eine Gruppe zurück, nicht die Arbeit einer halben Stunde.
-        onPressed: () async {
+        beiDruck: () async {
           await widget.library.db.hebeDuplikatgruppeAuf(ids);
           await _load();
         },
       ),
-    ));
+    );
   }
 
   Future<void> _ausnahmenZuruecknehmen() async {

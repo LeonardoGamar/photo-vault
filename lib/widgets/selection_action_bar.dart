@@ -16,6 +16,7 @@ import 'album_picker_dialog.dart';
 import 'color_label_picker.dart';
 import 'mini_location_map.dart';
 import 'star_rating.dart';
+import '../services/meldungsdienst.dart';
 
 /// Schwebende Aktionsleiste am unteren Rand, sichtbar sobald in einem
 /// Foto-Raster (Timeline, Jahresansicht, Suche, Album) mindestens ein Foto
@@ -499,8 +500,7 @@ Future<void> runBatchApplyPreset(
   final vorgaben = await library.db.alleDevelopPresets();
   if (!context.mounted) return;
   if (vorgaben.isEmpty) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(t.entwKeineVorgaben)));
+    melde.hinweis(t.entwKeineVorgaben);
     return;
   }
 
@@ -646,10 +646,7 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
 
   if (context.mounted) {
     Navigator.of(context).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(AppTexte.of(context)
-              .auswExportFertig(exported, assets.length, destination))),
-    );
+    melde.erfolg(AppTexte.of(context)
+        .auswExportFertig(exported, assets.length, destination));
   }
 }

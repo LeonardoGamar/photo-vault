@@ -130,6 +130,58 @@ class ReverseGeocoder {
   Map<String, String> get laenderverzeichnis =>
       Map.unmodifiable(_countryNames);
 
+  /// Alle Regionen eines Landes – Code und Name, nach Namen sortiert.
+  ///
+  /// Für die Ortsansicht: Sie soll auch zeigen, wo man **nicht** war, und
+  /// dafür braucht sie das Verzeichnis und nicht nur die eigenen Fotos.
+  /// Leer ist ein gültiges Ergebnis – 24 der 252 Länder haben keine
+  /// verzeichnete Region.
+  List<({String schluessel, String name})> regionenVon(String iso) {
+    final praefix = '${iso.toUpperCase()}.';
+    final raus = [
+      for (final e in _admin1Names.entries)
+        if (e.key.startsWith(praefix)) (schluessel: e.key, name: e.value),
+    ];
+    raus.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return raus;
+  }
+
+  /// Die bekannten Orte einer Region, die grössten zuerst.
+  ///
+  /// [hoechstens] deckelt die Liste: Für „US.TX" kennt der Datensatz über
+  /// tausend Orte, und eine Liste, die man nicht zu Ende liest, ist keine
+  /// Auskunft. Die grössten zuerst, weil man dort am ehesten war.
+  ///
+  /// Der Schlüssel eines Ortes lautet „Land|Region|Ort" mit **Namen** – so
+  /// führt die Tabelle `Ortsmarken` ihn, und zwei Schreibweisen wären
+  /// zwei Orte.
+  List<({String schluessel, String name})> orteIn(
+    String regionscode, {
+    int hoechstens = 60,
+  }) {
+    final punkt = regionscode.indexOf('.');
+    if (punkt <= 0) return const [];
+    final iso = regionscode.substring(0, punkt);
+    final admin1 = regionscode.substring(punkt + 1);
+    final landname = _countryNames[iso];
+    final regionsname = _admin1Names[regionscode];
+    if (landname == null || regionsname == null) return const [];
+
+    final treffer = <int>[];
+    for (var i = 0; i < _cities.length; i++) {
+      final c = _cities[i];
+      if (c.countryCode == iso && c.admin1Code == admin1) treffer.add(i);
+    }
+    treffer.sort((a, b) => _cities[b].einwohner.compareTo(_cities[a].einwohner));
+    return [
+      for (final i in treffer.take(hoechstens))
+        (
+          schluessel: '$landname|$regionsname|${_cities[i].name}',
+          name: _cities[i].name,
+        ),
+    ];
+  }
+
   /// Ein Punkt auf der Karte für ein Land, eine Region oder einen Ort.
   ///
   /// **Aus demselben Datensatz und nicht aus einer zweiten Datei.** Die

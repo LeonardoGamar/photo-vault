@@ -16,6 +16,7 @@ import '../db/database.dart';
 import '../services/import_service.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
+import '../services/meldungsdienst.dart';
 
 /// Ergebnis einer Bildbearbeitungs-Operation in einem Hintergrund-Isolate
 /// (siehe [_ImageEditorScreenState]): die neu encodierten JPEG-Bytes plus
@@ -313,9 +314,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _processing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppTexte.of(context).bearbRetuscheFehler('$e'))),
-      );
+      melde.fehler(AppTexte.of(context).bearbRetuscheFehler('$e'));
     } finally {
       await dienst?.dispose();
     }
@@ -413,7 +412,7 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppTexte.of(context).bearbSpeichernFehler('$e'))));
+        melde.fehler(AppTexte.of(context).bearbSpeichernFehler('$e'));
       }
     }
   }

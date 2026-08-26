@@ -29,6 +29,7 @@ import 'face_review_screen.dart';
 import 'image_editor_screen.dart';
 import 'similar_photos_screen.dart';
 import 'video_trim_screen.dart';
+import '../services/meldungsdienst.dart';
 
 enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata, faceReview, entwicklungEinfuegen }
 
@@ -497,13 +498,11 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
         }
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppTexte.of(context).viewerExportiert(exported.join(', ')))));
+        melde.erfolg(AppTexte.of(context).viewerExportiert(exported.join(', ')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(AppTexte.of(context).viewerExportFehlgeschlagen('$e'))));
+        melde.fehler(AppTexte.of(context).viewerExportFehlgeschlagen('$e'));
       }
     }
   }
@@ -536,8 +535,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
       ));
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(AppTexte.of(context).viewerTeilenFehlgeschlagen('$e'))));
+        melde.fehler(AppTexte.of(context).viewerTeilenFehlgeschlagen('$e'));
       }
     }
   }

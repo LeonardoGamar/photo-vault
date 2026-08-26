@@ -14,6 +14,8 @@ import 'package:photo_vault/services/backup_service.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
+import 'package:photo_vault/services/meldungsdienst.dart';
+import 'package:photo_vault/widgets/meldungsfenster.dart';
 
 /// Der Weg von der GPX-Datei bis zur Koordinate in der Datenbank.
 ///
@@ -115,6 +117,9 @@ void main() {
   });
 
   tearDown(() async {
+    // Der Meldungsdienst ist ein Einzelstueck – was hier stehen
+    // bleibt, steht im naechsten Test noch da.
+    melde.verlaufLeeren();
     await db.close();
     tempRoot.deleteSync(recursive: true);
   });
@@ -128,6 +133,10 @@ void main() {
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
+      // Der Meldungsstapel gehoert dazu: Seit der Meldungszentrale
+      // erscheinen Meldungen dort und nicht mehr als SnackBar im
+      // Scaffold.
+      builder: (context, kind) => mitMeldungen(kind),
       home: GpxVerortungScreen(library: library),
     ));
     await tester.pumpAndSettle();
@@ -171,7 +180,12 @@ void main() {
     final verortet = await db.aufnahmenFuerReiseerkennung();
     expect(verortet.map((a) => a.id).toSet(),
         {'schon', 'f0', 'f1', 'f2', 'f3', 'f4'});
-    expect(find.text('5 Aufnahmen verortet.'), findsOneWidget);
+    // **Nicht auf dem Schirm nachsehen.** `pumpAndSettle` läuft, bis
+    // keine Bilder mehr anstehen – und der ablaufende Balken der Meldung
+    // ist so ein Bild. Die Karte ist danach also planmässig weg. Im
+    // Verlauf steht sie noch; genau dafür gibt es ihn.
+    expect(melde.verlauf.first.text, '5 Aufnahmen verortet.');
+    expect(melde.verlauf.first.art, Meldungsart.erfolg);
 
     // Und danach ist nichts mehr zu tun – dieselbe Zahl darf nicht noch
     // einmal dastehen.

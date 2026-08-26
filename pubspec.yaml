@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 1.13.1
+version: 1.14.0
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -135,6 +135,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # Die Uhr anhalten, ohne ein Fenster zu bauen: Die Meldungszentrale
+  # laesst Meldungen nach Fristen verblassen, und die will man in einem
+  # reinen Diensttest pruefen, nicht in Echtzeit abwarten.
+  fake_async: ^1.3.1
   drift_dev: ^2.20.0
   build_runner: ^2.4.13
 

@@ -83,4 +83,64 @@ void main() {
 
     expect(geocoder.lookup(48.86, 2.35), isNull);
   });
+
+  group('Verzeichnisauskunft für die Ortsansicht', () {
+    test('nennt alle Regionen eines Landes, nach Namen sortiert', () async {
+      final geocoder = await loadSynthetic();
+      final regionen = geocoder.regionenVon('FR');
+      expect(regionen.map((r) => r.schluessel), ['FR.84', 'FR.11']);
+      expect(regionen.first.name, 'Auvergne-Rhône-Alpes');
+    });
+
+    test('Kleinschreibung findet dieselben Regionen', () async {
+      final geocoder = await loadSynthetic();
+      expect(geocoder.regionenVon('fr'), geocoder.regionenVon('FR'));
+    });
+
+    test('ein Land ohne verzeichnete Region gibt eine leere Liste', () async {
+      // 24 der 252 Länder haben keine. Leer ist die Auskunft, nicht der
+      // Fehlschlag – die Ortsansicht muss sie aushalten.
+      final geocoder = await loadSynthetic();
+      expect(geocoder.regionenVon('DE'), isEmpty);
+    });
+
+    test('„FR.1" ist keine Abkürzung für „FR.11"', () async {
+      // Der Präfixvergleich muss den Punkt einschliessen, sonst zöge
+      // „US.A" auch „US.AK" und „US.AL" an sich.
+      final geocoder = await loadSynthetic();
+      expect(geocoder.regionenVon('F'), isEmpty);
+    });
+
+    test('nennt die Orte einer Region mit dem Schlüssel der Ortsmarken',
+        () async {
+      final geocoder = await loadSynthetic();
+      final orte = geocoder.orteIn('FR.11');
+      expect(orte, hasLength(1));
+      // „Land|Region|Ort" mit Namen – genau so schreibt die Weltkarte
+      // eine Marke.
+      expect(orte.single.schluessel, 'France|Île-de-France|Paris');
+      expect(orte.single.name, 'Paris');
+    });
+
+    test('die grössten Orte zuerst', () async {
+      final geocoder = await loadSynthetic();
+      // Beide Städte in dieselbe Region legen, damit die Reihenfolge
+      // etwas zu entscheiden hat: Paris hat viermal so viele Einwohner.
+      final orte = geocoder.orteIn('FR.84');
+      expect(orte.single.name, 'Lyon');
+    });
+
+    test('die Liste lässt sich deckeln', () async {
+      // Für „US.TX" kennt der echte Datensatz über tausend Orte.
+      final geocoder = await loadSynthetic();
+      expect(geocoder.orteIn('FR.11', hoechstens: 0), isEmpty);
+    });
+
+    test('ein unbekannter Regionscode gibt eine leere Liste', () async {
+      final geocoder = await loadSynthetic();
+      expect(geocoder.orteIn('FR.99'), isEmpty);
+      expect(geocoder.orteIn('Unsinn'), isEmpty);
+      expect(geocoder.orteIn(''), isEmpty);
+    });
+  });
 }

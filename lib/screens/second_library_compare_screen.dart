@@ -11,6 +11,7 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import 'asset_viewer_screen.dart';
+import '../services/meldungsdienst.dart';
 
 enum _Phase { idle, scanning, loaded, error }
 
@@ -47,9 +48,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
 
   Future<void> _pickAndScan() async {
     if (!widget.library.clipAvailable) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).allgClipNoetigKurz),
-      ));
+      melde.warnung(AppTexte.of(context).allgClipNoetigKurz);
       return;
     }
 

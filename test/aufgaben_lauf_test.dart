@@ -20,6 +20,8 @@ import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/services/translation_service.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
+import 'package:photo_vault/services/meldungsdienst.dart';
+import 'package:photo_vault/widgets/meldungsfenster.dart';
 
 /// Die Aufgabenübersicht zeigt den Fortschritt jetzt in der Karte statt in
 /// einem Fenster, das den Bildschirm sperrt.
@@ -61,6 +63,9 @@ void main() {
   });
 
   tearDown(() async {
+    // Der Meldungsdienst ist ein Einzelstueck – was hier stehen
+    // bleibt, steht im naechsten Test noch da.
+    melde.verlaufLeeren();
     await db.close();
     tempRoot.deleteSync(recursive: true);
   });
@@ -90,6 +95,10 @@ void main() {
       // Das echte Thema: Die Karten greifen über context.semantik auf eine
       // Theme-Erweiterung zu, die einem zusammengestellten Thema fehlt.
       theme: buildDarkTheme(),
+      // Der Meldungsstapel gehoert dazu: Seit der Meldungszentrale
+      // erscheinen Meldungen dort und nicht mehr als SnackBar im
+      // Scaffold.
+      builder: (context, kind) => mitMeldungen(kind),
       home: BackgroundTasksScreen(library: library),
     ));
     await tester.pumpAndSettle();
@@ -154,6 +163,10 @@ void main() {
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
+      // Der Meldungsstapel gehoert dazu: Seit der Meldungszentrale
+      // erscheinen Meldungen dort und nicht mehr als SnackBar im
+      // Scaffold.
+      builder: (context, kind) => mitMeldungen(kind),
       home: BackgroundTasksScreen(library: library),
     ));
     // Kein pumpEventQueue: Der Testkörper läuft in einer gestellten Zeit,
@@ -238,6 +251,10 @@ void main() {
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
+      // Der Meldungsstapel gehoert dazu: Seit der Meldungszentrale
+      // erscheinen Meldungen dort und nicht mehr als SnackBar im
+      // Scaffold.
+      builder: (context, kind) => mitMeldungen(kind),
       home: ToolsScreen(library: library),
     ));
     await einigeBilder(tester);

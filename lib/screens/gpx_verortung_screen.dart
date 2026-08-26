@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 import '../services/gpx.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../services/meldungsdienst.dart';
 
 /// Fotos aus einer GPX-Spur verorten.
 ///
@@ -134,8 +135,7 @@ class _GpxVerortungScreenState extends State<GpxVerortungScreen> {
           if (!erledigt.contains(a.id)) a,
       ];
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t.gpxFertig(verortungen.length))));
+    melde.erfolg(t.gpxFertig(verortungen.length));
   }
 
   @override

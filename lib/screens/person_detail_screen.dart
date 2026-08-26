@@ -16,6 +16,7 @@ import 'asset_viewer_screen.dart';
 import 'face_review_screen.dart';
 import 'person_suggestions_screen.dart';
 import 'stammbaum_screen.dart';
+import '../services/meldungsdienst.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final LibraryState library;
@@ -53,11 +54,9 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
       if (bekannt.isEmpty || kandidaten.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(bekannt.isEmpty
-              ? AppTexte.of(context).vorschlagKeineEmbeddings
-              : AppTexte.of(context).vorschlagKeineKandidaten),
-        ));
+        melde.hinweis(bekannt.isEmpty
+            ? AppTexte.of(context).vorschlagKeineEmbeddings
+            : AppTexte.of(context).vorschlagKeineKandidaten);
         return;
       }
 
@@ -79,10 +78,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
 
       if (!mounted) return;
       if (roh.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppTexte.of(context).vorschlagNichtsGefunden(
-              library.schwelleFuerPerson(person).toStringAsFixed(2))),
-        ));
+        melde.hinweis(AppTexte.of(context).vorschlagNichtsGefunden(
+            library.schwelleFuerPerson(person).toStringAsFixed(2)));
         return;
       }
 
@@ -101,9 +98,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         ),
       ));
       if (!mounted || uebernommen == null) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).vorschlagUebernommenMeldung(uebernommen)),
-      ));
+      melde.erfolg(AppTexte.of(context).vorschlagUebernommenMeldung(uebernommen));
     } finally {
       if (mounted) setState(() => _sucheLaeuft = false);
     }
@@ -117,9 +112,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
         .toList();
     if (faces.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppTexte.of(context).personKeineGesichter),
-        ));
+        melde.hinweis(AppTexte.of(context).personKeineGesichter);
       }
       return;
     }
@@ -336,9 +329,7 @@ class _ErkennungsStandState extends State<_ErkennungsStand> {
     await widget.library.db.vergissGesichtsEntscheidungen(widget.person.id);
     await _lade();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).personGelerntesVerworfen),
-      ));
+      melde.erfolg(AppTexte.of(context).personGelerntesVerworfen);
     }
   }
 

@@ -5863,4 +5863,266 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get stammbaumSchwaeger => 'Siblings-in-law';
+
+  @override
+  String ortRegionen(int besucht, int gesamt) {
+    return 'Regions · $besucht of $gesamt';
+  }
+
+  @override
+  String ortOrte(int besucht, int gesamt) {
+    return 'Places · $besucht of $gesamt';
+  }
+
+  @override
+  String ortFotos(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos',
+      one: 'One photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get ortNichtsHier =>
+      'Nothing from here yet – no photo, and the dataset knows no further level below.';
+
+  @override
+  String get meldungenTitel => 'Notifications';
+
+  @override
+  String get meldungenKeine => 'Nothing to report yet.';
+
+  @override
+  String get meldungenGlocke => 'Show notifications';
+
+  @override
+  String get meldungSchliessen => 'Dismiss notification';
+
+  @override
+  String get meldungenAlleSchliessen => 'Hide all';
+
+  @override
+  String get meldungenVerlaufLeeren => 'Clear history';
+
+  @override
+  String meldungWiederholt(int anzahl) {
+    return '$anzahl×';
+  }
+
+  @override
+  String get meldungArtHinweis => 'Note';
+
+  @override
+  String get meldungArtErfolg => 'Done';
+
+  @override
+  String get meldungArtWarnung => 'Warning';
+
+  @override
+  String get meldungArtFehler => 'Error';
+
+  @override
+  String get aktivitaetenTitel => 'Activities';
+
+  @override
+  String get aktivitaetenOeffnen => 'Show activities';
+
+  @override
+  String get aktivitaetenVorschlaege => 'Suggestions';
+
+  @override
+  String get aktivitaetenBestaetigte => 'On trips';
+
+  @override
+  String get aktivitaetenOhneReise => 'On their own';
+
+  @override
+  String get aktivitaetenLeer =>
+      'No activity yet. Hikes, bike rides and outings are detected from a day\'s photos – a handful of located pictures spanning at least three quarters of an hour are needed.';
+
+  @override
+  String get aktivitaetenSuchtNoch => 'Looking for outings …';
+
+  @override
+  String get aktivitaetenBenennen => 'Name activity';
+
+  @override
+  String get aktivitaetenUmbenennen => 'Rename';
+
+  @override
+  String get aktivitaetenName => 'Name';
+
+  @override
+  String get aktivitaetenLoeschen => 'Delete activity';
+
+  @override
+  String aktivitaetenLoeschenFrage(String name) {
+    return 'Remove “$name” from the list? The photos stay where they are.';
+  }
+
+  @override
+  String get aktivitaetenNotiz => 'Note';
+
+  @override
+  String get aktivitaetenArt => 'Type';
+
+  @override
+  String get aktivitaetenArtAendern => 'Change type';
+
+  @override
+  String aktivitaetenStrecke(String km) {
+    return '$km km';
+  }
+
+  @override
+  String aktivitaetenDauer(int stunden, int minuten) {
+    return '$stunden h $minuten min';
+  }
+
+  @override
+  String aktivitaetenDauerKurz(int minuten) {
+    return '$minuten min';
+  }
+
+  @override
+  String aktivitaetenAufnahmen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos',
+      one: 'One photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get aktivitaetenOhneOrt => 'Out and about';
+
+  @override
+  String aktivitaetenZuReise(String reise) {
+    return 'Part of: $reise';
+  }
+
+  @override
+  String get aktivitaetenKeineRoute => 'Too few located photos for a route.';
+
+  @override
+  String get aktivitaetenInDieserReise => 'Outings';
+
+  @override
+  String aktivitaetenAngelegt(String name) {
+    return '“$name” recorded.';
+  }
+
+  @override
+  String aktivitaetenEntfernt(String name) {
+    return '“$name” removed.';
+  }
+
+  @override
+  String get aktArtWanderung => 'Hike';
+
+  @override
+  String get aktArtRadtour => 'Bike ride';
+
+  @override
+  String get aktArtAusflug => 'Outing';
+
+  @override
+  String get aktArtBesichtigung => 'Sightseeing';
+
+  @override
+  String get aktArtBootsfahrt => 'Boat trip';
+
+  @override
+  String get aktArtSonstiges => 'Other';
+
+  @override
+  String get aktivitaetenIstEine => 'Yes, an outing';
+
+  @override
+  String get aktivitaetenKeine => 'Not an outing';
+
+  @override
+  String get spurHinzufuegen => 'Add GPX track';
+
+  @override
+  String get spurEntfernen => 'Remove track';
+
+  @override
+  String get spurEntferntMeldung => 'Track removed.';
+
+  @override
+  String spurHinzugefuegtMeldung(String name, String km) {
+    return 'Track “$name” added: $km km.';
+  }
+
+  @override
+  String get spurTitel => 'Recorded track';
+
+  @override
+  String spurKennzahlen(String km, int auf, int ab) {
+    return '$km km · ▲ $auf m · ▼ $ab m';
+  }
+
+  @override
+  String spurKennzahlenOhneHoehe(String km) {
+    return '$km km · no elevation data';
+  }
+
+  @override
+  String spurPunkte(int anzahl) {
+    return '$anzahl points';
+  }
+
+  @override
+  String get spurHoehenprofil => 'Elevation profile';
+
+  @override
+  String get spurOhneHoehen =>
+      'This file carries no elevations – without them there is no profile.';
+
+  @override
+  String spurProfilBeschreibung(String km, int tief, int hoch, int auf) {
+    return 'Elevation profile over $km km, from $tief to $hoch metres, $auf metres of ascent.';
+  }
+
+  @override
+  String spurStelle(String km, int hoehe) {
+    return '$km km · $hoehe m';
+  }
+
+  @override
+  String get spurSchonDa => 'This activity already has a track.';
+
+  @override
+  String get gelaendeTitel => 'Terrain';
+
+  @override
+  String get gelaendeOeffnen => 'Show terrain';
+
+  @override
+  String get gelaendeLaedt => 'Fetching elevations …';
+
+  @override
+  String get gelaendeNichts =>
+      'No elevation data arrived for this area. The tiles live on the network; without a connection there is no landscape.';
+
+  @override
+  String get gelaendeBedienung => 'Drag to rotate and tilt · scroll to zoom';
+
+  @override
+  String gelaendeUeberhoeht(String faktor) {
+    return 'Elevation exaggerated $faktor×';
+  }
+
+  @override
+  String get gelaendeNamensnennung =>
+      'Elevation: Tilezen / AWS Open Data · Map: OpenTopoMap (CC-BY-SA)';
+
+  @override
+  String get gelaendeErneut => 'Try again';
 }

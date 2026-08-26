@@ -1,0 +1,535 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart' show Value;
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
+
+import '../db/database.dart';
+import '../l10n/app_localizations.dart';
+import '../services/aktivitaeten.dart';
+import '../services/gpx.dart';
+import '../services/meldungsdienst.dart';
+import '../services/reiseroute.dart';
+import '../state/library_state.dart';
+import '../theme/app_spacing.dart';
+import '../widgets/aktivitaetsart_anzeige.dart';
+import '../widgets/asset_thumbnail_tile.dart';
+import '../widgets/hoehenprofil.dart';
+import '../widgets/namens_dialog.dart';
+import '../widgets/routenkarte.dart';
+import 'asset_viewer_screen.dart';
+import 'gelaende_screen.dart';
+
+/// Eine einzelne Aktivität.
+///
+/// Dieselbe Karte wie bei einer Reise, nur kleiner: eine Wanderung ist
+/// eine Strecke, und eine Strecke will man sehen. Die Zahl darunter —
+/// Dauer und Kilometer — wird aus den Aufnahmen gerechnet und **nicht**
+/// gespeichert: Wer ein Bild aus der Aktivität nimmt, soll die Strecke
+/// sofort ohne es sehen.
+class AktivitaetDetailScreen extends StatefulWidget {
+  final LibraryState library;
+  final AktivitaetenData aktivitaet;
+
+  const AktivitaetDetailScreen({
+    super.key,
+    required this.library,
+    required this.aktivitaet,
+  });
+
+  @override
+  State<AktivitaetDetailScreen> createState() => _AktivitaetDetailScreenState();
+}
+
+class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
+  late AktivitaetenData _k = widget.aktivitaet;
+  List<AssetData> _aufnahmen = const [];
+  String? _reisename;
+  SpurenData? _spur;
+  List<SpurpunkteData> _spurpunkte = const [];
+
+  /// Der Punkt, auf den das Höhenprofil gerade zeigt – für die Marke auf
+  /// der Karte.
+  int? _stelle;
+
+  bool _laedt = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _laden();
+  }
+
+  Future<void> _laden() async {
+    final db = widget.library.db;
+    final aufnahmen = await db.aufnahmenDerAktivitaet(_k.id);
+    final frisch = await db.aktivitaet(_k.id);
+    final reise = (frisch ?? _k).reiseId;
+    final name = reise == null ? null : (await db.reise(reise))?.name;
+    final spur = (await db.spurenDerAktivitaet(_k.id)).firstOrNull;
+    final punkte =
+        spur == null ? <SpurpunkteData>[] : await db.punkteDerSpur(spur.id);
+    if (!mounted) return;
+    setState(() {
+      _aufnahmen = aufnahmen;
+      if (frisch != null) _k = frisch;
+      _reisename = name;
+      _spur = spur;
+      _spurpunkte = punkte;
+      _stelle = null;
+      _laedt = false;
+    });
+  }
+
+  Aktivitaetsart get _art => Aktivitaetsart.aus(_k.art);
+
+  Map<String, AssetData> get _nachId => {for (final a in _aufnahmen) a.id: a};
+
+  List<({double breite, double laenge, DateTime zeit})> get _punkte => [
+        for (final a in _aufnahmen)
+          if (a.latitude != null && a.longitude != null)
+            (breite: a.latitude!, laenge: a.longitude!, zeit: a.fileCreatedAt),
+      ];
+
+  List<Routenpunkt> get _route =>
+      // Hundert Meter statt eines Kilometers: Auf einer Wanderung ist ein
+      // Kilometer die halbe Strecke, und die Linie wäre ein Strich
+      // zwischen Anfang und Ende.
+      reiseroute(_punkte, mindestabstandKm: 0.1);
+
+  List<Aufenthaltsort> get _orte => aufenthaltsorte([
+        for (final a in _aufnahmen)
+          if (a.latitude != null && a.longitude != null)
+            (
+              id: a.id,
+              breite: a.latitude!,
+              laenge: a.longitude!,
+              zeit: a.fileCreatedAt,
+              stadt: a.locationCity,
+            ),
+      ],
+          // Zweihundert Meter: Auf fünfzehn Kilometern – dem Mass für
+          // eine Reise – wäre die ganze Wanderung ein einziger Pin.
+          radiusKm: 0.2);
+
+  double get _streckeKm => strecke(_punkte);
+
+  Duration get _dauer => _k.bis.difference(_k.von);
+
+  /// Die Punkte des Profils – aus der Spur, nicht aus den Fotos.
+  ///
+  /// **Was das Gerät gemessen hat, ist die Aussage.** Die Fotos ergeben
+  /// eine Vermutung über den Weg; die Aufzeichnung ist der Weg.
+  List<Profilpunkt> get _profil => profilpunkte([
+        for (final p in _spurpunkte)
+          (breite: p.breite, laenge: p.laenge, hoehe: p.hoehe),
+      ]);
+
+  List<({double breite, double laenge})> get _spurlinie =>
+      [for (final p in _spurpunkte) (breite: p.breite, laenge: p.laenge)];
+
+  /// Wo die Marke auf der Karte steht, während jemand über das Profil
+  /// fährt.
+  ///
+  /// Über den mitgeführten Index und nicht über die Strecke: Das Profil
+  /// kennt nur die Punkte **mit** Höhe, sein eigener Index ist also
+  /// nicht der Index in der Spur.
+  ({double breite, double laenge})? get _stelleAufKarte {
+    final i = _stelle;
+    if (i == null || i >= _profil.length) return null;
+    final p = _spurpunkte[_profil[i].index];
+    return (breite: p.breite, laenge: p.laenge);
+  }
+
+  /// Was die Sprachausgabe vom Profil erfährt. Ein `CustomPaint` ist
+  /// für sie sonst eine leere Fläche.
+  String _profilbeschreibung(AppTexte t, NumberFormat zahl) {
+    final hoehen = [for (final p in _profil) p.hoehe];
+    return t.spurProfilBeschreibung(
+      zahl.format(_profil.last.km),
+      hoehen.reduce((a, b) => a < b ? a : b).round(),
+      hoehen.reduce((a, b) => a > b ? a : b).round(),
+      (_spur?.aufstieg ?? 0).round(),
+    );
+  }
+
+  Future<void> _spurHinzufuegen() async {
+    final t = AppTexte.of(context);
+    if (_spur != null) {
+      melde.warnung(t.spurSchonDa);
+      return;
+    }
+    final wahl = await FilePicker.platform.pickFiles(
+      dialogTitle: t.gpxDateiWaehlen,
+      type: FileType.custom,
+      allowedExtensions: const ['gpx'],
+    );
+    final pfad = wahl?.files.firstOrNull?.path;
+    if (pfad == null || !mounted) return;
+
+    List<Rohpunkt> punkte;
+    try {
+      punkte = liesGpxPunkte(await File(pfad).readAsString());
+    } on GpxFehler catch (f) {
+      if (!mounted) return;
+      melde.fehler(switch (f.grund) {
+        GpxAbbruch.keinGpx => t.gpxFehlerKeinGpx,
+        GpxAbbruch.ohneZeit => t.gpxFehlerOhneZeit,
+        GpxAbbruch.leer => t.gpxFehlerLeer,
+      });
+      return;
+    } on FileSystemException catch (e) {
+      if (!mounted) return;
+      melde.fehler('$e');
+      return;
+    }
+
+    final zahlen = spurkennzahlen(punkte);
+    final id = const Uuid().v4();
+    final name = pfad.split(Platform.pathSeparator).last;
+    await widget.library.db.spurAnlegen(
+      SpurenCompanion.insert(
+        id: id,
+        name: name,
+        quelle: pfad,
+        aktivitaetId: Value(_k.id),
+        von: Value(zahlen.von),
+        bis: Value(zahlen.bis),
+        punktzahl: zahlen.punktzahl,
+        laengeKm: zahlen.laengeKm,
+        aufstieg: Value(zahlen.aufstieg),
+        abstieg: Value(zahlen.abstieg),
+        angelegtAm: DateTime.now(),
+      ),
+      [
+        for (final (i, p) in punkte.indexed)
+          SpurpunkteCompanion.insert(
+            spurId: id,
+            nummer: i,
+            breite: p.breite,
+            laenge: p.laenge,
+            hoehe: Value(p.hoehe),
+            zeit: Value(p.zeit),
+          ),
+      ],
+    );
+    if (!mounted) return;
+    melde.erfolg(t.spurHinzugefuegtMeldung(
+        name,
+        NumberFormat.decimalPatternDigits(
+                locale: Localizations.localeOf(context).toString(),
+                decimalDigits: 1)
+            .format(zahlen.laengeKm)));
+    await _laden();
+  }
+
+  void _gelaendeOeffnen() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => GelaendeScreen(
+        titel: _k.name,
+        spur: [
+          for (final p in _spurpunkte)
+            (breite: p.breite, laenge: p.laenge, hoehe: p.hoehe),
+        ],
+      ),
+    ));
+  }
+
+  Future<void> _spurEntfernen() async {
+    final spur = _spur;
+    if (spur == null) return;
+    final t = AppTexte.of(context);
+    await widget.library.db.spurLoeschen(spur.id);
+    melde.hinweis(t.spurEntferntMeldung);
+    await _laden();
+  }
+
+  Future<void> _umbenennen() async {
+    final t = AppTexte.of(context);
+    final sauber = await frageNamen(
+      context,
+      titel: t.aktivitaetenUmbenennen,
+      feldbeschriftung: t.aktivitaetenName,
+      vorgabe: _k.name,
+    );
+    if (sauber == null) return;
+    await widget.library.db
+        .aktivitaetAendern(_k.id, AktivitaetenCompanion(name: Value(sauber)));
+    await _laden();
+  }
+
+  Future<void> _artAendern() async {
+    final t = AppTexte.of(context);
+    final gewaehlt = await showDialog<Aktivitaetsart>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(t.aktivitaetenArtAendern),
+        children: [
+          for (final a in Aktivitaetsart.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, a),
+              child: Row(
+                children: [
+                  Icon(symbolFuerArt(a)),
+                  const SizedBox(width: AppSpacing.md),
+                  Text(nameFuerArt(t, a)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (gewaehlt == null) return;
+    await widget.library.db.aktivitaetAendern(
+        _k.id, AktivitaetenCompanion(art: Value(gewaehlt.kennung)));
+    await _laden();
+  }
+
+  Future<void> _notiz() async {
+    final t = AppTexte.of(context);
+    final sauber = await frageNamen(
+      context,
+      titel: t.aktivitaetenNotiz,
+      feldbeschriftung: t.aktivitaetenNotiz,
+      vorgabe: _k.notiz ?? '',
+      mehrzeilig: true,
+      leerErlaubt: true,
+    );
+    if (sauber == null) return;
+    await widget.library.db.aktivitaetAendern(
+        _k.id,
+        AktivitaetenCompanion(
+            notiz: Value(sauber.isEmpty ? null : sauber)));
+    await _laden();
+  }
+
+  Future<void> _entfernen() async {
+    final t = AppTexte.of(context);
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(t.aktivitaetenLoeschen),
+        content: Text(t.aktivitaetenLoeschenFrage(_k.name)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(t.aktivitaetenLoeschen)),
+        ],
+      ),
+    );
+    if (ja != true || !mounted) return;
+    await widget.library.db.aktivitaetLoeschen(_k.id);
+    melde.hinweis(t.aktivitaetenEntfernt(_k.name));
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _oeffnen(int index) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AssetViewerScreen(
+        assets: _aufnahmen,
+        initialIndex: index,
+        paths: widget.library.paths,
+        db: widget.library.db,
+        library: widget.library,
+        onToggleFavorite: (a) =>
+            widget.library.db.setFavorite(a.id, !a.isFavorite),
+      ),
+    ));
+  }
+
+  void _ortOeffnen(Aufenthaltsort ort) {
+    final index = _aufnahmen.indexWhere((a) => a.id == ort.aufnahmeIds.first);
+    if (index >= 0) _oeffnen(index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final locale = Localizations.localeOf(context);
+    final farben = Theme.of(context).colorScheme;
+    final zahl = NumberFormat.decimalPatternDigits(
+        locale: locale.toString(), decimalDigits: 1);
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            Icon(symbolFuerArt(_art), size: 20),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(_k.name)),
+          ],
+        ),
+        actions: [
+          if (_spur != null)
+            IconButton(
+              tooltip: t.gelaendeOeffnen,
+              icon: const Icon(Icons.landscape_outlined),
+              onPressed: _gelaendeOeffnen,
+            ),
+          if (_spur == null)
+            IconButton(
+              tooltip: t.spurHinzufuegen,
+              icon: const Icon(Icons.route_outlined),
+              onPressed: _spurHinzufuegen,
+            )
+          else
+            IconButton(
+              tooltip: t.spurEntfernen,
+              icon: const Icon(Icons.wrong_location_outlined),
+              onPressed: _spurEntfernen,
+            ),
+          IconButton(
+            tooltip: t.aktivitaetenArtAendern,
+            icon: const Icon(Icons.category_outlined),
+            onPressed: _artAendern,
+          ),
+          IconButton(
+            tooltip: t.aktivitaetenUmbenennen,
+            icon: const Icon(Icons.drive_file_rename_outline),
+            onPressed: _umbenennen,
+          ),
+          IconButton(
+            tooltip: t.aktivitaetenNotiz,
+            icon: const Icon(Icons.notes_outlined),
+            onPressed: _notiz,
+          ),
+          IconButton(
+            tooltip: t.aktivitaetenLoeschen,
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _entfernen,
+          ),
+        ],
+      ),
+      body: _laedt
+          ? const Center(child: CircularProgressIndicator())
+          : CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.lg,
+                        AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          [
+                            nameFuerArt(t, _art),
+                            DateFormat.yMMMd(locale.toString())
+                                .format(_k.von),
+                            dauertext(t, _dauer),
+                            if (_streckeKm > 0)
+                              streckentext(t, locale, _streckeKm),
+                            t.aktivitaetenAufnahmen(_aufnahmen.length),
+                          ].join(' · '),
+                          style: TextStyle(
+                              fontSize: 13, color: farben.onSurfaceVariant),
+                        ),
+                        if (_reisename case final r?)
+                          Padding(
+                            padding: const EdgeInsets.only(top: AppSpacing.xs),
+                            child: Text(t.aktivitaetenZuReise(r),
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: farben.onSurfaceVariant)),
+                          ),
+                        if (_route.length > 1 ||
+                            _spurlinie.length > 1) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Routenkarte(
+                            route: _route,
+                            orte: _orte,
+                            nachId: _nachId,
+                            paths: widget.library.paths,
+                            beiOrt: _ortOeffnen,
+                            hoehe: 260,
+                            spur: _spurlinie,
+                            stelle: _stelleAufKarte,
+                          ),
+                        ] else if (_aufnahmen.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Text(t.aktivitaetenKeineRoute,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: farben.onSurfaceVariant)),
+                        ],
+                        if (_spur case final spur?) ...[
+                          const SizedBox(height: AppSpacing.md),
+                          Text(t.spurTitel,
+                              style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: AppSpacing.xs),
+                          Text(
+                            [
+                              spur.aufstieg == null
+                                  ? t.spurKennzahlenOhneHoehe(
+                                      zahl.format(spur.laengeKm))
+                                  : t.spurKennzahlen(
+                                      zahl.format(spur.laengeKm),
+                                      spur.aufstieg!.round(),
+                                      (spur.abstieg ?? 0).round()),
+                              t.spurPunkte(spur.punktzahl),
+                            ].join(' · '),
+                            style: TextStyle(
+                                fontSize: 13, color: farben.onSurfaceVariant),
+                          ),
+                          if (_profil.length > 1) ...[
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(t.spurHoehenprofil,
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: farben.onSurfaceVariant)),
+                            const SizedBox(height: AppSpacing.xs),
+                            Hoehenprofil(
+                              punkte: _profil,
+                              beschreibung: _profilbeschreibung(t, zahl),
+                              beiStelle: (i) => setState(() => _stelle = i),
+                            ),
+                          ] else
+                            Padding(
+                              padding:
+                                  const EdgeInsets.only(top: AppSpacing.xs),
+                              child: Text(t.spurOhneHoehen,
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: farben.onSurfaceVariant)),
+                            ),
+                        ],
+                        if (_k.notiz case final notiz? when notiz.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: AppSpacing.md),
+                            child: Text(notiz),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  sliver: SliverGrid(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 160,
+                      mainAxisSpacing: 4,
+                      crossAxisSpacing: 4,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => AssetThumbnailTile(
+                        asset: _aufnahmen[index],
+                        paths: widget.library.paths,
+                        onTap: () => _oeffnen(index),
+                      ),
+                      childCount: _aufnahmen.length,
+                    ),
+                  ),
+                ),
+                const SliverToBoxAdapter(
+                    child: SizedBox(height: AppSpacing.xl)),
+              ],
+            ),
+    );
+  }
+}

@@ -11,6 +11,7 @@ import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
+import '../services/meldungsdienst.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
   final LibraryState library;
@@ -116,9 +117,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
 
     if (context.mounted) {
       Navigator.of(context).pop(); // Ladeanzeige schließen
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppTexte.of(context).auswExportFertig(exported, assets.length, destination))),
-      );
+      melde.erfolg(AppTexte.of(context).auswExportFertig(exported, assets.length, destination));
     }
   }
 

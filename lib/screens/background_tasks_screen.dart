@@ -7,6 +7,7 @@ import '../state/hintergrundlauf.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import '../services/meldungsdienst.dart';
 
 /// Eine Aktion innerhalb einer [_TaskCard] – startet einen der
 /// `Stream<ImportProgress>`-Backfills auf [LibraryState] als Lauf, der das
@@ -435,9 +436,7 @@ class _TaskCardState extends State<_TaskCard> {
     final abweisung = widget.library
         .pruefeStart(widget.schluessel, rechenintensiv: widget.rechenintensiv);
     if (abweisung != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(abweisungstext(AppTexte.of(context), abweisung))),
-      );
+      melde.warnung(abweisungstext(AppTexte.of(context), abweisung));
       return;
     }
     // Kein `await`: Der Lauf soll weiterlaufen, wenn dieser Bildschirm
@@ -573,8 +572,7 @@ class _CombinedAnalysisCard extends StatelessWidget {
                 icon: Icons.play_arrow,
                 onTap: () {
                   library.starteHintergrundanalyse();
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(SnackBar(content: Text(t.aufgLaeuft)));
+                  melde.hinweis(t.aufgLaeuft);
                 },
               ),
           ],

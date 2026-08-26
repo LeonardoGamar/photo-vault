@@ -10,6 +10,7 @@ import '../theme/app_spacing.dart';
 import 'asset_thumbnail_tile.dart';
 import 'timeline_grid_layout.dart';
 import 'timeline_scrubber.dart';
+import '../services/meldungsdienst.dart';
 
 const double _scrubberWidth = 64.0;
 
@@ -159,9 +160,7 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     }
     final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId);
     if (offset == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppTexte.of(context).rasterFotoNichtGefunden)),
-      );
+      melde.warnung(AppTexte.of(context).rasterFotoNichtGefunden);
       return;
     }
     final clamped = offset.clamp(0.0, _scrollController.position.maxScrollExtent);

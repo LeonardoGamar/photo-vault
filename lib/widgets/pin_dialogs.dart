@@ -7,6 +7,7 @@ import 'namens_dialog.dart'
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import '../services/meldungsdienst.dart';
 
 /// Fragt einen PIN ab (z.B. um den gesperrten Ordner zu öffnen oder eine
 /// Änderung zu bestätigen). Gibt `null` zurück, wenn abgebrochen wurde.
@@ -156,7 +157,7 @@ Future<bool> ensureVaultUnlocked(BuildContext context, LibraryState library) asy
     return true;
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppTexte.of(context).pinFalsch)));
+      melde.warnung(AppTexte.of(context).pinFalsch);
     }
     return false;
   }
@@ -287,8 +288,7 @@ Future<bool> ensureBackupKeyAvailable(BuildContext context, LibraryState library
     return true;
   } catch (_) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(AppTexte.of(context).passphraseFalsch)));
+      melde.warnung(AppTexte.of(context).passphraseFalsch);
     }
     return false;
   }

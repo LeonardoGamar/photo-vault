@@ -17,7 +17,7 @@ import '../widgets/person_picker_dialog.dart';
 import 'face_cluster_review_screen.dart';
 import 'face_review_screen.dart';
 import 'person_detail_screen.dart';
-import '../widgets/meldung_mit_knopf.dart';
+import '../services/meldungsdienst.dart';
 
 /// Zeigt benannte Personen als Grid sowie – darunter – alle noch nicht
 /// zugeordneten erkannten Gesichter. Die lokale YuNet-Engine erkennt nur
@@ -215,19 +215,19 @@ class _PeopleScreenState extends State<PeopleScreen>
     });
     await _entferneAusRaster(betroffen, nachIgnoriert: true);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(meldungMitKnopf(
-      inhalt: Text(AppTexte.of(context).personenIgnoriertMeldung(betroffen.length)),
-      knopf: SnackBarAction(
-        label: AppTexte.of(context).allgRueckgaengig,
+    melde.hinweis(
+      AppTexte.of(context).personenIgnoriertMeldung(betroffen.length),
+      aktion: (
+        beschriftung: AppTexte.of(context).allgRueckgaengig,
         // Hier bewusst der vollständige Neuaufbau: Das Zurückholen muss
         // die Gesichter wieder an ihren Platz im Raster setzen, und deren
         // Reihenfolge kennt nur die Datenbank.
-        onPressed: () async {
+        beiDruck: () async {
           await widget.library.db.setFacesIgnored(betroffen.toList(), false);
           await _neuLaden();
         },
       ),
-    ));
+    );
   }
 
   /// Das Kontextmenü der Gesichts-Raster (Rechtsklick).
@@ -282,9 +282,7 @@ class _PeopleScreenState extends State<PeopleScreen>
     });
     await _neuLaden();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppTexte.of(context).personenAlleIgnoriertMeldung(anzahl)),
-    ));
+    melde.erfolg(AppTexte.of(context).personenAlleIgnoriertMeldung(anzahl));
   }
 
   Future<void> _alleErkennungenLoeschen() async {
@@ -320,9 +318,7 @@ class _PeopleScreenState extends State<PeopleScreen>
     });
     await _neuLaden();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(AppTexte.of(context).personenErkennungenGeloeschtMeldung(anzahl)),
-    ));
+    melde.erfolg(AppTexte.of(context).personenErkennungenGeloeschtMeldung(anzahl));
   }
 
   Future<void> _holeZurueck() async {
@@ -362,10 +358,7 @@ class _PeopleScreenState extends State<PeopleScreen>
 
     if (referenceVectors.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              AppTexte.of(context).personenModellFehlt),
-        ));
+        melde.warnung(AppTexte.of(context).personenModellFehlt);
       }
       return;
     }
@@ -387,10 +380,8 @@ class _PeopleScreenState extends State<PeopleScreen>
     });
 
     if (newlyAdded.isEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(AppTexte.of(context).personenKeineAehnlichen(
-            widget.library.faceSimilarityThreshold.toStringAsFixed(2))),
-      ));
+      melde.hinweis(AppTexte.of(context).personenKeineAehnlichen(
+          widget.library.faceSimilarityThreshold.toStringAsFixed(2)));
     }
   }
 
@@ -527,9 +518,7 @@ class _PeopleScreenState extends State<PeopleScreen>
     };
     if (embeddingsByFaceId.length < 2) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppTexte.of(context).personenZuWenigeFuerClustering),
-        ));
+        melde.hinweis(AppTexte.of(context).personenZuWenigeFuerClustering);
       }
       stand.dispose();
       return;
@@ -587,11 +576,9 @@ class _PeopleScreenState extends State<PeopleScreen>
       stand.dispose();
       if (mounted) {
         final grund = e is FaceClusterFehler ? e.meldung : '$e';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(grund == null
-              ? AppTexte.of(context).clusterUnerwartetBeendet
-              : AppTexte.of(context).clusterFehlgeschlagen(grund)),
-        ));
+        melde.fehler(grund == null
+            ? AppTexte.of(context).clusterUnerwartetBeendet
+            : AppTexte.of(context).clusterFehlgeschlagen(grund));
       }
       return;
     }
@@ -604,9 +591,7 @@ class _PeopleScreenState extends State<PeopleScreen>
       dialogSchliessen();
       stand.dispose();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(AppTexte.of(context).personenKeineGruppen),
-        ));
+        melde.hinweis(AppTexte.of(context).personenKeineGruppen);
       }
       return;
     }

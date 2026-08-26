@@ -9226,6 +9226,420 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Schwager und Schwägerin'**
   String get stammbaumSchwaeger;
+
+  /// No description provided for @ortRegionen.
+  ///
+  /// In de, this message translates to:
+  /// **'Regionen · {besucht} von {gesamt}'**
+  String ortRegionen(int besucht, int gesamt);
+
+  /// No description provided for @ortOrte.
+  ///
+  /// In de, this message translates to:
+  /// **'Orte · {besucht} von {gesamt}'**
+  String ortOrte(int besucht, int gesamt);
+
+  /// No description provided for @ortFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Ein Foto} other{{anzahl} Fotos}}'**
+  String ortFotos(int anzahl);
+
+  /// No description provided for @ortNichtsHier.
+  ///
+  /// In de, this message translates to:
+  /// **'Von hier gibt es noch nichts – kein Foto, und der Datensatz kennt keine weitere Ebene darunter.'**
+  String get ortNichtsHier;
+
+  /// No description provided for @meldungenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Meldungen'**
+  String get meldungenTitel;
+
+  /// No description provided for @meldungenKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'Bisher nichts zu melden.'**
+  String get meldungenKeine;
+
+  /// No description provided for @meldungenGlocke.
+  ///
+  /// In de, this message translates to:
+  /// **'Meldungen ansehen'**
+  String get meldungenGlocke;
+
+  /// No description provided for @meldungSchliessen.
+  ///
+  /// In de, this message translates to:
+  /// **'Meldung schliessen'**
+  String get meldungSchliessen;
+
+  /// No description provided for @meldungenAlleSchliessen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle ausblenden'**
+  String get meldungenAlleSchliessen;
+
+  /// No description provided for @meldungenVerlaufLeeren.
+  ///
+  /// In de, this message translates to:
+  /// **'Verlauf leeren'**
+  String get meldungenVerlaufLeeren;
+
+  /// No description provided for @meldungWiederholt.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl}×'**
+  String meldungWiederholt(int anzahl);
+
+  /// No description provided for @meldungArtHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Hinweis'**
+  String get meldungArtHinweis;
+
+  /// No description provided for @meldungArtErfolg.
+  ///
+  /// In de, this message translates to:
+  /// **'Erledigt'**
+  String get meldungArtErfolg;
+
+  /// No description provided for @meldungArtWarnung.
+  ///
+  /// In de, this message translates to:
+  /// **'Warnung'**
+  String get meldungArtWarnung;
+
+  /// No description provided for @meldungArtFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehler'**
+  String get meldungArtFehler;
+
+  /// No description provided for @aktivitaetenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivitäten'**
+  String get aktivitaetenTitel;
+
+  /// No description provided for @aktivitaetenOeffnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivitäten ansehen'**
+  String get aktivitaetenOeffnen;
+
+  /// No description provided for @aktivitaetenVorschlaege.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschläge'**
+  String get aktivitaetenVorschlaege;
+
+  /// No description provided for @aktivitaetenBestaetigte.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf Reisen'**
+  String get aktivitaetenBestaetigte;
+
+  /// No description provided for @aktivitaetenOhneReise.
+  ///
+  /// In de, this message translates to:
+  /// **'Für sich'**
+  String get aktivitaetenOhneReise;
+
+  /// No description provided for @aktivitaetenLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Aktivität. Wanderungen, Radtouren und Ausflüge werden aus den Aufnahmen eines Tages erkannt – gebraucht werden eine Handvoll verortete Bilder über mindestens eine Dreiviertelstunde.'**
+  String get aktivitaetenLeer;
+
+  /// No description provided for @aktivitaetenSuchtNoch.
+  ///
+  /// In de, this message translates to:
+  /// **'Sucht nach Unternehmungen …'**
+  String get aktivitaetenSuchtNoch;
+
+  /// No description provided for @aktivitaetenBenennen.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivität benennen'**
+  String get aktivitaetenBenennen;
+
+  /// No description provided for @aktivitaetenUmbenennen.
+  ///
+  /// In de, this message translates to:
+  /// **'Umbenennen'**
+  String get aktivitaetenUmbenennen;
+
+  /// No description provided for @aktivitaetenName.
+  ///
+  /// In de, this message translates to:
+  /// **'Name'**
+  String get aktivitaetenName;
+
+  /// No description provided for @aktivitaetenLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivität löschen'**
+  String get aktivitaetenLoeschen;
+
+  /// No description provided for @aktivitaetenLoeschenFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}\" aus der Liste nehmen? Die Fotos bleiben, wo sie sind.'**
+  String aktivitaetenLoeschenFrage(String name);
+
+  /// No description provided for @aktivitaetenNotiz.
+  ///
+  /// In de, this message translates to:
+  /// **'Notiz'**
+  String get aktivitaetenNotiz;
+
+  /// No description provided for @aktivitaetenArt.
+  ///
+  /// In de, this message translates to:
+  /// **'Art'**
+  String get aktivitaetenArt;
+
+  /// No description provided for @aktivitaetenArtAendern.
+  ///
+  /// In de, this message translates to:
+  /// **'Art ändern'**
+  String get aktivitaetenArtAendern;
+
+  /// No description provided for @aktivitaetenStrecke.
+  ///
+  /// In de, this message translates to:
+  /// **'{km} km'**
+  String aktivitaetenStrecke(String km);
+
+  /// No description provided for @aktivitaetenDauer.
+  ///
+  /// In de, this message translates to:
+  /// **'{stunden} h {minuten} min'**
+  String aktivitaetenDauer(int stunden, int minuten);
+
+  /// No description provided for @aktivitaetenDauerKurz.
+  ///
+  /// In de, this message translates to:
+  /// **'{minuten} min'**
+  String aktivitaetenDauerKurz(int minuten);
+
+  /// No description provided for @aktivitaetenAufnahmen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Ein Foto} other{{anzahl} Fotos}}'**
+  String aktivitaetenAufnahmen(int anzahl);
+
+  /// No description provided for @aktivitaetenOhneOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Unterwegs'**
+  String get aktivitaetenOhneOrt;
+
+  /// No description provided for @aktivitaetenZuReise.
+  ///
+  /// In de, this message translates to:
+  /// **'Gehört zu: {reise}'**
+  String aktivitaetenZuReise(String reise);
+
+  /// No description provided for @aktivitaetenKeineRoute.
+  ///
+  /// In de, this message translates to:
+  /// **'Zu wenige verortete Aufnahmen für eine Strecke.'**
+  String get aktivitaetenKeineRoute;
+
+  /// No description provided for @aktivitaetenInDieserReise.
+  ///
+  /// In de, this message translates to:
+  /// **'Unternehmungen'**
+  String get aktivitaetenInDieserReise;
+
+  /// No description provided for @aktivitaetenAngelegt.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}\" eingetragen.'**
+  String aktivitaetenAngelegt(String name);
+
+  /// No description provided for @aktivitaetenEntfernt.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}\" entfernt.'**
+  String aktivitaetenEntfernt(String name);
+
+  /// No description provided for @aktArtWanderung.
+  ///
+  /// In de, this message translates to:
+  /// **'Wanderung'**
+  String get aktArtWanderung;
+
+  /// No description provided for @aktArtRadtour.
+  ///
+  /// In de, this message translates to:
+  /// **'Radtour'**
+  String get aktArtRadtour;
+
+  /// No description provided for @aktArtAusflug.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausflug'**
+  String get aktArtAusflug;
+
+  /// No description provided for @aktArtBesichtigung.
+  ///
+  /// In de, this message translates to:
+  /// **'Besichtigung'**
+  String get aktArtBesichtigung;
+
+  /// No description provided for @aktArtBootsfahrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Bootsfahrt'**
+  String get aktArtBootsfahrt;
+
+  /// No description provided for @aktArtSonstiges.
+  ///
+  /// In de, this message translates to:
+  /// **'Sonstiges'**
+  String get aktArtSonstiges;
+
+  /// No description provided for @aktivitaetenIstEine.
+  ///
+  /// In de, this message translates to:
+  /// **'War eine Unternehmung'**
+  String get aktivitaetenIstEine;
+
+  /// No description provided for @aktivitaetenKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'War keine'**
+  String get aktivitaetenKeine;
+
+  /// No description provided for @spurHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'GPX-Spur hinzufügen'**
+  String get spurHinzufuegen;
+
+  /// No description provided for @spurEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Spur entfernen'**
+  String get spurEntfernen;
+
+  /// No description provided for @spurEntferntMeldung.
+  ///
+  /// In de, this message translates to:
+  /// **'Spur entfernt.'**
+  String get spurEntferntMeldung;
+
+  /// No description provided for @spurHinzugefuegtMeldung.
+  ///
+  /// In de, this message translates to:
+  /// **'Spur „{name}“ hinzugefügt: {km} km.'**
+  String spurHinzugefuegtMeldung(String name, String km);
+
+  /// No description provided for @spurTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufgezeichnete Spur'**
+  String get spurTitel;
+
+  /// No description provided for @spurKennzahlen.
+  ///
+  /// In de, this message translates to:
+  /// **'{km} km · ▲ {auf} m · ▼ {ab} m'**
+  String spurKennzahlen(String km, int auf, int ab);
+
+  /// No description provided for @spurKennzahlenOhneHoehe.
+  ///
+  /// In de, this message translates to:
+  /// **'{km} km · keine Höhenangaben'**
+  String spurKennzahlenOhneHoehe(String km);
+
+  /// No description provided for @spurPunkte.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Punkte'**
+  String spurPunkte(int anzahl);
+
+  /// No description provided for @spurHoehenprofil.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhenprofil'**
+  String get spurHoehenprofil;
+
+  /// No description provided for @spurOhneHoehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Datei führt keine Höhen – ohne sie gibt es kein Profil.'**
+  String get spurOhneHoehen;
+
+  /// No description provided for @spurProfilBeschreibung.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhenprofil über {km} km, von {tief} bis {hoch} Meter, {auf} Meter Aufstieg.'**
+  String spurProfilBeschreibung(String km, int tief, int hoch, int auf);
+
+  /// No description provided for @spurStelle.
+  ///
+  /// In de, this message translates to:
+  /// **'{km} km · {hoehe} m'**
+  String spurStelle(String km, int hoehe);
+
+  /// No description provided for @spurSchonDa.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Aktivität hat schon eine Spur.'**
+  String get spurSchonDa;
+
+  /// No description provided for @gelaendeTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Gelände'**
+  String get gelaendeTitel;
+
+  /// No description provided for @gelaendeOeffnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gelände ansehen'**
+  String get gelaendeOeffnen;
+
+  /// No description provided for @gelaendeLaedt.
+  ///
+  /// In de, this message translates to:
+  /// **'Holt Geländehöhen …'**
+  String get gelaendeLaedt;
+
+  /// No description provided for @gelaendeNichts.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diesen Ausschnitt kamen keine Geländehöhen an. Die Kacheln liegen im Netz; ohne Verbindung gibt es keine Landschaft.'**
+  String get gelaendeNichts;
+
+  /// No description provided for @gelaendeBedienung.
+  ///
+  /// In de, this message translates to:
+  /// **'Ziehen dreht und kippt · Rollen zoomt'**
+  String get gelaendeBedienung;
+
+  /// No description provided for @gelaendeUeberhoeht.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhe {faktor}-fach überhöht'**
+  String gelaendeUeberhoeht(String faktor);
+
+  /// No description provided for @gelaendeNamensnennung.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhen: Tilezen / AWS Open Data · Karte: OpenTopoMap (CC-BY-SA)'**
+  String get gelaendeNamensnennung;
+
+  /// No description provided for @gelaendeErneut.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch einmal versuchen'**
+  String get gelaendeErneut;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

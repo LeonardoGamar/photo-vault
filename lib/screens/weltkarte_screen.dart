@@ -7,10 +7,13 @@ import 'package:latlong2/latlong.dart' as ll;
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/gebietsgrenzen.dart';
+import '../services/ortsuebersicht.dart' show Ortsebene;
 import '../services/reisefortschritt.dart';
 import '../services/reverse_geocoder.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import 'ortsansicht_screen.dart';
+import '../services/meldungsdienst.dart';
 import '../widgets/mini_location_map.dart'
     show buildMapAttribution, buildMapTileLayer, kartenHoechsteStufe;
 
@@ -355,7 +358,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
   }
 
   void _sage(String text) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      melde.hinweis(text);
 
   Future<void> _setze(String art, String schluessel, String name,
       {double? breite, double? laenge}) async {
@@ -373,51 +376,53 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     _sage(AppTexte.of(context).weltkarteMarkeGesetzt(name));
   }
 
-  Future<void> _punktGewaehlt(_Kartenpunkt p) async {
-    final t = AppTexte.of(context);
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (blatt) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(p.name),
-              subtitle: Text(p.belegt
-                  ? t.laenderAufnahmen(p.aufnahmen)
-                  : (p.geplant ? t.laenderGeplant : t.laenderVonHand)),
-            ),
-            const Divider(height: 1),
-            if (p.marke != Markenart.besucht)
-              ListTile(
-                leading: const Icon(Icons.check_circle_outline),
-                title: Text(t.laenderMarkeBesucht),
-                onTap: () {
-                  Navigator.pop(blatt);
-                  final vorher = _alsGeplant;
-                  _alsGeplant = false;
-                  _setze(p.ebene.name, p.schluessel, p.name)
-                      .whenComplete(() => _alsGeplant = vorher);
-                },
-              ),
-            if (p.marke != null)
-              ListTile(
-                leading: const Icon(Icons.remove_circle_outline),
-                title: Text(t.laenderMarkeWeg),
-                onTap: () {
-                  Navigator.pop(blatt);
-                  _entferne(p);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
+  /// Ein Klick auf eine Marke führt in den Ort.
+  ///
+  /// Vorher stand hier ein Blatt mit zwei Knöpfen zum Markieren. Die
+  /// naheliegendere Frage an einen Punkt auf einer Fotokarte ist „was war
+  /// hier?", und die beantwortet die Ortsansicht — samt der
+  /// Markierknöpfe, die vorher das Blatt trug.
+  ///
+  /// **Warum das Blatt ganz weg ist und nicht auf den langen Druck
+  /// wandert:** Die Marke trägt einen Tooltip, und der verschluckt den
+  /// langen Druck selbst. Ein zweiter Weg zum Markieren wäre ohnehin
+  /// einer zu viel — auf die freie Fläche zu klicken setzt und nimmt die
+  /// Marke weiterhin, und in der Ortsansicht stehen beide Knöpfe.
+  void _ortOeffnen(_Kartenpunkt p) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          builder: (_) => OrtsansichtScreen(
+            library: widget.library,
+            ebene: switch (p.ebene) {
+              _Ebene.land => Ortsebene.land,
+              _Ebene.region => Ortsebene.region,
+              _Ebene.ort => Ortsebene.ort,
+            },
+            // Die Weltkarte führt Orte als „ISO|Ort", die Ortsmarken und
+            // die Ortsansicht als „Land|Region|Ort". Umgerechnet wird
+            // hier, wo beide Schreibweisen bekannt sind.
+            schluessel: p.ebene == _Ebene.ort
+                ? _ortsschluessel(p)
+                : p.schluessel,
+            name: p.name,
+          ),
+        ))
+        .then((_) => _laden());
   }
 
-  Future<void> _entferne(_Kartenpunkt p) async {
-    await widget.library.db.loescheOrtsmarke(p.ebene.name, p.schluessel);
-    await _laden();
+  /// „DE|Hamburg" wird zu „Germany|Hamburg|Hamburg".
+  String _ortsschluessel(_Kartenpunkt p) {
+    final geo = widget.library.geocoder;
+    final teile = p.schluessel.split('|');
+    if (teile.length < 2 || geo == null) return p.schluessel;
+    final land = geo.laenderkatalog.nachIso(teile[0])?.name ?? teile[0];
+    // Die Region steht im Schlüssel der Karte nicht drin; sie kommt aus
+    // dem Punkt, der zu diesem Ort gehört.
+    final punkt = geo.ortspunkt(teile[0], teile[1]);
+    final region = punkt == null
+        ? ''
+        : (geo.lookup(punkt.breite, punkt.laenge)?.state ?? '');
+    return '$land|$region|${teile[1]}';
   }
 
   /// Die Namen der drei Ebenen in derselben Reihenfolge wie auf dem
@@ -519,7 +524,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                                 width: 26,
                                 height: 26,
                                 child: GestureDetector(
-                                  onTap: () => _punktGewaehlt(p),
+                                  onTap: () => _ortOeffnen(p),
                                   child: _Marke(punkt: p),
                                 ),
                               ),

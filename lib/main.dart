@@ -16,6 +16,7 @@ import 'state/library_state.dart';
 import 'theme/app_theme.dart';
 import 'widgets/mini_location_map.dart' show kartenSpeicherEinrichten;
 import 'widgets/beenden_dialog.dart';
+import 'widgets/meldungsfenster.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,6 +88,11 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
                 title: 'Photo Vault',
                 navigatorKey: _navigator,
                 debugShowCheckedModeBanner: false,
+                // Der Meldungsstapel liegt über allem, was der Navigator
+                // zeigt: Eine Meldung, die beim Bildschirmwechsel
+                // verschwände, wäre keine – und ein Blatt, das sie
+                // verdeckte, auch nicht.
+                builder: (context, kind) => mitMeldungen(kind),
                 theme: buildLightTheme(),
                 darkTheme: buildDarkTheme(),
                 themeMode: themeModeFromString(settingsSnapshot.data?.themeMode),
