@@ -609,7 +609,7 @@
   "entwVorher": "Before",
   "entwNachher": "After",
   "entwTrennstrich": "Before and after side by side (drag the divider)",
-  "entwTrennstrichWartet": "The unedited image is still being rendered \u2013 one moment.",
+  "entwTrennstrichWartet": "The unedited image is still being rendered – one moment.",
   "entwMaskeErstellen": "Create a mask",
   "entwFormKi": "AI",
   "entwFormPinsel": "Brush",
@@ -636,8 +636,8 @@
   "entwTint": "Tint",
   "entwKontrast": "Contrast",
   "entwBeschneidungWarnung": "Show clipping (red = blown, blue = crushed)",
-  "entwBeschneidungMitMasken": "Clipping cannot be shown while masks are on the photo \u2013 the marks come from the shader preview, and it cannot draw masks.",
-  "entwBeschneidungVorschauHinweis": "Clipping preview \u2013 sharpness, noise, clarity and vignette are not shown here",
+  "entwBeschneidungMitMasken": "Clipping cannot be shown while masks are on the photo – the marks come from the shader preview, and it cannot draw masks.",
+  "entwBeschneidungVorschauHinweis": "Clipping preview – sharpness, noise, clarity and vignette are not shown here",
   "entwVorgabeSichern": "Save as preset",
   "entwVorgabeAnwenden": "Apply preset",
   "entwVorgabeWaehlen": "Choose a preset",
@@ -1643,6 +1643,343 @@
       }
     }
   },
+  "stammbaumGedcomImport": "Import GEDCOM …",
+  "gedcomImportTitel": "The file contains",
+  "gedcomImportGefunden": "{personen} people, {kanten} relationships and {ereignisse} events.",
+  "@gedcomImportGefunden": {
+    "placeholders": {
+      "personen": {
+        "type": "int"
+      },
+      "kanten": {
+        "type": "int"
+      },
+      "ereignisse": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomImportNeuHinweis": "All of them are created anew. Nothing existing is changed or merged.",
+  "gedcomImportUebernehmen": "Import",
+  "gedcomImportFertig": "{anzahl, plural, =1{One person imported.} other{{anzahl} people imported.}}",
+  "@gedcomImportFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomFehlerTitel": "File cannot be read",
+  "gedcomFehlerKeinKopf": "The file does not begin with a GEDCOM header. It is probably not a GEDCOM file.",
+  "gedcomFehlerKodierung": "The file is written in {kodierung}. That encoding cannot be deciphered reliably, and half-deciphered names would be worse than an honest no. Please export it again as UTF-8 from the program it came from.",
+  "@gedcomFehlerKodierung": {
+    "placeholders": {
+      "kodierung": {
+        "type": "String"
+      }
+    }
+  },
+  "gedcomFehlerKeinePersonen": "The file does not contain a single person.",
+  "gedcomBerichtTitel": "What came up while reading",
+  "gedcomBerichtSauber": "Nothing to report.",
+  "gedcomBerichtDoppelte": "{anzahl, plural, =1{One person may already exist.} other{{anzahl} people may already exist.}}",
+  "@gedcomBerichtDoppelte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtDoppelteHinweis": "Nothing was merged. Who really is the same person is yours to decide, on the people screen.",
+  "gedcomBerichtUngenaueDaten": "{anzahl, plural, =1{One date was given only approximately and was left empty.} other{{anzahl} dates were given only approximately and were left empty.}}",
+  "@gedcomBerichtUngenaueDaten": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtUebersprungen": "{anzahl, plural, =1{One entry belongs to something this app does not keep.} other{{anzahl} entries belong to something this app does not keep.}}",
+  "@gedcomBerichtUebersprungen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtKreise": "{anzahl, plural, =1{One relationship would have closed a loop and was left out.} other{{anzahl} relationships would have closed a loop and were left out.}}",
+  "@gedcomBerichtKreise": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtOhneNamen": "{anzahl, plural, =1{One person had no name in the file.} other{{anzahl} people had no name in the file.}}",
+  "@gedcomBerichtOhneNamen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomOrtGeburt": "Place of birth",
+  "gedcomOrtTod": "Place of death",
+  "gedcomOrtTaufe": "Baptism",
+  "gedcomOrtBestattung": "Burial",
+  "gedcomOhneNamen": "Unnamed",
+  "stammbaumZeitleisteOhneDaten": "Nothing on the timeline yet: no date is recorded for anyone in this family.",
+  "stammbaumAnsichtZeitleiste": "Timeline",
+  "zeitleisteOhneDatum": "no date known",
+  "zeitleisteEreignisse": "{anzahl, plural, =1{one event} other{{anzahl} events}}",
+  "@zeitleisteEreignisse": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "stammbaumFamilienstatistik": "Family statistics",
+  "famstatLeer": "No one is recorded for this family.",
+  "famstatPersonen": "People",
+  "famstatLebensalter": "Age at death",
+  "famstatHeiratsalter": "Age at marriage",
+  "famstatHaeufigsterName": "Most common surname",
+  "famstatJahre": "{jahre} years",
+  "@famstatJahre": {
+    "placeholders": {
+      "jahre": {
+        "type": "String"
+      }
+    }
+  },
+  "famstatSpanne": "{von} to {bis} years",
+  "@famstatSpanne": {
+    "placeholders": {
+      "von": {
+        "type": "int"
+      },
+      "bis": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatOhneWert": "not known",
+  "famstatEingerechnet": "{anzahl, plural, =1{one person counted} other{{anzahl} people counted}}",
+  "@famstatEingerechnet": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatOhneSterbedatum": "{anzahl, plural, =1{One person without a date of death is not counted.} other{{anzahl} people without a date of death are not counted.}}",
+  "@famstatOhneSterbedatum": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatWarumOhneSterbedatum": "Anyone still living has no date of death. Counted as “zero years”, the average would look plausible and be badly wrong.",
+  "famstatOhneGeburtsdatum": "{anzahl, plural, =1{One marriage has no date of birth to go with it and is not counted.} other{{anzahl} marriages have no date of birth to go with them and are not counted.}}",
+  "@famstatOhneGeburtsdatum": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatAlterJeGeneration": "Age at death across the generations",
+  "famstatGeneration": "Generation {nummer}",
+  "@famstatGeneration": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatGenerationKurz": "{nummer}",
+  "@famstatGenerationKurz": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatGenerationHinweis": "The first is the oldest one in this family. Generations in which no one has died are missing.",
+  "famstatKinderzahl": "Children per person",
+  "famstatKinderHinweis": "A distribution, not an average: the youngest generation sits at zero because its children are still ahead of it. Only children who are part of this family are counted.",
+  "famstatKinderAchse": "{anzahl, plural, =0{no children} =1{one child} other{{anzahl} children}}",
+  "@famstatKinderAchse": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatNachnamen": "Surnames",
+  "famstatVornamen": "Given names",
+  "famstatDiagrammGenerationen": "Age at death across the generations: {inhalt}",
+  "@famstatDiagrammGenerationen": {
+    "placeholders": {
+      "inhalt": {
+        "type": "String"
+      }
+    }
+  },
+  "famstatDiagrammKinder": "Children per person: {inhalt}",
+  "@famstatDiagrammKinder": {
+    "placeholders": {
+      "inhalt": {
+        "type": "String"
+      }
+    }
+  },
+  "erkundenReisen": "Trips",
+  "reisenTitel": "Trips",
+  "reisenLeer": "No trip yet. Photo Vault does not have you type them in, it recognises them: as soon as enough located photos from far away are together, a suggestion appears here for you to confirm.",
+  "reisenSuchtNoch": "Looking for trips …",
+  "reisenVorschlaege": "Suggestions",
+  "reisenBestaetigte": "Your trips",
+  "reisenKeineVorschlaege": "No new suggestions.",
+  "reisenIstEineReise": "That was a trip",
+  "reisenKeineReise": "Not a trip",
+  "reisenBenennen": "Name the trip",
+  "reisenName": "Name",
+  "reisenNotiz": "Note",
+  "reisenUmbenennen": "Rename",
+  "reisenLoeschen": "Remove trip",
+  "reisenLoeschenFrage": "Remove “{name}”? The photos stay where they are.",
+  "@reisenLoeschenFrage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenOhneOrt": "Unknown parts",
+  "reisenSpanne": "{von} to {bis}",
+  "@reisenSpanne": {
+    "placeholders": {
+      "von": {
+        "type": "String"
+      },
+      "bis": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenNaechte": "{anzahl, plural, =1{one night} other{{anzahl} nights}}",
+  "@reisenNaechte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reisenAufnahmen": "{anzahl, plural, =1{one photo} other{{anzahl} photos}}",
+  "@reisenAufnahmen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reisenOrte": "Places visited",
+  "reisenAktualisieren": "Look again",
+  "reisenRoute": "Route",
+  "reisenKeineRoute": "Without a located photo there is no route.",
+  "reisenAlsTitelbild": "Use as cover",
+  "reisenTitelbildGesetzt": "Cover set.",
+  "reisenTag": "{datum}",
+  "@reisenTag": {
+    "placeholders": {
+      "datum": {
+        "type": "String"
+      }
+    }
+  },
+  "fortschrittTitel": "Countries and places",
+  "fortschrittLaender": "{besucht} of {gesamt} countries",
+  "@fortschrittLaender": {
+    "placeholders": {
+      "besucht": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittRegionen": "{anzahl, plural, =1{one region} other{{anzahl} regions}}",
+  "@fortschrittRegionen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittOrte": "{anzahl, plural, =1{one place} other{{anzahl} places}}",
+  "@fortschrittOrte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittOhneGeodaten": "Without the GeoNames data no photo can be assigned to a country. It is downloaded under “Tools”.",
+  "fortschrittHinweis": "Counted against the {gesamt} countries and territories in the GeoNames data – overseas territories included, not just the 195 sovereign states. A curated list of our own would be a second truth beside the one the photos are actually sorted by.",
+  "@fortschrittHinweis": {
+    "placeholders": {
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittBesucht": "Visited",
+  "werkzGpxTitel": "Locate photos from a GPX track",
+  "werkzGpxText": "A recording carries timestamps. That gives photos from cameras without GPS a location too.",
+  "gpxTitel": "Locate from GPX",
+  "gpxDateiWaehlen": "Choose a GPX file …",
+  "gpxErklaerung": "Choose a recording. Photo Vault lays your photos' capture times against the track and fills in the coordinates – only for photos that do not have one yet.",
+  "gpxSpur": "{punkte} points · {von} to {bis}",
+  "@gpxSpur": {
+    "placeholders": {
+      "punkte": {
+        "type": "int"
+      },
+      "von": {
+        "type": "String"
+      },
+      "bis": {
+        "type": "String"
+      }
+    }
+  },
+  "gpxVersatz": "Time offset",
+  "gpxVersatzHinweis": "EXIF writes the capture time without a time zone, GPX writes UTC. The suggestion is the offset at which the most photos fall on the track – it also catches a camera clock that runs wrong.",
+  "gpxTreffer": "{anzahl, plural, =0{No photo falls on the track.} =1{One photo gets a location.} other{{anzahl} photos get a location.}}",
+  "@gpxTreffer": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gpxVerorten": "Locate",
+  "gpxFertig": "{anzahl, plural, =1{One photo located.} other{{anzahl} photos located.}}",
+  "@gpxFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gpxKeineKandidaten": "Every photo within this track's time span already has a location.",
+  "gpxFehlerKeinGpx": "This is not a GPX file.",
+  "gpxFehlerOhneZeit": "Not a single point in this track has a timestamp. Without a time nothing can be matched.",
+  "gpxFehlerLeer": "The file contains no points at all.",
   "stammbaumKeineFamilienfotos": "Nobody from this family has been recognised in a photo yet.",
   "stammbaumGedcomExport": "Export as GEDCOM …",
   "stammbaumGedcomFertig": "{anzahl, plural, =1{One person exported.} other{{anzahl} people exported.}}",
@@ -1709,6 +2046,11 @@
   "lebenslaufAusbildung": "Education",
   "lebenslaufSonstiges": "Other",
   "lebenslaufOhneDatum": "no date",
+  "lebenslaufOrtAufKarte": "Place on the map",
+  "lebenslaufOrtErkannt": "Found on the map – tap to correct the point.",
+  "lebenslaufOrtUnbekannt": "This place is not in the gazetteer. Tap the map to set it yourself.",
+  "lebenslaufOrtEntfernen": "Remove location",
+  "lebenslaufOrtOhneVerzeichnis": "Without the gazetteer, places cannot be found automatically. A point can still be set by hand.",
   "lebenslaufOrt": "Place",
   "lebenslaufNotiz": "Note",
   "stammbaumLebenslauf": "Life story …",
@@ -1717,6 +2059,7 @@
   "orteNachkommen": "Descendants",
   "orteSeitenlinie": "Collateral line",
   "orteAngeheiratet": "By marriage",
+  "orteEreignisse": "Life events",
   "orteNichtsGewaehlt": "No group selected.",
   "stammbaumFamilienorte": "Places of this family",
   "stammbaumMenue": "More about this person",
@@ -1901,6 +2244,8 @@
   "karteGlobusZoomHinweis": "Zooming in further shows no extra detail – the Earth texture is a single image. Tap a pin to switch to the map at that spot.",
   "karteHineinzoomen": "Zoom in",
   "karteHerauszoomen": "Zoom out",
+  "karteEreignisseEinblenden": "Show life events",
+  "karteEreignisseAusblenden": "Hide life events",
   "karteStandortZeigen": "My location",
   "karteStandortNichtErmittelbar": "Could not determine your location. Check System Settings → Privacy & Security → Location Services to see whether Photo Vault may ask.",
   "karteStandortSuche": "Determining location …"

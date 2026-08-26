@@ -268,6 +268,15 @@ Kartenstil _ausTheme(BuildContext context) =>
         ? Kartenstil.dunkel
         : Kartenstil.hell;
 
+/// Die höchste Zoomstufe, die für den gerade geltenden Stil sinnvoll ist.
+///
+/// Öffentlich, damit jede Karte in dieser App dieselbe Grenze setzen kann
+/// – auch die, die nicht in dieser Datei steht. Ohne Grenze zoomt
+/// flutter_map unbegrenzt weiter und fordert Kacheln an, die es nicht
+/// gibt (siehe zoomgrenze_test.dart, das genau darauf besteht).
+double kartenHoechsteStufe(BuildContext context, {Kartenstil? stil}) =>
+    (stil ?? _ausTheme(context)).hoechsteAnzeigeStufe.toDouble();
+
 /// Die Namensnennung der Kartenanbieter – eine Auflage der Lizenz, also
 /// muss sie lesbar bleiben.
 ///

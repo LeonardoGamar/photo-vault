@@ -93,20 +93,30 @@ class Verwandtschaftsnetz {
 
   Verwandtschaftsnetz(Iterable<Kante> kanten) {
     for (final k in kanten) {
-      switch (k.art) {
-        case Verwandtschaft.elternteil:
-        case Verwandtschaft.adoptivelternteil:
-        case Verwandtschaft.pflegeelternteil:
-          _eltern.putIfAbsent(k.personId, () => {}).add(k.andereId);
-          _kinder.putIfAbsent(k.andereId, () => {}).add(k.personId);
-          _elternArt.putIfAbsent(k.personId, () => {})[k.andereId] = k.art;
-        case Verwandtschaft.partner:
-          // In beide Richtungen eingetragen, obwohl nur eine Zeile
-          // gespeichert ist: Beim Nachschlagen soll die Richtung keine
-          // Rolle spielen.
-          _partner.putIfAbsent(k.personId, () => {}).add(k.andereId);
-          _partner.putIfAbsent(k.andereId, () => {}).add(k.personId);
-      }
+      ergaenze(k);
+    }
+  }
+
+  /// Trägt eine weitere Kante nach.
+  ///
+  /// Für Abläufe, die Kante um Kante gegen den **fortgeschriebenen**
+  /// Stand prüfen – das Einlesen einer GEDCOM-Datei etwa. Der Weg über
+  /// einen neuen `Verwandtschaftsnetz([...alt, neu])` je Kante wäre
+  /// quadratisch und bei dreitausend Personen spürbar.
+  void ergaenze(Kante k) {
+    switch (k.art) {
+      case Verwandtschaft.elternteil:
+      case Verwandtschaft.adoptivelternteil:
+      case Verwandtschaft.pflegeelternteil:
+        _eltern.putIfAbsent(k.personId, () => {}).add(k.andereId);
+        _kinder.putIfAbsent(k.andereId, () => {}).add(k.personId);
+        _elternArt.putIfAbsent(k.personId, () => {})[k.andereId] = k.art;
+      case Verwandtschaft.partner:
+        // In beide Richtungen eingetragen, obwohl nur eine Zeile
+        // gespeichert ist: Beim Nachschlagen soll die Richtung keine
+        // Rolle spielen.
+        _partner.putIfAbsent(k.personId, () => {}).add(k.andereId);
+        _partner.putIfAbsent(k.andereId, () => {}).add(k.personId);
     }
   }
 

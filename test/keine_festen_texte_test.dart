@@ -90,6 +90,11 @@ void main() {
     'auto-analyse',
     'tonwertkurve-raster',
     r'uebersetzung-$titel',
+    // Die Kennung eines Globuspunktes. Eigener Namensraum, weil die
+    // Fotogruppen daneben nach Rasterzelle nummerieren und zwei Punkte
+    // mit derselben Kennung einander ueberschrieben. Steht nirgends auf
+    // dem Bildschirm.
+    r'ereignis-${e.ereignis.id}',
   };
 
   /// Zeilen, deren Text nie ein Nutzer sieht.

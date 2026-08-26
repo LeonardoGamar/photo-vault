@@ -15,6 +15,7 @@ import 'export_presets_screen.dart';
 import 'duplicates_screen.dart';
 import 'integrity_check_screen.dart';
 import 'stack_review_screen.dart';
+import 'gpx_verortung_screen.dart';
 import 'statistics_screen.dart';
 import 'xmp_import_screen.dart';
 
@@ -554,6 +555,18 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _runLocationNameBackfill,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.route_outlined),
+                  title: Text(t.werkzGpxTitel),
+                  subtitle: Text(t.werkzGpxText),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) =>
+                        GpxVerortungScreen(library: widget.library),
+                  )),
                 ),
               ],
             ),

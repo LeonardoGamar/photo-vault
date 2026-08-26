@@ -15,6 +15,8 @@ import 'albums_screen.dart';
 import 'asset_viewer_screen.dart';
 import 'map_screen.dart';
 import 'people_screen.dart';
+import 'reise_detail_screen.dart';
+import 'reisen_screen.dart';
 import 'person_detail_screen.dart';
 import 'timeline_screen.dart';
 
@@ -58,6 +60,18 @@ class ExploreScreen extends StatelessWidget {
         _LocationsPreview(library: library),
         const SizedBox(height: 12),
         _LocationGroupsStrip(library: library),
+        const SizedBox(height: 28),
+        // Reisen stehen direkt unter den Orten: Sie sind dieselbe Frage,
+        // eine Ebene größer – nicht „wo war dieses Bild", sondern „wo war
+        // ich, und wie lange".
+        _SectionHeader(
+          title: AppTexte.of(context).erkundenReisen,
+          onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => ReisenScreen(library: library),
+          )),
+        ),
+        const SizedBox(height: 8),
+        _ReisenStrip(library: library),
         const SizedBox(height: 28),
         _SectionHeader(
           title: AppTexte.of(context).erkundenLetzteAlben,
@@ -402,6 +416,85 @@ class _LocationGroupTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.outline),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Die zuletzt bestätigten Reisen.
+///
+/// Bewusst **nur die bestätigten**: Nach Vorschlägen zu suchen heißt, die
+/// ganze verortete Bibliothek durchzugehen. Das gehört in den
+/// Reisen-Bildschirm, den man dafür öffnet, und nicht in eine
+/// Übersichtsseite, die bei jedem Wechsel auf diesen Reiter neu aufgebaut
+/// wird.
+class _ReisenStrip extends StatelessWidget {
+  final LibraryState library;
+  const _ReisenStrip({required this.library});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 92,
+      child: StreamBuilder<List<ReisenData>>(
+        stream: library.db.watchReisen(),
+        builder: (context, snapshot) {
+          final reisen = snapshot.data ?? const <ReisenData>[];
+          if (reisen.isEmpty) {
+            return _EmptyHint(
+                text: AppTexte.of(context).reisenKeineVorschlaege, height: 92);
+          }
+          final gezeigt = reisen.take(_previewAlbumCount).toList();
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: gezeigt.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) =>
+                _Reisekachel(library: library, reise: gezeigt[index]),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _Reisekachel extends StatelessWidget {
+  final LibraryState library;
+  final ReisenData reise;
+  const _Reisekachel({required this.library, required this.reise});
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    final jahr = reise.von.year == reise.bis.year
+        ? '${reise.von.year}'
+        : '${reise.von.year}–${reise.bis.year}';
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ReiseDetailScreen(library: library, reise: reise),
+      )),
+      child: Container(
+        width: 190,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: farben.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.luggage, color: farben.primary, size: 20),
+            const SizedBox(height: AppSpacing.xs),
+            Text(reise.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(jahr,
+                style: TextStyle(fontSize: 12, color: farben.onSurfaceVariant)),
           ],
         ),
       ),

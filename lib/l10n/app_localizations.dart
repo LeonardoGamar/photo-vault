@@ -7434,6 +7434,600 @@ abstract class AppTexte {
   /// **'Fotos der Familie von {name}'**
   String stammbaumFamilienfotosVon(String name);
 
+  /// No description provided for @stammbaumGedcomImport.
+  ///
+  /// In de, this message translates to:
+  /// **'GEDCOM einlesen …'**
+  String get stammbaumGedcomImport;
+
+  /// No description provided for @gedcomImportTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'In der Datei steht'**
+  String get gedcomImportTitel;
+
+  /// No description provided for @gedcomImportGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'{personen} Personen, {kanten} Verwandtschaften und {ereignisse} Ereignisse.'**
+  String gedcomImportGefunden(int personen, int kanten, int ereignisse);
+
+  /// No description provided for @gedcomImportNeuHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle werden neu angelegt. Nichts Bestehendes wird verändert oder zusammengeführt.'**
+  String get gedcomImportNeuHinweis;
+
+  /// No description provided for @gedcomImportUebernehmen.
+  ///
+  /// In de, this message translates to:
+  /// **'Einlesen'**
+  String get gedcomImportUebernehmen;
+
+  /// No description provided for @gedcomImportFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Person eingelesen.} other{{anzahl} Personen eingelesen.}}'**
+  String gedcomImportFertig(int anzahl);
+
+  /// No description provided for @gedcomFehlerTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Datei nicht lesbar'**
+  String get gedcomFehlerTitel;
+
+  /// No description provided for @gedcomFehlerKeinKopf.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Datei beginnt nicht mit einem GEDCOM-Kopf. Vermutlich ist es keine GEDCOM-Datei.'**
+  String get gedcomFehlerKeinKopf;
+
+  /// No description provided for @gedcomFehlerKodierung.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Datei ist in {kodierung} geschrieben. Diese Kodierung lässt sich nicht sicher entziffern, und halb entzifferte Namen wären schlimmer als ein ehrliches Nein. Bitte im Herkunftsprogramm noch einmal als UTF-8 ausgeben.'**
+  String gedcomFehlerKodierung(String kodierung);
+
+  /// No description provided for @gedcomFehlerKeinePersonen.
+  ///
+  /// In de, this message translates to:
+  /// **'In der Datei steht keine einzige Person.'**
+  String get gedcomFehlerKeinePersonen;
+
+  /// No description provided for @gedcomBerichtTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Was beim Einlesen auffiel'**
+  String get gedcomBerichtTitel;
+
+  /// No description provided for @gedcomBerichtSauber.
+  ///
+  /// In de, this message translates to:
+  /// **'Nichts zu beanstanden.'**
+  String get gedcomBerichtSauber;
+
+  /// No description provided for @gedcomBerichtDoppelte.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Person könnte es schon geben.} other{{anzahl} Personen könnte es schon geben.}}'**
+  String gedcomBerichtDoppelte(int anzahl);
+
+  /// No description provided for @gedcomBerichtDoppelteHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Zusammengeführt wurde nichts. Wer wirklich dieselbe Person ist, entscheidest du im Personen-Bildschirm.'**
+  String get gedcomBerichtDoppelteHinweis;
+
+  /// No description provided for @gedcomBerichtUngenaueDaten.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Ein Datum war nur ungefähr angegeben und blieb deshalb leer.} other{{anzahl} Daten waren nur ungefähr angegeben und blieben deshalb leer.}}'**
+  String gedcomBerichtUngenaueDaten(int anzahl);
+
+  /// No description provided for @gedcomBerichtUebersprungen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Ein Eintrag gehört zu etwas, das diese App nicht führt.} other{{anzahl} Einträge gehören zu etwas, das diese App nicht führt.}}'**
+  String gedcomBerichtUebersprungen(int anzahl);
+
+  /// No description provided for @gedcomBerichtKreise.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Verwandtschaft hätte einen Kreis geschlossen und blieb weg.} other{{anzahl} Verwandtschaften hätten einen Kreis geschlossen und blieben weg.}}'**
+  String gedcomBerichtKreise(int anzahl);
+
+  /// No description provided for @gedcomBerichtOhneNamen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Person stand ohne Namen in der Datei.} other{{anzahl} Personen standen ohne Namen in der Datei.}}'**
+  String gedcomBerichtOhneNamen(int anzahl);
+
+  /// No description provided for @gedcomOrtGeburt.
+  ///
+  /// In de, this message translates to:
+  /// **'Geburtsort'**
+  String get gedcomOrtGeburt;
+
+  /// No description provided for @gedcomOrtTod.
+  ///
+  /// In de, this message translates to:
+  /// **'Sterbeort'**
+  String get gedcomOrtTod;
+
+  /// No description provided for @gedcomOrtTaufe.
+  ///
+  /// In de, this message translates to:
+  /// **'Taufe'**
+  String get gedcomOrtTaufe;
+
+  /// No description provided for @gedcomOrtBestattung.
+  ///
+  /// In de, this message translates to:
+  /// **'Bestattung'**
+  String get gedcomOrtBestattung;
+
+  /// No description provided for @gedcomOhneNamen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Namen'**
+  String get gedcomOhneNamen;
+
+  /// No description provided for @stammbaumZeitleisteOhneDaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf der Zeitleiste steht noch nichts: Bei keiner Person dieser Familie ist ein Datum eingetragen.'**
+  String get stammbaumZeitleisteOhneDaten;
+
+  /// No description provided for @stammbaumAnsichtZeitleiste.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitleiste'**
+  String get stammbaumAnsichtZeitleiste;
+
+  /// No description provided for @zeitleisteOhneDatum.
+  ///
+  /// In de, this message translates to:
+  /// **'kein Datum bekannt'**
+  String get zeitleisteOhneDatum;
+
+  /// No description provided for @zeitleisteEreignisse.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{ein Ereignis} other{{anzahl} Ereignisse}}'**
+  String zeitleisteEreignisse(int anzahl);
+
+  /// No description provided for @stammbaumFamilienstatistik.
+  ///
+  /// In de, this message translates to:
+  /// **'Familienstatistik'**
+  String get stammbaumFamilienstatistik;
+
+  /// No description provided for @famstatLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Zu dieser Familie ist niemand eingetragen.'**
+  String get famstatLeer;
+
+  /// No description provided for @famstatPersonen.
+  ///
+  /// In de, this message translates to:
+  /// **'Personen'**
+  String get famstatPersonen;
+
+  /// No description provided for @famstatLebensalter.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebensalter'**
+  String get famstatLebensalter;
+
+  /// No description provided for @famstatHeiratsalter.
+  ///
+  /// In de, this message translates to:
+  /// **'Heiratsalter'**
+  String get famstatHeiratsalter;
+
+  /// No description provided for @famstatHaeufigsterName.
+  ///
+  /// In de, this message translates to:
+  /// **'Häufigster Nachname'**
+  String get famstatHaeufigsterName;
+
+  /// No description provided for @famstatJahre.
+  ///
+  /// In de, this message translates to:
+  /// **'{jahre} Jahre'**
+  String famstatJahre(String jahre);
+
+  /// No description provided for @famstatSpanne.
+  ///
+  /// In de, this message translates to:
+  /// **'{von} bis {bis} Jahre'**
+  String famstatSpanne(int von, int bis);
+
+  /// No description provided for @famstatOhneWert.
+  ///
+  /// In de, this message translates to:
+  /// **'keine Angabe'**
+  String get famstatOhneWert;
+
+  /// No description provided for @famstatEingerechnet.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine Person eingerechnet} other{{anzahl} Personen eingerechnet}}'**
+  String famstatEingerechnet(int anzahl);
+
+  /// No description provided for @famstatOhneSterbedatum.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Person ohne Sterbedatum ist nicht eingerechnet.} other{{anzahl} Personen ohne Sterbedatum sind nicht eingerechnet.}}'**
+  String famstatOhneSterbedatum(int anzahl);
+
+  /// No description provided for @famstatWarumOhneSterbedatum.
+  ///
+  /// In de, this message translates to:
+  /// **'Wer noch lebt, hat kein Sterbedatum. Als „null Jahre“ mitgezählt käme ein Durchschnitt heraus, der plausibel aussieht und grob falsch ist.'**
+  String get famstatWarumOhneSterbedatum;
+
+  /// No description provided for @famstatOhneGeburtsdatum.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Bei einer Hochzeit fehlt das Geburtsdatum; sie ist nicht eingerechnet.} other{Bei {anzahl} Hochzeiten fehlt das Geburtsdatum; sie sind nicht eingerechnet.}}'**
+  String famstatOhneGeburtsdatum(int anzahl);
+
+  /// No description provided for @famstatAlterJeGeneration.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebensalter über die Generationen'**
+  String get famstatAlterJeGeneration;
+
+  /// No description provided for @famstatGeneration.
+  ///
+  /// In de, this message translates to:
+  /// **'{nummer}. Generation'**
+  String famstatGeneration(int nummer);
+
+  /// No description provided for @famstatGenerationKurz.
+  ///
+  /// In de, this message translates to:
+  /// **'{nummer}.'**
+  String famstatGenerationKurz(int nummer);
+
+  /// No description provided for @famstatGenerationHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Die erste ist die älteste, die in dieser Familie vorkommt. Generationen, aus denen niemand verstorben ist, fehlen.'**
+  String get famstatGenerationHinweis;
+
+  /// No description provided for @famstatKinderzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'Kinder je Person'**
+  String get famstatKinderzahl;
+
+  /// No description provided for @famstatKinderHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine Verteilung, kein Durchschnitt: Die jüngste Generation steht bei null, weil sie ihre Kinder noch vor sich hat. Gezählt werden nur Kinder, die in dieser Familie auch stehen.'**
+  String get famstatKinderHinweis;
+
+  /// No description provided for @famstatKinderAchse.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{ohne Kinder} =1{ein Kind} other{{anzahl} Kinder}}'**
+  String famstatKinderAchse(int anzahl);
+
+  /// No description provided for @famstatNachnamen.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachnamen'**
+  String get famstatNachnamen;
+
+  /// No description provided for @famstatVornamen.
+  ///
+  /// In de, this message translates to:
+  /// **'Vornamen'**
+  String get famstatVornamen;
+
+  /// No description provided for @famstatDiagrammGenerationen.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebensalter über die Generationen: {inhalt}'**
+  String famstatDiagrammGenerationen(String inhalt);
+
+  /// No description provided for @famstatDiagrammKinder.
+  ///
+  /// In de, this message translates to:
+  /// **'Kinder je Person: {inhalt}'**
+  String famstatDiagrammKinder(String inhalt);
+
+  /// No description provided for @erkundenReisen.
+  ///
+  /// In de, this message translates to:
+  /// **'Reisen'**
+  String get erkundenReisen;
+
+  /// No description provided for @reisenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Reisen'**
+  String get reisenTitel;
+
+  /// No description provided for @reisenLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine Reise. Photo Vault trägt sie nicht ein, sondern erkennt sie: Sobald genug verortete Aufnahmen aus der Ferne beisammen sind, erscheint hier ein Vorschlag zum Bestätigen.'**
+  String get reisenLeer;
+
+  /// No description provided for @reisenSuchtNoch.
+  ///
+  /// In de, this message translates to:
+  /// **'Sucht nach Reisen …'**
+  String get reisenSuchtNoch;
+
+  /// No description provided for @reisenVorschlaege.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschläge'**
+  String get reisenVorschlaege;
+
+  /// No description provided for @reisenBestaetigte.
+  ///
+  /// In de, this message translates to:
+  /// **'Deine Reisen'**
+  String get reisenBestaetigte;
+
+  /// No description provided for @reisenKeineVorschlaege.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine neuen Vorschläge.'**
+  String get reisenKeineVorschlaege;
+
+  /// No description provided for @reisenIstEineReise.
+  ///
+  /// In de, this message translates to:
+  /// **'War eine Reise'**
+  String get reisenIstEineReise;
+
+  /// No description provided for @reisenKeineReise.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Reise'**
+  String get reisenKeineReise;
+
+  /// No description provided for @reisenBenennen.
+  ///
+  /// In de, this message translates to:
+  /// **'Reise benennen'**
+  String get reisenBenennen;
+
+  /// No description provided for @reisenName.
+  ///
+  /// In de, this message translates to:
+  /// **'Name'**
+  String get reisenName;
+
+  /// No description provided for @reisenNotiz.
+  ///
+  /// In de, this message translates to:
+  /// **'Notiz'**
+  String get reisenNotiz;
+
+  /// No description provided for @reisenUmbenennen.
+  ///
+  /// In de, this message translates to:
+  /// **'Umbenennen'**
+  String get reisenUmbenennen;
+
+  /// No description provided for @reisenLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Reise entfernen'**
+  String get reisenLoeschen;
+
+  /// No description provided for @reisenLoeschenFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}“ entfernen? Die Aufnahmen bleiben, wo sie sind.'**
+  String reisenLoeschenFrage(String name);
+
+  /// No description provided for @reisenOhneOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Unbekannte Gegend'**
+  String get reisenOhneOrt;
+
+  /// No description provided for @reisenSpanne.
+  ///
+  /// In de, this message translates to:
+  /// **'{von} bis {bis}'**
+  String reisenSpanne(String von, String bis);
+
+  /// No description provided for @reisenNaechte.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine Nacht} other{{anzahl} Nächte}}'**
+  String reisenNaechte(int anzahl);
+
+  /// No description provided for @reisenAufnahmen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine Aufnahme} other{{anzahl} Aufnahmen}}'**
+  String reisenAufnahmen(int anzahl);
+
+  /// No description provided for @reisenOrte.
+  ///
+  /// In de, this message translates to:
+  /// **'Besuchte Orte'**
+  String get reisenOrte;
+
+  /// No description provided for @reisenAktualisieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Erneut suchen'**
+  String get reisenAktualisieren;
+
+  /// No description provided for @reisenRoute.
+  ///
+  /// In de, this message translates to:
+  /// **'Route'**
+  String get reisenRoute;
+
+  /// No description provided for @reisenKeineRoute.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne verortete Aufnahme gibt es keine Strecke.'**
+  String get reisenKeineRoute;
+
+  /// No description provided for @reisenAlsTitelbild.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Titelbild'**
+  String get reisenAlsTitelbild;
+
+  /// No description provided for @reisenTitelbildGesetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Titelbild gesetzt.'**
+  String get reisenTitelbildGesetzt;
+
+  /// No description provided for @reisenTag.
+  ///
+  /// In de, this message translates to:
+  /// **'{datum}'**
+  String reisenTag(String datum);
+
+  /// No description provided for @fortschrittTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Länder und Orte'**
+  String get fortschrittTitel;
+
+  /// No description provided for @fortschrittLaender.
+  ///
+  /// In de, this message translates to:
+  /// **'{besucht} von {gesamt} Ländern'**
+  String fortschrittLaender(int besucht, int gesamt);
+
+  /// No description provided for @fortschrittRegionen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine Region} other{{anzahl} Regionen}}'**
+  String fortschrittRegionen(int anzahl);
+
+  /// No description provided for @fortschrittOrte.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{ein Ort} other{{anzahl} Orte}}'**
+  String fortschrittOrte(int anzahl);
+
+  /// No description provided for @fortschrittOhneGeodaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne den GeoNames-Datensatz lässt sich keine Aufnahme einem Land zuordnen. Er wird unter „Werkzeuge“ geladen.'**
+  String get fortschrittOhneGeodaten;
+
+  /// No description provided for @fortschrittHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Gezählt wird gegen die {gesamt} Länder und Gebiete des GeoNames-Datensatzes – Überseegebiete eingeschlossen, nicht nur die 195 souveränen Staaten. Eine eigene, gepflegte Liste wäre eine zweite Wahrheit neben der, nach der die Fotos tatsächlich eingeordnet werden.'**
+  String fortschrittHinweis(int gesamt);
+
+  /// No description provided for @fortschrittBesucht.
+  ///
+  /// In de, this message translates to:
+  /// **'Besucht'**
+  String get fortschrittBesucht;
+
+  /// No description provided for @werkzGpxTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus einer GPX-Spur verorten'**
+  String get werkzGpxTitel;
+
+  /// No description provided for @werkzGpxText.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine Aufzeichnung trägt Zeitstempel. Damit bekommen auch Aufnahmen aus Kameras ohne GPS ihren Ort.'**
+  String get werkzGpxText;
+
+  /// No description provided for @gpxTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus GPX verorten'**
+  String get gpxTitel;
+
+  /// No description provided for @gpxDateiWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'GPX-Datei wählen …'**
+  String get gpxDateiWaehlen;
+
+  /// No description provided for @gpxErklaerung.
+  ///
+  /// In de, this message translates to:
+  /// **'Wähle eine Aufzeichnung. Photo Vault legt die Aufnahmezeiten deiner Fotos gegen die Spur und trägt die Koordinate nach – nur bei Aufnahmen, die noch keine haben.'**
+  String get gpxErklaerung;
+
+  /// No description provided for @gpxSpur.
+  ///
+  /// In de, this message translates to:
+  /// **'{punkte} Punkte · {von} bis {bis}'**
+  String gpxSpur(int punkte, String von, String bis);
+
+  /// No description provided for @gpxVersatz.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitversatz'**
+  String get gpxVersatz;
+
+  /// No description provided for @gpxVersatzHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'EXIF schreibt die Aufnahmezeit ohne Zeitzone, GPX schreibt UTC. Der Vorschlag ist der Versatz, bei dem die meisten Aufnahmen auf die Spur passen – er fängt auch eine falsch gehende Kamerauhr ab.'**
+  String get gpxVersatzHinweis;
+
+  /// No description provided for @gpxTreffer.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Keine Aufnahme passt auf die Spur.} =1{Eine Aufnahme bekommt einen Ort.} other{{anzahl} Aufnahmen bekommen einen Ort.}}'**
+  String gpxTreffer(int anzahl);
+
+  /// No description provided for @gpxVerorten.
+  ///
+  /// In de, this message translates to:
+  /// **'Verorten'**
+  String get gpxVerorten;
+
+  /// No description provided for @gpxFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Aufnahme verortet.} other{{anzahl} Aufnahmen verortet.}}'**
+  String gpxFertig(int anzahl);
+
+  /// No description provided for @gpxKeineKandidaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Im Zeitraum dieser Spur hat jede Aufnahme schon einen Ort.'**
+  String get gpxKeineKandidaten;
+
+  /// No description provided for @gpxFehlerKeinGpx.
+  ///
+  /// In de, this message translates to:
+  /// **'Das ist keine GPX-Datei.'**
+  String get gpxFehlerKeinGpx;
+
+  /// No description provided for @gpxFehlerOhneZeit.
+  ///
+  /// In de, this message translates to:
+  /// **'In dieser Spur trägt kein Punkt einen Zeitstempel. Ohne Zeit lässt sich keine Aufnahme zuordnen.'**
+  String get gpxFehlerOhneZeit;
+
+  /// No description provided for @gpxFehlerLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Datei enthält keinen einzigen Punkt.'**
+  String get gpxFehlerLeer;
+
   /// No description provided for @stammbaumKeineFamilienfotos.
   ///
   /// In de, this message translates to:
@@ -7584,6 +8178,36 @@ abstract class AppTexte {
   /// **'Ort'**
   String get lebenslaufOrt;
 
+  /// No description provided for @lebenslaufOrtAufKarte.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort auf der Karte'**
+  String get lebenslaufOrtAufKarte;
+
+  /// No description provided for @lebenslaufOrtErkannt.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf der Karte gefunden – tippen, um den Punkt zu berichtigen.'**
+  String get lebenslaufOrtErkannt;
+
+  /// No description provided for @lebenslaufOrtUnbekannt.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieser Ort ist im Ortsverzeichnis nicht enthalten. Tippen Sie auf die Karte, um ihn selbst zu setzen.'**
+  String get lebenslaufOrtUnbekannt;
+
+  /// No description provided for @lebenslaufOrtEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Verortung entfernen'**
+  String get lebenslaufOrtEntfernen;
+
+  /// No description provided for @lebenslaufOrtOhneVerzeichnis.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne das Ortsverzeichnis lassen sich Orte nicht automatisch finden. Ein Punkt lässt sich trotzdem von Hand setzen.'**
+  String get lebenslaufOrtOhneVerzeichnis;
+
   /// No description provided for @lebenslaufNotiz.
   ///
   /// In de, this message translates to:
@@ -7625,6 +8249,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Angeheiratet'**
   String get orteAngeheiratet;
+
+  /// No description provided for @orteEreignisse.
+  ///
+  /// In de, this message translates to:
+  /// **'Ereignisse'**
+  String get orteEreignisse;
 
   /// No description provided for @orteNichtsGewaehlt.
   ///
@@ -8147,6 +8777,18 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Weiter weg'**
   String get karteHerauszoomen;
+
+  /// No description provided for @karteEreignisseEinblenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebensereignisse einblenden'**
+  String get karteEreignisseEinblenden;
+
+  /// No description provided for @karteEreignisseAusblenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Lebensereignisse ausblenden'**
+  String get karteEreignisseAusblenden;
 
   /// No description provided for @karteStandortZeigen.
   ///

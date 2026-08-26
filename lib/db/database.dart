@@ -659,8 +659,80 @@ class Lebensereignisse extends Table {
   TextColumn get ort => text().nullable()();
   TextColumn get notiz => text().nullable()();
 
+  /// Der Ort als Koordinate, sobald er auflösbar war.
+  ///
+  /// **Zusätzlich zu [ort], nicht statt dessen.** Ein Ortsname, den der
+  /// GeoNames-Auszug nicht kennt – ein untergegangenes Dorf, ein
+  /// Gutshof, eine alte Schreibweise – bleibt als Text stehen und ist
+  /// damit nicht verloren; er landet nur auf keiner Karte. Beide Felder
+  /// zu koppeln hiesse, solche Einträge stillschweigend wegzuwerfen.
+  ///
+  /// Und getrennt von [ort] auch deshalb, weil die Zuordnung eine
+  /// **Vermutung** ist: „Springfield" trifft in den USA über zwanzig Mal
+  /// zu. Wer die Koordinate von Hand berichtigt, ändert diese Felder,
+  /// ohne dass der aufgeschriebene Name sich ändert.
+  RealColumn get ortBreite => real().nullable()();
+  RealColumn get ortLaenge => real().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Eine bestätigte Reise.
+///
+/// **Bestätigt** ist das entscheidende Wort. Erkannt werden Reisen aus
+/// den Aufnahmen selbst (siehe services/reisen.dart); was hier steht, hat
+/// ein Mensch angesehen und benannt. Ein Programm, das Reisen im
+/// Hintergrund anlegt, füllt die Bibliothek mit Behauptungen – und eine
+/// falsch benannte Reise fällt später niemandem mehr auf.
+class Reisen extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+
+  /// Erste und letzte Aufnahme – abgeleitet, aber gespeichert: Die Liste
+  /// soll nach Zeitraum sortieren können, ohne für jede Zeile ihre
+  /// Aufnahmen nachzuschlagen.
+  DateTimeColumn get von => dateTime()();
+  DateTimeColumn get bis => dateTime()();
+
+  TextColumn get notiz => text().nullable()();
+
+  /// Das Titelbild. `null` heißt „nimm die erste Aufnahme" – und ist
+  /// etwas anderes als ein gewähltes Bild, das später gelöscht wurde.
+  TextColumn get titelbildAssetId => text().nullable()();
+
+  DateTimeColumn get angelegtAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Welche Aufnahme zu welcher Reise gehört.
+///
+/// Eine ausdrückliche Zuordnung und **nicht** „alles im Zeitraum": Wer
+/// eine Aufnahme aus der Reise nimmt oder eine nachträglich importierte
+/// hinzufügt, soll das behalten dürfen. Ein Zeitraum schluckte jedes
+/// später eingelesene Bild stillschweigend mit.
+class ReiseAufnahmen extends Table {
+  TextColumn get reiseId => text()();
+  TextColumn get assetId => text()();
+
+  @override
+  Set<Column> get primaryKey => {reiseId, assetId};
+}
+
+/// Ein abgelehnter Reisevorschlag.
+///
+/// Ohne dieses Gedächtnis käme derselbe Vorschlag bei jedem Start wieder
+/// – und ein Vorschlag, den man dreimal wegwischen muss, ist eine
+/// Belästigung. [schluessel] ist die Kennung der ersten Aufnahme des
+/// Vorschlags (siehe `Reisevorschlag.schluessel`).
+class VerworfeneReisen extends Table {
+  TextColumn get schluessel => text()();
+  DateTimeColumn get verworfenAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {schluessel};
 }
 
 /// Eine Verwandtschaft zwischen zwei Personen – die Grundlage des
@@ -1004,6 +1076,9 @@ class DuplikatAusnahmen extends Table {
   ExportPresets,
   PersonBeziehungen,
   Lebensereignisse,
+  Reisen,
+  ReiseAufnahmen,
+  VerworfeneReisen,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -1018,7 +1093,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 49;
+  int get schemaVersion => 51;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1035,6 +1110,16 @@ class AppDatabase extends _$AppDatabase {
   /// In einer eigenen Methode, damit sowohl frisch angelegte Datenbanken
   /// ([onCreate]) als auch bestehende (Migration `from < 11`) dieselben
   /// Indizes bekommen.
+  /// Der Index für „gehört diese Aufnahme schon zu einer Reise?".
+  ///
+  /// In einer eigenen Routine und aus **beiden** Wegen aufgerufen – aus
+  /// [onCreate] wie aus der Migration. Ein Index, den nur bestehende
+  /// Bibliotheken bekommen, fehlt genau dort, wo niemand ihn vermisst:
+  /// bei der Neuinstallation.
+  Future<void> _createIndicesV51(Migrator m) => customStatement(
+      'CREATE INDEX IF NOT EXISTS idx_reise_aufnahme_asset '
+      'ON reise_aufnahmen (asset_id)');
+
   Future<void> _createPerformanceIndices(Migrator m) async {
     await customStatement(
         'CREATE INDEX IF NOT EXISTS idx_assets_trashed_locked_created '
@@ -1090,6 +1175,7 @@ class AppDatabase extends _$AppDatabase {
           await _createPerformanceIndices(m);
           await _createIndicesV14(m);
           await _createIndicesV48(m);
+          await _createIndicesV51(m);
           await _seedAiTagVocabulary();
         },
         onUpgrade: (m, from, to) async {
@@ -1379,6 +1465,27 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 51) {
+            // Reisen. Drei neue, anfangs leere Tabellen – ohne einen
+            // einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(reisen);
+            await m.createTable(reiseAufnahmen);
+            await m.createTable(verworfeneReisen);
+            await _createIndicesV51(m);
+          }
+          if (from < 50) {
+            // Lebensereignisse bekommen eine Koordinate zum Ortsnamen.
+            // Beide Spalten leer: Das Nachtragen läuft nicht hier,
+            // sondern beim ersten Start mit geladenem GeoNames-Auszug
+            // (siehe LibraryState.trageEreignisorteNach) – ohne den
+            // Datensatz gäbe es nichts einzutragen, und eine Migration,
+            // die auf einen optionalen Download wartet, wäre eine
+            // Migration, die manchmal nicht fertig wird.
+            await _addColumnIfMissing(m, lebensereignisse,
+                lebensereignisse.ortBreite, 'lebensereignisse', 'ort_breite');
+            await _addColumnIfMissing(m, lebensereignisse,
+                lebensereignisse.ortLaenge, 'lebensereignisse', 'ort_laenge');
           }
           if (from < 49) {
             // Die zuletzt gewählte Kartenansicht überdauert jetzt das
@@ -4059,6 +4166,379 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> loescheEreignis(String id) =>
       (delete(lebensereignisse)..where((t) => t.id.equals(id))).go();
+
+  /// Übernimmt eine eingelesene GEDCOM-Datei – Personen, Ereignisse und
+  /// Verwandtschaften in einem Zug.
+  ///
+  /// In **einer** Transaktion, weil eine halb eingelesene Datei der
+  /// schlechteste aller Zustände wäre: Personen ohne ihre
+  /// Verwandtschaften sehen aus wie richtige Einträge, und niemand
+  /// könnte hinterher sagen, wo der Abbruch war.
+  ///
+  /// Die Kanten laufen hier **nicht** noch einmal durch
+  /// [pruefeBeziehung], anders als bei [fuegeBeziehungenHinzu]. Zwei
+  /// Gründe: Der Einleser hat die Datei bereits gegen Kreise geprüft
+  /// (siehe `gedcom_import.dart`), und jede Person dieser Datei wird
+  /// **neu** angelegt – eine Kante zwischen zwei frischen Kennungen kann
+  /// mit dem Bestand keinen Kreis bilden, weil sie ihn nirgends berührt.
+  /// Die Prüfung je Kante gegen den fortgeschriebenen Stand wäre bei
+  /// dreitausend Personen ausserdem quadratisch.
+  Future<void> uebernehmeGedcom({
+    required List<PeopleCompanion> personen,
+    required List<Kante> kanten,
+    required List<LebensereignisseCompanion> ereignisse,
+  }) =>
+      transaction(() async {
+        await batch((b) {
+          b.insertAll(people, personen);
+          b.insertAll(lebensereignisse, ereignisse);
+          b.insertAll(personBeziehungen, [
+            for (final k in kanten)
+              PersonBeziehungenCompanion.insert(
+                personId: k.personId,
+                andereId: k.andereId,
+                art: artZuText(k.art),
+              ),
+          ]);
+        });
+      });
+
+  /// Ereignisse mit Ortsnamen, aber noch ohne Koordinate.
+  ///
+  /// Die Grundlage für das einmalige Nachtragen (siehe
+  /// `LibraryState.trageEreignisorteNach`). Bewusst nur die ohne
+  /// Koordinate: Ein von Hand berichtigter Punkt darf nicht bei jedem
+  /// Start wieder überschrieben werden.
+  Future<List<LebensereignisseData>> ereignisseOhneKoordinate() =>
+      (select(lebensereignisse)
+            ..where((t) =>
+                t.ort.isNotNull() &
+                t.ort.equals('').not() &
+                t.ortBreite.isNull()))
+          .get();
+
+  /// Alle Ereignisse, die auf einer Karte darstellbar sind.
+  Future<List<LebensereignisseData>> ereignisseMitKoordinate() =>
+      (select(lebensereignisse)..where((t) => t.ortBreite.isNotNull())).get();
+
+  /// Alle verorteten Ereignisse der Bibliothek, samt Personennamen –
+  /// für die allgemeine Karte, die keine Familie eingrenzt.
+  Future<List<({LebensereignisseData ereignis, String personName})>>
+      ereignisseMitKoordinateUndName() async {
+    final abfrage = select(lebensereignisse).join([
+      innerJoin(people, people.id.equalsExp(lebensereignisse.personId)),
+    ])
+      ..where(lebensereignisse.ortBreite.isNotNull());
+    final zeilen = await abfrage.get();
+    return [
+      for (final z in zeilen)
+        (
+          ereignis: z.readTable(lebensereignisse),
+          personName: z.readTable(people).name,
+        ),
+    ];
+  }
+
+  /// Verortete Ereignisse bestimmter Personen, samt deren Namen.
+  ///
+  /// Der Name kommt gleich mit: Ein Punkt auf der Familienkarte ohne die
+  /// Person, zu der er gehört, beantwortet keine Frage.
+  Future<List<({LebensereignisseData ereignis, String personName})>>
+      verorteteEreignisseFuerPersonen(List<String> personIds) async {
+    if (personIds.isEmpty) return const [];
+    final abfrage = select(lebensereignisse).join([
+      innerJoin(people, people.id.equalsExp(lebensereignisse.personId)),
+    ])
+      ..where(lebensereignisse.ortBreite.isNotNull() &
+          lebensereignisse.personId.isIn(personIds));
+    final zeilen = await abfrage.get();
+    return [
+      for (final z in zeilen)
+        (
+          ereignis: z.readTable(lebensereignisse),
+          personName: z.readTable(people).name,
+        ),
+    ];
+  }
+
+  // ------------------------------------------------------------------
+  // Reisen
+  // ------------------------------------------------------------------
+
+  // **Der gesperrte Ordner bleibt aus ALLEN Abfragen dieses Abschnitts
+  // heraus** – auch aus denen, die nichts anzeigen.
+  //
+  // Nicht nur aus dem Raster: Eine gesperrte Aufnahme, die an der
+  // Reiseerkennung teilnimmt, landet in einer bestätigten Reise und wird
+  // dann angezeigt. Und selbst der Länderzähler verriete etwas – ein
+  // Land, das nur auf gesperrten Fotos vorkommt, stünde dort und sagte
+  // „da war jemand".
+  //
+  // Eine Regel für alle statt vier Einzelfallentscheidungen. Wer die Orte
+  // gesperrter Aufnahmen sehen will, öffnet den gesperrten Ordner – dort
+  // gehören sie hin.
+  //
+  // Der Unterschied zu Abfragen wie `assetsForLocationBackfill`, die
+  // gesperrte Aufnahmen bewusst mitnehmen: Jene **verarbeiten** nur. Die
+  // hier münden alle in eine Anzeige.
+
+  Stream<List<ReisenData>> watchReisen() =>
+      (select(reisen)..orderBy([(t) => OrderingTerm.desc(t.von)])).watch();
+
+  Future<List<ReisenData>> alleReisen() =>
+      (select(reisen)..orderBy([(t) => OrderingTerm.desc(t.von)])).get();
+
+  Future<ReisenData?> reise(String id) =>
+      (select(reisen)..where((t) => t.id.equals(id))).getSingleOrNull();
+
+  /// Legt eine bestätigte Reise samt ihren Aufnahmen an.
+  ///
+  /// In einer Transaktion: Eine Reise ohne ihre Aufnahmen sähe aus wie
+  /// eine leere Reise, und niemand könnte hinterher sagen, ob sie so
+  /// gemeint war.
+  Future<void> reiseAnlegen(
+    ReisenCompanion reise,
+    List<String> assetIds,
+  ) =>
+      transaction(() async {
+        await into(reisen).insert(reise);
+        await batch((b) => b.insertAll(reiseAufnahmen, [
+              for (final id in assetIds)
+                ReiseAufnahmenCompanion.insert(
+                    reiseId: reise.id.value, assetId: id),
+            ]));
+      });
+
+  Future<void> reiseLoeschen(String id) => transaction(() async {
+        await (delete(reiseAufnahmen)..where((t) => t.reiseId.equals(id))).go();
+        await (delete(reisen)..where((t) => t.id.equals(id))).go();
+      });
+
+  Future<void> reiseAendern(String id, ReisenCompanion aenderung) =>
+      (update(reisen)..where((t) => t.id.equals(id))).write(aenderung);
+
+  /// Die Aufnahmen einer Reise, chronologisch.
+  ///
+  /// Gelöschte und in den Papierkorb gelegte fallen heraus – eine Reise
+  /// soll nicht auf Bilder verweisen, die es nicht mehr gibt.
+  Future<List<AssetData>> aufnahmenDerReise(String reiseId) async {
+    final abfrage = select(assets).join([
+      innerJoin(reiseAufnahmen, reiseAufnahmen.assetId.equalsExp(assets.id)),
+    ])
+      ..where(reiseAufnahmen.reiseId.equals(reiseId) &
+          assets.isTrashed.equals(false) &
+          // Siehe die Regel am Anfang dieses Abschnitts.
+          assets.isLocked.equals(false))
+      ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)]);
+    return [for (final z in await abfrage.get()) z.readTable(assets)];
+  }
+
+  /// Nur die erste Aufnahme einer Reise – für das Vorschaubild in der
+  /// Liste.
+  ///
+  /// Eine eigene Abfrage mit `LIMIT 1` statt [aufnahmenDerReise] und
+  /// `.first`. Gemessen an zwanzig Reisen mit je dreihundert Aufnahmen:
+  /// 5865 geladene Zeilen und 92 ms, um zwanzig Vorschaubilder zu zeigen.
+  /// Der Aufwand wächst mit der Größe der Reisen, der Nutzen nicht.
+  Future<AssetData?> ersteAufnahmeDerReise(String reiseId) async {
+    final abfrage = select(assets).join([
+      innerJoin(reiseAufnahmen, reiseAufnahmen.assetId.equalsExp(assets.id)),
+    ])
+      ..where(reiseAufnahmen.reiseId.equals(reiseId) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
+      ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)])
+      ..limit(1);
+    final zeile = await abfrage.getSingleOrNull();
+    return zeile?.readTable(assets);
+  }
+
+  /// Welche Aufnahmen bereits einer Reise zugeordnet sind.
+  Future<Set<String>> zugeordneteReiseAufnahmen() async =>
+      {for (final z in await select(reiseAufnahmen).get()) z.assetId};
+
+  Future<void> aufnahmenZurReise(String reiseId, List<String> assetIds) =>
+      batch((b) => b.insertAll(
+            reiseAufnahmen,
+            [
+              for (final id in assetIds)
+                ReiseAufnahmenCompanion.insert(reiseId: reiseId, assetId: id),
+            ],
+            mode: InsertMode.insertOrIgnore,
+          ));
+
+  Future<void> aufnahmeAusReise(String reiseId, String assetId) =>
+      (delete(reiseAufnahmen)
+            ..where((t) => t.reiseId.equals(reiseId) & t.assetId.equals(assetId)))
+          .go();
+
+  Future<Set<String>> verworfeneReisevorschlaege() async =>
+      {for (final z in await select(verworfeneReisen).get()) z.schluessel};
+
+  Future<void> verwirfReisevorschlag(String schluessel) =>
+      into(verworfeneReisen).insertOnConflictUpdate(
+          VerworfeneReisenCompanion.insert(
+              schluessel: schluessel, verworfenAm: DateTime.now()));
+
+  /// Alles, was die Reiseerkennung braucht – verortete, nicht gelöschte
+  /// Aufnahmen.
+  ///
+  /// Eine Abfrage über die ganze Bibliothek, aber nur mit den fünf
+  /// Spalten, die zählen: Bei hunderttausend Aufnahmen wäre das Laden
+  /// vollständiger Zeilen der teuerste Teil des ganzen Vorgangs.
+  Future<List<
+      ({
+        String id,
+        DateTime zeit,
+        double breite,
+        double laenge,
+        String? land,
+        String? region,
+        String? stadt
+      })>> aufnahmenFuerReiseerkennung() async {
+    final abfrage = selectOnly(assets)
+      ..addColumns([
+        assets.id,
+        assets.fileCreatedAt,
+        assets.latitude,
+        assets.longitude,
+        assets.locationCountry,
+        assets.locationState,
+        assets.locationCity,
+      ])
+      ..where(assets.latitude.isNotNull() &
+          assets.longitude.isNotNull() &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
+      ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)]);
+    return [
+      for (final z in await abfrage.get())
+        (
+          id: z.read(assets.id)!,
+          zeit: z.read(assets.fileCreatedAt)!,
+          breite: z.read(assets.latitude)!,
+          laenge: z.read(assets.longitude)!,
+          land: z.read(assets.locationCountry),
+          region: z.read(assets.locationState),
+          stadt: z.read(assets.locationCity),
+        ),
+    ];
+  }
+
+  /// Setzt Koordinate **und** Ortsnamen in einem Zug.
+  ///
+  /// Beides zusammen und nicht nacheinander: Wer Fotos aus einer
+  /// GPX-Spur verortet, hat sonst hinterher Punkte auf der Karte, aber
+  /// keine Länder im Reisezähler – und müsste ein zweites Werkzeug
+  /// starten, von dem er nichts weiss.
+  Future<void> setzeOrte(
+    List<
+            ({
+              String assetId,
+              double breite,
+              double laenge,
+              String? land,
+              String? region,
+              String? ort
+            })>
+        eintraege,
+  ) =>
+      batch((b) {
+        for (final e in eintraege) {
+          b.update(
+            assets,
+            AssetsCompanion(
+              latitude: Value(e.breite),
+              longitude: Value(e.laenge),
+              // Nur schreiben, wenn ein Name da ist: Ohne geladenen
+              // GeoNames-Auszug bleibt die Spalte leer, statt einen
+              // vorhandenen Namen zu löschen.
+              locationCountry:
+                  e.ort == null ? const Value.absent() : Value(e.land),
+              locationState:
+                  e.ort == null ? const Value.absent() : Value(e.region),
+              locationCity:
+                  e.ort == null ? const Value.absent() : Value(e.ort),
+            ),
+            where: (t) => t.id.equals(e.assetId),
+          );
+        }
+      });
+
+  /// Land, Region und Ort aller verorteten Aufnahmen, mit Anzahl.
+  ///
+  /// Gruppiert in der Datenbank und nicht in Dart: Für den Länderzähler
+  /// zählen nur die verschiedenen Kombinationen, und die sind auch bei
+  /// hunderttausend Aufnahmen wenige hundert Zeilen.
+  Future<List<({String? land, String? region, String? ort, int anzahl})>>
+      besuchteOrte() async {
+    final anzahl = assets.id.count();
+    final abfrage = selectOnly(assets)
+      ..addColumns([
+        assets.locationCountry,
+        assets.locationState,
+        assets.locationCity,
+        anzahl,
+      ])
+      ..where(assets.latitude.isNotNull() &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
+      ..groupBy([
+        assets.locationCountry,
+        assets.locationState,
+        assets.locationCity,
+      ]);
+    return [
+      for (final z in await abfrage.get())
+        (
+          land: z.read(assets.locationCountry),
+          region: z.read(assets.locationState),
+          ort: z.read(assets.locationCity),
+          anzahl: z.read(anzahl) ?? 0,
+        ),
+    ];
+  }
+
+  /// Aufnahmen **ohne** Koordinate – für das Auffüllen erkannter Reisen.
+  ///
+  /// Sie taugen nicht zum Erkennen, gehören aber dazu: An der echten
+  /// Bibliothek trugen von einer Reise nur zwei Tage GPS-Daten, und im
+  /// Fenster dieser zwei Tage lagen 28 weitere Aufnahmen ohne Koordinate.
+  Future<List<({String id, DateTime zeit})>> aufnahmenOhneKoordinate() async {
+    final abfrage = selectOnly(assets)
+      ..addColumns([assets.id, assets.fileCreatedAt])
+      ..where(assets.latitude.isNull() &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false))
+      ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)]);
+    return [
+      for (final z in await abfrage.get())
+        (id: z.read(assets.id)!, zeit: z.read(assets.fileCreatedAt)!),
+    ];
+  }
+
+  /// Alle Lebensereignisse, in einem Zug.
+  ///
+  /// Für die Familien-Zeitleiste, die Dutzende Personen zugleich zeigt.
+  /// Je Person einzeln zu fragen ergäbe dieselbe Zahl kleiner Abfragen
+  /// wie Zeilen – und die Tabelle ist selbst bei ausgiebiger Forschung
+  /// klein gegenüber allem anderen hier.
+  Future<List<LebensereignisseData>> alleEreignisse() =>
+      select(lebensereignisse).get();
+
+  /// Setzt oder löscht die Koordinate eines Ereignisses.
+  ///
+  /// `null` für beide Werte heisst „nicht verortet" – so lässt sich eine
+  /// falsch geratene Zuordnung auch wieder wegnehmen, ohne den
+  /// aufgeschriebenen Ortsnamen zu verlieren.
+  Future<void> setzeEreignisort(String id,
+          {double? breite, double? laenge}) =>
+      (update(lebensereignisse)..where((t) => t.id.equals(id))).write(
+        LebensereignisseCompanion(
+          ortBreite: Value(breite),
+          ortLaenge: Value(laenge),
+        ),
+      );
 
   /// Wie viele Ereignisse eine Person hat – für den Hinweis am Menüpunkt.
   Future<int> ereignisAnzahl(String personId) async {

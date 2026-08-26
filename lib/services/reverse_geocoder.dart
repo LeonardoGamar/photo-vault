@@ -15,11 +15,53 @@ class GeoLookupResult {
 
 class _GeoCity {
   final String name;
+
+  /// Derselbe Name ohne diakritische Zeichen, wie GeoNames ihn mitliefert
+  /// („Zurich" zu „Zürich"). Damit findet auch, wer ohne Sonderzeichen
+  /// tippt. **Keine Umschrift:** GeoNames macht aus „ü" ein „u", nicht
+  /// „ue" – „Muenchen" führt deshalb zu keinem Treffer.
+  final String asciiName;
+
   final double lat;
   final double lon;
   final String countryCode;
   final String admin1Code;
-  const _GeoCity(this.name, this.lat, this.lon, this.countryCode, this.admin1Code);
+
+  /// Einwohnerzahl. Nur für die Vorwärtssuche: Wer „Berlin" eingibt und
+  /// keinen weiteren Anhaltspunkt gibt, meint fast immer das grosse.
+  final int einwohner;
+
+  const _GeoCity(this.name, this.asciiName, this.lat, this.lon,
+      this.countryCode, this.admin1Code, this.einwohner);
+}
+
+/// Ein über seinen Namen gefundener Ort.
+///
+/// [weitere] ist der eigentliche Grund für eine eigene Klasse: Die Suche
+/// muss sagen dürfen, dass sie sich entschieden **hat**. „Springfield"
+/// gibt es in den USA über zwanzig Mal; eine Koordinate ohne diesen
+/// Hinweis sähe aus wie eine Tatsache.
+class OrtsTreffer {
+  final String name;
+  final double breite;
+  final double laenge;
+
+  /// Ausgeschriebener Ländername, soweit auflösbar.
+  final String? land;
+
+  /// Wie viele gleichnamige Orte es ausserdem gab.
+  final int weitere;
+
+  const OrtsTreffer({
+    required this.name,
+    required this.breite,
+    required this.laenge,
+    this.land,
+    this.weitere = 0,
+  });
+
+  /// Ob die Angabe mehrdeutig war und die Auswahl damit eine Vermutung ist.
+  bool get mehrdeutig => weitere > 0;
 }
 
 /// Lokale/offline Umkehr-Geokodierung auf Basis eines GeoNames-Auszugs (siehe
@@ -44,6 +86,18 @@ class ReverseGeocoder {
   final Map<String, String> _countryNames; // ISO-Code -> Ländername
   final Map<String, String> _admin1Names; // "US.CA" -> "California"
   final Map<int, List<int>> _grid = {};
+
+  /// Alle Länder und Gebiete, die der Datensatz kennt – ISO-Code auf
+  /// Namen.
+  ///
+  /// Für den Reisefortschritt. **Es sind 252 und nicht 195:**
+  /// `countryInfo.txt` führt neben den souveränen Staaten auch Gebiete,
+  /// Überseedepartements und die Antarktis-Sektoren. Eine gepflegte Liste
+  /// der 195 wäre eine zweite Wahrheit neben dem Datensatz, nach dem die
+  /// Fotos tatsächlich eingeordnet werden – und die erste Aufnahme aus
+  /// Grönland oder Puerto Rico fiele dann durch.
+  Map<String, String> get laenderverzeichnis =>
+      Map.unmodifiable(_countryNames);
 
   static const _maxRadiusDegrees = 30;
 
@@ -112,6 +166,127 @@ class ReverseGeocoder {
 
   static int _cellKey(int latCell, int lonCell) => (latCell + 90) * 512 + (lonCell + 180);
 
+  // ---------------------------------------------------------------------
+  // Vorwärtssuche: Name -> Koordinate
+  // ---------------------------------------------------------------------
+
+  /// Name (kleingeschrieben) -> Zeilen in [_cities].
+  ///
+  /// Erst beim ersten Gebrauch aufgebaut, nicht im Konstruktor: Der
+  /// Datensatz hat rund 150.000 Einträge, und wer keine Lebensereignisse
+  /// führt, braucht diese Karte nie.
+  Map<String, List<int>>? _namensIndex;
+
+  Map<String, List<int>> get _index {
+    final vorhanden = _namensIndex;
+    if (vorhanden != null) return vorhanden;
+    final neu = <String, List<int>>{};
+    for (var i = 0; i < _cities.length; i++) {
+      final stadt = _cities[i];
+      for (final name in {_normalisiere(stadt.name), _normalisiere(stadt.asciiName)}) {
+        if (name.isEmpty) continue;
+        neu.putIfAbsent(name, () => []).add(i);
+      }
+    }
+    return _namensIndex = neu;
+  }
+
+  static String _normalisiere(String text) => text.trim().toLowerCase();
+
+  /// Sucht einen Ort über seinen Namen.
+  ///
+  /// Das Gegenstück zu [lookup] und die Grundlage dafür, dass
+  /// Lebensereignisse überhaupt auf einer Karte landen können: Sie führen
+  /// ihren Ort als **Text**, nicht als Koordinate.
+  ///
+  /// [eingabe] darf mehrteilig sein – „Paris, Frankreich" oder
+  /// „Springfield, Illinois". Der erste Teil ist der Ortsname, alles
+  /// dahinter engt auf Land oder Region ein. Genau das ist der
+  /// Unterschied zwischen Paris in Frankreich und Paris in Texas.
+  ///
+  /// Bleibt die Angabe mehrdeutig, entscheidet in dieser Reihenfolge:
+  /// 1. der Ort, der [naheBreite]/[naheLaenge] am nächsten liegt – dafür
+  ///    übergibt der Aufrufer den Schwerpunkt der verorteten Fotos;
+  /// 2. sonst der mit den meisten Einwohnern.
+  ///
+  /// Beides sind Vermutungen, und [OrtsTreffer.mehrdeutig] sagt es auch.
+  /// Ein unbekannter Name liefert `null` statt eines geratenen Punktes.
+  OrtsTreffer? sucheOrt(
+    String eingabe, {
+    double? naheBreite,
+    double? naheLaenge,
+  }) {
+    final teile = eingabe.split(',').map((t) => t.trim()).toList();
+    if (teile.isEmpty) return null;
+    final ortsname = _normalisiere(teile.first);
+    if (ortsname.isEmpty) return null;
+
+    final zeilen = _index[ortsname];
+    if (zeilen == null || zeilen.isEmpty) return null;
+
+    // Die Zusätze hinter dem Komma gegen Land und Region prüfen.
+    final zusaetze = [
+      for (final t in teile.skip(1))
+        if (t.isNotEmpty) _normalisiere(t)
+    ];
+    var kandidaten = zeilen;
+    if (zusaetze.isNotEmpty) {
+      final gefiltert = [
+        for (final i in zeilen)
+          if (_passtZuZusatz(_cities[i], zusaetze)) i
+      ];
+      // Passt kein einziger, gilt der Zusatz als unbrauchbar statt als
+      // Ausschluss – „Berlin, Heimat" darf nicht zu „nicht gefunden"
+      // führen.
+      if (gefiltert.isNotEmpty) kandidaten = gefiltert;
+    }
+
+    final besteZeile = _besterKandidat(kandidaten, naheBreite, naheLaenge);
+    final stadt = _cities[besteZeile];
+    return OrtsTreffer(
+      name: stadt.name,
+      breite: stadt.lat,
+      laenge: stadt.lon,
+      land: _countryNames[stadt.countryCode],
+      weitere: kandidaten.length - 1,
+    );
+  }
+
+  bool _passtZuZusatz(_GeoCity stadt, List<String> zusaetze) {
+    final land = _normalisiere(_countryNames[stadt.countryCode] ?? '');
+    final landCode = _normalisiere(stadt.countryCode);
+    final region = _normalisiere(
+        _admin1Names['${stadt.countryCode}.${stadt.admin1Code}'] ?? '');
+    for (final z in zusaetze) {
+      if (z == landCode || (land.isNotEmpty && land == z)) return true;
+      if (region.isNotEmpty && region == z) return true;
+    }
+    return false;
+  }
+
+  int _besterKandidat(List<int> zeilen, double? breite, double? laenge) {
+    if (zeilen.length == 1) return zeilen.first;
+    if (breite != null && laenge != null) {
+      var beste = zeilen.first;
+      var besteEntfernung =
+          haversineKm(breite, laenge, _cities[beste].lat, _cities[beste].lon);
+      for (final i in zeilen.skip(1)) {
+        final entfernung =
+            haversineKm(breite, laenge, _cities[i].lat, _cities[i].lon);
+        if (entfernung < besteEntfernung) {
+          beste = i;
+          besteEntfernung = entfernung;
+        }
+      }
+      return beste;
+    }
+    var beste = zeilen.first;
+    for (final i in zeilen.skip(1)) {
+      if (_cities[i].einwohner > _cities[beste].einwohner) beste = i;
+    }
+    return beste;
+  }
+
   /// Distanz zweier Koordinaten in km – öffentlich, weil auch das
   /// Automatisierungs-Regelwerk (siehe LibraryState.applyAutomationRules)
   /// eine Umkreis-Bedingung damit auswertet, nicht nur die Umkehr-
@@ -155,8 +330,9 @@ class ReverseGeocoder {
     return map;
   }
 
-  /// `cities1000.txt`: Spalte 1 = Name, 4 = Breitengrad, 5 = Längengrad,
-  /// 8 = Länder-Code, 10 = Bundesland-/Provinz-Code (kann leer sein).
+  /// `cities1000.txt`: Spalte 1 = Name, 2 = Name ohne diakritische
+  /// Zeichen, 4 = Breitengrad, 5 = Längengrad, 8 = Länder-Code,
+  /// 10 = Bundesland-/Provinz-Code (kann leer sein), 14 = Einwohnerzahl.
   static Future<List<_GeoCity>> _parseCities(File file) async {
     final lines = await file.readAsLines();
     final result = <_GeoCity>[];
@@ -167,7 +343,12 @@ class ReverseGeocoder {
       final lat = double.tryParse(cols[4]);
       final lon = double.tryParse(cols[5]);
       if (lat == null || lon == null) continue;
-      result.add(_GeoCity(cols[1], lat, lon, cols[8], cols[10]));
+      // Einwohnerzahl fehlt in manchen Zeilen; 0 ist dann die ehrliche
+      // Angabe – der Ort verliert damit nur bei Gleichstand.
+      final einwohner =
+          cols.length > 14 ? (int.tryParse(cols[14]) ?? 0) : 0;
+      result.add(_GeoCity(
+          cols[1], cols[2], lat, lon, cols[8], cols[10], einwohner));
     }
     return result;
   }

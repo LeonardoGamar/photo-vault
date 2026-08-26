@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import 'namens_dialog.dart'
+    show MitTextsteuerung, MitTextsteuerungen;
 
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -15,10 +17,13 @@ Future<String?> showEnterPinDialog(BuildContext context, {String? title}) async 
   // Variable, weil ein Parameter innerhalb des Builder-Closures unten nicht
   // als „sicher nicht null" gilt.
   final titel = title ?? AppTexte.of(context).pinEingebenTitel;
-  final ctrl = TextEditingController();
+  // Die Steuerung gehört dem Fenster, nicht diesem Aufruf – siehe
+  // [MitTextsteuerung]. Gerade hier: Ein Absturz beim Ausblenden träfe
+  // die Eingabe zum gesperrten Ordner.
   final result = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => MitTextsteuerung(
+        builder: (context, ctrl) => AlertDialog(
       title: Text(titel),
       content: TextField(
         controller: ctrl,
@@ -32,10 +37,9 @@ Future<String?> showEnterPinDialog(BuildContext context, {String? title}) async 
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
         FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text('OK')),
-      ],
-    ),
+            ],
+            )),
   );
-  ctrl.dispose();
   return result;
 }
 
@@ -52,12 +56,15 @@ Future<String?> showEnterPinDialog(BuildContext context, {String? title}) async 
 /// alphanumerisches Passwort umzustellen. Gibt den neuen PIN zurück oder
 /// `null` bei Abbruch.
 Future<String?> showSetPinDialog(BuildContext context) async {
-  final pinCtrl = TextEditingController();
-  final confirmCtrl = TextEditingController();
   String? error;
   final result = await showDialog<String>(
     context: context,
-    builder: (context) => StatefulBuilder(
+    builder: (context) => MitTextsteuerungen(
+      anzahl: 2,
+      builder: (context, felder) {
+        final pinCtrl = felder[0];
+        final confirmCtrl = felder[1];
+        return StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         title: Text(AppTexte.of(context).pinFestlegenTitel),
         content: Column(
@@ -115,10 +122,10 @@ Future<String?> showSetPinDialog(BuildContext context) async {
           ),
         ],
       ),
+        );
+      },
     ),
   );
-  pinCtrl.dispose();
-  confirmCtrl.dispose();
   return result;
 }
 
@@ -163,10 +170,10 @@ Future<bool> ensureVaultUnlocked(BuildContext context, LibraryState library) asy
 Future<String?> showEnterPassphraseDialog(BuildContext context,
     {String? title}) async {
   final titel = title ?? AppTexte.of(context).einstBackupPassphraseEingeben;
-  final ctrl = TextEditingController();
   final result = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => MitTextsteuerung(
+        builder: (context, ctrl) => AlertDialog(
       title: Text(titel),
       content: TextField(
         controller: ctrl,
@@ -178,10 +185,9 @@ Future<String?> showEnterPassphraseDialog(BuildContext context,
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
         FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text('OK')),
-      ],
-    ),
+            ],
+            )),
   );
-  ctrl.dispose();
   return result;
 }
 
@@ -189,12 +195,15 @@ Future<String?> showEnterPassphraseDialog(BuildContext context,
 /// validiert clientseitig auf mindestens 8 Zeichen und Übereinstimmung.
 /// Gibt die neue Passphrase zurück oder `null` bei Abbruch.
 Future<String?> showSetPassphraseDialog(BuildContext context) async {
-  final passCtrl = TextEditingController();
-  final confirmCtrl = TextEditingController();
   String? error;
   final result = await showDialog<String>(
     context: context,
-    builder: (context) => StatefulBuilder(
+    builder: (context) => MitTextsteuerungen(
+      anzahl: 2,
+      builder: (context, felder) {
+        final passCtrl = felder[0];
+        final confirmCtrl = felder[1];
+        return StatefulBuilder(
       builder: (context, setState) => AlertDialog(
         title: Text(AppTexte.of(context).passphraseFestlegenTitel),
         content: Column(
@@ -248,10 +257,10 @@ Future<String?> showSetPassphraseDialog(BuildContext context) async {
           ),
         ],
       ),
+        );
+      },
     ),
   );
-  passCtrl.dispose();
-  confirmCtrl.dispose();
   return result;
 }
 

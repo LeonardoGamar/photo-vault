@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
+import 'package:photo_vault/screens/familienstatistik_screen.dart';
 import 'package:photo_vault/screens/stammbaum_screen.dart';
 import 'package:photo_vault/widgets/faecher_ansicht.dart';
 import 'package:photo_vault/services/backup_service.dart';
@@ -414,6 +415,206 @@ void main() {
       matchesGoldenFile('golden/stammbaum_faecher.png'),
     );
   }, skip: nurAufReferenzplattform);
+
+  /// Ein paar Daten mehr, damit auf der Zeitleiste etwas zu sehen ist:
+  /// ein abgeschlossenes Leben, eine Hochzeit, ein Umzug.
+  Future<void> lebenslaeufe() async {
+    await (db.update(db.people)..where((t) => t.id.equals('opa')))
+        .write(PeopleCompanion(sterbedatum: Value(DateTime(1980, 3, 4))));
+    await (db.update(db.people)..where((t) => t.id.equals('uropa')))
+        .write(PeopleCompanion(sterbedatum: Value(DateTime(1941, 8, 1))));
+    await db.fuegeEreignisHinzu(LebensereignisseCompanion.insert(
+      id: 'hochzeit',
+      personId: 'vater',
+      art: 'hochzeit',
+      datum: Value(DateTime(1958, 6, 21)),
+    ));
+    await db.fuegeEreignisHinzu(LebensereignisseCompanion.insert(
+      id: 'umzug',
+      personId: 'vater',
+      art: 'umzug',
+      datum: Value(DateTime(1970, 9, 1)),
+    ));
+  }
+
+  /// Öffnet die Zeitleiste.
+  ///
+  /// Mit breiterem Fenster: Die Ansichtsauswahl hat sechs Abschnitte und
+  /// liegt in einer waagerecht schiebbaren Zeile – bei 800 Pixeln steht
+  /// der letzte außerhalb des Bildes und lässt sich nicht antippen.
+  Future<void> zeigeZeitleiste(WidgetTester tester, String start,
+      {Size groesse = const Size(1040, 620)}) async {
+    tester.view.physicalSize = groesse;
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await zeige(tester, start);
+    await tester.tap(find.text('Zeitleiste'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('die Zeitleiste ordnet die Zeilen nach der Zeit',
+      (tester) async {
+    // Das, was keine der anderen vier Ansichten zeigt: Gleichzeitigkeit.
+    // Geprüft wird die Reihenfolge von oben nach unten, nicht das Bild.
+    await lebenslaeufe();
+    await zeigeZeitleiste(tester, 'kind');
+
+    double y(String name) => tester.getTopLeft(find.text(name)).dy;
+    final reihenfolge = ['Uropa', 'Opa', 'Oma', 'Vater', 'Mutter', 'Kind'];
+    for (var i = 1; i < reihenfolge.length; i++) {
+      expect(y(reihenfolge[i - 1]), lessThan(y(reihenfolge[i])),
+          reason: '${reihenfolge[i - 1]} vor ${reihenfolge[i]}');
+    }
+  });
+
+  testWidgets('ein Tipp auf eine Zeile rueckt die Person in die Mitte',
+      (tester) async {
+    await lebenslaeufe();
+    await zeigeZeitleiste(tester, 'kind');
+    await tester.tap(find.text('Uropa'));
+    await tester.pumpAndSettle();
+
+    // Nachgewiesen im Baum, nicht auf der Leiste selbst: Dort ist die
+    // Hervorhebung eine Farbe, und eine Farbe ist kein Beleg.
+    await tester.tap(find.text('Baum'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kinder'), findsOneWidget);
+    expect(find.text('Opa'), findsWidgets,
+        reason: 'Opa ist das Kind des Uropas');
+  });
+
+  testWidgets('die Zeitleiste laesst sich vorlesen', (tester) async {
+    // Ein gezeichneter Balken ist für die Sprachausgabe nichts. Ohne die
+    // Beschriftung je Zeile wäre diese Ansicht dort leer.
+    final semantik = tester.ensureSemantics();
+    await lebenslaeufe();
+    await zeigeZeitleiste(tester, 'kind');
+
+    // Geprüft wird der Durchgang, den eine Sprachausgabe tatsächlich
+    // nimmt – nicht ein einzelnes Widget. Die Beschriftung entsteht aus
+    // mehreren Teilen und wird zu einem Knoten zusammengefasst; nur so
+    // ist zu sehen, was am Ende wirklich vorgelesen wird.
+    final gelesen = [
+      for (final knoten in tester.semantics.simulatedAccessibilityTraversal())
+        if (knoten.label.isNotEmpty) knoten.label,
+    ];
+    expect(gelesen, containsAll([
+      'Uropa, 1874–1941',
+      'Opa, 1901–1980',
+      'Oma, Geboren 1903',
+      'Vater, Geboren 1931, 2 Ereignisse',
+    ]));
+    // Auch die Reihenfolge stimmt: Wer sich die Leiste vorlesen lässt,
+    // bekommt sie chronologisch und nicht in der Reihenfolge der
+    // Datenbank.
+    expect(gelesen.indexOf('Uropa, 1874–1941'),
+        lessThan(gelesen.indexOf('Kind, Geboren 1962')));
+    semantik.dispose();
+  });
+
+  testWidgets('ohne ein einziges Datum sagt die Zeitleiste, was ihr fehlt',
+      (tester) async {
+    // Nicht „keine Verwandten": Die Personen sind da, nur ihre Zeit ist
+    // es nicht. Es gäbe keine Achse, auf der etwas läge.
+    for (final id in ['opa', 'oma', 'vater', 'mutter', 'kind', 'schwester',
+      'uropa']) {
+      await (db.update(db.people)..where((t) => t.id.equals(id)))
+          .write(const PeopleCompanion(geburtsdatum: Value(null)));
+    }
+    await zeigeZeitleiste(tester, 'kind');
+    expect(find.textContaining('Auf der Zeitleiste steht noch nichts'),
+        findsOneWidget);
+  });
+
+  testWidgets('so sieht die Zeitleiste aus', (tester) async {
+    await lebenslaeufe();
+    await zeigeZeitleiste(tester, 'kind');
+    await expectLater(find.byType(StammbaumScreen),
+        matchesGoldenFile('golden/stammbaum_zeitleiste.png'));
+  }, skip: nurAufReferenzplattform);
+
+  testWidgets('die Familienstatistik rechnet die Lebenden nicht als null',
+      (tester) async {
+    // Der Fall, vor dem der Plan ausdrücklich warnte, und der einzige
+    // Weg, ihn zu sehen: Die Zahl selbst ist plausibel, gleich welche
+    // von beiden dasteht.
+    //
+    // Sieben Personen in dieser Familie, zwei davon verstorben: Opa mit
+    // 79, Uropa mit 67. Richtig sind 73 Jahre. Zählte man die fünf
+    // Übrigen als „null Jahre" mit, kämen 20,9 heraus.
+    tester.view.physicalSize = const Size(1040, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await lebenslaeufe();
+    await zeige(tester, 'kind');
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Familienstatistik'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FamilienstatistikScreen), findsOneWidget);
+    expect(find.text('73 Jahre'), findsOneWidget);
+    expect(find.textContaining('20,9'), findsNothing,
+        reason: 'das waere der Durchschnitt mit den Lebenden als null');
+
+    // Und die Zahl der Ausgeschlossenen steht daneben – ohne sie waere
+    // das Ergebnis wieder nur eine halbe Auskunft.
+    expect(find.textContaining('5 Personen ohne Sterbedatum'),
+        findsOneWidget);
+    expect(find.textContaining('Wer noch lebt'), findsOneWidget);
+
+    // Das Heiratsalter kommt aus dem Ereignis, nicht aus einer Spalte.
+    expect(find.text('27 Jahre'), findsOneWidget);
+
+    // Die Namensliste steht weiter unten – nachgesehen wird sie durch
+    // Blättern, sonst behauptet der Test etwas über einen Teil der Seite,
+    // der gar nicht gebaut wurde.
+    await tester.scrollUntilVisible(find.text('Opa'), 200);
+    expect(find.text('Vornamen'), findsOneWidget);
+    // Und keine Nachnamen: In dieser Familie hat niemand einen zweiten
+    // Namensteil. Eine Liste mit sieben leeren Zeilen wäre schlechter als
+    // keine.
+    expect(find.text('Nachnamen'), findsNothing);
+  });
+
+  testWidgets('so sieht die Familienstatistik aus', (tester) async {
+    tester.view.physicalSize = const Size(1040, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await lebenslaeufe();
+    await zeige(tester, 'kind');
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Familienstatistik'));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(FamilienstatistikScreen),
+        matchesGoldenFile('golden/familienstatistik.png'));
+  }, skip: nurAufReferenzplattform);
+
+  testWidgets('ohne Lebensdaten steht „keine Angabe" statt einer Zahl',
+      (tester) async {
+    // Nicht ein leerer Bildschirm: Namen und Kinderzahlen sind auch ohne
+    // ein einziges Datum eine Auskunft. Nur wo nichts zu rechnen war,
+    // darf auch keine Zahl stehen.
+    tester.view.physicalSize = const Size(1040, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    for (final id in ['opa', 'oma', 'vater', 'mutter', 'kind', 'schwester',
+      'uropa']) {
+      await (db.update(db.people)..where((t) => t.id.equals(id)))
+          .write(const PeopleCompanion(geburtsdatum: Value(null)));
+    }
+    await zeige(tester, 'kind');
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Familienstatistik'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('keine Angabe'), findsNWidgets(2),
+        reason: 'Lebensalter und Heiratsalter');
+    expect(find.text('Kinder je Person'), findsOneWidget,
+        reason: 'die Verteilung braucht keine Daten und steht weiter da');
+  });
 
   testWidgets('eine Person ohne Verwandtschaft bekommt eine Erklärung',
       (tester) async {

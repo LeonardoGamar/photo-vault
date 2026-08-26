@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/material.dart';
@@ -17,15 +18,21 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../services/faechertafel.dart';
 import '../services/familienorte.dart';
+import '../services/familienstatistik.dart';
 import '../services/gedcom_export.dart';
+import '../services/gedcom_import.dart';
+import '../services/lebenslauf.dart';
+import '../services/zeitleiste.dart';
 import '../services/tafel_pdf.dart';
 import '../services/sanduhr.dart';
 import '../widgets/faecher_ansicht.dart';
+import '../widgets/familien_zeitleiste.dart';
 import '../widgets/person_picker_dialog.dart';
 import '../widgets/sanduhr_ansicht.dart';
 import '../widgets/verwandtschaft_text.dart';
 import 'familienfotos_screen.dart';
 import 'familienorte_screen.dart';
+import 'familienstatistik_screen.dart';
 import 'lebenslauf_screen.dart';
 import 'person_detail_screen.dart';
 
@@ -97,6 +104,11 @@ enum _Ansicht {
   /// auf, für die im Baum kein Platz ist – Urgroßvater, Cousine zweiten
   /// Grades, Schwägerin.
   liste,
+
+  /// Die Zeitleiste: eine Zeile je Person auf einer gemeinsamen Achse.
+  /// Die einzige Ansicht, die **Gleichzeitigkeit** zeigt – wer sich
+  /// überlappte, wer sich um wenige Jahre verpasst hat.
+  zeitleiste,
 }
 
 class StammbaumScreen extends StatefulWidget {
@@ -133,6 +145,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// Einmal je Fokuswechsel gerechnet statt je Karte – für die Liste
   /// braucht es ohnehin alle.
   Map<String, Grad> _grade = const {};
+
+  /// Alle Lebensereignisse, nach Person geordnet – nur die Zeitleiste
+  /// braucht sie, und die braucht sie für Dutzende Personen zugleich.
+  Map<String, List<LebensereignisseData>> _ereignisse = const {};
   bool _laedt = true;
 
   /// Der Weg, den man sich durch den Baum genommen hat – damit der
@@ -150,7 +166,12 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     final personen = widget.library.db.nachAlterSortiert(
         await widget.library.db.select(widget.library.db.people).get());
     final zeilen = await widget.library.db.alleBeziehungen();
+    final ereignisse = await widget.library.db.alleEreignisse();
     if (!mounted) return;
+    final nachPerson = <String, List<LebensereignisseData>>{};
+    for (final e in ereignisse) {
+      nachPerson.putIfAbsent(e.personId, () => []).add(e);
+    }
     final netz = Verwandtschaftsnetz([
       for (final z in zeilen)
         if (artAusText(z.art) case final art?) kante(z.personId, z.andereId, art),
@@ -159,6 +180,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       _personen = personen;
       _nachId = {for (final p in personen) p.id: p};
       _netz = netz;
+      _ereignisse = nachPerson;
       _fokusId ??= widget.startPersonId ?? _startperson(personen, netz);
       _laedt = false;
     });
@@ -770,15 +792,22 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     final fokus = _fokusId;
     if (fokus == null) return;
     final t = AppTexte.of(context);
-    final roh = await widget.library.db
-        .verorteteAssetsFuerPersonen([fokus, ..._grade.keys]);
+    final personen = [fokus, ..._grade.keys];
+    final roh = await widget.library.db.verorteteAssetsFuerPersonen(personen);
+    // Lebensereignisse gehören auf dieselbe Karte: Wo jemand gelebt hat,
+    // ist dieselbe Frage wie, wo fotografiert wurde – nur aus der
+    // anderen Quelle.
+    final ereignisse =
+        await widget.library.db.verorteteEreignisseFuerPersonen(personen);
     if (!mounted) return;
     final orte = <Familienort>[
       for (final e in roh)
         if (gruppeFuerFoto(e.personen, _grade, fokus: fokus) case final g?)
           (asset: e.asset, gruppe: g),
     ];
-    if (orte.isEmpty) {
+    // Erst wenn BEIDES leer ist, gibt es nichts zu zeigen. Ein Stammbaum
+    // kann verortete Ereignisse haben, ohne dass ein Foto verortet wäre.
+    if (orte.isEmpty && ereignisse.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(t.stammbaumKeineFamilienorte)),
       );
@@ -789,6 +818,48 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
         library: widget.library,
         titel: t.stammbaumFamilienorteVon(_nachId[fokus]?.name ?? ''),
         orte: orte,
+        ereignisse: ereignisse,
+      ),
+    ));
+  }
+
+  /// Zahlen über die Familie – siehe [FamilienstatistikScreen].
+  ///
+  /// Gerechnet wird hier und nicht dort: Die Angaben liegen in diesem
+  /// Bildschirm bereits vollständig vor, und der Statistikbildschirm
+  /// bekommt ein fertiges Ergebnis statt einer zweiten Datenquelle.
+  void _familienstatistik() {
+    final fokus = _fokusId;
+    if (fokus == null) return;
+    final ids = {fokus, ..._grade.keys};
+    final statistik = familienstatistik(
+      personen: [
+        for (final p in _personen)
+          if (ids.contains(p.id))
+            (
+              id: p.id,
+              name: p.name,
+              geschlecht: geschlechtAusText(p.geschlecht),
+              geburt: p.geburtsdatum,
+              tod: p.sterbedatum,
+            ),
+      ],
+      netz: _netz,
+      fokus: fokus,
+      ereignisse: [
+        for (final id in ids)
+          for (final e in _ereignisse[id] ?? const [])
+            (
+              personId: id,
+              art: ereignisartAusText(e.art),
+              datum: e.datum,
+            ),
+      ],
+    );
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => FamilienstatistikScreen(
+        statistik: statistik,
+        fokusName: _nachId[fokus]?.name ?? '',
       ),
     ));
   }
@@ -870,6 +941,194 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       SnackBar(content: Text(t.stammbaumGedcomFertig(_personen.length))),
     );
   }
+
+  /// Liest eine GEDCOM-Datei ein – der Weg *hinein*.
+  ///
+  /// Ausgegeben hat diese App von Anfang an; gelesen hat sie nie. Wer
+  /// anderswo geforscht hatte, musste alles von Hand abtippen.
+  ///
+  /// **Es wird immer neu angelegt, nie zusammengeführt.** Ein Programm,
+  /// das selbsttätig entscheidet, welche zwei Großmütter dieselbe sind,
+  /// liegt irgendwann falsch – und eine falsch verschmolzene Person ist
+  /// nicht mehr zu trennen. Was doppelt aussieht, steht danach im
+  /// Bericht und wartet auf eine Entscheidung.
+  Future<void> _gedcomImport() async {
+    final t = AppTexte.of(context);
+    final wahl = await FilePicker.platform.pickFiles(
+      dialogTitle: t.stammbaumGedcomImport,
+      type: FileType.custom,
+      allowedExtensions: const [gedcomEndungOhnePunkt],
+    );
+    if (wahl == null || wahl.files.isEmpty || !mounted) return;
+    final pfad = wahl.files.first.path;
+    if (pfad == null) return;
+
+    final GedcomEingelesen gelesen;
+    try {
+      gelesen = liesGedcom(
+        await File(pfad).readAsBytes(),
+        // Die Beschriftungen kommen von hier und stehen nicht im Dienst:
+        // So bleibt das Einlesen ohne Oberfläche prüfbar, und die Notiz
+        // steht trotzdem in der eingestellten Sprache.
+        texte: (
+          geburtsort: t.gedcomOrtGeburt,
+          sterbeort: t.gedcomOrtTod,
+          taufe: t.gedcomOrtTaufe,
+          bestattung: t.gedcomOrtBestattung,
+          ohneNamen: t.gedcomOhneNamen,
+        ),
+      );
+    } on GedcomAbbruchFehler catch (fehler) {
+      if (!mounted) return;
+      await _gedcomMeldung(t.gedcomFehlerTitel, [
+        switch (fehler.grund) {
+          GedcomAbbruch.keinKopf => t.gedcomFehlerKeinKopf,
+          GedcomAbbruch.keinePersonen => t.gedcomFehlerKeinePersonen,
+          GedcomAbbruch.kodierung =>
+            t.gedcomFehlerKodierung(fehler.einzelheit ?? '?'),
+        },
+      ]);
+      return;
+    }
+    if (!mounted) return;
+
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.gedcomImportTitel),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t.gedcomImportGefunden(gelesen.personen.length,
+                gelesen.kanten.length, gelesen.anzahlEreignisse)),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              t.gedcomImportNeuHinweis,
+              style: Theme.of(dialog).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(t.gedcomImportUebernehmen)),
+        ],
+      ),
+    );
+    if (ja != true || !mounted) return;
+
+    // Gegen den Bestand verglichen wird VOR dem Schreiben – danach
+    // stünden die frisch angelegten selbst mit in der Liste und wären
+    // ihre eigenen Doppelgänger.
+    final verdacht = moeglicheDoppelte(
+      [
+        for (final p in gelesen.personen)
+          (kennung: p.kennung, name: p.name, geburt: p.geburt),
+      ],
+      [
+        for (final p in _personen)
+          (kennung: p.id, name: p.name, geburt: p.geburtsdatum),
+      ],
+    );
+
+    final neueKennung = {
+      for (final p in gelesen.personen) p.kennung: const Uuid().v4(),
+    };
+    await widget.library.db.uebernehmeGedcom(
+      personen: [
+        for (final p in gelesen.personen)
+          PeopleCompanion.insert(
+            id: neueKennung[p.kennung]!,
+            name: p.name,
+            geschlecht: Value(p.geschlecht == null
+                ? null
+                : geschlechtZuText(p.geschlecht!)),
+            geburtsdatum: Value(p.geburt),
+            sterbedatum: Value(p.tod),
+          ),
+      ],
+      kanten: mitNeuenKennungen(gelesen.kanten, neueKennung),
+      ereignisse: [
+        for (final p in gelesen.personen)
+          for (final e in p.ereignisse)
+            LebensereignisseCompanion.insert(
+              id: const Uuid().v4(),
+              personId: neueKennung[p.kennung]!,
+              art: ereignisartZuText(e.art),
+              datum: Value(e.datum),
+              ort: Value(e.ort),
+              notiz: Value(e.notiz),
+            ),
+      ],
+    );
+    // Die eingelesenen Ortsnamen bekommen jetzt ihre Koordinaten – das
+    // ist der Grund, warum die Verortung vor dem Einlesen gebaut wurde.
+    // Sonst läse man dreihundert Personen ein und sähe davon nichts.
+    await widget.library.trageEreignisorteNach();
+    await _laden();
+    if (!mounted) return;
+
+    final doppelteNamen = {for (final v in verdacht) v.name}.toList()..sort();
+    final zuBerichten = <String>[
+      if (doppelteNamen.isNotEmpty) ...[
+        t.gedcomBerichtDoppelte(doppelteNamen.length),
+        _gekuerzt(doppelteNamen),
+        t.gedcomBerichtDoppelteHinweis,
+      ],
+      for (final (art, satz) in [
+        (GedcomHinweisart.ungenauesDatum, t.gedcomBerichtUngenaueDaten),
+        (GedcomHinweisart.kreisVerhindert, t.gedcomBerichtKreise),
+        (GedcomHinweisart.ohneNamen, t.gedcomBerichtOhneNamen),
+        (GedcomHinweisart.uebersprungen, t.gedcomBerichtUebersprungen),
+      ])
+        if (gelesen.hinweiseMit(art) case final anzahl when anzahl > 0)
+          satz(anzahl),
+    ];
+    // Auch wenn nichts auffiel, wird der Bericht gezeigt – und sagt das
+    // dann. Ein Fenster, das nur bei Ärger erscheint, lässt im guten Fall
+    // offen, ob überhaupt etwas geprüft wurde.
+    await _gedcomMeldung(t.gedcomBerichtTitel, [
+      t.gedcomImportFertig(gelesen.personen.length),
+      if (zuBerichten.isEmpty) t.gedcomBerichtSauber else ...zuBerichten,
+    ]);
+  }
+
+  /// Eine Aufzählung, die nicht über den Bildschirm hinauswächst.
+  static String _gekuerzt(List<String> namen, {int hoechstens = 12}) =>
+      namen.length <= hoechstens
+          ? namen.join(', ')
+          : '${namen.take(hoechstens).join(', ')} …';
+
+  /// Ein Fenster mit mehreren Absätzen, zum Lesen und Wegklicken.
+  Future<void> _gedcomMeldung(String titel, List<String> absaetze) =>
+      showDialog<void>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: Text(titel),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final a in absaetze)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Text(a),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            FilledButton(
+                onPressed: () => Navigator.pop(dialog),
+                child: Text(AppTexte.of(dialog).allgSchliessen)),
+          ],
+        ),
+      );
 
   /// Der Fächer – siehe [FaecherAnsicht].
   Widget _faecher(BuildContext context, PersonData fokus) {
@@ -1020,6 +1279,62 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// Der Grund, warum es diese Sicht neben dem Baum gibt: Im Baum steht
   /// nur die unmittelbare Verwandtschaft, dort tauchen „Urgroßvater" oder
   /// „Cousine zweiten Grades" nie auf. Hier schon.
+  /// Die Familien-Zeitleiste – siehe [FamilienZeitleiste].
+  ///
+  /// Gezeigt wird dieselbe Menge wie bei Familienfotos und Familienorten:
+  /// die Person in der Mitte und alle, zu denen sich eine Verwandtschaft
+  /// ausrechnen lässt. Der ganze Bestand wäre etwas anderes – in einer
+  /// Bibliothek mit zweihundert erkannten Gesichtern stünden auf der
+  /// Leiste überwiegend Leute, die mit dieser Familie nichts zu tun
+  /// haben.
+  Widget _zeitleiste(BuildContext context, PersonData fokus) {
+    final t = AppTexte.of(context);
+    final zeilen = <Zeitzeile>[
+      for (final id in [fokus.id, ..._grade.keys])
+        if (_nachId[id] case final person?)
+          zeitzeile(
+            personId: person.id,
+            name: person.name,
+            geburt: person.geburtsdatum,
+            tod: person.sterbedatum,
+            ereignisse: [
+              for (final e in _ereignisse[person.id] ?? const [])
+                (
+                  id: e.id,
+                  art: ereignisartAusText(e.art),
+                  datum: e.datum,
+                  ort: e.ort,
+                  notiz: e.notiz,
+                ),
+            ],
+          ),
+    ];
+
+    // Nicht „keine Verwandten": Eine einzelne Person mit Lebensdaten
+    // ergibt sehr wohl eine Leiste. Leer ist sie erst, wenn nirgends ein
+    // Datum steht – dann gäbe es keine Achse, auf der etwas läge.
+    if (zeilen.every((z) => !z.datiert)) {
+      return _hinweis(context, t.stammbaumZeitleisteOhneDaten);
+    }
+
+    return FamilienZeitleiste(
+      zeilen: zeilen,
+      fokusId: fokus.id,
+      onTippen: (id) => setState(() {
+        _fokusId = id;
+        _rechneGrade();
+      }),
+      beschriftung: (z) => [
+        z.name,
+        lebensspanne(z.geburt, z.tod,
+                geboren: '${t.stammbaumGeboren} ',
+                gestorben: '${t.stammbaumGestorben} ') ??
+            t.zeitleisteOhneDatum,
+        if (z.marken.isNotEmpty) t.zeitleisteEreignisse(z.marken.length),
+      ].join(', '),
+    );
+  }
+
   Widget _verwandtenListe(BuildContext context, PersonData fokus) {
     final t = AppTexte.of(context);
     final eintraege = _grade.entries
@@ -1218,6 +1533,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                           value: _Ansicht.liste,
                           label: Text(t.stammbaumAnsichtListe),
                         ),
+                        ButtonSegment(
+                          value: _Ansicht.zeitleiste,
+                          label: Text(t.stammbaumAnsichtZeitleiste),
+                        ),
                       ],
                       selected: {_ansicht},
                       showSelectedIcon: false,
@@ -1239,8 +1558,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                 'verwandter' => _verwandtenHinzufuegen(),
                 'fotos' => _fotosDerFamilie(),
                 'orte' => _orteDerFamilie(),
+                'statistik' => _familienstatistik(),
                 'tafel' => _tafelDrucken(),
-                _ => _gedcomExport(),
+                'gedcom' => _gedcomExport(),
+                _ => _gedcomImport(),
               },
               itemBuilder: (context) => [
                 // Verwandte, die nicht unmittelbar an der Mitte hängen.
@@ -1277,6 +1598,12 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                   child: _zeile(Icons.map_outlined, t.stammbaumFamilienorte),
                 ),
                 PopupMenuItem(
+                  value: 'statistik',
+                  enabled: fokus != null,
+                  child: _zeile(
+                      Icons.bar_chart_outlined, t.stammbaumFamilienstatistik),
+                ),
+                PopupMenuItem(
                   value: 'tafel',
                   enabled: fokus != null,
                   child: _zeile(Icons.print_outlined, t.stammbaumTafelDrucken),
@@ -1285,6 +1612,13 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                   value: 'gedcom',
                   enabled: _personen.isNotEmpty,
                   child: _zeile(Icons.ios_share, t.stammbaumGedcomExport),
+                ),
+                // Ohne Bedingung: Der Eingang ist gerade dann gefragt,
+                // wenn noch niemand eingetragen ist.
+                PopupMenuItem(
+                  value: 'gedcom_import',
+                  child: _zeile(
+                      Icons.file_download_outlined, t.stammbaumGedcomImport),
                 ),
               ],
             ),
@@ -1302,6 +1636,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                     _Ansicht.sanduhr => _sanduhr(context, fokus),
                     _Ansicht.nachfahren => _nachfahrenTafel(context, fokus),
                     _Ansicht.liste => _verwandtenListe(context, fokus),
+                    _Ansicht.zeitleiste => _zeitleiste(context, fokus),
                   },
       ),
     );

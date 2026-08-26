@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -10,10 +11,22 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/mini_location_map.dart';
 import '../widgets/pin_dialogs.dart';
+import '../services/lebenslauf.dart';
 import 'asset_viewer_screen.dart';
+import 'lebenslauf_screen.dart';
 
 /// Ein verortetes Foto samt der Gruppe, nach der es eingefärbt wird.
 typedef Familienort = ({AssetData asset, Ortsgruppe gruppe});
+
+/// Ein verortetes Lebensereignis samt der Person, zu der es gehört.
+///
+/// Eigener Typ und nicht in [Familienort] hineingezwängt: Ein Ereignis
+/// ist kein Foto. Es hat keine Datei, kein Vorschaubild und nichts zum
+/// Öffnen — es hat einen Namen, ein Datum und eine Art.
+typedef Ereignisort = ({
+  LebensereignisseData ereignis,
+  String personName,
+});
 
 /// Die Orte einer Familie – wo sich die Verwandtschaft über die
 /// Generationen aufgehalten hat.
@@ -26,11 +39,16 @@ class FamilienorteScreen extends StatefulWidget {
   final String titel;
   final List<Familienort> orte;
 
+  /// Verortete Lebensereignisse derselben Familie. Leer, solange keines
+  /// einen auflösbaren Ort hat.
+  final List<Ereignisort> ereignisse;
+
   const FamilienorteScreen({
     super.key,
     required this.library,
     required this.titel,
     required this.orte,
+    this.ereignisse = const [],
   });
 
   @override
@@ -44,6 +62,11 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
   /// Welche Gruppen gerade gezeigt werden. Anfangs alle – die Karte soll
   /// zuerst zeigen, was da ist, und sich erst auf Wunsch verengen.
   final Set<Ortsgruppe> _sichtbar = {...Ortsgruppe.values};
+
+  /// Ob die Lebensereignisse mitgezeichnet werden. Eigener Schalter und
+  /// nicht Teil von [_sichtbar]: Ereignisse sind keine
+  /// Verwandtschaftsrichtung, sondern eine andere Art Sache.
+  bool _ereignisseZeigen = true;
 
   Color _farbe(BuildContext context, Ortsgruppe g) {
     final f = Theme.of(context).colorScheme;
@@ -64,13 +87,27 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
         Ortsgruppe.angeheiratet => t.orteAngeheiratet,
       };
 
+  /// Der Mittelpunkt, auf den die Karte beim Öffnen zeigt.
+  ///
+  /// Ereignisse zählen mit: Ein Stammbaum kann verortete Ereignisse
+  /// haben, ohne dass ein einziges Foto verortet wäre – dann zeigte die
+  /// Karte sonst auf einen Mittelwert aus nichts.
   ll.LatLng _mitte(List<Familienort> orte) {
-    var lat = 0.0, lng = 0.0;
+    var lat = 0.0, lng = 0.0, anzahl = 0;
     for (final o in orte) {
       lat += o.asset.latitude!;
       lng += o.asset.longitude!;
+      anzahl++;
     }
-    return ll.LatLng(lat / orte.length, lng / orte.length);
+    if (_ereignisseZeigen) {
+      for (final e in widget.ereignisse) {
+        lat += e.ereignis.ortBreite!;
+        lng += e.ereignis.ortLaenge!;
+        anzahl++;
+      }
+    }
+    if (anzahl == 0) return const ll.LatLng(51.1657, 10.4515);
+    return ll.LatLng(lat / anzahl, lng / anzahl);
   }
 
   void _oeffne(List<AssetData> gruppe) {
@@ -136,6 +173,17 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
                 label: Text(
                     '${_name(t, g)} (${widget.orte.where((o) => o.gruppe == g).length})'),
               ),
+          if (widget.ereignisse.isNotEmpty)
+            FilterChip(
+              selected: _ereignisseZeigen,
+              onSelected: (an) => setState(() => _ereignisseZeigen = an),
+              // Ein Symbol statt eines Farbpunkts: Ereignisse gehören
+              // nicht in dieselbe Farbreihe wie die
+              // Verwandtschaftsrichtungen, sonst läse man sie als eine
+              // weitere davon.
+              avatar: const Icon(Icons.event_outlined, size: 16),
+              label: Text('${t.orteEreignisse} (${widget.ereignisse.length})'),
+            ),
         ],
       ),
     );
@@ -159,6 +207,35 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
       children: [
         buildMapTileLayer(context, stil: Kartenstil.dunkel),
         buildMapAttribution(context, stil: Kartenstil.dunkel),
+        // Die Ereignisse liegen UNTER den Fotomarken: Wo beides am
+        // selben Ort ist, soll das Foto obenauf liegen – es lässt sich
+        // öffnen, das Ereignis nicht.
+        if (_ereignisseZeigen)
+          MarkerLayer(
+            markers: [
+              for (final e in widget.ereignisse)
+                Marker(
+                  point: ll.LatLng(
+                      e.ereignis.ortBreite!, e.ereignis.ortLaenge!),
+                  width: markerGroesse,
+                  height: markerGroesse,
+                  child: Tooltip(
+                    message: [
+                      e.personName,
+                      if (e.ereignis.ort != null && e.ereignis.ort!.isNotEmpty)
+                        e.ereignis.ort!,
+                    ].join(' · '),
+                    child: _Ereignismarke(
+                      farbe: Theme.of(context).colorScheme.primaryContainer,
+                      symbol: LebenslaufScreen.symbol(Lebenszeile(
+                        ereignisId: e.ereignis.id,
+                        art: ereignisartAusText(e.ereignis.art),
+                      )),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         MarkerLayer(
           markers: [
             for (final gruppe in gruppen.values)
@@ -216,6 +293,46 @@ class _Ortsmarke extends StatelessWidget {
                     fontSize: 11,
                     fontWeight: FontWeight.bold))
             : null,
+      ),
+    );
+  }
+}
+
+/// Ein Lebensereignis auf der Familienkarte.
+///
+/// Bewusst anders geformt als [_Ortsmarke]: eine Raute mit dem Symbol
+/// der Ereignisart statt eines Kreises mit einer Zahl. Ein Ereignis und
+/// ein Foto sind zwei verschiedene Dinge, und zwei Dinge in derselben
+/// Form wären eine Behauptung — man läse die Ereignisse als eine weitere
+/// Verwandtschaftsrichtung.
+class _Ereignismarke extends StatelessWidget {
+  final Color farbe;
+  final IconData symbol;
+  const _Ereignismarke({required this.farbe, required this.symbol});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Transform.rotate(
+        angle: math.pi / 4,
+        child: Container(
+          width: 22,
+          height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: farbe,
+            borderRadius: BorderRadius.circular(3),
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 4)],
+          ),
+          // Das Symbol zurückdrehen: Die Raute ist gekippt, ein
+          // mitgekipptes Herz oder Auto wäre schlicht schief.
+          child: Transform.rotate(
+            angle: -math.pi / 4,
+            child: Icon(symbol,
+                size: 12, color: Theme.of(context).colorScheme.onPrimaryContainer),
+          ),
+        ),
       ),
     );
   }

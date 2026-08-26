@@ -51,6 +51,14 @@ const _monate = [
 
 String _datum(DateTime d) => '${d.day} ${_monate[d.month - 1]} ${d.year}';
 
+/// Der GEDCOM-Wert für eine Elternart – `null` für die leibliche, die
+/// im Format die Voreinstellung ist und deshalb nicht dasteht.
+String? _pedi(Verwandtschaft? art) => switch (art) {
+      Verwandtschaft.adoptivelternteil => 'adopted',
+      Verwandtschaft.pflegeelternteil => 'foster',
+      _ => null,
+    };
+
 /// Zerlegt einen Namen in die GEDCOM-Form `Vorname /Nachname/`.
 ///
 /// Die App führt nur ein einziges Namensfeld – „Anna Meier" oder auch
@@ -182,6 +190,21 @@ String schreibeGedcom(
     }
     for (final i in alsKind[p.id] ?? const <int>[]) {
       zeilen.add('1 FAMC @F${i + 1}@');
+      // Adoptiv- und Pflegekanten. Ohne diese Zeile ginge beim Ausgeben
+      // verloren, was die App eigens unterscheidet – und ein Rundlauf
+      // durch Ausgeben und Wiedereinlesen käme mit leiblichen Eltern
+      // zurück.
+      //
+      // GEDCOM hängt die Angabe an die Verbindung zur **Familie**, nicht
+      // an den einzelnen Elternteil. Ein Kind, das nur von einem der
+      // beiden adoptiert wurde, lässt sich im Format nicht ausdrücken;
+      // dann bleibt die Zeile weg, statt eine Hälfte zur ganzen Wahrheit
+      // zu erklären.
+      final arten = {
+        for (final e in fam[i].eltern) netz.elternArt(p.id, e),
+      };
+      final pedi = arten.length == 1 ? _pedi(arten.first) : null;
+      if (pedi != null) zeilen.add('2 PEDI $pedi');
     }
     for (final i in alsElternteil[p.id] ?? const <int>[]) {
       zeilen.add('1 FAMS @F${i + 1}@');

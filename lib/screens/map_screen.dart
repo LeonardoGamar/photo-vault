@@ -13,6 +13,7 @@ import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/map_clustering.dart';
 import '../services/native_image_converter.dart';
+import '../services/lebenslauf.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -20,6 +21,7 @@ import '../widgets/wisch_zoom.dart';
 import '../widgets/mini_location_map.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
+import 'lebenslauf_screen.dart';
 
 /// Die vier Darstellungen der Kartenansicht: helle, dunkle oder
 /// topografische flache Karte oder ein interaktiver 3D-Globus. Bewusst als
@@ -76,6 +78,18 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   List<AssetData>? _located;
+
+  /// Verortete Lebensereignisse aus dem Stammbaum.
+  ///
+  /// Sie liegen auf derselben Karte wie die Fotos, weil sie dieselbe
+  /// Frage beantworten: wo jemand war. Bei einer Bibliothek ohne
+  /// Stammbaum bleibt die Liste leer, und dann ist auch nichts
+  /// umzuschalten — der Schalter erscheint erst, wenn es etwas zu
+  /// schalten gibt.
+  List<({LebensereignisseData ereignis, String personName})> _ereignisse =
+      const [];
+  bool _ereignisseZeigen = true;
+
   Kartenansicht _mode = Kartenansicht.dunkel;
 
   // Lazy angelegt (GPU-Shader-Ressourcen) und nur befüllt, solange der
@@ -137,11 +151,13 @@ class _MapScreenState extends State<MapScreen> {
     // kurz die dunkle Karte auf und schaltete sichtbar um.
     final gemerkt = Kartenansicht.ausText(await widget.library.db.kartenansicht());
     final assets = await widget.library.db.assetsWithLocation();
+    final ereignisse = await widget.library.db.ereignisseMitKoordinateUndName();
     if (!mounted) return;
     setState(() {
       _mode = gemerkt;
       if (gemerkt != Kartenansicht.globus) _lastFlatMode = gemerkt;
       _located = assets;
+      _ereignisse = ereignisse;
     });
     _globePointsSynced = false;
     if (_mode == Kartenansicht.globus) _syncGlobePoints(focus: true);
@@ -282,6 +298,32 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
       ));
+    }
+    if (_ereignisseZeigen) {
+      for (final e in _ereignisse) {
+        controller.addPoint(Point(
+          // Eigener Namensraum für die Kennung: Die Fotogruppen oben
+          // nummerieren nach Rasterzelle, und zwei Punkte mit derselben
+          // Kennung überschrieben einander.
+          id: 'ereignis-${e.ereignis.id}',
+          coordinates: GlobeCoordinates(
+              e.ereignis.ortBreite!, e.ereignis.ortLaenge!),
+          style: const PointStyle(color: Colors.transparent, size: 0.1),
+          labelBuilder: (context, point, isHovering, isVisible) => Tooltip(
+            message: [
+              e.personName,
+              if (e.ereignis.ort != null && e.ereignis.ort!.isNotEmpty)
+                e.ereignis.ort!,
+            ].join(' · '),
+            child: _GlobusEreignis(
+              symbol: LebenslaufScreen.symbol(Lebenszeile(
+                ereignisId: e.ereignis.id,
+                art: ereignisartAusText(e.ereignis.art),
+              )),
+            ),
+          ),
+        ));
+      }
     }
     if (focus && groups.isNotEmpty) {
       final center = _averageCenter(located);
@@ -497,6 +539,8 @@ class _MapScreenState extends State<MapScreen> {
                   ? _zumStandort
                   : null,
               standortLaeuft: _standortLaeuft,
+              beiEreignisse: _ereignisse.isEmpty ? null : _ereignisseUmschalten,
+              ereignisseAn: _ereignisseZeigen,
             ),
           ),
           Positioned(
@@ -542,6 +586,8 @@ class _MapScreenState extends State<MapScreen> {
             beiStandort:
                 NativeImageConverter.standortMoeglich ? _zumStandort : null,
             standortLaeuft: _standortLaeuft,
+            beiEreignisse: _ereignisse.isEmpty ? null : _ereignisseUmschalten,
+            ereignisseAn: _ereignisseZeigen,
           ),
         ),
       ],
@@ -572,6 +618,35 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           buildMapTileLayer(context, stil: stil),
           buildMapAttribution(context, stil: stil),
+          // Unter den Fotomarken: Wo beides am selben Ort liegt, gehört
+          // das Foto obenauf – es lässt sich öffnen, das Ereignis nicht.
+          if (_ereignisseZeigen && _ereignisse.isNotEmpty)
+            MarkerLayer(
+              markers: [
+                for (final e in _ereignisse)
+                  Marker(
+                    point: ll.LatLng(
+                        e.ereignis.ortBreite!, e.ereignis.ortLaenge!),
+                    width: markerGroesse,
+                    height: markerGroesse,
+                    alignment: Alignment.center,
+                    child: Tooltip(
+                      message: [
+                        e.personName,
+                        if (e.ereignis.ort != null &&
+                            e.ereignis.ort!.isNotEmpty)
+                          e.ereignis.ort!,
+                      ].join(' · '),
+                      child: _GlobusEreignis(
+                        symbol: LebenslaufScreen.symbol(Lebenszeile(
+                          ereignisId: e.ereignis.id,
+                          art: ereignisartAusText(e.ereignis.art),
+                        )),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           MarkerLayer(
             markers: [
               for (final gruppe in gruppen.values)
@@ -632,6 +707,13 @@ class _MapScreenState extends State<MapScreen> {
     if (_pendingFlatZoom != null && _pendingFlatZoom! > grenze) {
       _pendingFlatZoom = grenze;
     }
+  }
+
+  void _ereignisseUmschalten() {
+    setState(() => _ereignisseZeigen = !_ereignisseZeigen);
+    // Der Globus hält seine Punkte im Steuergerät, nicht im Widgetbaum –
+    // ein `setState` allein bewegt dort nichts.
+    if (_mode == Kartenansicht.globus) _syncGlobePoints(zoom: _globusZoom);
   }
 
   void _flachZoomen(double schritt) {
@@ -709,11 +791,19 @@ class _Kartensteuerung extends StatelessWidget {
   /// Während der Standort ermittelt wird: Kreisel statt Nadel.
   final bool standortLaeuft;
 
+  /// `null` blendet den Ereignisschalter aus – wer keinen Stammbaum
+  /// führt, hat nichts umzuschalten. Ein Schalter ohne Wirkung wäre eine
+  /// Behauptung, es gäbe dort etwas.
+  final VoidCallback? beiEreignisse;
+  final bool ereignisseAn;
+
   const _Kartensteuerung({
     this.beiNaeher,
     this.beiWeiter,
     this.beiStandort,
     this.standortLaeuft = false,
+    this.beiEreignisse,
+    this.ereignisseAn = true,
   });
 
   @override
@@ -764,6 +854,18 @@ class _Kartensteuerung extends StatelessWidget {
               symbol: Icons.remove,
               hinweis: t.karteHerauszoomen,
               beiDruck: beiWeiter),
+          if (beiEreignisse != null) ...[
+            Divider(height: 1, thickness: 1, color: farben.outlineVariant),
+            knopf(
+              symbol: ereignisseAn
+                  ? Icons.event_available_outlined
+                  : Icons.event_busy_outlined,
+              hinweis: ereignisseAn
+                  ? t.karteEreignisseAusblenden
+                  : t.karteEreignisseEinblenden,
+              beiDruck: beiEreignisse,
+            ),
+          ],
           if (beiStandort != null) ...[
             Divider(height: 1, thickness: 1, color: farben.outlineVariant),
             knopf(
@@ -905,6 +1007,38 @@ class _GlobePin extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Ein Lebensereignis auf dem Globus.
+///
+/// Dieselbe Raute wie auf der Familienkarte, nur kleiner: Der Globus
+/// zeigt die halbe Welt auf einmal, und eine Marke in Kartengrösse deckte
+/// dort ganze Länder zu.
+class _GlobusEreignis extends StatelessWidget {
+  final IconData symbol;
+  const _GlobusEreignis({required this.symbol});
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return Transform.rotate(
+      angle: math.pi / 4,
+      child: Container(
+        width: 16,
+        height: 16,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: farben.primaryContainer,
+          borderRadius: BorderRadius.circular(2),
+          border: Border.all(color: Colors.white, width: 1.5),
+        ),
+        child: Transform.rotate(
+          angle: -math.pi / 4,
+          child: Icon(symbol, size: 9, color: farben.onPrimaryContainer),
+        ),
       ),
     );
   }

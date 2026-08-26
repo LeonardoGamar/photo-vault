@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import 'namens_dialog.dart' show MitTextsteuerung;
 import '../screens/photo_compare_screen.dart';
 import '../screens/export_presets_screen.dart';
 import '../services/export_service.dart';
@@ -360,10 +361,10 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
 /// Fragt einen einzelnen Tag-Namen ab und fügt ihn allen übergebenen Fotos
 /// hinzu.
 Future<void> runBatchTagDialog(BuildContext context, LibraryState library, List<String> assetIds) async {
-  final ctrl = TextEditingController();
   final tag = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (context) => MitTextsteuerung(
+        builder: (context, ctrl) => AlertDialog(
       title: Text(AppTexte.of(context).auswTagTitel(assetIds.length)),
       content: TextField(
           controller: ctrl,
@@ -376,10 +377,9 @@ Future<void> runBatchTagDialog(BuildContext context, LibraryState library, List<
         FilledButton(
             onPressed: () => Navigator.pop(context, ctrl.text.trim()),
             child: Text(AppTexte.of(context).allgHinzufuegen)),
-      ],
-    ),
+            ],
+            )),
   );
-  ctrl.dispose();
   if (tag == null || tag.isEmpty) return;
   await library.db.tagAssetsBulk(assetIds, tag);
 }

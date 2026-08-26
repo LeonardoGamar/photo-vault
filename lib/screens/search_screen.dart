@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/clip_service.dart';
 import '../services/search_filters.dart';
 import '../state/library_state.dart';
@@ -76,10 +77,10 @@ class _SearchScreenState extends State<SearchScreen> {
   /// jedem Antippen live gegen die aktuelle Bibliothek, statt (wie ein
   /// normales Album) eine feste Foto-Liste festzuhalten.
   Future<void> _saveCurrentSearch() async {
-    final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => MitTextsteuerung(
+          builder: (context, ctrl) => AlertDialog(
         title: Text(AppTexte.of(context).sucheSpeichernTitel),
         content: TextField(
           controller: ctrl,
@@ -89,10 +90,9 @@ class _SearchScreenState extends State<SearchScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
           FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: Text(AppTexte.of(context).allgSpeichern)),
-        ],
-      ),
+                ],
+              )),
     );
-    ctrl.dispose();
     if (name == null || name.isEmpty) return;
     await widget.library.db.createSavedSearch(const Uuid().v4(), name, _filters);
   }

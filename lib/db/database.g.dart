@@ -13787,8 +13787,21 @@ class $LebensereignisseTable extends Lebensereignisse
   late final GeneratedColumn<String> notiz = GeneratedColumn<String>(
       'notiz', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _ortBreiteMeta =
+      const VerificationMeta('ortBreite');
   @override
-  List<GeneratedColumn> get $columns => [id, personId, art, datum, ort, notiz];
+  late final GeneratedColumn<double> ortBreite = GeneratedColumn<double>(
+      'ort_breite', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _ortLaengeMeta =
+      const VerificationMeta('ortLaenge');
+  @override
+  late final GeneratedColumn<double> ortLaenge = GeneratedColumn<double>(
+      'ort_laenge', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, personId, art, datum, ort, notiz, ortBreite, ortLaenge];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -13829,6 +13842,14 @@ class $LebensereignisseTable extends Lebensereignisse
       context.handle(
           _notizMeta, notiz.isAcceptableOrUnknown(data['notiz']!, _notizMeta));
     }
+    if (data.containsKey('ort_breite')) {
+      context.handle(_ortBreiteMeta,
+          ortBreite.isAcceptableOrUnknown(data['ort_breite']!, _ortBreiteMeta));
+    }
+    if (data.containsKey('ort_laenge')) {
+      context.handle(_ortLaengeMeta,
+          ortLaenge.isAcceptableOrUnknown(data['ort_laenge']!, _ortLaengeMeta));
+    }
     return context;
   }
 
@@ -13850,6 +13871,10 @@ class $LebensereignisseTable extends Lebensereignisse
           .read(DriftSqlType.string, data['${effectivePrefix}ort']),
       notiz: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}notiz']),
+      ortBreite: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}ort_breite']),
+      ortLaenge: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}ort_laenge']),
     );
   }
 
@@ -13871,13 +13896,30 @@ class LebensereignisseData extends DataClass
   final DateTime? datum;
   final String? ort;
   final String? notiz;
+
+  /// Der Ort als Koordinate, sobald er auflösbar war.
+  ///
+  /// **Zusätzlich zu [ort], nicht statt dessen.** Ein Ortsname, den der
+  /// GeoNames-Auszug nicht kennt – ein untergegangenes Dorf, ein
+  /// Gutshof, eine alte Schreibweise – bleibt als Text stehen und ist
+  /// damit nicht verloren; er landet nur auf keiner Karte. Beide Felder
+  /// zu koppeln hiesse, solche Einträge stillschweigend wegzuwerfen.
+  ///
+  /// Und getrennt von [ort] auch deshalb, weil die Zuordnung eine
+  /// **Vermutung** ist: „Springfield" trifft in den USA über zwanzig Mal
+  /// zu. Wer die Koordinate von Hand berichtigt, ändert diese Felder,
+  /// ohne dass der aufgeschriebene Name sich ändert.
+  final double? ortBreite;
+  final double? ortLaenge;
   const LebensereignisseData(
       {required this.id,
       required this.personId,
       required this.art,
       this.datum,
       this.ort,
-      this.notiz});
+      this.notiz,
+      this.ortBreite,
+      this.ortLaenge});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -13893,6 +13935,12 @@ class LebensereignisseData extends DataClass
     if (!nullToAbsent || notiz != null) {
       map['notiz'] = Variable<String>(notiz);
     }
+    if (!nullToAbsent || ortBreite != null) {
+      map['ort_breite'] = Variable<double>(ortBreite);
+    }
+    if (!nullToAbsent || ortLaenge != null) {
+      map['ort_laenge'] = Variable<double>(ortLaenge);
+    }
     return map;
   }
 
@@ -13906,6 +13954,12 @@ class LebensereignisseData extends DataClass
       ort: ort == null && nullToAbsent ? const Value.absent() : Value(ort),
       notiz:
           notiz == null && nullToAbsent ? const Value.absent() : Value(notiz),
+      ortBreite: ortBreite == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ortBreite),
+      ortLaenge: ortLaenge == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ortLaenge),
     );
   }
 
@@ -13919,6 +13973,8 @@ class LebensereignisseData extends DataClass
       datum: serializer.fromJson<DateTime?>(json['datum']),
       ort: serializer.fromJson<String?>(json['ort']),
       notiz: serializer.fromJson<String?>(json['notiz']),
+      ortBreite: serializer.fromJson<double?>(json['ortBreite']),
+      ortLaenge: serializer.fromJson<double?>(json['ortLaenge']),
     );
   }
   @override
@@ -13931,6 +13987,8 @@ class LebensereignisseData extends DataClass
       'datum': serializer.toJson<DateTime?>(datum),
       'ort': serializer.toJson<String?>(ort),
       'notiz': serializer.toJson<String?>(notiz),
+      'ortBreite': serializer.toJson<double?>(ortBreite),
+      'ortLaenge': serializer.toJson<double?>(ortLaenge),
     };
   }
 
@@ -13940,7 +13998,9 @@ class LebensereignisseData extends DataClass
           String? art,
           Value<DateTime?> datum = const Value.absent(),
           Value<String?> ort = const Value.absent(),
-          Value<String?> notiz = const Value.absent()}) =>
+          Value<String?> notiz = const Value.absent(),
+          Value<double?> ortBreite = const Value.absent(),
+          Value<double?> ortLaenge = const Value.absent()}) =>
       LebensereignisseData(
         id: id ?? this.id,
         personId: personId ?? this.personId,
@@ -13948,6 +14008,8 @@ class LebensereignisseData extends DataClass
         datum: datum.present ? datum.value : this.datum,
         ort: ort.present ? ort.value : this.ort,
         notiz: notiz.present ? notiz.value : this.notiz,
+        ortBreite: ortBreite.present ? ortBreite.value : this.ortBreite,
+        ortLaenge: ortLaenge.present ? ortLaenge.value : this.ortLaenge,
       );
   LebensereignisseData copyWithCompanion(LebensereignisseCompanion data) {
     return LebensereignisseData(
@@ -13957,6 +14019,8 @@ class LebensereignisseData extends DataClass
       datum: data.datum.present ? data.datum.value : this.datum,
       ort: data.ort.present ? data.ort.value : this.ort,
       notiz: data.notiz.present ? data.notiz.value : this.notiz,
+      ortBreite: data.ortBreite.present ? data.ortBreite.value : this.ortBreite,
+      ortLaenge: data.ortLaenge.present ? data.ortLaenge.value : this.ortLaenge,
     );
   }
 
@@ -13968,13 +14032,16 @@ class LebensereignisseData extends DataClass
           ..write('art: $art, ')
           ..write('datum: $datum, ')
           ..write('ort: $ort, ')
-          ..write('notiz: $notiz')
+          ..write('notiz: $notiz, ')
+          ..write('ortBreite: $ortBreite, ')
+          ..write('ortLaenge: $ortLaenge')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, personId, art, datum, ort, notiz);
+  int get hashCode =>
+      Object.hash(id, personId, art, datum, ort, notiz, ortBreite, ortLaenge);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -13984,7 +14051,9 @@ class LebensereignisseData extends DataClass
           other.art == this.art &&
           other.datum == this.datum &&
           other.ort == this.ort &&
-          other.notiz == this.notiz);
+          other.notiz == this.notiz &&
+          other.ortBreite == this.ortBreite &&
+          other.ortLaenge == this.ortLaenge);
 }
 
 class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
@@ -13994,6 +14063,8 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
   final Value<DateTime?> datum;
   final Value<String?> ort;
   final Value<String?> notiz;
+  final Value<double?> ortBreite;
+  final Value<double?> ortLaenge;
   final Value<int> rowid;
   const LebensereignisseCompanion({
     this.id = const Value.absent(),
@@ -14002,6 +14073,8 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
     this.datum = const Value.absent(),
     this.ort = const Value.absent(),
     this.notiz = const Value.absent(),
+    this.ortBreite = const Value.absent(),
+    this.ortLaenge = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LebensereignisseCompanion.insert({
@@ -14011,6 +14084,8 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
     this.datum = const Value.absent(),
     this.ort = const Value.absent(),
     this.notiz = const Value.absent(),
+    this.ortBreite = const Value.absent(),
+    this.ortLaenge = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         personId = Value(personId),
@@ -14022,6 +14097,8 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
     Expression<DateTime>? datum,
     Expression<String>? ort,
     Expression<String>? notiz,
+    Expression<double>? ortBreite,
+    Expression<double>? ortLaenge,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -14031,6 +14108,8 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
       if (datum != null) 'datum': datum,
       if (ort != null) 'ort': ort,
       if (notiz != null) 'notiz': notiz,
+      if (ortBreite != null) 'ort_breite': ortBreite,
+      if (ortLaenge != null) 'ort_laenge': ortLaenge,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -14042,6 +14121,8 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
       Value<DateTime?>? datum,
       Value<String?>? ort,
       Value<String?>? notiz,
+      Value<double?>? ortBreite,
+      Value<double?>? ortLaenge,
       Value<int>? rowid}) {
     return LebensereignisseCompanion(
       id: id ?? this.id,
@@ -14050,6 +14131,8 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
       datum: datum ?? this.datum,
       ort: ort ?? this.ort,
       notiz: notiz ?? this.notiz,
+      ortBreite: ortBreite ?? this.ortBreite,
+      ortLaenge: ortLaenge ?? this.ortLaenge,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -14075,6 +14158,12 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
     if (notiz.present) {
       map['notiz'] = Variable<String>(notiz.value);
     }
+    if (ortBreite.present) {
+      map['ort_breite'] = Variable<double>(ortBreite.value);
+    }
+    if (ortLaenge.present) {
+      map['ort_laenge'] = Variable<double>(ortLaenge.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -14090,6 +14179,802 @@ class LebensereignisseCompanion extends UpdateCompanion<LebensereignisseData> {
           ..write('datum: $datum, ')
           ..write('ort: $ort, ')
           ..write('notiz: $notiz, ')
+          ..write('ortBreite: $ortBreite, ')
+          ..write('ortLaenge: $ortLaenge, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ReisenTable extends Reisen with TableInfo<$ReisenTable, ReisenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReisenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _vonMeta = const VerificationMeta('von');
+  @override
+  late final GeneratedColumn<DateTime> von = GeneratedColumn<DateTime>(
+      'von', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _bisMeta = const VerificationMeta('bis');
+  @override
+  late final GeneratedColumn<DateTime> bis = GeneratedColumn<DateTime>(
+      'bis', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _notizMeta = const VerificationMeta('notiz');
+  @override
+  late final GeneratedColumn<String> notiz = GeneratedColumn<String>(
+      'notiz', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _titelbildAssetIdMeta =
+      const VerificationMeta('titelbildAssetId');
+  @override
+  late final GeneratedColumn<String> titelbildAssetId = GeneratedColumn<String>(
+      'titelbild_asset_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _angelegtAmMeta =
+      const VerificationMeta('angelegtAm');
+  @override
+  late final GeneratedColumn<DateTime> angelegtAm = GeneratedColumn<DateTime>(
+      'angelegt_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, name, von, bis, notiz, titelbildAssetId, angelegtAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reisen';
+  @override
+  VerificationContext validateIntegrity(Insertable<ReisenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('von')) {
+      context.handle(
+          _vonMeta, von.isAcceptableOrUnknown(data['von']!, _vonMeta));
+    } else if (isInserting) {
+      context.missing(_vonMeta);
+    }
+    if (data.containsKey('bis')) {
+      context.handle(
+          _bisMeta, bis.isAcceptableOrUnknown(data['bis']!, _bisMeta));
+    } else if (isInserting) {
+      context.missing(_bisMeta);
+    }
+    if (data.containsKey('notiz')) {
+      context.handle(
+          _notizMeta, notiz.isAcceptableOrUnknown(data['notiz']!, _notizMeta));
+    }
+    if (data.containsKey('titelbild_asset_id')) {
+      context.handle(
+          _titelbildAssetIdMeta,
+          titelbildAssetId.isAcceptableOrUnknown(
+              data['titelbild_asset_id']!, _titelbildAssetIdMeta));
+    }
+    if (data.containsKey('angelegt_am')) {
+      context.handle(
+          _angelegtAmMeta,
+          angelegtAm.isAcceptableOrUnknown(
+              data['angelegt_am']!, _angelegtAmMeta));
+    } else if (isInserting) {
+      context.missing(_angelegtAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ReisenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReisenData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      von: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}von'])!,
+      bis: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}bis'])!,
+      notiz: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notiz']),
+      titelbildAssetId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}titelbild_asset_id']),
+      angelegtAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}angelegt_am'])!,
+    );
+  }
+
+  @override
+  $ReisenTable createAlias(String alias) {
+    return $ReisenTable(attachedDatabase, alias);
+  }
+}
+
+class ReisenData extends DataClass implements Insertable<ReisenData> {
+  final String id;
+  final String name;
+
+  /// Erste und letzte Aufnahme – abgeleitet, aber gespeichert: Die Liste
+  /// soll nach Zeitraum sortieren können, ohne für jede Zeile ihre
+  /// Aufnahmen nachzuschlagen.
+  final DateTime von;
+  final DateTime bis;
+  final String? notiz;
+
+  /// Das Titelbild. `null` heißt „nimm die erste Aufnahme" – und ist
+  /// etwas anderes als ein gewähltes Bild, das später gelöscht wurde.
+  final String? titelbildAssetId;
+  final DateTime angelegtAm;
+  const ReisenData(
+      {required this.id,
+      required this.name,
+      required this.von,
+      required this.bis,
+      this.notiz,
+      this.titelbildAssetId,
+      required this.angelegtAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['von'] = Variable<DateTime>(von);
+    map['bis'] = Variable<DateTime>(bis);
+    if (!nullToAbsent || notiz != null) {
+      map['notiz'] = Variable<String>(notiz);
+    }
+    if (!nullToAbsent || titelbildAssetId != null) {
+      map['titelbild_asset_id'] = Variable<String>(titelbildAssetId);
+    }
+    map['angelegt_am'] = Variable<DateTime>(angelegtAm);
+    return map;
+  }
+
+  ReisenCompanion toCompanion(bool nullToAbsent) {
+    return ReisenCompanion(
+      id: Value(id),
+      name: Value(name),
+      von: Value(von),
+      bis: Value(bis),
+      notiz:
+          notiz == null && nullToAbsent ? const Value.absent() : Value(notiz),
+      titelbildAssetId: titelbildAssetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(titelbildAssetId),
+      angelegtAm: Value(angelegtAm),
+    );
+  }
+
+  factory ReisenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReisenData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      von: serializer.fromJson<DateTime>(json['von']),
+      bis: serializer.fromJson<DateTime>(json['bis']),
+      notiz: serializer.fromJson<String?>(json['notiz']),
+      titelbildAssetId: serializer.fromJson<String?>(json['titelbildAssetId']),
+      angelegtAm: serializer.fromJson<DateTime>(json['angelegtAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'von': serializer.toJson<DateTime>(von),
+      'bis': serializer.toJson<DateTime>(bis),
+      'notiz': serializer.toJson<String?>(notiz),
+      'titelbildAssetId': serializer.toJson<String?>(titelbildAssetId),
+      'angelegtAm': serializer.toJson<DateTime>(angelegtAm),
+    };
+  }
+
+  ReisenData copyWith(
+          {String? id,
+          String? name,
+          DateTime? von,
+          DateTime? bis,
+          Value<String?> notiz = const Value.absent(),
+          Value<String?> titelbildAssetId = const Value.absent(),
+          DateTime? angelegtAm}) =>
+      ReisenData(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        von: von ?? this.von,
+        bis: bis ?? this.bis,
+        notiz: notiz.present ? notiz.value : this.notiz,
+        titelbildAssetId: titelbildAssetId.present
+            ? titelbildAssetId.value
+            : this.titelbildAssetId,
+        angelegtAm: angelegtAm ?? this.angelegtAm,
+      );
+  ReisenData copyWithCompanion(ReisenCompanion data) {
+    return ReisenData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      von: data.von.present ? data.von.value : this.von,
+      bis: data.bis.present ? data.bis.value : this.bis,
+      notiz: data.notiz.present ? data.notiz.value : this.notiz,
+      titelbildAssetId: data.titelbildAssetId.present
+          ? data.titelbildAssetId.value
+          : this.titelbildAssetId,
+      angelegtAm:
+          data.angelegtAm.present ? data.angelegtAm.value : this.angelegtAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReisenData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('von: $von, ')
+          ..write('bis: $bis, ')
+          ..write('notiz: $notiz, ')
+          ..write('titelbildAssetId: $titelbildAssetId, ')
+          ..write('angelegtAm: $angelegtAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, name, von, bis, notiz, titelbildAssetId, angelegtAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReisenData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.von == this.von &&
+          other.bis == this.bis &&
+          other.notiz == this.notiz &&
+          other.titelbildAssetId == this.titelbildAssetId &&
+          other.angelegtAm == this.angelegtAm);
+}
+
+class ReisenCompanion extends UpdateCompanion<ReisenData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<DateTime> von;
+  final Value<DateTime> bis;
+  final Value<String?> notiz;
+  final Value<String?> titelbildAssetId;
+  final Value<DateTime> angelegtAm;
+  final Value<int> rowid;
+  const ReisenCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.von = const Value.absent(),
+    this.bis = const Value.absent(),
+    this.notiz = const Value.absent(),
+    this.titelbildAssetId = const Value.absent(),
+    this.angelegtAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReisenCompanion.insert({
+    required String id,
+    required String name,
+    required DateTime von,
+    required DateTime bis,
+    this.notiz = const Value.absent(),
+    this.titelbildAssetId = const Value.absent(),
+    required DateTime angelegtAm,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        name = Value(name),
+        von = Value(von),
+        bis = Value(bis),
+        angelegtAm = Value(angelegtAm);
+  static Insertable<ReisenData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<DateTime>? von,
+    Expression<DateTime>? bis,
+    Expression<String>? notiz,
+    Expression<String>? titelbildAssetId,
+    Expression<DateTime>? angelegtAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (von != null) 'von': von,
+      if (bis != null) 'bis': bis,
+      if (notiz != null) 'notiz': notiz,
+      if (titelbildAssetId != null) 'titelbild_asset_id': titelbildAssetId,
+      if (angelegtAm != null) 'angelegt_am': angelegtAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReisenCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? name,
+      Value<DateTime>? von,
+      Value<DateTime>? bis,
+      Value<String?>? notiz,
+      Value<String?>? titelbildAssetId,
+      Value<DateTime>? angelegtAm,
+      Value<int>? rowid}) {
+    return ReisenCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      von: von ?? this.von,
+      bis: bis ?? this.bis,
+      notiz: notiz ?? this.notiz,
+      titelbildAssetId: titelbildAssetId ?? this.titelbildAssetId,
+      angelegtAm: angelegtAm ?? this.angelegtAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (von.present) {
+      map['von'] = Variable<DateTime>(von.value);
+    }
+    if (bis.present) {
+      map['bis'] = Variable<DateTime>(bis.value);
+    }
+    if (notiz.present) {
+      map['notiz'] = Variable<String>(notiz.value);
+    }
+    if (titelbildAssetId.present) {
+      map['titelbild_asset_id'] = Variable<String>(titelbildAssetId.value);
+    }
+    if (angelegtAm.present) {
+      map['angelegt_am'] = Variable<DateTime>(angelegtAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReisenCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('von: $von, ')
+          ..write('bis: $bis, ')
+          ..write('notiz: $notiz, ')
+          ..write('titelbildAssetId: $titelbildAssetId, ')
+          ..write('angelegtAm: $angelegtAm, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ReiseAufnahmenTable extends ReiseAufnahmen
+    with TableInfo<$ReiseAufnahmenTable, ReiseAufnahmenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReiseAufnahmenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _reiseIdMeta =
+      const VerificationMeta('reiseId');
+  @override
+  late final GeneratedColumn<String> reiseId = GeneratedColumn<String>(
+      'reise_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _assetIdMeta =
+      const VerificationMeta('assetId');
+  @override
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+      'asset_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [reiseId, assetId];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reise_aufnahmen';
+  @override
+  VerificationContext validateIntegrity(Insertable<ReiseAufnahmenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('reise_id')) {
+      context.handle(_reiseIdMeta,
+          reiseId.isAcceptableOrUnknown(data['reise_id']!, _reiseIdMeta));
+    } else if (isInserting) {
+      context.missing(_reiseIdMeta);
+    }
+    if (data.containsKey('asset_id')) {
+      context.handle(_assetIdMeta,
+          assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta));
+    } else if (isInserting) {
+      context.missing(_assetIdMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {reiseId, assetId};
+  @override
+  ReiseAufnahmenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReiseAufnahmenData(
+      reiseId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reise_id'])!,
+      assetId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}asset_id'])!,
+    );
+  }
+
+  @override
+  $ReiseAufnahmenTable createAlias(String alias) {
+    return $ReiseAufnahmenTable(attachedDatabase, alias);
+  }
+}
+
+class ReiseAufnahmenData extends DataClass
+    implements Insertable<ReiseAufnahmenData> {
+  final String reiseId;
+  final String assetId;
+  const ReiseAufnahmenData({required this.reiseId, required this.assetId});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['reise_id'] = Variable<String>(reiseId);
+    map['asset_id'] = Variable<String>(assetId);
+    return map;
+  }
+
+  ReiseAufnahmenCompanion toCompanion(bool nullToAbsent) {
+    return ReiseAufnahmenCompanion(
+      reiseId: Value(reiseId),
+      assetId: Value(assetId),
+    );
+  }
+
+  factory ReiseAufnahmenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReiseAufnahmenData(
+      reiseId: serializer.fromJson<String>(json['reiseId']),
+      assetId: serializer.fromJson<String>(json['assetId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'reiseId': serializer.toJson<String>(reiseId),
+      'assetId': serializer.toJson<String>(assetId),
+    };
+  }
+
+  ReiseAufnahmenData copyWith({String? reiseId, String? assetId}) =>
+      ReiseAufnahmenData(
+        reiseId: reiseId ?? this.reiseId,
+        assetId: assetId ?? this.assetId,
+      );
+  ReiseAufnahmenData copyWithCompanion(ReiseAufnahmenCompanion data) {
+    return ReiseAufnahmenData(
+      reiseId: data.reiseId.present ? data.reiseId.value : this.reiseId,
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReiseAufnahmenData(')
+          ..write('reiseId: $reiseId, ')
+          ..write('assetId: $assetId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(reiseId, assetId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReiseAufnahmenData &&
+          other.reiseId == this.reiseId &&
+          other.assetId == this.assetId);
+}
+
+class ReiseAufnahmenCompanion extends UpdateCompanion<ReiseAufnahmenData> {
+  final Value<String> reiseId;
+  final Value<String> assetId;
+  final Value<int> rowid;
+  const ReiseAufnahmenCompanion({
+    this.reiseId = const Value.absent(),
+    this.assetId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReiseAufnahmenCompanion.insert({
+    required String reiseId,
+    required String assetId,
+    this.rowid = const Value.absent(),
+  })  : reiseId = Value(reiseId),
+        assetId = Value(assetId);
+  static Insertable<ReiseAufnahmenData> custom({
+    Expression<String>? reiseId,
+    Expression<String>? assetId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (reiseId != null) 'reise_id': reiseId,
+      if (assetId != null) 'asset_id': assetId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReiseAufnahmenCompanion copyWith(
+      {Value<String>? reiseId, Value<String>? assetId, Value<int>? rowid}) {
+    return ReiseAufnahmenCompanion(
+      reiseId: reiseId ?? this.reiseId,
+      assetId: assetId ?? this.assetId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (reiseId.present) {
+      map['reise_id'] = Variable<String>(reiseId.value);
+    }
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReiseAufnahmenCompanion(')
+          ..write('reiseId: $reiseId, ')
+          ..write('assetId: $assetId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VerworfeneReisenTable extends VerworfeneReisen
+    with TableInfo<$VerworfeneReisenTable, VerworfeneReisenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VerworfeneReisenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _schluesselMeta =
+      const VerificationMeta('schluessel');
+  @override
+  late final GeneratedColumn<String> schluessel = GeneratedColumn<String>(
+      'schluessel', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _verworfenAmMeta =
+      const VerificationMeta('verworfenAm');
+  @override
+  late final GeneratedColumn<DateTime> verworfenAm = GeneratedColumn<DateTime>(
+      'verworfen_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [schluessel, verworfenAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'verworfene_reisen';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<VerworfeneReisenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('schluessel')) {
+      context.handle(
+          _schluesselMeta,
+          schluessel.isAcceptableOrUnknown(
+              data['schluessel']!, _schluesselMeta));
+    } else if (isInserting) {
+      context.missing(_schluesselMeta);
+    }
+    if (data.containsKey('verworfen_am')) {
+      context.handle(
+          _verworfenAmMeta,
+          verworfenAm.isAcceptableOrUnknown(
+              data['verworfen_am']!, _verworfenAmMeta));
+    } else if (isInserting) {
+      context.missing(_verworfenAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {schluessel};
+  @override
+  VerworfeneReisenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VerworfeneReisenData(
+      schluessel: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}schluessel'])!,
+      verworfenAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}verworfen_am'])!,
+    );
+  }
+
+  @override
+  $VerworfeneReisenTable createAlias(String alias) {
+    return $VerworfeneReisenTable(attachedDatabase, alias);
+  }
+}
+
+class VerworfeneReisenData extends DataClass
+    implements Insertable<VerworfeneReisenData> {
+  final String schluessel;
+  final DateTime verworfenAm;
+  const VerworfeneReisenData(
+      {required this.schluessel, required this.verworfenAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['schluessel'] = Variable<String>(schluessel);
+    map['verworfen_am'] = Variable<DateTime>(verworfenAm);
+    return map;
+  }
+
+  VerworfeneReisenCompanion toCompanion(bool nullToAbsent) {
+    return VerworfeneReisenCompanion(
+      schluessel: Value(schluessel),
+      verworfenAm: Value(verworfenAm),
+    );
+  }
+
+  factory VerworfeneReisenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VerworfeneReisenData(
+      schluessel: serializer.fromJson<String>(json['schluessel']),
+      verworfenAm: serializer.fromJson<DateTime>(json['verworfenAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'schluessel': serializer.toJson<String>(schluessel),
+      'verworfenAm': serializer.toJson<DateTime>(verworfenAm),
+    };
+  }
+
+  VerworfeneReisenData copyWith({String? schluessel, DateTime? verworfenAm}) =>
+      VerworfeneReisenData(
+        schluessel: schluessel ?? this.schluessel,
+        verworfenAm: verworfenAm ?? this.verworfenAm,
+      );
+  VerworfeneReisenData copyWithCompanion(VerworfeneReisenCompanion data) {
+    return VerworfeneReisenData(
+      schluessel:
+          data.schluessel.present ? data.schluessel.value : this.schluessel,
+      verworfenAm:
+          data.verworfenAm.present ? data.verworfenAm.value : this.verworfenAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VerworfeneReisenData(')
+          ..write('schluessel: $schluessel, ')
+          ..write('verworfenAm: $verworfenAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(schluessel, verworfenAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VerworfeneReisenData &&
+          other.schluessel == this.schluessel &&
+          other.verworfenAm == this.verworfenAm);
+}
+
+class VerworfeneReisenCompanion extends UpdateCompanion<VerworfeneReisenData> {
+  final Value<String> schluessel;
+  final Value<DateTime> verworfenAm;
+  final Value<int> rowid;
+  const VerworfeneReisenCompanion({
+    this.schluessel = const Value.absent(),
+    this.verworfenAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VerworfeneReisenCompanion.insert({
+    required String schluessel,
+    required DateTime verworfenAm,
+    this.rowid = const Value.absent(),
+  })  : schluessel = Value(schluessel),
+        verworfenAm = Value(verworfenAm);
+  static Insertable<VerworfeneReisenData> custom({
+    Expression<String>? schluessel,
+    Expression<DateTime>? verworfenAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (schluessel != null) 'schluessel': schluessel,
+      if (verworfenAm != null) 'verworfen_am': verworfenAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VerworfeneReisenCompanion copyWith(
+      {Value<String>? schluessel,
+      Value<DateTime>? verworfenAm,
+      Value<int>? rowid}) {
+    return VerworfeneReisenCompanion(
+      schluessel: schluessel ?? this.schluessel,
+      verworfenAm: verworfenAm ?? this.verworfenAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (schluessel.present) {
+      map['schluessel'] = Variable<String>(schluessel.value);
+    }
+    if (verworfenAm.present) {
+      map['verworfen_am'] = Variable<DateTime>(verworfenAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VerworfeneReisenCompanion(')
+          ..write('schluessel: $schluessel, ')
+          ..write('verworfenAm: $verworfenAm, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -14140,6 +15025,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $PersonBeziehungenTable(this);
   late final $LebensereignisseTable lebensereignisse =
       $LebensereignisseTable(this);
+  late final $ReisenTable reisen = $ReisenTable(this);
+  late final $ReiseAufnahmenTable reiseAufnahmen = $ReiseAufnahmenTable(this);
+  late final $VerworfeneReisenTable verworfeneReisen =
+      $VerworfeneReisenTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -14174,7 +15063,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         developPresets,
         exportPresets,
         personBeziehungen,
-        lebensereignisse
+        lebensereignisse,
+        reisen,
+        reiseAufnahmen,
+        verworfeneReisen
       ];
 }
 
@@ -20704,6 +21596,8 @@ typedef $$LebensereignisseTableCreateCompanionBuilder
   Value<DateTime?> datum,
   Value<String?> ort,
   Value<String?> notiz,
+  Value<double?> ortBreite,
+  Value<double?> ortLaenge,
   Value<int> rowid,
 });
 typedef $$LebensereignisseTableUpdateCompanionBuilder
@@ -20714,6 +21608,8 @@ typedef $$LebensereignisseTableUpdateCompanionBuilder
   Value<DateTime?> datum,
   Value<String?> ort,
   Value<String?> notiz,
+  Value<double?> ortBreite,
+  Value<double?> ortLaenge,
   Value<int> rowid,
 });
 
@@ -20743,6 +21639,12 @@ class $$LebensereignisseTableFilterComposer
 
   ColumnFilters<String> get notiz => $composableBuilder(
       column: $table.notiz, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get ortBreite => $composableBuilder(
+      column: $table.ortBreite, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get ortLaenge => $composableBuilder(
+      column: $table.ortLaenge, builder: (column) => ColumnFilters(column));
 }
 
 class $$LebensereignisseTableOrderingComposer
@@ -20771,6 +21673,12 @@ class $$LebensereignisseTableOrderingComposer
 
   ColumnOrderings<String> get notiz => $composableBuilder(
       column: $table.notiz, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get ortBreite => $composableBuilder(
+      column: $table.ortBreite, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get ortLaenge => $composableBuilder(
+      column: $table.ortLaenge, builder: (column) => ColumnOrderings(column));
 }
 
 class $$LebensereignisseTableAnnotationComposer
@@ -20799,6 +21707,12 @@ class $$LebensereignisseTableAnnotationComposer
 
   GeneratedColumn<String> get notiz =>
       $composableBuilder(column: $table.notiz, builder: (column) => column);
+
+  GeneratedColumn<double> get ortBreite =>
+      $composableBuilder(column: $table.ortBreite, builder: (column) => column);
+
+  GeneratedColumn<double> get ortLaenge =>
+      $composableBuilder(column: $table.ortLaenge, builder: (column) => column);
 }
 
 class $$LebensereignisseTableTableManager extends RootTableManager<
@@ -20835,6 +21749,8 @@ class $$LebensereignisseTableTableManager extends RootTableManager<
             Value<DateTime?> datum = const Value.absent(),
             Value<String?> ort = const Value.absent(),
             Value<String?> notiz = const Value.absent(),
+            Value<double?> ortBreite = const Value.absent(),
+            Value<double?> ortLaenge = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LebensereignisseCompanion(
@@ -20844,6 +21760,8 @@ class $$LebensereignisseTableTableManager extends RootTableManager<
             datum: datum,
             ort: ort,
             notiz: notiz,
+            ortBreite: ortBreite,
+            ortLaenge: ortLaenge,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -20853,6 +21771,8 @@ class $$LebensereignisseTableTableManager extends RootTableManager<
             Value<DateTime?> datum = const Value.absent(),
             Value<String?> ort = const Value.absent(),
             Value<String?> notiz = const Value.absent(),
+            Value<double?> ortBreite = const Value.absent(),
+            Value<double?> ortLaenge = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LebensereignisseCompanion.insert(
@@ -20862,6 +21782,8 @@ class $$LebensereignisseTableTableManager extends RootTableManager<
             datum: datum,
             ort: ort,
             notiz: notiz,
+            ortBreite: ortBreite,
+            ortLaenge: ortLaenge,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -20886,6 +21808,463 @@ typedef $$LebensereignisseTableProcessedTableManager = ProcessedTableManager<
           LebensereignisseData>
     ),
     LebensereignisseData,
+    PrefetchHooks Function()>;
+typedef $$ReisenTableCreateCompanionBuilder = ReisenCompanion Function({
+  required String id,
+  required String name,
+  required DateTime von,
+  required DateTime bis,
+  Value<String?> notiz,
+  Value<String?> titelbildAssetId,
+  required DateTime angelegtAm,
+  Value<int> rowid,
+});
+typedef $$ReisenTableUpdateCompanionBuilder = ReisenCompanion Function({
+  Value<String> id,
+  Value<String> name,
+  Value<DateTime> von,
+  Value<DateTime> bis,
+  Value<String?> notiz,
+  Value<String?> titelbildAssetId,
+  Value<DateTime> angelegtAm,
+  Value<int> rowid,
+});
+
+class $$ReisenTableFilterComposer
+    extends Composer<_$AppDatabase, $ReisenTable> {
+  $$ReisenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get von => $composableBuilder(
+      column: $table.von, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get bis => $composableBuilder(
+      column: $table.bis, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get titelbildAssetId => $composableBuilder(
+      column: $table.titelbildAssetId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$ReisenTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReisenTable> {
+  $$ReisenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get von => $composableBuilder(
+      column: $table.von, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get bis => $composableBuilder(
+      column: $table.bis, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get titelbildAssetId => $composableBuilder(
+      column: $table.titelbildAssetId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ReisenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReisenTable> {
+  $$ReisenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get von =>
+      $composableBuilder(column: $table.von, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get bis =>
+      $composableBuilder(column: $table.bis, builder: (column) => column);
+
+  GeneratedColumn<String> get notiz =>
+      $composableBuilder(column: $table.notiz, builder: (column) => column);
+
+  GeneratedColumn<String> get titelbildAssetId => $composableBuilder(
+      column: $table.titelbildAssetId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => column);
+}
+
+class $$ReisenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $ReisenTable,
+    ReisenData,
+    $$ReisenTableFilterComposer,
+    $$ReisenTableOrderingComposer,
+    $$ReisenTableAnnotationComposer,
+    $$ReisenTableCreateCompanionBuilder,
+    $$ReisenTableUpdateCompanionBuilder,
+    (ReisenData, BaseReferences<_$AppDatabase, $ReisenTable, ReisenData>),
+    ReisenData,
+    PrefetchHooks Function()> {
+  $$ReisenTableTableManager(_$AppDatabase db, $ReisenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReisenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReisenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReisenTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<DateTime> von = const Value.absent(),
+            Value<DateTime> bis = const Value.absent(),
+            Value<String?> notiz = const Value.absent(),
+            Value<String?> titelbildAssetId = const Value.absent(),
+            Value<DateTime> angelegtAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ReisenCompanion(
+            id: id,
+            name: name,
+            von: von,
+            bis: bis,
+            notiz: notiz,
+            titelbildAssetId: titelbildAssetId,
+            angelegtAm: angelegtAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String name,
+            required DateTime von,
+            required DateTime bis,
+            Value<String?> notiz = const Value.absent(),
+            Value<String?> titelbildAssetId = const Value.absent(),
+            required DateTime angelegtAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ReisenCompanion.insert(
+            id: id,
+            name: name,
+            von: von,
+            bis: bis,
+            notiz: notiz,
+            titelbildAssetId: titelbildAssetId,
+            angelegtAm: angelegtAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ReisenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $ReisenTable,
+    ReisenData,
+    $$ReisenTableFilterComposer,
+    $$ReisenTableOrderingComposer,
+    $$ReisenTableAnnotationComposer,
+    $$ReisenTableCreateCompanionBuilder,
+    $$ReisenTableUpdateCompanionBuilder,
+    (ReisenData, BaseReferences<_$AppDatabase, $ReisenTable, ReisenData>),
+    ReisenData,
+    PrefetchHooks Function()>;
+typedef $$ReiseAufnahmenTableCreateCompanionBuilder = ReiseAufnahmenCompanion
+    Function({
+  required String reiseId,
+  required String assetId,
+  Value<int> rowid,
+});
+typedef $$ReiseAufnahmenTableUpdateCompanionBuilder = ReiseAufnahmenCompanion
+    Function({
+  Value<String> reiseId,
+  Value<String> assetId,
+  Value<int> rowid,
+});
+
+class $$ReiseAufnahmenTableFilterComposer
+    extends Composer<_$AppDatabase, $ReiseAufnahmenTable> {
+  $$ReiseAufnahmenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get reiseId => $composableBuilder(
+      column: $table.reiseId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get assetId => $composableBuilder(
+      column: $table.assetId, builder: (column) => ColumnFilters(column));
+}
+
+class $$ReiseAufnahmenTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReiseAufnahmenTable> {
+  $$ReiseAufnahmenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get reiseId => $composableBuilder(
+      column: $table.reiseId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get assetId => $composableBuilder(
+      column: $table.assetId, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ReiseAufnahmenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReiseAufnahmenTable> {
+  $$ReiseAufnahmenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get reiseId =>
+      $composableBuilder(column: $table.reiseId, builder: (column) => column);
+
+  GeneratedColumn<String> get assetId =>
+      $composableBuilder(column: $table.assetId, builder: (column) => column);
+}
+
+class $$ReiseAufnahmenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $ReiseAufnahmenTable,
+    ReiseAufnahmenData,
+    $$ReiseAufnahmenTableFilterComposer,
+    $$ReiseAufnahmenTableOrderingComposer,
+    $$ReiseAufnahmenTableAnnotationComposer,
+    $$ReiseAufnahmenTableCreateCompanionBuilder,
+    $$ReiseAufnahmenTableUpdateCompanionBuilder,
+    (
+      ReiseAufnahmenData,
+      BaseReferences<_$AppDatabase, $ReiseAufnahmenTable, ReiseAufnahmenData>
+    ),
+    ReiseAufnahmenData,
+    PrefetchHooks Function()> {
+  $$ReiseAufnahmenTableTableManager(
+      _$AppDatabase db, $ReiseAufnahmenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReiseAufnahmenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReiseAufnahmenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReiseAufnahmenTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> reiseId = const Value.absent(),
+            Value<String> assetId = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ReiseAufnahmenCompanion(
+            reiseId: reiseId,
+            assetId: assetId,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String reiseId,
+            required String assetId,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ReiseAufnahmenCompanion.insert(
+            reiseId: reiseId,
+            assetId: assetId,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ReiseAufnahmenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $ReiseAufnahmenTable,
+    ReiseAufnahmenData,
+    $$ReiseAufnahmenTableFilterComposer,
+    $$ReiseAufnahmenTableOrderingComposer,
+    $$ReiseAufnahmenTableAnnotationComposer,
+    $$ReiseAufnahmenTableCreateCompanionBuilder,
+    $$ReiseAufnahmenTableUpdateCompanionBuilder,
+    (
+      ReiseAufnahmenData,
+      BaseReferences<_$AppDatabase, $ReiseAufnahmenTable, ReiseAufnahmenData>
+    ),
+    ReiseAufnahmenData,
+    PrefetchHooks Function()>;
+typedef $$VerworfeneReisenTableCreateCompanionBuilder
+    = VerworfeneReisenCompanion Function({
+  required String schluessel,
+  required DateTime verworfenAm,
+  Value<int> rowid,
+});
+typedef $$VerworfeneReisenTableUpdateCompanionBuilder
+    = VerworfeneReisenCompanion Function({
+  Value<String> schluessel,
+  Value<DateTime> verworfenAm,
+  Value<int> rowid,
+});
+
+class $$VerworfeneReisenTableFilterComposer
+    extends Composer<_$AppDatabase, $VerworfeneReisenTable> {
+  $$VerworfeneReisenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$VerworfeneReisenTableOrderingComposer
+    extends Composer<_$AppDatabase, $VerworfeneReisenTable> {
+  $$VerworfeneReisenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$VerworfeneReisenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VerworfeneReisenTable> {
+  $$VerworfeneReisenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => column);
+}
+
+class $$VerworfeneReisenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $VerworfeneReisenTable,
+    VerworfeneReisenData,
+    $$VerworfeneReisenTableFilterComposer,
+    $$VerworfeneReisenTableOrderingComposer,
+    $$VerworfeneReisenTableAnnotationComposer,
+    $$VerworfeneReisenTableCreateCompanionBuilder,
+    $$VerworfeneReisenTableUpdateCompanionBuilder,
+    (
+      VerworfeneReisenData,
+      BaseReferences<_$AppDatabase, $VerworfeneReisenTable,
+          VerworfeneReisenData>
+    ),
+    VerworfeneReisenData,
+    PrefetchHooks Function()> {
+  $$VerworfeneReisenTableTableManager(
+      _$AppDatabase db, $VerworfeneReisenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VerworfeneReisenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VerworfeneReisenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VerworfeneReisenTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> schluessel = const Value.absent(),
+            Value<DateTime> verworfenAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VerworfeneReisenCompanion(
+            schluessel: schluessel,
+            verworfenAm: verworfenAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String schluessel,
+            required DateTime verworfenAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VerworfeneReisenCompanion.insert(
+            schluessel: schluessel,
+            verworfenAm: verworfenAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$VerworfeneReisenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $VerworfeneReisenTable,
+    VerworfeneReisenData,
+    $$VerworfeneReisenTableFilterComposer,
+    $$VerworfeneReisenTableOrderingComposer,
+    $$VerworfeneReisenTableAnnotationComposer,
+    $$VerworfeneReisenTableCreateCompanionBuilder,
+    $$VerworfeneReisenTableUpdateCompanionBuilder,
+    (
+      VerworfeneReisenData,
+      BaseReferences<_$AppDatabase, $VerworfeneReisenTable,
+          VerworfeneReisenData>
+    ),
+    VerworfeneReisenData,
     PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
@@ -20950,4 +22329,10 @@ class $AppDatabaseManager {
       $$PersonBeziehungenTableTableManager(_db, _db.personBeziehungen);
   $$LebensereignisseTableTableManager get lebensereignisse =>
       $$LebensereignisseTableTableManager(_db, _db.lebensereignisse);
+  $$ReisenTableTableManager get reisen =>
+      $$ReisenTableTableManager(_db, _db.reisen);
+  $$ReiseAufnahmenTableTableManager get reiseAufnahmen =>
+      $$ReiseAufnahmenTableTableManager(_db, _db.reiseAufnahmen);
+  $$VerworfeneReisenTableTableManager get verworfeneReisen =>
+      $$VerworfeneReisenTableTableManager(_db, _db.verworfeneReisen);
 }

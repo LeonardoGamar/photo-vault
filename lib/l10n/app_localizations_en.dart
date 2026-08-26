@@ -4605,6 +4605,487 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String get stammbaumGedcomImport => 'Import GEDCOM …';
+
+  @override
+  String get gedcomImportTitel => 'The file contains';
+
+  @override
+  String gedcomImportGefunden(int personen, int kanten, int ereignisse) {
+    return '$personen people, $kanten relationships and $ereignisse events.';
+  }
+
+  @override
+  String get gedcomImportNeuHinweis =>
+      'All of them are created anew. Nothing existing is changed or merged.';
+
+  @override
+  String get gedcomImportUebernehmen => 'Import';
+
+  @override
+  String gedcomImportFertig(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl people imported.',
+      one: 'One person imported.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gedcomFehlerTitel => 'File cannot be read';
+
+  @override
+  String get gedcomFehlerKeinKopf =>
+      'The file does not begin with a GEDCOM header. It is probably not a GEDCOM file.';
+
+  @override
+  String gedcomFehlerKodierung(String kodierung) {
+    return 'The file is written in $kodierung. That encoding cannot be deciphered reliably, and half-deciphered names would be worse than an honest no. Please export it again as UTF-8 from the program it came from.';
+  }
+
+  @override
+  String get gedcomFehlerKeinePersonen =>
+      'The file does not contain a single person.';
+
+  @override
+  String get gedcomBerichtTitel => 'What came up while reading';
+
+  @override
+  String get gedcomBerichtSauber => 'Nothing to report.';
+
+  @override
+  String gedcomBerichtDoppelte(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl people may already exist.',
+      one: 'One person may already exist.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gedcomBerichtDoppelteHinweis =>
+      'Nothing was merged. Who really is the same person is yours to decide, on the people screen.';
+
+  @override
+  String gedcomBerichtUngenaueDaten(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl dates were given only approximately and were left empty.',
+      one: 'One date was given only approximately and was left empty.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gedcomBerichtUebersprungen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl entries belong to something this app does not keep.',
+      one: 'One entry belongs to something this app does not keep.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gedcomBerichtKreise(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other:
+          '$anzahl relationships would have closed a loop and were left out.',
+      one: 'One relationship would have closed a loop and was left out.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String gedcomBerichtOhneNamen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl people had no name in the file.',
+      one: 'One person had no name in the file.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gedcomOrtGeburt => 'Place of birth';
+
+  @override
+  String get gedcomOrtTod => 'Place of death';
+
+  @override
+  String get gedcomOrtTaufe => 'Baptism';
+
+  @override
+  String get gedcomOrtBestattung => 'Burial';
+
+  @override
+  String get gedcomOhneNamen => 'Unnamed';
+
+  @override
+  String get stammbaumZeitleisteOhneDaten =>
+      'Nothing on the timeline yet: no date is recorded for anyone in this family.';
+
+  @override
+  String get stammbaumAnsichtZeitleiste => 'Timeline';
+
+  @override
+  String get zeitleisteOhneDatum => 'no date known';
+
+  @override
+  String zeitleisteEreignisse(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl events',
+      one: 'one event',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get stammbaumFamilienstatistik => 'Family statistics';
+
+  @override
+  String get famstatLeer => 'No one is recorded for this family.';
+
+  @override
+  String get famstatPersonen => 'People';
+
+  @override
+  String get famstatLebensalter => 'Age at death';
+
+  @override
+  String get famstatHeiratsalter => 'Age at marriage';
+
+  @override
+  String get famstatHaeufigsterName => 'Most common surname';
+
+  @override
+  String famstatJahre(String jahre) {
+    return '$jahre years';
+  }
+
+  @override
+  String famstatSpanne(int von, int bis) {
+    return '$von to $bis years';
+  }
+
+  @override
+  String get famstatOhneWert => 'not known';
+
+  @override
+  String famstatEingerechnet(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl people counted',
+      one: 'one person counted',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String famstatOhneSterbedatum(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl people without a date of death are not counted.',
+      one: 'One person without a date of death is not counted.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get famstatWarumOhneSterbedatum =>
+      'Anyone still living has no date of death. Counted as “zero years”, the average would look plausible and be badly wrong.';
+
+  @override
+  String famstatOhneGeburtsdatum(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other:
+          '$anzahl marriages have no date of birth to go with them and are not counted.',
+      one:
+          'One marriage has no date of birth to go with it and is not counted.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get famstatAlterJeGeneration => 'Age at death across the generations';
+
+  @override
+  String famstatGeneration(int nummer) {
+    return 'Generation $nummer';
+  }
+
+  @override
+  String famstatGenerationKurz(int nummer) {
+    return '$nummer';
+  }
+
+  @override
+  String get famstatGenerationHinweis =>
+      'The first is the oldest one in this family. Generations in which no one has died are missing.';
+
+  @override
+  String get famstatKinderzahl => 'Children per person';
+
+  @override
+  String get famstatKinderHinweis =>
+      'A distribution, not an average: the youngest generation sits at zero because its children are still ahead of it. Only children who are part of this family are counted.';
+
+  @override
+  String famstatKinderAchse(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl children',
+      one: 'one child',
+      zero: 'no children',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get famstatNachnamen => 'Surnames';
+
+  @override
+  String get famstatVornamen => 'Given names';
+
+  @override
+  String famstatDiagrammGenerationen(String inhalt) {
+    return 'Age at death across the generations: $inhalt';
+  }
+
+  @override
+  String famstatDiagrammKinder(String inhalt) {
+    return 'Children per person: $inhalt';
+  }
+
+  @override
+  String get erkundenReisen => 'Trips';
+
+  @override
+  String get reisenTitel => 'Trips';
+
+  @override
+  String get reisenLeer =>
+      'No trip yet. Photo Vault does not have you type them in, it recognises them: as soon as enough located photos from far away are together, a suggestion appears here for you to confirm.';
+
+  @override
+  String get reisenSuchtNoch => 'Looking for trips …';
+
+  @override
+  String get reisenVorschlaege => 'Suggestions';
+
+  @override
+  String get reisenBestaetigte => 'Your trips';
+
+  @override
+  String get reisenKeineVorschlaege => 'No new suggestions.';
+
+  @override
+  String get reisenIstEineReise => 'That was a trip';
+
+  @override
+  String get reisenKeineReise => 'Not a trip';
+
+  @override
+  String get reisenBenennen => 'Name the trip';
+
+  @override
+  String get reisenName => 'Name';
+
+  @override
+  String get reisenNotiz => 'Note';
+
+  @override
+  String get reisenUmbenennen => 'Rename';
+
+  @override
+  String get reisenLoeschen => 'Remove trip';
+
+  @override
+  String reisenLoeschenFrage(String name) {
+    return 'Remove “$name”? The photos stay where they are.';
+  }
+
+  @override
+  String get reisenOhneOrt => 'Unknown parts';
+
+  @override
+  String reisenSpanne(String von, String bis) {
+    return '$von to $bis';
+  }
+
+  @override
+  String reisenNaechte(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl nights',
+      one: 'one night',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String reisenAufnahmen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos',
+      one: 'one photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get reisenOrte => 'Places visited';
+
+  @override
+  String get reisenAktualisieren => 'Look again';
+
+  @override
+  String get reisenRoute => 'Route';
+
+  @override
+  String get reisenKeineRoute => 'Without a located photo there is no route.';
+
+  @override
+  String get reisenAlsTitelbild => 'Use as cover';
+
+  @override
+  String get reisenTitelbildGesetzt => 'Cover set.';
+
+  @override
+  String reisenTag(String datum) {
+    return '$datum';
+  }
+
+  @override
+  String get fortschrittTitel => 'Countries and places';
+
+  @override
+  String fortschrittLaender(int besucht, int gesamt) {
+    return '$besucht of $gesamt countries';
+  }
+
+  @override
+  String fortschrittRegionen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl regions',
+      one: 'one region',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String fortschrittOrte(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl places',
+      one: 'one place',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get fortschrittOhneGeodaten =>
+      'Without the GeoNames data no photo can be assigned to a country. It is downloaded under “Tools”.';
+
+  @override
+  String fortschrittHinweis(int gesamt) {
+    return 'Counted against the $gesamt countries and territories in the GeoNames data – overseas territories included, not just the 195 sovereign states. A curated list of our own would be a second truth beside the one the photos are actually sorted by.';
+  }
+
+  @override
+  String get fortschrittBesucht => 'Visited';
+
+  @override
+  String get werkzGpxTitel => 'Locate photos from a GPX track';
+
+  @override
+  String get werkzGpxText =>
+      'A recording carries timestamps. That gives photos from cameras without GPS a location too.';
+
+  @override
+  String get gpxTitel => 'Locate from GPX';
+
+  @override
+  String get gpxDateiWaehlen => 'Choose a GPX file …';
+
+  @override
+  String get gpxErklaerung =>
+      'Choose a recording. Photo Vault lays your photos\' capture times against the track and fills in the coordinates – only for photos that do not have one yet.';
+
+  @override
+  String gpxSpur(int punkte, String von, String bis) {
+    return '$punkte points · $von to $bis';
+  }
+
+  @override
+  String get gpxVersatz => 'Time offset';
+
+  @override
+  String get gpxVersatzHinweis =>
+      'EXIF writes the capture time without a time zone, GPX writes UTC. The suggestion is the offset at which the most photos fall on the track – it also catches a camera clock that runs wrong.';
+
+  @override
+  String gpxTreffer(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos get a location.',
+      one: 'One photo gets a location.',
+      zero: 'No photo falls on the track.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gpxVerorten => 'Locate';
+
+  @override
+  String gpxFertig(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos located.',
+      one: 'One photo located.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gpxKeineKandidaten =>
+      'Every photo within this track\'s time span already has a location.';
+
+  @override
+  String get gpxFehlerKeinGpx => 'This is not a GPX file.';
+
+  @override
+  String get gpxFehlerOhneZeit =>
+      'Not a single point in this track has a timestamp. Without a time nothing can be matched.';
+
+  @override
+  String get gpxFehlerLeer => 'The file contains no points at all.';
+
+  @override
   String get stammbaumKeineFamilienfotos =>
       'Nobody from this family has been recognised in a photo yet.';
 
@@ -4733,6 +5214,24 @@ class AppTexteEn extends AppTexte {
   String get lebenslaufOrt => 'Place';
 
   @override
+  String get lebenslaufOrtAufKarte => 'Place on the map';
+
+  @override
+  String get lebenslaufOrtErkannt =>
+      'Found on the map – tap to correct the point.';
+
+  @override
+  String get lebenslaufOrtUnbekannt =>
+      'This place is not in the gazetteer. Tap the map to set it yourself.';
+
+  @override
+  String get lebenslaufOrtEntfernen => 'Remove location';
+
+  @override
+  String get lebenslaufOrtOhneVerzeichnis =>
+      'Without the gazetteer, places cannot be found automatically. A point can still be set by hand.';
+
+  @override
   String get lebenslaufNotiz => 'Note';
 
   @override
@@ -4752,6 +5251,9 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get orteAngeheiratet => 'By marriage';
+
+  @override
+  String get orteEreignisse => 'Life events';
 
   @override
   String get orteNichtsGewaehlt => 'No group selected.';
@@ -5066,6 +5568,12 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get karteHerauszoomen => 'Zoom out';
+
+  @override
+  String get karteEreignisseEinblenden => 'Show life events';
+
+  @override
+  String get karteEreignisseAusblenden => 'Hide life events';
 
   @override
   String get karteStandortZeigen => 'My location';

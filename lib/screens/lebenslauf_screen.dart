@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../services/lebenslauf.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/mini_location_map.dart';
 
 /// Der Lebenslauf einer Person: Geburt, Tod und alles dazwischen.
 ///
@@ -77,11 +78,19 @@ class LebenslaufScreen extends StatelessWidget {
       body: StreamBuilder<List<LebensereignisseData>>(
         stream: library.db.watchEreignisse(person.id),
         builder: (context, schnappschuss) {
+          final roh = schnappschuss.data ?? const <LebensereignisseData>[];
+          // Die Koordinaten kommen aus den Rohdaten und nicht durch
+          // [lebenslauf] hindurch: Jenes ordnet zwei Quellen zu einer
+          // Reihenfolge und hat mit Karten nichts zu tun. Es dafür zu
+          // erweitern hiesse, eine geprüfte, reine Funktion für eine
+          // Anzeigefrage umzubauen.
+          final nachId = {for (final e in roh) e.id: e};
+
           final zeilen = lebenslauf(
             geburt: person.geburtsdatum,
             tod: person.sterbedatum,
             ereignisse: [
-              for (final e in schnappschuss.data ?? const <LebensereignisseData>[])
+              for (final e in roh)
                 (
                   id: e.id,
                   art: ereignisartAusText(e.art),
@@ -126,6 +135,15 @@ class LebenslaufScreen extends StatelessWidget {
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12),
                     ),
+                    // Der Ortsknopf nur, wo ein Ort steht – ohne
+                    // Ortsnamen gibt es nichts zu verorten.
+                    if (z.ereignisId != null &&
+                        z.ort != null &&
+                        z.ort!.isNotEmpty)
+                      _Ortsknopf(
+                        library: library,
+                        ereignis: nachId[z.ereignisId!]!,
+                      ),
                     // Geburt und Tod haben hier keinen Löschknopf: Sie
                     // stehen an der Person, nicht in dieser Liste.
                     if (z.ereignisId != null)
@@ -242,6 +260,101 @@ class _EreignisDialogState extends State<_EreignisDialog> {
           child: Text(t.allgSpeichern),
         ),
       ],
+    );
+  }
+}
+
+/// Der Knopf, mit dem sich der Ort eines Ereignisses ansehen und
+/// berichtigen lässt.
+///
+/// **Warum es diesen Knopf überhaupt gibt.** Die Zuordnung von Ortsname
+/// zu Koordinate ist eine Vermutung: „Springfield" trifft in den USA über
+/// zwanzig Mal zu, „Paris" gibt es in Frankreich und in Texas. Die Suche
+/// entscheidet sich für einen – und muss dem Nutzer die Möglichkeit
+/// lassen, das umzustossen, ohne den aufgeschriebenen Namen anzufassen.
+///
+/// Das Symbol sagt schon vor dem Antippen, woran man ist: ein gefüllter
+/// Stecknadelkopf heisst „gefunden", ein durchgestrichener „im
+/// Verzeichnis nicht enthalten".
+class _Ortsknopf extends StatelessWidget {
+  const _Ortsknopf({required this.library, required this.ereignis});
+
+  final LibraryState library;
+  final LebensereignisseData ereignis;
+
+  bool get _verortet => ereignis.ortBreite != null;
+
+  Future<void> _oeffnen(BuildContext context) async {
+    final t = AppTexte.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(ereignis.ort ?? t.lebenslaufOrtAufKarte),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                !library.geoDataAvailable
+                    ? t.lebenslaufOrtOhneVerzeichnis
+                    : _verortet
+                        ? t.lebenslaufOrtErkannt
+                        : t.lebenslaufOrtUnbekannt,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              MiniLocationMap(
+                latitude: ereignis.ortBreite,
+                longitude: ereignis.ortLaenge,
+                height: 220,
+                onLocationChanged: (breite, laenge) async {
+                  await library.db.setzeEreignisort(ereignis.id,
+                      breite: breite, laenge: laenge);
+                  if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          if (_verortet)
+            TextButton(
+              onPressed: () async {
+                // Ausdrücklich ohne Ortsnamen anzufassen: „nicht
+                // verortet" muss ein erreichbarer Zustand bleiben, sonst
+                // liesse sich eine falsche Zuordnung nur durch Löschen
+                // des ganzen Ereignisses beheben.
+                await library.db.setzeEreignisort(ereignis.id);
+                if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+              },
+              child: Text(t.lebenslaufOrtEntfernen),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(t.allgSchliessen),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    return IconButton(
+      tooltip: t.lebenslaufOrtAufKarte,
+      icon: Icon(
+        _verortet ? Icons.place : Icons.wrong_location_outlined,
+        size: 18,
+        color: _verortet
+            ? Theme.of(context).colorScheme.primary
+            : Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+      onPressed: () => _oeffnen(context),
     );
   }
 }

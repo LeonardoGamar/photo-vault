@@ -15,6 +15,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/asset_display_path.dart';
 import '../services/cube_lut.dart';
 import '../services/develop_color.dart';
@@ -779,10 +780,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
   /// Speichern schliesst diesen Bildschirm, man käme sonst nie dazu.
   Future<void> _alsVorgabeSichern() async {
     final t = AppTexte.of(context);
-    final feld = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (context) => MitTextsteuerung(
+          builder: (context, feld) => AlertDialog(
         title: Text(t.entwVorgabeSichern),
         content: TextField(
           controller: feld,
@@ -797,10 +798,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
           FilledButton(
               onPressed: () => Navigator.pop(context, feld.text.trim()),
               child: Text(t.allgSpeichern)),
-        ],
-      ),
+                ],
+              )),
     );
-    feld.dispose();
     if (name == null || name.isEmpty || !mounted) return;
 
     // Der Name ist eindeutig. Ein zweiter Eintrag darf den ersten nicht

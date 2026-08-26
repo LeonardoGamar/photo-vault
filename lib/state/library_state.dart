@@ -341,6 +341,11 @@ class LibraryState extends ChangeNotifier {
     await ladeGesichtsSchwelle();
     await _loadModelsIfPresent();
     await _loadGeoDataIfPresent();
+    // Absichtlich ohne `await`: Bei einem grossen Stammbaum sind das
+    // viele einzelne Schreibvorgänge, und der Start soll nicht darauf
+    // warten. Die Ereignisse tauchen dann eben eine Sekunde später auf
+    // der Karte auf.
+    unawaited(trageEreignisorteNach());
     await clearDecryptCache();
 
     // Crash-Safety: ein Restaurierungs-Auftrag, der beim letzten Beenden
@@ -543,7 +548,59 @@ class LibraryState extends ChangeNotifier {
   /// Einstellungen aufgerufen.
   Future<void> reloadGeoData() async {
     await _loadGeoDataIfPresent();
+    // Ein frisch eingespielter Datensatz ist der Augenblick, in dem
+    // Ereignisorte zum ersten Mal auflösbar werden.
+    await trageEreignisorteNach();
     notifyListeners();
+  }
+
+  /// Trägt Koordinaten für Lebensereignisse nach, die bisher nur einen
+  /// Ortsnamen haben.
+  ///
+  /// Läuft beim Start und nach einem GeoNames-Download, nicht in der
+  /// Migration: Ohne den – optionalen – Datensatz gäbe es nichts
+  /// einzutragen, und eine Migration, die auf einen Download wartet,
+  /// wäre eine Migration, die manchmal nicht fertig wird.
+  ///
+  /// Angefasst werden nur Ereignisse **ohne** Koordinate. Wer einen
+  /// falsch geratenen Punkt von Hand berichtigt hat, findet ihn beim
+  /// nächsten Start unverändert vor.
+  Future<void> trageEreignisorteNach() async {
+    final geo = geocoder;
+    if (geo == null) return;
+    final offen = await db.ereignisseOhneKoordinate();
+    if (offen.isEmpty) return;
+
+    // Der Schwerpunkt der verorteten Fotos als Anhaltspunkt bei
+    // mehrdeutigen Namen: Wer seine Bilder überwiegend in einer Gegend
+    // aufgenommen hat, meint mit „Springfield" eher das dortige.
+    final verortet = await db.assetsWithLocation();
+    double? mitteBreite;
+    double? mitteLaenge;
+    if (verortet.isNotEmpty) {
+      var summeBreite = 0.0;
+      var summeLaenge = 0.0;
+      for (final a in verortet) {
+        summeBreite += a.latitude!;
+        summeLaenge += a.longitude!;
+      }
+      mitteBreite = summeBreite / verortet.length;
+      mitteLaenge = summeLaenge / verortet.length;
+    }
+
+    var getroffen = 0;
+    for (final ereignis in offen) {
+      final treffer = geo.sucheOrt(
+        ereignis.ort!,
+        naheBreite: mitteBreite,
+        naheLaenge: mitteLaenge,
+      );
+      if (treffer == null) continue;
+      await db.setzeEreignisort(ereignis.id,
+          breite: treffer.breite, laenge: treffer.laenge);
+      getroffen++;
+    }
+    debugPrint('Ereignisorte nachgetragen: $getroffen von ${offen.length}');
   }
 
   // Beide CLIP-Halter prüfen dieselben Dateien – einer genügt als Auskunft.

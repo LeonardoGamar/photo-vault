@@ -1091,7 +1091,7 @@
   "entwVorher": "Vorher",
   "entwNachher": "Nachher",
   "entwTrennstrich": "Vorher/Nachher nebeneinander (Strich zum Ziehen)",
-  "entwTrennstrichWartet": "Das unbearbeitete Bild wird noch berechnet \u2013 einen Moment.",
+  "entwTrennstrichWartet": "Das unbearbeitete Bild wird noch berechnet – einen Moment.",
   "entwMaskeErstellen": "Maske erstellen",
   "entwFormKi": "KI",
   "entwFormPinsel": "Pinsel",
@@ -1118,17 +1118,29 @@
   "entwTint": "Tint",
   "entwKontrast": "Kontrast",
   "entwBeschneidungWarnung": "Beschneidung anzeigen (Rot = ausgefressen, Blau = abgesoffen)",
-  "entwBeschneidungMitMasken": "Beschneidung anzeigen geht nicht, solange Masken im Bild liegen \u2013 die Markierung entsteht in der Shader-Vorschau, und die kann Masken nicht darstellen.",
-  "entwBeschneidungVorschauHinweis": "Beschneidungs-Vorschau \u2013 Sch\u00e4rfe, Rauschen, Klarheit und Vignette zeigt sie nicht",
+  "entwBeschneidungMitMasken": "Beschneidung anzeigen geht nicht, solange Masken im Bild liegen – die Markierung entsteht in der Shader-Vorschau, und die kann Masken nicht darstellen.",
+  "entwBeschneidungVorschauHinweis": "Beschneidungs-Vorschau – Schärfe, Rauschen, Klarheit und Vignette zeigt sie nicht",
   "entwVorgabeSichern": "Als Vorgabe sichern",
   "entwVorgabeAnwenden": "Vorgabe anwenden",
   "entwVorgabeWaehlen": "Vorgabe wählen",
   "entwVorgabeName": "Name der Vorgabe",
   "entwKeineVorgaben": "Es gibt noch keine Entwicklungs-Vorgabe.",
   "entwVorgabeGesichert": "Vorgabe „{name}“ gesichert",
-  "@entwVorgabeGesichert": { "placeholders": { "name": { "type": "String" } } },
+  "@entwVorgabeGesichert": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "entwVorgabeNameVergeben": "Es gibt bereits eine Vorgabe namens „{name}“.",
-  "@entwVorgabeNameVergeben": { "placeholders": { "name": { "type": "String" } } },
+  "@entwVorgabeNameVergeben": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "entwAutomatisch": "Belichtung und Kontrast automatisch",
   "entwAutomatikOhneHistogramm": "Noch kein Histogramm – einen Moment.",
   "entwTiefenmaske": "Maske aus der Tiefenkarte",
@@ -2648,6 +2660,343 @@
       }
     }
   },
+  "stammbaumGedcomImport": "GEDCOM einlesen …",
+  "gedcomImportTitel": "In der Datei steht",
+  "gedcomImportGefunden": "{personen} Personen, {kanten} Verwandtschaften und {ereignisse} Ereignisse.",
+  "@gedcomImportGefunden": {
+    "placeholders": {
+      "personen": {
+        "type": "int"
+      },
+      "kanten": {
+        "type": "int"
+      },
+      "ereignisse": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomImportNeuHinweis": "Alle werden neu angelegt. Nichts Bestehendes wird verändert oder zusammengeführt.",
+  "gedcomImportUebernehmen": "Einlesen",
+  "gedcomImportFertig": "{anzahl, plural, =1{Eine Person eingelesen.} other{{anzahl} Personen eingelesen.}}",
+  "@gedcomImportFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomFehlerTitel": "Datei nicht lesbar",
+  "gedcomFehlerKeinKopf": "Die Datei beginnt nicht mit einem GEDCOM-Kopf. Vermutlich ist es keine GEDCOM-Datei.",
+  "gedcomFehlerKodierung": "Die Datei ist in {kodierung} geschrieben. Diese Kodierung lässt sich nicht sicher entziffern, und halb entzifferte Namen wären schlimmer als ein ehrliches Nein. Bitte im Herkunftsprogramm noch einmal als UTF-8 ausgeben.",
+  "@gedcomFehlerKodierung": {
+    "placeholders": {
+      "kodierung": {
+        "type": "String"
+      }
+    }
+  },
+  "gedcomFehlerKeinePersonen": "In der Datei steht keine einzige Person.",
+  "gedcomBerichtTitel": "Was beim Einlesen auffiel",
+  "gedcomBerichtSauber": "Nichts zu beanstanden.",
+  "gedcomBerichtDoppelte": "{anzahl, plural, =1{Eine Person könnte es schon geben.} other{{anzahl} Personen könnte es schon geben.}}",
+  "@gedcomBerichtDoppelte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtDoppelteHinweis": "Zusammengeführt wurde nichts. Wer wirklich dieselbe Person ist, entscheidest du im Personen-Bildschirm.",
+  "gedcomBerichtUngenaueDaten": "{anzahl, plural, =1{Ein Datum war nur ungefähr angegeben und blieb deshalb leer.} other{{anzahl} Daten waren nur ungefähr angegeben und blieben deshalb leer.}}",
+  "@gedcomBerichtUngenaueDaten": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtUebersprungen": "{anzahl, plural, =1{Ein Eintrag gehört zu etwas, das diese App nicht führt.} other{{anzahl} Einträge gehören zu etwas, das diese App nicht führt.}}",
+  "@gedcomBerichtUebersprungen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtKreise": "{anzahl, plural, =1{Eine Verwandtschaft hätte einen Kreis geschlossen und blieb weg.} other{{anzahl} Verwandtschaften hätten einen Kreis geschlossen und blieben weg.}}",
+  "@gedcomBerichtKreise": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomBerichtOhneNamen": "{anzahl, plural, =1{Eine Person stand ohne Namen in der Datei.} other{{anzahl} Personen standen ohne Namen in der Datei.}}",
+  "@gedcomBerichtOhneNamen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gedcomOrtGeburt": "Geburtsort",
+  "gedcomOrtTod": "Sterbeort",
+  "gedcomOrtTaufe": "Taufe",
+  "gedcomOrtBestattung": "Bestattung",
+  "gedcomOhneNamen": "Ohne Namen",
+  "stammbaumZeitleisteOhneDaten": "Auf der Zeitleiste steht noch nichts: Bei keiner Person dieser Familie ist ein Datum eingetragen.",
+  "stammbaumAnsichtZeitleiste": "Zeitleiste",
+  "zeitleisteOhneDatum": "kein Datum bekannt",
+  "zeitleisteEreignisse": "{anzahl, plural, =1{ein Ereignis} other{{anzahl} Ereignisse}}",
+  "@zeitleisteEreignisse": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "stammbaumFamilienstatistik": "Familienstatistik",
+  "famstatLeer": "Zu dieser Familie ist niemand eingetragen.",
+  "famstatPersonen": "Personen",
+  "famstatLebensalter": "Lebensalter",
+  "famstatHeiratsalter": "Heiratsalter",
+  "famstatHaeufigsterName": "Häufigster Nachname",
+  "famstatJahre": "{jahre} Jahre",
+  "@famstatJahre": {
+    "placeholders": {
+      "jahre": {
+        "type": "String"
+      }
+    }
+  },
+  "famstatSpanne": "{von} bis {bis} Jahre",
+  "@famstatSpanne": {
+    "placeholders": {
+      "von": {
+        "type": "int"
+      },
+      "bis": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatOhneWert": "keine Angabe",
+  "famstatEingerechnet": "{anzahl, plural, =1{eine Person eingerechnet} other{{anzahl} Personen eingerechnet}}",
+  "@famstatEingerechnet": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatOhneSterbedatum": "{anzahl, plural, =1{Eine Person ohne Sterbedatum ist nicht eingerechnet.} other{{anzahl} Personen ohne Sterbedatum sind nicht eingerechnet.}}",
+  "@famstatOhneSterbedatum": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatWarumOhneSterbedatum": "Wer noch lebt, hat kein Sterbedatum. Als „null Jahre“ mitgezählt käme ein Durchschnitt heraus, der plausibel aussieht und grob falsch ist.",
+  "famstatOhneGeburtsdatum": "{anzahl, plural, =1{Bei einer Hochzeit fehlt das Geburtsdatum; sie ist nicht eingerechnet.} other{Bei {anzahl} Hochzeiten fehlt das Geburtsdatum; sie sind nicht eingerechnet.}}",
+  "@famstatOhneGeburtsdatum": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatAlterJeGeneration": "Lebensalter über die Generationen",
+  "famstatGeneration": "{nummer}. Generation",
+  "@famstatGeneration": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatGenerationKurz": "{nummer}.",
+  "@famstatGenerationKurz": {
+    "placeholders": {
+      "nummer": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatGenerationHinweis": "Die erste ist die älteste, die in dieser Familie vorkommt. Generationen, aus denen niemand verstorben ist, fehlen.",
+  "famstatKinderzahl": "Kinder je Person",
+  "famstatKinderHinweis": "Eine Verteilung, kein Durchschnitt: Die jüngste Generation steht bei null, weil sie ihre Kinder noch vor sich hat. Gezählt werden nur Kinder, die in dieser Familie auch stehen.",
+  "famstatKinderAchse": "{anzahl, plural, =0{ohne Kinder} =1{ein Kind} other{{anzahl} Kinder}}",
+  "@famstatKinderAchse": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "famstatNachnamen": "Nachnamen",
+  "famstatVornamen": "Vornamen",
+  "famstatDiagrammGenerationen": "Lebensalter über die Generationen: {inhalt}",
+  "@famstatDiagrammGenerationen": {
+    "placeholders": {
+      "inhalt": {
+        "type": "String"
+      }
+    }
+  },
+  "famstatDiagrammKinder": "Kinder je Person: {inhalt}",
+  "@famstatDiagrammKinder": {
+    "placeholders": {
+      "inhalt": {
+        "type": "String"
+      }
+    }
+  },
+  "erkundenReisen": "Reisen",
+  "reisenTitel": "Reisen",
+  "reisenLeer": "Noch keine Reise. Photo Vault trägt sie nicht ein, sondern erkennt sie: Sobald genug verortete Aufnahmen aus der Ferne beisammen sind, erscheint hier ein Vorschlag zum Bestätigen.",
+  "reisenSuchtNoch": "Sucht nach Reisen …",
+  "reisenVorschlaege": "Vorschläge",
+  "reisenBestaetigte": "Deine Reisen",
+  "reisenKeineVorschlaege": "Keine neuen Vorschläge.",
+  "reisenIstEineReise": "War eine Reise",
+  "reisenKeineReise": "Keine Reise",
+  "reisenBenennen": "Reise benennen",
+  "reisenName": "Name",
+  "reisenNotiz": "Notiz",
+  "reisenUmbenennen": "Umbenennen",
+  "reisenLoeschen": "Reise entfernen",
+  "reisenLoeschenFrage": "„{name}“ entfernen? Die Aufnahmen bleiben, wo sie sind.",
+  "@reisenLoeschenFrage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenOhneOrt": "Unbekannte Gegend",
+  "reisenSpanne": "{von} bis {bis}",
+  "@reisenSpanne": {
+    "placeholders": {
+      "von": {
+        "type": "String"
+      },
+      "bis": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenNaechte": "{anzahl, plural, =1{eine Nacht} other{{anzahl} Nächte}}",
+  "@reisenNaechte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reisenAufnahmen": "{anzahl, plural, =1{eine Aufnahme} other{{anzahl} Aufnahmen}}",
+  "@reisenAufnahmen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reisenOrte": "Besuchte Orte",
+  "reisenAktualisieren": "Erneut suchen",
+  "reisenRoute": "Route",
+  "reisenKeineRoute": "Ohne verortete Aufnahme gibt es keine Strecke.",
+  "reisenAlsTitelbild": "Als Titelbild",
+  "reisenTitelbildGesetzt": "Titelbild gesetzt.",
+  "reisenTag": "{datum}",
+  "@reisenTag": {
+    "placeholders": {
+      "datum": {
+        "type": "String"
+      }
+    }
+  },
+  "fortschrittTitel": "Länder und Orte",
+  "fortschrittLaender": "{besucht} von {gesamt} Ländern",
+  "@fortschrittLaender": {
+    "placeholders": {
+      "besucht": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittRegionen": "{anzahl, plural, =1{eine Region} other{{anzahl} Regionen}}",
+  "@fortschrittRegionen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittOrte": "{anzahl, plural, =1{ein Ort} other{{anzahl} Orte}}",
+  "@fortschrittOrte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittOhneGeodaten": "Ohne den GeoNames-Datensatz lässt sich keine Aufnahme einem Land zuordnen. Er wird unter „Werkzeuge“ geladen.",
+  "fortschrittHinweis": "Gezählt wird gegen die {gesamt} Länder und Gebiete des GeoNames-Datensatzes – Überseegebiete eingeschlossen, nicht nur die 195 souveränen Staaten. Eine eigene, gepflegte Liste wäre eine zweite Wahrheit neben der, nach der die Fotos tatsächlich eingeordnet werden.",
+  "@fortschrittHinweis": {
+    "placeholders": {
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "fortschrittBesucht": "Besucht",
+  "werkzGpxTitel": "Aus einer GPX-Spur verorten",
+  "werkzGpxText": "Eine Aufzeichnung trägt Zeitstempel. Damit bekommen auch Aufnahmen aus Kameras ohne GPS ihren Ort.",
+  "gpxTitel": "Aus GPX verorten",
+  "gpxDateiWaehlen": "GPX-Datei wählen …",
+  "gpxErklaerung": "Wähle eine Aufzeichnung. Photo Vault legt die Aufnahmezeiten deiner Fotos gegen die Spur und trägt die Koordinate nach – nur bei Aufnahmen, die noch keine haben.",
+  "gpxSpur": "{punkte} Punkte · {von} bis {bis}",
+  "@gpxSpur": {
+    "placeholders": {
+      "punkte": {
+        "type": "int"
+      },
+      "von": {
+        "type": "String"
+      },
+      "bis": {
+        "type": "String"
+      }
+    }
+  },
+  "gpxVersatz": "Zeitversatz",
+  "gpxVersatzHinweis": "EXIF schreibt die Aufnahmezeit ohne Zeitzone, GPX schreibt UTC. Der Vorschlag ist der Versatz, bei dem die meisten Aufnahmen auf die Spur passen – er fängt auch eine falsch gehende Kamerauhr ab.",
+  "gpxTreffer": "{anzahl, plural, =0{Keine Aufnahme passt auf die Spur.} =1{Eine Aufnahme bekommt einen Ort.} other{{anzahl} Aufnahmen bekommen einen Ort.}}",
+  "@gpxTreffer": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gpxVerorten": "Verorten",
+  "gpxFertig": "{anzahl, plural, =1{Eine Aufnahme verortet.} other{{anzahl} Aufnahmen verortet.}}",
+  "@gpxFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "gpxKeineKandidaten": "Im Zeitraum dieser Spur hat jede Aufnahme schon einen Ort.",
+  "gpxFehlerKeinGpx": "Das ist keine GPX-Datei.",
+  "gpxFehlerOhneZeit": "In dieser Spur trägt kein Punkt einen Zeitstempel. Ohne Zeit lässt sich keine Aufnahme zuordnen.",
+  "gpxFehlerLeer": "Die Datei enthält keinen einzigen Punkt.",
   "stammbaumKeineFamilienfotos": "Auf keinem Foto wurde bisher jemand aus dieser Familie erkannt.",
   "stammbaumGedcomExport": "Als GEDCOM ausgeben …",
   "stammbaumGedcomFertig": "{anzahl, plural, =1{Eine Person ausgegeben.} other{{anzahl} Personen ausgegeben.}}",
@@ -2715,6 +3064,11 @@
   "lebenslaufSonstiges": "Sonstiges",
   "lebenslaufOhneDatum": "ohne Datum",
   "lebenslaufOrt": "Ort",
+  "lebenslaufOrtAufKarte": "Ort auf der Karte",
+  "lebenslaufOrtErkannt": "Auf der Karte gefunden – tippen, um den Punkt zu berichtigen.",
+  "lebenslaufOrtUnbekannt": "Dieser Ort ist im Ortsverzeichnis nicht enthalten. Tippen Sie auf die Karte, um ihn selbst zu setzen.",
+  "lebenslaufOrtEntfernen": "Verortung entfernen",
+  "lebenslaufOrtOhneVerzeichnis": "Ohne das Ortsverzeichnis lassen sich Orte nicht automatisch finden. Ein Punkt lässt sich trotzdem von Hand setzen.",
   "lebenslaufNotiz": "Notiz",
   "stammbaumLebenslauf": "Lebenslauf …",
   "orteIch": "Diese Person",
@@ -2722,6 +3076,7 @@
   "orteNachkommen": "Nachkommen",
   "orteSeitenlinie": "Seitenlinie",
   "orteAngeheiratet": "Angeheiratet",
+  "orteEreignisse": "Ereignisse",
   "orteNichtsGewaehlt": "Keine Gruppe ausgewählt.",
   "stammbaumFamilienorte": "Orte der Familie",
   "stammbaumMenue": "Mehr zu dieser Person",
@@ -2961,6 +3316,8 @@
   "karteGlobusZoomHinweis": "Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln.",
   "karteHineinzoomen": "Näher heran",
   "karteHerauszoomen": "Weiter weg",
+  "karteEreignisseEinblenden": "Lebensereignisse einblenden",
+  "karteEreignisseAusblenden": "Lebensereignisse ausblenden",
   "karteStandortZeigen": "Mein Standort",
   "karteStandortNichtErmittelbar": "Standort nicht ermittelbar. Prüfe unter Systemeinstellungen → Datenschutz & Sicherheit → Ortungsdienste, ob Photo Vault fragen darf.",
   "karteStandortSuche": "Standort wird ermittelt …"

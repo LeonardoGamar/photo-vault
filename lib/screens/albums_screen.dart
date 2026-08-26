@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import 'album_detail_screen.dart';
@@ -12,10 +13,12 @@ class AlbumsScreen extends StatelessWidget {
   const AlbumsScreen({super.key, required this.library});
 
   Future<void> _createAlbum(BuildContext context) async {
-    final ctrl = TextEditingController();
     final name = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
+      // Die Steuerung gehört dem Fenster, nicht diesem Aufruf – siehe
+      // [MitTextsteuerung].
+      builder: (context) => MitTextsteuerung(
+          builder: (context, ctrl) => AlertDialog(
         title: Text(AppTexte.of(context).albumNeu),
         content: TextField(
           controller: ctrl,
@@ -25,10 +28,9 @@ class AlbumsScreen extends StatelessWidget {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text(AppTexte.of(context).allgAbbrechen)),
           FilledButton(onPressed: () => Navigator.pop(context, ctrl.text.trim()), child: Text(AppTexte.of(context).allgErstellen)),
-        ],
-      ),
+                ],
+              )),
     );
-    ctrl.dispose();
     if (name != null && name.isNotEmpty) {
       await library.db.createAlbum(AlbumsCompanion.insert(
         id: const Uuid().v4(),
