@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../services/gebietsgrenzen.dart';
 import '../services/reisefortschritt.dart';
 import '../services/reverse_geocoder.dart';
 import '../state/library_state.dart';
@@ -14,10 +16,14 @@ import '../widgets/mini_location_map.dart'
 
 /// Die Welt als Karte: wo du warst, und wo du hinwillst.
 ///
+/// **Ein Klick markiert.** Oben steht, worauf er zielt – Land, Region oder
+/// Ort. Was markiert ist, ist ausgemalt; ein zweiter Klick auf dieselbe
+/// Fläche nimmt die Marke zurück.
+///
 /// **Die Karte zeigt zwei verschiedene Dinge und sagt welches.** Was aus
 /// den Fotos kommt, ist ein Beleg; was von Hand gesetzt wurde, eine
-/// Angabe. Sie sehen deshalb nicht gleich aus – ein Punkt, dem man nicht
-/// ansieht, woher er stammt, ist die Sorte Karte, der man nach einem Jahr
+/// Angabe. Sie sehen deshalb nicht gleich aus – eine Fläche, der man nicht
+/// ansieht, woher sie stammt, ist die Sorte Karte, der man nach einem Jahr
 /// nicht mehr glaubt.
 class WeltkarteScreen extends StatefulWidget {
   final LibraryState library;
@@ -55,11 +61,30 @@ class _Kartenpunkt {
 
   bool get belegt => aufnahmen > 0;
   bool get geplant => marke == Markenart.geplant && !belegt;
+
+  /// Von Hand gesetzt und durch kein Foto belegt.
+  bool get vonHand => marke == Markenart.besucht && !belegt;
+}
+
+/// Ein Punkt, für den ein Umriss vorliegt.
+class _Flaeche {
+  final _Kartenpunkt punkt;
+  final Gebiet gebiet;
+  const _Flaeche(this.punkt, this.gebiet);
 }
 
 class _WeltkarteScreenState extends State<WeltkarteScreen> {
   final _karte = MapController();
   List<_Kartenpunkt>? _punkte;
+  List<_Flaeche> _flaechen = const [];
+  Gebietsgrenzen? _grenzen;
+
+  /// Worauf ein Klick zielt.
+  _Ebene _stufe = _Ebene.land;
+
+  /// Ob ein Klick „besucht" oder „geplant" setzt.
+  bool _alsGeplant = false;
+
   final _sichtbar = {_Ebene.land, _Ebene.region, _Ebene.ort};
 
   @override
@@ -68,16 +93,62 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     _laden();
   }
 
+  /// Die Umrisse liegen als eigene Datei bei; ohne sie bleibt die Karte
+  /// bei Punkten. Deshalb wird ihr Fehlen abgefangen und nicht geworfen.
+  Future<Gebietsgrenzen?> _grenzenLaden() async {
+    if (_grenzen != null) return _grenzen;
+    try {
+      final daten = await rootBundle.load('assets/geo/gebiete.bin.gz');
+      return _grenzen = Gebietsgrenzen.ausGepackt(
+          daten.buffer.asUint8List(daten.offsetInBytes, daten.lengthInBytes));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _laden() async {
     final geo = widget.library.geocoder;
+    final grenzen = await _grenzenLaden();
     if (geo == null) {
-      if (mounted) setState(() => _punkte = const []);
+      if (mounted) {
+        setState(() {
+          _punkte = const [];
+          _flaechen = const [];
+        });
+      }
       return;
     }
     final besucht = await widget.library.db.besuchteOrte();
     final marken = await widget.library.db.alleOrtsmarken();
     if (!mounted) return;
-    setState(() => _punkte = _sammle(geo, besucht, marken));
+    final punkte = _sammle(geo, besucht, marken);
+    setState(() {
+      _punkte = punkte;
+      _flaechen = _umrisse(punkte, grenzen);
+    });
+  }
+
+  /// Zu jedem Punkt seinen Umriss, soweit einer vorliegt.
+  ///
+  /// Siebzehn der 252 Länder haben keinen – der Vatikan ist zu klein, die
+  /// Niederländischen Antillen gibt es nicht mehr. Für die bleibt der
+  /// Punkt die einzige Darstellung, und das ist der Grund, warum die
+  /// Punkte nicht durch die Flächen ersetzt werden.
+  List<_Flaeche> _umrisse(List<_Kartenpunkt> punkte, Gebietsgrenzen? grenzen) {
+    if (grenzen == null) return const [];
+    final raus = <_Flaeche>[];
+    for (final p in punkte) {
+      final gebiet = switch (p.ebene) {
+        _Ebene.land => grenzen.land(p.schluessel),
+        _Ebene.region => grenzen.region(p.schluessel),
+        _Ebene.ort => null,
+      };
+      if (gebiet != null) raus.add(_Flaeche(p, gebiet));
+    }
+    // Grosse zuerst zeichnen: Sonst deckt Brandenburg Berlin zu.
+    raus.sort((a, b) =>
+        b.gebiet.vergleichsflaeche.compareTo(a.gebiet.vergleichsflaeche));
+    return raus;
   }
 
   /// Baut aus Fotos und Marken die Punktmenge.
@@ -106,7 +177,9 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
         if (code != null) regionen[code] = region;
       }
       final ort = a.ort;
-      if (ort != null && ort.isNotEmpty) orte['$iso|$ort'] = (name: ort, iso: iso);
+      if (ort != null && ort.isNotEmpty) {
+        orte['$iso|$ort'] = (name: ort, iso: iso);
+      }
     }
 
     final landmarken = <String, Markenart>{};
@@ -180,71 +253,109 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     return ergebnis;
   }
 
-  /// Ein Tippen auf die freie Fläche.
-  Future<void> _stelleGewaehlt(ll.LatLng punkt) async {
+  // -------------------------------------------------------------------
+  // Der Klick
+  // -------------------------------------------------------------------
+
+  /// Ein Tippen auf die Karte – markiert auf der eingestellten Stufe.
+  ///
+  /// **Der Umriss entscheidet, nicht die nächste Stadt.** Beide Wege
+  /// stehen bereit, und sie sind nicht gleich gut: Über den Umriss
+  /// gefragt liegt Flensburg in Schleswig-Holstein; über die nächste
+  /// Stadt gefragt liegt es dort, wo zufällig die dichteste Stadt steht.
+  /// Auf offener See sagt der Umriss „kein Land", die Städtesuche noch
+  /// ein Land in dreihundert Kilometern Entfernung.
+  Future<void> _klick(ll.LatLng stelle) async {
     final geo = widget.library.geocoder;
     final t = AppTexte.of(context);
-    final treffer = geo?.lookup(punkt.latitude, punkt.longitude);
-    if (geo == null || treffer == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(t.weltkarteKeinOrt)));
+    final ziel = _ziel(stelle, geo);
+    if (ziel == null) {
+      _sage(t.weltkarteKeinOrt);
       return;
     }
-    final iso = treffer.country == null
-        ? null
-        : geo.isoNachName[treffer.country!];
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (blatt) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(t.weltkarteNaechsterOrt(treffer.city)),
-              subtitle: Text(t.weltkarteHinweis),
-              subtitleTextStyle: TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(blatt).colorScheme.onSurfaceVariant),
-            ),
-            const Divider(height: 1),
-            if (iso != null && treffer.country != null)
-              ListTile(
-                leading: const Icon(Icons.public),
-                title: Text(t.weltkarteAlsLand(treffer.country!)),
-                onTap: () {
-                  Navigator.pop(blatt);
-                  _setze('land', iso, treffer.country!);
-                },
-              ),
-            if (iso != null && treffer.state != null)
-              ListTile(
-                leading: const Icon(Icons.map_outlined),
-                title: Text(t.weltkarteAlsRegion(treffer.state!)),
-                onTap: () {
-                  Navigator.pop(blatt);
-                  final code = geo.regionscodes['$iso|${treffer.state}'];
-                  if (code != null) _setze('region', code, treffer.state!);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Icons.place_outlined),
-              title: Text(t.weltkarteAlsOrt(treffer.city)),
-              onTap: () {
-                Navigator.pop(blatt);
-                _setze(
-                  'ort',
-                  '${treffer.country ?? ''}|${treffer.state ?? ''}|${treffer.city}',
-                  treffer.city,
-                  breite: punkt.latitude,
-                  laenge: punkt.longitude,
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+
+    // Steht dort schon eine Marke von Hand, nimmt derselbe Klick sie weg.
+    final vorhanden = _punkte?.where((p) =>
+        p.ebene == _stufe &&
+        p.schluessel == ziel.schluessel &&
+        p.marke != null);
+    if (vorhanden != null && vorhanden.isNotEmpty) {
+      await widget.library.db.loescheOrtsmarke(_stufe.name, ziel.schluessel);
+      await _laden();
+      if (mounted) _sage(t.weltkarteMarkeWeggenommen(ziel.name));
+      return;
+    }
+
+    // Was die Fotos belegen, braucht keinen Haken. Ihn trotzdem zu setzen
+    // würde die Herkunft der Angabe verwischen.
+    final belegt = _punkte?.any((p) =>
+        p.ebene == _stufe && p.schluessel == ziel.schluessel && p.belegt);
+    if (belegt == true && !_alsGeplant) {
+      _sage(t.weltkarteSchonBelegt(ziel.name));
+      return;
+    }
+
+    await _setze(_stufe.name, ziel.schluessel, ziel.name,
+        breite: ziel.breite, laenge: ziel.laenge);
   }
+
+  /// Worauf der Klick auf der eingestellten Stufe zeigt.
+  ({String schluessel, String name, double? breite, double? laenge})? _ziel(
+      ll.LatLng stelle, ReverseGeocoder? geo) {
+    final grenzen = _grenzen;
+    final iso = grenzen?.landBei(stelle.latitude, stelle.longitude);
+    final treffer = geo?.lookup(stelle.latitude, stelle.longitude);
+
+    switch (_stufe) {
+      case _Ebene.land:
+        final code = iso ??
+            (treffer?.country == null
+                ? null
+                : geo?.isoNachName[treffer!.country!]);
+        if (code == null) return null;
+        final name = geo?.laenderkatalog.nachIso(code)?.name ?? code;
+        return (schluessel: code, name: name, breite: null, laenge: null);
+
+      case _Ebene.region:
+        final land = iso ??
+            (treffer?.country == null
+                ? null
+                : geo?.isoNachName[treffer!.country!]);
+        if (land == null) return null;
+        var code =
+            grenzen?.regionBei(stelle.latitude, stelle.longitude, imLand: land);
+        code ??= treffer?.state == null
+            ? null
+            : geo?.regionscodes['$land|${treffer!.state}'];
+        if (code == null) return null;
+        // Der ausgeschriebene Name kommt aus dem Datensatz, nicht aus dem
+        // Umriss – die Umrissdatei führt nur Schlüssel.
+        final name = _punkte
+                ?.where((p) => p.ebene == _Ebene.region && p.schluessel == code)
+                .map((p) => p.name)
+                .firstOrNull ??
+            treffer?.state ??
+            code;
+        return (schluessel: code, name: name, breite: null, laenge: null);
+
+      case _Ebene.ort:
+        // Für den Ort gibt es keinen Umriss – hier ist die nächste Stadt
+        // die einzige Auskunft. Ohne Land daneben wäre der Schlüssel
+        // mehrdeutig: „Springfield" gibt es über zwanzigmal.
+        if (treffer == null) return null;
+        if (iso == null && treffer.country == null) return null;
+        return (
+          schluessel:
+              '${treffer.country ?? ''}|${treffer.state ?? ''}|${treffer.city}',
+          name: treffer.city,
+          breite: stelle.latitude,
+          laenge: stelle.longitude,
+        );
+    }
+  }
+
+  void _sage(String text) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   Future<void> _setze(String art, String schluessel, String name,
       {double? breite, double? laenge}) async {
@@ -252,15 +363,14 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
       art: art,
       schluessel: schluessel,
       name: name,
-      status: 'besucht',
+      status: _alsGeplant ? 'geplant' : 'besucht',
       angelegtAm: DateTime.now(),
       breite: Value(breite),
       laenge: Value(laenge),
     ));
     await _laden();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppTexte.of(context).weltkarteMarkeGesetzt(name))));
+    _sage(AppTexte.of(context).weltkarteMarkeGesetzt(name));
   }
 
   Future<void> _punktGewaehlt(_Kartenpunkt p) async {
@@ -275,7 +385,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
               title: Text(p.name),
               subtitle: Text(p.belegt
                   ? t.laenderAufnahmen(p.aufnahmen)
-                  : t.laenderVonHand),
+                  : (p.geplant ? t.laenderGeplant : t.laenderVonHand)),
             ),
             const Divider(height: 1),
             if (p.marke != Markenart.besucht)
@@ -284,7 +394,10 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                 title: Text(t.laenderMarkeBesucht),
                 onTap: () {
                   Navigator.pop(blatt);
-                  _setze(p.ebene.name, p.schluessel, p.name);
+                  final vorher = _alsGeplant;
+                  _alsGeplant = false;
+                  _setze(p.ebene.name, p.schluessel, p.name)
+                      .whenComplete(() => _alsGeplant = vorher);
                 },
               ),
             if (p.marke != null)
@@ -307,12 +420,69 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     await _laden();
   }
 
+  /// Die Namen der drei Ebenen in derselben Reihenfolge wie auf dem
+  /// Schirm – Menü und Leiste sollen nicht auseinanderlaufen.
+  List<(_Ebene, String)> _ebenennamen(AppTexte t) => [
+        (_Ebene.land, t.weltkarteLaender),
+        (_Ebene.region, t.weltkarteRegionen),
+        (_Ebene.ort, t.weltkarteOrte),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
     final punkte = _punkte;
     return Scaffold(
-      appBar: AppBar(title: Text(t.weltkarteTitel)),
+      appBar: AppBar(
+        title: Text(t.weltkarteTitel),
+        actions: [
+          PopupMenuButton<_Ebene>(
+            icon: const Icon(Icons.layers_outlined),
+            tooltip: t.weltkarteEbenen,
+            onSelected: (ebene) => setState(() {
+              if (!_sichtbar.remove(ebene)) _sichtbar.add(ebene);
+            }),
+            itemBuilder: (_) => [
+              for (final (ebene, text) in _ebenennamen(t))
+                CheckedPopupMenuItem(
+                  value: ebene,
+                  checked: _sichtbar.contains(ebene),
+                  child: Text(text),
+                ),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: t.weltkarteLegende,
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (blatt) => AlertDialog(
+                title: Text(t.weltkarteLegende),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.weltkarteLegendeFotos),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(t.weltkarteLegendeHand),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(t.weltkarteLegendeGeplant),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(t.weltkarteOhneUmriss,
+                        style: Theme.of(blatt).textTheme.bodySmall),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(blatt),
+                      child: Text(
+                          MaterialLocalizations.of(blatt).closeButtonLabel)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
       body: punkte == null
           ? const Center(child: CircularProgressIndicator())
           : Stack(
@@ -323,14 +493,24 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                     initialCenter: const ll.LatLng(30, 10),
                     initialZoom: 2,
                     maxZoom: kartenHoechsteStufe(context),
-                    onTap: (_, punkt) => _stelleGewaehlt(punkt),
+                    onTap: (_, stelle) => _klick(stelle),
                   ),
                   children: [
                     buildMapTileLayer(context),
+                    // Nur gezeichnet, nicht bedienbar: Die Frage, welches
+                    // Gebiet unter dem Zeiger liegt, beantwortet _klick
+                    // selbst – und genauer, als hitNotifier es könnte,
+                    // weil dort bei Überschneidung die kleinere Fläche
+                    // gewinnt.
+                    PolygonLayer(polygons: _polygone(context)),
                     MarkerLayer(markers: [
                       // Länder zuletzt, damit sie über den Orten liegen –
                       // sonst verdeckt eine Stadt ihr eigenes Land.
-                      for (final ebene in [_Ebene.ort, _Ebene.region, _Ebene.land])
+                      for (final ebene in [
+                        _Ebene.ort,
+                        _Ebene.region,
+                        _Ebene.land
+                      ])
                         if (_sichtbar.contains(ebene))
                           for (final p in punkte)
                             if (p.ebene == ebene)
@@ -347,23 +527,67 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                     buildMapAttribution(context),
                   ],
                 ),
-                Positioned(
-                  left: AppSpacing.sm,
-                  top: AppSpacing.sm,
-                  child: _Ebenenwahl(
-                    sichtbar: _sichtbar,
-                    beiWechsel: (ebene, an) => setState(() {
-                      if (an) {
-                        _sichtbar.add(ebene);
-                      } else {
-                        _sichtbar.remove(ebene);
-                      }
-                    }),
-                  ),
-                ),
               ],
             ),
+      // Unten und nicht als Karte über dem Bild: Die Leiste ist ständig
+      // im Gebrauch, und eine Karte in der Ecke verdeckt genau das Land,
+      // das man anklicken will.
+      bottomNavigationBar: punkte == null
+          ? null
+          : _Markierleiste(
+              stufe: _stufe,
+              alsGeplant: _alsGeplant,
+              namen: _ebenennamen(t),
+              beiStufe: (s) => setState(() => _stufe = s),
+              beiGeplant: (an) => setState(() => _alsGeplant = an),
+            ),
     );
+  }
+
+  /// Die ausgemalten Gebiete.
+  ///
+  /// **Drei Zustände, zwei Merkmale.** Füllung *und* Rand tragen die
+  /// Unterscheidung: belegt ist voll und durchgezogen, von Hand blass und
+  /// gepunktet, geplant fast leer und gestrichelt. Nur über den Farbton
+  /// getrennt wären es für einen Rotgrünblinden drei gleiche Flächen.
+  List<Polygon> _polygone(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    final raus = <Polygon>[];
+    for (final f in _flaechen) {
+      if (!_sichtbar.contains(f.punkt.ebene)) continue;
+      final p = f.punkt;
+      // Derselbe Farbton wie in der Länderliste: Dort ist „geplant"
+      // secondary, „teilweise" tertiary. Zwei Bildschirme, die dieselbe
+      // Sache verschieden färben, kosten mehr, als sie einbringen.
+      final grundfarbe = p.geplant ? farben.secondary : farben.primary;
+      // Eine Region liegt in ihrem Land: Ihre Füllung addiert sich zu
+      // dessen. Sie darf deshalb für sich blasser sein.
+      final tiefe = p.ebene == _Ebene.region ? 0.6 : 1.0;
+      final (fuellung, muster) = switch (p) {
+        _ when p.geplant => (
+            0.06 * tiefe,
+            // Nicht const: der Konstruktor prüft die Längen selbst.
+            StrokePattern.dashed(segments: const [8, 6])
+          ),
+        _ when p.vonHand => (
+            0.14 * tiefe,
+            const StrokePattern.dotted(spacingFactor: 2)
+          ),
+        _ => (0.28 * tiefe, const StrokePattern.solid()),
+      };
+      for (final ring in f.gebiet.ringe) {
+        raus.add(Polygon(
+          points: [
+            for (final punkt in ring) ll.LatLng(punkt.breite, punkt.laenge)
+          ],
+          color: grundfarbe.withValues(alpha: fuellung),
+          borderColor: grundfarbe.withValues(alpha: 0.85),
+          borderStrokeWidth: p.ebene == _Ebene.land ? 1.6 : 1.2,
+          pattern: muster,
+        ));
+      }
+    }
+    return raus;
   }
 }
 
@@ -415,47 +639,59 @@ class _Marke extends StatelessWidget {
   }
 }
 
-/// Welche Ebenen die Karte zeigt.
-class _Ebenenwahl extends StatelessWidget {
-  final Set<_Ebene> sichtbar;
-  final void Function(_Ebene, bool) beiWechsel;
+/// Worauf der Klick zielt und was er setzt.
+class _Markierleiste extends StatelessWidget {
+  final _Ebene stufe;
+  final bool alsGeplant;
+  final List<(_Ebene, String)> namen;
+  final void Function(_Ebene) beiStufe;
+  final void Function(bool) beiGeplant;
 
-  const _Ebenenwahl({required this.sichtbar, required this.beiWechsel});
+  const _Markierleiste({
+    required this.stufe,
+    required this.alsGeplant,
+    required this.namen,
+    required this.beiStufe,
+    required this.beiGeplant,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(t.weltkarteEbenen,
-                style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: AppSpacing.xs),
-            for (final (ebene, text) in [
-              (_Ebene.land, t.weltkarteLaender),
-              (_Ebene.region, t.weltkarteRegionen),
-              (_Ebene.ort, t.weltkarteOrte),
-            ])
-              SizedBox(
-                height: 32,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Checkbox(
-                      visualDensity: VisualDensity.compact,
-                      value: sichtbar.contains(ebene),
-                      onChanged: (an) => beiWechsel(ebene, an ?? false),
-                    ),
-                    Text(text),
-                    const SizedBox(width: AppSpacing.sm),
-                  ],
-                ),
+    return Material(
+      elevation: 3,
+      color: Theme.of(context).colorScheme.surfaceContainer,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          // Umbrechen statt abschneiden: In einem schmalen Fenster rutscht
+          // der Geplant-Schalter in die zweite Zeile, statt zu verschwinden.
+          child: Wrap(
+            spacing: AppSpacing.md,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(t.weltkarteKlickMarkiert,
+                  style: Theme.of(context).textTheme.labelLarge),
+              SegmentedButton<_Ebene>(
+                segments: [
+                  for (final (ebene, text) in namen)
+                    ButtonSegment(value: ebene, label: Text(text)),
+                ],
+                selected: {stufe},
+                showSelectedIcon: false,
+                onSelectionChanged: (wahl) => beiStufe(wahl.first),
               ),
-          ],
+              FilterChip(
+                label: Text(t.laenderGeplant),
+                selected: alsGeplant,
+                visualDensity: VisualDensity.compact,
+                onSelected: beiGeplant,
+              ),
+            ],
+          ),
         ),
       ),
     );

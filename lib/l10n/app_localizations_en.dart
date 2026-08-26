@@ -5129,35 +5129,11 @@ class AppTexteEn extends AppTexte {
   String get weltkarteOrte => 'Places';
 
   @override
-  String get weltkarteHinweis =>
-      'What your photos prove is already on the map. Tap a spot to mark by hand what no photo shows.';
-
-  @override
   String get weltkarteKeinOrt => 'The data set knows no place at this spot.';
 
   @override
   String weltkarteMarkeGesetzt(String name) {
     return '“$name” is marked.';
-  }
-
-  @override
-  String weltkarteNaechsterOrt(String ort) {
-    return 'Nearest known place: $ort';
-  }
-
-  @override
-  String weltkarteAlsLand(String name) {
-    return 'The whole country ($name)';
-  }
-
-  @override
-  String weltkarteAlsRegion(String name) {
-    return 'The region ($name)';
-  }
-
-  @override
-  String weltkarteAlsOrt(String name) {
-    return 'Just the place ($name)';
   }
 
   @override
@@ -5852,4 +5828,36 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get karteStandortSuche => 'Determining location …';
+
+  @override
+  String get weltkarteKlickMarkiert => 'A click marks';
+
+  @override
+  String weltkarteMarkeWeggenommen(String name) {
+    return '“$name” is no longer marked.';
+  }
+
+  @override
+  String weltkarteSchonBelegt(String name) {
+    return '“$name” is already covered by your photos.';
+  }
+
+  @override
+  String get weltkarteLegende => 'Where a mark comes from';
+
+  @override
+  String get weltkarteLegendeFotos =>
+      'Filled, solid outline: evidenced by located photos.';
+
+  @override
+  String get weltkarteLegendeHand =>
+      'Pale, dotted outline: marked by hand, without a photo.';
+
+  @override
+  String get weltkarteLegendeGeplant =>
+      'Nearly empty, dashed outline: planned – does not count as visited.';
+
+  @override
+  String get weltkarteOhneUmriss =>
+      'Small territories such as the Vatican have no outline; they stay a dot.';
 }

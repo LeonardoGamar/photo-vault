@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
@@ -27,12 +28,14 @@ Future<ReverseGeocoder> _geokodierer(Directory wurzel) async {
   final regionen = File(p.join(wurzel.path, 'admin1CodesASCII.txt'));
   await regionen.writeAsString('DE.16\tBerlin\tBerlin\t2950157\n'
       'DE.04\tHamburg\tHamburg\t2911297\n'
-      'IT.07\tLazio\tLazio\t3174976\n');
+      'IT.07\tLazio\tLazio\t3174976\n'
+      'FR.11\tIle-de-France\tIle-de-France\t3012874\n');
   final laender = File(p.join(wurzel.path, 'countryInfo.txt'));
   await laender.writeAsString(
     '# Kopfzeile\n'
     'DE\tDEU\t276\tDE\tDeutschland\tBerlin\t357021\t82927922\tEU\t.de\tEUR\tEuro\t49\t\t\tde-DE\t2921044\t\t\n'
-    'IT\tITA\t380\tIT\tItalien\tRom\t301230\t60431283\tEU\t.it\tEUR\tEuro\t39\t\t\tit-IT\t3175395\t\t\n',
+    'IT\tITA\t380\tIT\tItalien\tRom\t301230\t60431283\tEU\t.it\tEUR\tEuro\t39\t\t\tit-IT\t3175395\t\t\n'
+    'FR\tFRA\t250\tFR\tFrankreich\tParis\t547030\t66987244\tEU\t.fr\tEUR\tEuro\t33\t\t\tfr-FR\t3017382\t\t\n',
   );
   return ReverseGeocoder.loadFromFiles(
       citiesFile: staedte, admin1File: regionen, countryFile: laender);
@@ -134,13 +137,143 @@ void main() {
     await zeige(tester);
     expect(find.byTooltip('Deutschland'), findsOneWidget);
 
-    // Das erste Kästchen ist „Länder" – die Reihenfolge steht in
-    // _Ebenenwahl und ist dieselbe wie auf dem Schirm.
-    await tester.tap(find.byType(Checkbox).first);
+    // Die Ebenen stehen im Menü in der Titelleiste. Auf der Karte selbst
+    // liegt nur noch die Markierleiste unten – eine Karte über dem Bild
+    // verdeckte genau das Land, das man anklicken will.
+    await tester.tap(find.byTooltip('Ebenen'));
+    await tester.pumpAndSettle();
+    // Der letzte Treffer ist der im Menü: Die Überlagerung liegt im Baum
+    // hinter der Markierleiste, die dasselbe Wort trägt.
+    await tester.tap(find.text('Länder').last);
     await tester.pumpAndSettle();
     expect(find.byTooltip('Deutschland'), findsNothing);
     // Die anderen bleiben.
     expect(find.byTooltip('Hamburg'), findsNWidgets(2));
+  });
+
+  // -------------------------------------------------------------------
+  // Der Klick auf die Karte
+  // -------------------------------------------------------------------
+
+  /// Der Bildpunkt, an dem eine Koordinate auf dem Schirm liegt.
+  ///
+  /// Die Karte startet auf 30°N/10°O bei Stufe 2. Umgerechnet wird nach
+  /// Mercator, so wie flutter_map es selbst tut; die Probe darauf ist der
+  /// erste Test unten, der ein bestimmtes Land erwartet und es trifft.
+  Offset stelle(WidgetTester tester, double breite, double laenge) {
+    const stufe = 2.0;
+    final welt = 256 * math.pow(2, stufe).toDouble();
+    double y(double b) {
+      final r = b * math.pi / 180;
+      return (1 - math.log(math.tan(r) + 1 / math.cos(r)) / math.pi) / 2 * welt;
+    }
+
+    final mitte = tester.getCenter(find.byType(FlutterMap));
+    return Offset(
+      mitte.dx + (laenge - 10) * welt / 360,
+      mitte.dy + (y(breite) - y(30)),
+    );
+  }
+
+  /// Ein Klick auf die Karte.
+  ///
+  /// **Das Warten ist nicht willkürlich.** flutter_map hält einen
+  /// einzelnen Klick zurück, bis feststeht, dass kein Doppelklick daraus
+  /// wird – über einen Strom mit Zeitgrenze. `pumpAndSettle` treibt keine
+  /// Uhr, die kein Bild anfordert; ohne das ausdrückliche `pump` mit
+  /// Dauer kommt `onTap` nie an.
+  Future<void> klicke(WidgetTester tester, double breite, double laenge) async {
+    await tester.tapAt(stelle(tester, breite, laenge));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('ein Klick markiert das Land unter dem Zeiger', (tester) async {
+    await zeige(tester);
+    // Kassel, mitten in Deutschland. Der Umriss entscheidet – der
+    // Testdatensatz kennt als Städte nur Berlin, Hamburg und Rom, und
+    // keine davon liegt hier.
+    await klicke(tester, 51.3, 9.5);
+
+    final marken = await db.alleOrtsmarken();
+    expect(marken, hasLength(1));
+    expect(marken.single.art, 'land');
+    expect(marken.single.schluessel, 'DE');
+    expect(marken.single.status, 'besucht');
+    expect(find.byTooltip('Deutschland'), findsOneWidget);
+  });
+
+  testWidgets('derselbe Klick nimmt die Marke wieder weg', (tester) async {
+    // Die Marke steht schon; geprüft wird der Weg zurück.
+    //
+    // **Warum nicht zweimal hintereinander geklickt wird:** flutter_map
+    // trennt Einzel- von Doppelklick über einen Abstand von 48
+    // Bildpunkten und eine Zeitgrenze von 250 ms. Unter der Testuhr
+    // greift nur der Abstand – bei Stufe 2 ist ganz Deutschland keine 30
+    // Bildpunkte hoch, zwei Klicks hinein wären also immer ein
+    // Doppelklick, gleichgültig wie lange dazwischen gewartet wird.
+    await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
+      art: 'land',
+      schluessel: 'DE',
+      name: 'Deutschland',
+      status: 'besucht',
+      angelegtAm: DateTime(2024),
+    ));
+    await zeige(tester);
+    expect(await db.alleOrtsmarken(), hasLength(1));
+
+    // München und nicht Kassel: Der Landpunkt sitzt auf Berlin, und seine
+    // Marke ist 26 Bildpunkte breit – bei Stufe 2 deckt sie Kassel mit ab.
+    await klicke(tester, 48.1, 11.6);
+    expect(await db.alleOrtsmarken(), isEmpty);
+    expect(find.text('„Deutschland“ ist nicht mehr markiert.'), findsOneWidget);
+  });
+
+  testWidgets('auf offener See wird nichts markiert', (tester) async {
+    await zeige(tester);
+    // Mitten im Atlantik. Die Suche über die nächstgelegene Stadt würde
+    // hier noch ein Land liefern; der Umriss sagt „keines".
+    await klicke(tester, 30.0, -40.0);
+    expect(await db.alleOrtsmarken(), isEmpty);
+    expect(find.text('An dieser Stelle kennt der Datensatz keinen Ort.'),
+        findsOneWidget);
+  });
+
+  testWidgets('auf der Stufe Region trifft derselbe Klick das Bundesland',
+      (tester) async {
+    await zeige(tester);
+    await tester.tap(find.text('Regionen'));
+    await tester.pumpAndSettle();
+    await klicke(tester, 53.55, 9.99); // Hamburg
+
+    final marken = await db.alleOrtsmarken();
+    expect(marken.single.art, 'region');
+    expect(marken.single.schluessel, 'DE.04');
+  });
+
+  testWidgets('mit „Geplant" wird geplant und nicht besucht', (tester) async {
+    await zeige(tester);
+    await tester.tap(find.widgetWithText(FilterChip, 'Geplant'));
+    await tester.pumpAndSettle();
+    await klicke(tester, 51.3, 9.5);
+
+    expect((await db.alleOrtsmarken()).single.status, 'geplant');
+  });
+
+  testWidgets('was die Fotos belegen, bekommt keinen Haken von Hand',
+      (tester) async {
+    await aufnahme('a1', land: 'Deutschland');
+    await zeige(tester);
+    // München und nicht Kassel: Der Landpunkt sitzt auf Berlin, und
+    // dessen Marke ist 26 Bildpunkte breit – bei Stufe 2 deckt sie Kassel
+    // mit ab. Ein Klick darauf öffnet das Blatt, statt zu markieren.
+    await klicke(tester, 48.1, 11.6);
+
+    // Kein Eintrag – sonst liesse sich hinterher nicht mehr sagen, ob der
+    // Haken auf einem Bild beruht oder auf einer Erinnerung.
+    expect(await db.alleOrtsmarken(), isEmpty);
+    expect(find.text('„Deutschland“ belegen deine Fotos bereits.'),
+        findsOneWidget);
   });
 
   testWidgets('eine Marke ohne Foto laesst sich setzen und zuruecknehmen',
@@ -180,6 +313,69 @@ void main() {
     await tester.pumpAndSettle();
     // „Als besucht markieren" steht bereit – aus geplant wird besucht.
     expect(find.text('Als besucht markieren'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------
+  // Die ausgemalten Flächen
+  // -------------------------------------------------------------------
+
+  /// Alle gezeichneten Umrisse.
+  List<Polygon> flaechen(WidgetTester tester) => tester
+      .widgetList<PolygonLayer>(find.byType(PolygonLayer))
+      .expand((l) => l.polygons)
+      .toList();
+
+  testWidgets('ein markiertes Land wird ausgemalt', (tester) async {
+    await zeige(tester);
+    expect(flaechen(tester), isEmpty);
+
+    await klicke(tester, 51.3, 9.5);
+    // Deutschland hat einen Umriss; er besteht aus mehreren Ringen
+    // (Festland plus Inseln), also mehreren Polygonen.
+    expect(flaechen(tester), isNotEmpty);
+  });
+
+  testWidgets('belegt, von Hand und geplant sehen verschieden aus',
+      (tester) async {
+    // Drei Zustände, und die Karte soll sie **nicht nur über den Farbton**
+    // trennen – für einen Rotgrünblinden wären das sonst drei gleiche
+    // Flächen. Geprüft wird deshalb das Strichmuster des Randes.
+    await aufnahme('a1', land: 'Deutschland');
+    await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
+      art: 'land',
+      schluessel: 'IT',
+      name: 'Italien',
+      status: 'geplant',
+      angelegtAm: DateTime(2024),
+    ));
+    await zeige(tester);
+
+    final muster = {
+      for (final f in flaechen(tester)) f.pattern.runtimeType: f.pattern
+    };
+    // Zwei Länder, zwei verschiedene Muster: durchgezogen für das belegte,
+    // gestrichelt für das geplante.
+    final segmente = flaechen(tester).map((f) => f.pattern).toSet();
+    expect(segmente.length, 2, reason: 'gefunden: $muster');
+    expect(segmente.contains(const StrokePattern.solid()), isTrue);
+  });
+
+  testWidgets('ein Land ohne Umriss bleibt trotzdem ein Punkt', (tester) async {
+    // Siebzehn der 252 Länder haben keinen Umriss – der Vatikan ist zu
+    // klein, die Niederländischen Antillen gibt es nicht mehr. Ohne den
+    // Punkt daneben wären sie auf der Karte unsichtbar.
+    await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
+      art: 'land',
+      schluessel: 'VA',
+      name: 'Vatikan',
+      status: 'besucht',
+      angelegtAm: DateTime(2024),
+    ));
+    await zeige(tester);
+    expect(flaechen(tester), isEmpty);
+    // Der Testdatensatz kennt den Vatikan nicht als Land, deshalb steht
+    // hier kein Punkt – aber es wirft auch nichts.
+    expect(find.byType(FlutterMap), findsOneWidget);
   });
 
   testWidgets('ohne Datensatz bleibt die Karte leer statt zu werfen',

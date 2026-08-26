@@ -850,19 +850,70 @@
   "personVerwerfen": "Discard",
   "restaurWartet": "Waiting in the queue",
   "restaurProzentLaeuft": "AI restoration running – {prozent}%",
-  "@restaurProzentLaeuft": {"placeholders": {"prozent": {"type": "int"}}},
+  "@restaurProzentLaeuft": {
+    "placeholders": {
+      "prozent": {
+        "type": "int"
+      }
+    }
+  },
   "restaurProzentMitRest": "AI restoration running – {prozent}%, about {rest} left",
-  "@restaurProzentMitRest": {"placeholders": {"prozent": {"type": "int"}, "rest": {"type": "String"}}},
+  "@restaurProzentMitRest": {
+    "placeholders": {
+      "prozent": {
+        "type": "int"
+      },
+      "rest": {
+        "type": "String"
+      }
+    }
+  },
   "restaurProzentMitWarteschlange": "AI restoration running – {prozent}%, {wartend} queued",
-  "@restaurProzentMitWarteschlange": {"placeholders": {"prozent": {"type": "int"}, "wartend": {"type": "int"}}},
+  "@restaurProzentMitWarteschlange": {
+    "placeholders": {
+      "prozent": {
+        "type": "int"
+      },
+      "wartend": {
+        "type": "int"
+      }
+    }
+  },
   "restaurZeileLaeuft": "Running – {prozent}%",
-  "@restaurZeileLaeuft": {"placeholders": {"prozent": {"type": "int"}}},
+  "@restaurZeileLaeuft": {
+    "placeholders": {
+      "prozent": {
+        "type": "int"
+      }
+    }
+  },
   "restaurZeileMitRest": "Running – {prozent}%, about {rest} left",
-  "@restaurZeileMitRest": {"placeholders": {"prozent": {"type": "int"}, "rest": {"type": "String"}}},
+  "@restaurZeileMitRest": {
+    "placeholders": {
+      "prozent": {
+        "type": "int"
+      },
+      "rest": {
+        "type": "String"
+      }
+    }
+  },
   "restaurDauerMinuten": "{anzahl, plural, =1{one minute} other{{anzahl} minutes}}",
-  "@restaurDauerMinuten": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@restaurDauerMinuten": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "restaurDauerSekunden": "{anzahl, plural, =1{one second} other{{anzahl} seconds}}",
-  "@restaurDauerSekunden": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@restaurDauerSekunden": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "restaurWasPassiert": "Real-ESRGAN scales the photo to four times its edge length and smooths noise and compression artefacts along the way. The original is untouched; the result sits beside it and can be removed at any time.",
   "restaurTitel": "AI restoration – queue",
   "restaurLeer": "There are no restoration jobs.\nYou can start an AI restoration from a photo's develop screen.",
@@ -1760,15 +1811,45 @@
   "famstatImBild": "In the picture",
   "famstatZeitraum": "Period",
   "famstatOhneBild": "{anzahl, plural, =1{One person is in no photo} other{{anzahl} people are in no photo}}",
-  "@famstatOhneBild": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@famstatOhneBild": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "famstatAufnahmenJeJahr": "Photos per year",
   "famstatOftZusammen": "Often pictured together",
   "famstatVonBis": "{von} to {bis}",
-  "@famstatVonBis": {"placeholders": {"von": {"type": "String"}, "bis": {"type": "String"}}},
+  "@famstatVonBis": {
+    "placeholders": {
+      "von": {
+        "type": "String"
+      },
+      "bis": {
+        "type": "String"
+      }
+    }
+  },
   "famstatAlterVonBis": "aged {von} to {bis}",
-  "@famstatAlterVonBis": {"placeholders": {"von": {"type": "int"}, "bis": {"type": "int"}}},
+  "@famstatAlterVonBis": {
+    "placeholders": {
+      "von": {
+        "type": "int"
+      },
+      "bis": {
+        "type": "int"
+      }
+    }
+  },
   "famstatInJahren": "{anzahl, plural, =1{in one year} other{across {anzahl} years}}",
-  "@famstatInJahren": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@famstatInJahren": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "famstatFehlendeLebensdaten": "Age at death, age at marriage and age per generation appear once death and marriage dates are entered. Photo Vault does not estimate them.",
   "famstatKeineFotos": "Nobody from this family has been recognised in a photo yet.",
   "famstatLeer": "No one is recorded for this family.",
@@ -1972,26 +2053,29 @@
   "weltkarteLaender": "Countries",
   "weltkarteRegionen": "Regions",
   "weltkarteOrte": "Places",
-  "weltkarteHinweis": "What your photos prove is already on the map. Tap a spot to mark by hand what no photo shows.",
   "weltkarteKeinOrt": "The data set knows no place at this spot.",
   "weltkarteMarkeGesetzt": "“{name}” is marked.",
-  "@weltkarteMarkeGesetzt": {"placeholders": {"name": {"type": "String"}}},
-  "weltkarteNaechsterOrt": "Nearest known place: {ort}",
-  "@weltkarteNaechsterOrt": {"placeholders": {"ort": {"type": "String"}}},
-  "weltkarteAlsLand": "The whole country ({name})",
-  "@weltkarteAlsLand": {"placeholders": {"name": {"type": "String"}}},
-  "weltkarteAlsRegion": "The region ({name})",
-  "@weltkarteAlsRegion": {"placeholders": {"name": {"type": "String"}}},
-  "weltkarteAlsOrt": "Just the place ({name})",
-  "@weltkarteAlsOrt": {"placeholders": {"name": {"type": "String"}}},
+  "@weltkarteMarkeGesetzt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "weltkarteOeffnen": "World map",
   "laenderTitel": "Countries",
   "laenderKopf": "{gesamt} countries · {besucht} visited · {teilweise} partial",
   "@laenderKopf": {
     "placeholders": {
-      "gesamt": { "type": "int" },
-      "besucht": { "type": "int" },
-      "teilweise": { "type": "int" }
+      "gesamt": {
+        "type": "int"
+      },
+      "besucht": {
+        "type": "int"
+      },
+      "teilweise": {
+        "type": "int"
+      }
     }
   },
   "laenderSuchen": "Search country or capital",
@@ -2006,14 +2090,22 @@
   "laenderRegionen": "{besucht} of {gesamt} regions",
   "@laenderRegionen": {
     "placeholders": {
-      "besucht": { "type": "int" },
-      "gesamt": { "type": "int" }
+      "besucht": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
     }
   },
   "laenderOhneRegionen": "No regions on record",
   "laenderAufnahmen": "{anzahl, plural, =0{no photos} =1{one photo} other{{anzahl} photos}}",
   "@laenderAufnahmen": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "laenderNichtsGefunden": "No country matches your search.",
   "laenderMarkeBesucht": "Mark as visited",
@@ -2346,5 +2438,27 @@
   "karteEreignisseAusblenden": "Hide life events",
   "karteStandortZeigen": "My location",
   "karteStandortNichtErmittelbar": "Could not determine your location. Check System Settings → Privacy & Security → Location Services to see whether Photo Vault may ask.",
-  "karteStandortSuche": "Determining location …"
+  "karteStandortSuche": "Determining location …",
+  "weltkarteKlickMarkiert": "A click marks",
+  "weltkarteMarkeWeggenommen": "“{name}” is no longer marked.",
+  "@weltkarteMarkeWeggenommen": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "weltkarteSchonBelegt": "“{name}” is already covered by your photos.",
+  "@weltkarteSchonBelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "weltkarteLegende": "Where a mark comes from",
+  "weltkarteLegendeFotos": "Filled, solid outline: evidenced by located photos.",
+  "weltkarteLegendeHand": "Pale, dotted outline: marked by hand, without a photo.",
+  "weltkarteLegendeGeplant": "Nearly empty, dashed outline: planned – does not count as visited.",
+  "weltkarteOhneUmriss": "Small territories such as the Vatican have no outline; they stay a dot."
 }

@@ -5157,36 +5157,12 @@ class AppTexteDe extends AppTexte {
   String get weltkarteOrte => 'Orte';
 
   @override
-  String get weltkarteHinweis =>
-      'Was die Fotos belegen, steht schon auf der Karte. Tippe auf eine Stelle, um von Hand zu markieren, was kein Bild zeigt.';
-
-  @override
   String get weltkarteKeinOrt =>
       'An dieser Stelle kennt der Datensatz keinen Ort.';
 
   @override
   String weltkarteMarkeGesetzt(String name) {
     return '„$name“ ist markiert.';
-  }
-
-  @override
-  String weltkarteNaechsterOrt(String ort) {
-    return 'Nächster bekannter Ort: $ort';
-  }
-
-  @override
-  String weltkarteAlsLand(String name) {
-    return 'Das ganze Land ($name)';
-  }
-
-  @override
-  String weltkarteAlsRegion(String name) {
-    return 'Die Region ($name)';
-  }
-
-  @override
-  String weltkarteAlsOrt(String name) {
-    return 'Nur den Ort ($name)';
   }
 
   @override
@@ -5881,4 +5857,36 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get karteStandortSuche => 'Standort wird ermittelt …';
+
+  @override
+  String get weltkarteKlickMarkiert => 'Ein Klick markiert';
+
+  @override
+  String weltkarteMarkeWeggenommen(String name) {
+    return '„$name“ ist nicht mehr markiert.';
+  }
+
+  @override
+  String weltkarteSchonBelegt(String name) {
+    return '„$name“ belegen deine Fotos bereits.';
+  }
+
+  @override
+  String get weltkarteLegende => 'Woher eine Marke stammt';
+
+  @override
+  String get weltkarteLegendeFotos =>
+      'Ausgefüllt, durchgezogener Rand: durch verortete Aufnahmen belegt.';
+
+  @override
+  String get weltkarteLegendeHand =>
+      'Blass, gepunkteter Rand: von Hand markiert, ohne Foto.';
+
+  @override
+  String get weltkarteLegendeGeplant =>
+      'Fast leer, gestrichelter Rand: geplant – zählt nicht als besucht.';
+
+  @override
+  String get weltkarteOhneUmriss =>
+      'Für kleine Gebiete wie den Vatikan liegt kein Umriss vor; sie bleiben ein Punkt.';
 }

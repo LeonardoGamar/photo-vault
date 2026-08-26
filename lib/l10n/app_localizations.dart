@@ -8075,12 +8075,6 @@ abstract class AppTexte {
   /// **'Orte'**
   String get weltkarteOrte;
 
-  /// No description provided for @weltkarteHinweis.
-  ///
-  /// In de, this message translates to:
-  /// **'Was die Fotos belegen, steht schon auf der Karte. Tippe auf eine Stelle, um von Hand zu markieren, was kein Bild zeigt.'**
-  String get weltkarteHinweis;
-
   /// No description provided for @weltkarteKeinOrt.
   ///
   /// In de, this message translates to:
@@ -8092,30 +8086,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'„{name}“ ist markiert.'**
   String weltkarteMarkeGesetzt(String name);
-
-  /// No description provided for @weltkarteNaechsterOrt.
-  ///
-  /// In de, this message translates to:
-  /// **'Nächster bekannter Ort: {ort}'**
-  String weltkarteNaechsterOrt(String ort);
-
-  /// No description provided for @weltkarteAlsLand.
-  ///
-  /// In de, this message translates to:
-  /// **'Das ganze Land ({name})'**
-  String weltkarteAlsLand(String name);
-
-  /// No description provided for @weltkarteAlsRegion.
-  ///
-  /// In de, this message translates to:
-  /// **'Die Region ({name})'**
-  String weltkarteAlsRegion(String name);
-
-  /// No description provided for @weltkarteAlsOrt.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur den Ort ({name})'**
-  String weltkarteAlsOrt(String name);
 
   /// No description provided for @weltkarteOeffnen.
   ///
@@ -9202,6 +9172,54 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Standort wird ermittelt …'**
   String get karteStandortSuche;
+
+  /// No description provided for @weltkarteKlickMarkiert.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein Klick markiert'**
+  String get weltkarteKlickMarkiert;
+
+  /// No description provided for @weltkarteMarkeWeggenommen.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}“ ist nicht mehr markiert.'**
+  String weltkarteMarkeWeggenommen(String name);
+
+  /// No description provided for @weltkarteSchonBelegt.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}“ belegen deine Fotos bereits.'**
+  String weltkarteSchonBelegt(String name);
+
+  /// No description provided for @weltkarteLegende.
+  ///
+  /// In de, this message translates to:
+  /// **'Woher eine Marke stammt'**
+  String get weltkarteLegende;
+
+  /// No description provided for @weltkarteLegendeFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausgefüllt, durchgezogener Rand: durch verortete Aufnahmen belegt.'**
+  String get weltkarteLegendeFotos;
+
+  /// No description provided for @weltkarteLegendeHand.
+  ///
+  /// In de, this message translates to:
+  /// **'Blass, gepunkteter Rand: von Hand markiert, ohne Foto.'**
+  String get weltkarteLegendeHand;
+
+  /// No description provided for @weltkarteLegendeGeplant.
+  ///
+  /// In de, this message translates to:
+  /// **'Fast leer, gestrichelter Rand: geplant – zählt nicht als besucht.'**
+  String get weltkarteLegendeGeplant;
+
+  /// No description provided for @weltkarteOhneUmriss.
+  ///
+  /// In de, this message translates to:
+  /// **'Für kleine Gebiete wie den Vatikan liegt kein Umriss vor; sie bleiben ein Punkt.'**
+  String get weltkarteOhneUmriss;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {
