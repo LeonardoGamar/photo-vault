@@ -250,6 +250,55 @@ echter Hardware.
   bereinigen, verwaiste **Dateien** ohne DB-Zeile wahlweise einzeln oder
   alle auf einmal
 
+### Orte, Reisen und Familie
+
+- **Weltkarte** – nicht die Fotokarte, sondern die Übersicht: welche Länder
+  und Regionen besucht sind, welche geplant. Ein Klick malt das Land aus;
+  die Umrisse kommen aus einer mitgelieferten Datei (1,1 MB, aus
+  [Natural Earth](https://www.naturalearthdata.com) gebaut), nicht aus dem
+  Netz. Die drei Zustände unterscheiden sich nicht nur im Farbton, sondern
+  auch im Strichmuster des Randes – sonst wären es für einen
+  Rotgrünblinden drei gleiche Flächen.
+- **Ortsansicht** – ein Bildschirm für Land, Region und Ort, dreimal
+  derselbe: Flagge und Zahlen im Kopf, darunter die nächste Ebene zum
+  Weiterklicken, darunter die Fotos. Die Liste führt **auch das
+  Unbesuchte** – eine Liste, die nur zeigt, wo man war, ist ein Spiegel
+  der eigenen Fotos; erst mit den übrigen wird sie eine Landkarte.
+- **Globus** – dieselben Punkte auf einer drehbaren Kugel, mit
+  Geländeschattierung.
+- **Reisen** – **vorgeschlagen statt verlangt**: Die App findet
+  zusammenhängende Zeiträume fern von zu Hause selbst und fragt nach, statt
+  ein leeres Formular hinzustellen. Dazu ein Reisetagebuch mit Kapiteln je
+  Tag und einer Route über die Aufnahmeorte.
+- **Aktivitäten** – dasselbe eine Stufe kleiner: Wanderungen, Radtouren,
+  Ausflüge, Besichtigungen, Bootsfahrten. Eine Aktivität steht für sich
+  und kann zu einer Reise gehören; die Sonntagswanderung vor der Haustür
+  braucht keinen Urlaub. Die Art wird nur **nach oben** behauptet – aus der
+  Luftlinie zwischen zwei Fotos folgt sauber einzig „schneller als
+  25 km/h heisst Fahrzeug"; nach unten wird der harmloseste Fall gewählt.
+- **GPX-Spuren** – eine aufgezeichnete Spur bleibt: als Linie über der
+  Foto-Route und als **Höhenprofil über der Strecke** (nicht über der Zeit,
+  denn dort wird jede Rast eine Ebene und jeder Abstieg eine Wand). Auf-
+  und Abstieg werden zweistufig gerechnet – erst geglättet, dann eine
+  Schwelle von fünf Metern; die Schwelle allein reicht nicht, weil sie
+  gegen den Abstand zweier Messungen wirkt und der beim Rauschen doppelt
+  so gross ist wie dessen Ausschlag.
+- **Gelände in drei Dimensionen** – zu einer Spur die Landschaft, die
+  topografische Karte als Textur darauf, die Spur darüber. Sie zeigt
+  etwas, das weder Karte noch Profil zeigt: *wo im Gelände* der Weg
+  verläuft. Ohne neue Abhängigkeit gebaut – gezeichnet wird mit
+  `Canvas.drawVertices`, und die Höhen kommen als freie terrarium-Kacheln
+  von AWS Open Data.
+- **Familienstammbaum** – fünf Ansichten (Baum, Fächer, Sanduhr,
+  Nachfahren, Liste) plus **Zeitleiste** und **Familienstatistik**.
+  Adoptiv- und Pflegekanten sind eigene Arten, es gibt eine Kreisprüfung
+  und einen Verwandtschaftsrechner. **GEDCOM 5.5.1 in beide Richtungen** –
+  wer schon geforscht hat, muss nichts abtippen. Ereignisorte aus dem
+  Lebenslauf landen auf Karte und Globus.
+- **Standort** – ein Knopf setzt den eigenen Ort, auf allen drei
+  Plattformen nativ. Die Genauigkeit kommt dabei aus der Datenbank hinter
+  dem Dienst, nicht aus der Bibliothek.
+
 ### KI-Funktionen (alle offline, ONNX Runtime)
 
 - **Gesichtserkennung & -clustering** – **YuNet** (Detektion) + **SFace**
@@ -458,13 +507,15 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 45: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 55: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
 Wiedererkennungs-Schwellen, Sprachwahl, Export-Voreinstellungen,
 ignorierte Gesichter, Klarheit/Vignettierung, importierte Farbtabellen,
-…). Drift migriert das automatisch beim
+Ortsmarken für Länder und Regionen, Reisen und Reisetagebuch,
+Ereignisorte im Stammbaum, Aktivitäten, GPX-Spuren, …). Drift migriert das
+automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
 
