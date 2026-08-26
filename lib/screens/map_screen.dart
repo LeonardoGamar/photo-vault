@@ -16,6 +16,7 @@ import '../services/native_image_converter.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/wisch_zoom.dart';
 import '../widgets/mini_location_map.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
@@ -548,36 +549,43 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _flacheKarteBauen(List<AssetData> located,
       Map<String, List<AssetData>> gruppen, Kartenstil stil) {
-    return FlutterMap(
-      mapController: _flacheKarte,
-      options: MapOptions(
-        initialCenter: _pendingFlatFocus ?? _averageCenter(located),
-        initialZoom: _pendingFlatZoom ?? _standardZoom,
-        onPositionChanged: _onFlatPositionChanged,
-      ),
-      children: [
-        buildMapTileLayer(context, stil: stil),
-        buildMapAttribution(context, stil: stil),
-        MarkerLayer(
-          markers: [
-            for (final gruppe in gruppen.values)
-              Marker(
-                point: _averageCenter(gruppe),
-                width: markerGroesse,
-                height: markerGroesse,
-                alignment: Alignment.center,
-                child: GestureDetector(
-                  onTap: () => _openAsset(gruppe, gruppe.first),
-                  child: _MapThumbMarker(
-                    asset: gruppe.first,
-                    anzahl: gruppe.length,
-                    paths: widget.library.paths,
+    // Der Wisch-Zoom sitzt aussen herum, damit eine Maus ohne Rad
+    // (Magic Mouse) und ein Trackpad ueberhaupt zoomen koennen – die
+    // Kartenbibliothek verschiebt bei solchen Gesten nur. Siehe
+    // [WischZoom], dort steht auch, warum die Reihenfolge stimmt.
+    return WischZoom(
+      steuerung: _flacheKarte,
+      child: FlutterMap(
+        mapController: _flacheKarte,
+        options: MapOptions(
+          initialCenter: _pendingFlatFocus ?? _averageCenter(located),
+          initialZoom: _pendingFlatZoom ?? _standardZoom,
+          onPositionChanged: _onFlatPositionChanged,
+        ),
+        children: [
+          buildMapTileLayer(context, stil: stil),
+          buildMapAttribution(context, stil: stil),
+          MarkerLayer(
+            markers: [
+              for (final gruppe in gruppen.values)
+                Marker(
+                  point: _averageCenter(gruppe),
+                  width: markerGroesse,
+                  height: markerGroesse,
+                  alignment: Alignment.center,
+                  child: GestureDetector(
+                    onTap: () => _openAsset(gruppe, gruppe.first),
+                    child: _MapThumbMarker(
+                      asset: gruppe.first,
+                      anzahl: gruppe.length,
+                      paths: widget.library.paths,
+                    ),
                   ),
                 ),
-              ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 

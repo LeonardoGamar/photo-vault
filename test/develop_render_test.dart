@@ -204,6 +204,36 @@ void main() {
         reason: 'nur rot heisst: die Warnung ist im Renderpfad an');
   });
 
+  test('ein grosses Bild kommt in Zielgroesse heraus', () async {
+    // Der Zweig, den die 256er Bilder oben nie betreten: Ist das Foto
+    // groesser als die Zielkante, muss verkleinert werden.
+    //
+    // Und genau dort steckte ein Fehler, den keiner dieser Tests sehen
+    // konnte: Um die Groesse zu erfahren, wurde das Bild ZUERST ganz
+    // dekodiert und nachgemessen - an einem 24-Megapixel-Foto 348 ms und
+    // 96 MB, fuer zwei Zahlen, die im Dateikopf stehen. Die kleinen
+    // Testbilder gingen an dem Zweig vorbei.
+    final datei = legeGrau('gross.png', kante: 2000);
+    final raus = await DevelopRender.rendere(datei,
+        adjustments: const DevelopAdjustments(), maxDimension: 800);
+    expect(raus, isNotNull);
+    final gerendert = img.decodeJpg(raus!)!;
+    expect(gerendert.width, 800,
+        reason: 'sonst wurde in Originalgroesse gerechnet');
+    expect(gerendert.height, 800, reason: 'quadratisch bleibt quadratisch');
+  });
+
+  test('ein kleines Bild wird NICHT hochgerechnet', () async {
+    // Die Gegenrichtung. Hochrechnen braechte keine Bildinformation,
+    // kostete aber Speicher - und aus einem 256er Bild wuerde ein 800er,
+    // das nur weicher aussieht.
+    final datei = legeGrau('klein.png', kante: 256);
+    final raus = await DevelopRender.rendere(datei,
+        adjustments: const DevelopAdjustments(), maxDimension: 800);
+    expect(raus, isNotNull);
+    expect(img.decodeJpg(raus!)!.width, 256);
+  });
+
   test('sagt, welche Regler dieser Weg nicht umsetzt', () {
     // Ein Regler, der sich bewegen lässt und nichts tut, ist die
     // unangenehmste Art von Fehler – deshalb benennt der Dienst sie, statt

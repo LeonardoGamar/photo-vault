@@ -72,6 +72,11 @@ class _PhotoCompareScreenState extends State<PhotoCompareScreen> {
             transformationController: regler,
             minScale: 1,
             maxScale: 12,
+            // Ohne das verschiebt eine Wischgeste nur, statt zu zoomen –
+            // und eine Magic Mouse hat kein Rad, sondern eine Tastfläche.
+            // macOS meldet ein Wischen darauf wie ein Trackpad, und
+            // Flutters Vorgabe für solche Eingaben ist „verschieben".
+            trackpadScrollCausesScale: true,
             child: Center(child: Image.file(datei, fit: BoxFit.contain)),
           ),
         ),

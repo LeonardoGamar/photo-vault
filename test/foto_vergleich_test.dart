@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -74,6 +75,47 @@ void main() {
       .widgetList<InteractiveViewer>(find.byType(InteractiveViewer))
       .map((v) => v.transformationController!)
       .toList();
+
+  /// Genau das, was macOS bei einer Wischgeste auf einer Tastflaeche
+  /// schickt: eine Pan-Zoom-Folge, kein Radschritt.
+  Future<void> wischen(WidgetTester tester, Offset stelle,
+      {required double wegY}) async {
+    final geste = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+    await geste.panZoomStart(stelle);
+    for (var i = 1; i <= 5; i++) {
+      await geste.panZoomUpdate(stelle, pan: Offset(0, wegY * i / 5));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await geste.panZoomEnd();
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('Wischen zoomt, statt nur zu verschieben', (tester) async {
+    // Eine Magic Mouse hat kein Rad, sondern eine Tastflaeche; macOS
+    // meldet ein Wischen darauf wie ein Trackpad. Flutters Vorgabe fuer
+    // solche Eingaben ist VERSCHIEBEN - ohne
+    // `trackpadScrollCausesScale: true` liesse sich hier also mit einer
+    // solchen Maus ueberhaupt nicht zoomen.
+    await zeige(tester);
+    final stelle = tester.getCenter(find.byType(InteractiveViewer).first);
+    final vorher = regler(tester).first.value.getMaxScaleOnAxis();
+
+    await wischen(tester, stelle, wegY: -120);
+
+    final nachher = regler(tester).first.value.getMaxScaleOnAxis();
+    expect(nachher, greaterThan(vorher),
+        reason: 'nach oben wischen muss vergroessern');
+  });
+
+  testWidgets('nach unten wischen zoomt wieder heraus', (tester) async {
+    await zeige(tester);
+    final stelle = tester.getCenter(find.byType(InteractiveViewer).first);
+    await wischen(tester, stelle, wegY: -200);
+    final vergroessert = regler(tester).first.value.getMaxScaleOnAxis();
+    await wischen(tester, stelle, wegY: 120);
+    expect(regler(tester).first.value.getMaxScaleOnAxis(),
+        lessThan(vergroessert));
+  });
 
   testWidgets('beide Fotos stehen mit ihrem Namen da', (tester) async {
     await zeige(tester);

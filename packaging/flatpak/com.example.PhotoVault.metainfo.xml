@@ -68,6 +68,14 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.10.4" date="2026-08-25">
+      <description>
+        <p>Zooming with a mouse that has no wheel. On the map and in the side-by-side comparison, a swipe on the mouse surface now zooms: up to zoom in, down to zoom out, roughly one zoom level per hundred points of travel. On the map the centre stays put instead of sliding away.</p>
+        <p>A Magic Mouse has a touch surface rather than a scroll wheel, and macOS reports a swipe on it as a continuous gesture - technically the same as a trackpad. Both the map library and Flutter default such input to panning rather than zooming: measured on the map, five upward swipe steps left the zoom at 8.0 and moved the centre from 51.0 to 50.72. Pinch on a real trackpad is deliberately left alone, so the two zoom sources cannot add up, and the plus/minus buttons and double-click zoom are unchanged.</p>
+        <p xml:lang="de">Zoomen mit einer Maus, die kein Rad hat. Auf der Karte und in der Vergleichsansicht zoomt jetzt ein Wischen auf der Mausoberflaeche: nach oben hinein, nach unten heraus, rund eine Zoomstufe je hundert Punkte Wischweg. Auf der Karte bleibt die Mitte dabei stehen, statt wegzurutschen.</p>
+        <p xml:lang="de">Eine Magic Mouse hat eine Tastflaeche statt eines Scrollrades, und macOS meldet ein Wischen darauf als fortlaufende Geste - technisch dasselbe wie auf einem Trackpad. Sowohl die Kartenbibliothek als auch Flutter behandeln solche Eingaben ab Werk als Verschieben statt als Zoomen: An der Karte gemessen liessen fuenf Wischschritte nach oben den Zoom bei 8,0 und schoben die Mitte von 51,0 auf 50,72. Das Kneifen auf einem echten Trackpad bleibt bewusst unberuehrt, damit sich nicht zwei Zoomquellen addieren; die Plus/Minus-Knoepfe und der Doppelklick wirken unveraendert.</p>
+      </description>
+    </release>
     <release version="1.10.3" date="2026-08-25">
       <description>
         <p>Developing needs far less memory on Linux and Windows. The rendering path there unpacked the source photo at full size purely to read its width and height from the pixels, then unpacked it a second time at the size actually wanted. Measured on a 24-megapixel photo: 348 ms and 96 MB for the measuring run, against 3 ms and no memory for reading the header, where those two numbers were all along. It is now unpacked once, straight to the size needed. macOS was not affected.</p>
