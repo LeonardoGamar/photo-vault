@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/reise_detail_screen.dart';
-import 'package:photo_vault/screens/reisefortschritt_screen.dart';
+import 'package:photo_vault/screens/laenderliste_screen.dart';
 import 'package:photo_vault/screens/reisen_screen.dart';
 import 'package:photo_vault/services/backup_service.dart';
 import 'package:photo_vault/services/reverse_geocoder.dart';
@@ -298,14 +298,16 @@ void main() {
     expect(find.textContaining('0 Regionen'), findsOneWidget);
   });
 
-  testWidgets('der Zaehler fuehrt zur Liste der besuchten Laender',
-      (tester) async {
+  testWidgets('der Zaehler fuehrt zur Laenderliste', (tester) async {
     await zeige(tester);
     await tester.tap(find.text('2 von 4 Ländern'));
     await tester.pumpAndSettle();
-    expect(find.byType(ReisefortschrittScreen), findsOneWidget);
-    expect(find.text('Deutschland'), findsOneWidget);
-    expect(find.text('Italien'), findsOneWidget);
+    expect(find.byType(LaenderlisteScreen), findsOneWidget);
+    // Alle vier Laender des Datensatzes, nicht nur die besuchten: Ein
+    // Zaehler „2 von 4" ohne die anderen zwei waere eine halbe Auskunft.
+    for (final name in ['Deutschland', 'Italien', 'Frankreich', 'Spanien']) {
+      expect(find.text(name), findsOneWidget);
+    }
     // Und die Zahl, gegen die gezaehlt wird, wird erklaert statt
     // behauptet.
     expect(find.textContaining('195 souveränen Staaten'), findsOneWidget);
@@ -316,5 +318,61 @@ void main() {
     await db.delete(db.assets).go();
     await zeige(tester);
     expect(find.textContaining('erkennt sie'), findsOneWidget);
+  });
+
+  testWidgets('jeder Aufenthaltsort bekommt eine Bildmarke auf der Karte',
+      (tester) async {
+    // Punkt 5 der Wunschliste: nicht nackte Kreise, sondern das Bild, das
+    // dort entstanden ist – und die Zahl, wie viele es sind.
+    //
+    // Rom liegt schon aus dem setUp bereit (24 Aufnahmen an sechs Tagen).
+    // Dazu ein Bild aus Florenz, 230 km entfernt: Das muss ein zweiter
+    // Ort werden, sonst faende die Zusammenfassung ueberhaupt keine
+    // Grenze.
+    await db.into(db.assets).insert(AssetsCompanion.insert(
+          id: 'flo',
+          originalFileName: 'flo.jpg',
+          relativePath: 'originals/flo.jpg',
+          checksum: 'pruef-flo',
+          type: 'IMAGE',
+          fileCreatedAt: DateTime(2024, 6, 12, 10),
+          importedAt: DateTime(2024),
+          latitude: const Value(43.7696),
+          longitude: const Value(11.2558),
+          locationCity: const Value('Firenze'),
+          locationCountry: const Value('Italien'),
+        ));
+    await db.reiseAnlegen(
+      ReisenCompanion.insert(
+        id: 'r1',
+        name: 'Italien',
+        von: DateTime(2024, 6, 3),
+        bis: DateTime(2024, 6, 12),
+        angelegtAm: DateTime(2024, 7, 1),
+      ),
+      [
+        for (var t = 0; t < 6; t++)
+          for (var i = 0; i < 4; i++) 'r$t-$i',
+        'flo',
+      ],
+    );
+
+    tester.view.physicalSize = const Size(900, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      theme: buildDarkTheme(),
+      home: ReiseDetailScreen(
+          library: library, reise: (await db.alleReisen()).single),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Roma · 24 Aufnahmen'), findsOneWidget);
+    expect(find.byTooltip('Firenze · eine Aufnahme'), findsOneWidget);
+    // Die Zahl steht an der Marke – aber nur, wo mehr als eine ist.
+    expect(find.text('24'), findsOneWidget);
   });
 }

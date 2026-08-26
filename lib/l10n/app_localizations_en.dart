@@ -42,6 +42,13 @@ class AppTexteEn extends AppTexte {
   String get navKalender => 'Calendar';
 
   @override
+  String get navReisen => 'Trips';
+
+  @override
+  String get kuerzelReisenOhne =>
+      'Trips have no shortcut – all ten digits were taken, and renumbering would have moved every shortcut you already know.';
+
+  @override
   String get navKarte => 'Map';
 
   @override
@@ -65,17 +72,6 @@ class AppTexteEn extends AppTexte {
   @override
   String geoeffneteBibliothek(String name) {
     return 'Open library: $name';
-  }
-
-  @override
-  String restaurierungLaeuft(int fertig, int gesamt) {
-    return 'Restoring – tile $fertig of $gesamt';
-  }
-
-  @override
-  String restaurierungLaeuftMitWarteschlange(
-      int fertig, int gesamt, int wartend) {
-    return 'Restoring – tile $fertig of $gesamt · $wartend queued';
   }
 
   @override
@@ -2979,9 +2975,55 @@ class AppTexteEn extends AppTexte {
   String get restaurWartet => 'Waiting in the queue';
 
   @override
-  String restaurLaeuft(int erledigt, int gesamt) {
-    return 'Running – tile $erledigt of $gesamt';
+  String restaurProzentLaeuft(int prozent) {
+    return 'AI restoration running – $prozent%';
   }
+
+  @override
+  String restaurProzentMitRest(int prozent, String rest) {
+    return 'AI restoration running – $prozent%, about $rest left';
+  }
+
+  @override
+  String restaurProzentMitWarteschlange(int prozent, int wartend) {
+    return 'AI restoration running – $prozent%, $wartend queued';
+  }
+
+  @override
+  String restaurZeileLaeuft(int prozent) {
+    return 'Running – $prozent%';
+  }
+
+  @override
+  String restaurZeileMitRest(int prozent, String rest) {
+    return 'Running – $prozent%, about $rest left';
+  }
+
+  @override
+  String restaurDauerMinuten(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl minutes',
+      one: 'one minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String restaurDauerSekunden(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl seconds',
+      one: 'one second',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get restaurWasPassiert =>
+      'Real-ESRGAN scales the photo to four times its edge length and smooths noise and compression artefacts along the way. The original is untouched; the result sits beside it and can be removed at any time.';
 
   @override
   String get restaurTitel => 'AI restoration – queue';
@@ -4755,6 +4797,67 @@ class AppTexteEn extends AppTexte {
   String get stammbaumFamilienstatistik => 'Family statistics';
 
   @override
+  String get famstatAufFotos => 'In the photos';
+
+  @override
+  String get famstatAusLebensdaten => 'From the life dates';
+
+  @override
+  String get famstatAufnahmenGesamt => 'Photos';
+
+  @override
+  String get famstatImBild => 'In the picture';
+
+  @override
+  String get famstatZeitraum => 'Period';
+
+  @override
+  String famstatOhneBild(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl people are in no photo',
+      one: 'One person is in no photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get famstatAufnahmenJeJahr => 'Photos per year';
+
+  @override
+  String get famstatOftZusammen => 'Often pictured together';
+
+  @override
+  String famstatVonBis(String von, String bis) {
+    return '$von to $bis';
+  }
+
+  @override
+  String famstatAlterVonBis(int von, int bis) {
+    return 'aged $von to $bis';
+  }
+
+  @override
+  String famstatInJahren(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: 'across $anzahl years',
+      one: 'in one year',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get famstatFehlendeLebensdaten =>
+      'Age at death, age at marriage and age per generation appear once death and marriage dates are entered. Photo Vault does not estimate them.';
+
+  @override
+  String get famstatKeineFotos =>
+      'Nobody from this family has been recognised in a photo yet.';
+
+  @override
   String get famstatLeer => 'No one is recorded for this family.';
 
   @override
@@ -4975,9 +5078,6 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
-  String get fortschrittTitel => 'Countries and places';
-
-  @override
   String fortschrittLaender(int besucht, int gesamt) {
     return '$besucht of $gesamt countries';
   }
@@ -5014,7 +5114,156 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
-  String get fortschrittBesucht => 'Visited';
+  String get weltkarteTitel => 'World map';
+
+  @override
+  String get weltkarteEbenen => 'Layers';
+
+  @override
+  String get weltkarteLaender => 'Countries';
+
+  @override
+  String get weltkarteRegionen => 'Regions';
+
+  @override
+  String get weltkarteOrte => 'Places';
+
+  @override
+  String get weltkarteHinweis =>
+      'What your photos prove is already on the map. Tap a spot to mark by hand what no photo shows.';
+
+  @override
+  String get weltkarteKeinOrt => 'The data set knows no place at this spot.';
+
+  @override
+  String weltkarteMarkeGesetzt(String name) {
+    return '“$name” is marked.';
+  }
+
+  @override
+  String weltkarteNaechsterOrt(String ort) {
+    return 'Nearest known place: $ort';
+  }
+
+  @override
+  String weltkarteAlsLand(String name) {
+    return 'The whole country ($name)';
+  }
+
+  @override
+  String weltkarteAlsRegion(String name) {
+    return 'The region ($name)';
+  }
+
+  @override
+  String weltkarteAlsOrt(String name) {
+    return 'Just the place ($name)';
+  }
+
+  @override
+  String get weltkarteOeffnen => 'World map';
+
+  @override
+  String get laenderTitel => 'Countries';
+
+  @override
+  String laenderKopf(int gesamt, int besucht, int teilweise) {
+    return '$gesamt countries · $besucht visited · $teilweise partial';
+  }
+
+  @override
+  String get laenderSuchen => 'Search country or capital';
+
+  @override
+  String get laenderFilter => 'Filter by';
+
+  @override
+  String get laenderAlle => 'All';
+
+  @override
+  String get laenderVollstaendig => 'Complete';
+
+  @override
+  String get laenderTeilweise => 'Partial';
+
+  @override
+  String get laenderNichtBesucht => 'Not visited';
+
+  @override
+  String get laenderBesucht => 'Visited';
+
+  @override
+  String get laenderGeplant => 'Planned';
+
+  @override
+  String get laenderVerbleibend => 'Remaining';
+
+  @override
+  String laenderRegionen(int besucht, int gesamt) {
+    return '$besucht of $gesamt regions';
+  }
+
+  @override
+  String get laenderOhneRegionen => 'No regions on record';
+
+  @override
+  String laenderAufnahmen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos',
+      one: 'one photo',
+      zero: 'no photos',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get laenderNichtsGefunden => 'No country matches your search.';
+
+  @override
+  String get laenderMarkeBesucht => 'Mark as visited';
+
+  @override
+  String get laenderMarkeGeplant => 'Mark as planned';
+
+  @override
+  String get laenderMarkeWeg => 'Remove mark';
+
+  @override
+  String get laenderVonHand => 'by hand';
+
+  @override
+  String get laenderOhneGeodaten =>
+      'Without the GeoNames data set there is no country directory. It is downloaded under “Tools”.';
+
+  @override
+  String get laenderHinweisMarke =>
+      'What your photos prove appears here on its own. Mark by hand what no photo shows – the trip before your first digital camera, or next year\'s destination.';
+
+  @override
+  String get erdteilEU => 'Europe';
+
+  @override
+  String get erdteilAS => 'Asia';
+
+  @override
+  String get erdteilNA => 'North America';
+
+  @override
+  String get erdteilSA => 'South America';
+
+  @override
+  String get erdteilAF => 'Africa';
+
+  @override
+  String get erdteilOC => 'Oceania';
+
+  @override
+  String get erdteilAN => 'Antarctica';
+
+  @override
+  String get erdteilUnbekannt => 'No continent';
 
   @override
   String get werkzGpxTitel => 'Locate photos from a GPX track';
@@ -5166,6 +5415,25 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get stammbaumAnsichtSanduhr => 'Hourglass';
+
+  @override
+  String get stammbaumGrosseltern => 'Grandparents';
+
+  @override
+  String get stammbaumOnkelTanten => 'Aunts and uncles';
+
+  @override
+  String get stammbaumNeffenNichten => 'Nieces and nephews';
+
+  @override
+  String get stammbaumSchwiegereltern => 'Parents-in-law';
+
+  @override
+  String get stammbaumSeitenaeste => 'Side branches';
+
+  @override
+  String get stammbaumSeitenaesteHinweis =>
+      'Grandparents, aunts and uncles, nieces and nephews, parents-in-law – the rest of the close family, without having to move onto them first.';
 
   @override
   String get stammbaumSeitenlinien => 'Collateral line';

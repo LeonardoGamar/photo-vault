@@ -213,6 +213,23 @@ class Stammbaumausschnitt {
   final List<String> partner;
   final List<String> kinder;
 
+  /// Die Seitenäste – leer, solange sie nicht angefordert werden.
+  ///
+  /// Der Baum zeigte bisher genau fünf Rollen: Eltern, Geschwister,
+  /// Fokus, Partner, Kinder. Wer wissen wollte, wo seine Tante steht,
+  /// musste erst auf sie zurücken. Diese vier Mengen sind der Rest der
+  /// engeren Verwandtschaft, den man auf einem Blatt noch unterbringt.
+  final List<String> grosseltern;
+
+  /// Die Geschwister der Eltern.
+  final List<String> onkelTanten;
+
+  /// Die Kinder der Geschwister.
+  final List<String> neffenNichten;
+
+  /// Die Eltern der Partner.
+  final List<String> schwiegereltern;
+
   /// Je Person: ob sie ihrerseits Eltern bzw. Kinder hat, die hier nicht
   /// gezeigt werden.
   final Map<String, bool> weitereOben;
@@ -226,8 +243,16 @@ class Stammbaumausschnitt {
     required this.kinder,
     required this.weitereOben,
     required this.weitereUnten,
+    this.grosseltern = const [],
+    this.onkelTanten = const [],
+    this.neffenNichten = const [],
+    this.schwiegereltern = const [],
   });
 
+  /// „Leer" heißt weiterhin: um die Person herum steht niemand. Die
+  /// Seitenäste zählen dabei nicht mit – sie können ohne Eltern gar nicht
+  /// entstehen, und ein Ausschnitt, der nur aus Grosseltern bestünde,
+  /// gibt es nicht.
   bool get istLeer =>
       eltern.isEmpty && geschwister.isEmpty && partner.isEmpty && kinder.isEmpty;
 }
@@ -238,11 +263,17 @@ class Stammbaumausschnitt {
 /// übergeben wird die nach Geburtsdatum und Name sortierte Liste aller
 /// Kennungen. Ohne feste Reihenfolge sprängen die Karten bei jedem Aufbau
 /// umher, weil die Mengen oben unsortiert sind.
+///
+/// [seitenlinien] nimmt Grosseltern, Onkel und Tanten, Neffen und Nichten
+/// sowie Schwiegereltern dazu. Standardmäßig aus: Der schmale Ausschnitt
+/// ist der, der auf jedem Fenster steht, und wer nur die gerade Linie
+/// sucht, soll sie nicht zwischen Seitenästen suchen müssen.
 Stammbaumausschnitt ausschnittUm(
   Verwandtschaftsnetz netz,
   String fokus,
-  List<String> reihenfolge,
-) {
+  List<String> reihenfolge, {
+  bool seitenlinien = false,
+}) {
   final rang = {for (var i = 0; i < reihenfolge.length; i++) reihenfolge[i]: i};
   List<String> sortiert(Iterable<String> ids) =>
       ids.toList()..sort((a, b) => (rang[a] ?? 1 << 30).compareTo(rang[b] ?? 1 << 30));
@@ -251,6 +282,34 @@ Stammbaumausschnitt ausschnittUm(
   final geschwister = sortiert(netz.geschwister(fokus));
   final partner = sortiert(netz.partner(fokus));
   final kinder = sortiert(netz.kinder(fokus));
+
+  // Die Seitenäste. Jeder wird gegen die schon gezeigten Personen
+  // abgezogen: In einer Familie, in der ein Cousin zugleich ein
+  // Halbgeschwister ist, stünde dieselbe Karte sonst zweimal im Bild –
+  // und zwei Karten für einen Menschen sind kein Baum, sondern ein
+  // Fehler.
+  final kern = {fokus, ...eltern, ...geschwister, ...partner, ...kinder};
+  List<String> ohneKern(Iterable<String> ids, Set<String> schon) =>
+      sortiert(ids.where((id) => !kern.contains(id) && !schon.contains(id)));
+
+  var grosseltern = const <String>[];
+  var onkelTanten = const <String>[];
+  var neffenNichten = const <String>[];
+  var schwiegereltern = const <String>[];
+  if (seitenlinien) {
+    final belegt = <String>{};
+    grosseltern = ohneKern(
+        [for (final e in eltern) ...netz.eltern(e)], belegt);
+    belegt.addAll(grosseltern);
+    onkelTanten =
+        ohneKern([for (final e in eltern) ...netz.geschwister(e)], belegt);
+    belegt.addAll(onkelTanten);
+    schwiegereltern =
+        ohneKern([for (final p in partner) ...netz.eltern(p)], belegt);
+    belegt.addAll(schwiegereltern);
+    neffenNichten =
+        ohneKern([for (final g in geschwister) ...netz.kinder(g)], belegt);
+  }
 
   // Ein Hinweis bedeutet: „von dieser Person geht es weiter, aber das
   // Weitere steht nicht in diesem Bild". Also genau dann, wenn nicht alle
@@ -263,7 +322,13 @@ Stammbaumausschnitt ausschnittUm(
   // an die niemand gedacht hat: das Halbgeschwister mit einem zweiten,
   // nicht gezeigten Elternteil, oder den Partner mit Kindern aus einer
   // früheren Verbindung.
-  final imBild = {fokus, ...eltern, ...geschwister, ...partner, ...kinder};
+  final imBild = {
+    ...kern,
+    ...grosseltern,
+    ...onkelTanten,
+    ...neffenNichten,
+    ...schwiegereltern,
+  };
   final weitereOben = <String, bool>{};
   final weitereUnten = <String, bool>{};
   for (final id in imBild) {
@@ -277,6 +342,10 @@ Stammbaumausschnitt ausschnittUm(
     geschwister: geschwister,
     partner: partner,
     kinder: kinder,
+    grosseltern: grosseltern,
+    onkelTanten: onkelTanten,
+    neffenNichten: neffenNichten,
+    schwiegereltern: schwiegereltern,
     weitereOben: weitereOben,
     weitereUnten: weitereUnten,
   );

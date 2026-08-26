@@ -14,6 +14,8 @@
   "navTimeline": "Timeline",
   "navErkunden": "Erkunden",
   "navKalender": "Kalender",
+  "navReisen": "Reisen",
+  "kuerzelReisenOhne": "Die Reisen haben kein Kürzel – die zehn Ziffern waren vergeben, und eine Umnummerierung hätte alle eingeübten verschoben.",
   "navKarte": "Karte",
   "navSuche": "Suche",
   "navPersonen": "Personen",
@@ -27,31 +29,6 @@
     "placeholders": {
       "name": {
         "type": "String"
-      }
-    }
-  },
-  "restaurierungLaeuft": "KI-Restaurierung läuft – Kachel {fertig}/{gesamt}",
-  "@restaurierungLaeuft": {
-    "placeholders": {
-      "fertig": {
-        "type": "int"
-      },
-      "gesamt": {
-        "type": "int"
-      }
-    }
-  },
-  "restaurierungLaeuftMitWarteschlange": "KI-Restaurierung läuft – Kachel {fertig}/{gesamt} · {wartend} in Warteschlange",
-  "@restaurierungLaeuftMitWarteschlange": {
-    "placeholders": {
-      "fertig": {
-        "type": "int"
-      },
-      "gesamt": {
-        "type": "int"
-      },
-      "wartend": {
-        "type": "int"
       }
     }
   },
@@ -1539,17 +1516,21 @@
   },
   "personVerwerfen": "Verwerfen",
   "restaurWartet": "Wartet in der Warteschlange",
-  "restaurLaeuft": "Läuft – Kachel {erledigt} von {gesamt}",
-  "@restaurLaeuft": {
-    "placeholders": {
-      "erledigt": {
-        "type": "int"
-      },
-      "gesamt": {
-        "type": "int"
-      }
-    }
-  },
+  "restaurProzentLaeuft": "KI-Restaurierung läuft – {prozent} %",
+  "@restaurProzentLaeuft": {"placeholders": {"prozent": {"type": "int"}}},
+  "restaurProzentMitRest": "KI-Restaurierung läuft – {prozent} %, noch etwa {rest}",
+  "@restaurProzentMitRest": {"placeholders": {"prozent": {"type": "int"}, "rest": {"type": "String"}}},
+  "restaurProzentMitWarteschlange": "KI-Restaurierung läuft – {prozent} %, {wartend} in Warteschlange",
+  "@restaurProzentMitWarteschlange": {"placeholders": {"prozent": {"type": "int"}, "wartend": {"type": "int"}}},
+  "restaurZeileLaeuft": "Läuft – {prozent} %",
+  "@restaurZeileLaeuft": {"placeholders": {"prozent": {"type": "int"}}},
+  "restaurZeileMitRest": "Läuft – {prozent} %, noch etwa {rest}",
+  "@restaurZeileMitRest": {"placeholders": {"prozent": {"type": "int"}, "rest": {"type": "String"}}},
+  "restaurDauerMinuten": "{anzahl, plural, =1{eine Minute} other{{anzahl} Minuten}}",
+  "@restaurDauerMinuten": {"placeholders": {"anzahl": {"type": "int"}}},
+  "restaurDauerSekunden": "{anzahl, plural, =1{eine Sekunde} other{{anzahl} Sekunden}}",
+  "@restaurDauerSekunden": {"placeholders": {"anzahl": {"type": "int"}}},
+  "restaurWasPassiert": "Real-ESRGAN rechnet das Foto auf die vierfache Kantenlänge hoch und glättet dabei Rauschen und Kompressionsspuren. Das Original bleibt unangetastet; das Ergebnis liegt daneben und lässt sich jederzeit wieder entfernen.",
   "restaurTitel": "KI-Restaurierung – Warteschlange",
   "restaurLeer": "Keine Restaurierungs-Aufträge vorhanden.\nIm Entwickeln-Screen eines Fotos lässt sich eine KI-Restaurierung anstoßen.",
   "restaurAusListe": "Aus der Liste entfernen",
@@ -2757,6 +2738,23 @@
     }
   },
   "stammbaumFamilienstatistik": "Familienstatistik",
+  "famstatAufFotos": "Auf den Fotos",
+  "famstatAusLebensdaten": "Aus den Lebensdaten",
+  "famstatAufnahmenGesamt": "Aufnahmen",
+  "famstatImBild": "Im Bild",
+  "famstatZeitraum": "Zeitraum",
+  "famstatOhneBild": "{anzahl, plural, =1{Eine Person ist auf keinem Bild} other{{anzahl} Personen sind auf keinem Bild}}",
+  "@famstatOhneBild": {"placeholders": {"anzahl": {"type": "int"}}},
+  "famstatAufnahmenJeJahr": "Aufnahmen je Jahr",
+  "famstatOftZusammen": "Oft zusammen im Bild",
+  "famstatVonBis": "{von} bis {bis}",
+  "@famstatVonBis": {"placeholders": {"von": {"type": "String"}, "bis": {"type": "String"}}},
+  "famstatAlterVonBis": "{von} bis {bis} Jahre alt",
+  "@famstatAlterVonBis": {"placeholders": {"von": {"type": "int"}, "bis": {"type": "int"}}},
+  "famstatInJahren": "{anzahl, plural, =1{in einem Jahr} other{in {anzahl} Jahren}}",
+  "@famstatInJahren": {"placeholders": {"anzahl": {"type": "int"}}},
+  "famstatFehlendeLebensdaten": "Sterbealter, Heiratsalter und Alter je Generation stehen erst da, wenn Sterbe- und Hochzeitsdaten eingetragen sind. Photo Vault schätzt sie nicht.",
+  "famstatKeineFotos": "Von dieser Familie ist noch niemand auf einem Foto erkannt worden.",
   "famstatLeer": "Zu dieser Familie ist niemand eingetragen.",
   "famstatPersonen": "Personen",
   "famstatLebensalter": "Lebensalter",
@@ -2917,7 +2915,6 @@
       }
     }
   },
-  "fortschrittTitel": "Länder und Orte",
   "fortschrittLaender": "{besucht} von {gesamt} Ländern",
   "@fortschrittLaender": {
     "placeholders": {
@@ -2954,7 +2951,69 @@
       }
     }
   },
-  "fortschrittBesucht": "Besucht",
+  "weltkarteTitel": "Weltkarte",
+  "weltkarteEbenen": "Ebenen",
+  "weltkarteLaender": "Länder",
+  "weltkarteRegionen": "Regionen",
+  "weltkarteOrte": "Orte",
+  "weltkarteHinweis": "Was die Fotos belegen, steht schon auf der Karte. Tippe auf eine Stelle, um von Hand zu markieren, was kein Bild zeigt.",
+  "weltkarteKeinOrt": "An dieser Stelle kennt der Datensatz keinen Ort.",
+  "weltkarteMarkeGesetzt": "„{name}“ ist markiert.",
+  "@weltkarteMarkeGesetzt": {"placeholders": {"name": {"type": "String"}}},
+  "weltkarteNaechsterOrt": "Nächster bekannter Ort: {ort}",
+  "@weltkarteNaechsterOrt": {"placeholders": {"ort": {"type": "String"}}},
+  "weltkarteAlsLand": "Das ganze Land ({name})",
+  "@weltkarteAlsLand": {"placeholders": {"name": {"type": "String"}}},
+  "weltkarteAlsRegion": "Die Region ({name})",
+  "@weltkarteAlsRegion": {"placeholders": {"name": {"type": "String"}}},
+  "weltkarteAlsOrt": "Nur den Ort ({name})",
+  "@weltkarteAlsOrt": {"placeholders": {"name": {"type": "String"}}},
+  "weltkarteOeffnen": "Weltkarte",
+  "laenderTitel": "Länderliste",
+  "laenderKopf": "{gesamt} Länder · {besucht} besucht · {teilweise} teilweise",
+  "@laenderKopf": {
+    "placeholders": {
+      "gesamt": { "type": "int" },
+      "besucht": { "type": "int" },
+      "teilweise": { "type": "int" }
+    }
+  },
+  "laenderSuchen": "Land oder Hauptstadt suchen",
+  "laenderFilter": "Filtern nach",
+  "laenderAlle": "Alle",
+  "laenderVollstaendig": "Vollständig",
+  "laenderTeilweise": "Teilweise",
+  "laenderNichtBesucht": "Nicht besucht",
+  "laenderBesucht": "Besucht",
+  "laenderGeplant": "Geplant",
+  "laenderVerbleibend": "Verbleibend",
+  "laenderRegionen": "{besucht} von {gesamt} Regionen",
+  "@laenderRegionen": {
+    "placeholders": {
+      "besucht": { "type": "int" },
+      "gesamt": { "type": "int" }
+    }
+  },
+  "laenderOhneRegionen": "Keine Regionen verzeichnet",
+  "laenderAufnahmen": "{anzahl, plural, =0{keine Aufnahme} =1{eine Aufnahme} other{{anzahl} Aufnahmen}}",
+  "@laenderAufnahmen": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "laenderNichtsGefunden": "Kein Land passt zur Suche.",
+  "laenderMarkeBesucht": "Als besucht markieren",
+  "laenderMarkeGeplant": "Als geplant markieren",
+  "laenderMarkeWeg": "Marke entfernen",
+  "laenderVonHand": "von Hand",
+  "laenderOhneGeodaten": "Ohne den GeoNames-Datensatz gibt es kein Länderverzeichnis. Er wird unter „Werkzeuge“ geladen.",
+  "laenderHinweisMarke": "Was die Fotos belegen, steht hier von selbst. Von Hand markiert wird, wovon es kein Bild gibt – die Reise vor der ersten Digitalkamera oder das Ziel für nächstes Jahr.",
+  "erdteilEU": "Europa",
+  "erdteilAS": "Asien",
+  "erdteilNA": "Nordamerika",
+  "erdteilSA": "Südamerika",
+  "erdteilAF": "Afrika",
+  "erdteilOC": "Ozeanien",
+  "erdteilAN": "Antarktis",
+  "erdteilUnbekannt": "Ohne Erdteil",
   "werkzGpxTitel": "Aus einer GPX-Spur verorten",
   "werkzGpxText": "Eine Aufzeichnung trägt Zeitstempel. Damit bekommen auch Aufnahmen aus Kameras ohne GPS ihren Ort.",
   "gpxTitel": "Aus GPX verorten",
@@ -3043,6 +3102,12 @@
   "stammbaumAdoptiv": "Adoptiv",
   "stammbaumPflege": "Pflege",
   "stammbaumAnsichtSanduhr": "Sanduhr",
+  "stammbaumGrosseltern": "Großeltern",
+  "stammbaumOnkelTanten": "Onkel und Tanten",
+  "stammbaumNeffenNichten": "Neffen und Nichten",
+  "stammbaumSchwiegereltern": "Schwiegereltern",
+  "stammbaumSeitenaeste": "Seitenäste",
+  "stammbaumSeitenaesteHinweis": "Großeltern, Onkel und Tanten, Neffen und Nichten, Schwiegereltern – der Rest der engeren Verwandtschaft, ohne dass man erst auf sie rücken muss.",
   "stammbaumSeitenlinien": "Seitenlinie",
   "stammbaumSeitenlinienHinweis": "Geschwister neben der Person, deren Kinder darunter – so werden auch Neffen, Nichten und Schwäger sichtbar.",
   "lebenslaufVon": "Lebenslauf: {name}",

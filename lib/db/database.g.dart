@@ -10258,6 +10258,12 @@ class $RestoreJobsTable extends RestoreJobs
   late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
       'created_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _startedAtMeta =
+      const VerificationMeta('startedAt');
+  @override
+  late final GeneratedColumn<DateTime> startedAt = GeneratedColumn<DateTime>(
+      'started_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _completedAtMeta =
       const VerificationMeta('completedAt');
   @override
@@ -10273,6 +10279,7 @@ class $RestoreJobsTable extends RestoreJobs
         tilesTotal,
         errorMessage,
         createdAt,
+        startedAt,
         completedAt
       ];
   @override
@@ -10324,6 +10331,10 @@ class $RestoreJobsTable extends RestoreJobs
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('started_at')) {
+      context.handle(_startedAtMeta,
+          startedAt.isAcceptableOrUnknown(data['started_at']!, _startedAtMeta));
+    }
     if (data.containsKey('completed_at')) {
       context.handle(
           _completedAtMeta,
@@ -10353,6 +10364,8 @@ class $RestoreJobsTable extends RestoreJobs
           .read(DriftSqlType.string, data['${effectivePrefix}error_message']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      startedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}started_at']),
       completedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}completed_at']),
     );
@@ -10372,6 +10385,15 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
   final int tilesTotal;
   final String? errorMessage;
   final DateTime createdAt;
+
+  /// Wann der Auftrag tatsächlich **begonnen** hat.
+  ///
+  /// Nicht dasselbe wie [createdAt]: Zwischen Einreihen und Anfangen
+  /// können Stunden liegen, wenn mehrere Aufträge warten. Ohne diese
+  /// Spalte liesse sich keine Restzeit schätzen, die stimmt – jede
+  /// Rechnung aus der Wartezeit wäre eine Lüge, und eine Lüge über eine
+  /// Restzeit merkt man erst, wenn sie abgelaufen ist.
+  final DateTime? startedAt;
   final DateTime? completedAt;
   const RestoreJobData(
       {required this.id,
@@ -10381,6 +10403,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
       required this.tilesTotal,
       this.errorMessage,
       required this.createdAt,
+      this.startedAt,
       this.completedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -10394,6 +10417,9 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
       map['error_message'] = Variable<String>(errorMessage);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || startedAt != null) {
+      map['started_at'] = Variable<DateTime>(startedAt);
+    }
     if (!nullToAbsent || completedAt != null) {
       map['completed_at'] = Variable<DateTime>(completedAt);
     }
@@ -10411,6 +10437,9 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
           ? const Value.absent()
           : Value(errorMessage),
       createdAt: Value(createdAt),
+      startedAt: startedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startedAt),
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(completedAt),
@@ -10428,6 +10457,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
       tilesTotal: serializer.fromJson<int>(json['tilesTotal']),
       errorMessage: serializer.fromJson<String?>(json['errorMessage']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      startedAt: serializer.fromJson<DateTime?>(json['startedAt']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
     );
   }
@@ -10442,6 +10472,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
       'tilesTotal': serializer.toJson<int>(tilesTotal),
       'errorMessage': serializer.toJson<String?>(errorMessage),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'startedAt': serializer.toJson<DateTime?>(startedAt),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
     };
   }
@@ -10454,6 +10485,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
           int? tilesTotal,
           Value<String?> errorMessage = const Value.absent(),
           DateTime? createdAt,
+          Value<DateTime?> startedAt = const Value.absent(),
           Value<DateTime?> completedAt = const Value.absent()}) =>
       RestoreJobData(
         id: id ?? this.id,
@@ -10464,6 +10496,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
         errorMessage:
             errorMessage.present ? errorMessage.value : this.errorMessage,
         createdAt: createdAt ?? this.createdAt,
+        startedAt: startedAt.present ? startedAt.value : this.startedAt,
         completedAt: completedAt.present ? completedAt.value : this.completedAt,
       );
   RestoreJobData copyWithCompanion(RestoreJobsCompanion data) {
@@ -10478,6 +10511,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
           ? data.errorMessage.value
           : this.errorMessage,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      startedAt: data.startedAt.present ? data.startedAt.value : this.startedAt,
       completedAt:
           data.completedAt.present ? data.completedAt.value : this.completedAt,
     );
@@ -10493,6 +10527,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
           ..write('tilesTotal: $tilesTotal, ')
           ..write('errorMessage: $errorMessage, ')
           ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
           ..write('completedAt: $completedAt')
           ..write(')'))
         .toString();
@@ -10500,7 +10535,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
 
   @override
   int get hashCode => Object.hash(id, assetId, status, tilesDone, tilesTotal,
-      errorMessage, createdAt, completedAt);
+      errorMessage, createdAt, startedAt, completedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -10512,6 +10547,7 @@ class RestoreJobData extends DataClass implements Insertable<RestoreJobData> {
           other.tilesTotal == this.tilesTotal &&
           other.errorMessage == this.errorMessage &&
           other.createdAt == this.createdAt &&
+          other.startedAt == this.startedAt &&
           other.completedAt == this.completedAt);
 }
 
@@ -10523,6 +10559,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
   final Value<int> tilesTotal;
   final Value<String?> errorMessage;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> startedAt;
   final Value<DateTime?> completedAt;
   final Value<int> rowid;
   const RestoreJobsCompanion({
@@ -10533,6 +10570,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
     this.tilesTotal = const Value.absent(),
     this.errorMessage = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.startedAt = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -10544,6 +10582,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
     this.tilesTotal = const Value.absent(),
     this.errorMessage = const Value.absent(),
     required DateTime createdAt,
+    this.startedAt = const Value.absent(),
     this.completedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -10558,6 +10597,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
     Expression<int>? tilesTotal,
     Expression<String>? errorMessage,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? startedAt,
     Expression<DateTime>? completedAt,
     Expression<int>? rowid,
   }) {
@@ -10569,6 +10609,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
       if (tilesTotal != null) 'tiles_total': tilesTotal,
       if (errorMessage != null) 'error_message': errorMessage,
       if (createdAt != null) 'created_at': createdAt,
+      if (startedAt != null) 'started_at': startedAt,
       if (completedAt != null) 'completed_at': completedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -10582,6 +10623,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
       Value<int>? tilesTotal,
       Value<String?>? errorMessage,
       Value<DateTime>? createdAt,
+      Value<DateTime?>? startedAt,
       Value<DateTime?>? completedAt,
       Value<int>? rowid}) {
     return RestoreJobsCompanion(
@@ -10592,6 +10634,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
       tilesTotal: tilesTotal ?? this.tilesTotal,
       errorMessage: errorMessage ?? this.errorMessage,
       createdAt: createdAt ?? this.createdAt,
+      startedAt: startedAt ?? this.startedAt,
       completedAt: completedAt ?? this.completedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -10621,6 +10664,9 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (startedAt.present) {
+      map['started_at'] = Variable<DateTime>(startedAt.value);
+    }
     if (completedAt.present) {
       map['completed_at'] = Variable<DateTime>(completedAt.value);
     }
@@ -10640,6 +10686,7 @@ class RestoreJobsCompanion extends UpdateCompanion<RestoreJobData> {
           ..write('tilesTotal: $tilesTotal, ')
           ..write('errorMessage: $errorMessage, ')
           ..write('createdAt: $createdAt, ')
+          ..write('startedAt: $startedAt, ')
           ..write('completedAt: $completedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -14981,6 +15028,437 @@ class VerworfeneReisenCompanion extends UpdateCompanion<VerworfeneReisenData> {
   }
 }
 
+class $OrtsmarkenTable extends Ortsmarken
+    with TableInfo<$OrtsmarkenTable, OrtsmarkenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $OrtsmarkenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _artMeta = const VerificationMeta('art');
+  @override
+  late final GeneratedColumn<String> art = GeneratedColumn<String>(
+      'art', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _schluesselMeta =
+      const VerificationMeta('schluessel');
+  @override
+  late final GeneratedColumn<String> schluessel = GeneratedColumn<String>(
+      'schluessel', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _breiteMeta = const VerificationMeta('breite');
+  @override
+  late final GeneratedColumn<double> breite = GeneratedColumn<double>(
+      'breite', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _laengeMeta = const VerificationMeta('laenge');
+  @override
+  late final GeneratedColumn<double> laenge = GeneratedColumn<double>(
+      'laenge', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _notizMeta = const VerificationMeta('notiz');
+  @override
+  late final GeneratedColumn<String> notiz = GeneratedColumn<String>(
+      'notiz', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _angelegtAmMeta =
+      const VerificationMeta('angelegtAm');
+  @override
+  late final GeneratedColumn<DateTime> angelegtAm = GeneratedColumn<DateTime>(
+      'angelegt_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [art, schluessel, name, breite, laenge, status, notiz, angelegtAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'ortsmarken';
+  @override
+  VerificationContext validateIntegrity(Insertable<OrtsmarkenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('art')) {
+      context.handle(
+          _artMeta, art.isAcceptableOrUnknown(data['art']!, _artMeta));
+    } else if (isInserting) {
+      context.missing(_artMeta);
+    }
+    if (data.containsKey('schluessel')) {
+      context.handle(
+          _schluesselMeta,
+          schluessel.isAcceptableOrUnknown(
+              data['schluessel']!, _schluesselMeta));
+    } else if (isInserting) {
+      context.missing(_schluesselMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('breite')) {
+      context.handle(_breiteMeta,
+          breite.isAcceptableOrUnknown(data['breite']!, _breiteMeta));
+    }
+    if (data.containsKey('laenge')) {
+      context.handle(_laengeMeta,
+          laenge.isAcceptableOrUnknown(data['laenge']!, _laengeMeta));
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('notiz')) {
+      context.handle(
+          _notizMeta, notiz.isAcceptableOrUnknown(data['notiz']!, _notizMeta));
+    }
+    if (data.containsKey('angelegt_am')) {
+      context.handle(
+          _angelegtAmMeta,
+          angelegtAm.isAcceptableOrUnknown(
+              data['angelegt_am']!, _angelegtAmMeta));
+    } else if (isInserting) {
+      context.missing(_angelegtAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {art, schluessel};
+  @override
+  OrtsmarkenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return OrtsmarkenData(
+      art: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}art'])!,
+      schluessel: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}schluessel'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      breite: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}breite']),
+      laenge: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}laenge']),
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      notiz: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notiz']),
+      angelegtAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}angelegt_am'])!,
+    );
+  }
+
+  @override
+  $OrtsmarkenTable createAlias(String alias) {
+    return $OrtsmarkenTable(attachedDatabase, alias);
+  }
+}
+
+class OrtsmarkenData extends DataClass implements Insertable<OrtsmarkenData> {
+  /// `land`, `region` oder `ort`.
+  final String art;
+  final String schluessel;
+
+  /// Der Name zum Zeitpunkt des Setzens.
+  ///
+  /// Mitgeschrieben und nicht jedes Mal nachgeschlagen: Ohne den
+  /// GeoNames-Datensatz gäbe es sonst eine Liste aus Codes.
+  final String name;
+  final double? breite;
+  final double? laenge;
+
+  /// `besucht` oder `geplant`.
+  final String status;
+  final String? notiz;
+  final DateTime angelegtAm;
+  const OrtsmarkenData(
+      {required this.art,
+      required this.schluessel,
+      required this.name,
+      this.breite,
+      this.laenge,
+      required this.status,
+      this.notiz,
+      required this.angelegtAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['art'] = Variable<String>(art);
+    map['schluessel'] = Variable<String>(schluessel);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || breite != null) {
+      map['breite'] = Variable<double>(breite);
+    }
+    if (!nullToAbsent || laenge != null) {
+      map['laenge'] = Variable<double>(laenge);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || notiz != null) {
+      map['notiz'] = Variable<String>(notiz);
+    }
+    map['angelegt_am'] = Variable<DateTime>(angelegtAm);
+    return map;
+  }
+
+  OrtsmarkenCompanion toCompanion(bool nullToAbsent) {
+    return OrtsmarkenCompanion(
+      art: Value(art),
+      schluessel: Value(schluessel),
+      name: Value(name),
+      breite:
+          breite == null && nullToAbsent ? const Value.absent() : Value(breite),
+      laenge:
+          laenge == null && nullToAbsent ? const Value.absent() : Value(laenge),
+      status: Value(status),
+      notiz:
+          notiz == null && nullToAbsent ? const Value.absent() : Value(notiz),
+      angelegtAm: Value(angelegtAm),
+    );
+  }
+
+  factory OrtsmarkenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return OrtsmarkenData(
+      art: serializer.fromJson<String>(json['art']),
+      schluessel: serializer.fromJson<String>(json['schluessel']),
+      name: serializer.fromJson<String>(json['name']),
+      breite: serializer.fromJson<double?>(json['breite']),
+      laenge: serializer.fromJson<double?>(json['laenge']),
+      status: serializer.fromJson<String>(json['status']),
+      notiz: serializer.fromJson<String?>(json['notiz']),
+      angelegtAm: serializer.fromJson<DateTime>(json['angelegtAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'art': serializer.toJson<String>(art),
+      'schluessel': serializer.toJson<String>(schluessel),
+      'name': serializer.toJson<String>(name),
+      'breite': serializer.toJson<double?>(breite),
+      'laenge': serializer.toJson<double?>(laenge),
+      'status': serializer.toJson<String>(status),
+      'notiz': serializer.toJson<String?>(notiz),
+      'angelegtAm': serializer.toJson<DateTime>(angelegtAm),
+    };
+  }
+
+  OrtsmarkenData copyWith(
+          {String? art,
+          String? schluessel,
+          String? name,
+          Value<double?> breite = const Value.absent(),
+          Value<double?> laenge = const Value.absent(),
+          String? status,
+          Value<String?> notiz = const Value.absent(),
+          DateTime? angelegtAm}) =>
+      OrtsmarkenData(
+        art: art ?? this.art,
+        schluessel: schluessel ?? this.schluessel,
+        name: name ?? this.name,
+        breite: breite.present ? breite.value : this.breite,
+        laenge: laenge.present ? laenge.value : this.laenge,
+        status: status ?? this.status,
+        notiz: notiz.present ? notiz.value : this.notiz,
+        angelegtAm: angelegtAm ?? this.angelegtAm,
+      );
+  OrtsmarkenData copyWithCompanion(OrtsmarkenCompanion data) {
+    return OrtsmarkenData(
+      art: data.art.present ? data.art.value : this.art,
+      schluessel:
+          data.schluessel.present ? data.schluessel.value : this.schluessel,
+      name: data.name.present ? data.name.value : this.name,
+      breite: data.breite.present ? data.breite.value : this.breite,
+      laenge: data.laenge.present ? data.laenge.value : this.laenge,
+      status: data.status.present ? data.status.value : this.status,
+      notiz: data.notiz.present ? data.notiz.value : this.notiz,
+      angelegtAm:
+          data.angelegtAm.present ? data.angelegtAm.value : this.angelegtAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OrtsmarkenData(')
+          ..write('art: $art, ')
+          ..write('schluessel: $schluessel, ')
+          ..write('name: $name, ')
+          ..write('breite: $breite, ')
+          ..write('laenge: $laenge, ')
+          ..write('status: $status, ')
+          ..write('notiz: $notiz, ')
+          ..write('angelegtAm: $angelegtAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      art, schluessel, name, breite, laenge, status, notiz, angelegtAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is OrtsmarkenData &&
+          other.art == this.art &&
+          other.schluessel == this.schluessel &&
+          other.name == this.name &&
+          other.breite == this.breite &&
+          other.laenge == this.laenge &&
+          other.status == this.status &&
+          other.notiz == this.notiz &&
+          other.angelegtAm == this.angelegtAm);
+}
+
+class OrtsmarkenCompanion extends UpdateCompanion<OrtsmarkenData> {
+  final Value<String> art;
+  final Value<String> schluessel;
+  final Value<String> name;
+  final Value<double?> breite;
+  final Value<double?> laenge;
+  final Value<String> status;
+  final Value<String?> notiz;
+  final Value<DateTime> angelegtAm;
+  final Value<int> rowid;
+  const OrtsmarkenCompanion({
+    this.art = const Value.absent(),
+    this.schluessel = const Value.absent(),
+    this.name = const Value.absent(),
+    this.breite = const Value.absent(),
+    this.laenge = const Value.absent(),
+    this.status = const Value.absent(),
+    this.notiz = const Value.absent(),
+    this.angelegtAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  OrtsmarkenCompanion.insert({
+    required String art,
+    required String schluessel,
+    required String name,
+    this.breite = const Value.absent(),
+    this.laenge = const Value.absent(),
+    required String status,
+    this.notiz = const Value.absent(),
+    required DateTime angelegtAm,
+    this.rowid = const Value.absent(),
+  })  : art = Value(art),
+        schluessel = Value(schluessel),
+        name = Value(name),
+        status = Value(status),
+        angelegtAm = Value(angelegtAm);
+  static Insertable<OrtsmarkenData> custom({
+    Expression<String>? art,
+    Expression<String>? schluessel,
+    Expression<String>? name,
+    Expression<double>? breite,
+    Expression<double>? laenge,
+    Expression<String>? status,
+    Expression<String>? notiz,
+    Expression<DateTime>? angelegtAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (art != null) 'art': art,
+      if (schluessel != null) 'schluessel': schluessel,
+      if (name != null) 'name': name,
+      if (breite != null) 'breite': breite,
+      if (laenge != null) 'laenge': laenge,
+      if (status != null) 'status': status,
+      if (notiz != null) 'notiz': notiz,
+      if (angelegtAm != null) 'angelegt_am': angelegtAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  OrtsmarkenCompanion copyWith(
+      {Value<String>? art,
+      Value<String>? schluessel,
+      Value<String>? name,
+      Value<double?>? breite,
+      Value<double?>? laenge,
+      Value<String>? status,
+      Value<String?>? notiz,
+      Value<DateTime>? angelegtAm,
+      Value<int>? rowid}) {
+    return OrtsmarkenCompanion(
+      art: art ?? this.art,
+      schluessel: schluessel ?? this.schluessel,
+      name: name ?? this.name,
+      breite: breite ?? this.breite,
+      laenge: laenge ?? this.laenge,
+      status: status ?? this.status,
+      notiz: notiz ?? this.notiz,
+      angelegtAm: angelegtAm ?? this.angelegtAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (art.present) {
+      map['art'] = Variable<String>(art.value);
+    }
+    if (schluessel.present) {
+      map['schluessel'] = Variable<String>(schluessel.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (breite.present) {
+      map['breite'] = Variable<double>(breite.value);
+    }
+    if (laenge.present) {
+      map['laenge'] = Variable<double>(laenge.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (notiz.present) {
+      map['notiz'] = Variable<String>(notiz.value);
+    }
+    if (angelegtAm.present) {
+      map['angelegt_am'] = Variable<DateTime>(angelegtAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('OrtsmarkenCompanion(')
+          ..write('art: $art, ')
+          ..write('schluessel: $schluessel, ')
+          ..write('name: $name, ')
+          ..write('breite: $breite, ')
+          ..write('laenge: $laenge, ')
+          ..write('status: $status, ')
+          ..write('notiz: $notiz, ')
+          ..write('angelegtAm: $angelegtAm, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -15029,6 +15507,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReiseAufnahmenTable reiseAufnahmen = $ReiseAufnahmenTable(this);
   late final $VerworfeneReisenTable verworfeneReisen =
       $VerworfeneReisenTable(this);
+  late final $OrtsmarkenTable ortsmarken = $OrtsmarkenTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -15066,7 +15545,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         lebensereignisse,
         reisen,
         reiseAufnahmen,
-        verworfeneReisen
+        verworfeneReisen,
+        ortsmarken
       ];
 }
 
@@ -19868,6 +20348,7 @@ typedef $$RestoreJobsTableCreateCompanionBuilder = RestoreJobsCompanion
   Value<int> tilesTotal,
   Value<String?> errorMessage,
   required DateTime createdAt,
+  Value<DateTime?> startedAt,
   Value<DateTime?> completedAt,
   Value<int> rowid,
 });
@@ -19880,6 +20361,7 @@ typedef $$RestoreJobsTableUpdateCompanionBuilder = RestoreJobsCompanion
   Value<int> tilesTotal,
   Value<String?> errorMessage,
   Value<DateTime> createdAt,
+  Value<DateTime?> startedAt,
   Value<DateTime?> completedAt,
   Value<int> rowid,
 });
@@ -19913,6 +20395,9 @@ class $$RestoreJobsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get startedAt => $composableBuilder(
+      column: $table.startedAt, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get completedAt => $composableBuilder(
       column: $table.completedAt, builder: (column) => ColumnFilters(column));
@@ -19949,6 +20434,9 @@ class $$RestoreJobsTableOrderingComposer
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<DateTime> get startedAt => $composableBuilder(
+      column: $table.startedAt, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get completedAt => $composableBuilder(
       column: $table.completedAt, builder: (column) => ColumnOrderings(column));
 }
@@ -19982,6 +20470,9 @@ class $$RestoreJobsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startedAt =>
+      $composableBuilder(column: $table.startedAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get completedAt => $composableBuilder(
       column: $table.completedAt, builder: (column) => column);
@@ -20020,6 +20511,7 @@ class $$RestoreJobsTableTableManager extends RootTableManager<
             Value<int> tilesTotal = const Value.absent(),
             Value<String?> errorMessage = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime?> startedAt = const Value.absent(),
             Value<DateTime?> completedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -20031,6 +20523,7 @@ class $$RestoreJobsTableTableManager extends RootTableManager<
             tilesTotal: tilesTotal,
             errorMessage: errorMessage,
             createdAt: createdAt,
+            startedAt: startedAt,
             completedAt: completedAt,
             rowid: rowid,
           ),
@@ -20042,6 +20535,7 @@ class $$RestoreJobsTableTableManager extends RootTableManager<
             Value<int> tilesTotal = const Value.absent(),
             Value<String?> errorMessage = const Value.absent(),
             required DateTime createdAt,
+            Value<DateTime?> startedAt = const Value.absent(),
             Value<DateTime?> completedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -20053,6 +20547,7 @@ class $$RestoreJobsTableTableManager extends RootTableManager<
             tilesTotal: tilesTotal,
             errorMessage: errorMessage,
             createdAt: createdAt,
+            startedAt: startedAt,
             completedAt: completedAt,
             rowid: rowid,
           ),
@@ -22266,6 +22761,222 @@ typedef $$VerworfeneReisenTableProcessedTableManager = ProcessedTableManager<
     ),
     VerworfeneReisenData,
     PrefetchHooks Function()>;
+typedef $$OrtsmarkenTableCreateCompanionBuilder = OrtsmarkenCompanion Function({
+  required String art,
+  required String schluessel,
+  required String name,
+  Value<double?> breite,
+  Value<double?> laenge,
+  required String status,
+  Value<String?> notiz,
+  required DateTime angelegtAm,
+  Value<int> rowid,
+});
+typedef $$OrtsmarkenTableUpdateCompanionBuilder = OrtsmarkenCompanion Function({
+  Value<String> art,
+  Value<String> schluessel,
+  Value<String> name,
+  Value<double?> breite,
+  Value<double?> laenge,
+  Value<String> status,
+  Value<String?> notiz,
+  Value<DateTime> angelegtAm,
+  Value<int> rowid,
+});
+
+class $$OrtsmarkenTableFilterComposer
+    extends Composer<_$AppDatabase, $OrtsmarkenTable> {
+  $$OrtsmarkenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get breite => $composableBuilder(
+      column: $table.breite, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get laenge => $composableBuilder(
+      column: $table.laenge, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$OrtsmarkenTableOrderingComposer
+    extends Composer<_$AppDatabase, $OrtsmarkenTable> {
+  $$OrtsmarkenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get breite => $composableBuilder(
+      column: $table.breite, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get laenge => $composableBuilder(
+      column: $table.laenge, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$OrtsmarkenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $OrtsmarkenTable> {
+  $$OrtsmarkenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get art =>
+      $composableBuilder(column: $table.art, builder: (column) => column);
+
+  GeneratedColumn<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get breite =>
+      $composableBuilder(column: $table.breite, builder: (column) => column);
+
+  GeneratedColumn<double> get laenge =>
+      $composableBuilder(column: $table.laenge, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get notiz =>
+      $composableBuilder(column: $table.notiz, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get angelegtAm => $composableBuilder(
+      column: $table.angelegtAm, builder: (column) => column);
+}
+
+class $$OrtsmarkenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $OrtsmarkenTable,
+    OrtsmarkenData,
+    $$OrtsmarkenTableFilterComposer,
+    $$OrtsmarkenTableOrderingComposer,
+    $$OrtsmarkenTableAnnotationComposer,
+    $$OrtsmarkenTableCreateCompanionBuilder,
+    $$OrtsmarkenTableUpdateCompanionBuilder,
+    (
+      OrtsmarkenData,
+      BaseReferences<_$AppDatabase, $OrtsmarkenTable, OrtsmarkenData>
+    ),
+    OrtsmarkenData,
+    PrefetchHooks Function()> {
+  $$OrtsmarkenTableTableManager(_$AppDatabase db, $OrtsmarkenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$OrtsmarkenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$OrtsmarkenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$OrtsmarkenTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> art = const Value.absent(),
+            Value<String> schluessel = const Value.absent(),
+            Value<String> name = const Value.absent(),
+            Value<double?> breite = const Value.absent(),
+            Value<double?> laenge = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<String?> notiz = const Value.absent(),
+            Value<DateTime> angelegtAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              OrtsmarkenCompanion(
+            art: art,
+            schluessel: schluessel,
+            name: name,
+            breite: breite,
+            laenge: laenge,
+            status: status,
+            notiz: notiz,
+            angelegtAm: angelegtAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String art,
+            required String schluessel,
+            required String name,
+            Value<double?> breite = const Value.absent(),
+            Value<double?> laenge = const Value.absent(),
+            required String status,
+            Value<String?> notiz = const Value.absent(),
+            required DateTime angelegtAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              OrtsmarkenCompanion.insert(
+            art: art,
+            schluessel: schluessel,
+            name: name,
+            breite: breite,
+            laenge: laenge,
+            status: status,
+            notiz: notiz,
+            angelegtAm: angelegtAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$OrtsmarkenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $OrtsmarkenTable,
+    OrtsmarkenData,
+    $$OrtsmarkenTableFilterComposer,
+    $$OrtsmarkenTableOrderingComposer,
+    $$OrtsmarkenTableAnnotationComposer,
+    $$OrtsmarkenTableCreateCompanionBuilder,
+    $$OrtsmarkenTableUpdateCompanionBuilder,
+    (
+      OrtsmarkenData,
+      BaseReferences<_$AppDatabase, $OrtsmarkenTable, OrtsmarkenData>
+    ),
+    OrtsmarkenData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -22335,4 +23046,6 @@ class $AppDatabaseManager {
       $$ReiseAufnahmenTableTableManager(_db, _db.reiseAufnahmen);
   $$VerworfeneReisenTableTableManager get verworfeneReisen =>
       $$VerworfeneReisenTableTableManager(_db, _db.verworfeneReisen);
+  $$OrtsmarkenTableTableManager get ortsmarken =>
+      $$OrtsmarkenTableTableManager(_db, _db.ortsmarken);
 }

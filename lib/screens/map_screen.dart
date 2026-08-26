@@ -286,6 +286,11 @@ class _MapScreenState extends State<MapScreen> {
         // ankert, aber gestochen scharf bleibt statt als Kugel-Ellipse
         // verzerrt zu werden.
         style: const PointStyle(color: Colors.transparent, size: 0.1),
+        // Die Bibliothek rechnet `oben = Ort − labelOffset.dy − Höhe`,
+        // setzt also die Unterkante auf den Ort. Ein negativer Wert
+        // schiebt das Widget genau um diesen Betrag wieder nach unten,
+        // bis die Spitze auf dem Ort steht.
+        labelOffset: const Offset(0, -pinSpitzeUeberKante),
         labelBuilder: (context, point, isHovering, isVisible) => GestureDetector(
           // Der Globus selbst zeigt keine Straßendetails (siehe
           // _ensureGlobeController) – ein Pin-Tap springt deshalb zur
@@ -309,6 +314,9 @@ class _MapScreenState extends State<MapScreen> {
           coordinates: GlobeCoordinates(
               e.ereignis.ortBreite!, e.ereignis.ortLaenge!),
           style: const PointStyle(color: Colors.transparent, size: 0.1),
+          // Die Raute soll mit ihrer Mitte auf dem Ereignis sitzen, nicht
+          // mit ihrer Unterkante — siehe [rauteHalb].
+          labelOffset: const Offset(0, -rauteHalb),
           labelBuilder: (context, point, isHovering, isVisible) => Tooltip(
             message: [
               e.personName,
@@ -971,6 +979,31 @@ class _MapThumbMarker extends StatelessWidget {
 /// [Point.labelBuilder] exakt an der Foto-Koordinate verankert wird
 /// (Spitze der Nadel = Position). Bei mehreren Fotos am selben
 /// Raster-Punkt zeigt ein kleines Badge die Anzahl.
+/// Wie weit die Spitze von [Icons.location_pin] über der Unterkante ihres
+/// Kastens sitzt, bei [pinGroesse] Punkt Schriftgröße.
+///
+/// **Gemessen und nicht geschätzt** (siehe `globus_pin_test.dart`): Die
+/// Glyphe füllt ihren Kasten nicht aus, ihre Tinte endet bei 25,75 von 34
+/// Punkten. Die Bibliothek setzt aber die **Unterkante** des Widgets auf
+/// den Ort — die Spitze zeigte damit 8,25 Punkte zu weit nach Norden. Auf
+/// dem herausgezoomten Globus (Radius 400 Punkte) sind das 1,18 Grad oder
+/// rund 130 Kilometer: Flensburg landete im Kattegat.
+const double pinSpitzeUeberKante = 8.25;
+
+/// Die Kantenlänge des Pins. Muss mit der Schriftgröße übereinstimmen —
+/// ein schmalerer Kasten quetscht die Glyphe aus der Mitte, und dann
+/// stimmt auch die Ost-West-Lage nicht mehr. Gemessen: im 30 Punkte
+/// breiten Kasten saß die Tinte 1,9 Punkte rechts der Mitte, im 34 Punkte
+/// breiten nur noch 0,1.
+const double pinGroesse = 34;
+
+/// Die halbe Höhe der Ereignisraute.
+///
+/// Bei einer Raute ist die **Mitte** die Aussage und nicht die Unterkante:
+/// Sie zeigt auf einen Ort, sie steht nicht auf ihm. Ohne diese
+/// Verschiebung säße die ganze Raute nördlich des Ereignisses.
+const double rauteHalb = 8;
+
 class _GlobePin extends StatelessWidget {
   final int count;
   const _GlobePin({required this.count});
@@ -978,15 +1011,15 @@ class _GlobePin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 30,
-      height: 34,
+      width: pinGroesse,
+      height: pinGroesse,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           const Icon(
             Icons.location_pin,
             color: Colors.redAccent,
-            size: 34,
+            size: pinGroesse,
             shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
           ),
           if (count > 1)
@@ -1027,8 +1060,8 @@ class _GlobusEreignis extends StatelessWidget {
     return Transform.rotate(
       angle: math.pi / 4,
       child: Container(
-        width: 16,
-        height: 16,
+        width: rauteHalb * 2,
+        height: rauteHalb * 2,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: farben.primaryContainer,

@@ -590,6 +590,16 @@ class RestoreJobs extends Table {
   IntColumn get tilesTotal => integer().withDefault(const Constant(0))();
   TextColumn get errorMessage => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
+
+  /// Wann der Auftrag tatsächlich **begonnen** hat.
+  ///
+  /// Nicht dasselbe wie [createdAt]: Zwischen Einreihen und Anfangen
+  /// können Stunden liegen, wenn mehrere Aufträge warten. Ohne diese
+  /// Spalte liesse sich keine Restzeit schätzen, die stimmt – jede
+  /// Rechnung aus der Wartezeit wäre eine Lüge, und eine Lüge über eine
+  /// Restzeit merkt man erst, wenn sie abgelaufen ist.
+  DateTimeColumn get startedAt => dateTime().nullable()();
+
   DateTimeColumn get completedAt => dateTime().nullable()();
 
   @override
@@ -733,6 +743,50 @@ class VerworfeneReisen extends Table {
 
   @override
   Set<Column> get primaryKey => {schluessel};
+}
+
+/// Ein selbst gesetzter Haken auf der Weltkarte – ein Land, eine Region
+/// oder ein Ort, den du besucht hast oder besuchen willst.
+///
+/// **Neben und nicht statt der Auswertung der Fotos.** Was die Kamera
+/// belegt, wird weiterhin aus den Aufnahmen gezählt; diese Tabelle ist
+/// für alles, wovon es kein Bild gibt: die Reise vor der ersten
+/// Digitalkamera, der Zwischenstopp ohne Foto, das Ziel für nächstes
+/// Jahr. Beides in einer Spalte zu führen hiesse, Beleg und Absicht zu
+/// vermischen — und danach wäre nicht mehr entscheidbar, welche Zahl aus
+/// welcher Quelle stammt.
+///
+/// [schluessel] ist je nach [art] verschieden: der ISO-Code („DE"), der
+/// Regionscode („DE.02") oder Land, Region und Ort mit Strichen dazwischen
+/// („DE|Bavaria|München") — dieselbe Bildung wie im Reisefortschritt, damit
+/// gesetzte und gezählte Orte sich überhaupt treffen können.
+class Ortsmarken extends Table {
+  /// `land`, `region` oder `ort`.
+  TextColumn get art => text()();
+
+  TextColumn get schluessel => text()();
+
+  /// Der Name zum Zeitpunkt des Setzens.
+  ///
+  /// Mitgeschrieben und nicht jedes Mal nachgeschlagen: Ohne den
+  /// GeoNames-Datensatz gäbe es sonst eine Liste aus Codes.
+  TextColumn get name => text()();
+
+  RealColumn get breite => real().nullable()();
+  RealColumn get laenge => real().nullable()();
+
+  /// `besucht` oder `geplant`.
+  TextColumn get status => text()();
+
+  TextColumn get notiz => text().nullable()();
+
+  DateTimeColumn get angelegtAm => dateTime()();
+
+  /// Art und Schlüssel zusammen — ein Ort lässt sich nicht zweimal
+  /// markieren, und das Aufheben einer Marke ist ein Löschen und kein
+  /// Suchen nach der richtigen von mehreren Zeilen.
+  @override
+  Set<Column> get primaryKey => {art, schluessel};
 }
 
 /// Eine Verwandtschaft zwischen zwei Personen – die Grundlage des
@@ -1079,6 +1133,7 @@ class DuplikatAusnahmen extends Table {
   Reisen,
   ReiseAufnahmen,
   VerworfeneReisen,
+  Ortsmarken,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -1093,7 +1148,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 51;
+  int get schemaVersion => 53;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1465,6 +1520,21 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 53) {
+            // Die Startzeit der KI-Restaurierung. Ohne sie liess sich
+            // keine ehrliche Restzeit rechnen; laufende Auftraege gibt
+            // es beim Start ohnehin keine (siehe
+            // resetStuckRunningRestoreJobs), die Spalte darf also leer
+            // beginnen.
+            await _addColumnIfMissing(m, restoreJobs, restoreJobs.startedAt,
+                'restore_jobs', 'started_at');
+          }
+          if (from < 52) {
+            // Selbst gesetzte Ortsmarken. Neue, anfangs leere Tabelle –
+            // solange niemand einen Haken setzt, zählt die Weltkarte
+            // genau wie vorher nur die Fotos.
+            await m.createTable(ortsmarken);
           }
           if (from < 51) {
             // Reisen. Drei neue, anfangs leere Tabellen – ohne einen
@@ -2959,6 +3029,16 @@ class AppDatabase extends _$AppDatabase {
         RestoreJobsCompanion(
           status: Value(status),
           errorMessage: Value(errorMessage),
+          // Beim Anlaufen die Startzeit setzen, beim Zurücksetzen auf
+          // „wartet" wieder löschen: Ein hängengebliebener Auftrag wird
+          // neu eingereiht (siehe resetStuckRunningRestoreJobs), und
+          // seine alte Startzeit ergäbe beim zweiten Anlauf eine
+          // Restzeit von mehreren Stunden.
+          startedAt: switch (status) {
+            'running' => Value(DateTime.now()),
+            'queued' => const Value(null),
+            _ => const Value.absent(),
+          },
           completedAt: Value(status == 'queued' || status == 'running' ? null : DateTime.now()),
         ),
       );
@@ -4498,6 +4578,57 @@ class AppDatabase extends _$AppDatabase {
         ),
     ];
   }
+
+  /// Wer wann auf welchem Bild zu sehen ist – für die Familienstatistik.
+  ///
+  /// Nur die angefragten Personen, damit bei einer grossen Bibliothek
+  /// nicht jedes erkannte Gesicht durch den Speicher wandert.
+  ///
+  /// **Der gesperrte Ordner bleibt draussen**, ebenso der Papierkorb. Was
+  /// hinter der PIN liegt, darf ausserhalb nicht auftauchen – auch nicht
+  /// als Strich in einem Balkendiagramm, der verrät, dass es dort etwas
+  /// gibt.
+  Future<List<({String personId, String assetId, DateTime zeit})>>
+      auftritteFuerPersonen(Set<String> personIds) async {
+    if (personIds.isEmpty) return const [];
+    final abfrage = select(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+      ..where(faces.personId.isIn(personIds) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false));
+    return [
+      for (final z in await abfrage.get())
+        (
+          personId: z.readTable(faces).personId!,
+          assetId: z.readTable(assets).id,
+          zeit: z.readTable(assets).fileCreatedAt,
+        ),
+    ];
+  }
+
+  /// Alle selbst gesetzten Ortsmarken.
+  Future<List<OrtsmarkenData>> alleOrtsmarken() => select(ortsmarken).get();
+
+  /// Dieselben, als Strom – die Weltkarte soll sich sofort umfärben,
+  /// wenn woanders ein Haken gesetzt wird.
+  Stream<List<OrtsmarkenData>> beobachteOrtsmarken() =>
+      select(ortsmarken).watch();
+
+  /// Setzt eine Marke oder ersetzt die vorhandene.
+  ///
+  /// `insertOnConflictUpdate` und nicht erst suchen: Art und Schlüssel
+  /// sind zusammen der Primärschlüssel, ein zweiter Haken auf dasselbe
+  /// Land ist also gar nicht möglich – und ein Umschalten von „geplant"
+  /// auf „besucht" ist genau dieselbe Zeile mit anderem Wert.
+  Future<void> setzeOrtsmarke(OrtsmarkenCompanion marke) =>
+      into(ortsmarken).insertOnConflictUpdate(marke);
+
+  /// Nimmt eine Marke zurück.
+  Future<void> loescheOrtsmarke(String art, String schluessel) =>
+      (delete(ortsmarken)
+            ..where((o) => o.art.equals(art) & o.schluessel.equals(schluessel)))
+          .go();
 
   /// Aufnahmen **ohne** Koordinate – für das Auffüllen erkannter Reisen.
   ///

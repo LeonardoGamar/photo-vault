@@ -19,6 +19,7 @@ import '../theme/app_spacing.dart';
 import '../services/faechertafel.dart';
 import '../services/familienorte.dart';
 import '../services/familienstatistik.dart';
+import '../services/fotostatistik.dart';
 import '../services/gedcom_export.dart';
 import '../services/gedcom_import.dart';
 import '../services/lebenslauf.dart';
@@ -136,6 +137,14 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// Ob die Sanduhr die Seitenlinie mitzeigt – Geschwister, deren Kinder
   /// und die angeheirateten daneben.
   bool _seitenlinien = true;
+
+  /// Ob der Baum die Seitenäste mitzeigt.
+  ///
+  /// Aus als Vorgabe, anders als bei der Sanduhr: Der Baum ist die
+  /// Ansicht, die man aufschlägt, um die gerade Linie zu sehen. Wer die
+  /// Verwandtschaft in der Breite sucht, schaltet sie dazu – und dann
+  /// wird es merklich breiter.
+  bool _seitenaeste = false;
 
   List<PersonData> _personen = [];
   Map<String, PersonData> _nachId = {};
@@ -828,10 +837,16 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// Gerechnet wird hier und nicht dort: Die Angaben liegen in diesem
   /// Bildschirm bereits vollständig vor, und der Statistikbildschirm
   /// bekommt ein fertiges Ergebnis statt einer zweiten Datenquelle.
-  void _familienstatistik() {
+  Future<void> _familienstatistik() async {
     final fokus = _fokusId;
     if (fokus == null) return;
     final ids = {fokus, ..._grade.keys};
+
+    // Die Bilder kommen aus der Datenbank und nicht aus diesem
+    // Bildschirm: Gesichter stehen hier nicht herum, und sie für alle
+    // Ansichten mitzuladen hiesse, sie fast immer umsonst zu laden.
+    final auftritte = await widget.library.db.auftritteFuerPersonen(ids);
+    if (!mounted) return;
     final statistik = familienstatistik(
       personen: [
         for (final p in _personen)
@@ -856,10 +871,24 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
             ),
       ],
     );
+    final bilder = fotostatistik(
+      auftritte: auftritte,
+      betrachtet: ids,
+      geburt: {
+        for (final p in _personen)
+          if (ids.contains(p.id)) p.id: p.geburtsdatum,
+      },
+    );
+    if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => FamilienstatistikScreen(
         statistik: statistik,
         fokusName: _nachId[fokus]?.name ?? '',
+        foto: bilder,
+        namen: {
+          for (final p in _personen)
+            if (ids.contains(p.id)) p.id: p.name,
+        },
       ),
     ));
   }
@@ -1644,12 +1673,17 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
 
   Widget _baum(BuildContext context, PersonData fokus) {
     final t = AppTexte.of(context);
-    final a = ausschnittUm(_netz, fokus.id, [for (final p in _personen) p.id]);
+    final a = ausschnittUm(_netz, fokus.id, [for (final p in _personen) p.id],
+        seitenlinien: _seitenaeste);
 
     final eltern = [for (final id in a.eltern) _nachId[id]!];
     final geschwister = [for (final id in a.geschwister) _nachId[id]!];
     final partner = [for (final id in a.partner) _nachId[id]!];
     final kinder = [for (final id in a.kinder) _nachId[id]!];
+    final grosseltern = [for (final id in a.grosseltern) _nachId[id]!];
+    final onkelTanten = [for (final id in a.onkelTanten) _nachId[id]!];
+    final neffenNichten = [for (final id in a.neffenNichten) _nachId[id]!];
+    final schwiegereltern = [for (final id in a.schwiegereltern) _nachId[id]!];
 
     final links = _gruppe(t.stammbaumGeschwister, geschwister, a);
     final rechts = _gruppe(t.stammbaumPartner, partner, a, verbunden: true);
@@ -1667,7 +1701,34 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     // Ein rollbarer Bereich gibt seinem Kind unbegrenzten Platz, und ein
     // Kind, das nur so groß ist wie sein Inhalt, hat nichts, worin es sich
     // zentrieren könnte – der Baum klebte sonst in der linken oberen Ecke.
-    return LayoutBuilder(
+    return Column(children: [
+      // Derselbe Schalter wie über der Sanduhr, an derselben Stelle: Er
+      // verändert, was zu sehen ist, und das gehört neben das Gesehene.
+      Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        child: Row(
+          children: [
+            FilterChip(
+              selected: _seitenaeste,
+              onSelected: (an) => setState(() => _seitenaeste = an),
+              avatar: const Icon(Icons.hub_outlined, size: 18),
+              label: Text(t.stammbaumSeitenaeste),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                t.stammbaumSeitenaesteHinweis,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Expanded(
+        child: LayoutBuilder(
       builder: (context, platz) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: SingleChildScrollView(
@@ -1682,9 +1743,35 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (grosseltern.isNotEmpty) ...[
+                _beschriftung(t.stammbaumGrosseltern),
+                _reihe(grosseltern, a),
+                // **Bewusst ohne Verbindungslinie.** Welcher Grosselternteil
+                // zu welchem Elternteil gehoert, kann diese Reihe nicht
+                // ausdruecken – bei vier Grosseltern und zwei Eltern
+                // muessten sich die Linien kreuzen. Eine Linie, die man
+                // trotzdem zoege, waere eine Behauptung. Die Beschriftung
+                // und die Naehe sagen genug; wer es genau wissen will,
+                // rueckt auf den Elternteil.
+                const SizedBox(height: AppSpacing.md),
+              ],
               if (eltern.isNotEmpty) ...[
                 _beschriftung(t.stammbaumEltern),
-                _reihe(eltern, a, bezug: _Bezug.elternteil),
+                // Die Elternreihe wird genauso ausgeglichen wie die
+                // mittlere: Onkel und Tanten links, Schwiegereltern
+                // rechts. Ohne den Ausgleich säßen die Eltern seitlich
+                // versetzt, und die Linie zur Person darunter träfe
+                // niemanden.
+                _ausgeglicheneReihe(
+                  links: _gruppe(t.stammbaumOnkelTanten, onkelTanten, a),
+                  linksBreite: _reiheBreite(onkelTanten.length),
+                  mitte: _reihe(eltern, a, bezug: _Bezug.elternteil),
+                  rechts:
+                      _gruppe(t.stammbaumSchwiegereltern, schwiegereltern, a),
+                  rechtsBreite: schwiegereltern.isEmpty
+                      ? 0.0
+                      : AppSpacing.lg + _reiheBreite(schwiegereltern.length),
+                ),
                 _Verbinder(anzahl: eltern.length, vieleOben: true),
               ],
               // Die mittlere Reihe wird auf der schmaleren Seite
@@ -1700,8 +1787,24 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
               ),
               if (kinder.isNotEmpty) ...[
                 _Verbinder(anzahl: kinder.length, vieleOben: false),
-                _reihe(kinder, a, bezug: _Bezug.kind),
+                // Neffen und Nichten stehen unter ihren Eltern – also
+                // links, wo die Geschwister stehen. Sie unter die eigenen
+                // Kinder zu mischen wäre die kürzere Zeile und die
+                // falsche Aussage.
+                _ausgeglicheneReihe(
+                  links: _gruppe(t.stammbaumNeffenNichten, neffenNichten, a),
+                  linksBreite: _reiheBreite(neffenNichten.length),
+                  mitte: _reihe(kinder, a, bezug: _Bezug.kind),
+                  rechts: null,
+                  rechtsBreite: 0,
+                ),
                 _beschriftung(t.stammbaumKinder),
+              ] else if (neffenNichten.isNotEmpty) ...[
+                // Ohne eigene Kinder gibt es keine Reihe darunter – die
+                // Neffen bekommen dann eine eigene.
+                const SizedBox(height: AppSpacing.md),
+                _beschriftung(t.stammbaumNeffenNichten),
+                _reihe(neffenNichten, a),
               ],
               if (a.istLeer) ...[
                 const SizedBox(height: AppSpacing.xxl),
@@ -1720,7 +1823,9 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
           ),
         ),
       ),
-    );
+        ),
+      ),
+    ]);
   }
 
   Widget _beschriftung(String text) => Padding(

@@ -591,11 +591,12 @@ void main() {
         matchesGoldenFile('golden/familienstatistik.png'));
   }, skip: nurAufReferenzplattform);
 
-  testWidgets('ohne Lebensdaten steht „keine Angabe" statt einer Zahl',
+  testWidgets('ohne Lebensdaten steht ein Satz statt leerer Kacheln',
       (tester) async {
-    // Nicht ein leerer Bildschirm: Namen und Kinderzahlen sind auch ohne
-    // ein einziges Datum eine Auskunft. Nur wo nichts zu rechnen war,
-    // darf auch keine Zahl stehen.
+    // Frueher standen hier zwei Kacheln „keine Angabe" nebeneinander. Das
+    // sah aus wie ein Fehler des Programms, dabei fehlten schlicht die
+    // Eintraege. Jetzt steht ein Satz da, der sagt, was fehlt – und die
+    // Kinderverteilung bleibt, weil sie ohne jedes Datum auskommt.
     tester.view.physicalSize = const Size(1040, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -610,8 +611,12 @@ void main() {
     await tester.tap(find.text('Familienstatistik'));
     await tester.pumpAndSettle();
 
-    expect(find.text('keine Angabe'), findsNWidgets(2),
-        reason: 'Lebensalter und Heiratsalter');
+    expect(find.text('keine Angabe'), findsNothing);
+    expect(find.text('Lebensalter'), findsNothing);
+    expect(find.text('Heiratsalter'), findsNothing);
+    expect(find.textContaining('Photo Vault schätzt sie nicht'),
+        findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Kinder je Person'), 200);
     expect(find.text('Kinder je Person'), findsOneWidget,
         reason: 'die Verteilung braucht keine Daten und steht weiter da');
   });
@@ -623,4 +628,35 @@ void main() {
     expect(find.textContaining('noch keine Verwandtschaft eingetragen'),
         findsOneWidget);
   });
+
+  testWidgets('der Schalter holt die Seitenaeste in den Baum', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await zeige(tester, 'kind');
+
+    // Vorgabe: aus. Der Baum zeigt die gerade Linie.
+    expect(find.text('Großeltern'), findsNothing);
+    expect(find.text('Opa'), findsNothing);
+
+    await tester.tap(find.widgetWithText(FilterChip, 'Seitenäste'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Großeltern'), findsOneWidget);
+    expect(find.text('Opa'), findsOneWidget);
+    expect(find.text('Oma'), findsOneWidget);
+  });
+
+  testWidgets('so sieht der Baum mit Seitenaesten aus', (tester) async {
+    // Der Blick, um den es bei diesem Wunsch ging: Grosseltern oben,
+    // Onkel neben den Eltern, Neffen unter den Geschwistern.
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await zeige(tester, 'kind');
+    await tester.tap(find.widgetWithText(FilterChip, 'Seitenäste'));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(StammbaumScreen),
+        matchesGoldenFile('golden/stammbaum_seitenaeste.png'));
+  }, skip: nurAufReferenzplattform);
 }

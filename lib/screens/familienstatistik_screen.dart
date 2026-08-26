@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/familienstatistik.dart';
+import '../services/fotostatistik.dart';
 import '../theme/app_spacing.dart';
 
 /// Zahlen über eine Familie.
@@ -20,6 +21,18 @@ import '../theme/app_spacing.dart';
 class FamilienstatistikScreen extends StatelessWidget {
   final Familienstatistik statistik;
 
+  /// Was die Bilder hergeben.
+  ///
+  /// Steht **vor** den Lebensdaten, und das ist die eigentliche Änderung
+  /// an diesem Bildschirm: Ein Fotoverwalter hat Gesichter und
+  /// Aufnahmedaten in Mengen, aber selten ein Sterbedatum. Die
+  /// Reihenfolge folgt jetzt der Datenlage statt dem Vorbild eines
+  /// Ahnenforschungsprogramms.
+  final Fotostatistik foto;
+
+  /// Kennung auf Name – die Fotoauswertung rechnet mit Kennungen.
+  final Map<String, String> namen;
+
   /// Der Name der Person in der Mitte – die Auswertung gilt für ihre
   /// Familie, nicht für die ganze Bibliothek.
   final String fokusName;
@@ -28,6 +41,8 @@ class FamilienstatistikScreen extends StatelessWidget {
     super.key,
     required this.statistik,
     required this.fokusName,
+    required this.foto,
+    required this.namen,
   });
 
   @override
@@ -70,6 +85,55 @@ class FamilienstatistikScreen extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.all(AppSpacing.lg),
               children: [
+                _Ueberschrift(t.famstatAufFotos, oben: 0),
+                if (foto.istLeer)
+                  _Fussnote(t.famstatKeineFotos)
+                else ...[
+                  Wrap(
+                    spacing: AppSpacing.md,
+                    runSpacing: AppSpacing.md,
+                    children: [
+                      _Kachel(
+                        symbol: Icons.photo_library_outlined,
+                        titel: t.famstatAufnahmenGesamt,
+                        wert: zahl.format(foto.aufnahmen),
+                      ),
+                      _Kachel(
+                        symbol: Icons.face_outlined,
+                        titel: t.famstatImBild,
+                        wert: zahl.format(foto.personen.length),
+                      ),
+                      if (foto.jeJahr.isNotEmpty)
+                        _Kachel(
+                          symbol: Icons.date_range_outlined,
+                          titel: t.famstatZeitraum,
+                          wert: t.famstatVonBis(
+                              '${_kleinstes(foto.jeJahr.keys)}',
+                              '${_groesstes(foto.jeJahr.keys)}'),
+                          unten: t.famstatInJahren(foto.jeJahr.length),
+                        ),
+                    ],
+                  ),
+                  if (foto.ohneBild > 0)
+                    _Einschraenkung(text: t.famstatOhneBild(foto.ohneBild)),
+                  if (foto.jeJahr.length > 1) ...[
+                    _Ueberschrift(t.famstatAufnahmenJeJahr),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(AppSpacing.sm,
+                            AppSpacing.xl, AppSpacing.xl, AppSpacing.sm),
+                        child: _Jahresdiagramm(werte: foto.jeJahr),
+                      ),
+                    ),
+                  ],
+                  _Ueberschrift(t.famstatImBild),
+                  _Personenliste(bilanzen: foto.personen, namen: namen),
+                  if (foto.paare.isNotEmpty) ...[
+                    _Ueberschrift(t.famstatOftZusammen),
+                    _Paarliste(paare: foto.paare, namen: namen),
+                  ],
+                ],
+                _Ueberschrift(t.famstatAusLebensdaten),
                 Wrap(
                   spacing: AppSpacing.md,
                   runSpacing: AppSpacing.md,
@@ -79,24 +143,26 @@ class FamilienstatistikScreen extends StatelessWidget {
                       titel: t.famstatPersonen,
                       wert: zahl.format(statistik.personen),
                     ),
-                    _Kachel(
-                      symbol: Icons.hourglass_bottom_outlined,
-                      titel: t.famstatLebensalter,
-                      wert: jahre(statistik.sterbealter.durchschnitt),
-                      unten: statistik.sterbealter.istLeer
-                          ? null
-                          : t.famstatSpanne(statistik.sterbealter.kleinstes!,
-                              statistik.sterbealter.groesstes!),
-                    ),
-                    _Kachel(
-                      symbol: Icons.favorite_outline,
-                      titel: t.famstatHeiratsalter,
-                      wert: jahre(statistik.heiratsalter.durchschnitt),
-                      unten: statistik.heiratsalter.istLeer
-                          ? null
-                          : t.famstatEingerechnet(
-                              statistik.heiratsalter.anzahl),
-                    ),
+                    // Leere Kacheln stehen nicht mehr da. „Keine Angabe"
+                    // dreimal nebeneinander sah aus wie ein Fehler des
+                    // Programms, dabei fehlten schlicht die Eintraege –
+                    // was jetzt ein Satz sagt statt drei leerer Kaesten.
+                    if (!statistik.sterbealter.istLeer)
+                      _Kachel(
+                        symbol: Icons.hourglass_bottom_outlined,
+                        titel: t.famstatLebensalter,
+                        wert: jahre(statistik.sterbealter.durchschnitt),
+                        unten: t.famstatSpanne(statistik.sterbealter.kleinstes!,
+                            statistik.sterbealter.groesstes!),
+                      ),
+                    if (!statistik.heiratsalter.istLeer)
+                      _Kachel(
+                        symbol: Icons.favorite_outline,
+                        titel: t.famstatHeiratsalter,
+                        wert: jahre(statistik.heiratsalter.durchschnitt),
+                        unten: t.famstatEingerechnet(
+                            statistik.heiratsalter.anzahl),
+                      ),
                     if (statistik.nachnamen.isNotEmpty)
                       _Kachel(
                         symbol: Icons.badge_outlined,
@@ -106,6 +172,9 @@ class FamilienstatistikScreen extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (statistik.sterbealter.istLeer &&
+                    statistik.heiratsalter.istLeer)
+                  _Fussnote(t.famstatFehlendeLebensdaten),
 
                 // Der Hinweis steht direkt unter der Zahl, auf die er
                 // sich bezieht – nicht als Fußnote am Seitenende. Eine
@@ -164,14 +233,18 @@ class FamilienstatistikScreen extends StatelessWidget {
 
 class _Ueberschrift extends StatelessWidget {
   final String text;
-  const _Ueberschrift(this.text);
+  final double oben;
+  const _Ueberschrift(this.text, {this.oben = 28});
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 28, bottom: AppSpacing.sm),
+        padding: EdgeInsets.only(top: oben, bottom: AppSpacing.sm),
         child: Text(text, style: Theme.of(context).textTheme.titleMedium),
       );
 }
+
+int _kleinstes(Iterable<int> werte) => werte.reduce((a, b) => a < b ? a : b);
+int _groesstes(Iterable<int> werte) => werte.reduce((a, b) => a > b ? a : b);
 
 class _Fussnote extends StatelessWidget {
   final String text;
@@ -525,6 +598,180 @@ class _Namensliste extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Aufnahmen je Jahr.
+///
+/// **Jedes Jahr der Spanne bekommt eine Säule, auch die leeren.** Ein
+/// Diagramm, das nur die Jahre zeigt, in denen etwas passiert ist,
+/// staucht die Lücken weg – und gerade die Lücke ist die Auskunft: das
+/// Jahr, aus dem es kein Bild gibt.
+class _Jahresdiagramm extends StatelessWidget {
+  final Map<int, int> werte;
+
+  const _Jahresdiagramm({required this.werte});
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    final von = _kleinstes(werte.keys);
+    final bis = _groesstes(werte.keys);
+    final jahre = [for (var j = von; j <= bis; j++) j];
+    final hoechst = werte.values.reduce((a, b) => a > b ? a : b).toDouble();
+
+    // Bei vielen Jahren wird nicht jede Beschriftung gesetzt – sonst
+    // überlappen sie und ergeben einen grauen Strich.
+    final schritt = (jahre.length / 12).ceil();
+
+    return SizedBox(
+      height: 200,
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY: hoechst * 1.15,
+          barTouchData: BarTouchData(
+            touchTooltipData: BarTouchTooltipData(
+              getTooltipItem: (gruppe, _, __, ___) => BarTooltipItem(
+                '${jahre[gruppe.x]}\n${werte[jahre[gruppe.x]] ?? 0}',
+                TextStyle(color: farben.onInverseSurface, fontSize: 12),
+              ),
+            ),
+          ),
+          titlesData: FlTitlesData(
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 24,
+                getTitlesWidget: (wert, meta) {
+                  final i = wert.toInt();
+                  if (i < 0 || i >= jahre.length) return const SizedBox.shrink();
+                  if (i % schritt != 0) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xs),
+                    child: Text('${jahre[i]}',
+                        style: TextStyle(
+                            fontSize: 10, color: farben.onSurfaceVariant)),
+                  );
+                },
+              ),
+            ),
+          ),
+          gridData: const FlGridData(show: false),
+          borderData: FlBorderData(show: false),
+          barGroups: [
+            for (var i = 0; i < jahre.length; i++)
+              BarChartGroupData(x: i, barRods: [
+                BarChartRodData(
+                  toY: (werte[jahre[i]] ?? 0).toDouble(),
+                  color: farben.primary,
+                  width: jahre.length > 20 ? 6 : 14,
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
+                ),
+              ]),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Wer wie oft im Bild ist, seit wann, und in welchem Alter.
+class _Personenliste extends StatelessWidget {
+  final List<Personenbilanz> bilanzen;
+  final Map<String, String> namen;
+
+  const _Personenliste({required this.bilanzen, required this.namen});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+    final jahr = DateFormat.y(Localizations.localeOf(context).toString());
+    final hoechst = bilanzen.isEmpty ? 1 : bilanzen.first.aufnahmen;
+
+    return Card(
+      child: Column(
+        children: [
+          for (final b in bilanzen)
+            ListTile(
+              dense: true,
+              title: Text(namen[b.personId] ?? b.personId),
+              subtitle: Text(
+                [
+                  t.famstatVonBis(jahr.format(b.erste), jahr.format(b.letzte)),
+                  t.famstatInJahren(b.jahre),
+                  // Das Alter nur, wenn ein Geburtsdatum eingetragen ist –
+                  // und beide Enden, weil bei einem Kind zwischen dem
+                  // ersten und dem letzten Bild ein ganzes Leben liegt.
+                  if (b.alterErste case final von?)
+                    if (b.alterLetzte case final bis?)
+                      t.famstatAlterVonBis(von, bis),
+                ].join(' · '),
+                style: TextStyle(fontSize: 12, color: farben.onSurfaceVariant),
+              ),
+              trailing: SizedBox(
+                width: 120,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      width: 70,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                        child: LinearProgressIndicator(
+                          value: b.aufnahmen / hoechst,
+                          minHeight: 5,
+                          backgroundColor: farben.surfaceContainerHighest,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text('${b.aufnahmen}',
+                        style: TextStyle(
+                            fontSize: 12, color: farben.onSurfaceVariant)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Wer mit wem.
+class _Paarliste extends StatelessWidget {
+  final List<Gemeinsam> paare;
+  final Map<String, String> namen;
+
+  const _Paarliste({required this.paare, required this.namen});
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return Card(
+      child: Column(
+        children: [
+          for (final p in paare)
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.people_outline, size: 20),
+              title: Text(
+                  '${namen[p.a] ?? p.a} · ${namen[p.b] ?? p.b}'),
+              trailing: Text('${p.aufnahmen}',
+                  style:
+                      TextStyle(fontSize: 12, color: farben.onSurfaceVariant)),
+            ),
+        ],
       ),
     );
   }

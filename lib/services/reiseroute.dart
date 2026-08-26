@@ -104,3 +104,99 @@ String? _haeufigsterOrt(Iterable<String?> orte) {
     });
   return beste.first;
 }
+
+/// Wie nah zwei Aufnahmen sein müssen, um zum selben Aufenthaltsort zu
+/// gehören.
+///
+/// Fünfzehn Kilometer. Das ist die Grösse einer Stadt samt ihres Umlands:
+/// Wer in Rom wohnt und den Vatikan fotografiert, war nicht woanders.
+/// Kleiner gewählt zerfiele jede Stadtbesichtigung in ein Dutzend Pins,
+/// und die Karte wäre wieder das Knäuel, das [reiseroute] gerade
+/// vermeidet.
+const double aufenthaltRadiusKm = 15;
+
+/// Ein Ort, an dem man sich aufgehalten hat, samt seiner Bilder.
+typedef Aufenthaltsort = ({
+  double breite,
+  double laenge,
+  String? name,
+  List<String> aufnahmeIds,
+  DateTime von,
+  DateTime bis,
+});
+
+/// Eine Aufnahme, wie die Zusammenfassung sie braucht.
+typedef Aufenthaltsaufnahme = ({
+  String id,
+  double breite,
+  double laenge,
+  DateTime zeit,
+  String? stadt,
+});
+
+/// Fasst die Aufnahmen einer Reise zu Aufenthaltsorten zusammen.
+///
+/// **Nach Nähe und nicht nach Ortsnamen.** Der Name wäre der bequemere
+/// Schlüssel, ist aber der schlechtere: Er fehlt bei jeder Aufnahme ohne
+/// geladenen Datensatz, und die Umkehr-Geokodierung wechselt an
+/// Stadtgrenzen den Namen, ohne dass jemand die Straße gewechselt hätte.
+/// Der Name wird deshalb erst am Ende vergeben – der häufigste der
+/// Gruppe.
+///
+/// Die Reihenfolge ist chronologisch nach der **ersten** Aufnahme der
+/// Gruppe. Eine Karte, deren Pins in wechselnder Reihenfolge erscheinen,
+/// lässt sich nicht mit der Tagesliste darunter zusammenlesen.
+List<Aufenthaltsort> aufenthaltsorte(
+  Iterable<Aufenthaltsaufnahme> aufnahmen, {
+  double radiusKm = aufenthaltRadiusKm,
+}) {
+  final sortiert = aufnahmen.toList()..sort((a, b) => a.zeit.compareTo(b.zeit));
+  final gruppen = <List<Aufenthaltsaufnahme>>[];
+  // Der Mittelpunkt jeder Gruppe, laufend nachgeführt.
+  //
+  // Nicht der Abstand zum zuletzt aufgenommenen Bild: Danach hinge eine
+  // Kette knapp benachbarter Bilder beliebig weit fort – drei Aufnahmen
+  // im Abstand von je zwölf Kilometern wären ein einziger
+  // „Aufenthaltsort" über vierundzwanzig Kilometer, und der Pin läge auf
+  // keinem davon. Gegen die Mitte gemessen bleibt eine Gruppe kompakt,
+  // und wer wirklich weitergezogen ist, bekommt einen eigenen Pin.
+  final mitten = <({double breite, double laenge})>[];
+
+  for (final a in sortiert) {
+    var gefunden = -1;
+    var besteEntfernung = double.infinity;
+    for (var i = 0; i < gruppen.length; i++) {
+      final e = ReverseGeocoder.haversineKm(
+          mitten[i].breite, mitten[i].laenge, a.breite, a.laenge);
+      if (e <= radiusKm && e < besteEntfernung) {
+        besteEntfernung = e;
+        gefunden = i;
+      }
+    }
+    if (gefunden < 0) {
+      gruppen.add([a]);
+      mitten.add((breite: a.breite, laenge: a.laenge));
+      continue;
+    }
+    gruppen[gefunden].add(a);
+    final n = gruppen[gefunden].length;
+    mitten[gefunden] = (
+      breite: mitten[gefunden].breite + (a.breite - mitten[gefunden].breite) / n,
+      laenge: mitten[gefunden].laenge + (a.laenge - mitten[gefunden].laenge) / n,
+    );
+  }
+
+  final ergebnis = <Aufenthaltsort>[
+    for (var i = 0; i < gruppen.length; i++)
+      (
+        breite: mitten[i].breite,
+        laenge: mitten[i].laenge,
+        name: _haeufigsterOrt(gruppen[i].map((a) => a.stadt)),
+        aufnahmeIds: [for (final a in gruppen[i]) a.id],
+        von: gruppen[i].first.zeit,
+        bis: gruppen[i].last.zeit,
+      ),
+  ];
+  ergebnis.sort((a, b) => a.von.compareTo(b.von));
+  return ergebnis;
+}

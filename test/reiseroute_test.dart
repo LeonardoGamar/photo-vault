@@ -105,4 +105,84 @@ void main() {
       expect(tage.single.aufnahmeIds, ['morgen', 'mittag']);
     });
   });
+
+  group('aufenthaltsorte', () {
+    Aufenthaltsaufnahme a(String id, double breite, double laenge, int tag,
+            {String? stadt}) =>
+        (
+          id: id,
+          breite: breite,
+          laenge: laenge,
+          zeit: DateTime(2024, 6, tag),
+          stadt: stadt
+        );
+
+    test('Aufnahmen derselben Stadt werden ein Pin', () {
+      // Rom und der Vatikan sind zwei Kilometer auseinander.
+      final orte = aufenthaltsorte([
+        a('a', 41.9028, 12.4964, 3, stadt: 'Roma'),
+        a('b', 41.9022, 12.4539, 3, stadt: 'Città del Vaticano'),
+        a('c', 41.8902, 12.4922, 4, stadt: 'Roma'),
+      ]);
+      expect(orte, hasLength(1));
+      expect(orte.single.aufnahmeIds, ['a', 'b', 'c']);
+      // Der haeufigste Name gewinnt, nicht der erste.
+      expect(orte.single.name, 'Roma');
+    });
+
+    test('weit auseinander liegende Orte bleiben getrennt', () {
+      final orte = aufenthaltsorte([
+        a('rom', 41.9028, 12.4964, 3, stadt: 'Roma'),
+        a('flo', 43.7696, 11.2558, 5, stadt: 'Firenze'),
+      ]);
+      expect(orte.map((o) => o.name), ['Roma', 'Firenze']);
+    });
+
+    test('die Reihenfolge ist die der ersten Aufnahme', () {
+      final orte = aufenthaltsorte([
+        a('spaet', 43.7696, 11.2558, 8),
+        a('frueh', 41.9028, 12.4964, 3),
+      ]);
+      expect(orte.first.aufnahmeIds, ['frueh']);
+      expect(orte.first.von, DateTime(2024, 6, 3));
+      expect(orte.last.bis, DateTime(2024, 6, 8));
+    });
+
+    test('ohne Ortsnamen bleibt der Name leer statt geraten', () {
+      final orte = aufenthaltsorte([a('a', 41.9, 12.5, 3)]);
+      expect(orte.single.name, isNull);
+    });
+
+    test('eine Kette zieht die Gruppe nicht beliebig weit fort', () {
+      // Drei Bilder in einer Reihe, je 12 km auseinander. Gemessen gegen
+      // das jeweils letzte Bild waeren alle drei ein Aufenthaltsort ueber
+      // 24 km, und der Pin laege auf keinem davon. Gegen die Mitte
+      // gemessen ruecken die ersten beiden zusammen (Mitte 50,054), und
+      // das dritte ist 18 km davon entfernt – also ein eigener Ort.
+      final orte = aufenthaltsorte([
+        a('a', 50.0, 8.0, 3),
+        a('b', 50.108, 8.0, 3),
+        a('c', 50.216, 8.0, 3),
+      ]);
+      expect(orte, hasLength(2));
+      expect(orte.first.aufnahmeIds, ['a', 'b']);
+      expect(orte.first.breite, closeTo(50.054, 0.001));
+      expect(orte.last.aufnahmeIds, ['c']);
+    });
+
+    test('ein kleinerer Radius zerlegt dieselben Bilder feiner', () {
+      // Die Gegenprobe zum Radius: Ohne sie stuende nur die Behauptung da,
+      // die 15 km machten einen Unterschied.
+      final bilder = [
+        a('rom', 41.9028, 12.4964, 3),
+        a('vat', 41.9022, 12.4539, 3),
+      ];
+      expect(aufenthaltsorte(bilder), hasLength(1));
+      expect(aufenthaltsorte(bilder, radiusKm: 1), hasLength(2));
+    });
+
+    test('ohne Aufnahmen gibt es keine Orte', () {
+      expect(aufenthaltsorte(const []), isEmpty);
+    });
+  });
 }

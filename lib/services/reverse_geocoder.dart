@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'laenderkatalog.dart';
+
 /// Ergebnis einer Umkehr-Geokodierung: die nächstgelegene bekannte Stadt
 /// sowie deren Land/Bundesland (soweit auflösbar). [city] ist immer gesetzt,
 /// sobald [ReverseGeocoder.lookup] überhaupt ein Ergebnis liefert –
@@ -75,7 +77,18 @@ class OrtsTreffer {
 /// Gitter (1°-Zellen) einsortiert – bei ca. 150.000 Städten weltweit macht
 /// das eine lineare Suche über alle Punkte pro Foto unnötig.
 class ReverseGeocoder {
-  ReverseGeocoder._(this._cities, this._countryNames, this._admin1Names) {
+  ReverseGeocoder._(this._cities, this.laenderkatalog, this._admin1Names)
+      : _countryNames = {
+          for (final l in laenderkatalog.laender) l.iso: l.name,
+        },
+        isoNachName = {
+          for (final l in laenderkatalog.laender) l.name: l.iso,
+        } {
+    for (final e in _admin1Names.entries) {
+      final punkt = e.key.indexOf('.');
+      if (punkt <= 0) continue;
+      regionscodes['${e.key.substring(0, punkt)}|${e.value}'] = e.key;
+    }
     for (var i = 0; i < _cities.length; i++) {
       final key = _cellKey(_cities[i].lat.floor(), _cities[i].lon.floor());
       _grid.putIfAbsent(key, () => []).add(i);
@@ -83,7 +96,25 @@ class ReverseGeocoder {
   }
 
   final List<_GeoCity> _cities;
+
+  /// Alle Länder samt Hauptstadt, Erdteil und Regionenzahl.
+  final Laenderkatalog laenderkatalog;
+
   final Map<String, String> _countryNames; // ISO-Code -> Ländername
+
+  /// Die Gegenrichtung: „Germany" -> „DE".
+  ///
+  /// Die Fotos tragen den **Namen** des Landes, der Katalog rechnet mit
+  /// dem Code. Beide stammen aus derselben Datei, der Name trifft also
+  /// immer – eine gepflegte zweite Liste wäre hier eine zweite Wahrheit.
+  final Map<String, String> isoNachName;
+
+  /// „DE|Hamburg" -> „DE.04".
+  ///
+  /// Damit ein von Hand gesetzter Haken auf einer Region und ein Foto aus
+  /// derselben Region **eine** Region sind und nicht zwei.
+  final Map<String, String> regionscodes = {};
+
   final Map<String, String> _admin1Names; // "US.CA" -> "California"
   final Map<int, List<int>> _grid = {};
 
@@ -99,6 +130,85 @@ class ReverseGeocoder {
   Map<String, String> get laenderverzeichnis =>
       Map.unmodifiable(_countryNames);
 
+  /// Ein Punkt auf der Karte für ein Land, eine Region oder einen Ort.
+  ///
+  /// **Aus demselben Datensatz und nicht aus einer zweiten Datei.** Die
+  /// Weltkarte soll ein Land dort anzeigen, wo die Fotos es verorten
+  /// würden – ein zweiter Satz Mittelpunkte könnte davon abweichen, und
+  /// dann stünde die Marke woanders als das Bild.
+  ///
+  /// Für ein Land ist das die **Hauptstadt**, sonst der einwohnerstärkste
+  /// bekannte Ort. Ein Flächenschwerpunkt wäre ehrlicher gemeint und in
+  /// der Anschauung schlechter: Bei Norwegen läge er auf einem Berg, bei
+  /// Indonesien im Meer.
+  ({double breite, double laenge})? landpunkt(String iso) =>
+      _punkte(_landpunkte, iso.toUpperCase());
+
+  /// Für eine Region („DE.02") der einwohnerstärkste bekannte Ort darin.
+  ({double breite, double laenge})? regionspunkt(String code) =>
+      _punkte(_regionspunkte, code);
+
+  /// Für einen Ort seine eigene Koordinate.
+  ({double breite, double laenge})? ortspunkt(String iso, String name) =>
+      _punkte(_ortspunkte, '${iso.toUpperCase()}|$name');
+
+  ({double breite, double laenge})? _punkte(
+      Map<String, int> index, String schluessel) {
+    _bauePunkte();
+    final i = index[schluessel];
+    return i == null ? null : (breite: _cities[i].lat, laenge: _cities[i].lon);
+  }
+
+  final Map<String, int> _landpunkte = {};
+  final Map<String, int> _regionspunkte = {};
+  final Map<String, int> _ortspunkte = {};
+  bool _punkteGebaut = false;
+
+  /// Einmalig über alle Städte, nicht je Abfrage.
+  ///
+  /// Gemessen an 150.000 Städten liefe eine Suche je Land 252 Mal über die
+  /// ganze Liste. Einmal darüber und dabei alle drei Karten füllen kostet
+  /// einen Durchgang.
+  void _bauePunkte() {
+    if (_punkteGebaut) return;
+    _punkteGebaut = true;
+    final hauptstaedte = {
+      for (final l in laenderkatalog.laender)
+        if (l.hauptstadt case final h?) '${l.iso}|$h': true,
+    };
+    final besteEinwohner = <String, int>{};
+    for (var i = 0; i < _cities.length; i++) {
+      final c = _cities[i];
+      final landSchluessel = c.countryCode;
+
+      // Die Hauptstadt schlägt jede Einwohnerzahl – sonst gewönne bei den
+      // USA New York gegen Washington.
+      final istHauptstadt = hauptstaedte.containsKey('$landSchluessel|${c.name}') ||
+          hauptstaedte.containsKey('$landSchluessel|${c.asciiName}');
+      final gewicht = istHauptstadt ? 1 << 40 : c.einwohner;
+      if (gewicht > (besteEinwohner[landSchluessel] ?? -1)) {
+        besteEinwohner[landSchluessel] = gewicht;
+        _landpunkte[landSchluessel] = i;
+      }
+
+      if (c.admin1Code.isNotEmpty) {
+        final r = '$landSchluessel.${c.admin1Code}';
+        if (c.einwohner > (besteEinwohner[r] ?? -1)) {
+          besteEinwohner[r] = c.einwohner;
+          _regionspunkte[r] = i;
+        }
+      }
+
+      for (final name in {c.name, c.asciiName}) {
+        final o = '$landSchluessel|$name';
+        if (c.einwohner > (besteEinwohner[o] ?? -1)) {
+          besteEinwohner[o] = c.einwohner;
+          _ortspunkte[o] = i;
+        }
+      }
+    }
+  }
+
   static const _maxRadiusDegrees = 30;
 
   static Future<ReverseGeocoder> loadFromFiles({
@@ -106,10 +216,15 @@ class ReverseGeocoder {
     required File admin1File,
     required File countryFile,
   }) async {
-    final countryNames = await _parseCountryInfo(countryFile);
-    final admin1Names = await _parseAdmin1Codes(admin1File);
+    final countryZeilen = await countryFile.readAsLines();
+    final admin1Zeilen = await admin1File.readAsLines();
+    final katalog = Laenderkatalog.aus(
+      countryInfoZeilen: countryZeilen,
+      admin1Zeilen: admin1Zeilen,
+    );
+    final admin1Names = _admin1AusZeilen(admin1Zeilen);
     final cities = await _parseCities(citiesFile);
-    return ReverseGeocoder._(cities, countryNames, admin1Names);
+    return ReverseGeocoder._(cities, katalog, admin1Names);
   }
 
   /// Liefert die nächstgelegene bekannte Stadt zu den übergebenen
@@ -303,23 +418,12 @@ class ReverseGeocoder {
 
   static double _degToRad(double deg) => deg * math.pi / 180;
 
-  /// `countryInfo.txt`: Kommentarzeilen beginnen mit "#", Spalte 0 = ISO-Code,
-  /// Spalte 4 = Ländername.
-  static Future<Map<String, String>> _parseCountryInfo(File file) async {
-    final lines = await file.readAsLines();
-    final map = <String, String>{};
-    for (final line in lines) {
-      if (line.isEmpty || line.startsWith('#')) continue;
-      final cols = line.split('\t');
-      if (cols.length < 5) continue;
-      map[cols[0]] = cols[4];
-    }
-    return map;
-  }
-
   /// `admin1CodesASCII.txt`: Spalte 0 = Code (z.B. "US.CA"), Spalte 1 = Name.
-  static Future<Map<String, String>> _parseAdmin1Codes(File file) async {
-    final lines = await file.readAsLines();
+  ///
+  /// Die Ländernamen kommen nicht mehr von hier, sondern aus
+  /// [Laenderkatalog] – dieselbe Datei, aber vollständig gelesen statt nur
+  /// eine Spalte davon.
+  static Map<String, String> _admin1AusZeilen(List<String> lines) {
     final map = <String, String>{};
     for (final line in lines) {
       if (line.isEmpty) continue;

@@ -184,4 +184,82 @@ void main() {
       expect(lebensspanne(null, null), isNull);
     });
   });
+
+  group('Seitenaeste', () {
+    // Der Baum kannte genau fuenf Rollen: Eltern, Geschwister, Fokus,
+    // Partner, Kinder. Wer wissen wollte, wo seine Tante steht, musste
+    // erst auf sie ruecken.
+    final netz = Verwandtschaftsnetz([
+      kante('vater', 'opa', Verwandtschaft.elternteil),
+      kante('vater', 'oma', Verwandtschaft.elternteil),
+      kante('onkel', 'opa', Verwandtschaft.elternteil),
+      kante('onkel', 'oma', Verwandtschaft.elternteil),
+      kante('ich', 'vater', Verwandtschaft.elternteil),
+      kante('ich', 'mutter', Verwandtschaft.elternteil),
+      kante('schwester', 'vater', Verwandtschaft.elternteil),
+      kante('schwester', 'mutter', Verwandtschaft.elternteil),
+      kante('neffe', 'schwester', Verwandtschaft.elternteil),
+      partnerKanteFuer('ich', 'gattin'),
+      kante('gattin', 'schwiegervater', Verwandtschaft.elternteil),
+      kante('kind', 'ich', Verwandtschaft.elternteil),
+    ]);
+    const alle = [
+      'gattin', 'ich', 'kind', 'mutter', 'neffe', 'oma', 'onkel', 'opa',
+      'schwester', 'schwiegervater', 'vater',
+    ];
+
+    test('ohne Anforderung bleibt der Ausschnitt so schmal wie bisher', () {
+      final a = ausschnittUm(netz, 'ich', alle);
+      expect(a.grosseltern, isEmpty);
+      expect(a.onkelTanten, isEmpty);
+      expect(a.neffenNichten, isEmpty);
+      expect(a.schwiegereltern, isEmpty);
+      // Und der Kern ist unveraendert.
+      expect(a.eltern, ['mutter', 'vater']);
+      expect(a.geschwister, ['schwester']);
+    });
+
+    test('mit Anforderung kommen die vier Aeste dazu', () {
+      final a = ausschnittUm(netz, 'ich', alle, seitenlinien: true);
+      expect(a.grosseltern, ['oma', 'opa']);
+      expect(a.onkelTanten, ['onkel']);
+      expect(a.neffenNichten, ['neffe']);
+      expect(a.schwiegereltern, ['schwiegervater']);
+    });
+
+    test('niemand steht zweimal im Bild', () {
+      // Der Fall, der in echten Familien vorkommt: Ein Kind ist zugleich
+      // Neffe, weil zwei Geschwister zwei Geschwister geheiratet haben.
+      // Zwei Karten fuer einen Menschen waeren kein Baum, sondern ein
+      // Fehler.
+      final verzwickt = Verwandtschaftsnetz([
+        kante('ich', 'vater', Verwandtschaft.elternteil),
+        kante('schwester', 'vater', Verwandtschaft.elternteil),
+        kante('kind', 'ich', Verwandtschaft.elternteil),
+        kante('kind', 'schwester', Verwandtschaft.elternteil),
+      ]);
+      final a = ausschnittUm(
+          verzwickt, 'ich', const ['ich', 'kind', 'schwester', 'vater'],
+          seitenlinien: true);
+      expect(a.kinder, ['kind']);
+      // „kind" steht schon als eigenes Kind da – nicht noch einmal als
+      // Neffe.
+      expect(a.neffenNichten, isEmpty);
+    });
+
+    test('die Reihenfolge ist dieselbe wie ueberall', () {
+      final a = ausschnittUm(netz, 'ich', alle, seitenlinien: true);
+      // Nach der uebergebenen Reihenfolge, nicht nach Zufall: 'oma' vor
+      // 'opa', weil die Liste es so sagt.
+      expect(a.grosseltern, ['oma', 'opa']);
+    });
+
+    test('Seitenaeste allein machen den Ausschnitt nicht „nicht leer"', () {
+      // Sie koennen ohne Eltern gar nicht entstehen – aber die Regel soll
+      // schwarz auf weiss dastehen.
+      final einsam = Verwandtschaftsnetz([]);
+      final a = ausschnittUm(einsam, 'ich', const ['ich'], seitenlinien: true);
+      expect(a.istLeer, isTrue);
+    });
+  });
 }

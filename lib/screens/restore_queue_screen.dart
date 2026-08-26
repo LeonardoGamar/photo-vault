@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
+import '../services/restore_queue_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/empty_state.dart';
@@ -44,9 +45,7 @@ class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
     final t = AppTexte.of(context);
     return switch (job.status) {
       'queued' => t.restaurWartet,
-      'running' => job.tilesTotal > 0
-          ? t.restaurLaeuft(job.tilesDone, job.tilesTotal)
-          : t.restaurWirdGestartet,
+      'running' => _laufText(t, job),
       'done' => t.allgFertig,
       'cancelled' => t.restaurAbgebrochen,
       'failed' => job.errorMessage == null
@@ -54,6 +53,26 @@ class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
           : t.restaurFehlgeschlagen(_grundText(t, job.errorMessage!)),
       _ => job.status,
     };
+  }
+
+  /// Was die Zeile eines laufenden Auftrags sagt.
+  ///
+  /// **Nicht mehr „Kachel 12 von 20".** „Kachel" ist ein Wort aus dem
+  /// Maschinenraum – Real-ESRGAN zerlegt das Bild in Stücke, weil es
+  /// nicht auf einmal durch das Modell passt. Von aussen ist das keine
+  /// Auskunft, sondern eine Zumutung. Prozent und Restzeit beantworten
+  /// die Frage, die man wirklich stellt.
+  String _laufText(AppTexte t, RestoreJobData job) {
+    final prozent = fortschrittProzent(job);
+    if (prozent == null) return t.restaurWirdGestartet;
+    final rest = restzeitSchaetzung(job);
+    // Ohne Startzeit oder ohne eine einzige fertige Kachel gibt es keine
+    // Restzeit. Dann steht sie eben nicht da – eine geratene wäre
+    // schlimmer als keine.
+    if (rest == null || rest == Duration.zero) {
+      return t.restaurZeileLaeuft(prozent);
+    }
+    return t.restaurZeileMitRest(prozent, dauerText(t, rest));
   }
 
   /// Der Dienst legt die Kennung des Grundes ab (siehe
@@ -153,4 +172,18 @@ class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
       ),
     );
   }
+}
+
+/// Eine Dauer als Satz.
+///
+/// Auf ganze Minuten gerundet, sobald es mehr als eine ist: Eine
+/// Restzeit von „3 Minuten 47 Sekunden" ist genauer, als die Schätzung
+/// es hergibt, und sie ändert sich bei jedem Bildaufbau. Unter einer
+/// Minute stehen Sekunden, weil es dann tatsächlich gleich vorbei ist.
+String dauerText(AppTexte t, Duration dauer) {
+  final sekunden = dauer.inSeconds;
+  if (sekunden < 60) {
+    return t.restaurDauerSekunden(sekunden < 1 ? 1 : sekunden);
+  }
+  return t.restaurDauerMinuten((dauer.inSeconds / 60).round().clamp(1, 1 << 30));
 }

@@ -53,12 +53,20 @@ void main() {
         assetIds,
       );
 
-  test('Fassung 51 ist erreicht', () async {
+  test('die Datenbank steht auf der Fassung, die der Quelltext angibt',
+      () async {
+    // Gegen [AppDatabase.schemaVersion] und nicht gegen eine
+    // hineingeschriebene Zahl: Der Test soll bemerken, wenn eine Migration
+    // nicht läuft – nicht, wenn eine neue dazukommt. Vorher stand hier
+    // eine 51, und die naechste Fassung liess ihn fallen, obwohl an den
+    // Reisen nichts kaputt war.
     final fassung = await db
         .customSelect('PRAGMA user_version')
         .map((r) => r.read<int>('user_version'))
         .getSingle();
-    expect(fassung, 51);
+    expect(fassung, db.schemaVersion);
+    expect(fassung, greaterThanOrEqualTo(51),
+        reason: 'Die Reisen-Tabellen kamen mit Fassung 51.');
   });
 
   test('eine Reise entsteht samt ihren Aufnahmen', () async {

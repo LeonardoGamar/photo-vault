@@ -10,8 +10,10 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/namens_dialog.dart';
+import '../widgets/fortschrittsbalken.dart';
+import 'laenderliste_screen.dart';
 import 'reise_detail_screen.dart';
-import 'reisefortschritt_screen.dart';
+import 'weltkarte_screen.dart';
 
 /// Die Reisen einer Bibliothek – bestätigte und vorgeschlagene.
 ///
@@ -133,6 +135,20 @@ class _ReisenScreenState extends State<ReisenScreen> {
         title: Text(t.reisenTitel),
         actions: [
           IconButton(
+            tooltip: t.weltkarteOeffnen,
+            icon: const Icon(Icons.public),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => WeltkarteScreen(library: widget.library),
+            )),
+          ),
+          IconButton(
+            tooltip: t.laenderTitel,
+            icon: const Icon(Icons.flag_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => LaenderlisteScreen(library: widget.library),
+            )),
+          ),
+          IconButton(
             tooltip: t.reisenAktualisieren,
             icon: const Icon(Icons.refresh),
             onPressed: _laedt ? null : _laden,
@@ -191,8 +207,8 @@ class _ReisenScreenState extends State<ReisenScreen> {
                           borderRadius: BorderRadius.circular(AppRadius.md),
                           onTap: () =>
                               Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) =>
-                                ReisefortschrittScreen(fortschritt: f),
+                            builder: (_) => LaenderlisteScreen(
+                                library: widget.library),
                           )),
                           child: Padding(
                             padding: const EdgeInsets.all(AppSpacing.lg),

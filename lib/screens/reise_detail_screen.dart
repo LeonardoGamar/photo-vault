@@ -9,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../services/reiseroute.dart';
+import '../services/storage_paths.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/mini_location_map.dart'
     show buildMapAttribution, buildMapTileLayer, kartenHoechsteStufe;
@@ -84,6 +85,19 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
               breite: a.latitude!,
               laenge: a.longitude!,
               zeit: a.fileCreatedAt,
+            ),
+      ]);
+
+  /// Die Aufenthaltsorte – ein Pin je Ort statt einer je Aufnahme.
+  List<Aufenthaltsort> get _orteMitBildern => aufenthaltsorte([
+        for (final a in _aufnahmen)
+          if (a.latitude != null && a.longitude != null)
+            (
+              id: a.id,
+              breite: a.latitude!,
+              laenge: a.longitude!,
+              zeit: a.fileCreatedAt,
+              stadt: a.locationCity,
             ),
       ]);
 
@@ -187,6 +201,31 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  /// Tippen auf einen Pin: nur die Bilder von dort.
+  ///
+  /// Nicht der Sprung in die vollständige Liste an der passenden Stelle.
+  /// „Was habe ich in Rom fotografiert" ist eine eigene Frage, und ein
+  /// Betrachter, der danach weiterblättert nach Florenz, beantwortet sie
+  /// nur halb.
+  void _ortOeffnen(Aufenthaltsort ort) {
+    final bilder = [
+      for (final id in ort.aufnahmeIds)
+        if (_nachId[id] case final a?) a,
+    ];
+    if (bilder.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => AssetViewerScreen(
+        assets: bilder,
+        initialIndex: 0,
+        paths: widget.library.paths,
+        db: widget.library.db,
+        library: widget.library,
+        onToggleFavorite: (a) =>
+            widget.library.db.setFavorite(a.id, !a.isFavorite),
+      ),
+    ));
+  }
+
   void _oeffnen(int index) {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
@@ -251,7 +290,13 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                           Text(t.reisenRoute,
                               style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: AppSpacing.xs),
-                          _Routenkarte(route: _route),
+                          _Routenkarte(
+                            route: _route,
+                            orte: _orteMitBildern,
+                            nachId: _nachId,
+                            paths: widget.library.paths,
+                            beiOrt: _ortOeffnen,
+                          ),
                         ] else if (_aufnahmen.isNotEmpty) ...[
                           const SizedBox(height: AppSpacing.md),
                           Text(t.reisenKeineRoute,
@@ -376,8 +421,18 @@ class _Tageskopf extends StatelessWidget {
 /// sie ist kein Kartenbildschirm. Wer suchen will, hat den unter „Orte".
 class _Routenkarte extends StatelessWidget {
   final List<Routenpunkt> route;
+  final List<Aufenthaltsort> orte;
+  final Map<String, AssetData> nachId;
+  final StoragePaths paths;
+  final void Function(Aufenthaltsort) beiOrt;
 
-  const _Routenkarte({required this.route});
+  const _Routenkarte({
+    required this.route,
+    required this.orte,
+    required this.nachId,
+    required this.paths,
+    required this.beiOrt,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -431,8 +486,120 @@ class _Routenkarte extends StatelessWidget {
                   ),
                 ),
             ]),
+            // Die Bilder liegen ueber der Strecke: Sie sind das, wonach man
+            // auf einer Reisekarte sucht.
+            MarkerLayer(markers: [
+              for (final ort in orte)
+                if (nachId[ort.aufnahmeIds.first] case final bild?)
+                  Marker(
+                    point: ll.LatLng(ort.breite, ort.laenge),
+                    width: 52,
+                    height: 52,
+                    child: _Ortsbild(
+                      bild: bild,
+                      paths: paths,
+                      anzahl: ort.aufnahmeIds.length,
+                      name: ort.name,
+                      beiTippen: () => beiOrt(ort),
+                    ),
+                  ),
+            ]),
             buildMapAttribution(context),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ein Aufenthaltsort als Bild auf der Karte.
+///
+/// Die Karte selbst bleibt unbeweglich (siehe [_Routenkarte]) – ein
+/// Tippen kommt trotzdem an, weil die Marke ein gewöhnliches Widget ist.
+/// Genau das ist der Grund für die Aufteilung: Eine Karte, die sich
+/// schieben lässt, würde inmitten einer rollbaren Seite jeden zweiten
+/// Wisch verschlucken.
+class _Ortsbild extends StatelessWidget {
+  final AssetData bild;
+  final StoragePaths paths;
+  final int anzahl;
+  final String? name;
+  final VoidCallback beiTippen;
+
+  const _Ortsbild({
+    required this.bild,
+    required this.paths,
+    required this.anzahl,
+    required this.name,
+    required this.beiTippen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+    final pfad = bild.thumbnailRelativePath;
+    return Tooltip(
+      message: [
+        if (name case final n?) n,
+        t.reisenAufnahmen(anzahl),
+      ].join(' · '),
+      child: GestureDetector(
+        onTap: beiTippen,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(color: Colors.white, width: 2),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black45, blurRadius: 4),
+                  ],
+                  color: farben.surfaceContainerHighest,
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: pfad == null
+                    ? Icon(Icons.image_outlined,
+                        size: 18, color: farben.onSurfaceVariant)
+                    : Image.file(
+                        paths.absolute(pfad),
+                        fit: BoxFit.cover,
+                        // Die Marke ist 44 Punkte gross; die Vorschau auf
+                        // der Platte ist 400. Ohne diese Grenze läge bei
+                        // zwanzig Orten das Zwanzigfache im Speicher.
+                        cacheWidth: 132,
+                        errorBuilder: (_, __, ___) => Icon(
+                            Icons.image_not_supported_outlined,
+                            size: 18,
+                            color: farben.onSurfaceVariant),
+                      ),
+              ),
+              if (anzahl > 1)
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xs, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: farben.primary,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Text('$anzahl',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: farben.onPrimary)),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

@@ -1031,6 +1031,30 @@ class _DevelopScreenState extends State<DevelopScreen> {
   Future<void> _enqueueRestore() async {
     final queue = widget.restoreQueue;
     if (queue == null) return;
+    // Erst erklären, dann rechnen. Ein Knopf, der ein Foto minutenlang
+    // durch ein Modell schickt, ohne vorher zu sagen, was dabei
+    // herauskommt, ist ein Knopf, den man einmal drückt und danach nicht
+    // mehr – aus Unsicherheit, nicht aus Ablehnung.
+    final t = AppTexte.of(context);
+    final los = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.modellEsrganTitel),
+        content: SizedBox(
+          width: 420,
+          child: Text(t.restaurWasPassiert),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(t.allgStarten)),
+        ],
+      ),
+    );
+    if (los != true || !mounted) return;
     try {
       await queue.enqueue(widget.asset.id);
       if (mounted) {

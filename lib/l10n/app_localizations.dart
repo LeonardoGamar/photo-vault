@@ -163,6 +163,18 @@ abstract class AppTexte {
   /// **'Kalender'**
   String get navKalender;
 
+  /// No description provided for @navReisen.
+  ///
+  /// In de, this message translates to:
+  /// **'Reisen'**
+  String get navReisen;
+
+  /// No description provided for @kuerzelReisenOhne.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Reisen haben kein Kürzel – die zehn Ziffern waren vergeben, und eine Umnummerierung hätte alle eingeübten verschoben.'**
+  String get kuerzelReisenOhne;
+
   /// No description provided for @navKarte.
   ///
   /// In de, this message translates to:
@@ -210,19 +222,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Geöffnete Bibliothek: {name}'**
   String geoeffneteBibliothek(String name);
-
-  /// No description provided for @restaurierungLaeuft.
-  ///
-  /// In de, this message translates to:
-  /// **'KI-Restaurierung läuft – Kachel {fertig}/{gesamt}'**
-  String restaurierungLaeuft(int fertig, int gesamt);
-
-  /// No description provided for @restaurierungLaeuftMitWarteschlange.
-  ///
-  /// In de, this message translates to:
-  /// **'KI-Restaurierung läuft – Kachel {fertig}/{gesamt} · {wartend} in Warteschlange'**
-  String restaurierungLaeuftMitWarteschlange(
-      int fertig, int gesamt, int wartend);
 
   /// No description provided for @restaurierungWirdVorbereitet.
   ///
@@ -5194,11 +5193,53 @@ abstract class AppTexte {
   /// **'Wartet in der Warteschlange'**
   String get restaurWartet;
 
-  /// No description provided for @restaurLaeuft.
+  /// No description provided for @restaurProzentLaeuft.
   ///
   /// In de, this message translates to:
-  /// **'Läuft – Kachel {erledigt} von {gesamt}'**
-  String restaurLaeuft(int erledigt, int gesamt);
+  /// **'KI-Restaurierung läuft – {prozent} %'**
+  String restaurProzentLaeuft(int prozent);
+
+  /// No description provided for @restaurProzentMitRest.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-Restaurierung läuft – {prozent} %, noch etwa {rest}'**
+  String restaurProzentMitRest(int prozent, String rest);
+
+  /// No description provided for @restaurProzentMitWarteschlange.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-Restaurierung läuft – {prozent} %, {wartend} in Warteschlange'**
+  String restaurProzentMitWarteschlange(int prozent, int wartend);
+
+  /// No description provided for @restaurZeileLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Läuft – {prozent} %'**
+  String restaurZeileLaeuft(int prozent);
+
+  /// No description provided for @restaurZeileMitRest.
+  ///
+  /// In de, this message translates to:
+  /// **'Läuft – {prozent} %, noch etwa {rest}'**
+  String restaurZeileMitRest(int prozent, String rest);
+
+  /// No description provided for @restaurDauerMinuten.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine Minute} other{{anzahl} Minuten}}'**
+  String restaurDauerMinuten(int anzahl);
+
+  /// No description provided for @restaurDauerSekunden.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine Sekunde} other{{anzahl} Sekunden}}'**
+  String restaurDauerSekunden(int anzahl);
+
+  /// No description provided for @restaurWasPassiert.
+  ///
+  /// In de, this message translates to:
+  /// **'Real-ESRGAN rechnet das Foto auf die vierfache Kantenlänge hoch und glättet dabei Rauschen und Kompressionsspuren. Das Original bleibt unangetastet; das Ergebnis liegt daneben und lässt sich jederzeit wieder entfernen.'**
+  String get restaurWasPassiert;
 
   /// No description provided for @restaurTitel.
   ///
@@ -7602,6 +7643,84 @@ abstract class AppTexte {
   /// **'Familienstatistik'**
   String get stammbaumFamilienstatistik;
 
+  /// No description provided for @famstatAufFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf den Fotos'**
+  String get famstatAufFotos;
+
+  /// No description provided for @famstatAusLebensdaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus den Lebensdaten'**
+  String get famstatAusLebensdaten;
+
+  /// No description provided for @famstatAufnahmenGesamt.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmen'**
+  String get famstatAufnahmenGesamt;
+
+  /// No description provided for @famstatImBild.
+  ///
+  /// In de, this message translates to:
+  /// **'Im Bild'**
+  String get famstatImBild;
+
+  /// No description provided for @famstatZeitraum.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitraum'**
+  String get famstatZeitraum;
+
+  /// No description provided for @famstatOhneBild.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Person ist auf keinem Bild} other{{anzahl} Personen sind auf keinem Bild}}'**
+  String famstatOhneBild(int anzahl);
+
+  /// No description provided for @famstatAufnahmenJeJahr.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmen je Jahr'**
+  String get famstatAufnahmenJeJahr;
+
+  /// No description provided for @famstatOftZusammen.
+  ///
+  /// In de, this message translates to:
+  /// **'Oft zusammen im Bild'**
+  String get famstatOftZusammen;
+
+  /// No description provided for @famstatVonBis.
+  ///
+  /// In de, this message translates to:
+  /// **'{von} bis {bis}'**
+  String famstatVonBis(String von, String bis);
+
+  /// No description provided for @famstatAlterVonBis.
+  ///
+  /// In de, this message translates to:
+  /// **'{von} bis {bis} Jahre alt'**
+  String famstatAlterVonBis(int von, int bis);
+
+  /// No description provided for @famstatInJahren.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{in einem Jahr} other{in {anzahl} Jahren}}'**
+  String famstatInJahren(int anzahl);
+
+  /// No description provided for @famstatFehlendeLebensdaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Sterbealter, Heiratsalter und Alter je Generation stehen erst da, wenn Sterbe- und Hochzeitsdaten eingetragen sind. Photo Vault schätzt sie nicht.'**
+  String get famstatFehlendeLebensdaten;
+
+  /// No description provided for @famstatKeineFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Von dieser Familie ist noch niemand auf einem Foto erkannt worden.'**
+  String get famstatKeineFotos;
+
   /// No description provided for @famstatLeer.
   ///
   /// In de, this message translates to:
@@ -7896,12 +8015,6 @@ abstract class AppTexte {
   /// **'{datum}'**
   String reisenTag(String datum);
 
-  /// No description provided for @fortschrittTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Länder und Orte'**
-  String get fortschrittTitel;
-
   /// No description provided for @fortschrittLaender.
   ///
   /// In de, this message translates to:
@@ -7932,11 +8045,257 @@ abstract class AppTexte {
   /// **'Gezählt wird gegen die {gesamt} Länder und Gebiete des GeoNames-Datensatzes – Überseegebiete eingeschlossen, nicht nur die 195 souveränen Staaten. Eine eigene, gepflegte Liste wäre eine zweite Wahrheit neben der, nach der die Fotos tatsächlich eingeordnet werden.'**
   String fortschrittHinweis(int gesamt);
 
-  /// No description provided for @fortschrittBesucht.
+  /// No description provided for @weltkarteTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Weltkarte'**
+  String get weltkarteTitel;
+
+  /// No description provided for @weltkarteEbenen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ebenen'**
+  String get weltkarteEbenen;
+
+  /// No description provided for @weltkarteLaender.
+  ///
+  /// In de, this message translates to:
+  /// **'Länder'**
+  String get weltkarteLaender;
+
+  /// No description provided for @weltkarteRegionen.
+  ///
+  /// In de, this message translates to:
+  /// **'Regionen'**
+  String get weltkarteRegionen;
+
+  /// No description provided for @weltkarteOrte.
+  ///
+  /// In de, this message translates to:
+  /// **'Orte'**
+  String get weltkarteOrte;
+
+  /// No description provided for @weltkarteHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Was die Fotos belegen, steht schon auf der Karte. Tippe auf eine Stelle, um von Hand zu markieren, was kein Bild zeigt.'**
+  String get weltkarteHinweis;
+
+  /// No description provided for @weltkarteKeinOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'An dieser Stelle kennt der Datensatz keinen Ort.'**
+  String get weltkarteKeinOrt;
+
+  /// No description provided for @weltkarteMarkeGesetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}“ ist markiert.'**
+  String weltkarteMarkeGesetzt(String name);
+
+  /// No description provided for @weltkarteNaechsterOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Nächster bekannter Ort: {ort}'**
+  String weltkarteNaechsterOrt(String ort);
+
+  /// No description provided for @weltkarteAlsLand.
+  ///
+  /// In de, this message translates to:
+  /// **'Das ganze Land ({name})'**
+  String weltkarteAlsLand(String name);
+
+  /// No description provided for @weltkarteAlsRegion.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Region ({name})'**
+  String weltkarteAlsRegion(String name);
+
+  /// No description provided for @weltkarteAlsOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur den Ort ({name})'**
+  String weltkarteAlsOrt(String name);
+
+  /// No description provided for @weltkarteOeffnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Weltkarte'**
+  String get weltkarteOeffnen;
+
+  /// No description provided for @laenderTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Länderliste'**
+  String get laenderTitel;
+
+  /// No description provided for @laenderKopf.
+  ///
+  /// In de, this message translates to:
+  /// **'{gesamt} Länder · {besucht} besucht · {teilweise} teilweise'**
+  String laenderKopf(int gesamt, int besucht, int teilweise);
+
+  /// No description provided for @laenderSuchen.
+  ///
+  /// In de, this message translates to:
+  /// **'Land oder Hauptstadt suchen'**
+  String get laenderSuchen;
+
+  /// No description provided for @laenderFilter.
+  ///
+  /// In de, this message translates to:
+  /// **'Filtern nach'**
+  String get laenderFilter;
+
+  /// No description provided for @laenderAlle.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle'**
+  String get laenderAlle;
+
+  /// No description provided for @laenderVollstaendig.
+  ///
+  /// In de, this message translates to:
+  /// **'Vollständig'**
+  String get laenderVollstaendig;
+
+  /// No description provided for @laenderTeilweise.
+  ///
+  /// In de, this message translates to:
+  /// **'Teilweise'**
+  String get laenderTeilweise;
+
+  /// No description provided for @laenderNichtBesucht.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht besucht'**
+  String get laenderNichtBesucht;
+
+  /// No description provided for @laenderBesucht.
   ///
   /// In de, this message translates to:
   /// **'Besucht'**
-  String get fortschrittBesucht;
+  String get laenderBesucht;
+
+  /// No description provided for @laenderGeplant.
+  ///
+  /// In de, this message translates to:
+  /// **'Geplant'**
+  String get laenderGeplant;
+
+  /// No description provided for @laenderVerbleibend.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbleibend'**
+  String get laenderVerbleibend;
+
+  /// No description provided for @laenderRegionen.
+  ///
+  /// In de, this message translates to:
+  /// **'{besucht} von {gesamt} Regionen'**
+  String laenderRegionen(int besucht, int gesamt);
+
+  /// No description provided for @laenderOhneRegionen.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Regionen verzeichnet'**
+  String get laenderOhneRegionen;
+
+  /// No description provided for @laenderAufnahmen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{keine Aufnahme} =1{eine Aufnahme} other{{anzahl} Aufnahmen}}'**
+  String laenderAufnahmen(int anzahl);
+
+  /// No description provided for @laenderNichtsGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein Land passt zur Suche.'**
+  String get laenderNichtsGefunden;
+
+  /// No description provided for @laenderMarkeBesucht.
+  ///
+  /// In de, this message translates to:
+  /// **'Als besucht markieren'**
+  String get laenderMarkeBesucht;
+
+  /// No description provided for @laenderMarkeGeplant.
+  ///
+  /// In de, this message translates to:
+  /// **'Als geplant markieren'**
+  String get laenderMarkeGeplant;
+
+  /// No description provided for @laenderMarkeWeg.
+  ///
+  /// In de, this message translates to:
+  /// **'Marke entfernen'**
+  String get laenderMarkeWeg;
+
+  /// No description provided for @laenderVonHand.
+  ///
+  /// In de, this message translates to:
+  /// **'von Hand'**
+  String get laenderVonHand;
+
+  /// No description provided for @laenderOhneGeodaten.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne den GeoNames-Datensatz gibt es kein Länderverzeichnis. Er wird unter „Werkzeuge“ geladen.'**
+  String get laenderOhneGeodaten;
+
+  /// No description provided for @laenderHinweisMarke.
+  ///
+  /// In de, this message translates to:
+  /// **'Was die Fotos belegen, steht hier von selbst. Von Hand markiert wird, wovon es kein Bild gibt – die Reise vor der ersten Digitalkamera oder das Ziel für nächstes Jahr.'**
+  String get laenderHinweisMarke;
+
+  /// No description provided for @erdteilEU.
+  ///
+  /// In de, this message translates to:
+  /// **'Europa'**
+  String get erdteilEU;
+
+  /// No description provided for @erdteilAS.
+  ///
+  /// In de, this message translates to:
+  /// **'Asien'**
+  String get erdteilAS;
+
+  /// No description provided for @erdteilNA.
+  ///
+  /// In de, this message translates to:
+  /// **'Nordamerika'**
+  String get erdteilNA;
+
+  /// No description provided for @erdteilSA.
+  ///
+  /// In de, this message translates to:
+  /// **'Südamerika'**
+  String get erdteilSA;
+
+  /// No description provided for @erdteilAF.
+  ///
+  /// In de, this message translates to:
+  /// **'Afrika'**
+  String get erdteilAF;
+
+  /// No description provided for @erdteilOC.
+  ///
+  /// In de, this message translates to:
+  /// **'Ozeanien'**
+  String get erdteilOC;
+
+  /// No description provided for @erdteilAN.
+  ///
+  /// In de, this message translates to:
+  /// **'Antarktis'**
+  String get erdteilAN;
+
+  /// No description provided for @erdteilUnbekannt.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Erdteil'**
+  String get erdteilUnbekannt;
 
   /// No description provided for @werkzGpxTitel.
   ///
@@ -8093,6 +8452,42 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Sanduhr'**
   String get stammbaumAnsichtSanduhr;
+
+  /// No description provided for @stammbaumGrosseltern.
+  ///
+  /// In de, this message translates to:
+  /// **'Großeltern'**
+  String get stammbaumGrosseltern;
+
+  /// No description provided for @stammbaumOnkelTanten.
+  ///
+  /// In de, this message translates to:
+  /// **'Onkel und Tanten'**
+  String get stammbaumOnkelTanten;
+
+  /// No description provided for @stammbaumNeffenNichten.
+  ///
+  /// In de, this message translates to:
+  /// **'Neffen und Nichten'**
+  String get stammbaumNeffenNichten;
+
+  /// No description provided for @stammbaumSchwiegereltern.
+  ///
+  /// In de, this message translates to:
+  /// **'Schwiegereltern'**
+  String get stammbaumSchwiegereltern;
+
+  /// No description provided for @stammbaumSeitenaeste.
+  ///
+  /// In de, this message translates to:
+  /// **'Seitenäste'**
+  String get stammbaumSeitenaeste;
+
+  /// No description provided for @stammbaumSeitenaesteHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Großeltern, Onkel und Tanten, Neffen und Nichten, Schwiegereltern – der Rest der engeren Verwandtschaft, ohne dass man erst auf sie rücken muss.'**
+  String get stammbaumSeitenaesteHinweis;
 
   /// No description provided for @stammbaumSeitenlinien.
   ///

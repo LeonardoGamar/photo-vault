@@ -11,7 +11,9 @@ import 'explore_screen.dart';
 import 'import_progress_sheet.dart';
 import 'map_screen.dart';
 import 'people_screen.dart';
+import '../services/restore_queue_service.dart';
 import 'restore_queue_screen.dart';
+import 'reisen_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'stammbaum_screen.dart';
@@ -39,14 +41,28 @@ class _RestoreQueueBanner extends StatelessWidget {
         if (running == null && queuedCount == 0) return const SizedBox.shrink();
 
         final t = AppTexte.of(context);
-        final text = switch ((running, queuedCount)) {
-          (final r?, 0) when r.tilesTotal > 0 =>
-            t.restaurierungLaeuft(r.tilesDone, r.tilesTotal),
-          (final r?, final q) when r.tilesTotal > 0 =>
-            t.restaurierungLaeuftMitWarteschlange(r.tilesDone, r.tilesTotal, q),
-          (null, final q) => t.restaurierungWartend(q),
-          _ => t.restaurierungWirdVorbereitet,
-        };
+        // Prozent statt „Kachel 12 von 20": Die Kachel ist ein Begriff
+        // aus dem Modell, nicht aus der Welt des Nutzers. Die Restzeit
+        // steht nur da, wenn sie sich aus bereits erledigten Kacheln
+        // wirklich rechnen lässt (siehe [restzeitSchaetzung]).
+        final prozent = running == null ? null : fortschrittProzent(running);
+        final rest = running == null ? null : restzeitSchaetzung(running);
+        final String text;
+        if (running == null) {
+          text = queuedCount > 0
+              ? t.restaurierungWartend(queuedCount)
+              : t.restaurierungWirdVorbereitet;
+        } else if (prozent == null) {
+          // Die Gesamtzahl der Kacheln steht erst fest, wenn das Bild
+          // dekodiert ist. Bis dahin gibt es keinen Anteil zu zeigen.
+          text = t.restaurierungWirdVorbereitet;
+        } else if (queuedCount > 0) {
+          text = t.restaurProzentMitWarteschlange(prozent, queuedCount);
+        } else if (rest != null && rest > Duration.zero) {
+          text = t.restaurProzentMitRest(prozent, dauerText(t, rest));
+        } else {
+          text = t.restaurProzentLaeuft(prozent);
+        }
 
         return Material(
           color: Theme.of(context).colorScheme.secondaryContainer,
@@ -261,6 +277,7 @@ class _HomeShellState extends State<HomeShell> {
         t.navErkunden,
         t.navKalender,
         t.navKarte,
+        t.navReisen,
         t.navSuche,
         t.navPersonen,
         t.navStammbaum,
@@ -273,6 +290,7 @@ class _HomeShellState extends State<HomeShell> {
     Icons.explore_outlined,
     Icons.calendar_today_outlined,
     Icons.map_outlined,
+    Icons.luggage_outlined,
     Icons.search_outlined,
     Icons.face_outlined,
     Icons.account_tree_outlined,
@@ -285,6 +303,7 @@ class _HomeShellState extends State<HomeShell> {
     Icons.explore,
     Icons.calendar_today,
     Icons.map,
+    Icons.luggage,
     Icons.search,
     Icons.face,
     Icons.account_tree,
@@ -293,25 +312,41 @@ class _HomeShellState extends State<HomeShell> {
     Icons.settings,
   ];
 
+  /// Welches Ziel hinter ⌘1 … ⌘0 liegt – als Reihenfolge der **Ziele**,
+  /// nicht der Zifferntasten.
+  ///
+  /// Der Unterschied wurde wichtig, als die Reisen einen eigenen
+  /// Menüpunkt bekamen. Sie gehören neben die Karte, also mitten in die
+  /// Reihe; hätten die Ziffern weiter an der Position geklebt, wäre
+  /// jedes Kürzel ab ⌘5 auf einen anderen Bildschirm gerutscht. Die
+  /// zehn Ziffern waren bereits vergeben, ein elftes Kürzel gibt es also
+  /// nicht: **Die Reisen bekommen keines** – und das steht in der
+  /// Kürzelübersicht, statt dass man es durch Ausprobieren herausfindet.
+  static const _kuerzelZiele = [0, 1, 2, 3, 5, 6, 7, 8, 9, 10];
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     if (HardwareKeyboard.instance.isMetaPressed) {
-      final digitKeys = {
-        LogicalKeyboardKey.digit1: 0,
-        LogicalKeyboardKey.digit2: 1,
-        LogicalKeyboardKey.digit3: 2,
-        LogicalKeyboardKey.digit4: 3,
-        LogicalKeyboardKey.digit5: 4,
-        LogicalKeyboardKey.digit6: 5,
-        LogicalKeyboardKey.digit7: 6,
-        LogicalKeyboardKey.digit8: 7,
-        LogicalKeyboardKey.digit9: 8,
+      final ziffern = [
+        LogicalKeyboardKey.digit1,
+        LogicalKeyboardKey.digit2,
+        LogicalKeyboardKey.digit3,
+        LogicalKeyboardKey.digit4,
+        LogicalKeyboardKey.digit5,
+        LogicalKeyboardKey.digit6,
+        LogicalKeyboardKey.digit7,
+        LogicalKeyboardKey.digit8,
+        LogicalKeyboardKey.digit9,
         // Das zehnte Ziel liegt auf ⌘0. Es hinten anzuhängen wäre die
         // Alternative gewesen – dann stünde der Stammbaum aber weit weg
         // von den Personen, zu denen er gehört. Lieber eine Taste, die
         // sich aus der Reihe ergibt, als eine Reihenfolge nach dem
         // Tastenfeld.
-        LogicalKeyboardKey.digit0: 9,
+        LogicalKeyboardKey.digit0,
+      ];
+      final digitKeys = <LogicalKeyboardKey, int>{
+        for (var i = 0; i < _kuerzelZiele.length && i < ziffern.length; i++)
+          ziffern[i]: _kuerzelZiele[i],
       };
       final target = digitKeys[event.logicalKey];
       if (target != null) {
@@ -374,6 +409,7 @@ class _HomeShellState extends State<HomeShell> {
       ExploreScreen(library: widget.library),
       CalendarScreen(library: widget.library),
       MapScreen(library: widget.library),
+      ReisenScreen(library: widget.library),
       SearchScreen(library: widget.library),
       PeopleScreen(library: widget.library),
       StammbaumScreen(library: widget.library),
@@ -539,7 +575,8 @@ class _ShortcutsOverviewDialog extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _ShortcutSection(title: t.kuerzelNavigation, shortcuts: [
-                ('⌘1 – ⌘9', t.kuerzelBereicheWechseln),
+                ('⌘1 – ⌘0', t.kuerzelBereicheWechseln),
+                ('—', t.kuerzelReisenOhne),
                 ('?', t.kuerzelUebersichtOeffnen),
               ]),
               const SizedBox(height: 16),

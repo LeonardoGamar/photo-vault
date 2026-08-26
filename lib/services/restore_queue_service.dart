@@ -9,6 +9,46 @@ import 'native_image_converter.dart';
 import 'restore_service.dart';
 import 'storage_paths.dart';
 
+/// Wie lange die Restaurierung noch braucht – `null`, solange sich das
+/// nicht sagen lässt.
+///
+/// **Warum die Rechnung so einfach sein darf.** Real-ESRGAN zerlegt das
+/// Bild in gleich große Kacheln und rechnet jede einzeln; die Dauer je
+/// Kachel schwankt kaum. An dem einen echten Auftrag der Testbibliothek
+/// gemessen: 20 Kacheln in 99 Sekunden, also rund fünf Sekunden je
+/// Kachel. Aus den bereits erledigten Kacheln auf die verbleibenden zu
+/// schließen ist deshalb keine Schätzung ins Blaue.
+///
+/// `null` kommt in drei Fällen: solange keine einzige Kachel fertig ist
+/// (dann gibt es nichts, woraus sich rechnen liesse), solange die
+/// Gesamtzahl noch nicht feststeht, und wenn der Auftrag keine Startzeit
+/// trägt – das sind die Aufträge aus der Zeit vor Fassung 53.
+///
+/// **Nicht aus [RestoreJobData.createdAt] rechnen.** Das ist der Moment
+/// des Einreihens; bei drei wartenden Aufträgen läge dazwischen eine
+/// Stunde, und die Restzeit wäre um diese Stunde zu lang.
+Duration? restzeitSchaetzung(
+  RestoreJobData auftrag, {
+  DateTime? jetzt,
+}) {
+  final start = auftrag.startedAt;
+  if (start == null) return null;
+  if (auftrag.tilesDone <= 0 || auftrag.tilesTotal <= 0) return null;
+  if (auftrag.tilesDone >= auftrag.tilesTotal) return Duration.zero;
+  final vergangen = (jetzt ?? DateTime.now()).difference(start);
+  if (vergangen <= Duration.zero) return null;
+  final jeKachel = vergangen.inMilliseconds / auftrag.tilesDone;
+  final offen = auftrag.tilesTotal - auftrag.tilesDone;
+  return Duration(milliseconds: (jeKachel * offen).round());
+}
+
+/// Der Fortschritt in Prozent, gerundet – `null`, solange die Gesamtzahl
+/// der Kacheln nicht feststeht.
+int? fortschrittProzent(RestoreJobData auftrag) {
+  if (auftrag.tilesTotal <= 0) return null;
+  return ((auftrag.tilesDone / auftrag.tilesTotal) * 100).round().clamp(0, 100);
+}
+
 /// Grund, an dem ein Restaurierungs-Auftrag gescheitert ist.
 ///
 /// In der Datenbank steht der Name dieses Werts, nicht der fertige Satz:
