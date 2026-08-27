@@ -1613,7 +1613,7 @@ abstract class AppTexte {
   /// No description provided for @einstAbschnittPapierkorb.
   ///
   /// In de, this message translates to:
-  /// **'Papierkorb automatisch leeren'**
+  /// **'Papierkorb'**
   String get einstAbschnittPapierkorb;
 
   /// No description provided for @einstAbschnittGefahrenzone.
@@ -5469,6 +5469,12 @@ abstract class AppTexte {
   /// **'{anzahl} Datei(en) unwiderruflich löschen.'**
   String papierkorbEndgueltigText(int anzahl);
 
+  /// No description provided for @papierkorbAnzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{ein Foto} other{{anzahl} Fotos}}'**
+  String papierkorbAnzahl(int anzahl);
+
   /// No description provided for @papierkorbLeer.
   ///
   /// In de, this message translates to:
@@ -6524,7 +6530,7 @@ abstract class AppTexte {
   /// No description provided for @einstBeschrPapierkorb.
   ///
   /// In de, this message translates to:
-  /// **'Wann gelöschte Fotos endgültig verschwinden'**
+  /// **'Gelöschte Fotos ansehen, zurückholen, endgültig entfernen'**
   String get einstBeschrPapierkorb;
 
   /// No description provided for @einstBeschrGefahr.

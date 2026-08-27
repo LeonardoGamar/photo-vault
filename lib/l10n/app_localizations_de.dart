@@ -942,7 +942,7 @@ class AppTexteDe extends AppTexte {
   String get einstAbschnittAutoBackup => 'Automatisches Backup';
 
   @override
-  String get einstAbschnittPapierkorb => 'Papierkorb automatisch leeren';
+  String get einstAbschnittPapierkorb => 'Papierkorb';
 
   @override
   String get einstAbschnittGefahrenzone => 'Gefahrenzone';
@@ -3181,6 +3181,17 @@ class AppTexteDe extends AppTexte {
   }
 
   @override
+  String papierkorbAnzahl(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Fotos',
+      one: 'ein Foto',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get papierkorbLeer => 'Der Papierkorb ist leer.';
 
   @override
@@ -3838,7 +3849,7 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get einstBeschrPapierkorb =>
-      'Wann gelöschte Fotos endgültig verschwinden';
+      'Gelöschte Fotos ansehen, zurückholen, endgültig entfernen';
 
   @override
   String get einstBeschrGefahr =>

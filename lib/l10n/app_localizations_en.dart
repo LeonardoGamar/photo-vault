@@ -933,7 +933,7 @@ class AppTexteEn extends AppTexte {
   String get einstAbschnittAutoBackup => 'Automatic backup';
 
   @override
-  String get einstAbschnittPapierkorb => 'Empty trash automatically';
+  String get einstAbschnittPapierkorb => 'Trash';
 
   @override
   String get einstAbschnittGefahrenzone => 'Danger zone';
@@ -3160,6 +3160,17 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String papierkorbAnzahl(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos',
+      one: 'one photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get papierkorbLeer => 'The trash is empty.';
 
   @override
@@ -3810,7 +3821,8 @@ class AppTexteEn extends AppTexte {
       'Back up regularly without having to think about it';
 
   @override
-  String get einstBeschrPapierkorb => 'When deleted photos disappear for good';
+  String get einstBeschrPapierkorb =>
+      'View deleted photos, restore them, remove them for good';
 
   @override
   String get einstBeschrGefahr => 'Steps that cannot be undone';

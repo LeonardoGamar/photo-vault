@@ -342,8 +342,33 @@ class BackupService {
     }
   }
 
+  /// Schreibt `metadata.json` — die Beschreibung dessen, **was gesichert
+  /// wurde**.
+  ///
+  /// **Gesperrte Fotos stehen nicht darin, und das war ein Befund.** Ihre
+  /// Dateien werden seit jeher ausgelassen ([AppDatabase.assetsNotBackedUp]
+  /// schliesst `isLocked` aus), ihre Metadaten aber nicht: Dateiname,
+  /// Beschreibung und Schlagwörter landeten im Klartext in einer Datei,
+  /// die typischerweise in einem Dropbox- oder Drive-Ordner liegt. An
+  /// einem nachgebauten Fall abgelesen — die Datei blieb zurück, der
+  /// Name stand da:
+  ///
+  /// ```
+  /// originals/  -> nur strand.jpg
+  /// metadata.json -> "Scheidungsurkunde_Anna.jpg",
+  ///                  "Termin beim Anwalt am 3.9.", ["Scheidung"]
+  /// ```
+  ///
+  /// Damit war genau das preisgegeben, wovor der gesperrte Ordner
+  /// schützen soll. Dieselbe Überlegung stand schon bei den
+  /// XMP-Beilagen daneben (siehe [performBackup]) — sie galt nur hier
+  /// nicht.
+  ///
+  /// **Was eine frühere Sicherung enthält, ändert sich dadurch nicht.**
+  /// Wer ein Foto sperrt, nachdem es gesichert wurde, findet es weiter im
+  /// Sicherungsziel: Dort wird nie gelöscht, und das ist Absicht.
   Future<void> _writeMetadataExport(Directory backupRoot, {SecretKey? encryptionKey}) async {
-    final allAssets = await _db.select(_db.assets).get();
+    final allAssets = await _db.assetsFuerMetadatenexport();
     final albums = await _db.select(_db.albums).get();
     // Eine einzige Abfrage für alle Tags statt einer pro Foto (N+1-Problem
     // bei großen Bibliotheken – Backups sollen schnell bleiben).
@@ -360,6 +385,20 @@ class BackupService {
         'isFavorite': a.isFavorite,
         'description': a.description,
         'fileCreatedAt': a.fileCreatedAt.toIso8601String(),
+        // Sterne und Farbmarke sind Handarbeit und standen bis hierher
+        // nicht in der Sicherung — die Anleitung nannte „Bewertungen"
+        // trotzdem. Wer nach einem Plattenschaden zurückspielte, fand
+        // jeden Stern gelöscht.
+        'rating': a.rating,
+        'colorLabel': a.colorLabel,
+        // Der Ort ebenso: Seit Fassung 2.1.0 lässt er sich von Hand über
+        // den Namen eintragen, und für eingescannte Bilder ist das die
+        // einzige Quelle. Aus der Datei zurückzurechnen geht dort nicht.
+        'latitude': a.latitude,
+        'longitude': a.longitude,
+        'locationCity': a.locationCity,
+        'locationState': a.locationState,
+        'locationCountry': a.locationCountry,
         'tags': tagsByAssetId[a.id] ?? const <String>[],
         // Zusätzlich und nicht anstelle von 'tags': Eine ältere Fassung,
         // die dieses Feld nicht kennt, liest die Sicherung weiterhin – sie
@@ -622,6 +661,29 @@ class BackupService {
         }
         if (entry['description'] is String && (entry['description'] as String).isNotEmpty) {
           await _db.setDescription(assetId, entry['description'] as String);
+        }
+        // Fehlen die Felder (Sicherung vor Fassung 2.3.0), bleibt es beim
+        // Vorgabewert - eine ältere Sicherung setzt also keine Null
+        // über etwas, das im Ziel schon steht.
+        if (entry['rating'] is int && entry['rating'] as int > 0) {
+          await _db.setRating(assetId, entry['rating'] as int);
+        }
+        if (entry['colorLabel'] is String) {
+          await _db.setColorLabel(assetId, entry['colorLabel'] as String);
+        }
+        // Beides zusammen oder gar nicht: Eine Koordinate ohne die andere
+        // ist kein Ort, sondern eine halbe Zahl.
+        if (entry['latitude'] is num && entry['longitude'] is num) {
+          await _db.setLocation(assetId, (entry['latitude'] as num).toDouble(),
+              (entry['longitude'] as num).toDouble());
+        }
+        if (entry['locationCity'] is String) {
+          await _db.setLocationNames(
+            assetId,
+            country: entry['locationCountry'] as String?,
+            state: entry['locationState'] as String?,
+            city: entry['locationCity'] as String,
+          );
         }
         // Fehlt 'kiTags' (Sicherung vor Fassung 56), bleibt die Menge
         // leer und alles kommt als Handvergabe zurück: Lieber ein

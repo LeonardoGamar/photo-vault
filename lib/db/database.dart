@@ -4869,11 +4869,32 @@ class AppDatabase extends _$AppDatabase {
 
   Future<Map<String, Ortsbezug>> _ortsbezug(
       String tabelle, String spalte, TableInfo zuordnung) async {
+    // **CROSS JOIN und nicht JOIN, und das ist keine Kosmetik.** In
+    // SQLite ist beides bedeutungsgleich; `CROSS` schaltet nur die
+    // Umsortierung der Schleifen ab und legt fest, dass die
+    // **Zuordnungstabelle** aussen läuft.
+    //
+    // Ohne das entscheidet der Planer falsch herum: Er sieht den Index
+    // über `is_trashed`/`is_locked`, hält ihn für den engeren Filter und
+    // beginnt bei den Aufnahmen. Für jede einzelne davon schlägt er dann
+    // in der Zuordnung nach — auch für die neunundneunzig Prozent, die
+    // zu gar keiner Reise gehören. An einer auf 103.844 Aufnahmen
+    // aufgeblasenen Kopie der echten Bibliothek nachgemessen, bei 423
+    // Zuordnungen:
+    //
+    // ```
+    // JOIN        SEARCH a USING idx_assets_trashed_locked_created   36,5 ms
+    // CROSS JOIN  SCAN z USING COVERING INDEX, SEARCH a (id=?)        0,3 ms
+    // ```
+    //
+    // Heute, bei 7.988 Aufnahmen, sind es 20 ms — nicht zu spüren.
+    // Genau deshalb steht die Messung hier: Der Unterschied wächst mit
+    // der Bibliothek, die Zuordnungstabelle wächst nicht mit.
     final zeilen = await customSelect(
       'SELECT z.$spalte AS kennung, a.location_city AS ort, '
       '       a.location_state AS region, a.location_country AS land, '
       '       COUNT(*) AS anzahl '
-      'FROM $tabelle z JOIN assets a ON a.id = z.asset_id '
+      'FROM $tabelle z CROSS JOIN assets a ON a.id = z.asset_id '
       'WHERE a.is_trashed = 0 AND a.is_locked = 0 '
       'GROUP BY z.$spalte, a.location_city, a.location_state, '
       '         a.location_country',
@@ -5682,6 +5703,20 @@ class AppDatabase extends _$AppDatabase {
   /// Gesperrte Fotos werden bewusst NIE ins (unverschlüsselte, oft in einen
   /// Cloud-Sync-Ordner zeigende) Backup aufgenommen – das würde den Zweck
   /// des gesperrten Ordners aushebeln.
+  /// Die Aufnahmen, die in `metadata.json` beschrieben werden dürfen.
+  ///
+  /// **Dieselbe `isLocked`-Ausnahme wie bei [assetsNotBackedUp]**, und
+  /// aus demselben Grund: Was nicht mitgesichert wird, soll auch nicht
+  /// benannt werden. Ein Dateiname wie `Scheidungsurkunde_Anna.jpg` in
+  /// einer unverschlüsselten Datei im Cloud-Ordner gibt genau das preis,
+  /// wovor der gesperrte Ordner schützen soll.
+  ///
+  /// Papierkorb-Einträge bleiben **drin**: Ihre Dateien liegen aus
+  /// früheren Läufen im Sicherungsziel, und wer sie später
+  /// wiederherstellt, will seine Schlagwörter zurück.
+  Future<List<AssetData>> assetsFuerMetadatenexport() =>
+      (select(assets)..where((t) => t.isLocked.equals(false))).get();
+
   Future<List<AssetData>> assetsNotBackedUp() => (select(assets)
         ..where((t) => t.backedUp.equals(false) & t.isTrashed.equals(false) & t.isLocked.equals(false)))
       .get();

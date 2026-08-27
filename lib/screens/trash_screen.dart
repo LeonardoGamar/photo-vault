@@ -72,8 +72,12 @@ class _TrashScreenState extends State<TrashScreen> {
                 final confirm = await _confirm(
                     AppTexte.of(context).papierkorbEndgueltigTitel, AppTexte.of(context).papierkorbEndgueltigText(_selected.length));
                 if (confirm != true) return;
-                final all = await widget.library.db.select(widget.library.db.assets).get();
-                final toDelete = all.where((a) => _selected.contains(a.id)).toList();
+                // Gezielt und nicht die ganze Tabelle: Hier stand
+                // `select(assets).get()` und danach ein Filter in Dart -
+                // um drei Fotos zu entfernen, wurde die gesamte
+                // Bibliothek in den Speicher geholt.
+                final toDelete =
+                    await widget.library.db.assetsByIds(_selected.toList());
                 await _permanentlyDelete(toDelete);
                 if (!mounted) return;
                 setState(() => _selected.clear());

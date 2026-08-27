@@ -29,6 +29,7 @@ import '../widgets/progress_dialog.dart';
 import '../widgets/typed_confirm_dialog.dart';
 import 'background_tasks_screen.dart';
 import 'locked_folder_screen.dart';
+import 'trash_screen.dart';
 import '../services/meldungsdienst.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -1851,6 +1852,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               return Column(
                 children: [
+                  // **Der Weg in den Papierkorb selbst.** Er fehlte seit
+                  // dem ersten Commit: TrashScreen war vollständig
+                  // gebaut - Wiederherstellen, endgültig Löschen, leerer
+                  // Zustand, alle Texte - und wurde von keiner einzigen
+                  // Stelle aufgerufen. Gelöschte Fotos lagen also in
+                  // einem Behälter, den niemand öffnen konnte, bis die
+                  // automatische Leerung sie nach dreissig Tagen
+                  // endgültig entfernte. Die Duplikatsuche versprach
+                  // dabei ausdrücklich „über den Papierkorb
+                  // wiederherstellbar".
+                  //
+                  // Hier und nicht in der Leiste: Der gesperrte Ordner
+                  // wird ebenso von den Einstellungen aus geöffnet, und
+                  // seine Einstellung steht daneben.
+                  StreamBuilder<List<AssetData>>(
+                    stream: widget.library.db.watchTrash(),
+                    builder: (context, papierkorb) {
+                      final anzahl = papierkorb.data?.length ?? 0;
+                      return ListTile(
+                        leading: const Icon(Icons.delete_outline),
+                        title: Text(AppTexte.of(context).papierkorbTitel),
+                        subtitle: Text(anzahl == 0
+                            ? AppTexte.of(context).papierkorbLeer
+                            : AppTexte.of(context).papierkorbAnzahl(anzahl)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => TrashScreen(library: widget.library),
+                        )),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
                   SwitchListTile(
                     value: enabled,
                     onChanged: (v) async {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -166,6 +168,67 @@ void main() {
     expect(b.region, 'Niedersachsen');
     expect(b.weitereOrte, 1);
     expect(b.aufnahmen, 3);
+  });
+
+  group('die Abfrage läuft von der kleinen Tabelle aus', () {
+    // **Der Befund der 16. Prüfrunde.** Ohne `CROSS JOIN` beginnt SQLite
+    // bei den Aufnahmen: Es sieht den Index über is_trashed/is_locked,
+    // hält ihn für den engeren Filter und schlägt für JEDE nicht
+    // gelöschte Aufnahme in der Zuordnung nach - auch für die
+    // neunundneunzig Prozent, die zu keiner Reise gehören.
+    //
+    // An einer auf 103.844 Aufnahmen aufgeblasenen Kopie der echten
+    // Bibliothek nachgemessen, bei 423 Zuordnungen: 36,5 ms gegen
+    // 0,3 ms. Heute, bei 7.988 Aufnahmen, sind es 20 ms - nicht zu
+    // spüren, und genau deshalb steht dieser Test hier: Der Abstand
+    // wächst mit der Bibliothek, die Zuordnungstabelle wächst nicht mit.
+    Future<List<String>> plan(String tabelle, String spalte) async {
+      final zeilen = await db.customSelect(
+        'EXPLAIN QUERY PLAN '
+        'SELECT z.$spalte, a.location_city, a.location_state, '
+        '       a.location_country, COUNT(*) '
+        'FROM $tabelle z CROSS JOIN assets a ON a.id = z.asset_id '
+        'WHERE a.is_trashed = 0 AND a.is_locked = 0 '
+        'GROUP BY z.$spalte, a.location_city, a.location_state, '
+        '         a.location_country',
+      ).get();
+      return [for (final z in zeilen) z.read<String>('detail')];
+    }
+
+    test('und die Umsetzung benutzt ihn auch', () async {
+      // Ohne diese Zeile prüfte die Gruppe nur, dass ein von Hand
+      // hingeschriebenes CROSS JOIN den richtigen Plan ergibt - und
+      // liesse den Fall durch, dass die Umsetzung wieder auf das
+      // schlichte JOIN zurückfällt. Quelltextprüfung nach dem Muster
+      // von keine_festen_texte_test.dart.
+      final quelle = File('lib/db/database.dart').readAsStringSync();
+      expect(quelle, contains('CROSS JOIN assets a ON a.id = z.asset_id'));
+      expect(quelle, isNot(contains("'FROM \$tabelle z JOIN assets")),
+          reason: 'das schlichte JOIN dreht die Schleifen um');
+    });
+
+    for (final (name, tabelle, spalte) in [
+      ('Reisen', 'reise_aufnahmen', 'reise_id'),
+      ('Aktivitäten', 'aktivitaet_aufnahmen', 'aktivitaet_id'),
+    ]) {
+      test('$name: aussen die Zuordnung, innen die Aufnahme', () async {
+        final schritte = await plan(tabelle, spalte);
+        // Die erste Zeile des Plans ist die äussere Schleife.
+        expect(schritte.first, contains(tabelle),
+            reason: 'aussen muss die Zuordnungstabelle laufen:\n'
+                '${schritte.join('\n')}');
+        expect(schritte.any((s) => s.contains('SEARCH a') && s.contains('id=?')),
+            isTrue,
+            reason: 'die Aufnahme wird über ihren Schlüssel geholt:\n'
+                '${schritte.join('\n')}');
+        // Und ausdrücklich NICHT der umgekehrte Weg.
+        expect(
+            schritte.first.contains('assets') ||
+                schritte.first.contains('SEARCH a'),
+            isFalse,
+            reason: 'die Aufnahmen dürfen nicht die äussere Schleife sein');
+      });
+    }
   });
 
   test('Reisen und Aktivitäten kommen sich nicht ins Gehege', () async {

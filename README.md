@@ -247,9 +247,13 @@ echter Hardware.
   Verwandtschaftsrichtung), eine **Tafel als PDF** zum Aufhängen und ein
   **GEDCOM-Export** (5.5.1). Angehörige lassen sich anlegen, wenn kein
   einziges Foto von ihnen in der Bibliothek liegt
-- **Papierkorb** – favorisieren, in den Papierkorb verschieben,
+- **Papierkorb** – in den Papierkorb verschieben, ansehen,
   wiederherstellen, endgültig löschen; automatische Leerung nach
-  konfigurierbarer Frist
+  konfigurierbarer Frist. Zu erreichen über *Einstellungen →
+  Papierkorb*, neben seiner eigenen Einstellung – wie der gesperrte
+  Ordner auch. (Bis Fassung 2.2.1 war der Bildschirm dafür zwar
+  vollständig gebaut, aber von keiner Stelle aufgerufen: Gelöschte
+  Fotos lagen in einem Behälter, den niemand öffnen konnte.)
 - **Integritätsprüfung** – findet fehlende Dateien (Original, Vorschau,
   Thumbnail, Entwicklung, Video-Trim, Restaurierung) und optional per
   Prüfsumme veränderte Originale; verwaiste DB-Einträge lassen sich direkt
@@ -759,8 +763,17 @@ Dropbox- oder Google-Drive-Sync-Ordner):
 ```
 <Zielordner>/PhotoVault-Backup/
   originals/{yyyy}/{mm}/{assetId}.{ext}   (nur neue/noch nicht gesicherte Dateien)
-  metadata.json                            (Favoriten, Beschreibungen, Tags, Alben, Bewertungen)
+  metadata.json                            (Favoriten, Beschreibungen, Tags,
+                                            Alben, Bewertungen, Farbmarken, Orte)
 ```
+
+**Fotos im gesperrten Ordner stehen dort nicht drin** – weder ihre Datei
+noch ihr Name, ihre Beschreibung oder ihre Schlagwörter. Bis Fassung
+2.2.0 wurden zwar ihre Dateien ausgelassen, ihre Metadaten aber
+mitgeschrieben; in einem unverschlüsselten Backup in einem Cloud-Ordner
+gab das genau preis, wovor der gesperrte Ordner schützen soll. **Was
+eine frühere Sicherung bereits enthält, ändert das nicht** – im
+Sicherungsziel wird nie gelöscht.
 
 **Einstellungen → Wiederherstellen** → Backup-Ordner wählen: importiert alle
 gefundenen Originaldateien (Duplikate werden über die Prüfsumme

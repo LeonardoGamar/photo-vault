@@ -252,7 +252,7 @@
   "einstAbschnittGesperrterOrdner": "Locked folder",
   "einstAbschnittManuellesBackup": "Manual cloud backup",
   "einstAbschnittAutoBackup": "Automatic backup",
-  "einstAbschnittPapierkorb": "Empty trash automatically",
+  "einstAbschnittPapierkorb": "Trash",
   "einstAbschnittGefahrenzone": "Danger zone",
   "einstDesign": "Theme",
   "einstDesignHell": "Light",
@@ -953,6 +953,14 @@
   "papierkorbTitel": "Trash",
   "papierkorbEndgueltigTitel": "Delete permanently?",
   "papierkorbEndgueltigText": "Delete {anzahl} file(s) for good.",
+  "papierkorbAnzahl": "{anzahl, plural, =1{one photo} other{{anzahl} photos}}",
+  "@papierkorbAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "papierkorbLeer": "The trash is empty.",
   "videoNichtGeoeffnet": "The video could not be opened.",
   "videoZuschneidenFehler": "Trimming failed.",
@@ -1155,7 +1163,7 @@
   "einstBeschrBackupSchluessel": "Passphrase for encrypted backups",
   "einstBeschrBackupManuell": "Start a backup by hand",
   "einstBeschrBackupAuto": "Back up regularly without having to think about it",
-  "einstBeschrPapierkorb": "When deleted photos disappear for good",
+  "einstBeschrPapierkorb": "View deleted photos, restore them, remove them for good",
   "einstBeschrGefahr": "Steps that cannot be undone",
   "einstBeschrUeber": "Version, licences and updates",
   "allgRueckgaengig": "Undo",
