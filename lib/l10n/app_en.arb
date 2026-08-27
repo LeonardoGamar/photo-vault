@@ -1140,6 +1140,16 @@
   "einstBeschrModelle": "Download and remove the local models",
   "einstBeschrHintergrund": "Whether analysis starts automatically after an import",
   "einstBeschrVokabular": "The terms photos are tagged with",
+  "einstAbschnittKarte": "Map",
+  "einstBeschrKarte": "Tile source for the dark map",
+  "einstCartoText": "By default the dark map draws recoloured OpenStreetMap tiles – no sign-up, no key. For CARTO's finer cartography, enter a key here.",
+  "einstCartoAktiv": "CARTO Dark Matter, up to zoom level 20.",
+  "einstCartoOhne": "Recoloured OpenStreetMap tiles, up to zoom level 19.",
+  "einstCartoFeld": "CARTO key",
+  "einstCartoFeldHinweis": "Leave empty for OpenStreetMap",
+  "einstCartoQuelle": "Free and without an account at carto.com/basemaps/apikey. CARTO states its raster tiles are being retired – without a key the map is unaffected.",
+  "einstCartoGespeichert": "CARTO key saved",
+  "einstCartoEntfernt": "CARTO key removed – the map uses OpenStreetMap again",
   "einstBeschrStandortdaten": "Place names for GPS coordinates, offline",
   "einstBeschrGesperrt": "PIN, encryption and what is kept inside",
   "einstBeschrBackupSchluessel": "Passphrase for encrypted backups",
@@ -2012,6 +2022,54 @@
   },
   "reisenNaechte": "{anzahl, plural, =1{one night} other{{anzahl} nights}}",
   "@reisenNaechte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reisenAnzahl": "{anzahl, plural, =0{no trips} =1{one trip} other{{anzahl} trips}}",
+  "@reisenAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "ortsbezugOrte": "{anzahl, plural, =1{one place} other{{anzahl} places}}",
+  "@ortsbezugOrte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "ortsbezugWeitere": "{anzahl, plural, =1{one more place} other{{anzahl} more places}}",
+  "@ortsbezugWeitere": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenAnzahl": "{anzahl, plural, =0{no activities} =1{one activity} other{{anzahl} activities}}",
+  "@aktivitaetenAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenMitReise": "{anzahl, plural, =1{one on a trip} other{{anzahl} on trips}}",
+  "@aktivitaetenMitReise": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenOhneReiseZahl": "{anzahl, plural, =1{one standalone} other{{anzahl} standalone}}",
+  "@aktivitaetenOhneReiseZahl": {
     "placeholders": {
       "anzahl": {
         "type": "int"

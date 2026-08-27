@@ -777,6 +777,25 @@ class ReiseAufnahmen extends Table {
   Set<Column> get primaryKey => {reiseId, assetId};
 }
 
+/// Wo eine Reise oder Aktivität stattfand, in einer Zeile.
+///
+/// Alle drei Ortsangaben können fehlen: Eine Reise, deren Aufnahmen
+/// keine Koordinate tragen, hat keinen Ort – und das ist etwas anderes
+/// als „unbekannt". Die Übersicht lässt die Zeile dann weg, statt einen
+/// Platzhalter hinzuschreiben.
+///
+/// [weitereOrte] zählt die Orte **neben** dem genannten. Ohne diese Zahl
+/// sähe eine dreiwöchige Rundreise aus wie ein Wochenende an einem Ort:
+/// Genannt wird der häufigste, und der ist bei einer Rundreise nur einer
+/// von vielen.
+typedef Ortsbezug = ({
+  String? ort,
+  String? region,
+  String? land,
+  int weitereOrte,
+  int aufnahmen,
+});
+
 /// Ein abgelehnter Reisevorschlag.
 ///
 /// Ohne dieses Gedächtnis käme derselbe Vorschlag bei jedem Start wieder
@@ -1195,6 +1214,26 @@ class AppSettings extends Table {
   /// [faceSimilarityThreshold].
   TextColumn get kartenansicht => text().withDefault(const Constant('dunkel'))();
 
+  /// Schlüssel für die CARTO-Kacheln der dunklen Karte. Null = keiner.
+  ///
+  /// **Warum das überhaupt eine Einstellung ist.** CARTO hat die
+  /// kostenlose Nutzung ohne Schlüssel beendet und schreibt seither
+  /// quer über jede einzelne Kachel „API KEY REQUIRED" – auf jeder
+  /// Zoomstufe, auch über den alten Fastly-Namen. Nachgemessen an einer
+  /// Kachel Berlin-Mitte, Stufen 10 bis 20: der Stempel steht auf allen.
+  ///
+  /// Ohne Schlüssel zeichnet die dunkle Karte deshalb invertierte
+  /// OpenStreetMap-Kacheln (siehe `Kartenstil.dunkel`). Wer den
+  /// gewohnten Dark-Matter-Schnitt zurückwill, trägt hier seinen
+  /// Schlüssel ein – CARTO gibt ihn kostenlos und **ohne Konto** aus,
+  /// bis zu 5 Millionen Kacheln im Monat.
+  ///
+  /// In der Datenbank und nicht im Quelltext, und das ist der Punkt:
+  /// Ein mitgelieferter Schlüssel wäre über den öffentlichen Spiegel
+  /// für jeden lesbar und liefe auf eine Zugangskennung im Repository
+  /// hinaus. Er gehört dem, der ihn beantragt.
+  TextColumn get cartoSchluessel => text().nullable()();
+
   /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
   BoolColumn get translateCaptions => boolean().withDefault(const Constant(false))();
 
@@ -1317,7 +1356,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 57;
+  int get schemaVersion => 58;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1714,6 +1753,14 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 58) {
+            // Der eigene CARTO-Schlüssel (siehe die Spalte). Null heisst
+            // „keiner" und damit invertierte OSM-Kacheln – die dunkle
+            // Karte funktioniert also ohne jedes Zutun weiter, nur ohne
+            // das Wasserzeichen.
+            await _addColumnIfMissing(m, appSettings, appSettings.cartoSchluessel,
+                'app_settings', 'carto_schluessel');
           }
           if (from < 57) {
             // Von der Gesichtssuche ausgenommen (siehe die Spalte).
@@ -2649,6 +2696,30 @@ class AppDatabase extends _$AppDatabase {
         id: const Value(0),
         kartenansicht: Value(ansicht),
       ));
+
+  /// Der gespeicherte CARTO-Schlüssel, oder null.
+  Future<String?> cartoSchluesselWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    final wert = row?.cartoSchluessel?.trim();
+    return wert == null || wert.isEmpty ? null : wert;
+  }
+
+  /// Legt den CARTO-Schlüssel ab. Leer oder null löscht ihn wieder.
+  ///
+  /// Das Leeren muss ausdrücklich als `null` in der Spalte landen und
+  /// nicht als leere Zeichenkette: Sonst hinge an der Kachel-Adresse ein
+  /// `?key=` ohne Wert, und der Server antwortete mit dem Wasserzeichen
+  /// statt mit einer Karte – also genau dem Zustand, den die
+  /// Einstellung beheben soll.
+  Future<void> setzeCartoSchluesselWert(String? schluessel) {
+    final wert = schluessel?.trim();
+    return into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+      id: const Value(0),
+      cartoSchluessel:
+          Value(wert == null || wert.isEmpty ? null : wert),
+    ));
+  }
 
   Future<void> setzeUebersetzeSucheUndTags(bool an) =>
       into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
@@ -4774,6 +4845,82 @@ class AppDatabase extends _$AppDatabase {
       ..limit(1);
     final zeile = await abfrage.getSingleOrNull();
     return zeile?.readTable(assets);
+  }
+
+  /// Der Ortsbezug jeder Reise, in einer Abfrage für alle.
+  ///
+  /// **Warum nicht je Zeile nachschlagen.** Die Übersicht zeigt zu jeder
+  /// Reise, wo sie stattfand. Der Ort steht aber nicht an der Reise – er
+  /// steht an ihren Aufnahmen, und zwar an jeder einzelnen. Für eine
+  /// Liste von dreissig Reisen hiesse „je Zeile nachschlagen" dreissig
+  /// Abfragen über zusammen mehrere tausend Aufnahmen, nur um drei
+  /// Wörter anzuzeigen.
+  ///
+  /// Gruppiert liefert dieselbe Auskunft eine einzige Abfrage: je Reise
+  /// und Ort eine Zeile mit Anzahl. Das sind auch bei grossen
+  /// Bibliotheken wenige hundert Zeilen, weil zusammengefasst wird, was
+  /// gleich ist.
+  Future<Map<String, Ortsbezug>> ortsbezugJeReise() =>
+      _ortsbezug('reise_aufnahmen', 'reise_id', reiseAufnahmen);
+
+  /// Der Ortsbezug jeder Aktivität – wie [ortsbezugJeReise].
+  Future<Map<String, Ortsbezug>> ortsbezugJeAktivitaet() =>
+      _ortsbezug('aktivitaet_aufnahmen', 'aktivitaet_id', aktivitaetAufnahmen);
+
+  Future<Map<String, Ortsbezug>> _ortsbezug(
+      String tabelle, String spalte, TableInfo zuordnung) async {
+    final zeilen = await customSelect(
+      'SELECT z.$spalte AS kennung, a.location_city AS ort, '
+      '       a.location_state AS region, a.location_country AS land, '
+      '       COUNT(*) AS anzahl '
+      'FROM $tabelle z JOIN assets a ON a.id = z.asset_id '
+      'WHERE a.is_trashed = 0 AND a.is_locked = 0 '
+      'GROUP BY z.$spalte, a.location_city, a.location_state, '
+      '         a.location_country',
+      readsFrom: {assets, zuordnung},
+    ).get();
+
+    // Je Kennung: die Aufnahmen zusammenzählen und den häufigsten Ort
+    // behalten. Bei Gleichstand gewinnt der alphabetisch erste - nicht
+    // weil er der bessere wäre, sondern damit dieselbe Bibliothek
+    // zweimal dasselbe anzeigt.
+    final gesamt = <String, int>{};
+    final beste = <String, ({String ort, String? region, String? land, int n})>{};
+    final orte = <String, Set<String>>{};
+    for (final z in zeilen) {
+      final kennung = z.read<String>('kennung');
+      final anzahl = z.read<int>('anzahl');
+      gesamt[kennung] = (gesamt[kennung] ?? 0) + anzahl;
+
+      final ort = z.read<String?>('ort');
+      if (ort == null || ort.isEmpty) continue;
+      orte.putIfAbsent(kennung, () => <String>{}).add(ort);
+      final bisher = beste[kennung];
+      if (bisher == null ||
+          anzahl > bisher.n ||
+          (anzahl == bisher.n && ort.compareTo(bisher.ort) < 0)) {
+        beste[kennung] = (
+          ort: ort,
+          region: z.read<String?>('region'),
+          land: z.read<String?>('land'),
+          n: anzahl,
+        );
+      }
+    }
+
+    return {
+      for (final kennung in gesamt.keys)
+        kennung: (
+          ort: beste[kennung]?.ort,
+          region: beste[kennung]?.region,
+          land: beste[kennung]?.land,
+          // Der häufigste zählt nicht als „weiterer".
+          weitereOrte: (orte[kennung]?.length ?? 0) == 0
+              ? 0
+              : orte[kennung]!.length - 1,
+          aufnahmen: gesamt[kennung]!,
+        ),
+    };
   }
 
   /// Welche Aufnahmen bereits einer Reise zugeordnet sind.

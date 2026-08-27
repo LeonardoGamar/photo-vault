@@ -126,8 +126,12 @@ void main() {
         reason: 'darueber kommt eine einfarbige Kachel');
     expect(Kartenstil.hell.hoechsteEchteStufe, 19,
         reason: 'ab 20 antwortet OSM mit 400');
+    expect(Kartenstil.dunkel.hoechsteEchteStufe, 19,
+        reason: 'ohne Schluessel liefert OSM die Kacheln');
+    setzeCartoSchluessel('probe');
     expect(Kartenstil.dunkel.hoechsteEchteStufe, 20,
         reason: 'CARTO liefert auf 20 noch gezeichnete Kacheln');
+    setzeCartoSchluessel(null);
     for (final stil in Kartenstil.values) {
       expect(stil.hoechsteEchteStufe, isNotNull, reason: stil.name);
     }

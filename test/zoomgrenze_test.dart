@@ -26,13 +26,30 @@ import 'package:photo_vault/widgets/wisch_zoom.dart';
 /// ```
 void main() {
   group('Die Grenzen der drei Quellen', () {
+    tearDown(() => setzeCartoSchluessel(null));
+
     test('jede Quelle kennt ihre letzte echte Stufe', () {
       expect(Kartenstil.hell.hoechsteEchteStufe, 19,
           reason: 'ab 20 antwortet OSM mit 400');
+      // Ohne Schluessel zeichnet die dunkle Karte OSM-Kacheln - und
+      // erbt damit deren Grenze, nicht die von CARTO.
+      expect(Kartenstil.dunkel.hoechsteEchteStufe, 19,
+          reason: 'ohne Schluessel sind es OSM-Kacheln');
+      setzeCartoSchluessel('probe');
       expect(Kartenstil.dunkel.hoechsteEchteStufe, 20,
           reason: 'CARTO traegt eine Stufe weiter');
       expect(Kartenstil.topo.hoechsteEchteStufe, 17,
           reason: 'darueber kommt eine einfarbige Kachel');
+    });
+
+    test('die Grenze zieht mit dem Schluessel mit', () {
+      // Der Fall, der ohne diesen Test durchginge: Der Schluessel wird
+      // eingetragen, die Karte holt CARTO-Kacheln - aber die
+      // Zoomgrenze bliebe auf 19 stehen. Die zwanzigste Stufe waere
+      // bezahlt und unerreichbar.
+      expect(Kartenstil.dunkel.hoechsteAnzeigeStufe, 21);
+      setzeCartoSchluessel('probe');
+      expect(Kartenstil.dunkel.hoechsteAnzeigeStufe, 22);
     });
 
     test('die Anzeige darf zwei Stufen weiter als die Kacheln', () {

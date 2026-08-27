@@ -14,7 +14,8 @@ import 'screens/home_shell.dart';
 import 'services/beenden_waechter.dart';
 import 'state/library_state.dart';
 import 'theme/app_theme.dart';
-import 'widgets/mini_location_map.dart' show kartenSpeicherEinrichten;
+import 'widgets/mini_location_map.dart'
+    show kartenSpeicherEinrichten, setzeCartoSchluessel;
 import 'widgets/beenden_dialog.dart';
 import 'widgets/meldungsfenster.dart';
 
@@ -84,6 +85,14 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
           return StreamBuilder<AppSettingsData?>(
             stream: library.isReady ? library.db.watchAppSettings() : null,
             builder: (context, settingsSnapshot) {
+              // Der CARTO-Schlüssel geht hier an die Kartenschicht, weil
+              // dies die einzige Stelle ist, die IMMER von einer Änderung
+              // erfährt: Die Einstellungen schreiben in dieselbe Zeile,
+              // die dieser Strom beobachtet, und der Neuaufbau erfasst
+              // jede Karte darunter. Eine reine Zuweisung ohne
+              // Rückwirkung auf den Aufbau - sie stösst keinen zweiten
+              // Durchgang an.
+              setzeCartoSchluessel(settingsSnapshot.data?.cartoSchluessel);
               return MaterialApp(
                 title: 'Photo Vault',
                 navigatorKey: _navigator,

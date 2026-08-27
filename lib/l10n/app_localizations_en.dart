@@ -3759,6 +3759,40 @@ class AppTexteEn extends AppTexte {
   String get einstBeschrVokabular => 'The terms photos are tagged with';
 
   @override
+  String get einstAbschnittKarte => 'Map';
+
+  @override
+  String get einstBeschrKarte => 'Tile source for the dark map';
+
+  @override
+  String get einstCartoText =>
+      'By default the dark map draws recoloured OpenStreetMap tiles – no sign-up, no key. For CARTO\'s finer cartography, enter a key here.';
+
+  @override
+  String get einstCartoAktiv => 'CARTO Dark Matter, up to zoom level 20.';
+
+  @override
+  String get einstCartoOhne =>
+      'Recoloured OpenStreetMap tiles, up to zoom level 19.';
+
+  @override
+  String get einstCartoFeld => 'CARTO key';
+
+  @override
+  String get einstCartoFeldHinweis => 'Leave empty for OpenStreetMap';
+
+  @override
+  String get einstCartoQuelle =>
+      'Free and without an account at carto.com/basemaps/apikey. CARTO states its raster tiles are being retired – without a key the map is unaffected.';
+
+  @override
+  String get einstCartoGespeichert => 'CARTO key saved';
+
+  @override
+  String get einstCartoEntfernt =>
+      'CARTO key removed – the map uses OpenStreetMap again';
+
+  @override
   String get einstBeschrStandortdaten =>
       'Place names for GPS coordinates, offline';
 
@@ -5129,6 +5163,74 @@ class AppTexteEn extends AppTexte {
       locale: localeName,
       other: '$anzahl nights',
       one: 'one night',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String reisenAnzahl(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl trips',
+      one: 'one trip',
+      zero: 'no trips',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ortsbezugOrte(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl places',
+      one: 'one place',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ortsbezugWeitere(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl more places',
+      one: 'one more place',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String aktivitaetenAnzahl(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl activities',
+      one: 'one activity',
+      zero: 'no activities',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String aktivitaetenMitReise(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl on trips',
+      one: 'one on a trip',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String aktivitaetenOhneReiseZahl(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl standalone',
+      one: 'one standalone',
     );
     return '$_temp0';
   }

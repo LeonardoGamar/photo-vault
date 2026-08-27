@@ -2123,6 +2123,16 @@
   "einstBeschrModelle": "Herunterladen und entfernen der lokalen Modelle",
   "einstBeschrHintergrund": "Ob nach dem Import automatisch ausgewertet wird",
   "einstBeschrVokabular": "Die Begriffe, nach denen Fotos beschlagwortet werden",
+  "einstAbschnittKarte": "Karte",
+  "einstBeschrKarte": "Kachelquelle der dunklen Karte",
+  "einstCartoText": "Die dunkle Karte zeichnet von Haus aus umgefärbte OpenStreetMap-Kacheln – ohne Anmeldung und ohne Schlüssel. Wer den feineren CARTO-Schnitt möchte, trägt hier einen Schlüssel ein.",
+  "einstCartoAktiv": "CARTO Dark Matter, bis Zoomstufe 20.",
+  "einstCartoOhne": "Umgefärbte OpenStreetMap-Kacheln, bis Zoomstufe 19.",
+  "einstCartoFeld": "CARTO-Schlüssel",
+  "einstCartoFeldHinweis": "Leer lassen für OpenStreetMap",
+  "einstCartoQuelle": "Kostenlos und ohne Konto unter carto.com/basemaps/apikey. CARTO stellt seine Rasterkacheln nach eigener Aussage ein – ohne Schlüssel bleibt die Karte davon unberührt.",
+  "einstCartoGespeichert": "CARTO-Schlüssel gespeichert",
+  "einstCartoEntfernt": "CARTO-Schlüssel entfernt – die Karte nutzt wieder OpenStreetMap",
   "einstBeschrStandortdaten": "Ortsnamen zu GPS-Koordinaten, offline",
   "einstBeschrGesperrt": "PIN, Verschlüsselung und was darin liegt",
   "einstBeschrBackupSchluessel": "Passphrase für verschlüsselte Sicherungen",
@@ -2996,6 +3006,54 @@
   },
   "reisenNaechte": "{anzahl, plural, =1{eine Nacht} other{{anzahl} Nächte}}",
   "@reisenNaechte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reisenAnzahl": "{anzahl, plural, =0{keine Reise} =1{eine Reise} other{{anzahl} Reisen}}",
+  "@reisenAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "ortsbezugOrte": "{anzahl, plural, =1{ein Ort} other{{anzahl} Orte}}",
+  "@ortsbezugOrte": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "ortsbezugWeitere": "{anzahl, plural, =1{ein weiterer Ort} other{{anzahl} weitere Orte}}",
+  "@ortsbezugWeitere": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenAnzahl": "{anzahl, plural, =0{keine Aktivität} =1{eine Aktivität} other{{anzahl} Aktivitäten}}",
+  "@aktivitaetenAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenMitReise": "{anzahl, plural, =1{eine mit Reise} other{{anzahl} mit Reise}}",
+  "@aktivitaetenMitReise": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aktivitaetenOhneReiseZahl": "{anzahl, plural, =1{eine einzelne} other{{anzahl} einzelne}}",
+  "@aktivitaetenOhneReiseZahl": {
     "placeholders": {
       "anzahl": {
         "type": "int"

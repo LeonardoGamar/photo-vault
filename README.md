@@ -170,7 +170,13 @@ echter Hardware.
   Alben/Fotos und "Erinnerungen" (Fotos vom selben Tag früherer Jahre)
 - **Kalender** – Jahresübersicht mit Titelbild und Foto-/Videoanzahl je Jahr
 - **Karte** – Fotos mit GPS-Daten auf einer Karte (OpenStreetMap-Kacheln)
-  oder wahlweise auf einem interaktiven 3D-Globus; lokale Umkehr-Geokodierung
+  oder wahlweise auf einem interaktiven 3D-Globus. Die dunkle Karte
+  zeichnet dieselben OpenStreetMap-Kacheln umgefärbt – **ohne Anmeldung
+  und ohne Schlüssel**; wer den feineren CARTO-Schnitt möchte, trägt
+  unter *Einstellungen → Karte* einen eigenen Schlüssel ein
+  (kostenlos und ohne Konto). Ausgeliefert wird keiner: Ein Schlüssel im
+  Quelltext wäre für jeden lesbar, der das Verzeichnis öffnet. Dazu
+  lokale Umkehr-Geokodierung; lokale Umkehr-Geokodierung
   (GPS → Stadt/Land) über den offenen GeoNames-Datensatz, komplett offline.
   Dicht beieinanderliegende Fotos werden zoomabhängig zu einem Marker
   zusammengefasst und rücken beim Hineinzoomen wieder auseinander. Beide
@@ -279,6 +285,13 @@ echter Hardware.
   ein Vorschlag erkennt naturgemäss nur, was Fotos hergeben, und wer eine
   Woche ohne Kamera unterwegs war, soll die Reise trotzdem eintragen
   können. Angegeben wird der Zeitraum, die Bilder darin kommen mit.
+  Die Übersicht zeigt Reisen und Aktivitäten als **Kacheln mit
+  Titelbild, Zeitraum und Ort** – „Florenz, Toskana, Italien · 4 weitere
+  Orte". Der Ort steht dabei nicht an der Reise, sondern an ihren
+  Aufnahmen; er wird für alle Einträge in einer einzigen Abfrage
+  zusammengelesen, und genannt wird der häufigste. Unverortete Aufnahmen
+  verdrängen ihn nicht, und trug keine einen Ort, bleibt die Zeile leer
+  statt „Unbekannt" zu behaupten.
 - **Aktivitäten** – dasselbe eine Stufe kleiner: Wanderungen, Radtouren,
   Ausflüge, Besichtigungen, Bootsfahrten. Eine Aktivität steht für sich
   und kann zu einer Reise gehören; die Sonntagswanderung vor der Haustür
@@ -539,7 +552,7 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 57: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 58: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
@@ -547,7 +560,8 @@ Wiedererkennungs-Schwellen, Sprachwahl, Export-Voreinstellungen,
 ignorierte Gesichter, Klarheit/Vignettierung, importierte Farbtabellen,
 Ortsmarken für Länder und Regionen, Reisen und Reisetagebuch,
 Ereignisorte im Stammbaum, Aktivitäten, GPX-Spuren, Herkunft der
-Schlagwörter, von der Gesichtssuche ausgenommene Fotos, …). Drift
+Schlagwörter, von der Gesichtssuche ausgenommene Fotos, eigener
+CARTO-Schlüssel für die dunkle Karte, …). Drift
 migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.

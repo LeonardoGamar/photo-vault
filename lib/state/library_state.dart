@@ -40,6 +40,7 @@ import '../services/native_image_converter.dart';
 import '../services/restore_queue_service.dart';
 import '../services/restore_service.dart';
 import '../services/reverse_geocoder.dart';
+import '../widgets/mini_location_map.dart' show setzeCartoSchluessel;
 import '../services/segmentation_service.dart';
 import '../services/storage_paths.dart';
 import '../services/vault_crypto.dart';
@@ -339,6 +340,10 @@ class LibraryState extends ChangeNotifier {
     }
 
     await ladeGesichtsSchwelle();
+    // Vor dem ersten Bild und nicht erst über den Einstellungsstrom in
+    // main.dart: Sonst zeichnete die erste Karte einen Atemzug lang die
+    // schlüssellose Fassung und lüde ihre Kacheln zweimal.
+    setzeCartoSchluessel(await db.cartoSchluesselWert());
     await _loadModelsIfPresent();
     await _loadGeoDataIfPresent();
     // Absichtlich ohne `await`: Bei einem grossen Stammbaum sind das

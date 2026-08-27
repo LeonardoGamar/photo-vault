@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -8,7 +9,7 @@ import '../services/reisefortschritt.dart';
 import '../services/reisen.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
-import '../widgets/asset_thumbnail_tile.dart';
+import '../widgets/ortskachel.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/namens_dialog.dart';
 import '../widgets/zeitraum_dialog.dart';
@@ -37,6 +38,10 @@ class _ReisenScreenState extends State<ReisenScreen> {
   List<ReisenData> _reisen = const [];
   List<Reisevorschlag> _vorschlaege = const [];
   Reisefortschritt? _fortschritt;
+
+  /// Wo jede Reise stattfand – in einer Abfrage für alle, siehe
+  /// `AppDatabase.ortsbezugJeReise`.
+  Map<String, Ortsbezug> _orte = const {};
   bool _laedt = true;
 
   @override
@@ -54,6 +59,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
     final zugeordnet = await db.zugeordneteReiseAufnahmen();
     final verworfen = await db.verworfeneReisevorschlaege();
     final besucht = await db.besuchteOrte();
+    final orte = await db.ortsbezugJeReise();
     if (!mounted) return;
     // Ohne den GeoNames-Datensatz gibt es keine Länderzahl, gegen die
     // sich zählen liesse – dann bleibt der Balken weg, statt „0 von 0"
@@ -86,6 +92,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
       _reisen = reisen;
       _vorschlaege = vorschlaege;
       _fortschritt = fortschritt;
+      _orte = orte;
       _laedt = false;
     });
   }
@@ -153,6 +160,59 @@ class _ReisenScreenState extends State<ReisenScreen> {
   Future<void> _verwerfen(Reisevorschlag v) async {
     await widget.library.db.verwirfReisevorschlag(v.schluessel);
     await _laden();
+  }
+
+  Future<void> _umbenennen(ReisenData reise) async {
+    final t = AppTexte.of(context);
+    final sauber = await frageNamen(
+      context,
+      titel: t.reisenUmbenennen,
+      feldbeschriftung: t.reisenName,
+      vorgabe: reise.name,
+    );
+    if (sauber == null || !mounted) return;
+    await widget.library.db
+        .reiseAendern(reise.id, ReisenCompanion(name: Value(sauber)));
+    await _laden();
+  }
+
+  Future<void> _loeschen(ReisenData reise) async {
+    final t = AppTexte.of(context);
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.reisenLoeschen),
+        content: Text(t.reisenLoeschenFrage(reise.name)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(t.allgEntfernen)),
+        ],
+      ),
+    );
+    if (ja != true || !mounted) return;
+    await widget.library.db.reiseLoeschen(reise.id);
+    await _laden();
+  }
+
+  /// Die Zahlen im Kopf: wie viele Reisen, wie viele Orte, wie viele
+  /// Aufnahmen. Was null wäre, fällt weg – „0 Orte" ist keine Auskunft,
+  /// sondern eine Behauptung über eine Bibliothek ohne Ortsdaten.
+  List<String> _kopfzahlen(AppTexte t) {
+    final orte = <String>{
+      for (final b in _orte.values)
+        if (b.ort case final o?) o,
+    };
+    final aufnahmen =
+        _orte.values.fold<int>(0, (summe, b) => summe + b.aufnahmen);
+    return [
+      t.reisenAnzahl(_reisen.length),
+      if (orte.isNotEmpty) t.ortsbezugOrte(orte.length),
+      if (aufnahmen > 0) t.reisenAufnahmen(aufnahmen),
+    ];
   }
 
   Future<void> _oeffnen(ReisenData reise) async {
@@ -245,53 +305,84 @@ class _ReisenScreenState extends State<ReisenScreen> {
                     ),
                   ),
                 )
-              : ListView(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  children: [
-                    if (_fortschritt case final f? when !f.istLeer) ...[
-                      Card(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          onTap: () =>
-                              Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => LaenderlisteScreen(
-                                library: widget.library),
-                          )),
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.lg),
-                            child: Fortschrittsbalken(fortschritt: f),
+              : CustomScrollView(
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      sliver: SliverList.list(children: [
+                        Uebersichtskopf(
+                          symbol: Icons.luggage_outlined,
+                          titel: t.reisenTitel,
+                          zahlen: _kopfzahlen(t),
+                        ),
+                        if (_fortschritt case final f? when !f.istLeer) ...[
+                          Card(
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              onTap: () =>
+                                  Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => LaenderlisteScreen(
+                                    library: widget.library),
+                              )),
+                              child: Padding(
+                                padding: const EdgeInsets.all(AppSpacing.lg),
+                                child: Fortschrittsbalken(fortschritt: f),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                    ],
-                    if (_vorschlaege.isNotEmpty) ...[
-                      _Ueberschrift(t.reisenVorschlaege),
-                      for (final v in _vorschlaege)
-                        _Vorschlagskarte(
-                          vorschlag: v,
-                          onJa: () => _bestaetigen(v),
-                          onNein: () => _verwerfen(v),
-                        ),
-                      const SizedBox(height: AppSpacing.xl),
-                    ],
-                    if (_reisen.isNotEmpty) ...[
-                      _Ueberschrift(t.reisenBestaetigte),
-                      for (final r in _reisen)
-                        _Reisezeile(
-                          reise: r,
-                          library: widget.library,
-                          onTippen: () => _oeffnen(r),
-                        ),
-                    ] else
-                      Padding(
-                        padding: const EdgeInsets.only(top: AppSpacing.sm),
-                        child: Text(
-                          t.reisenLeer,
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant),
-                        ),
-                      ),
+                          const SizedBox(height: AppSpacing.xl),
+                        ],
+                        if (_vorschlaege.isNotEmpty) ...[
+                          _Ueberschrift(t.reisenVorschlaege),
+                          for (final v in _vorschlaege)
+                            _Vorschlagskarte(
+                              vorschlag: v,
+                              onJa: () => _bestaetigen(v),
+                              onNein: () => _verwerfen(v),
+                            ),
+                          const SizedBox(height: AppSpacing.xl),
+                        ],
+                        if (_reisen.isNotEmpty)
+                          _Ueberschrift(t.reisenBestaetigte)
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(top: AppSpacing.sm),
+                            child: Text(
+                              t.reisenLeer,
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant),
+                            ),
+                          ),
+                      ]),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0,
+                          AppSpacing.lg, AppSpacing.lg),
+                      sliver: Kachelraster(kacheln: [
+                        for (final r in _reisen)
+                          Reisekachel(
+                            key: ValueKey(r.id),
+                            reise: r,
+                            library: widget.library,
+                            ort: ortszeile(t, _orte[r.id]),
+                            onTippen: () => _oeffnen(r),
+                            befehle: [
+                              (
+                                symbol: Icons.drive_file_rename_outline,
+                                text: t.reisenUmbenennen,
+                                tun: () => _umbenennen(r),
+                              ),
+                              (
+                                symbol: Icons.delete_outline,
+                                text: t.reisenLoeschen,
+                                tun: () => _loeschen(r),
+                              ),
+                            ],
+                          ),
+                      ]),
+                    ),
                   ],
                 ),
     );
@@ -394,25 +485,34 @@ class _Vorschlagskarte extends StatelessWidget {
   }
 }
 
-class _Reisezeile extends StatefulWidget {
+/// Eine Reise als Kachel.
+///
+/// Eigenes Widget und nicht bloss ein Aufruf von [Ortskachel]: Das
+/// Titelbild wird **einmal beim Anlegen** geholt und nicht in `build` –
+/// sonst liefe die Abfrage bei jedem Neuaufbau erneut, und eine Liste
+/// baut sich oft neu auf. Dieselbe Überlegung wie bei der Zeile, die
+/// diese Kachel abgelöst hat.
+class Reisekachel extends StatefulWidget {
   final ReisenData reise;
   final LibraryState library;
+  final String? ort;
   final VoidCallback onTippen;
+  final List<Kachelbefehl> befehle;
 
-  const _Reisezeile({
+  const Reisekachel({
+    super.key,
     required this.reise,
     required this.library,
+    required this.ort,
     required this.onTippen,
+    this.befehle = const [],
   });
 
   @override
-  State<_Reisezeile> createState() => _ReisezeileState();
+  State<Reisekachel> createState() => _ReisekachelState();
 }
 
-class _ReisezeileState extends State<_Reisezeile> {
-  /// Einmal beim Anlegen der Zeile geholt und nicht in `build`: Sonst
-  /// liefe die Abfrage bei jedem Neuaufbau erneut – und eine Liste baut
-  /// sich oft neu auf.
+class _ReisekachelState extends State<Reisekachel> {
   late final Future<AssetData?> _titelbild = _hole();
 
   Future<AssetData?> _hole() async {
@@ -430,37 +530,39 @@ class _ReisezeileState extends State<_Reisezeile> {
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
-    final datum = DateFormat.yMMMd(Localizations.localeOf(context).toString());
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: ListTile(
-        leading: SizedBox(
-          width: 52,
-          height: 52,
-          child: FutureBuilder<AssetData?>(
-            future: _titelbild,
-            builder: (context, schnappschuss) {
-              final asset = schnappschuss.data;
-              if (asset == null) {
-                return const Center(child: Icon(Icons.luggage));
-              }
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(AppRadius.xs),
-                child: AssetThumbnailTile(
-                  asset: asset,
-                  paths: widget.library.paths,
-                  onTap: widget.onTippen,
-                ),
-              );
-            },
-          ),
-        ),
-        title: Text(widget.reise.name),
-        subtitle: Text(t.reisenSpanne(
-            datum.format(widget.reise.von), datum.format(widget.reise.bis))),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: widget.onTippen,
+    return FutureBuilder<AssetData?>(
+      future: _titelbild,
+      builder: (context, schnappschuss) => Ortskachel(
+        bild: schnappschuss.data,
+        paths: widget.library.paths,
+        symbol: Icons.luggage_outlined,
+        name: widget.reise.name,
+        kennzeichen: t.reisenNaechte(naechteZwischen(
+            von: widget.reise.von, bis: widget.reise.bis)),
+        zeitraum: jahresspanne(widget.reise.von, widget.reise.bis),
+        ort: widget.ort,
+        onTippen: widget.onTippen,
+        befehle: widget.befehle,
       ),
     );
   }
 }
+
+/// Die Zahl der Nächte zwischen zwei Zeitpunkten.
+///
+/// Über die reinen Kalendertage gerechnet und nicht über die Differenz
+/// der Zeitpunkte: Wer Freitagabend losfährt und Sonntagmorgen
+/// zurückkommt, war zwei Nächte weg – die Stundenrechnung käme auf eine.
+int naechteZwischen({required DateTime von, required DateTime bis}) =>
+    DateTime(bis.year, bis.month, bis.day)
+        .difference(DateTime(von.year, von.month, von.day))
+        .inDays;
+
+/// Der Zeitraum, so kurz, dass er auf ein Schildchen passt.
+///
+/// Auf dem Titelbild ist Platz für ein Jahr, nicht für zwei volle Daten.
+/// Über den Jahreswechsel hinweg werden es zwei – „2024" allein wäre
+/// dort schlicht falsch.
+String jahresspanne(DateTime von, DateTime bis) => von.year == bis.year
+    ? '${von.year}'
+    : '${von.year}–${bis.year}';

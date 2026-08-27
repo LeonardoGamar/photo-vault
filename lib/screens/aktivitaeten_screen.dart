@@ -12,6 +12,7 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/aktivitaetsart_anzeige.dart';
 import '../widgets/asset_thumbnail_tile.dart';
+import '../widgets/ortskachel.dart';
 import '../widgets/namens_dialog.dart';
 import '../widgets/zeitraum_dialog.dart';
 import 'aktivitaet_detail_screen.dart';
@@ -35,6 +36,10 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
   List<AktivitaetenData> _aktivitaeten = const [];
   List<Aktivitaetsvorschlag> _vorschlaege = const [];
   Map<String, String> _reisenamen = const {};
+
+  /// Wo jede Aktivität stattfand – in einer Abfrage für alle, siehe
+  /// `AppDatabase.ortsbezugJeAktivitaet`.
+  Map<String, Ortsbezug> _orte = const {};
   bool _laedt = true;
 
   @override
@@ -51,6 +56,7 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
     final roh = await db.aufnahmenFuerReiseerkennung();
     final belegt = await db.zugeordneteAktivitaetsAufnahmen();
     final verworfen = await db.verworfeneAktivitaetsvorschlaege();
+    final orte = await db.ortsbezugJeAktivitaet();
     if (!mounted) return;
     final t = AppTexte.of(context);
 
@@ -91,6 +97,7 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
       _aktivitaeten = aktivitaeten;
       _vorschlaege = vorschlaege;
       _reisenamen = {for (final r in reisen) r.id: r.name};
+      _orte = orte;
       _laedt = false;
     });
   }
@@ -190,6 +197,78 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
   List<AktivitaetenData> get _mitReise =>
       [for (final k in _aktivitaeten) if (k.reiseId != null) k];
 
+  /// Die Zahlen im Kopf – wie bei den Reisen, und nach derselben Regel:
+  /// Was null wäre, fällt weg.
+  List<String> _kopfzahlen(AppTexte t) => [
+        t.aktivitaetenAnzahl(_aktivitaeten.length),
+        if (_mitReise.isNotEmpty) t.aktivitaetenMitReise(_mitReise.length),
+        if (_ohneReise.isNotEmpty)
+          t.aktivitaetenOhneReiseZahl(_ohneReise.length),
+      ];
+
+  Future<void> _umbenennen(AktivitaetenData k) async {
+    final t = AppTexte.of(context);
+    final sauber = await frageNamen(
+      context,
+      titel: t.aktivitaetenUmbenennen,
+      feldbeschriftung: t.aktivitaetenName,
+      vorgabe: k.name,
+    );
+    if (sauber == null || !mounted) return;
+    await widget.library.db
+        .aktivitaetAendern(k.id, AktivitaetenCompanion(name: Value(sauber)));
+    await _laden();
+  }
+
+  Future<void> _loeschen(AktivitaetenData k) async {
+    final t = AppTexte.of(context);
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.aktivitaetenLoeschen),
+        content: Text(t.aktivitaetenLoeschenFrage(k.name)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: Text(t.allgEntfernen)),
+        ],
+      ),
+    );
+    if (ja != true || !mounted) return;
+    await widget.library.db.aktivitaetLoeschen(k.id);
+    await _laden();
+  }
+
+  /// Die Kacheln einer der beiden Listen.
+  List<Widget> _kacheln(AppTexte t, List<AktivitaetenData> welche,
+          {required bool mitReisename}) =>
+      [
+        for (final k in welche)
+          Aktivitaetskachel(
+            key: ValueKey(k.id),
+            aktivitaet: k,
+            library: widget.library,
+            reisename: mitReisename ? _reisenamen[k.reiseId] : null,
+            ort: ortszeile(t, _orte[k.id]),
+            onTippen: () => _oeffnen(k),
+            befehle: [
+              (
+                symbol: Icons.drive_file_rename_outline,
+                text: t.aktivitaetenUmbenennen,
+                tun: () => _umbenennen(k),
+              ),
+              (
+                symbol: Icons.delete_outline,
+                text: t.aktivitaetenLoeschen,
+                tun: () => _loeschen(k),
+              ),
+            ],
+          ),
+      ];
+
   Future<void> _oeffnen(AktivitaetenData k) async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) =>
@@ -259,44 +338,54 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
                     ),
                   ),
                 )
-              : ListView(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  children: [
-                    if (_vorschlaege.isNotEmpty) ...[
-                      _Ueberschrift(t.aktivitaetenVorschlaege),
-                      for (final v in _vorschlaege)
-                        _Vorschlagskarte(
-                          vorschlag: v,
-                          onJa: () => _bestaetigen(v),
-                          onNein: () => _verwerfen(v),
+              : CustomScrollView(
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      sliver: SliverList.list(children: [
+                        Uebersichtskopf(
+                          symbol: Icons.hiking,
+                          titel: t.aktivitaetenTitel,
+                          zahlen: _kopfzahlen(t),
                         ),
-                      const SizedBox(height: AppSpacing.xl),
-                    ],
-                    // Zwei Listen und nicht eine: Die Sonntagswanderung
-                    // vor der Haustür sucht man anders als die Wanderung
-                    // im Südtirol-Urlaub – die eine über das Datum, die
-                    // andere über die Reise.
-                    if (_ohneReise.isNotEmpty) ...[
-                      _Ueberschrift(t.aktivitaetenOhneReise),
-                      for (final k in _ohneReise)
-                        Aktivitaetszeile(
-                          aktivitaet: k,
-                          library: widget.library,
-                          reisename: null,
-                          onTippen: () => _oeffnen(k),
-                        ),
-                      const SizedBox(height: AppSpacing.xl),
-                    ],
-                    if (_mitReise.isNotEmpty) ...[
-                      _Ueberschrift(t.aktivitaetenBestaetigte),
-                      for (final k in _mitReise)
-                        Aktivitaetszeile(
-                          aktivitaet: k,
-                          library: widget.library,
-                          reisename: _reisenamen[k.reiseId],
-                          onTippen: () => _oeffnen(k),
-                        ),
-                    ],
+                        if (_vorschlaege.isNotEmpty) ...[
+                          _Ueberschrift(t.aktivitaetenVorschlaege),
+                          for (final v in _vorschlaege)
+                            _Vorschlagskarte(
+                              vorschlag: v,
+                              onJa: () => _bestaetigen(v),
+                              onNein: () => _verwerfen(v),
+                            ),
+                          const SizedBox(height: AppSpacing.xl),
+                        ],
+                        // Zwei Listen und nicht eine: Die Sonntagswanderung
+                        // vor der Haustür sucht man anders als die Wanderung
+                        // im Südtirol-Urlaub – die eine über das Datum, die
+                        // andere über die Reise.
+                        if (_ohneReise.isNotEmpty)
+                          _Ueberschrift(t.aktivitaetenOhneReise),
+                      ]),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg),
+                      sliver: Kachelraster(
+                          kacheln:
+                              _kacheln(t, _ohneReise, mitReisename: false)),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      sliver: SliverList.list(children: [
+                        if (_mitReise.isNotEmpty)
+                          _Ueberschrift(t.aktivitaetenBestaetigte),
+                      ]),
+                    ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0,
+                          AppSpacing.lg, AppSpacing.lg),
+                      sliver: Kachelraster(
+                          kacheln: _kacheln(t, _mitReise, mitReisename: true)),
+                    ),
                   ],
                 ),
     );
@@ -374,6 +463,78 @@ class _Vorschlagskarte extends StatelessWidget {
     );
   }
 }
+/// Eine Aktivität als Kachel – die Übersicht.
+///
+/// Neben [Aktivitaetszeile] und nicht statt ihr: Die Zeile steht weiter
+/// **innerhalb einer Reise** (siehe `reise_detail_screen.dart`). Dort
+/// sind die Aktivitäten Kapitel in zeitlicher Folge, und eine Reihe
+/// grosser Kacheln unter der Karte einer einzelnen Reise beantwortete
+/// keine Frage, die die Zeile nicht schon beantwortet.
+class Aktivitaetskachel extends StatefulWidget {
+  final AktivitaetenData aktivitaet;
+  final LibraryState library;
+
+  /// Der Name der Reise, zu der sie gehört – oder `null`. In der Liste
+  /// der einzelnen Aktivitäten bleibt er weg: Dort gibt es keine.
+  final String? reisename;
+
+  final String? ort;
+  final VoidCallback onTippen;
+  final List<Kachelbefehl> befehle;
+
+  const Aktivitaetskachel({
+    super.key,
+    required this.aktivitaet,
+    required this.library,
+    required this.reisename,
+    required this.ort,
+    required this.onTippen,
+    this.befehle = const [],
+  });
+
+  @override
+  State<Aktivitaetskachel> createState() => _AktivitaetskachelState();
+}
+
+class _AktivitaetskachelState extends State<Aktivitaetskachel> {
+  /// Einmal beim Anlegen geholt und nicht in `build` – sonst liefe die
+  /// Abfrage bei jedem Neuaufbau erneut.
+  late final Future<AssetData?> _bild =
+      widget.library.db.ersteAufnahmeDerAktivitaet(widget.aktivitaet.id);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final art = Aktivitaetsart.aus(widget.aktivitaet.art);
+    final datum = DateFormat.yMMMd(Localizations.localeOf(context).toString());
+    // Die Reise gehört zum Ort und nicht in eine eigene Zeile: Beides
+    // beantwortet „wo war das?", und zwei Zeilen dafür machten die
+    // Kachel höher, ohne mehr zu sagen. Bleibt beides leer, entfällt die
+    // Zeile ganz - siehe [ortszeile].
+    final unterzeile = [
+      if (widget.ort case final o?) o,
+      if (widget.reisename case final r?) t.aktivitaetenZuReise(r),
+    ].join(' · ');
+    return FutureBuilder<AssetData?>(
+      future: _bild,
+      builder: (context, schnappschuss) => Ortskachel(
+        bild: schnappschuss.data,
+        paths: widget.library.paths,
+        symbol: symbolFuerArt(art),
+        name: widget.aktivitaet.name,
+        kennzeichen: nameFuerArt(t, art),
+        // Bei einer Aktivität ist das volle Datum die Auskunft, nicht das
+        // Jahr: Sie dauert Stunden, keine Wochen, und „2024" beantwortete
+        // die Frage „wann war das?" nicht einmal ungefähr.
+        zeitraum: datum.format(widget.aktivitaet.von),
+        ort: unterzeile.isEmpty ? null : unterzeile,
+        onTippen: widget.onTippen,
+        befehle: widget.befehle,
+      ),
+    );
+  }
+}
+
 
 /// Eine Aktivität als Zeile – in der Liste und als Kapitel einer Reise.
 class Aktivitaetszeile extends StatefulWidget {

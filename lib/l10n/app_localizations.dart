@@ -6431,6 +6431,66 @@ abstract class AppTexte {
   /// **'Die Begriffe, nach denen Fotos beschlagwortet werden'**
   String get einstBeschrVokabular;
 
+  /// No description provided for @einstAbschnittKarte.
+  ///
+  /// In de, this message translates to:
+  /// **'Karte'**
+  String get einstAbschnittKarte;
+
+  /// No description provided for @einstBeschrKarte.
+  ///
+  /// In de, this message translates to:
+  /// **'Kachelquelle der dunklen Karte'**
+  String get einstBeschrKarte;
+
+  /// No description provided for @einstCartoText.
+  ///
+  /// In de, this message translates to:
+  /// **'Die dunkle Karte zeichnet von Haus aus umgefärbte OpenStreetMap-Kacheln – ohne Anmeldung und ohne Schlüssel. Wer den feineren CARTO-Schnitt möchte, trägt hier einen Schlüssel ein.'**
+  String get einstCartoText;
+
+  /// No description provided for @einstCartoAktiv.
+  ///
+  /// In de, this message translates to:
+  /// **'CARTO Dark Matter, bis Zoomstufe 20.'**
+  String get einstCartoAktiv;
+
+  /// No description provided for @einstCartoOhne.
+  ///
+  /// In de, this message translates to:
+  /// **'Umgefärbte OpenStreetMap-Kacheln, bis Zoomstufe 19.'**
+  String get einstCartoOhne;
+
+  /// No description provided for @einstCartoFeld.
+  ///
+  /// In de, this message translates to:
+  /// **'CARTO-Schlüssel'**
+  String get einstCartoFeld;
+
+  /// No description provided for @einstCartoFeldHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Leer lassen für OpenStreetMap'**
+  String get einstCartoFeldHinweis;
+
+  /// No description provided for @einstCartoQuelle.
+  ///
+  /// In de, this message translates to:
+  /// **'Kostenlos und ohne Konto unter carto.com/basemaps/apikey. CARTO stellt seine Rasterkacheln nach eigener Aussage ein – ohne Schlüssel bleibt die Karte davon unberührt.'**
+  String get einstCartoQuelle;
+
+  /// No description provided for @einstCartoGespeichert.
+  ///
+  /// In de, this message translates to:
+  /// **'CARTO-Schlüssel gespeichert'**
+  String get einstCartoGespeichert;
+
+  /// No description provided for @einstCartoEntfernt.
+  ///
+  /// In de, this message translates to:
+  /// **'CARTO-Schlüssel entfernt – die Karte nutzt wieder OpenStreetMap'**
+  String get einstCartoEntfernt;
+
   /// No description provided for @einstBeschrStandortdaten.
   ///
   /// In de, this message translates to:
@@ -8098,6 +8158,42 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'{anzahl, plural, =1{eine Nacht} other{{anzahl} Nächte}}'**
   String reisenNaechte(int anzahl);
+
+  /// No description provided for @reisenAnzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{keine Reise} =1{eine Reise} other{{anzahl} Reisen}}'**
+  String reisenAnzahl(int anzahl);
+
+  /// No description provided for @ortsbezugOrte.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{ein Ort} other{{anzahl} Orte}}'**
+  String ortsbezugOrte(int anzahl);
+
+  /// No description provided for @ortsbezugWeitere.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{ein weiterer Ort} other{{anzahl} weitere Orte}}'**
+  String ortsbezugWeitere(int anzahl);
+
+  /// No description provided for @aktivitaetenAnzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{keine Aktivität} =1{eine Aktivität} other{{anzahl} Aktivitäten}}'**
+  String aktivitaetenAnzahl(int anzahl);
+
+  /// No description provided for @aktivitaetenMitReise.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine mit Reise} other{{anzahl} mit Reise}}'**
+  String aktivitaetenMitReise(int anzahl);
+
+  /// No description provided for @aktivitaetenOhneReiseZahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{eine einzelne} other{{anzahl} einzelne}}'**
+  String aktivitaetenOhneReiseZahl(int anzahl);
 
   /// No description provided for @reisenAufnahmen.
   ///

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -22,6 +23,7 @@ import '../state/library_state.dart';
 import '../services/platform/reveal_in_file_manager.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import '../widgets/mini_location_map.dart' show setzeCartoSchluessel;
 import '../widgets/pin_dialogs.dart';
 import '../widgets/progress_dialog.dart';
 import '../widgets/typed_confirm_dialog.dart';
@@ -141,11 +143,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// wenn das Wort nur in der Beschreibung steht.
   final TextEditingController _suche = TextEditingController();
 
+  /// Der eingetippte CARTO-Schlüssel.
+  ///
+  /// Nicht an einen `StreamBuilder` gebunden: Ein Feld, dessen Inhalt bei
+  /// jedem Datenbankereignis von aussen neu gesetzt wird, springt beim
+  /// Tippen mit dem Textzeiger. Der gespeicherte Wert wird einmal
+  /// hineingeschrieben ([_ladeCartoSchluessel]), danach gehört das Feld
+  /// dem Nutzer.
+  final TextEditingController _cartoSchluessel = TextEditingController();
+  bool _cartoGeladen = false;
+
   @override
   void dispose() {
     _aiTagVocabularyController.dispose();
     _suche.dispose();
+    _cartoSchluessel.dispose();
     super.dispose();
+  }
+
+  /// Holt den gespeicherten Schlüssel einmalig ins Feld.
+  Future<void> _ladeCartoSchluessel() async {
+    if (_cartoGeladen) return;
+    _cartoGeladen = true;
+    final wert = await widget.library.db.cartoSchluesselWert();
+    if (!mounted || wert == null) return;
+    setState(() => _cartoSchluessel.text = wert);
+  }
+
+  Future<void> _speichereCartoSchluessel() async {
+    final eingabe = _cartoSchluessel.text.trim();
+    await widget.library.db.setzeCartoSchluesselWert(eingabe);
+    // Auch von Hand setzen und nicht allein auf den Einstellungsstrom in
+    // main.dart bauen: Der erreicht diesen Bildschirm zwar auch, aber
+    // erst beim nächsten Aufbau. So steht die neue Karte schon da, wenn
+    // jemand direkt von hier zur Karte wechselt.
+    setzeCartoSchluessel(eingabe);
+    if (!mounted) return;
+    setState(() {});
+    melde.erfolg(eingabe.isEmpty
+        ? AppTexte.of(context).einstCartoEntfernt
+        : AppTexte.of(context).einstCartoGespeichert);
   }
 
   Future<void> _addAiTagVocabularyTerm() async {
@@ -846,6 +883,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           inhalt: _gruppeStandortdaten,
         ),
         _Gruppe(
+          icon: Icons.map_outlined,
+          titel: t.einstAbschnittKarte,
+          beschreibung: t.einstBeschrKarte,
+          inhalt: _gruppeKarte,
+        ),
+        _Gruppe(
           icon: Icons.lock_outline,
           titel: t.einstAbschnittGesperrterOrdner,
           beschreibung: t.einstBeschrGesperrt,
@@ -1376,6 +1419,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ];
+
+  List<Widget> _gruppeKarte() {
+    // Beim Öffnen der Gruppe, nicht beim Aufbau des Bildschirms: Die
+    // Gruppeninhalte werden erst gebaut, wenn jemand sie aufklappt
+    // (siehe [_Gruppe.inhalt]). [_ladeCartoSchluessel] schützt sich
+    // selbst gegen den zweiten Aufruf.
+    unawaited(_ladeCartoSchluessel());
+    final t = AppTexte.of(context);
+    final aktiv = _cartoSchluessel.text.trim().isNotEmpty;
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Text(
+          t.einstCartoText,
+          style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
+        ),
+      ),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    aktiv ? Icons.check_circle : Icons.dark_mode_outlined,
+                    color: aktiv ? context.semantik.erfolg : null,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      aktiv ? t.einstCartoAktiv : t.einstCartoOhne,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _cartoSchluessel,
+                      decoration: InputDecoration(
+                        labelText: t.einstCartoFeld,
+                        hintText: t.einstCartoFeldHinweis,
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onSubmitted: (_) => _speichereCartoSchluessel(),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  FilledButton(
+                    onPressed: _speichereCartoSchluessel,
+                    child: Text(t.allgSpeichern),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                t.einstCartoQuelle,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
 
   List<Widget> _gruppeStandortdaten() => [
         Padding(

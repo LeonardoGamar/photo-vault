@@ -11,6 +11,29 @@ import 'package:latlong2/latlong.dart' as ll;
 
 import '../theme/app_spacing.dart';
 
+/// Der eigene CARTO-Schlüssel, oder null.
+///
+/// Modulweit und nicht als Parameter durchgereicht, aus demselben Grund
+/// wie beim Kachelspeicher: [buildMapTileLayer] wird an sechs Stellen
+/// ohne jeden Zustand aufgerufen. Ein zusätzlicher Parameter müsste
+/// durch jeden dieser Bildschirme wandern, obwohl es um eine einzige,
+/// app-weite Angabe geht.
+String? _cartoSchluessel;
+
+/// Der gerade geltende CARTO-Schlüssel, oder null.
+String? get cartoSchluessel => _cartoSchluessel;
+
+/// Setzt den CARTO-Schlüssel für alle Karten dieser App.
+///
+/// Leer und null sind dasselbe: kein Schlüssel. Das ist wichtiger, als
+/// es aussieht – eine leere Zeichenkette ergäbe die Adresse `…?key=`,
+/// und darauf antwortet CARTO mit derselben gestempelten Kachel wie
+/// ganz ohne Schlüssel.
+void setzeCartoSchluessel(String? schluessel) {
+  final wert = schluessel?.trim();
+  _cartoSchluessel = wert == null || wert.isEmpty ? null : wert;
+}
+
 /// Die verfügbaren Kartenstile.
 ///
 /// Ein Aufzählungstyp und kein `bool dark` mehr: Ein dritter Stil passt
@@ -22,23 +45,47 @@ enum Kartenstil {
   /// Cloud-Dienste ausser den einmaligen KI-Modell-Downloads, siehe
   /// README).
   hell(
-    kachelUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-    namensnennung: '© OpenStreetMap contributors',
+    kachelUrl: _osmKacheln,
+    namensnennung: _osmNennung,
     // Ausdrücklich, nicht über die Vorgabe: Ab Stufe 20 antwortet der
     // Server mit 400, nachgemessen.
     hoechsteEchteStufe: 19,
   ),
 
-  /// CARTO Dark Matter, ebenfalls quelloffen/kostenlos und ohne
-  /// Schlüssel – passend zum permanent dunklen Farbschema der App.
+  /// Die dunkle Karte – **mit zwei Gesichtern**, je nachdem, ob ein
+  /// CARTO-Schlüssel hinterlegt ist.
+  ///
+  /// Bis August 2026 lag hier CARTO Dark Matter, kostenlos und ohne
+  /// Schlüssel. Das ist vorbei: CARTO schreibt seither quer über jede
+  /// ausgelieferte Kachel „API KEY REQUIRED / carto.com/basemaps/apikey".
+  /// An einer Kachel Berlin-Mitte nachgesehen, und zwar auf jeder Stufe:
+  ///
+  /// ```
+  /// z10  z14  z16  z18  z20   -> Stempel auf allen
+  /// cartodb-basemaps-a.global.ssl.fastly.net (alter Name) -> ebenso
+  /// ```
+  ///
+  /// Beim Herauszoomen deckt eine Kachel den halben Schirm und der
+  /// Schriftzug steht einmal im Bild; beim Hereinzoomen kacheln sich die
+  /// Stempel. Deshalb fällt es erst dort auf – der Fehler war aber immer
+  /// da.
+  ///
+  /// **Ohne Schlüssel** zeichnet dieser Stil deshalb dieselben
+  /// OSM-Kacheln wie [hell], invertiert und im Farbton um 180° gedreht
+  /// (siehe [invertieren]). Kein zweiter Anbieter, keine Anmeldung, und
+  /// die Karte ist sofort dunkel. Grün bleibt grün, Wasser wird
+  /// dunkelblau, Beschriftung hell – nachgesehen, bevor das hier stand.
+  ///
+  /// **Mit Schlüssel** kommt Dark Matter zurück, samt Stufe 20. CARTO
+  /// gibt Schlüssel kostenlos und ohne Konto aus (5 Millionen Kacheln im
+  /// Monat). Dass die Rasterkacheln laut CARTO „being retired" sind, ist
+  /// der zweite Grund, warum der schlüssellose Weg die Vorgabe ist und
+  /// nicht der Notnagel: Fällt CARTO eines Tages ganz weg, ändert sich
+  /// für alle, die keinen Schlüssel eingetragen haben, gar nichts.
   dunkel(
-    kachelUrl: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    unterbereiche: ['a', 'b', 'c', 'd'],
-    namensnennung: '© OpenStreetMap contributors © CARTO',
-    // Eine Stufe weiter als OSM: An echten Abrufen nachgemessen liefert
-    // CARTO auch auf Stufe 20 noch gezeichnete Kacheln, während OSM dort
-    // bereits mit 400 antwortet.
-    hoechsteEchteStufe: 20,
+    kachelUrl: _osmKacheln,
+    namensnennung: _osmNennung,
+    hoechsteEchteStufe: 19,
   ),
 
   /// OpenTopoMap: Höhenlinien und Schummerung. Das Relief steckt in den
@@ -67,19 +114,51 @@ enum Kartenstil {
   );
 
   const Kartenstil({
-    required this.kachelUrl,
-    required this.namensnennung,
-    this.unterbereiche = const <String>[],
-    this.hoechsteEchteStufe,
-  });
+    required String kachelUrl,
+    required String namensnennung,
+    List<String> unterbereiche = const <String>[],
+    int? hoechsteEchteStufe,
+  })  : _kachelUrl = kachelUrl,
+        _namensnennung = namensnennung,
+        _unterbereiche = unterbereiche,
+        _hoechsteEchteStufe = hoechsteEchteStufe;
 
-  final String kachelUrl;
-  final String namensnennung;
-  final List<String> unterbereiche;
+  final String _kachelUrl;
+  final String _namensnennung;
+  final List<String> _unterbereiche;
+  final int? _hoechsteEchteStufe;
+
+  /// Ob dieser Stil gerade auf CARTO zeigt – also nur die dunkle Karte,
+  /// und nur mit hinterlegtem Schlüssel.
+  bool get _ueberCarto => this == dunkel && _cartoSchluessel != null;
+
+  /// Die Adresse der Kacheln.
+  ///
+  /// Der Fragezeichen-Teil steckt mit in [_cartoKacheln] und nicht hier:
+  /// Ein Literal `'?key='` an dieser Stelle sähe für
+  /// `keine_festen_texte_test.dart` wie ein vergessener
+  /// Oberflächentext aus – „key" sind drei Buchstaben am Stück. Als Teil
+  /// einer Adresse, die mit `https` beginnt, ist es eindeutig keiner.
+  String get kachelUrl =>
+      _ueberCarto ? '$_cartoKacheln$_cartoSchluessel' : _kachelUrl;
+
+  /// Die Namensnennung – eine Lizenzauflage, und sie muss zu den
+  /// Kacheln passen, die tatsächlich im Bild stehen. CARTO verlangt sie
+  /// ausdrücklich auch bei Nutzung mit Schlüssel.
+  String get namensnennung => _ueberCarto ? _cartoNennung : _namensnennung;
+
+  List<String> get unterbereiche =>
+      _ueberCarto ? _cartoUnterbereiche : _unterbereiche;
+
+  /// Ob die Kacheln beim Zeichnen invertiert werden müssen.
+  ///
+  /// Nur für die dunkle Karte ohne Schlüssel: Dort liegen helle
+  /// OSM-Kacheln an, die erst durch die Farbmatrix dunkel werden.
+  bool get invertieren => this == dunkel && _cartoSchluessel == null;
 
   /// Höchste Stufe, für die der Anbieter echte Kacheln liefert. `null`
   /// heisst „so weit wie die Karte zoomt".
-  final int? hoechsteEchteStufe;
+  int? get hoechsteEchteStufe => _ueberCarto ? 20 : _hoechsteEchteStufe;
 
   /// Bis hierhin darf die Karte zoomen.
   ///
@@ -104,6 +183,15 @@ enum Kartenstil {
   /// ```
   int get hoechsteAnzeigeStufe => (hoechsteEchteStufe ?? 19) + 2;
 }
+
+const _osmKacheln = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const _osmNennung = '© OpenStreetMap contributors';
+/// Die CARTO-Adresse **einschliesslich** des Schlüsselparameters – der
+/// Schlüssel selbst wird angehängt (siehe [Kartenstil.kachelUrl]).
+const _cartoKacheln =
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=';
+const _cartoNennung = '© OpenStreetMap contributors © CARTO';
+const _cartoUnterbereiche = ['a', 'b', 'c', 'd'];
 
 /// Wie lange eine einmal geholte Kachel als frisch gilt.
 ///
@@ -272,6 +360,17 @@ TileLayer buildMapTileLayer(BuildContext context, {Kartenstil? stil}) {
     // User-Agent statt der Vorgabe der Bibliothek.
     userAgentPackageName: 'com.example.photoVault',
     tileProvider: kartenKachelAnbieter(),
+    // Die dunkle Karte ohne CARTO-Schlüssel bekommt helle OSM-Kacheln
+    // geliefert und dreht sie hier um (siehe [Kartenstil.dunkel]).
+    // `darkModeTileBuilder` gehört zu flutter_map selbst - es ist eine
+    // Farbmatrix, die invertiert und den Farbton um 180 Grad
+    // zurückdreht, damit Grünflächen grün und Wasser blau bleiben statt
+    // in die Gegenfarbe zu kippen.
+    //
+    // Am Einzelbild und nicht am Behälter: Die Fassung von flutter_map,
+    // die `tilesContainerBuilder` kannte, gibt es nicht mehr - in 8.3.1
+    // führt der einzige Weg über `tileBuilder`.
+    tileBuilder: gewaehlt.invertieren ? darkModeTileBuilder : null,
     // Bleibt eine Kachel auch nach den Wiederholungen aus, wird sie
     // beim Wegscrollen weggeworfen statt behalten. Die Vorgabe
     // `none` hiesse: Wer zu der Stelle zurückkehrt, sieht dieselbe

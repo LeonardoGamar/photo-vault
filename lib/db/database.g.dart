@@ -10858,6 +10858,12 @@ class $AppSettingsTable extends AppSettings
       type: DriftSqlType.string,
       requiredDuringInsert: false,
       defaultValue: const Constant('dunkel'));
+  static const VerificationMeta _cartoSchluesselMeta =
+      const VerificationMeta('cartoSchluessel');
+  @override
+  late final GeneratedColumn<String> cartoSchluessel = GeneratedColumn<String>(
+      'carto_schluessel', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _translateCaptionsMeta =
       const VerificationMeta('translateCaptions');
   @override
@@ -10888,6 +10894,7 @@ class $AppSettingsTable extends AppSettings
         watchedFolderToken,
         faceSimilarityThreshold,
         kartenansicht,
+        cartoSchluessel,
         translateCaptions,
         translateSearchAndTags
       ];
@@ -10943,6 +10950,12 @@ class $AppSettingsTable extends AppSettings
           kartenansicht.isAcceptableOrUnknown(
               data['kartenansicht']!, _kartenansichtMeta));
     }
+    if (data.containsKey('carto_schluessel')) {
+      context.handle(
+          _cartoSchluesselMeta,
+          cartoSchluessel.isAcceptableOrUnknown(
+              data['carto_schluessel']!, _cartoSchluesselMeta));
+    }
     if (data.containsKey('translate_captions')) {
       context.handle(
           _translateCaptionsMeta,
@@ -10982,6 +10995,8 @@ class $AppSettingsTable extends AppSettings
           data['${effectivePrefix}face_similarity_threshold'])!,
       kartenansicht: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}kartenansicht'])!,
+      cartoSchluessel: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}carto_schluessel']),
       translateCaptions: attachedDatabase.typeMapping.read(
           DriftSqlType.bool, data['${effectivePrefix}translate_captions'])!,
       translateSearchAndTags: attachedDatabase.typeMapping.read(
@@ -11046,6 +11061,26 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// [faceSimilarityThreshold].
   final String kartenansicht;
 
+  /// Schlüssel für die CARTO-Kacheln der dunklen Karte. Null = keiner.
+  ///
+  /// **Warum das überhaupt eine Einstellung ist.** CARTO hat die
+  /// kostenlose Nutzung ohne Schlüssel beendet und schreibt seither
+  /// quer über jede einzelne Kachel „API KEY REQUIRED" – auf jeder
+  /// Zoomstufe, auch über den alten Fastly-Namen. Nachgemessen an einer
+  /// Kachel Berlin-Mitte, Stufen 10 bis 20: der Stempel steht auf allen.
+  ///
+  /// Ohne Schlüssel zeichnet die dunkle Karte deshalb invertierte
+  /// OpenStreetMap-Kacheln (siehe `Kartenstil.dunkel`). Wer den
+  /// gewohnten Dark-Matter-Schnitt zurückwill, trägt hier seinen
+  /// Schlüssel ein – CARTO gibt ihn kostenlos und **ohne Konto** aus,
+  /// bis zu 5 Millionen Kacheln im Monat.
+  ///
+  /// In der Datenbank und nicht im Quelltext, und das ist der Punkt:
+  /// Ein mitgelieferter Schlüssel wäre über den öffentlichen Spiegel
+  /// für jeden lesbar und liefe auf eine Zugangskennung im Repository
+  /// hinaus. Er gehört dem, der ihn beantragt.
+  final String? cartoSchluessel;
+
   /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
   final bool translateCaptions;
 
@@ -11068,6 +11103,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       this.watchedFolderToken,
       required this.faceSimilarityThreshold,
       required this.kartenansicht,
+      this.cartoSchluessel,
       required this.translateCaptions,
       required this.translateSearchAndTags});
   @override
@@ -11086,6 +11122,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     map['face_similarity_threshold'] =
         Variable<double>(faceSimilarityThreshold);
     map['kartenansicht'] = Variable<String>(kartenansicht);
+    if (!nullToAbsent || cartoSchluessel != null) {
+      map['carto_schluessel'] = Variable<String>(cartoSchluessel);
+    }
     map['translate_captions'] = Variable<bool>(translateCaptions);
     map['translate_search_and_tags'] = Variable<bool>(translateSearchAndTags);
     return map;
@@ -11105,6 +11144,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           : Value(watchedFolderToken),
       faceSimilarityThreshold: Value(faceSimilarityThreshold),
       kartenansicht: Value(kartenansicht),
+      cartoSchluessel: cartoSchluessel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cartoSchluessel),
       translateCaptions: Value(translateCaptions),
       translateSearchAndTags: Value(translateSearchAndTags),
     );
@@ -11126,6 +11168,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       faceSimilarityThreshold:
           serializer.fromJson<double>(json['faceSimilarityThreshold']),
       kartenansicht: serializer.fromJson<String>(json['kartenansicht']),
+      cartoSchluessel: serializer.fromJson<String?>(json['cartoSchluessel']),
       translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
       translateSearchAndTags:
           serializer.fromJson<bool>(json['translateSearchAndTags']),
@@ -11144,6 +11187,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       'faceSimilarityThreshold':
           serializer.toJson<double>(faceSimilarityThreshold),
       'kartenansicht': serializer.toJson<String>(kartenansicht),
+      'cartoSchluessel': serializer.toJson<String?>(cartoSchluessel),
       'translateCaptions': serializer.toJson<bool>(translateCaptions),
       'translateSearchAndTags': serializer.toJson<bool>(translateSearchAndTags),
     };
@@ -11158,6 +11202,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           Value<String?> watchedFolderToken = const Value.absent(),
           double? faceSimilarityThreshold,
           String? kartenansicht,
+          Value<String?> cartoSchluessel = const Value.absent(),
           bool? translateCaptions,
           bool? translateSearchAndTags}) =>
       AppSettingsData(
@@ -11175,6 +11220,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         faceSimilarityThreshold:
             faceSimilarityThreshold ?? this.faceSimilarityThreshold,
         kartenansicht: kartenansicht ?? this.kartenansicht,
+        cartoSchluessel: cartoSchluessel.present
+            ? cartoSchluessel.value
+            : this.cartoSchluessel,
         translateCaptions: translateCaptions ?? this.translateCaptions,
         translateSearchAndTags:
             translateSearchAndTags ?? this.translateSearchAndTags,
@@ -11199,6 +11247,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       kartenansicht: data.kartenansicht.present
           ? data.kartenansicht.value
           : this.kartenansicht,
+      cartoSchluessel: data.cartoSchluessel.present
+          ? data.cartoSchluessel.value
+          : this.cartoSchluessel,
       translateCaptions: data.translateCaptions.present
           ? data.translateCaptions.value
           : this.translateCaptions,
@@ -11219,6 +11270,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('watchedFolderToken: $watchedFolderToken, ')
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
           ..write('kartenansicht: $kartenansicht, ')
+          ..write('cartoSchluessel: $cartoSchluessel, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
@@ -11235,6 +11287,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       watchedFolderToken,
       faceSimilarityThreshold,
       kartenansicht,
+      cartoSchluessel,
       translateCaptions,
       translateSearchAndTags);
   @override
@@ -11249,6 +11302,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.watchedFolderToken == this.watchedFolderToken &&
           other.faceSimilarityThreshold == this.faceSimilarityThreshold &&
           other.kartenansicht == this.kartenansicht &&
+          other.cartoSchluessel == this.cartoSchluessel &&
           other.translateCaptions == this.translateCaptions &&
           other.translateSearchAndTags == this.translateSearchAndTags);
 }
@@ -11262,6 +11316,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<String?> watchedFolderToken;
   final Value<double> faceSimilarityThreshold;
   final Value<String> kartenansicht;
+  final Value<String?> cartoSchluessel;
   final Value<bool> translateCaptions;
   final Value<bool> translateSearchAndTags;
   const AppSettingsCompanion({
@@ -11273,6 +11328,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.watchedFolderToken = const Value.absent(),
     this.faceSimilarityThreshold = const Value.absent(),
     this.kartenansicht = const Value.absent(),
+    this.cartoSchluessel = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
   });
@@ -11285,6 +11341,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.watchedFolderToken = const Value.absent(),
     this.faceSimilarityThreshold = const Value.absent(),
     this.kartenansicht = const Value.absent(),
+    this.cartoSchluessel = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
   });
@@ -11297,6 +11354,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<String>? watchedFolderToken,
     Expression<double>? faceSimilarityThreshold,
     Expression<String>? kartenansicht,
+    Expression<String>? cartoSchluessel,
     Expression<bool>? translateCaptions,
     Expression<bool>? translateSearchAndTags,
   }) {
@@ -11312,6 +11370,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       if (faceSimilarityThreshold != null)
         'face_similarity_threshold': faceSimilarityThreshold,
       if (kartenansicht != null) 'kartenansicht': kartenansicht,
+      if (cartoSchluessel != null) 'carto_schluessel': cartoSchluessel,
       if (translateCaptions != null) 'translate_captions': translateCaptions,
       if (translateSearchAndTags != null)
         'translate_search_and_tags': translateSearchAndTags,
@@ -11327,6 +11386,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<String?>? watchedFolderToken,
       Value<double>? faceSimilarityThreshold,
       Value<String>? kartenansicht,
+      Value<String?>? cartoSchluessel,
       Value<bool>? translateCaptions,
       Value<bool>? translateSearchAndTags}) {
     return AppSettingsCompanion(
@@ -11340,6 +11400,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       faceSimilarityThreshold:
           faceSimilarityThreshold ?? this.faceSimilarityThreshold,
       kartenansicht: kartenansicht ?? this.kartenansicht,
+      cartoSchluessel: cartoSchluessel ?? this.cartoSchluessel,
       translateCaptions: translateCaptions ?? this.translateCaptions,
       translateSearchAndTags:
           translateSearchAndTags ?? this.translateSearchAndTags,
@@ -11375,6 +11436,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (kartenansicht.present) {
       map['kartenansicht'] = Variable<String>(kartenansicht.value);
     }
+    if (cartoSchluessel.present) {
+      map['carto_schluessel'] = Variable<String>(cartoSchluessel.value);
+    }
     if (translateCaptions.present) {
       map['translate_captions'] = Variable<bool>(translateCaptions.value);
     }
@@ -11396,6 +11460,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('watchedFolderToken: $watchedFolderToken, ')
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
           ..write('kartenansicht: $kartenansicht, ')
+          ..write('cartoSchluessel: $cartoSchluessel, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
@@ -22473,6 +22538,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<String?> watchedFolderToken,
   Value<double> faceSimilarityThreshold,
   Value<String> kartenansicht,
+  Value<String?> cartoSchluessel,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
 });
@@ -22486,6 +22552,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<String?> watchedFolderToken,
   Value<double> faceSimilarityThreshold,
   Value<String> kartenansicht,
+  Value<String?> cartoSchluessel,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
 });
@@ -22526,6 +22593,10 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<String> get kartenansicht => $composableBuilder(
       column: $table.kartenansicht, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cartoSchluessel => $composableBuilder(
+      column: $table.cartoSchluessel,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions,
@@ -22574,6 +22645,10 @@ class $$AppSettingsTableOrderingComposer
       column: $table.kartenansicht,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get cartoSchluessel => $composableBuilder(
+      column: $table.cartoSchluessel,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions,
       builder: (column) => ColumnOrderings(column));
@@ -22616,6 +22691,9 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<String> get kartenansicht => $composableBuilder(
       column: $table.kartenansicht, builder: (column) => column);
 
+  GeneratedColumn<String> get cartoSchluessel => $composableBuilder(
+      column: $table.cartoSchluessel, builder: (column) => column);
+
   GeneratedColumn<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions, builder: (column) => column);
 
@@ -22657,6 +22735,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> watchedFolderToken = const Value.absent(),
             Value<double> faceSimilarityThreshold = const Value.absent(),
             Value<String> kartenansicht = const Value.absent(),
+            Value<String?> cartoSchluessel = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
@@ -22669,6 +22748,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             watchedFolderToken: watchedFolderToken,
             faceSimilarityThreshold: faceSimilarityThreshold,
             kartenansicht: kartenansicht,
+            cartoSchluessel: cartoSchluessel,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
           ),
@@ -22681,6 +22761,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> watchedFolderToken = const Value.absent(),
             Value<double> faceSimilarityThreshold = const Value.absent(),
             Value<String> kartenansicht = const Value.absent(),
+            Value<String?> cartoSchluessel = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
@@ -22693,6 +22774,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             watchedFolderToken: watchedFolderToken,
             faceSimilarityThreshold: faceSimilarityThreshold,
             kartenansicht: kartenansicht,
+            cartoSchluessel: cartoSchluessel,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
           ),
