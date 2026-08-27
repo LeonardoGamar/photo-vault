@@ -396,6 +396,24 @@ echter Hardware.
   fest. Wird eine Datei gekürzt oder werden Blöcke vertauscht, fällt das beim
   Entschlüsseln auf, statt eine stillschweigend verkürzte Datei zu liefern.
   Dateien im vorherigen Format werden unverändert weiter gelesen.
+- **Sperren räumt auch die Datenbank auf.** Die Datei zu verschlüsseln
+  genügt nicht: Was das Programm aus dem Bild *errechnet* hat, stünde
+  sonst weiter im Klartext daneben. Beim Sperren gehen deshalb der
+  erkannte Text, die Bildunterschrift, der Bildsuche-Vektor und die
+  Schlagwörter der Bilderkennung – alles wird nach dem Entsperren neu
+  berechnet. Was **bleibt**, ist ausdrücklich das Eigene: der eigene
+  Beschreibungstext, selbst vergebene Schlagwörter und die Zuordnung
+  eines Gesichts zu einer Person. Jedes Schlagwort führt dafür seit
+  Schema 56 mit, woher es stammt; eine Handvergabe wird nie zur
+  KI-Vergabe erklärt, auch dann nicht, wenn die Bilderkennung denselben
+  Begriff später vorschlägt.
+
+  Eines bleibt bewusst liegen: die **Einbettung eines Gesichts**, rund
+  512 Byte. Sie ist aus dem Bildinhalt abgeleitet und gehörte nach
+  derselben Regel dazu — nur wurde sie aus einem an den Landmarken
+  ausgerichteten Ausschnitt berechnet, und die Landmarken stehen nicht in
+  der Zeile. Sie zu löschen hiesse, die Wiedererkennung für genau die
+  gesperrten Fotos dauerhaft zu verschlechtern.
 - **Hardened Runtime auf macOS** – die Anwendung ignoriert eingeschleuste
   Bibliotheken. Gemessen mit einer eigens gebauten Testbibliothek: ohne die
   Härtung lief fremder Code im Prozess mit, mit ihr nicht mehr. Die Prüfung
@@ -507,15 +525,15 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 55: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 56: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
 Wiedererkennungs-Schwellen, Sprachwahl, Export-Voreinstellungen,
 ignorierte Gesichter, Klarheit/Vignettierung, importierte Farbtabellen,
 Ortsmarken für Länder und Regionen, Reisen und Reisetagebuch,
-Ereignisorte im Stammbaum, Aktivitäten, GPX-Spuren, …). Drift migriert das
-automatisch beim
+Ereignisorte im Stammbaum, Aktivitäten, GPX-Spuren, Herkunft der
+Schlagwörter, …). Drift migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
 

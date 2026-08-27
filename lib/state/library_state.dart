@@ -2318,7 +2318,11 @@ class LibraryState extends ChangeNotifier {
             insEnglische: insEnglische,
           );
           for (final tag in tags) {
-            await db.tagAsset(asset.id, tag);
+            // Als Vorschlag der Bilderkennung gekennzeichnet – damit er
+            // beim Sperren verschwindet und nach dem Entsperren neu
+            // berechnet wird (siehe [Tagquelle]). Eine bereits von Hand
+            // vergebene Zuordnung lässt `tagAsset` dabei unangetastet.
+            await db.tagAsset(asset.id, tag, quelle: Tagquelle.ki);
           }
           if (tags.isNotEmpty) {
             await applyAutomationRules(asset.id, aiTags: tags, rules: automationRules);

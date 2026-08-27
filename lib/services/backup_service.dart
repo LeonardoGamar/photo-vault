@@ -348,6 +348,9 @@ class BackupService {
     // Eine einzige Abfrage für alle Tags statt einer pro Foto (N+1-Problem
     // bei großen Bibliotheken – Backups sollen schnell bleiben).
     final tagsByAssetId = await _db.allTagNamesByAssetId();
+    // Getrennt mitgeführt, damit eine Rücksicherung die Herkunft nicht
+    // einebnet – siehe [AppDatabase.kiTagNamesByAssetId].
+    final kiTagsByAssetId = await _db.kiTagNamesByAssetId();
 
     final assetsJson = <Map<String, dynamic>>[];
     for (final a in allAssets) {
@@ -358,6 +361,10 @@ class BackupService {
         'description': a.description,
         'fileCreatedAt': a.fileCreatedAt.toIso8601String(),
         'tags': tagsByAssetId[a.id] ?? const <String>[],
+        // Zusätzlich und nicht anstelle von 'tags': Eine ältere Fassung,
+        // die dieses Feld nicht kennt, liest die Sicherung weiterhin – sie
+        // bekommt dann alles als Handvergabe, also den sicheren Fall.
+        'kiTags': (kiTagsByAssetId[a.id] ?? const <String>{}).toList(),
       });
     }
 
@@ -616,8 +623,17 @@ class BackupService {
         if (entry['description'] is String && (entry['description'] as String).isNotEmpty) {
           await _db.setDescription(assetId, entry['description'] as String);
         }
+        // Fehlt 'kiTags' (Sicherung vor Fassung 56), bleibt die Menge
+        // leer und alles kommt als Handvergabe zurück: Lieber ein
+        // Schlagwort zu viel behalten als eines zu Unrecht löschbar
+        // machen.
+        final kiTags = {
+          for (final t in (entry['kiTags'] as List<dynamic>? ?? []))
+            if (t is String) t,
+        };
         for (final tag in (entry['tags'] as List<dynamic>? ?? [])) {
-          await _db.tagAsset(assetId, tag as String);
+          await _db.tagAsset(assetId, tag as String,
+              quelle: kiTags.contains(tag) ? Tagquelle.ki : Tagquelle.hand);
         }
       } catch (e) {
         debugPrint('Metadaten-Eintrag konnte nicht angewendet werden, überspringe: $e');

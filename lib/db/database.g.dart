@@ -3210,8 +3210,15 @@ class $AssetTagsTable extends AssetTags
   late final GeneratedColumn<String> tagId = GeneratedColumn<String>(
       'tag_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _quelleMeta = const VerificationMeta('quelle');
   @override
-  List<GeneratedColumn> get $columns => [assetId, tagId];
+  late final GeneratedColumn<String> quelle = GeneratedColumn<String>(
+      'quelle', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(Tagquelle.hand));
+  @override
+  List<GeneratedColumn> get $columns => [assetId, tagId, quelle];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3234,6 +3241,10 @@ class $AssetTagsTable extends AssetTags
     } else if (isInserting) {
       context.missing(_tagIdMeta);
     }
+    if (data.containsKey('quelle')) {
+      context.handle(_quelleMeta,
+          quelle.isAcceptableOrUnknown(data['quelle']!, _quelleMeta));
+    }
     return context;
   }
 
@@ -3247,6 +3258,8 @@ class $AssetTagsTable extends AssetTags
           .read(DriftSqlType.string, data['${effectivePrefix}asset_id'])!,
       tagId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}tag_id'])!,
+      quelle: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}quelle'])!,
     );
   }
 
@@ -3259,12 +3272,20 @@ class $AssetTagsTable extends AssetTags
 class AssetTag extends DataClass implements Insertable<AssetTag> {
   final String assetId;
   final String tagId;
-  const AssetTag({required this.assetId, required this.tagId});
+
+  /// [Tagquelle.hand] oder [Tagquelle.ki].
+  ///
+  /// Die Vorgabe ist bewusst `hand`: Wer eine Zeile anlegt, ohne sich zu
+  /// äussern, meint den Fall, der niemals gelöscht wird.
+  final String quelle;
+  const AssetTag(
+      {required this.assetId, required this.tagId, required this.quelle});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['asset_id'] = Variable<String>(assetId);
     map['tag_id'] = Variable<String>(tagId);
+    map['quelle'] = Variable<String>(quelle);
     return map;
   }
 
@@ -3272,6 +3293,7 @@ class AssetTag extends DataClass implements Insertable<AssetTag> {
     return AssetTagsCompanion(
       assetId: Value(assetId),
       tagId: Value(tagId),
+      quelle: Value(quelle),
     );
   }
 
@@ -3281,6 +3303,7 @@ class AssetTag extends DataClass implements Insertable<AssetTag> {
     return AssetTag(
       assetId: serializer.fromJson<String>(json['assetId']),
       tagId: serializer.fromJson<String>(json['tagId']),
+      quelle: serializer.fromJson<String>(json['quelle']),
     );
   }
   @override
@@ -3289,17 +3312,21 @@ class AssetTag extends DataClass implements Insertable<AssetTag> {
     return <String, dynamic>{
       'assetId': serializer.toJson<String>(assetId),
       'tagId': serializer.toJson<String>(tagId),
+      'quelle': serializer.toJson<String>(quelle),
     };
   }
 
-  AssetTag copyWith({String? assetId, String? tagId}) => AssetTag(
+  AssetTag copyWith({String? assetId, String? tagId, String? quelle}) =>
+      AssetTag(
         assetId: assetId ?? this.assetId,
         tagId: tagId ?? this.tagId,
+        quelle: quelle ?? this.quelle,
       );
   AssetTag copyWithCompanion(AssetTagsCompanion data) {
     return AssetTag(
       assetId: data.assetId.present ? data.assetId.value : this.assetId,
       tagId: data.tagId.present ? data.tagId.value : this.tagId,
+      quelle: data.quelle.present ? data.quelle.value : this.quelle,
     );
   }
 
@@ -3307,53 +3334,64 @@ class AssetTag extends DataClass implements Insertable<AssetTag> {
   String toString() {
     return (StringBuffer('AssetTag(')
           ..write('assetId: $assetId, ')
-          ..write('tagId: $tagId')
+          ..write('tagId: $tagId, ')
+          ..write('quelle: $quelle')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(assetId, tagId);
+  int get hashCode => Object.hash(assetId, tagId, quelle);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AssetTag &&
           other.assetId == this.assetId &&
-          other.tagId == this.tagId);
+          other.tagId == this.tagId &&
+          other.quelle == this.quelle);
 }
 
 class AssetTagsCompanion extends UpdateCompanion<AssetTag> {
   final Value<String> assetId;
   final Value<String> tagId;
+  final Value<String> quelle;
   final Value<int> rowid;
   const AssetTagsCompanion({
     this.assetId = const Value.absent(),
     this.tagId = const Value.absent(),
+    this.quelle = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AssetTagsCompanion.insert({
     required String assetId,
     required String tagId,
+    this.quelle = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : assetId = Value(assetId),
         tagId = Value(tagId);
   static Insertable<AssetTag> custom({
     Expression<String>? assetId,
     Expression<String>? tagId,
+    Expression<String>? quelle,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (assetId != null) 'asset_id': assetId,
       if (tagId != null) 'tag_id': tagId,
+      if (quelle != null) 'quelle': quelle,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
   AssetTagsCompanion copyWith(
-      {Value<String>? assetId, Value<String>? tagId, Value<int>? rowid}) {
+      {Value<String>? assetId,
+      Value<String>? tagId,
+      Value<String>? quelle,
+      Value<int>? rowid}) {
     return AssetTagsCompanion(
       assetId: assetId ?? this.assetId,
       tagId: tagId ?? this.tagId,
+      quelle: quelle ?? this.quelle,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3367,6 +3405,9 @@ class AssetTagsCompanion extends UpdateCompanion<AssetTag> {
     if (tagId.present) {
       map['tag_id'] = Variable<String>(tagId.value);
     }
+    if (quelle.present) {
+      map['quelle'] = Variable<String>(quelle.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3378,6 +3419,7 @@ class AssetTagsCompanion extends UpdateCompanion<AssetTag> {
     return (StringBuffer('AssetTagsCompanion(')
           ..write('assetId: $assetId, ')
           ..write('tagId: $tagId, ')
+          ..write('quelle: $quelle, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -18627,11 +18669,13 @@ typedef $$TagsTableProcessedTableManager = ProcessedTableManager<
 typedef $$AssetTagsTableCreateCompanionBuilder = AssetTagsCompanion Function({
   required String assetId,
   required String tagId,
+  Value<String> quelle,
   Value<int> rowid,
 });
 typedef $$AssetTagsTableUpdateCompanionBuilder = AssetTagsCompanion Function({
   Value<String> assetId,
   Value<String> tagId,
+  Value<String> quelle,
   Value<int> rowid,
 });
 
@@ -18649,6 +18693,9 @@ class $$AssetTagsTableFilterComposer
 
   ColumnFilters<String> get tagId => $composableBuilder(
       column: $table.tagId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get quelle => $composableBuilder(
+      column: $table.quelle, builder: (column) => ColumnFilters(column));
 }
 
 class $$AssetTagsTableOrderingComposer
@@ -18665,6 +18712,9 @@ class $$AssetTagsTableOrderingComposer
 
   ColumnOrderings<String> get tagId => $composableBuilder(
       column: $table.tagId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get quelle => $composableBuilder(
+      column: $table.quelle, builder: (column) => ColumnOrderings(column));
 }
 
 class $$AssetTagsTableAnnotationComposer
@@ -18681,6 +18731,9 @@ class $$AssetTagsTableAnnotationComposer
 
   GeneratedColumn<String> get tagId =>
       $composableBuilder(column: $table.tagId, builder: (column) => column);
+
+  GeneratedColumn<String> get quelle =>
+      $composableBuilder(column: $table.quelle, builder: (column) => column);
 }
 
 class $$AssetTagsTableTableManager extends RootTableManager<
@@ -18708,21 +18761,25 @@ class $$AssetTagsTableTableManager extends RootTableManager<
           updateCompanionCallback: ({
             Value<String> assetId = const Value.absent(),
             Value<String> tagId = const Value.absent(),
+            Value<String> quelle = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AssetTagsCompanion(
             assetId: assetId,
             tagId: tagId,
+            quelle: quelle,
             rowid: rowid,
           ),
           createCompanionCallback: ({
             required String assetId,
             required String tagId,
+            Value<String> quelle = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AssetTagsCompanion.insert(
             assetId: assetId,
             tagId: tagId,
+            quelle: quelle,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

@@ -239,9 +239,40 @@ class Tags extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Woher ein Schlagwort an einem Foto stammt.
+///
+/// **Der Grund für diese Spalte ist der gesperrte Ordner.** Beim Sperren
+/// löscht die App alles, was sie aus dem Bildinhalt errechnet hat – sonst
+/// bliebe der Inhalt in der unverschlüsselten Datenbank lesbar (siehe
+/// [AppDatabase.clearDerivedContentData]). Schlagwörter waren davon
+/// ausgenommen, und zwar aus einem guten Grund: Sie können von Hand
+/// vergeben sein, und die zu löschen wäre echter Datenverlust.
+///
+/// Nur waren sie damit **nicht unterscheidbar**. Ein `Schlafzimmer`, das
+/// die Bilderkennung an ein gesperrtes Foto gehängt hat, stand weiter im
+/// Klartext – ein Befund der 15. Prüfrunde. Diese Spalte macht den
+/// Unterschied sichtbar, und erst dadurch lässt sich die Regel überhaupt
+/// anwenden.
+class Tagquelle {
+  /// Von Hand vergeben – oder durch eine Regel, die der Nutzer aufgestellt
+  /// hat. Bleibt beim Sperren stehen.
+  static const hand = 'hand';
+
+  /// Von der Bilderkennung vorgeschlagen. Wird beim Sperren entfernt und
+  /// nach dem Entsperren neu berechnet.
+  static const ki = 'ki';
+}
+
 class AssetTags extends Table {
   TextColumn get assetId => text()();
   TextColumn get tagId => text()();
+
+  /// [Tagquelle.hand] oder [Tagquelle.ki].
+  ///
+  /// Die Vorgabe ist bewusst `hand`: Wer eine Zeile anlegt, ohne sich zu
+  /// äussern, meint den Fall, der niemals gelöscht wird.
+  TextColumn get quelle =>
+      text().withDefault(const Constant(Tagquelle.hand))();
 
   @override
   Set<Column> get primaryKey => {assetId, tagId};
@@ -1271,7 +1302,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 55;
+  int get schemaVersion => 56;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1669,6 +1700,12 @@ class AppDatabase extends _$AppDatabase {
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
           }
+          if (from < 56) {
+            // Woher ein Schlagwort stammt (siehe [Tagquelle]).
+            await _addColumnIfMissing(
+                m, assetTags, assetTags.quelle, 'asset_tags', 'quelle');
+            await _bestimmeTagquelleNachtraeglich();
+          }
           if (from < 55) {
             // Aufgezeichnete Spuren. Zwei neue, anfangs leere Tabellen –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
@@ -1767,6 +1804,38 @@ class AppDatabase extends _$AppDatabase {
 
   /// Legt [spalte] nur an, wenn sie in [tabellenName] noch fehlt.
   ///
+  /// Bestimmt für vorhandene Zuordnungen nachträglich die Herkunft.
+  ///
+  /// **Das ist eine Vermutung, und sie muss eine bleiben.** Bis Fassung 56
+  /// stand nirgends, wer ein Schlagwort vergeben hat; rückwirkend lässt es
+  /// sich nur erschliessen. Die Regel ist bewusst eng:
+  ///
+  /// Als `ki` gilt eine Zuordnung nur, wenn **beides** zutrifft – der
+  /// Begriff steht im Vokabular der Bilderkennung, **und** das Foto ist
+  /// nachweislich durch die Verschlagwortung gelaufen (`ai_tags_scanned`).
+  /// Nur solche Zeilen kann die Bilderkennung überhaupt erzeugt haben.
+  ///
+  /// **Was schiefgehen kann, und was es kostet:** Wer selbst „Strand" an
+  /// ein Foto geschrieben hat, das später durch die Verschlagwortung lief,
+  /// bekommt seine Zuordnung als `ki` gestempelt. Beim Sperren dieses Fotos
+  /// verschwindet sie dann – und kommt beim Entsperren zurück, sofern die
+  /// Bilderkennung sie erneut vorschlägt. Der Schaden trifft also nur, wer
+  /// ein Foto sperrt, und auch dort nur einen Begriff, den das Programm
+  /// ohnehin für passend hält.
+  ///
+  /// Andersherum wäre der Schaden dauerhaft: Alles auf `hand` zu stempeln
+  /// hiesse, dass in jeder gewachsenen Bibliothek genau die Schlagwörter
+  /// weiter im Klartext stehen, deretwegen diese Spalte angelegt wurde.
+  Future<void> _bestimmeTagquelleNachtraeglich() => customUpdate(
+        'UPDATE asset_tags SET quelle = ? '
+        'WHERE tag_id IN (SELECT t.id FROM tags t '
+        '                 JOIN ai_tag_vocabulary v ON v.term = t.name) '
+        '  AND asset_id IN (SELECT a.id FROM assets a '
+        '                   WHERE a.ai_tags_scanned = 1)',
+        variables: const [Variable<String>(Tagquelle.ki)],
+        updates: {assetTags},
+      );
+
   /// Schützt gegen den Fall, dass eine Datenbank bereits auf eine
   /// Schemaversion gestempelt wurde, deren Migration die Spalte gar nicht
   /// angelegt hat – dann würde ein blindes addColumn beim Nachholen mit
@@ -3381,10 +3450,31 @@ class AppDatabase extends _$AppDatabase {
     return id;
   }
 
-  Future<void> tagAsset(String assetId, String tagName) async {
+  /// Hängt ein Schlagwort an ein Foto.
+  ///
+  /// **Hand schlägt KI, nie andersherum** (siehe [Tagquelle]). Wer einen
+  /// Begriff selbst vergibt, übernimmt ihn damit – auch wenn ihn zuvor die
+  /// Bilderkennung vorgeschlagen hatte; die Zeile wird zu `hand` und bleibt
+  /// beim Sperren stehen. Läuft umgekehrt die Bilderkennung über einen
+  /// Begriff, den der Nutzer schon selbst vergeben hat, lässt sie ihn in
+  /// Ruhe: Sie darf eine Handvergabe nicht zu ihrer eigenen erklären und
+  /// sie damit löschbar machen.
+  Future<void> tagAsset(String assetId, String tagName,
+      {String quelle = Tagquelle.hand}) async {
     final tagId = await ensureTag(tagName);
+    if (quelle == Tagquelle.ki) {
+      // `insertOnConflictUpdate` würde eine vorhandene Handvergabe
+      // überschreiben – hier ist genau das der Fehler.
+      await into(assetTags).insert(
+        AssetTagsCompanion.insert(
+            assetId: assetId, tagId: tagId, quelle: const Value(Tagquelle.ki)),
+        mode: InsertMode.insertOrIgnore,
+      );
+      return;
+    }
     await into(assetTags).insertOnConflictUpdate(
-      AssetTagsCompanion.insert(assetId: assetId, tagId: tagId),
+      AssetTagsCompanion.insert(
+          assetId: assetId, tagId: tagId, quelle: Value(quelle)),
     );
   }
 
@@ -3628,6 +3718,27 @@ class AppDatabase extends _$AppDatabase {
       final assetId = row.readTable(assetTags).assetId;
       final tagName = row.readTable(tags).name;
       result.putIfAbsent(assetId, () => []).add(tagName);
+    }
+    return result;
+  }
+
+  /// Wie [allTagNamesByAssetId], aber nur die Vorschläge der
+  /// Bilderkennung – für die Sicherung.
+  ///
+  /// **Ohne diese Auskunft verlöre eine Rücksicherung die Herkunft.** Die
+  /// Sicherung führt Schlagwörter als blosse Namen; alles käme als
+  /// Handvergabe zurück, und der gesperrte Ordner stünde wieder da, wo er
+  /// vor Fassung 56 stand – nur eben nach einem Umweg über eine Sicherung.
+  Future<Map<String, Set<String>>> kiTagNamesByAssetId() async {
+    final query = select(assetTags).join([
+      innerJoin(tags, tags.id.equalsExp(assetTags.tagId)),
+    ])
+      ..where(assetTags.quelle.equals(Tagquelle.ki));
+    final result = <String, Set<String>>{};
+    for (final row in await query.get()) {
+      result
+          .putIfAbsent(row.readTable(assetTags).assetId, () => <String>{})
+          .add(row.readTable(tags).name);
     }
     return result;
   }
@@ -5513,20 +5624,42 @@ class AppDatabase extends _$AppDatabase {
   /// zurückgesetzt, sodass die Hintergrundanalyse alles neu berechnet,
   /// sobald das Foto wieder entsperrt ist.
   ///
+  /// Seit Fassung 56 gehören auch die **Schlagwörter der Bilderkennung**
+  /// dazu. Sie standen vorher als einzige aus dem Bildinhalt abgeleitete
+  /// Angabe weiter im Klartext – nicht aus Nachlässigkeit, sondern weil
+  /// sie von Handvergaben nicht zu unterscheiden waren. Siehe [Tagquelle].
+  ///
   /// Bewusst NICHT angetastet:
   /// - [description] – Nutzer-Freitext, kein abgeleiteter Wert.
-  /// - Tags – können von Hand vergeben worden sein; sie zu löschen wäre
-  ///   ein echter Datenverlust, nicht nur eine Neuberechnung.
+  /// - Schlagwörter mit [Tagquelle.hand] – die zu löschen wäre echter
+  ///   Datenverlust, nicht nur eine Neuberechnung.
   /// - [sharpnessScore] – eine Zahl über die Bildschärfe verrät nichts
   ///   über den Bildinhalt und wird für die Ausschuss-Sichtung gebraucht.
+  /// - Die **Einbettung eines Gesichts** (`faces.embedding`). Sie ist aus
+  ///   dem Bildinhalt abgeleitet und gehörte nach derselben Regel hierher –
+  ///   aber sie liesse sich nicht wiederherstellen. Berechnet wurde sie aus
+  ///   einem an den Landmarken **ausgerichteten** Ausschnitt; die Landmarken
+  ///   stehen nirgends in der Zeile, und ohne sie fällt
+  ///   `FaceEngineService.embedFace` auf einen einfachen Kastenausschnitt
+  ///   zurück. Das ergäbe eine andere und schlechtere Einbettung, und die
+  ///   Wiedererkennung würde für genau die Fotos schlechter, die jemand
+  ///   gesperrt hat. Ein Klartextrest von 512 Byte ist der kleinere Preis;
+  ///   festgehalten in der 15. Prüfrunde.
   Future<void> clearDerivedContentData(List<String> assetIds) async {
     await (update(assets)..where((t) => t.id.isIn(assetIds))).write(const AssetsCompanion(
       ocrText: Value(null),
       ocrScanned: Value(false),
       aiCaption: Value(null),
       aiCaptionScanned: Value(false),
+      // Damit die Verschlagwortung nach dem Entsperren neu läuft und die
+      // gelöschten Begriffe zurückbringt.
+      aiTagsScanned: Value(false),
     ));
     await (delete(imageEmbeddings)..where((t) => t.assetId.isIn(assetIds))).go();
+    await (delete(assetTags)
+          ..where((t) =>
+              t.assetId.isIn(assetIds) & t.quelle.equals(Tagquelle.ki)))
+        .go();
     _embeddingsGeneration++;
   }
 
