@@ -3974,6 +3974,97 @@ class AppTexteDe extends AppTexte {
   String get gesichtFotoLoeschen => 'Foto löschen';
 
   @override
+  String get zeitraumName => 'Name';
+
+  @override
+  String get zeitraumArt => 'Art';
+
+  @override
+  String get zeitraumZaehlt => 'Fotos werden gezählt …';
+
+  @override
+  String zeitraumFotos(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n Fotos in diesem Zeitraum',
+      one: '1 Foto in diesem Zeitraum',
+      zero: 'Kein Foto in diesem Zeitraum',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get reisenSelbstAnlegen => 'Reise von Hand anlegen';
+
+  @override
+  String reisenSelbstAngelegt(String name) {
+    return 'Reise „$name\" angelegt.';
+  }
+
+  @override
+  String get aktivitaetenSelbstAnlegen => 'Aktivität von Hand anlegen';
+
+  @override
+  String aktivitaetenSelbstAngelegt(String name) {
+    return 'Aktivität „$name\" angelegt.';
+  }
+
+  @override
+  String get infoOrtSuchen => 'Ort suchen';
+
+  @override
+  String get infoOrtSuchenBeispiel => 'z. B. Goslar';
+
+  @override
+  String get infoOrtKeinVerzeichnis =>
+      'Dafür fehlt das Ortsverzeichnis. Es lässt sich unter Einstellungen → Standortdaten laden.';
+
+  @override
+  String infoOrtNichtGefunden(String name) {
+    return 'Kein Ort namens „$name\" im Verzeichnis.';
+  }
+
+  @override
+  String infoOrtGesetzt(String ort) {
+    return 'Ort auf $ort gesetzt.';
+  }
+
+  @override
+  String infoOrtGesetztMehrdeutig(String ort, int weitere) {
+    return 'Ort auf $ort gesetzt – es gibt $weitere weitere gleichen Namens.';
+  }
+
+  @override
+  String get gesichtNichtMehrDurchsuchen =>
+      'Nicht mehr nach Gesichtern durchsuchen';
+
+  @override
+  String get gesichtWiederDurchsuchen => 'Wieder nach Gesichtern durchsuchen';
+
+  @override
+  String get gesichtNichtMehrDurchsuchtHinweis =>
+      'Dieses Foto wird beim erneuten Durchsuchen übersprungen. Erkannte Gesichter bleiben.';
+
+  @override
+  String get gesichtWiederDurchsuchtHinweis =>
+      'Dieses Foto wird wieder mitdurchsucht.';
+
+  @override
+  String get gesichtInGesperrtemOrdner =>
+      'Das Foto liegt jetzt im gesperrten Ordner.';
+
+  @override
+  String get gesichtFavoritGesetzt => 'Als Favorit gesetzt.';
+
+  @override
+  String get gesichtFavoritEntfernt => 'Favorit entfernt.';
+
+  @override
+  String get gesichtSperrenFehlgeschlagen =>
+      'Das Foto konnte nicht in den gesperrten Ordner gelegt werden.';
+
+  @override
   String get gesichtErkennungLoeschen => 'Erkennung löschen';
 
   @override

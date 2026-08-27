@@ -9,7 +9,9 @@ import '../services/reisen.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
+import '../services/meldungsdienst.dart';
 import '../widgets/namens_dialog.dart';
+import '../widgets/zeitraum_dialog.dart';
 import '../widgets/fortschrittsbalken.dart';
 import 'laenderliste_screen.dart';
 import 'reise_detail_screen.dart';
@@ -116,6 +118,38 @@ class _ReisenScreenState extends State<ReisenScreen> {
     await _laden();
   }
 
+  /// Eine Reise von Hand anlegen.
+  ///
+  /// **Der Weg neben dem Vorschlag, nicht statt seiner.** Erkannt wird nur,
+  /// was Fotos hergeben – wer eine Woche ohne Kamera unterwegs war oder
+  /// deren Bilder noch nicht importiert hat, hatte bisher keinen Weg,
+  /// die Reise trotzdem einzutragen.
+  Future<void> _selbstAnlegen() async {
+    final t = AppTexte.of(context);
+    final angabe = await frageZeitraum(
+      context,
+      titel: t.reisenSelbstAnlegen,
+      db: widget.library.db,
+    );
+    if (angabe == null || !mounted) return;
+
+    final aufnahmen =
+        await widget.library.db.aufnahmenImZeitraum(angabe.von, angabe.bis);
+    await widget.library.db.reiseAnlegen(
+      ReisenCompanion.insert(
+        id: const Uuid().v4(),
+        name: angabe.name,
+        von: angabe.von,
+        bis: angabe.bis,
+        angelegtAm: DateTime.now(),
+      ),
+      [for (final a in aufnahmen) a.id],
+    );
+    if (!mounted) return;
+    melde.erfolg(t.reisenSelbstAngelegt(angabe.name));
+    await _laden();
+  }
+
   Future<void> _verwerfen(Reisevorschlag v) async {
     await widget.library.db.verwirfReisevorschlag(v.schluessel);
     await _laden();
@@ -135,6 +169,11 @@ class _ReisenScreenState extends State<ReisenScreen> {
       appBar: AppBar(
         title: Text(t.reisenTitel),
         actions: [
+          IconButton(
+            tooltip: t.reisenSelbstAnlegen,
+            icon: const Icon(Icons.add),
+            onPressed: _selbstAnlegen,
+          ),
           IconButton(
             tooltip: t.weltkarteOeffnen,
             icon: const Icon(Icons.public),

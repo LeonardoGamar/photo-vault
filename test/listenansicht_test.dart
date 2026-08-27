@@ -26,6 +26,7 @@ AssetData _foto(String id, DateTime wann, {String? marke, String? modell}) => As
       isFavorite: false,
       isTrashed: false,
       isLocked: false,
+      faceScanExcluded: false,
       backedUp: false,
       autoBackedUp: false,
       facesScanned: false,

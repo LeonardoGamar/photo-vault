@@ -42,6 +42,7 @@ void main() {
             isFavorite: false,
             isTrashed: false,
             isLocked: false,
+            faceScanExcluded: false,
             backedUp: false,
             autoBackedUp: false,
             facesScanned: false,

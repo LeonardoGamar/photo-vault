@@ -259,6 +259,12 @@ echter Hardware.
   Netz. Die drei Zustände unterscheiden sich nicht nur im Farbton, sondern
   auch im Strichmuster des Randes – sonst wären es für einen
   Rotgrünblinden drei gleiche Flächen.
+- **Ort von Hand setzen** – über einen Klick auf die Karte **oder über
+  den Namen**: „Goslar" weiss man, 51,9° N / 10,4° O nicht. Für alles, was
+  ohne GPS ankommt – eingescannte Bilder, Kameras ohne Empfänger, Fotos
+  von anderen Leuten. Gibt es den Namen mehrfach, nennt die Antwort die
+  Zahl der übrigen: „Springfield" existiert in den USA über zwanzig Mal,
+  und eine Koordinate ohne diesen Hinweis sähe aus wie eine Tatsache.
 - **Ortsansicht** – ein Bildschirm für Land, Region und Ort, dreimal
   derselbe: Flagge und Zahlen im Kopf, darunter die nächste Ebene zum
   Weiterklicken, darunter die Fotos. Die Liste führt **auch das
@@ -269,7 +275,10 @@ echter Hardware.
 - **Reisen** – **vorgeschlagen statt verlangt**: Die App findet
   zusammenhängende Zeiträume fern von zu Hause selbst und fragt nach, statt
   ein leeres Formular hinzustellen. Dazu ein Reisetagebuch mit Kapiteln je
-  Tag und einer Route über die Aufnahmeorte.
+  Tag und einer Route über die Aufnahmeorte. **Von Hand geht es auch** –
+  ein Vorschlag erkennt naturgemäss nur, was Fotos hergeben, und wer eine
+  Woche ohne Kamera unterwegs war, soll die Reise trotzdem eintragen
+  können. Angegeben wird der Zeitraum, die Bilder darin kommen mit.
 - **Aktivitäten** – dasselbe eine Stufe kleiner: Wanderungen, Radtouren,
   Ausflüge, Besichtigungen, Bootsfahrten. Eine Aktivität steht für sich
   und kann zu einer Reise gehören; die Sonntagswanderung vor der Haustür
@@ -308,7 +317,12 @@ echter Hardware.
   sein könnte); "Ähnliche mit auswählen" vergleicht jedes unbenannte Gesicht
   gegen das jeweils ähnlichste bereits ausgewählte Referenzgesicht
   (einstellbare Schwelle). Personen lassen sich zusammenführen, falls die
-  Erkennung dieselbe reale Person zweimal angelegt hat.
+  Erkennung dieselbe reale Person zweimal angelegt hat. Ein einzelnes
+  Gesicht lässt sich beiseitelegen; ein **ganzes Foto** lässt sich von der
+  Suche ausnehmen – für Bilder, auf denen jeder Durchlauf neue „Gesichter"
+  findet: eine Gemäldewand im Hintergrund, ein Zeitungsfoto, ein Plakat.
+  Bereits erkannte Gesichter bleiben dabei stehen; die Ausnahme gilt dem
+  Suchen, nicht dem Gefundenen.
 - **KI-Bildsuche** – natürlichsprachige Suche ("Sonnenuntergang am Meer")
   über **CLIP ViT-B/32** (OpenAI-Originalgewichte, MIT-Lizenz)
 - **KI-Bildbeschreibung** – automatische (englische) Bildunterschrift pro
@@ -525,7 +539,7 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 56: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 57: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
@@ -533,7 +547,8 @@ Wiedererkennungs-Schwellen, Sprachwahl, Export-Voreinstellungen,
 ignorierte Gesichter, Klarheit/Vignettierung, importierte Farbtabellen,
 Ortsmarken für Länder und Regionen, Reisen und Reisetagebuch,
 Ereignisorte im Stammbaum, Aktivitäten, GPX-Spuren, Herkunft der
-Schlagwörter, …). Drift migriert das automatisch beim
+Schlagwörter, von der Gesichtssuche ausgenommene Fotos, …). Drift
+migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
 

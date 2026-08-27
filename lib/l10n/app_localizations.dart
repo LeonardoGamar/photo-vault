@@ -6689,6 +6689,138 @@ abstract class AppTexte {
   /// **'Foto löschen'**
   String get gesichtFotoLoeschen;
 
+  /// No description provided for @zeitraumName.
+  ///
+  /// In de, this message translates to:
+  /// **'Name'**
+  String get zeitraumName;
+
+  /// No description provided for @zeitraumArt.
+  ///
+  /// In de, this message translates to:
+  /// **'Art'**
+  String get zeitraumArt;
+
+  /// No description provided for @zeitraumZaehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos werden gezählt …'**
+  String get zeitraumZaehlt;
+
+  /// No description provided for @zeitraumFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'{n, plural, =0{Kein Foto in diesem Zeitraum} =1{1 Foto in diesem Zeitraum} other{{n} Fotos in diesem Zeitraum}}'**
+  String zeitraumFotos(int n);
+
+  /// No description provided for @reisenSelbstAnlegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Reise von Hand anlegen'**
+  String get reisenSelbstAnlegen;
+
+  /// No description provided for @reisenSelbstAngelegt.
+  ///
+  /// In de, this message translates to:
+  /// **'Reise „{name}\" angelegt.'**
+  String reisenSelbstAngelegt(String name);
+
+  /// No description provided for @aktivitaetenSelbstAnlegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivität von Hand anlegen'**
+  String get aktivitaetenSelbstAnlegen;
+
+  /// No description provided for @aktivitaetenSelbstAngelegt.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivität „{name}\" angelegt.'**
+  String aktivitaetenSelbstAngelegt(String name);
+
+  /// No description provided for @infoOrtSuchen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort suchen'**
+  String get infoOrtSuchen;
+
+  /// No description provided for @infoOrtSuchenBeispiel.
+  ///
+  /// In de, this message translates to:
+  /// **'z. B. Goslar'**
+  String get infoOrtSuchenBeispiel;
+
+  /// No description provided for @infoOrtKeinVerzeichnis.
+  ///
+  /// In de, this message translates to:
+  /// **'Dafür fehlt das Ortsverzeichnis. Es lässt sich unter Einstellungen → Standortdaten laden.'**
+  String get infoOrtKeinVerzeichnis;
+
+  /// No description provided for @infoOrtNichtGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein Ort namens „{name}\" im Verzeichnis.'**
+  String infoOrtNichtGefunden(String name);
+
+  /// No description provided for @infoOrtGesetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort auf {ort} gesetzt.'**
+  String infoOrtGesetzt(String ort);
+
+  /// No description provided for @infoOrtGesetztMehrdeutig.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort auf {ort} gesetzt – es gibt {weitere} weitere gleichen Namens.'**
+  String infoOrtGesetztMehrdeutig(String ort, int weitere);
+
+  /// No description provided for @gesichtNichtMehrDurchsuchen.
+  ///
+  /// In de, this message translates to:
+  /// **'Nicht mehr nach Gesichtern durchsuchen'**
+  String get gesichtNichtMehrDurchsuchen;
+
+  /// No description provided for @gesichtWiederDurchsuchen.
+  ///
+  /// In de, this message translates to:
+  /// **'Wieder nach Gesichtern durchsuchen'**
+  String get gesichtWiederDurchsuchen;
+
+  /// No description provided for @gesichtNichtMehrDurchsuchtHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieses Foto wird beim erneuten Durchsuchen übersprungen. Erkannte Gesichter bleiben.'**
+  String get gesichtNichtMehrDurchsuchtHinweis;
+
+  /// No description provided for @gesichtWiederDurchsuchtHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieses Foto wird wieder mitdurchsucht.'**
+  String get gesichtWiederDurchsuchtHinweis;
+
+  /// No description provided for @gesichtInGesperrtemOrdner.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Foto liegt jetzt im gesperrten Ordner.'**
+  String get gesichtInGesperrtemOrdner;
+
+  /// No description provided for @gesichtFavoritGesetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Favorit gesetzt.'**
+  String get gesichtFavoritGesetzt;
+
+  /// No description provided for @gesichtFavoritEntfernt.
+  ///
+  /// In de, this message translates to:
+  /// **'Favorit entfernt.'**
+  String get gesichtFavoritEntfernt;
+
+  /// No description provided for @gesichtSperrenFehlgeschlagen.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Foto konnte nicht in den gesperrten Ordner gelegt werden.'**
+  String get gesichtSperrenFehlgeschlagen;
+
   /// No description provided for @gesichtErkennungLoeschen.
   ///
   /// In de, this message translates to:

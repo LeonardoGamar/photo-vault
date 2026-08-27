@@ -77,6 +77,21 @@ class Assets extends Table {
   /// Backup-Export herausgefiltert und sind nur über den gesperrten Ordner
   /// (nach PIN-Eingabe) erreichbar. Siehe [PrivacySettings].
   BoolColumn get isLocked => boolean().withDefault(const Constant(false))();
+
+  /// Von der Gesichtssuche ausgenommen.
+  ///
+  /// **Nicht dasselbe wie [facesScanned].** Das hält fest, dass die Suche
+  /// gelaufen ist; „alle Fotos erneut durchsuchen" setzt sich darüber
+  /// hinweg, und genau das ist der Fall, um den es geht: Ein Gruppenbild
+  /// vor einer Gemäldewand, ein Zeitungsfoto, ein Plakat – dort findet
+  /// jeder Durchlauf dieselben Gesichter wieder, die man schon einmal
+  /// beiseitegelegt hat.
+  ///
+  /// Ein einzelnes Gesicht lässt sich seit jeher ignorieren
+  /// ([Faces.isIgnored]); das half nur nicht bei einem Foto, auf dem
+  /// jeder Durchlauf NEUE Stellen findet. Diese Marke gilt dem Bild.
+  BoolColumn get faceScanExcluded =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get description => text().nullable()();
   IntColumn get widthPx => integer().nullable()();
   IntColumn get heightPx => integer().nullable()();
@@ -1302,7 +1317,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 56;
+  int get schemaVersion => 57;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1699,6 +1714,11 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 57) {
+            // Von der Gesichtssuche ausgenommen (siehe die Spalte).
+            await _addColumnIfMissing(m, assets, assets.faceScanExcluded,
+                'assets', 'face_scan_excluded');
           }
           if (from < 56) {
             // Woher ein Schlagwort stammt (siehe [Tagquelle]).
@@ -4860,6 +4880,31 @@ class AppDatabase extends _$AppDatabase {
     return zeile?.readTable(assets);
   }
 
+  /// Die Aufnahmen eines Zeitraums – für eine von Hand angelegte Reise
+  /// oder Aktivität.
+  ///
+  /// **Der Zeitraum ist die ganze Eingabe.** Zugeordnet wird in dieser App
+  /// über die Fotos und nicht über den Kalender; wer eine Reise von Hand
+  /// anlegt, nennt deshalb ihren Zeitraum, und die Bilder darin kommen
+  /// mit. Ein Auswahlraster für einzelne Fotos wäre der zweite Schritt,
+  /// nicht der erste.
+  ///
+  /// [bis] ist einschliessend gemeint: Wer den 14. Juni als letzten Tag
+  /// nennt, meint auch das Foto von 23:50 Uhr.
+  Future<List<AssetData>> aufnahmenImZeitraum(DateTime von, DateTime bis) {
+    final ende = DateTime(bis.year, bis.month, bis.day, 23, 59, 59, 999);
+    final anfang = DateTime(von.year, von.month, von.day);
+    return (select(assets)
+          ..where((t) =>
+              t.isTrashed.equals(false) &
+              t.isLocked.equals(false) &
+              t.fileCreatedAt.isBiggerOrEqualValue(anfang) &
+              t.fileCreatedAt.isSmallerOrEqualValue(ende) &
+              _isPrimaryGridEntry(t))
+          ..orderBy([(t) => OrderingTerm.asc(t.fileCreatedAt)]))
+        .get();
+  }
+
   Future<Set<String>> zugeordneteAktivitaetsAufnahmen() async =>
       {for (final z in await select(aktivitaetAufnahmen).get()) z.assetId};
 
@@ -5272,16 +5317,30 @@ class AppDatabase extends _$AppDatabase {
     // "Unbenannte Gesichter"-Tab auftauchen, obwohl das Foto selbst versteckt
     // ist (siehe [unassignedFaces]).
     final query = select(assets)
-      ..where((t) => t.type.equals('IMAGE') & t.isTrashed.equals(false) & t.isLocked.equals(false));
+      ..where((t) =>
+          t.type.equals('IMAGE') &
+          t.isTrashed.equals(false) &
+          t.isLocked.equals(false) &
+          // Gilt auch fuer "alle erneut durchsuchen" - sonst waere die
+          // Ausnahme wertlos, denn nur dort greift sie ueberhaupt.
+          t.faceScanExcluded.equals(false));
     if (onlyNew) {
       query.where((t) => t.facesScanned.equals(false));
     }
     return query.get();
   }
 
+  /// Nimmt ein Foto von der Gesichtssuche aus oder holt es zurueck.
+  Future<void> setzeGesichtssucheAusgenommen(String assetId, bool wert) =>
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(faceScanExcluded: Value(wert)));
+
   /// Zählvariante von [assetsForFaceScan], siehe [countLocationBackfill].
   Future<int> countFaceScan({required bool onlyNew}) {
-    var predicate = assets.type.equals('IMAGE') & assets.isTrashed.equals(false) & assets.isLocked.equals(false);
+    var predicate = assets.type.equals('IMAGE') &
+        assets.isTrashed.equals(false) &
+        assets.isLocked.equals(false) &
+        assets.faceScanExcluded.equals(false);
     if (onlyNew) predicate = predicate & assets.facesScanned.equals(false);
     return _countWhere(predicate);
   }

@@ -122,6 +122,16 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_locked" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _faceScanExcludedMeta =
+      const VerificationMeta('faceScanExcluded');
+  @override
+  late final GeneratedColumn<bool> faceScanExcluded = GeneratedColumn<bool>(
+      'face_scan_excluded', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("face_scan_excluded" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _descriptionMeta =
       const VerificationMeta('description');
   @override
@@ -391,6 +401,7 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         isTrashed,
         trashedAt,
         isLocked,
+        faceScanExcluded,
         description,
         widthPx,
         heightPx,
@@ -540,6 +551,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
     if (data.containsKey('is_locked')) {
       context.handle(_isLockedMeta,
           isLocked.isAcceptableOrUnknown(data['is_locked']!, _isLockedMeta));
+    }
+    if (data.containsKey('face_scan_excluded')) {
+      context.handle(
+          _faceScanExcludedMeta,
+          faceScanExcluded.isAcceptableOrUnknown(
+              data['face_scan_excluded']!, _faceScanExcludedMeta));
     }
     if (data.containsKey('description')) {
       context.handle(
@@ -777,6 +794,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.dateTime, data['${effectivePrefix}trashed_at']),
       isLocked: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_locked'])!,
+      faceScanExcluded: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}face_scan_excluded'])!,
       description: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}description']),
       widthPx: attachedDatabase.typeMapping
@@ -912,6 +931,20 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   /// Backup-Export herausgefiltert und sind nur über den gesperrten Ordner
   /// (nach PIN-Eingabe) erreichbar. Siehe [PrivacySettings].
   final bool isLocked;
+
+  /// Von der Gesichtssuche ausgenommen.
+  ///
+  /// **Nicht dasselbe wie [facesScanned].** Das hält fest, dass die Suche
+  /// gelaufen ist; „alle Fotos erneut durchsuchen" setzt sich darüber
+  /// hinweg, und genau das ist der Fall, um den es geht: Ein Gruppenbild
+  /// vor einer Gemäldewand, ein Zeitungsfoto, ein Plakat – dort findet
+  /// jeder Durchlauf dieselben Gesichter wieder, die man schon einmal
+  /// beiseitegelegt hat.
+  ///
+  /// Ein einzelnes Gesicht lässt sich seit jeher ignorieren
+  /// ([Faces.isIgnored]); das half nur nicht bei einem Foto, auf dem
+  /// jeder Durchlauf NEUE Stellen findet. Diese Marke gilt dem Bild.
+  final bool faceScanExcluded;
   final String? description;
   final int? widthPx;
   final int? heightPx;
@@ -1059,6 +1092,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       required this.isTrashed,
       this.trashedAt,
       required this.isLocked,
+      required this.faceScanExcluded,
       this.description,
       this.widthPx,
       this.heightPx,
@@ -1129,6 +1163,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       map['trashed_at'] = Variable<DateTime>(trashedAt);
     }
     map['is_locked'] = Variable<bool>(isLocked);
+    map['face_scan_excluded'] = Variable<bool>(faceScanExcluded);
     if (!nullToAbsent || description != null) {
       map['description'] = Variable<String>(description);
     }
@@ -1253,6 +1288,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ? const Value.absent()
           : Value(trashedAt),
       isLocked: Value(isLocked),
+      faceScanExcluded: Value(faceScanExcluded),
       description: description == null && nullToAbsent
           ? const Value.absent()
           : Value(description),
@@ -1368,6 +1404,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       isTrashed: serializer.fromJson<bool>(json['isTrashed']),
       trashedAt: serializer.fromJson<DateTime?>(json['trashedAt']),
       isLocked: serializer.fromJson<bool>(json['isLocked']),
+      faceScanExcluded: serializer.fromJson<bool>(json['faceScanExcluded']),
       description: serializer.fromJson<String?>(json['description']),
       widthPx: serializer.fromJson<int?>(json['widthPx']),
       heightPx: serializer.fromJson<int?>(json['heightPx']),
@@ -1430,6 +1467,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'isTrashed': serializer.toJson<bool>(isTrashed),
       'trashedAt': serializer.toJson<DateTime?>(trashedAt),
       'isLocked': serializer.toJson<bool>(isLocked),
+      'faceScanExcluded': serializer.toJson<bool>(faceScanExcluded),
       'description': serializer.toJson<String?>(description),
       'widthPx': serializer.toJson<int?>(widthPx),
       'heightPx': serializer.toJson<int?>(heightPx),
@@ -1487,6 +1525,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           bool? isTrashed,
           Value<DateTime?> trashedAt = const Value.absent(),
           bool? isLocked,
+          bool? faceScanExcluded,
           Value<String?> description = const Value.absent(),
           Value<int?> widthPx = const Value.absent(),
           Value<int?> heightPx = const Value.absent(),
@@ -1551,6 +1590,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         isTrashed: isTrashed ?? this.isTrashed,
         trashedAt: trashedAt.present ? trashedAt.value : this.trashedAt,
         isLocked: isLocked ?? this.isLocked,
+        faceScanExcluded: faceScanExcluded ?? this.faceScanExcluded,
         description: description.present ? description.value : this.description,
         widthPx: widthPx.present ? widthPx.value : this.widthPx,
         heightPx: heightPx.present ? heightPx.value : this.heightPx,
@@ -1640,6 +1680,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       isTrashed: data.isTrashed.present ? data.isTrashed.value : this.isTrashed,
       trashedAt: data.trashedAt.present ? data.trashedAt.value : this.trashedAt,
       isLocked: data.isLocked.present ? data.isLocked.value : this.isLocked,
+      faceScanExcluded: data.faceScanExcluded.present
+          ? data.faceScanExcluded.value
+          : this.faceScanExcluded,
       description:
           data.description.present ? data.description.value : this.description,
       widthPx: data.widthPx.present ? data.widthPx.value : this.widthPx,
@@ -1739,6 +1782,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('isTrashed: $isTrashed, ')
           ..write('trashedAt: $trashedAt, ')
           ..write('isLocked: $isLocked, ')
+          ..write('faceScanExcluded: $faceScanExcluded, ')
           ..write('description: $description, ')
           ..write('widthPx: $widthPx, ')
           ..write('heightPx: $heightPx, ')
@@ -1798,6 +1842,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         isTrashed,
         trashedAt,
         isLocked,
+        faceScanExcluded,
         description,
         widthPx,
         heightPx,
@@ -1856,6 +1901,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.isTrashed == this.isTrashed &&
           other.trashedAt == this.trashedAt &&
           other.isLocked == this.isLocked &&
+          other.faceScanExcluded == this.faceScanExcluded &&
           other.description == this.description &&
           other.widthPx == this.widthPx &&
           other.heightPx == this.heightPx &&
@@ -1912,6 +1958,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<bool> isTrashed;
   final Value<DateTime?> trashedAt;
   final Value<bool> isLocked;
+  final Value<bool> faceScanExcluded;
   final Value<String?> description;
   final Value<int?> widthPx;
   final Value<int?> heightPx;
@@ -1967,6 +2014,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.isTrashed = const Value.absent(),
     this.trashedAt = const Value.absent(),
     this.isLocked = const Value.absent(),
+    this.faceScanExcluded = const Value.absent(),
     this.description = const Value.absent(),
     this.widthPx = const Value.absent(),
     this.heightPx = const Value.absent(),
@@ -2023,6 +2071,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.isTrashed = const Value.absent(),
     this.trashedAt = const Value.absent(),
     this.isLocked = const Value.absent(),
+    this.faceScanExcluded = const Value.absent(),
     this.description = const Value.absent(),
     this.widthPx = const Value.absent(),
     this.heightPx = const Value.absent(),
@@ -2085,6 +2134,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<bool>? isTrashed,
     Expression<DateTime>? trashedAt,
     Expression<bool>? isLocked,
+    Expression<bool>? faceScanExcluded,
     Expression<String>? description,
     Expression<int>? widthPx,
     Expression<int>? heightPx,
@@ -2146,6 +2196,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       if (isTrashed != null) 'is_trashed': isTrashed,
       if (trashedAt != null) 'trashed_at': trashedAt,
       if (isLocked != null) 'is_locked': isLocked,
+      if (faceScanExcluded != null) 'face_scan_excluded': faceScanExcluded,
       if (description != null) 'description': description,
       if (widthPx != null) 'width_px': widthPx,
       if (heightPx != null) 'height_px': heightPx,
@@ -2205,6 +2256,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<bool>? isTrashed,
       Value<DateTime?>? trashedAt,
       Value<bool>? isLocked,
+      Value<bool>? faceScanExcluded,
       Value<String?>? description,
       Value<int?>? widthPx,
       Value<int?>? heightPx,
@@ -2262,6 +2314,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       isTrashed: isTrashed ?? this.isTrashed,
       trashedAt: trashedAt ?? this.trashedAt,
       isLocked: isLocked ?? this.isLocked,
+      faceScanExcluded: faceScanExcluded ?? this.faceScanExcluded,
       description: description ?? this.description,
       widthPx: widthPx ?? this.widthPx,
       heightPx: heightPx ?? this.heightPx,
@@ -2360,6 +2413,9 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     }
     if (isLocked.present) {
       map['is_locked'] = Variable<bool>(isLocked.value);
+    }
+    if (faceScanExcluded.present) {
+      map['face_scan_excluded'] = Variable<bool>(faceScanExcluded.value);
     }
     if (description.present) {
       map['description'] = Variable<String>(description.value);
@@ -2496,6 +2552,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('isTrashed: $isTrashed, ')
           ..write('trashedAt: $trashedAt, ')
           ..write('isLocked: $isLocked, ')
+          ..write('faceScanExcluded: $faceScanExcluded, ')
           ..write('description: $description, ')
           ..write('widthPx: $widthPx, ')
           ..write('heightPx: $heightPx, ')
@@ -17369,6 +17426,7 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<bool> isTrashed,
   Value<DateTime?> trashedAt,
   Value<bool> isLocked,
+  Value<bool> faceScanExcluded,
   Value<String?> description,
   Value<int?> widthPx,
   Value<int?> heightPx,
@@ -17425,6 +17483,7 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<bool> isTrashed,
   Value<DateTime?> trashedAt,
   Value<bool> isLocked,
+  Value<bool> faceScanExcluded,
   Value<String?> description,
   Value<int?> widthPx,
   Value<int?> heightPx,
@@ -17529,6 +17588,10 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<bool> get isLocked => $composableBuilder(
       column: $table.isLocked, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get faceScanExcluded => $composableBuilder(
+      column: $table.faceScanExcluded,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => ColumnFilters(column));
@@ -17714,6 +17777,10 @@ class $$AssetsTableOrderingComposer
 
   ColumnOrderings<bool> get isLocked => $composableBuilder(
       column: $table.isLocked, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get faceScanExcluded => $composableBuilder(
+      column: $table.faceScanExcluded,
+      builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => ColumnOrderings(column));
@@ -17901,6 +17968,9 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<bool> get isLocked =>
       $composableBuilder(column: $table.isLocked, builder: (column) => column);
 
+  GeneratedColumn<bool> get faceScanExcluded => $composableBuilder(
+      column: $table.faceScanExcluded, builder: (column) => column);
+
   GeneratedColumn<String> get description => $composableBuilder(
       column: $table.description, builder: (column) => column);
 
@@ -18050,6 +18120,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<bool> isTrashed = const Value.absent(),
             Value<DateTime?> trashedAt = const Value.absent(),
             Value<bool> isLocked = const Value.absent(),
+            Value<bool> faceScanExcluded = const Value.absent(),
             Value<String?> description = const Value.absent(),
             Value<int?> widthPx = const Value.absent(),
             Value<int?> heightPx = const Value.absent(),
@@ -18106,6 +18177,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             isTrashed: isTrashed,
             trashedAt: trashedAt,
             isLocked: isLocked,
+            faceScanExcluded: faceScanExcluded,
             description: description,
             widthPx: widthPx,
             heightPx: heightPx,
@@ -18162,6 +18234,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<bool> isTrashed = const Value.absent(),
             Value<DateTime?> trashedAt = const Value.absent(),
             Value<bool> isLocked = const Value.absent(),
+            Value<bool> faceScanExcluded = const Value.absent(),
             Value<String?> description = const Value.absent(),
             Value<int?> widthPx = const Value.absent(),
             Value<int?> heightPx = const Value.absent(),
@@ -18218,6 +18291,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             isTrashed: isTrashed,
             trashedAt: trashedAt,
             isLocked: isLocked,
+            faceScanExcluded: faceScanExcluded,
             description: description,
             widthPx: widthPx,
             heightPx: heightPx,

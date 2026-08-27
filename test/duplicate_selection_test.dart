@@ -35,6 +35,7 @@ AssetData foto(
     heightPx: hoehe,
     sharpnessScore: schaerfe,
     isLocked: false,
+    faceScanExcluded: false,
     ocrScanned: false,
     autoBackedUp: false,
     backedUp: false,

@@ -3944,6 +3944,96 @@ class AppTexteEn extends AppTexte {
   String get gesichtFotoLoeschen => 'Delete photo';
 
   @override
+  String get zeitraumName => 'Name';
+
+  @override
+  String get zeitraumArt => 'Kind';
+
+  @override
+  String get zeitraumZaehlt => 'Counting photos …';
+
+  @override
+  String zeitraumFotos(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n photos in this period',
+      one: '1 photo in this period',
+      zero: 'No photo in this period',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get reisenSelbstAnlegen => 'Add a trip by hand';
+
+  @override
+  String reisenSelbstAngelegt(String name) {
+    return 'Trip \"$name\" created.';
+  }
+
+  @override
+  String get aktivitaetenSelbstAnlegen => 'Add an activity by hand';
+
+  @override
+  String aktivitaetenSelbstAngelegt(String name) {
+    return 'Activity \"$name\" created.';
+  }
+
+  @override
+  String get infoOrtSuchen => 'Find place';
+
+  @override
+  String get infoOrtSuchenBeispiel => 'e.g. Goslar';
+
+  @override
+  String get infoOrtKeinVerzeichnis =>
+      'The place directory is missing. You can download it under Settings → Location data.';
+
+  @override
+  String infoOrtNichtGefunden(String name) {
+    return 'No place called \"$name\" in the directory.';
+  }
+
+  @override
+  String infoOrtGesetzt(String ort) {
+    return 'Location set to $ort.';
+  }
+
+  @override
+  String infoOrtGesetztMehrdeutig(String ort, int weitere) {
+    return 'Location set to $ort - there are $weitere more of the same name.';
+  }
+
+  @override
+  String get gesichtNichtMehrDurchsuchen => 'Stop scanning for faces';
+
+  @override
+  String get gesichtWiederDurchsuchen => 'Scan for faces again';
+
+  @override
+  String get gesichtNichtMehrDurchsuchtHinweis =>
+      'This photo will be skipped when scanning again. Faces already found remain.';
+
+  @override
+  String get gesichtWiederDurchsuchtHinweis =>
+      'This photo will be scanned again.';
+
+  @override
+  String get gesichtInGesperrtemOrdner =>
+      'The photo is now in the locked folder.';
+
+  @override
+  String get gesichtFavoritGesetzt => 'Marked as favourite.';
+
+  @override
+  String get gesichtFavoritEntfernt => 'Favourite removed.';
+
+  @override
+  String get gesichtSperrenFehlgeschlagen =>
+      'The photo could not be moved to the locked folder.';
+
+  @override
   String get gesichtErkennungLoeschen => 'Delete detection';
 
   @override

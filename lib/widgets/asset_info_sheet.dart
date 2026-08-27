@@ -75,6 +75,8 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   /// Fassung, die es noch gar nicht gibt).
   bool? _kiDeutsch;
 
+  late final TextEditingController _ortController = TextEditingController();
+  bool _ortSucheLaeuft = false;
   late final TextEditingController _kiController = TextEditingController();
   late final FocusNode _kiFocusNode = FocusNode()..addListener(_onKiFocusChange);
 
@@ -92,6 +94,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     _kiController.dispose();
     _kiFocusNode.dispose();
     _tagController.dispose();
+    _ortController.dispose();
     super.dispose();
   }
 
@@ -249,6 +252,53 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   Future<void> _setLocation(double latitude, double longitude) async {
     await widget.db.setLocation(_asset.id, latitude, longitude);
     await _refresh();
+  }
+
+  /// Setzt den Ort über seinen **Namen** statt über einen Klick auf die
+  /// Karte.
+  ///
+  /// Für alles, was kein GPS mitbrachte – eingescannte Bilder, Fotos aus
+  /// einer Kamera ohne Empfänger, Aufnahmen fremder Leute. Die Karte
+  /// konnte das schon, aber nur, wenn man weiss, wo der Ort liegt; „Goslar"
+  /// weiss man, 51,9° N / 10,4° O nicht.
+  ///
+  /// **Die Auswahl ist eine Vermutung, und die Meldung sagt das.** Gibt es
+  /// den Namen mehrfach – „Springfield" über zwanzig Mal –, nennt die
+  /// Antwort die Zahl der übrigen. Gewählt wird der nächstgelegene zum
+  /// bisherigen Ort des Fotos, sonst der grösste; entscheidet
+  /// [ReverseGeocoder.sucheOrt].
+  Future<void> _sucheOrt() async {
+    final eingabe = _ortController.text.trim();
+    if (eingabe.isEmpty || _ortSucheLaeuft) return;
+    final t = AppTexte.of(context);
+    final geo = context.read<LibraryState>().geocoder;
+    if (geo == null) {
+      melde.warnung(t.infoOrtKeinVerzeichnis);
+      return;
+    }
+    setState(() => _ortSucheLaeuft = true);
+    try {
+      final treffer = geo.sucheOrt(
+        eingabe,
+        naheBreite: _asset.latitude,
+        naheLaenge: _asset.longitude,
+      );
+      if (treffer == null) {
+        melde.warnung(t.infoOrtNichtGefunden(eingabe));
+        return;
+      }
+      await _setLocation(treffer.breite, treffer.laenge);
+      if (!mounted) return;
+      _ortController.clear();
+      final bezeichnung = treffer.land == null
+          ? treffer.name
+          : '${treffer.name}, ${treffer.land}';
+      melde.erfolg(treffer.weitere == 0
+          ? t.infoOrtGesetzt(bezeichnung)
+          : t.infoOrtGesetztMehrdeutig(bezeichnung, treffer.weitere));
+    } finally {
+      if (mounted) setState(() => _ortSucheLaeuft = false);
+    }
   }
 
   Future<void> _clearLocation() async {
@@ -546,6 +596,41 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+                // Über der Karte und nicht darunter: Wer den Ortsnamen
+                // kennt, soll ihn eintippen können, ohne erst zu suchen,
+                // wo auf der Karte er liegt.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _ortController,
+                          decoration: InputDecoration(
+                            isDense: true,
+                            labelText: AppTexte.of(context).infoOrtSuchen,
+                            hintText: AppTexte.of(context).infoOrtSuchenBeispiel,
+                            prefixIcon: const Icon(Icons.travel_explore, size: 20),
+                            border: const OutlineInputBorder(),
+                          ),
+                          onSubmitted: (_) => _sucheOrt(),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      IconButton(
+                        tooltip: AppTexte.of(context).infoOrtSuchen,
+                        icon: _ortSucheLaeuft
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.search),
+                        onPressed: _ortSucheLaeuft ? null : _sucheOrt,
+                      ),
                     ],
                   ),
                 ),

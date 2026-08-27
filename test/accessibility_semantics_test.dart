@@ -51,6 +51,7 @@ void main() {
         isFavorite: isFavorite,
         isTrashed: false,
         isLocked: false,
+        faceScanExcluded: false,
         fileSizeBytes: 100,
         backedUp: false,
         autoBackedUp: false,

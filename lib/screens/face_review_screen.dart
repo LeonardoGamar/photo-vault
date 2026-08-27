@@ -17,6 +17,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/asset_info_sheet.dart';
 import '../widgets/person_picker_dialog.dart';
+import '../widgets/pin_dialogs.dart';
 import '../services/meldungsdienst.dart';
 
 /// Zeigt ein Foto in Vollbild mit allen erkannten Gesichtern als Rahmen
@@ -117,6 +118,15 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     }
     if (!_addMode && event.logicalKey == LogicalKeyboardKey.arrowRight) {
       _springe(1);
+      return KeyEventResult.handled;
+    }
+    // F wie im grossen Betrachter. Der Tooltip nennt die Taste – ohne
+    // diese Zeile wäre das ein Versprechen, das die Ansicht nicht hält.
+    // Nicht im Hinzufügen-Modus: Dort zieht man gerade einen Rahmen auf.
+    if (!_addMode &&
+        !_asset.isLocked &&
+        event.logicalKey == LogicalKeyboardKey.keyF) {
+      _favoritUmschalten();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.escape) {
@@ -323,6 +333,16 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
         // hinter einem Trenner: Die Einträge darüber ändern nur, was über
         // dem Bild liegt.
         PopupMenuItem(
+          value: 'nichtMehrSuchen',
+          child: _eintrag(
+              _asset.faceScanExcluded
+                  ? Icons.person_search_outlined
+                  : Icons.search_off_outlined,
+              _asset.faceScanExcluded
+                  ? t.gesichtWiederDurchsuchen
+                  : t.gesichtNichtMehrDurchsuchen),
+        ),
+        PopupMenuItem(
           value: 'fotoLoeschen',
           child: _eintrag(Icons.delete_outline, t.gesichtFotoLoeschen),
         ),
@@ -361,6 +381,8 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
         _load();
       case 'info':
         setState(() => _infoSichtbar = true);
+      case 'nichtMehrSuchen':
+        _durchsuchenUmschalten();
       case 'fotoLoeschen':
         await _loescheFoto();
     }
@@ -372,6 +394,78 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   /// Reihe durchsieht und dabei aussortiert, will an derselben Stelle
   /// weitermachen. Erst wenn das letzte Foto der Reihe weg ist, geht der
   /// Bildschirm zu.
+  /// Favorit umschalten – dieselbe Rolle wie im grossen Betrachter.
+  ///
+  /// Beim Sichten der Gesichter sieht man das Foto oft zum ersten Mal in
+  /// Ruhe; wer dann merkt, dass es ein gutes ist, sollte es hier festhalten
+  /// können statt es sich zu merken.
+  Future<void> _favoritUmschalten() async {
+    final neuerWert = !_asset.isFavorite;
+    await widget.library.db.setFavorite(_asset.id, neuerWert);
+    if (!mounted) return;
+    // Die Zeile in der eigenen Liste nachziehen: Sie stammt aus dem
+    // aufrufenden Bildschirm und weiss von der Änderung nichts.
+    setState(() => _assets[_index] = _asset.copyWith(isFavorite: neuerWert));
+    melde.erfolg(neuerWert
+        ? AppTexte.of(context).gesichtFavoritGesetzt
+        : AppTexte.of(context).gesichtFavoritEntfernt);
+  }
+
+  /// Das Foto in den gesperrten Ordner legen.
+  ///
+  /// **Danach ist es hier nicht mehr zu sehen**, und das ist kein
+  /// Nebeneffekt, sondern der Zweck: Die Gesichter-Sichtung zeigt
+  /// gesperrte Fotos nicht. Die Ansicht verlässt das Bild deshalb sofort –
+  /// so wie der grosse Betrachter es auch tut.
+  Future<void> _inGesperrtenOrdner() async {
+    if (!await ensureVaultUnlocked(context, widget.library)) return;
+    if (!mounted) return;
+    final t = AppTexte.of(context);
+    try {
+      await widget.library.lockAsset(_asset);
+    } catch (e) {
+      if (mounted) melde.fehler(t.gesichtSperrenFehlgeschlagen);
+      return;
+    }
+    if (!mounted) return;
+    melde.erfolg(t.gesichtInGesperrtemOrdner);
+    if (_assets.length == 1) {
+      Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _assets.removeAt(_index);
+      if (_index >= _assets.length) _index = _assets.length - 1;
+      _faces = [];
+      _aspectRatio = null;
+      _addMode = false;
+      _dragStart = null;
+      _dragCurrent = null;
+    });
+    _load();
+  }
+
+  /// Dieses Foto von der Gesichtssuche ausnehmen – oder zurückholen.
+  ///
+  /// **Gedacht für Bilder, auf denen jeder Durchlauf neue „Gesichter"
+  /// findet:** eine Gemäldewand, ein Zeitungsfoto, ein Plakat. Ein
+  /// einzelnes Gesicht beiseitezulegen half dort nicht, weil beim
+  /// nächsten Durchlauf andere Stellen erkannt wurden.
+  ///
+  /// Bereits erkannte Gesichter bleiben stehen – die Ausnahme gilt dem
+  /// Suchen, nicht dem Gefundenen.
+  Future<void> _durchsuchenUmschalten() async {
+    final neuerWert = !_asset.faceScanExcluded;
+    await widget.library.db
+        .setzeGesichtssucheAusgenommen(_asset.id, neuerWert);
+    if (!mounted) return;
+    setState(() =>
+        _assets[_index] = _asset.copyWith(faceScanExcluded: neuerWert));
+    melde.erfolg(neuerWert
+        ? AppTexte.of(context).gesichtNichtMehrDurchsuchtHinweis
+        : AppTexte.of(context).gesichtWiederDurchsuchtHinweis);
+  }
+
   Future<void> _loescheFoto() async {
     final t = AppTexte.of(context);
     final ja = await showDialog<bool>(
@@ -551,6 +645,20 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
         // Gesichts-Ausschnitte AUS DIESEM FOTO – bei einem gesperrten Bild
         // wäre genau das ein Blick auf den verborgenen Inhalt.
         if (!gesperrt) ...[
+          IconButton(
+            tooltip: _asset.isFavorite
+                ? AppTexte.of(context).viewerFavoritEntfernen
+                : AppTexte.of(context).viewerFavoritSetzen,
+            icon: Icon(_asset.isFavorite
+                ? Icons.favorite
+                : Icons.favorite_border),
+            onPressed: _favoritUmschalten,
+          ),
+          IconButton(
+            tooltip: AppTexte.of(context).viewerInGesperrtenOrdner,
+            icon: const Icon(Icons.lock_outline),
+            onPressed: _inGesperrtenOrdner,
+          ),
           IconButton(
             tooltip: AppTexte.of(context).viewerInfo,
             icon: Icon(_infoSichtbar ? Icons.info : Icons.info_outline),

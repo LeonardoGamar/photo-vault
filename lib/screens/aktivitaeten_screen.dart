@@ -13,6 +13,7 @@ import '../theme/app_spacing.dart';
 import '../widgets/aktivitaetsart_anzeige.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/namens_dialog.dart';
+import '../widgets/zeitraum_dialog.dart';
 import 'aktivitaet_detail_screen.dart';
 
 /// Die Aktivitäten: Wanderungen, Radtouren, Ausflüge.
@@ -132,6 +133,52 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
     await _laden();
   }
 
+  /// Eine Aktivität von Hand anlegen – der Weg neben dem Vorschlag.
+  ///
+  /// Erkannt wird nur, was Fotos hergeben: vier Bilder über eine
+  /// Dreiviertelstunde und zwei Kilometer Weg. Die Radtour, von der es
+  /// zwei Bilder gibt, fällt durch dieses Raster – ohne dass sie deshalb
+  /// nicht stattgefunden hätte.
+  Future<void> _selbstAnlegen() async {
+    final t = AppTexte.of(context);
+    final db = widget.library.db;
+    final angabe = await frageZeitraum(
+      context,
+      titel: t.aktivitaetenSelbstAnlegen,
+      db: db,
+      mitArt: true,
+    );
+    if (angabe == null || !mounted) return;
+
+    final aufnahmen = await db.aufnahmenImZeitraum(angabe.von, angabe.bis);
+    final ids = [for (final a in aufnahmen) a.id];
+    // Dieselbe Zuordnung wie beim bestätigten Vorschlag: Liegt der
+    // Zeitraum in einer Reise, wird die Aktivität deren Kapitel.
+    final reisen = await db.alleReisen();
+    final reiseId = reiseFuerAktivitaet(
+      aufnahmeIds: ids,
+      von: angabe.von,
+      reiseJeAufnahme: await db.reiseJeAufnahme(),
+      reisen: [for (final r in reisen) (id: r.id, von: r.von, bis: r.bis)],
+    );
+
+    await db.aktivitaetAnlegen(
+      AktivitaetenCompanion.insert(
+        id: const Uuid().v4(),
+        name: angabe.name,
+        art: angabe.art!.kennung,
+        von: angabe.von,
+        bis: angabe.bis,
+        reiseId: Value(reiseId),
+        angelegtAm: DateTime.now(),
+      ),
+      ids,
+    );
+    if (!mounted) return;
+    melde.erfolg(t.aktivitaetenSelbstAngelegt(angabe.name));
+    await _laden();
+  }
+
   Future<void> _verwerfen(Aktivitaetsvorschlag v) async {
     await widget.library.db.verwirfAktivitaetsvorschlag(v.schluessel);
     await _laden();
@@ -159,6 +206,11 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
       appBar: AppBar(
         title: Text(t.aktivitaetenTitel),
         actions: [
+          IconButton(
+            tooltip: t.aktivitaetenSelbstAnlegen,
+            icon: const Icon(Icons.add),
+            onPressed: _laedt ? null : _selbstAnlegen,
+          ),
           IconButton(
             tooltip: t.reisenAktualisieren,
             icon: const Icon(Icons.refresh),

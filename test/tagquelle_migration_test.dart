@@ -15,6 +15,22 @@ import 'package:photo_vault/db/database.dart';
 /// Geprüft wird an einer echten Fassung-55-Datenbank: Die Spalte wird
 /// wieder entfernt und der Stempel zurückgesetzt, dann läuft die
 /// Migration beim nächsten Öffnen von selbst.
+/// Die Fassung, auf die diese App migriert – aus einer frisch angelegten
+/// Datenbank abgelesen statt als Zahl hingeschrieben.
+///
+/// Eine feste Nummer im Test bricht bei jedem Schemaschritt, und zwar an
+/// einer Stelle, die mit dem Schritt nichts zu tun hat (so geschehen bei
+/// 56 -> 57).
+Future<int> aktuelleFassung() async {
+  final frisch = AppDatabase(NativeDatabase.memory());
+  final v = await frisch
+      .customSelect('PRAGMA user_version')
+      .map((r) => r.read<int>('user_version'))
+      .getSingle();
+  await frisch.close();
+  return v;
+}
+
 void main() {
   late Directory temp;
   late File datei;
@@ -82,7 +98,7 @@ void main() {
         .customSelect('PRAGMA user_version')
         .map((r) => r.read<int>('user_version'))
         .getSingle();
-    expect(fassung, 56);
+    expect(fassung, await aktuelleFassung());
 
     expect(await quellen(db), {
       'verschlagwortet/Strand': Tagquelle.ki,
