@@ -8,7 +8,8 @@ import '../services/search_filters.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
-import '../widgets/mini_location_map.dart' show Kartenstil, buildMapAttribution, buildMapTileLayer;
+import '../widgets/mini_location_map.dart'
+    show Kachelschicht, Kartenstil, buildMapAttribution;
 import '../widgets/pin_dialogs.dart';
 import 'album_detail_screen.dart';
 import 'albums_screen.dart';
@@ -249,7 +250,7 @@ class _LocationsPreviewState extends State<_LocationsPreview> {
                           maxZoom: Kartenstil.dunkel.hoechsteAnzeigeStufe.toDouble(),
                         ),
                         children: [
-                          buildMapTileLayer(context),
+                          const Kachelschicht(),
                           buildMapAttribution(context),
                           MarkerLayer(
                             markers: [

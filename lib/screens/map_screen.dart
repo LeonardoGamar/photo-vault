@@ -629,7 +629,7 @@ class _MapScreenState extends State<MapScreen> {
           onPositionChanged: _onFlatPositionChanged,
         ),
         children: [
-          buildMapTileLayer(context, stil: stil),
+          Kachelschicht(stil: stil),
           buildMapAttribution(context, stil: stil),
           // Unter den Fotomarken: Wo beides am selben Ort liegt, gehört
           // das Foto obenauf – es lässt sich öffnen, das Ereignis nicht.

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:http/http.dart';
+import 'package:http/io_client.dart';
 import 'package:http/retry.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
@@ -321,6 +322,28 @@ Duration kachelWartezeit(int versuch) =>
 /// Wie oft ein gescheiterter Kachelabruf wiederholt wird.
 const kachelVersuche = 2;
 
+/// Wie viele Kachelabrufe gleichzeitig zum selben Server laufen dürfen.
+///
+/// **Ohne Grenze sind es so viele, wie das Bild Kacheln hat.** Dart legt
+/// für jeden gleichzeitigen Abruf eine eigene Verbindung an, und
+/// flutter_map fordert beim Ziehen alle sichtbaren Kacheln auf einmal
+/// an: bei einem grossen Fenster sechzig TLS-Handschläge in einem Zug,
+/// bei jedem Ruck neu. Die Kachelserver werden gespendet, und die
+/// Nutzungsregeln von OpenStreetMap bitten ausdrücklich um Zurückhaltung.
+///
+/// Sechs ist die Zahl, mit der auch Browser seit jeher arbeiten.
+/// Gemessen an vier Wellen zu je 60 Kacheln, echte Abrufe:
+///
+/// ```
+/// ohne Grenze   189, 72, 54, 53 ms
+/// Grenze 6      259, 198, 215, 200 ms
+/// Grenze 4      328, 291, 326, 288 ms
+/// ```
+///
+/// Der Preis ist also gut eine Zehntelsekunde je Bildschirmfüllung –
+/// nicht zu sehen – und dafür sechs Verbindungen statt sechzig.
+const kachelVerbindungen = 6;
+
 NetworkTileProvider? _kachelAnbieter;
 
 /// Der gemeinsame Kachelanbieter samt Wiederholungen.
@@ -331,16 +354,30 @@ NetworkTileProvider? _kachelAnbieter;
 /// zusätzlich ungefährlich, den einen weiterzureichen – der Anbieter
 /// schliesst in `dispose()` nur einen selbst erzeugten HTTP-Client, und
 /// unserer wird von aussen übergeben.
-NetworkTileProvider kartenKachelAnbieter() => _kachelAnbieter ??=
-    NetworkTileProvider(
-      httpClient: RetryClient(
-        Client(),
-        retries: kachelVersuche,
-        when: (antwort) => kachelNochmalVersuchen(antwort.statusCode),
-        whenError: (fehler, _) => kachelFehlerNochmalVersuchen(fehler),
-        delay: kachelWartezeit,
-      ),
+NetworkTileProvider kartenKachelAnbieter() =>
+    _kachelAnbieter ??= NetworkTileProvider(httpClient: kachelNetzClient());
+
+Client? _kachelNetz;
+
+/// Der Client, über den alle Kacheln kommen: mit Wiederholungen und mit
+/// gedeckelter Zahl gleichzeitiger Verbindungen ([kachelVerbindungen]).
+///
+/// Öffentlich, damit ein Prüfstand ihn gegen einen eigenen Server
+/// laufen lassen kann – die Deckelung ist sonst nirgends abzulesen.
+Client kachelNetzClient() => _kachelNetz ??= RetryClient(
+      IOClient(HttpClient()..maxConnectionsPerHost = kachelVerbindungen),
+      retries: kachelVersuche,
+      when: (antwort) => kachelNochmalVersuchen(antwort.statusCode),
+      whenError: (fehler, _) => kachelFehlerNochmalVersuchen(fehler),
+      delay: kachelWartezeit,
     );
+
+/// Untergeschobener Anbieter für Tests – sonst `null`.
+///
+/// Ein Prüfstand braucht Kacheln, die auf Ansage scheitern; über das
+/// Netz ist ein Fehlschlag nicht zu bestellen.
+@visibleForTesting
+TileProvider? kachelAnbieterFuerTest;
 
 /// Liefert die Kacheln des gewählten Stils.
 ///
@@ -348,18 +385,31 @@ NetworkTileProvider kartenKachelAnbieter() => _kachelAnbieter ??=
 /// dunkel eingefärbt ist (siehe main.dart), würde das nie helle Kacheln
 /// liefern; [MapScreen] übergibt deshalb den vom Nutzer gewählten Stil
 /// ausdrücklich, statt sich auf das App-Theme zu verlassen.
-TileLayer buildMapTileLayer(BuildContext context, {Kartenstil? stil}) {
+TileLayer buildMapTileLayer(
+  BuildContext context, {
+  Kartenstil? stil,
+  int runde = 0,
+  VoidCallback? beiFehler,
+}) {
   final gewaehlt = stil ?? _ausTheme(context);
   return TileLayer(
     urlTemplate: gewaehlt.kachelUrl,
     subdomains: gewaehlt.unterbereiche,
+    // Der Zähler steht in KEINER Adresse – er ist nur da, damit
+    // flutter_map beim Hochzählen `reloadImages` auslöst und die
+    // gescheiterten Kacheln neu anfordert. Siehe [Kachelschicht].
+    // Zusatzangaben, die in der Vorlage nicht vorkommen, verändern die
+    // Adresse nicht, und damit bleibt auch der Speicherschlüssel gleich.
+    additionalOptions: runde == 0 ? const {} : {'nachfassen': '$runde'},
+    errorTileCallback:
+        beiFehler == null ? null : (_, __, ___) => beiFehler(),
     // 19 ist die Vorgabe von flutter_map; nur OpenTopoMap hoert
     // frueher auf.
     maxNativeZoom: gewaehlt.hoechsteEchteStufe ?? 19,
     // OpenTopoMap bittet ausdrücklich um einen aussagekräftigen
     // User-Agent statt der Vorgabe der Bibliothek.
     userAgentPackageName: 'com.example.photoVault',
-    tileProvider: kartenKachelAnbieter(),
+    tileProvider: kachelAnbieterFuerTest ?? kartenKachelAnbieter(),
     // Die dunkle Karte ohne CARTO-Schlüssel bekommt helle OSM-Kacheln
     // geliefert und dreht sie hier um (siehe [Kartenstil.dunkel]).
     // `darkModeTileBuilder` gehört zu flutter_map selbst - es ist eine
@@ -375,8 +425,118 @@ TileLayer buildMapTileLayer(BuildContext context, {Kartenstil? stil}) {
     // beim Wegscrollen weggeworfen statt behalten. Die Vorgabe
     // `none` hiesse: Wer zu der Stelle zurückkehrt, sieht dieselbe
     // Lücke wieder - ohne dass je ein neuer Versuch stattfände.
+    //
+    // Für die Kachel, die im Bild BLEIBT, reicht das nicht: Sie wird
+    // nie weggescrollt und damit nie wieder versucht. Dafür ist
+    // [Kachelschicht] da.
     evictErrorTileStrategy: EvictErrorTileStrategy.notVisible,
   );
+}
+
+/// Wie lange nach einem Fehlschlag bis zum nächsten Anlauf gewartet
+/// wird. Der letzte Wert gilt danach weiter.
+///
+/// Fünf Sekunden, weil die gemessenen Ausfälle kurz waren – dieselben
+/// Kacheln kamen Sekunden später in unter 90 ms an. Danach länger, damit
+/// ein Rechner ohne Netz nicht alle fünf Sekunden gegen die Wand läuft.
+const kachelNachfassen = [
+  Duration(seconds: 5),
+  Duration(seconds: 15),
+  Duration(seconds: 45),
+];
+
+/// Bleibt es nach einem Anlauf so lange still, gilt die Störung als
+/// vorbei – die nächste fängt dann wieder bei fünf Sekunden an.
+const kachelGeheiltNach = Duration(seconds: 4);
+
+/// Die Kachelschicht, die einen Fehlschlag nicht als endgültig nimmt.
+///
+/// **Der Anlass, an echten Daten abgelesen.** In einer Minute machte die
+/// App 951 Verbindungen für 178 angekommene Kacheln – gut fünf Anläufe
+/// je Erfolg, also drei Versuche für rund 260 Kacheln, die alle
+/// scheiterten. Die Minute davor und die Minute danach standen bei
+/// eins zu eins. Ein kurzer Aussetzer beim Kachelserver also, und
+/// hinterher fehlten in der Bibliothek 145 von 195 Kacheln des
+/// Ausschnitts.
+///
+/// **Warum daraus ein Dauerschaden wurde:** Wiederholt wird zweimal, mit
+/// 0,4 und 1,6 Sekunden Abstand (siehe [kachelWartezeit]). Danach gilt
+/// die Kachel als gescheitert. Weggeworfen wird eine gescheiterte Kachel
+/// nur, wenn sie aus dem Bild geschoben wird
+/// ([EvictErrorTileStrategy.notVisible]) – wer stehen bleibt, sieht
+/// seine graue Lücke bis zum Programmende. Genau das zeigten die beiden
+/// Bildschirmfotos: eine Karte, die zu drei Vierteln grau blieb, obwohl
+/// der Server längst wieder antwortete.
+///
+/// **Wie sie nachfasst:** Meldet flutter_map eine gescheiterte Kachel,
+/// läuft eine Uhr. Wenn sie abgelaufen ist, zählt diese Schicht eine
+/// Zusatzangabe hoch, die in keiner Adresse vorkommt. flutter_map
+/// vergleicht die Zusatzangaben und lädt daraufhin die Bilder aller
+/// Kacheln neu – **ohne** die vorhandenen wegzuwerfen. Für eine Kachel,
+/// die schon liegt, ändert sich dabei nichts (gleicher Bildschlüssel,
+/// kein neuer Abruf, kein Flackern); die gescheiterte bekommt einen
+/// neuen Anlauf.
+///
+/// Die Alternative wäre der `reset`-Strom von flutter_map gewesen. Der
+/// wirft erst alle Kacheln weg und baut sie neu auf – das flackert bei
+/// jedem Anlauf über die ganze Karte.
+class Kachelschicht extends StatefulWidget {
+  const Kachelschicht({super.key, this.stil});
+
+  /// Ohne Angabe richtet sich der Stil nach dem Theme – siehe
+  /// [buildMapTileLayer].
+  final Kartenstil? stil;
+
+  @override
+  State<Kachelschicht> createState() => _KachelschichtState();
+}
+
+class _KachelschichtState extends State<Kachelschicht> {
+  /// Zählt jeden Anlauf. Steht in keiner Adresse, siehe Klassenkommentar.
+  int _runde = 0;
+
+  /// Der wievielte Anlauf dieser Störung – bestimmt die Wartezeit.
+  int _stufe = 0;
+
+  Timer? _uhr;
+  Timer? _stille;
+
+  void _kachelGescheitert() {
+    // Ein neuer Fehler heisst: der letzte Anlauf hat nicht geholfen.
+    _stille?.cancel();
+    _stille = null;
+    // Eine Uhr genügt für alle Kacheln einer Störung – sonst liefen bei
+    // sechzig grauen Kacheln sechzig Uhren.
+    if (_uhr != null) return;
+    final warten = _stufe < kachelNachfassen.length
+        ? kachelNachfassen[_stufe]
+        : kachelNachfassen.last;
+    _uhr = Timer(warten, () {
+      _uhr = null;
+      if (!mounted) return;
+      _stufe++;
+      setState(() => _runde++);
+      _stille = Timer(kachelGeheiltNach, () {
+        _stille = null;
+        _stufe = 0;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _uhr?.cancel();
+    _stille?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => buildMapTileLayer(
+        context,
+        stil: widget.stil,
+        runde: _runde,
+        beiFehler: _kachelGescheitert,
+      );
 }
 
 Kartenstil _ausTheme(BuildContext context) =>
@@ -486,7 +646,7 @@ class MiniLocationMap extends StatelessWidget {
                     : (_, point) => onLocationChanged!(point.latitude, point.longitude),
               ),
               children: [
-                buildMapTileLayer(context),
+                const Kachelschicht(),
                 buildMapAttribution(context),
                 if (_hasLocation)
                   MarkerLayer(markers: [

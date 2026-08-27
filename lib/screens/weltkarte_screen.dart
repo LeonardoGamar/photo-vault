@@ -15,7 +15,7 @@ import '../theme/app_spacing.dart';
 import 'ortsansicht_screen.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/mini_location_map.dart'
-    show buildMapAttribution, buildMapTileLayer, kartenHoechsteStufe;
+    show Kachelschicht, buildMapAttribution, kartenHoechsteStufe;
 
 /// Die Welt als Karte: wo du warst, und wo du hinwillst.
 ///
@@ -501,7 +501,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                     onTap: (_, stelle) => _klick(stelle),
                   ),
                   children: [
-                    buildMapTileLayer(context),
+                    const Kachelschicht(),
                     // Nur gezeichnet, nicht bedienbar: Die Frage, welches
                     // Gebiet unter dem Zeiger liegt, beantwortet _klick
                     // selbst – und genauer, als hitNotifier es könnte,

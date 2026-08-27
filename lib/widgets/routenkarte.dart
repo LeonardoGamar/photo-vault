@@ -20,7 +20,7 @@ import '../services/reiseroute.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 import 'mini_location_map.dart'
-    show buildMapAttribution, buildMapTileLayer, kartenHoechsteStufe;
+    show Kachelschicht, buildMapAttribution, kartenHoechsteStufe;
 
 class Routenkarte extends StatelessWidget {
   final List<Routenpunkt> route;
@@ -85,7 +85,7 @@ class Routenkarte extends StatelessWidget {
             maxZoom: kartenHoechsteStufe(context),
           ),
           children: [
-            buildMapTileLayer(context),
+            const Kachelschicht(),
             PolylineLayer(polylines: [
               Polyline(
                 points: punkte,

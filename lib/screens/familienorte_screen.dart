@@ -205,7 +205,7 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
         },
       ),
       children: [
-        buildMapTileLayer(context, stil: Kartenstil.dunkel),
+        const Kachelschicht(stil: Kartenstil.dunkel),
         buildMapAttribution(context, stil: Kartenstil.dunkel),
         // Die Ereignisse liegen UNTER den Fotomarken: Wo beides am
         // selben Ort ist, soll das Foto obenauf liegen – es lässt sich
