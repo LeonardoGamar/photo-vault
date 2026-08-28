@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../screens/person_detail_screen.dart';
+import '../services/reverse_geocoder.dart';
 import '../services/asset_format.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
@@ -77,6 +78,9 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
 
   late final TextEditingController _ortController = TextEditingController();
   bool _ortSucheLaeuft = false;
+
+  /// Die Vorschläge unter dem Suchfeld – höchstens sechs.
+  List<OrtsTreffer> _ortVorschlaege = const [];
   late final TextEditingController _kiController = TextEditingController();
   late final FocusNode _kiFocusNode = FocusNode()..addListener(_onKiFocusChange);
 
@@ -267,6 +271,52 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   /// Antwort die Zahl der übrigen. Gewählt wird der nächstgelegene zum
   /// bisherigen Ort des Fotos, sonst der grösste; entscheidet
   /// [ReverseGeocoder.sucheOrt].
+  /// Bei jedem Tastendruck: Vorschläge nachführen.
+  ///
+  /// Ohne Verzögerung und ohne Nebenläufigkeit – die Suche läuft auf
+  /// einer Liste, die ohnehin im Speicher liegt, und braucht dafür
+  /// Bruchteile einer Millisekunde. Ein Debounce wäre hier eine Lösung
+  /// für ein Problem, das es nicht gibt.
+  void _ortEingabe(String eingabe) {
+    final geo = context.read<LibraryState>().geocoder;
+    final text = eingabe.trim();
+    if (geo == null || text.length < 2) {
+      if (_ortVorschlaege.isNotEmpty) {
+        setState(() => _ortVorschlaege = const []);
+      }
+      return;
+    }
+    // Erst die Orte zum getippten Namen. Sind es keine, den Namen selbst
+    // vorschlagen – wer „Gos" tippt, meint vielleicht Goslar.
+    var treffer = geo.sucheOrte(
+      text,
+      naheBreite: _asset.latitude,
+      naheLaenge: _asset.longitude,
+    );
+    if (treffer.isEmpty) {
+      treffer = [
+        for (final name in geo.namensvorschlaege(text, hoechstens: 6))
+          ...geo.sucheOrte(name,
+              naheBreite: _asset.latitude,
+              naheLaenge: _asset.longitude,
+              hoechstens: 1)
+      ];
+    }
+    setState(() => _ortVorschlaege = treffer);
+  }
+
+  /// Ein Vorschlag wurde angetippt.
+  Future<void> _ortUebernehmen(OrtsTreffer treffer) async {
+    await _setLocation(treffer.breite, treffer.laenge);
+    if (!mounted) return;
+    _ortController.clear();
+    setState(() => _ortVorschlaege = const []);
+    melde.erfolg(AppTexte.of(context).infoOrtGesetzt(
+        treffer.herkunft.isEmpty
+            ? treffer.name
+            : '${treffer.name}, ${treffer.herkunft}'));
+  }
+
   Future<void> _sucheOrt() async {
     final eingabe = _ortController.text.trim();
     if (eingabe.isEmpty || _ortSucheLaeuft) return;
@@ -290,6 +340,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
       await _setLocation(treffer.breite, treffer.laenge);
       if (!mounted) return;
       _ortController.clear();
+      setState(() => _ortVorschlaege = const []);
       final bezeichnung = treffer.land == null
           ? treffer.name
           : '${treffer.name}, ${treffer.land}';
@@ -617,6 +668,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                             prefixIcon: const Icon(Icons.travel_explore, size: 20),
                             border: const OutlineInputBorder(),
                           ),
+                          onChanged: _ortEingabe,
                           onSubmitted: (_) => _sucheOrt(),
                         ),
                       ),
@@ -634,6 +686,56 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                     ],
                   ),
                 ),
+                // Die Vorschläge. **Der eigentliche Umbau**: Bis hierher
+                // entschied die Suche sofort und sagte erst hinterher,
+                // dass die Wahl eine Vermutung war („es gibt 23 weitere
+                // gleichen Namens"). Wer den Ort seines Fotos kennt, will
+                // ihn auswählen, nicht hinterher berichtigen.
+                if (_ortVorschlaege.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.sm),
+                    child: Material(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final v in _ortVorschlaege)
+                            ListTile(
+                              dense: true,
+                              visualDensity: VisualDensity.compact,
+                              leading: const Icon(Icons.place_outlined,
+                                  size: 18),
+                              title: Text(v.name),
+                              subtitle: v.herkunft.isEmpty
+                                  ? null
+                                  : Text(v.herkunft),
+                              // Die Einwohnerzahl beantwortet „welches
+                              // Berlin?", ohne dass jemand die Landkarte
+                              // im Kopf haben muss.
+                              trailing: v.einwohner == 0
+                                  ? null
+                                  : Text(
+                                      NumberFormat.compact(
+                                              locale: Localizations.localeOf(
+                                                      context)
+                                                  .toString())
+                                          .format(v.einwohner),
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant),
+                                    ),
+                              onTap: () => _ortUebernehmen(v),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 MiniLocationMap(
                   latitude: asset.latitude,
                   longitude: asset.longitude,

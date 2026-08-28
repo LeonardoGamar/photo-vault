@@ -24,12 +24,17 @@ void main() {
     expect(kartenKachelFrische.inDays, lessThanOrEqualTo(90));
   });
 
-  test('die Speichergrenze ist gesetzt und massvoll', () {
-    // Die Vorgabe von flutter_map ist 1 GB. Fuer eine Fotoverwaltung,
-    // deren Karte ein Nebenschauplatz ist, waere das viel.
-    expect(kartenSpeicherGrenze, greaterThan(50 * 1024 * 1024),
-        reason: 'zu klein hiesse staendiges Nachladen');
-    expect(kartenSpeicherGrenze, lessThanOrEqualTo(500 * 1024 * 1024));
+  test('die Speichergrenze traegt einen vorgeladenen Vorrat', () {
+    // Bis 2.2.2 galten 300 MB, weil die Karte nur nachlud, was gerade
+    // angesehen wurde. Seit sich Gebiete vorladen lassen, ist das zu
+    // wenig: Die neun Gebiete der echten Bibliothek sind bis Stufe 14
+    // rund 850 MB, und der Aufraeumer haette weggeworfen, was gerade
+    // erst geholt wurde.
+    expect(kartenSpeicherGrenze, greaterThanOrEqualTo(2 * 1024 * 1024 * 1024),
+        reason: 'ein Vorrat muss hineinpassen, sonst ist er sinnlos');
+    // Eine Obergrenze braucht es trotzdem: Ohne sie waechst der
+    // Zwischenspeicher unbegrenzt.
+    expect(kartenSpeicherGrenze, lessThanOrEqualTo(8 * 1024 * 1024 * 1024));
   });
 
   group('Die Verdrahtung', () {

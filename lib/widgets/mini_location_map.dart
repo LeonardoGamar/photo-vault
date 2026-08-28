@@ -10,7 +10,9 @@ import 'package:http/io_client.dart';
 import 'package:http/retry.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
+import '../services/kachelmitschnitt.dart';
 import '../theme/app_spacing.dart';
+import 'wisch_zoom.dart';
 
 /// Der eigene CARTO-Schlüssel, oder null.
 ///
@@ -220,10 +222,17 @@ const kartenKachelFrische = Duration(days: 30);
 
 /// Obergrenze des Kachelspeichers auf der Platte.
 ///
-/// Die Vorgabe von flutter_map ist 1 GB. Für eine Fotoverwaltung, deren
-/// Karte ein Nebenschauplatz ist, wäre das viel; 300 MB fassen mehrere
-/// zehntausend Kacheln.
-const kartenSpeicherGrenze = 300 * 1024 * 1024;
+/// **Von 300 MB auf 4 GB angehoben**, seit sich Gebiete vorladen lassen
+/// (siehe `services/kachelvorrat.dart`). An der echten Bibliothek
+/// gerechnet: 1.092 verortete Aufnahmen ergeben neun Gebiete, und die
+/// bis Stufe 14 vorzuhalten sind 29.039 Kacheln – rund 850 MB. Für
+/// einen zweiten Kartenstil noch einmal so viel. Mit der alten Grenze
+/// hätte der Aufräumer weggeworfen, was gerade erst geholt wurde.
+///
+/// Vier Gigabyte sind viel für einen Zwischenspeicher und wenig neben
+/// einer Fotobibliothek. Wer nichts vorlädt, merkt davon nichts: Der
+/// Speicher wächst nur mit dem, was tatsächlich angesehen wird.
+const kartenSpeicherGrenze = 4 * 1024 * 1024 * 1024;
 
 /// Richtet den Kachelspeicher ein. **Einmal beim Start, vor der ersten
 /// Karte.**
@@ -365,12 +374,62 @@ Client? _kachelNetz;
 /// Öffentlich, damit ein Prüfstand ihn gegen einen eigenen Server
 /// laufen lassen kann – die Deckelung ist sonst nirgends abzulesen.
 Client kachelNetzClient() => _kachelNetz ??= RetryClient(
-      IOClient(HttpClient()..maxConnectionsPerHost = kachelVerbindungen),
+      MitschnittClient(IOClient(kachelHttpClient()), Kachelmitschnitt.instanz),
       retries: kachelVersuche,
       when: (antwort) => kachelNochmalVersuchen(antwort.statusCode),
       whenError: (fehler, _) => kachelFehlerNochmalVersuchen(fehler),
       delay: kachelWartezeit,
     );
+
+/// Der `HttpClient` unter allem: gedeckelte Verbindungszahl – und eine
+/// Verbindungsfabrik, deren einzige Aufgabe das Zählen ist.
+///
+/// **Warum die Fabrik und nicht der Client darüber zählt.** Ein
+/// HTTP-Abruf ist nicht dasselbe wie eine Verbindung: Bleibt sie offen,
+/// laufen zwanzig Abrufe über eine einzige. Genau dieser Unterschied ist
+/// die offene Frage bei den grauen Kacheln – von aussen waren 5702
+/// Verbindungen für 496 Kacheln zu sehen, ohne dass sich sagen liesse,
+/// ob zu oft abgerufen oder zu oft neu verbunden wurde.
+/// `connectionFactory` wird von dart:io **genau dann** gerufen, wenn eine
+/// neue Verbindung entsteht. Damit steht die Zahl unmittelbar.
+@visibleForTesting
+HttpClient kachelHttpClient() => HttpClient()
+  ..maxConnectionsPerHost = kachelVerbindungen
+  ..connectionFactory = kachelVerbindung;
+
+/// Öffnet die Verbindung, die ein Kachelabruf braucht – und zählt sie.
+///
+/// **Die Falle, in die ich hier zuerst gelaufen bin.** Wer eine
+/// `connectionFactory` setzt, übernimmt damit auch die Verschlüsselung:
+/// `HttpClient` legt **kein** TLS über einen Socket, den es nicht selbst
+/// geöffnet hat. Mit einem schlichten `Socket.startConnect` ging jeder
+/// Abruf also unverschlüsselt an Port 443 – und der Server sagte, was zu
+/// erwarten war:
+///
+/// ```
+/// 400 The plain HTTP request was sent to HTTPS port
+/// connection: close
+/// ```
+///
+/// Nicht eine einzige Kachel kam an, und weil nginx nach diesem Fehler
+/// zumacht, kostete jeder Abruf eine eigene Verbindung. Aufgefallen ist
+/// es dem Mitschnitt, für den die Fabrik gebaut wurde – im Prüfstand
+/// nicht, denn der lief über `http://` auf der eigenen Maschine, und dort
+/// ist genau nichts zu verschlüsseln.
+///
+/// Bei einem Proxy bleibt es beim nackten Socket: Dorthin spricht
+/// `HttpClient` erst `CONNECT` und baut den TLS-Tunnel danach selbst auf.
+@visibleForTesting
+Future<ConnectionTask<Socket>> kachelVerbindung(
+    Uri ziel, String? proxyRechner, int? proxyTor) {
+  Kachelmitschnitt.instanz.verbindungGeoeffnet();
+  if (proxyRechner != null) {
+    return Socket.startConnect(proxyRechner, proxyTor!);
+  }
+  return ziel.scheme == 'https'
+      ? SecureSocket.startConnect(ziel.host, ziel.port)
+      : Socket.startConnect(ziel.host, ziel.port);
+}
 
 /// Untergeschobener Anbieter für Tests – sonst `null`.
 ///
@@ -600,7 +659,7 @@ const _pinZoom = 14.0;
 /// gesetzt, lässt sich der Ort durch Antippen der Karte festlegen bzw.
 /// korrigieren (z.B. wenn ein Video keine EXIF-GPS-Daten hat oder das Foto
 /// am falschen Ort geotaggt wurde).
-class MiniLocationMap extends StatelessWidget {
+class MiniLocationMap extends StatefulWidget {
   final double? latitude;
   final double? longitude;
   final double height;
@@ -620,30 +679,66 @@ class MiniLocationMap extends StatelessWidget {
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
   });
 
-  bool get _hasLocation => latitude != null && longitude != null;
+  @override
+  State<MiniLocationMap> createState() => _MiniLocationMapState();
+}
+
+class _MiniLocationMapState extends State<MiniLocationMap> {
+  /// Steuert die Karte von aussen – für die beiden Zoomknöpfe und für
+  /// den Wischzoom.
+  final _steuerung = MapController();
+
+  bool get _hasLocation =>
+      widget.latitude != null && widget.longitude != null;
+
+  /// Ein Zoomschritt über die Knöpfe.
+  ///
+  /// Geklemmt wird selbst: `move` nimmt jeden Wert an und die Karte
+  /// stünde dann über den vorhandenen Kacheln (siehe
+  /// [Kartenstil.hoechsteAnzeigeStufe]).
+  void _zoomen(double schritt) {
+    final kamera = _steuerung.camera;
+    final grenze = _ausTheme(context).hoechsteAnzeigeStufe.toDouble();
+    final neu = (kamera.zoom + schritt).clamp(1.0, grenze);
+    if (neu == kamera.zoom) return;
+    _steuerung.move(kamera.center, neu);
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    final center = _hasLocation ? ll.LatLng(latitude!, longitude!) : _defaultCenter;
-    final editable = onLocationChanged != null;
+    final center = _hasLocation
+        ? ll.LatLng(widget.latitude!, widget.longitude!)
+        : _defaultCenter;
+    final editable = widget.onLocationChanged != null;
+    final hoechsteStufe = _ausTheme(context).hoechsteAnzeigeStufe.toDouble();
 
     return ClipRRect(
-      borderRadius: borderRadius,
+      borderRadius: widget.borderRadius,
       child: SizedBox(
-        height: height,
+        height: widget.height,
         child: Stack(
           children: [
-            FlutterMap(
+            // Der Wischzoom sitzt aussen herum, aus demselben Grund wie
+            // auf der grossen Karte: Eine Maus ohne Rad (Magic Mouse)
+            // und ein Trackpad verschieben sonst nur. Bis hierher liess
+            // sich diese Karte damit überhaupt nicht zoomen.
+            WischZoom(
+              steuerung: _steuerung,
+              groesserZoom: hoechsteStufe,
+              child: FlutterMap(
+              mapController: _steuerung,
               options: MapOptions(
                 initialCenter: center,
                 initialZoom: _hasLocation ? _pinZoom : _defaultZoom,
                 // Auch hier: ohne Grenze zoomt die Karte ueber die
                 // vorhandenen Kacheln hinaus – siehe
                 // [Kartenstil.hoechsteAnzeigeStufe].
-                maxZoom: _ausTheme(context).hoechsteAnzeigeStufe.toDouble(),
+                maxZoom: hoechsteStufe,
                 onTap: !editable
                     ? null
-                    : (_, point) => onLocationChanged!(point.latitude, point.longitude),
+                    : (_, point) =>
+                        widget.onLocationChanged!(point.latitude, point.longitude),
               ),
               children: [
                 const Kachelschicht(),
@@ -659,6 +754,17 @@ class MiniLocationMap extends StatelessWidget {
                     ),
                   ]),
               ],
+            ),
+            ),
+            // Die beiden Knöpfe – der Weg, der immer geht, egal welches
+            // Zeigegerät angeschlossen ist.
+            Positioned(
+              right: 4,
+              bottom: 4,
+              child: _Zoomknoepfe(
+                beiNaeher: () => _zoomen(1),
+                beiWeiter: () => _zoomen(-1),
+              ),
             ),
             if (!_hasLocation && editable)
               Positioned.fill(
@@ -684,4 +790,60 @@ class MiniLocationMap extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Zwei kleine Knöpfe zum Zoomen.
+///
+/// Eigenes, kleines Widget statt der `_Kartensteuerung` der grossen
+/// Karte: Die trägt Standortabfrage und Ereignisschalter mit sich und
+/// wäre in einer 160 Punkte hohen Vorschau zu gross.
+class _Zoomknoepfe extends StatelessWidget {
+  final VoidCallback beiNaeher;
+  final VoidCallback beiWeiter;
+
+  const _Zoomknoepfe({required this.beiNaeher, required this.beiWeiter});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    return Material(
+      color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.85),
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _Knopf(
+              symbol: Icons.add,
+              hinweis: t.karteHineinzoomen,
+              beiDruck: beiNaeher),
+          _Knopf(
+              symbol: Icons.remove,
+              hinweis: t.karteHerauszoomen,
+              beiDruck: beiWeiter),
+        ],
+      ),
+    );
+  }
+}
+
+class _Knopf extends StatelessWidget {
+  final IconData symbol;
+  final String hinweis;
+  final VoidCallback beiDruck;
+
+  const _Knopf(
+      {required this.symbol, required this.hinweis, required this.beiDruck});
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: hinweis,
+        child: InkWell(
+          onTap: beiDruck,
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Icon(symbol,
+                size: 18, color: Theme.of(context).colorScheme.onSurface),
+          ),
+        ),
+      );
 }

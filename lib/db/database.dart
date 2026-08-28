@@ -3583,6 +3583,53 @@ class AppDatabase extends _$AppDatabase {
         ));
   }
 
+  /// Wie viele Schlagwörter die Bilderkennung vergeben hat.
+  ///
+  /// Für die Rückfrage vor dem Zurücknehmen: Eine Zahl zu nennen ist der
+  /// Unterschied zwischen einer Warnung und einer Behauptung.
+  Future<int> kiTagAnzahl() async {
+    final zeile = await customSelect(
+      'SELECT COUNT(*) AS anzahl FROM asset_tags WHERE quelle = ?',
+      variables: const [Variable<String>(Tagquelle.ki)],
+      readsFrom: {assetTags},
+    ).getSingle();
+    return zeile.read<int>('anzahl');
+  }
+
+  /// Nimmt **alle** von der Bilderkennung vergebenen Schlagwörter zurück.
+  ///
+  /// **Von Hand vergebene bleiben unangetastet** – das ist der ganze Grund,
+  /// warum in `asset_tags` seit Schema 56 die Herkunft steht (siehe
+  /// [Tagquelle]). Wer einen Begriff selbst vergeben hat, hat ihn damit
+  /// übernommen; die Zeile steht auf `hand` und fällt hier nicht mit.
+  ///
+  /// Zusätzlich wird der Vermerk „schon durchgesehen" an den Aufnahmen
+  /// gelöscht. Ohne ihn bliebe die Bibliothek nach dem Zurücknehmen leer:
+  /// Die Bilderkennung überspringt jede Aufnahme, die den Vermerk trägt,
+  /// und würde die Schlagwörter deshalb nie neu vergeben.
+  ///
+  /// Verwaiste Schlagwörter, die danach an keiner Aufnahme mehr hängen,
+  /// werden mit entfernt – sonst bliebe die Auswahlliste in der Suche voll
+  /// von Begriffen ohne ein einziges Foto.
+  Future<int> nimmKiTagsZurueck() async {
+    return transaction(() async {
+      final anzahl = await kiTagAnzahl();
+      await (delete(assetTags)..where((t) => t.quelle.equals(Tagquelle.ki)))
+          .go();
+      await customUpdate(
+        'UPDATE assets SET ai_tags_scanned = 0',
+        updates: {assets},
+        updateKind: UpdateKind.update,
+      );
+      await customUpdate(
+        'DELETE FROM tags WHERE id NOT IN (SELECT tag_id FROM asset_tags)',
+        updates: {tags},
+        updateKind: UpdateKind.delete,
+      );
+      return anzahl;
+    });
+  }
+
   Future<void> untagAsset(String assetId, String tagId) => (delete(assetTags)
         ..where((t) => t.assetId.equals(assetId) & t.tagId.equals(tagId)))
       .go();

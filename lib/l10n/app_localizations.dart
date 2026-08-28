@@ -9874,6 +9874,276 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Noch einmal versuchen'**
   String get gelaendeErneut;
+
+  /// No description provided for @einstKiTagsZurueck.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-Schlagwörter zurücknehmen'**
+  String get einstKiTagsZurueck;
+
+  /// No description provided for @einstKiTagsZurueckText.
+  ///
+  /// In de, this message translates to:
+  /// **'Wird gezählt …'**
+  String get einstKiTagsZurueckText;
+
+  /// No description provided for @einstKiTagsZurueckAnzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} von der Bilderkennung vergeben – von Hand vergebene bleiben'**
+  String einstKiTagsZurueckAnzahl(int anzahl);
+
+  /// No description provided for @einstKiTagsZurueckFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Schlagwörter der Bilderkennung werden entfernt. Von Hand vergebene bleiben unangetastet. Danach vergibt die Bilderkennung sie nach der neuen Regel neu.'**
+  String einstKiTagsZurueckFrage(int anzahl);
+
+  /// No description provided for @einstKiTagsZurueckJetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Zurücknehmen'**
+  String get einstKiTagsZurueckJetzt;
+
+  /// No description provided for @einstKiTagsZurueckFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Schlagwörter zurückgenommen.'**
+  String einstKiTagsZurueckFertig(int anzahl);
+
+  /// No description provided for @papierkorbAusgewaehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} ausgewählt'**
+  String papierkorbAusgewaehlt(int anzahl);
+
+  /// No description provided for @papierkorbHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Zum Wiederherstellen den Pfeil auf dem Bild antippen. Lange drücken wählt mehrere aus.'**
+  String get papierkorbHinweis;
+
+  /// No description provided for @aktivitaetenWeitere.
+  ///
+  /// In de, this message translates to:
+  /// **'+{anzahl} weitere'**
+  String aktivitaetenWeitere(int anzahl);
+
+  /// No description provided for @einstVorladenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Kartengebiete vorladen'**
+  String get einstVorladenTitel;
+
+  /// No description provided for @einstVorladenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Holt die Kacheln der eigenen Fotogebiete auf die Platte – danach braucht die Karte dort kein Netz mehr'**
+  String get einstVorladenText;
+
+  /// No description provided for @einstVorladenKeineOrte.
+  ///
+  /// In de, this message translates to:
+  /// **'Es gibt noch keine verorteten Aufnahmen.'**
+  String get einstVorladenKeineOrte;
+
+  /// No description provided for @einstVorladenFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'{gebiete} Gebiete, {kacheln} Kacheln, rund {mb} MB. Das dauert eine Weile und läuft im Hintergrund weiter, solange die Einstellungen offen sind.'**
+  String einstVorladenFrage(int gebiete, int kacheln, int mb);
+
+  /// No description provided for @einstVorladenStarten.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorladen'**
+  String get einstVorladenStarten;
+
+  /// No description provided for @einstVorladenStand.
+  ///
+  /// In de, this message translates to:
+  /// **'{fertig} von {gesamt}'**
+  String einstVorladenStand(int fertig, int gesamt);
+
+  /// No description provided for @einstVorladenFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'{geladen} Kacheln geladen, {fehler} nicht erreichbar.'**
+  String einstVorladenFertig(int geladen, int fehler);
+
+  /// No description provided for @mitschnittTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Kachel-Mitschnitt'**
+  String get mitschnittTitel;
+
+  /// No description provided for @mitschnittErklaerung.
+  ///
+  /// In de, this message translates to:
+  /// **'Schreibt für jede Kartenkachel mit, was das Netz wirklich zurückgibt: Statuscode, Ausnahme, Dauer und ob der Server die Verbindung offen lässt. Kacheln aus dem Kartenspeicher tauchen nicht auf – sie kommen nie am Netz an.'**
+  String get mitschnittErklaerung;
+
+  /// No description provided for @mitschnittStarten.
+  ///
+  /// In de, this message translates to:
+  /// **'Mitschnitt starten'**
+  String get mitschnittStarten;
+
+  /// No description provided for @mitschnittAnhalten.
+  ///
+  /// In de, this message translates to:
+  /// **'Anhalten'**
+  String get mitschnittAnhalten;
+
+  /// No description provided for @mitschnittLeeren.
+  ///
+  /// In de, this message translates to:
+  /// **'Leeren'**
+  String get mitschnittLeeren;
+
+  /// No description provided for @mitschnittLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Läuft. Jetzt die Karte öffnen und so lange zoomen, bis die grauen Kacheln auftreten.'**
+  String get mitschnittLaeuft;
+
+  /// No description provided for @mitschnittAus.
+  ///
+  /// In de, this message translates to:
+  /// **'Angehalten.'**
+  String get mitschnittAus;
+
+  /// No description provided for @mitschnittNochNichts.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch nichts mitgeschrieben.'**
+  String get mitschnittNochNichts;
+
+  /// No description provided for @mitschnittVerbJeAbruf.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbindungen je Abruf'**
+  String get mitschnittVerbJeAbruf;
+
+  /// No description provided for @mitschnittAbrufeJeKachel.
+  ///
+  /// In de, this message translates to:
+  /// **'Abrufe je Kachel'**
+  String get mitschnittAbrufeJeKachel;
+
+  /// No description provided for @mitschnittAbrufe.
+  ///
+  /// In de, this message translates to:
+  /// **'Abrufe'**
+  String get mitschnittAbrufe;
+
+  /// No description provided for @mitschnittVerbindungen.
+  ///
+  /// In de, this message translates to:
+  /// **'Verbindungen'**
+  String get mitschnittVerbindungen;
+
+  /// No description provided for @mitschnittKacheln.
+  ///
+  /// In de, this message translates to:
+  /// **'verschiedene Kacheln'**
+  String get mitschnittKacheln;
+
+  /// No description provided for @mitschnittGeglueckt.
+  ///
+  /// In de, this message translates to:
+  /// **'geglückt'**
+  String get mitschnittGeglueckt;
+
+  /// No description provided for @mitschnittFehlgeschlagen.
+  ///
+  /// In de, this message translates to:
+  /// **'fehlgeschlagen'**
+  String get mitschnittFehlgeschlagen;
+
+  /// No description provided for @mitschnittAbgebrochen.
+  ///
+  /// In de, this message translates to:
+  /// **'abgebrochen'**
+  String get mitschnittAbgebrochen;
+
+  /// No description provided for @mitschnittWiederholte.
+  ///
+  /// In de, this message translates to:
+  /// **'mehrfach geholt'**
+  String get mitschnittWiederholte;
+
+  /// No description provided for @mitschnittOhneDauer.
+  ///
+  /// In de, this message translates to:
+  /// **'Server schloss die Verbindung'**
+  String get mitschnittOhneDauer;
+
+  /// No description provided for @mitschnittStatusTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Statuscodes'**
+  String get mitschnittStatusTitel;
+
+  /// No description provided for @mitschnittFehlerTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Fehler'**
+  String get mitschnittFehlerTitel;
+
+  /// No description provided for @mitschnittLetzteTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Die letzten Abrufe'**
+  String get mitschnittLetzteTitel;
+
+  /// No description provided for @mitschnittKopieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Bericht kopieren'**
+  String get mitschnittKopieren;
+
+  /// No description provided for @mitschnittKopiert.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Bericht liegt in der Zwischenablage.'**
+  String get mitschnittKopiert;
+
+  /// No description provided for @einstMitschnittTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Kachel-Mitschnitt'**
+  String get einstMitschnittTitel;
+
+  /// No description provided for @einstMitschnittText.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufzeichnen, was beim Laden der Karte wirklich passiert.'**
+  String get einstMitschnittText;
+
+  /// No description provided for @mitschnittDauer.
+  ///
+  /// In de, this message translates to:
+  /// **'Im Mittel {ms} ms, längste {max} ms'**
+  String mitschnittDauer(int ms, int max);
+
+  /// No description provided for @mitschnittDaten.
+  ///
+  /// In de, this message translates to:
+  /// **'{mb} MB geladen'**
+  String mitschnittDaten(String mb);
+
+  /// No description provided for @mitschnittVerworfen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} ältere Einträge sind der Grenze zum Opfer gefallen.'**
+  String mitschnittVerworfen(int anzahl);
+
+  /// No description provided for @mitschnittMalGeholt.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl}x'**
+  String mitschnittMalGeholt(int anzahl);
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

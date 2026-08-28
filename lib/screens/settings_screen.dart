@@ -23,13 +23,16 @@ import '../state/library_state.dart';
 import '../services/platform/reveal_in_file_manager.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
-import '../widgets/mini_location_map.dart' show setzeCartoSchluessel;
 import '../widgets/pin_dialogs.dart';
 import '../widgets/progress_dialog.dart';
 import '../widgets/typed_confirm_dialog.dart';
 import 'background_tasks_screen.dart';
 import 'locked_folder_screen.dart';
 import 'trash_screen.dart';
+import '../services/kachelvorrat.dart';
+import '../widgets/mini_location_map.dart' show Kartenstil, setzeCartoSchluessel;
+import 'kachelmitschnitt_screen.dart';
+import 'map_screen.dart' show Kartenansicht;
 import '../services/meldungsdienst.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -156,6 +159,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    // Ohne das läuft das Vorladen weiter, nachdem der Bildschirm zu ist –
+    // und `setState` auf einem abgeräumten Zustand wirft.
+    _vorratLauf?.cancel();
     _aiTagVocabularyController.dispose();
     _suche.dispose();
     _cartoSchluessel.dispose();
@@ -1419,7 +1425,130 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
+        // Der Weg zurück. Er steht hier und nicht bei den Werkzeugen,
+        // weil er zum Vokabular gehört: Wer die Begriffe ändert, will
+        // meist auch die damit vergebenen Schlagwörter neu haben.
+        FutureBuilder<int>(
+          future: widget.library.db.kiTagAnzahl(),
+          builder: (context, schnappschuss) {
+            final anzahl = schnappschuss.data;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.auto_delete_outlined),
+              title: Text(AppTexte.of(context).einstKiTagsZurueck),
+              subtitle: Text(anzahl == null
+                  ? AppTexte.of(context).einstKiTagsZurueckText
+                  : AppTexte.of(context).einstKiTagsZurueckAnzahl(anzahl)),
+              enabled: anzahl != null && anzahl > 0,
+              onTap: anzahl == null || anzahl == 0
+                  ? null
+                  : () => _nimmKiTagsZurueck(anzahl),
+            );
+          },
+        ),
       ];
+
+  /// Nimmt alle von der Bilderkennung vergebenen Schlagwörter zurück.
+  ///
+  /// Mit Rückfrage und mit **Zahl** darin: „94.040 Schlagwörter werden
+  /// entfernt" wiegt anders als „alle KI-Schlagwörter entfernen".
+  /// Läuft gerade ein Vorladen? Dann steht hier der Stand.
+  Vorratsstand? _vorrat;
+  StreamSubscription<Vorratsstand>? _vorratLauf;
+
+  /// Lädt die Kartengebiete der eigenen Fotos auf die Platte.
+  ///
+  /// **Warum das der bessere Weg ist als ein zweiter Kartenanbieter.**
+  /// Ein anderer Server löst das Problem nicht, er verschiebt es: Auch
+  /// er kann klemmen, und graue Löcher entstehen genau dann, wenn eine
+  /// Kachel im Augenblick des Hinsehens nicht da ist. Wer seine Gebiete
+  /// einmal vorlädt, ist davon frei – und schont die gespendeten
+  /// Kachelserver, weil dieselbe Kachel nicht bei jedem Ansehen erneut
+  /// über die Leitung geht.
+  Future<void> _kartenVorladen() async {
+    final t = AppTexte.of(context);
+    final verortete = await widget.library.db.assetsWithLocation();
+    if (!mounted) return;
+    final gebiete = gebieteAus([
+      for (final a in verortete)
+        (breite: a.latitude!, laenge: a.longitude!)
+    ]);
+    if (gebiete.isEmpty) {
+      melde.warnung(t.einstVorladenKeineOrte);
+      return;
+    }
+    final kacheln = kachelListe(gebiete);
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.einstVorladenTitel),
+        // Zahl UND geschätzte Grösse: „29.039 Kacheln" sagt niemandem
+        // etwas, „rund 850 MB" schon.
+        content: Text(t.einstVorladenFrage(
+            gebiete.length, kacheln.length, (kacheln.length * 30 / 1024).round())),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: Text(t.allgAbbrechen),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(t.einstVorladenStarten),
+          ),
+        ],
+      ),
+    );
+    if (ja != true || !mounted) return;
+
+    // Der gerade gewählte Kartenstil, nicht ein fest verdrahteter: Der
+    // Speicher hängt an der Adresse, und eine für Topo geladene Kachel
+    // hilft der hellen Karte nicht.
+    final stil = switch (Kartenansicht.ausText(
+        await widget.library.db.kartenansicht())) {
+      Kartenansicht.hell => Kartenstil.hell,
+      Kartenansicht.topo => Kartenstil.topo,
+      _ => Kartenstil.dunkel,
+    };
+    await _vorratLauf?.cancel();
+    _vorratLauf = ladeVorrat(gebiete, stil).listen(
+      (stand) {
+        if (mounted) setState(() => _vorrat = stand);
+      },
+      onDone: () {
+        final stand = _vorrat;
+        if (mounted) setState(() => _vorrat = null);
+        if (stand != null) {
+          melde.erfolg(t.einstVorladenFertig(stand.geladen, stand.fehler));
+        }
+      },
+    );
+  }
+
+  Future<void> _nimmKiTagsZurueck(int anzahl) async {
+    final t = AppTexte.of(context);
+    final ja = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: Text(t.einstKiTagsZurueck),
+        content: Text(t.einstKiTagsZurueckFrage(anzahl)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: Text(t.allgAbbrechen),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: Text(t.einstKiTagsZurueckJetzt),
+          ),
+        ],
+      ),
+    );
+    if (ja != true) return;
+    final entfernt = await widget.library.db.nimmKiTagsZurueck();
+    if (!mounted) return;
+    setState(() {});
+    melde.erfolg(t.einstKiTagsZurueckFertig(entfernt));
+  }
 
   List<Widget> _gruppeKarte() {
     // Beim Öffnen der Gruppe, nicht beim Aufbau des Bildschirms: Die
@@ -1491,6 +1620,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+        ),
+      ),
+      const Divider(height: AppSpacing.xl),
+      // Der Vorrat. Er steht bei der Karte und nicht bei den Werkzeugen,
+      // weil er zum Kartenbild gehört: Wer graue Löcher loswerden will,
+      // sucht hier.
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.download_for_offline_outlined),
+        title: Text(t.einstVorladenTitel),
+        subtitle: Text(_vorrat == null
+            ? t.einstVorladenText
+            : t.einstVorladenStand(_vorrat!.fertig, _vorrat!.gesamt)),
+        trailing: _vorrat == null
+            ? const Icon(Icons.chevron_right)
+            : SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  value: _vorrat!.gesamt == 0
+                      ? null
+                      : _vorrat!.fertig / _vorrat!.gesamt,
+                ),
+              ),
+        onTap: _vorrat == null ? _kartenVorladen : null,
+      ),
+      // Der Mitschnitt steht bewusst hier und nicht bei den Werkzeugen:
+      // Wer graue Kacheln sieht, sucht bei der Karte – und findet dann
+      // beides nebeneinander, das Vorladen als Abhilfe und den
+      // Mitschnitt als Frage nach dem Warum.
+      ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: const Icon(Icons.troubleshoot_outlined),
+        title: Text(t.einstMitschnittTitel),
+        subtitle: Text(t.einstMitschnittText),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const KachelmitschnittScreen()),
         ),
       ),
     ];

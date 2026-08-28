@@ -1287,22 +1287,61 @@
   "zeitraumArt": "Kind",
   "zeitraumZaehlt": "Counting photos …",
   "zeitraumFotos": "{n, plural, =0{No photo in this period} =1{1 photo in this period} other{{n} photos in this period}}",
-  "@zeitraumFotos": {"placeholders": {"n": {"type": "int"}}},
+  "@zeitraumFotos": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "reisenSelbstAnlegen": "Add a trip by hand",
   "reisenSelbstAngelegt": "Trip \"{name}\" created.",
-  "@reisenSelbstAngelegt": {"placeholders": {"name": {"type": "String"}}},
+  "@reisenSelbstAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "aktivitaetenSelbstAnlegen": "Add an activity by hand",
   "aktivitaetenSelbstAngelegt": "Activity \"{name}\" created.",
-  "@aktivitaetenSelbstAngelegt": {"placeholders": {"name": {"type": "String"}}},
+  "@aktivitaetenSelbstAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "infoOrtSuchen": "Find place",
   "infoOrtSuchenBeispiel": "e.g. Goslar",
   "infoOrtKeinVerzeichnis": "The place directory is missing. You can download it under Settings → Location data.",
   "infoOrtNichtGefunden": "No place called \"{name}\" in the directory.",
-  "@infoOrtNichtGefunden": {"placeholders": {"name": {"type": "String"}}},
+  "@infoOrtNichtGefunden": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "infoOrtGesetzt": "Location set to {ort}.",
-  "@infoOrtGesetzt": {"placeholders": {"ort": {"type": "String"}}},
+  "@infoOrtGesetzt": {
+    "placeholders": {
+      "ort": {
+        "type": "String"
+      }
+    }
+  },
   "infoOrtGesetztMehrdeutig": "Location set to {ort} - there are {weitere} more of the same name.",
-  "@infoOrtGesetztMehrdeutig": {"placeholders": {"ort": {"type": "String"}, "weitere": {"type": "int"}}},
+  "@infoOrtGesetztMehrdeutig": {
+    "placeholders": {
+      "ort": {
+        "type": "String"
+      },
+      "weitere": {
+        "type": "int"
+      }
+    }
+  },
   "gesichtNichtMehrDurchsuchen": "Stop scanning for faces",
   "gesichtWiederDurchsuchen": "Scan for faces again",
   "gesichtNichtMehrDurchsuchtHinweis": "This photo will be skipped when scanning again. Faces already found remain.",
@@ -2787,5 +2826,149 @@
     }
   },
   "gelaendeNamensnennung": "Elevation: Tilezen / AWS Open Data · Map: OpenTopoMap (CC-BY-SA)",
-  "gelaendeErneut": "Try again"
+  "gelaendeErneut": "Try again",
+  "einstKiTagsZurueck": "Take back AI tags",
+  "einstKiTagsZurueckText": "Counting …",
+  "einstKiTagsZurueckAnzahl": "{anzahl} assigned by image recognition – hand-made ones stay",
+  "@einstKiTagsZurueckAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "einstKiTagsZurueckFrage": "{anzahl} tags from image recognition will be removed. Tags you set yourself stay untouched. Image recognition will then assign them again under the new rule.",
+  "@einstKiTagsZurueckFrage": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "einstKiTagsZurueckJetzt": "Take back",
+  "einstKiTagsZurueckFertig": "{anzahl} tags taken back.",
+  "@einstKiTagsZurueckFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "papierkorbAusgewaehlt": "{anzahl} selected",
+  "@papierkorbAusgewaehlt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "papierkorbHinweis": "Tap the arrow on a photo to restore it. Press and hold to select several.",
+  "aktivitaetenWeitere": "+{anzahl} more",
+  "@aktivitaetenWeitere": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "einstVorladenTitel": "Preload map areas",
+  "einstVorladenText": "Fetches the tiles for your own photo areas to disk – the map then needs no network there",
+  "einstVorladenKeineOrte": "There are no located photos yet.",
+  "einstVorladenFrage": "{gebiete} areas, {kacheln} tiles, about {mb} MB. This takes a while and keeps running as long as settings stay open.",
+  "@einstVorladenFrage": {
+    "placeholders": {
+      "gebiete": {
+        "type": "int"
+      },
+      "kacheln": {
+        "type": "int"
+      },
+      "mb": {
+        "type": "int"
+      }
+    }
+  },
+  "einstVorladenStarten": "Preload",
+  "einstVorladenStand": "{fertig} of {gesamt}",
+  "@einstVorladenStand": {
+    "placeholders": {
+      "fertig": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "einstVorladenFertig": "{geladen} tiles loaded, {fehler} unreachable.",
+  "@einstVorladenFertig": {
+    "placeholders": {
+      "geladen": {
+        "type": "int"
+      },
+      "fehler": {
+        "type": "int"
+      }
+    }
+  },
+  "mitschnittTitel": "Tile log",
+  "mitschnittErklaerung": "Records what the network really returns for every map tile: status code, exception, duration, and whether the server keeps the connection open. Tiles served from the map cache never appear here – they never reach the network.",
+  "mitschnittStarten": "Start recording",
+  "mitschnittAnhalten": "Stop",
+  "mitschnittLeeren": "Clear",
+  "mitschnittLaeuft": "Recording. Open the map now and keep zooming until the grey tiles show up.",
+  "mitschnittAus": "Stopped.",
+  "mitschnittNochNichts": "Nothing recorded yet.",
+  "mitschnittVerbJeAbruf": "Connections per request",
+  "mitschnittAbrufeJeKachel": "Requests per tile",
+  "mitschnittAbrufe": "Requests",
+  "mitschnittVerbindungen": "Connections",
+  "mitschnittKacheln": "distinct tiles",
+  "mitschnittGeglueckt": "succeeded",
+  "mitschnittFehlgeschlagen": "failed",
+  "mitschnittAbgebrochen": "cancelled",
+  "mitschnittWiederholte": "fetched more than once",
+  "mitschnittOhneDauer": "server closed the connection",
+  "mitschnittStatusTitel": "Status codes",
+  "mitschnittFehlerTitel": "Errors",
+  "mitschnittLetzteTitel": "Most recent requests",
+  "mitschnittKopieren": "Copy report",
+  "mitschnittKopiert": "The report is on the clipboard.",
+  "einstMitschnittTitel": "Tile log",
+  "einstMitschnittText": "Record what actually happens while the map loads.",
+  "mitschnittDauer": "Average {ms} ms, longest {max} ms",
+  "@mitschnittDauer": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "mitschnittDaten": "{mb} MB downloaded",
+  "@mitschnittDaten": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "mitschnittVerworfen": "{anzahl} older entries were dropped at the limit.",
+  "@mitschnittVerworfen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "mitschnittMalGeholt": "{anzahl}x",
+  "@mitschnittMalGeholt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  }
 }

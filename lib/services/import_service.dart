@@ -4,12 +4,13 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:exif/exif.dart';
-import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/foundation.dart' show compute, visibleForTesting;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import 'dateikennung.dart';
 import 'exif_camera.dart';
 import 'exif_gps.dart';
 import 'native_image_converter.dart';
@@ -195,7 +196,13 @@ class ImportService {
     Uint8List? alreadyReadBytes,
   }) async {
     final ext = extension.toLowerCase();
-    final needsNativeConversion = heicAndRawExtensions.contains(ext);
+    // Die Endung sagt das eine, die ersten Bytes sagen unter Umständen
+    // etwas anderes – dann zählen die Bytes. Siehe [kennungAus]: In der
+    // Bibliothek liegt eine HEIC-Datei unter dem Namen `.jpg`, und ohne
+    // diese Zeile bekäme sie weder Vorschaubild noch Bildmasse.
+    final inhalt = await inhaltskennung(sourceFile, alreadyReadBytes);
+    final needsNativeConversion = heicAndRawExtensions.contains(ext) ||
+        (inhalt != null && heicAndRawExtensions.contains(inhalt));
 
     Uint8List? convertedBytes;
     if (needsNativeConversion) {
@@ -292,6 +299,33 @@ class ImportService {
     return result;
   }
 
+  /// Das Format, das die ersten Bytes von [datei] behaupten – oder
+  /// `null`, wenn sie zu keiner bekannten Signatur passen.
+  ///
+  /// Liegen die Bytes ohnehin schon im Speicher (beim Import ist das so),
+  /// kostet die Auskunft nichts. Sonst werden [kennungBytes] Bytes
+  /// gelesen und nicht die ganze Datei: Beim nachträglichen Erzeugen der
+  /// Vorschaubilder geht das über tausende Dateien.
+  ///
+  /// Öffentlich, damit ein Prüfstand die Weiche einzeln ansehen kann.
+  @visibleForTesting
+  static Future<String?> inhaltskennung(File datei, Uint8List? schon) async {
+    if (schon != null) return kennungAus(schon);
+    try {
+      final griff = await datei.open();
+      try {
+        return kennungAus(await griff.read(kennungBytes));
+      } finally {
+        await griff.close();
+      }
+    } on FileSystemException {
+      // Die Datei fehlt oder ist nicht lesbar. Das ist nicht die Frage,
+      // die hier gestellt wurde – der Aufrufer läuft ohnehin gleich
+      // darauf zu und meldet es dort.
+      return null;
+    }
+  }
+
   /// Liest Aufnahmedatum, GPS-Ort und Kamera-/Objektiv-Angaben in einem
   /// Durchlauf aus den EXIF-Daten eines Fotos (alles steckt im selben
   /// `readExifFromBytes`-Ergebnis).
@@ -312,7 +346,18 @@ class ImportService {
     // soll keinen Prozessstart je Datei auslösen; eine RAW-Datei ohne
     // jeden Tag dagegen ist ein Hinweis auf ein Format, das
     // `package:exif` nicht kennt – gemessen: CR3 liefert dort NULL Tags.
-    if (datum == null && kamera.isEmpty && rawImageExtensions.contains(endung)) {
+    // Zweiter Grund nachzufassen: Der Name behauptet ein Format, das die
+    // Bytes nicht bestätigen. Dann hat `package:exif` mit ziemlicher
+    // Sicherheit deshalb nichts gefunden, weil es im falschen Format
+    // gesucht hat. Nur bei einem echten WIDERSPRUCH, nicht bei jeder
+    // HEIC-Datei ohne Tags: Sonst löste ein Screenshot ohne EXIF-Daten
+    // einen Prozessstart je Datei aus.
+    final widerspruch = datum == null &&
+        kamera.isEmpty &&
+        !heicAndRawExtensions.contains(endung) &&
+        heicAndRawExtensions.contains(kennungAus(bytes) ?? endung);
+    if (widerspruch ||
+        (datum == null && kamera.isEmpty && rawImageExtensions.contains(endung))) {
       final nativ = await NativeImageConverter.readCameraMetadata(datei);
       if (!nativ.isEmpty) {
         return _ExifMetadata(nativ.zeitpunkt, gps, nativ.kamera);

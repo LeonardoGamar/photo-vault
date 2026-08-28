@@ -2271,22 +2271,61 @@
   "zeitraumArt": "Art",
   "zeitraumZaehlt": "Fotos werden gezählt …",
   "zeitraumFotos": "{n, plural, =0{Kein Foto in diesem Zeitraum} =1{1 Foto in diesem Zeitraum} other{{n} Fotos in diesem Zeitraum}}",
-  "@zeitraumFotos": {"placeholders": {"n": {"type": "int"}}},
+  "@zeitraumFotos": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
   "reisenSelbstAnlegen": "Reise von Hand anlegen",
   "reisenSelbstAngelegt": "Reise „{name}\" angelegt.",
-  "@reisenSelbstAngelegt": {"placeholders": {"name": {"type": "String"}}},
+  "@reisenSelbstAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "aktivitaetenSelbstAnlegen": "Aktivität von Hand anlegen",
   "aktivitaetenSelbstAngelegt": "Aktivität „{name}\" angelegt.",
-  "@aktivitaetenSelbstAngelegt": {"placeholders": {"name": {"type": "String"}}},
+  "@aktivitaetenSelbstAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "infoOrtSuchen": "Ort suchen",
   "infoOrtSuchenBeispiel": "z. B. Goslar",
   "infoOrtKeinVerzeichnis": "Dafür fehlt das Ortsverzeichnis. Es lässt sich unter Einstellungen → Standortdaten laden.",
   "infoOrtNichtGefunden": "Kein Ort namens „{name}\" im Verzeichnis.",
-  "@infoOrtNichtGefunden": {"placeholders": {"name": {"type": "String"}}},
+  "@infoOrtNichtGefunden": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "infoOrtGesetzt": "Ort auf {ort} gesetzt.",
-  "@infoOrtGesetzt": {"placeholders": {"ort": {"type": "String"}}},
+  "@infoOrtGesetzt": {
+    "placeholders": {
+      "ort": {
+        "type": "String"
+      }
+    }
+  },
   "infoOrtGesetztMehrdeutig": "Ort auf {ort} gesetzt – es gibt {weitere} weitere gleichen Namens.",
-  "@infoOrtGesetztMehrdeutig": {"placeholders": {"ort": {"type": "String"}, "weitere": {"type": "int"}}},
+  "@infoOrtGesetztMehrdeutig": {
+    "placeholders": {
+      "ort": {
+        "type": "String"
+      },
+      "weitere": {
+        "type": "int"
+      }
+    }
+  },
   "gesichtNichtMehrDurchsuchen": "Nicht mehr nach Gesichtern durchsuchen",
   "gesichtWiederDurchsuchen": "Wieder nach Gesichtern durchsuchen",
   "gesichtNichtMehrDurchsuchtHinweis": "Dieses Foto wird beim erneuten Durchsuchen übersprungen. Erkannte Gesichter bleiben.",
@@ -3826,5 +3865,149 @@
     }
   },
   "gelaendeNamensnennung": "Höhen: Tilezen / AWS Open Data · Karte: OpenTopoMap (CC-BY-SA)",
-  "gelaendeErneut": "Noch einmal versuchen"
+  "gelaendeErneut": "Noch einmal versuchen",
+  "einstKiTagsZurueck": "KI-Schlagwörter zurücknehmen",
+  "einstKiTagsZurueckText": "Wird gezählt …",
+  "einstKiTagsZurueckAnzahl": "{anzahl} von der Bilderkennung vergeben – von Hand vergebene bleiben",
+  "@einstKiTagsZurueckAnzahl": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "einstKiTagsZurueckFrage": "{anzahl} Schlagwörter der Bilderkennung werden entfernt. Von Hand vergebene bleiben unangetastet. Danach vergibt die Bilderkennung sie nach der neuen Regel neu.",
+  "@einstKiTagsZurueckFrage": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "einstKiTagsZurueckJetzt": "Zurücknehmen",
+  "einstKiTagsZurueckFertig": "{anzahl} Schlagwörter zurückgenommen.",
+  "@einstKiTagsZurueckFertig": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "papierkorbAusgewaehlt": "{anzahl} ausgewählt",
+  "@papierkorbAusgewaehlt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "papierkorbHinweis": "Zum Wiederherstellen den Pfeil auf dem Bild antippen. Lange drücken wählt mehrere aus.",
+  "aktivitaetenWeitere": "+{anzahl} weitere",
+  "@aktivitaetenWeitere": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "einstVorladenTitel": "Kartengebiete vorladen",
+  "einstVorladenText": "Holt die Kacheln der eigenen Fotogebiete auf die Platte – danach braucht die Karte dort kein Netz mehr",
+  "einstVorladenKeineOrte": "Es gibt noch keine verorteten Aufnahmen.",
+  "einstVorladenFrage": "{gebiete} Gebiete, {kacheln} Kacheln, rund {mb} MB. Das dauert eine Weile und läuft im Hintergrund weiter, solange die Einstellungen offen sind.",
+  "@einstVorladenFrage": {
+    "placeholders": {
+      "gebiete": {
+        "type": "int"
+      },
+      "kacheln": {
+        "type": "int"
+      },
+      "mb": {
+        "type": "int"
+      }
+    }
+  },
+  "einstVorladenStarten": "Vorladen",
+  "einstVorladenStand": "{fertig} von {gesamt}",
+  "@einstVorladenStand": {
+    "placeholders": {
+      "fertig": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
+  },
+  "einstVorladenFertig": "{geladen} Kacheln geladen, {fehler} nicht erreichbar.",
+  "@einstVorladenFertig": {
+    "placeholders": {
+      "geladen": {
+        "type": "int"
+      },
+      "fehler": {
+        "type": "int"
+      }
+    }
+  },
+  "mitschnittTitel": "Kachel-Mitschnitt",
+  "mitschnittErklaerung": "Schreibt für jede Kartenkachel mit, was das Netz wirklich zurückgibt: Statuscode, Ausnahme, Dauer und ob der Server die Verbindung offen lässt. Kacheln aus dem Kartenspeicher tauchen nicht auf – sie kommen nie am Netz an.",
+  "mitschnittStarten": "Mitschnitt starten",
+  "mitschnittAnhalten": "Anhalten",
+  "mitschnittLeeren": "Leeren",
+  "mitschnittLaeuft": "Läuft. Jetzt die Karte öffnen und so lange zoomen, bis die grauen Kacheln auftreten.",
+  "mitschnittAus": "Angehalten.",
+  "mitschnittNochNichts": "Noch nichts mitgeschrieben.",
+  "mitschnittVerbJeAbruf": "Verbindungen je Abruf",
+  "mitschnittAbrufeJeKachel": "Abrufe je Kachel",
+  "mitschnittAbrufe": "Abrufe",
+  "mitschnittVerbindungen": "Verbindungen",
+  "mitschnittKacheln": "verschiedene Kacheln",
+  "mitschnittGeglueckt": "geglückt",
+  "mitschnittFehlgeschlagen": "fehlgeschlagen",
+  "mitschnittAbgebrochen": "abgebrochen",
+  "mitschnittWiederholte": "mehrfach geholt",
+  "mitschnittOhneDauer": "Server schloss die Verbindung",
+  "mitschnittStatusTitel": "Statuscodes",
+  "mitschnittFehlerTitel": "Fehler",
+  "mitschnittLetzteTitel": "Die letzten Abrufe",
+  "mitschnittKopieren": "Bericht kopieren",
+  "mitschnittKopiert": "Der Bericht liegt in der Zwischenablage.",
+  "einstMitschnittTitel": "Kachel-Mitschnitt",
+  "einstMitschnittText": "Aufzeichnen, was beim Laden der Karte wirklich passiert.",
+  "mitschnittDauer": "Im Mittel {ms} ms, längste {max} ms",
+  "@mitschnittDauer": {
+    "placeholders": {
+      "ms": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "mitschnittDaten": "{mb} MB geladen",
+  "@mitschnittDaten": {
+    "placeholders": {
+      "mb": {
+        "type": "String"
+      }
+    }
+  },
+  "mitschnittVerworfen": "{anzahl} ältere Einträge sind der Grenze zum Opfer gefallen.",
+  "@mitschnittVerworfen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "mitschnittMalGeholt": "{anzahl}x",
+  "@mitschnittMalGeholt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  }
 }

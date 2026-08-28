@@ -51,6 +51,18 @@ class OrtsTreffer {
   /// Ausgeschriebener Ländername, soweit auflösbar.
   final String? land;
 
+  /// Ausgeschriebener Name der Region/des Bundeslandes, soweit auflösbar.
+  ///
+  /// Erst damit lassen sich zwei gleichnamige Orte im selben Land
+  /// auseinanderhalten – und genau das ist der Fall, den eine
+  /// Vorschlagsliste lösen soll.
+  final String? region;
+
+  /// Einwohnerzahl, soweit GeoNames sie führt. Steht in der
+  /// Vorschlagsliste, weil sie die Frage „welches Berlin?" beantwortet,
+  /// ohne dass jemand die Landkarte kennen muss.
+  final int einwohner;
+
   /// Wie viele gleichnamige Orte es ausserdem gab.
   final int weitere;
 
@@ -59,8 +71,16 @@ class OrtsTreffer {
     required this.breite,
     required this.laenge,
     this.land,
+    this.region,
+    this.einwohner = 0,
     this.weitere = 0,
   });
+
+  /// Die Zeile, die in einer Vorschlagsliste unter dem Namen steht.
+  String get herkunft => [
+        if (region != null && region!.isNotEmpty) region!,
+        if (land != null && land!.isNotEmpty) land!,
+      ].join(', ');
 
   /// Ob die Angabe mehrdeutig war und die Auswahl damit eine Vermutung ist.
   bool get mehrdeutig => weitere > 0;
@@ -383,39 +403,126 @@ class ReverseGeocoder {
     double? naheBreite,
     double? naheLaenge,
   }) {
+    final treffer =
+        sucheOrte(eingabe, naheBreite: naheBreite, naheLaenge: naheLaenge);
+    return treffer.isEmpty ? null : treffer.first;
+  }
+
+  /// Die besten [hoechstens] Treffer zu einem Ortsnamen – die Grundlage
+  /// der Vorschlagsliste.
+  ///
+  /// **Warum es das gibt.** [sucheOrt] entscheidet sich sofort und sagt
+  /// erst hinterher, dass die Wahl eine Vermutung war („Ort auf
+  /// Springfield gesetzt – es gibt 23 weitere gleichen Namens"). Wer den
+  /// Ort seines Fotos kennt, will ihn auswählen, nicht hinterher
+  /// berichtigen. Die Kandidaten lagen dabei immer schon vor; sie wurden
+  /// nur weggeworfen.
+  ///
+  /// Sortiert wie bisher [sucheOrt] gewählt hätte: erst nach Nähe zum
+  /// bisherigen Ort, sonst nach Einwohnerzahl.
+  List<OrtsTreffer> sucheOrte(
+    String eingabe, {
+    double? naheBreite,
+    double? naheLaenge,
+    int hoechstens = 6,
+  }) {
+    final kandidaten = _kandidaten(eingabe);
+    if (kandidaten.isEmpty) return const [];
+    final sortiert = _sortiert(kandidaten, naheBreite, naheLaenge);
+    return [
+      for (final i in sortiert.take(hoechstens))
+        _alsTreffer(i, kandidaten.length - 1)
+    ];
+  }
+
+  /// Ortsnamen, die mit [praefix] beginnen – für Vorschläge beim Tippen.
+  ///
+  /// Gibt **Namen**, nicht Orte: „Springfield" steht einmal da, auch wenn
+  /// es den Namen zwanzig Mal gibt. Welches Springfield gemeint ist,
+  /// beantwortet danach [sucheOrte].
+  List<String> namensvorschlaege(String praefix, {int hoechstens = 8}) {
+    final gesucht = _normalisiere(praefix);
+    if (gesucht.length < 2) return const [];
+    // Über den vorhandenen Namensindex statt über alle Städte: Der Index
+    // hat je Name einen Eintrag, die Städteliste über hunderttausend
+    // Zeilen.
+    final treffer = <String, int>{};
+    for (final eintrag in _index.entries) {
+      if (!eintrag.key.startsWith(gesucht)) continue;
+      // Der Name in seiner echten Schreibweise, nicht der normalisierte.
+      final stadt = _cities[eintrag.value.first];
+      final name = _normalisiere(stadt.name) == eintrag.key
+          ? stadt.name
+          : stadt.asciiName;
+      final einwohner = eintrag.value
+          .map((i) => _cities[i].einwohner)
+          .fold<int>(0, (a, b) => a > b ? a : b);
+      if ((treffer[name] ?? -1) < einwohner) treffer[name] = einwohner;
+    }
+    final namen = treffer.keys.toList()
+      ..sort((a, b) {
+        // Der genaue Treffer zuerst, dann die grössten Orte.
+        final aGenau = _normalisiere(a) == gesucht;
+        final bGenau = _normalisiere(b) == gesucht;
+        if (aGenau != bGenau) return aGenau ? -1 : 1;
+        return treffer[b]!.compareTo(treffer[a]!);
+      });
+    return namen.take(hoechstens).toList();
+  }
+
+  /// Die Zeilen, die zu einer Eingabe passen – gemeinsame Grundlage von
+  /// [sucheOrt] und [sucheOrte].
+  List<int> _kandidaten(String eingabe) {
     final teile = eingabe.split(',').map((t) => t.trim()).toList();
-    if (teile.isEmpty) return null;
+    if (teile.isEmpty) return const [];
     final ortsname = _normalisiere(teile.first);
-    if (ortsname.isEmpty) return null;
+    if (ortsname.isEmpty) return const [];
 
     final zeilen = _index[ortsname];
-    if (zeilen == null || zeilen.isEmpty) return null;
+    if (zeilen == null || zeilen.isEmpty) return const [];
 
     // Die Zusätze hinter dem Komma gegen Land und Region prüfen.
     final zusaetze = [
       for (final t in teile.skip(1))
         if (t.isNotEmpty) _normalisiere(t)
     ];
-    var kandidaten = zeilen;
-    if (zusaetze.isNotEmpty) {
-      final gefiltert = [
-        for (final i in zeilen)
-          if (_passtZuZusatz(_cities[i], zusaetze)) i
-      ];
-      // Passt kein einziger, gilt der Zusatz als unbrauchbar statt als
-      // Ausschluss – „Berlin, Heimat" darf nicht zu „nicht gefunden"
-      // führen.
-      if (gefiltert.isNotEmpty) kandidaten = gefiltert;
-    }
+    if (zusaetze.isEmpty) return zeilen;
+    final gefiltert = [
+      for (final i in zeilen)
+        if (_passtZuZusatz(_cities[i], zusaetze)) i
+    ];
+    // Passt kein einziger, gilt der Zusatz als unbrauchbar statt als
+    // Ausschluss – „Berlin, Heimat" darf nicht zu „nicht gefunden"
+    // führen.
+    return gefiltert.isEmpty ? zeilen : gefiltert;
+  }
 
-    final besteZeile = _besterKandidat(kandidaten, naheBreite, naheLaenge);
-    final stadt = _cities[besteZeile];
+  /// Dieselbe Rangfolge, die [_besterKandidat] für den einen Treffer
+  /// anlegt – nur für alle.
+  List<int> _sortiert(List<int> zeilen, double? breite, double? laenge) {
+    final kopie = List<int>.from(zeilen);
+    if (breite != null && laenge != null) {
+      kopie.sort((a, b) => haversineKm(breite, laenge, _cities[a].lat,
+              _cities[a].lon)
+          .compareTo(
+              haversineKm(breite, laenge, _cities[b].lat, _cities[b].lon)));
+    } else {
+      kopie.sort(
+          (a, b) => _cities[b].einwohner.compareTo(_cities[a].einwohner));
+    }
+    return kopie;
+  }
+
+  OrtsTreffer _alsTreffer(int zeile, int weitere) {
+    final stadt = _cities[zeile];
     return OrtsTreffer(
       name: stadt.name,
       breite: stadt.lat,
       laenge: stadt.lon,
       land: _countryNames[stadt.countryCode],
-      weitere: kandidaten.length - 1,
+      region: _admin1Names['${stadt.countryCode}.${stadt.admin1Code}'],
+      einwohner: stadt.einwohner,
+      weitere: weitere,
     );
   }
 
@@ -431,28 +538,6 @@ class ReverseGeocoder {
     return false;
   }
 
-  int _besterKandidat(List<int> zeilen, double? breite, double? laenge) {
-    if (zeilen.length == 1) return zeilen.first;
-    if (breite != null && laenge != null) {
-      var beste = zeilen.first;
-      var besteEntfernung =
-          haversineKm(breite, laenge, _cities[beste].lat, _cities[beste].lon);
-      for (final i in zeilen.skip(1)) {
-        final entfernung =
-            haversineKm(breite, laenge, _cities[i].lat, _cities[i].lon);
-        if (entfernung < besteEntfernung) {
-          beste = i;
-          besteEntfernung = entfernung;
-        }
-      }
-      return beste;
-    }
-    var beste = zeilen.first;
-    for (final i in zeilen.skip(1)) {
-      if (_cities[i].einwohner > _cities[beste].einwohner) beste = i;
-    }
-    return beste;
-  }
 
   /// Distanz zweier Koordinaten in km – öffentlich, weil auch das
   /// Automatisierungs-Regelwerk (siehe LibraryState.applyAutomationRules)

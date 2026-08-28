@@ -16,6 +16,7 @@ import '../widgets/ortskachel.dart';
 import '../widgets/namens_dialog.dart';
 import '../widgets/zeitraum_dialog.dart';
 import 'aktivitaet_detail_screen.dart';
+import 'asset_viewer_screen.dart';
 
 /// Die Aktivitäten: Wanderungen, Radtouren, Ausflüge.
 ///
@@ -352,6 +353,7 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
                           _Ueberschrift(t.aktivitaetenVorschlaege),
                           for (final v in _vorschlaege)
                             _Vorschlagskarte(
+                              library: widget.library,
                               vorschlag: v,
                               onJa: () => _bestaetigen(v),
                               onNein: () => _verwerfen(v),
@@ -404,15 +406,23 @@ class _Ueberschrift extends StatelessWidget {
 }
 
 class _Vorschlagskarte extends StatelessWidget {
+  final LibraryState library;
   final Aktivitaetsvorschlag vorschlag;
   final VoidCallback onJa;
   final VoidCallback onNein;
 
   const _Vorschlagskarte({
+    required this.library,
     required this.vorschlag,
     required this.onJa,
     required this.onNein,
   });
+
+  /// So viele Bilder stehen auf der Karte.
+  ///
+  /// Genug, um zu erkennen, worum es geht, und wenige genug, dass die
+  /// Karte eine Karte bleibt. Wer mehr sehen will, tippt eines an.
+  static const _bilder = 5;
 
   @override
   Widget build(BuildContext context) {
@@ -447,6 +457,13 @@ class _Vorschlagskarte extends StatelessWidget {
               ].join(' · '),
               style: TextStyle(fontSize: 13, color: farben.onSurfaceVariant),
             ),
+            // **Ohne Bild ist die Frage nicht zu beantworten.** Bis
+            // hierher stand auf der Karte „Wanderung, 12 km, 47
+            // Aufnahmen" und sonst nichts – zu bejahen war das nur auf
+            // gut Glück. Die Aufnahmen liegen im Vorschlag ohnehin
+            // schon (`aufnahmeIds`), sie wurden nur nie gezeigt.
+            const SizedBox(height: AppSpacing.md),
+            _Vorschaureihe(library: library, vorschlag: vorschlag),
             const SizedBox(height: AppSpacing.md),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -463,6 +480,77 @@ class _Vorschlagskarte extends StatelessWidget {
     );
   }
 }
+/// Die Bilder eines Vorschlags, damit man ihn beurteilen kann.
+///
+/// Eigenes Widget und nicht in [_Vorschlagskarte] eingebaut: Die Karte
+/// selbst ist zustandslos und soll es bleiben; das Nachladen der
+/// Aufnahmen gehört hierher.
+class _Vorschaureihe extends StatelessWidget {
+  final LibraryState library;
+  final Aktivitaetsvorschlag vorschlag;
+
+  const _Vorschaureihe({required this.library, required this.vorschlag});
+
+  @override
+  Widget build(BuildContext context) {
+    final gezeigt =
+        vorschlag.aufnahmeIds.take(_Vorschlagskarte._bilder).toList();
+    if (gezeigt.isEmpty) return const SizedBox.shrink();
+    final weitere = vorschlag.anzahl - gezeigt.length;
+    return SizedBox(
+      height: 72,
+      child: FutureBuilder<List<AssetData>>(
+        future: library.db.assetsByIds(gezeigt),
+        builder: (context, schnappschuss) {
+          final aufnahmen = schnappschuss.data;
+          if (aufnahmen == null) return const SizedBox.shrink();
+          // Die Datenbank gibt die Zeilen in ihrer eigenen Reihenfolge
+          // zurück; der Vorschlag ist chronologisch sortiert, und das
+          // ist die Reihenfolge, in der man eine Aktivität ansieht.
+          final nachId = {for (final a in aufnahmen) a.id: a};
+          return Row(
+            children: [
+              for (final id in gezeigt)
+                if (nachId[id] case final a?)
+                  Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.sm),
+                    child: SizedBox(
+                      width: 72,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        child: AssetThumbnailTile(
+                          asset: a,
+                          paths: library.paths,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => AssetViewerScreen(
+                                assets: aufnahmen,
+                                initialIndex: aufnahmen.indexOf(a),
+                                paths: library.paths,
+                                db: library.db,
+                                library: library,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              if (weitere > 0)
+                Text(
+                  AppTexte.of(context).aktivitaetenWeitere(weitere),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
 /// Eine Aktivität als Kachel – die Übersicht.
 ///
 /// Neben [Aktivitaetszeile] und nicht statt ihr: Die Zeile steht weiter

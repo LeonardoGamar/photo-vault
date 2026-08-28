@@ -6359,4 +6359,169 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get gelaendeErneut => 'Noch einmal versuchen';
+
+  @override
+  String get einstKiTagsZurueck => 'KI-Schlagwörter zurücknehmen';
+
+  @override
+  String get einstKiTagsZurueckText => 'Wird gezählt …';
+
+  @override
+  String einstKiTagsZurueckAnzahl(int anzahl) {
+    return '$anzahl von der Bilderkennung vergeben – von Hand vergebene bleiben';
+  }
+
+  @override
+  String einstKiTagsZurueckFrage(int anzahl) {
+    return '$anzahl Schlagwörter der Bilderkennung werden entfernt. Von Hand vergebene bleiben unangetastet. Danach vergibt die Bilderkennung sie nach der neuen Regel neu.';
+  }
+
+  @override
+  String get einstKiTagsZurueckJetzt => 'Zurücknehmen';
+
+  @override
+  String einstKiTagsZurueckFertig(int anzahl) {
+    return '$anzahl Schlagwörter zurückgenommen.';
+  }
+
+  @override
+  String papierkorbAusgewaehlt(int anzahl) {
+    return '$anzahl ausgewählt';
+  }
+
+  @override
+  String get papierkorbHinweis =>
+      'Zum Wiederherstellen den Pfeil auf dem Bild antippen. Lange drücken wählt mehrere aus.';
+
+  @override
+  String aktivitaetenWeitere(int anzahl) {
+    return '+$anzahl weitere';
+  }
+
+  @override
+  String get einstVorladenTitel => 'Kartengebiete vorladen';
+
+  @override
+  String get einstVorladenText =>
+      'Holt die Kacheln der eigenen Fotogebiete auf die Platte – danach braucht die Karte dort kein Netz mehr';
+
+  @override
+  String get einstVorladenKeineOrte =>
+      'Es gibt noch keine verorteten Aufnahmen.';
+
+  @override
+  String einstVorladenFrage(int gebiete, int kacheln, int mb) {
+    return '$gebiete Gebiete, $kacheln Kacheln, rund $mb MB. Das dauert eine Weile und läuft im Hintergrund weiter, solange die Einstellungen offen sind.';
+  }
+
+  @override
+  String get einstVorladenStarten => 'Vorladen';
+
+  @override
+  String einstVorladenStand(int fertig, int gesamt) {
+    return '$fertig von $gesamt';
+  }
+
+  @override
+  String einstVorladenFertig(int geladen, int fehler) {
+    return '$geladen Kacheln geladen, $fehler nicht erreichbar.';
+  }
+
+  @override
+  String get mitschnittTitel => 'Kachel-Mitschnitt';
+
+  @override
+  String get mitschnittErklaerung =>
+      'Schreibt für jede Kartenkachel mit, was das Netz wirklich zurückgibt: Statuscode, Ausnahme, Dauer und ob der Server die Verbindung offen lässt. Kacheln aus dem Kartenspeicher tauchen nicht auf – sie kommen nie am Netz an.';
+
+  @override
+  String get mitschnittStarten => 'Mitschnitt starten';
+
+  @override
+  String get mitschnittAnhalten => 'Anhalten';
+
+  @override
+  String get mitschnittLeeren => 'Leeren';
+
+  @override
+  String get mitschnittLaeuft =>
+      'Läuft. Jetzt die Karte öffnen und so lange zoomen, bis die grauen Kacheln auftreten.';
+
+  @override
+  String get mitschnittAus => 'Angehalten.';
+
+  @override
+  String get mitschnittNochNichts => 'Noch nichts mitgeschrieben.';
+
+  @override
+  String get mitschnittVerbJeAbruf => 'Verbindungen je Abruf';
+
+  @override
+  String get mitschnittAbrufeJeKachel => 'Abrufe je Kachel';
+
+  @override
+  String get mitschnittAbrufe => 'Abrufe';
+
+  @override
+  String get mitschnittVerbindungen => 'Verbindungen';
+
+  @override
+  String get mitschnittKacheln => 'verschiedene Kacheln';
+
+  @override
+  String get mitschnittGeglueckt => 'geglückt';
+
+  @override
+  String get mitschnittFehlgeschlagen => 'fehlgeschlagen';
+
+  @override
+  String get mitschnittAbgebrochen => 'abgebrochen';
+
+  @override
+  String get mitschnittWiederholte => 'mehrfach geholt';
+
+  @override
+  String get mitschnittOhneDauer => 'Server schloss die Verbindung';
+
+  @override
+  String get mitschnittStatusTitel => 'Statuscodes';
+
+  @override
+  String get mitschnittFehlerTitel => 'Fehler';
+
+  @override
+  String get mitschnittLetzteTitel => 'Die letzten Abrufe';
+
+  @override
+  String get mitschnittKopieren => 'Bericht kopieren';
+
+  @override
+  String get mitschnittKopiert => 'Der Bericht liegt in der Zwischenablage.';
+
+  @override
+  String get einstMitschnittTitel => 'Kachel-Mitschnitt';
+
+  @override
+  String get einstMitschnittText =>
+      'Aufzeichnen, was beim Laden der Karte wirklich passiert.';
+
+  @override
+  String mitschnittDauer(int ms, int max) {
+    return 'Im Mittel $ms ms, längste $max ms';
+  }
+
+  @override
+  String mitschnittDaten(String mb) {
+    return '$mb MB geladen';
+  }
+
+  @override
+  String mitschnittVerworfen(int anzahl) {
+    return '$anzahl ältere Einträge sind der Grenze zum Opfer gefallen.';
+  }
+
+  @override
+  String mitschnittMalGeholt(int anzahl) {
+    return '${anzahl}x';
+  }
 }

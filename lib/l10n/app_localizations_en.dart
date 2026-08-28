@@ -6329,4 +6329,168 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get gelaendeErneut => 'Try again';
+
+  @override
+  String get einstKiTagsZurueck => 'Take back AI tags';
+
+  @override
+  String get einstKiTagsZurueckText => 'Counting …';
+
+  @override
+  String einstKiTagsZurueckAnzahl(int anzahl) {
+    return '$anzahl assigned by image recognition – hand-made ones stay';
+  }
+
+  @override
+  String einstKiTagsZurueckFrage(int anzahl) {
+    return '$anzahl tags from image recognition will be removed. Tags you set yourself stay untouched. Image recognition will then assign them again under the new rule.';
+  }
+
+  @override
+  String get einstKiTagsZurueckJetzt => 'Take back';
+
+  @override
+  String einstKiTagsZurueckFertig(int anzahl) {
+    return '$anzahl tags taken back.';
+  }
+
+  @override
+  String papierkorbAusgewaehlt(int anzahl) {
+    return '$anzahl selected';
+  }
+
+  @override
+  String get papierkorbHinweis =>
+      'Tap the arrow on a photo to restore it. Press and hold to select several.';
+
+  @override
+  String aktivitaetenWeitere(int anzahl) {
+    return '+$anzahl more';
+  }
+
+  @override
+  String get einstVorladenTitel => 'Preload map areas';
+
+  @override
+  String get einstVorladenText =>
+      'Fetches the tiles for your own photo areas to disk – the map then needs no network there';
+
+  @override
+  String get einstVorladenKeineOrte => 'There are no located photos yet.';
+
+  @override
+  String einstVorladenFrage(int gebiete, int kacheln, int mb) {
+    return '$gebiete areas, $kacheln tiles, about $mb MB. This takes a while and keeps running as long as settings stay open.';
+  }
+
+  @override
+  String get einstVorladenStarten => 'Preload';
+
+  @override
+  String einstVorladenStand(int fertig, int gesamt) {
+    return '$fertig of $gesamt';
+  }
+
+  @override
+  String einstVorladenFertig(int geladen, int fehler) {
+    return '$geladen tiles loaded, $fehler unreachable.';
+  }
+
+  @override
+  String get mitschnittTitel => 'Tile log';
+
+  @override
+  String get mitschnittErklaerung =>
+      'Records what the network really returns for every map tile: status code, exception, duration, and whether the server keeps the connection open. Tiles served from the map cache never appear here – they never reach the network.';
+
+  @override
+  String get mitschnittStarten => 'Start recording';
+
+  @override
+  String get mitschnittAnhalten => 'Stop';
+
+  @override
+  String get mitschnittLeeren => 'Clear';
+
+  @override
+  String get mitschnittLaeuft =>
+      'Recording. Open the map now and keep zooming until the grey tiles show up.';
+
+  @override
+  String get mitschnittAus => 'Stopped.';
+
+  @override
+  String get mitschnittNochNichts => 'Nothing recorded yet.';
+
+  @override
+  String get mitschnittVerbJeAbruf => 'Connections per request';
+
+  @override
+  String get mitschnittAbrufeJeKachel => 'Requests per tile';
+
+  @override
+  String get mitschnittAbrufe => 'Requests';
+
+  @override
+  String get mitschnittVerbindungen => 'Connections';
+
+  @override
+  String get mitschnittKacheln => 'distinct tiles';
+
+  @override
+  String get mitschnittGeglueckt => 'succeeded';
+
+  @override
+  String get mitschnittFehlgeschlagen => 'failed';
+
+  @override
+  String get mitschnittAbgebrochen => 'cancelled';
+
+  @override
+  String get mitschnittWiederholte => 'fetched more than once';
+
+  @override
+  String get mitschnittOhneDauer => 'server closed the connection';
+
+  @override
+  String get mitschnittStatusTitel => 'Status codes';
+
+  @override
+  String get mitschnittFehlerTitel => 'Errors';
+
+  @override
+  String get mitschnittLetzteTitel => 'Most recent requests';
+
+  @override
+  String get mitschnittKopieren => 'Copy report';
+
+  @override
+  String get mitschnittKopiert => 'The report is on the clipboard.';
+
+  @override
+  String get einstMitschnittTitel => 'Tile log';
+
+  @override
+  String get einstMitschnittText =>
+      'Record what actually happens while the map loads.';
+
+  @override
+  String mitschnittDauer(int ms, int max) {
+    return 'Average $ms ms, longest $max ms';
+  }
+
+  @override
+  String mitschnittDaten(String mb) {
+    return '$mb MB downloaded';
+  }
+
+  @override
+  String mitschnittVerworfen(int anzahl) {
+    return '$anzahl older entries were dropped at the limit.';
+  }
+
+  @override
+  String mitschnittMalGeholt(int anzahl) {
+    return '${anzahl}x';
+  }
 }

@@ -53,7 +53,9 @@ class _TrashScreenState extends State<TrashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppTexte.of(context).papierkorbTitel),
+        title: Text(_selected.isEmpty
+            ? AppTexte.of(context).papierkorbTitel
+            : AppTexte.of(context).papierkorbAusgewaehlt(_selected.length)),
         actions: [
           if (_selected.isNotEmpty) ...[
             IconButton(
@@ -93,7 +95,41 @@ class _TrashScreenState extends State<TrashScreen> {
           if (assets.isEmpty) {
             return EmptyState(icon: Icons.delete_outline, message: AppTexte.of(context).papierkorbLeer);
           }
-          return GridView.builder(
+          return Column(
+            children: [
+              // Der Hinweis steht da, weil die Geste sonst niemand
+              // findet – und weil ein Papierkorb ohne sichtbaren Ausgang
+              // genau der Befund der 16. Prüfrunde war.
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        AppTexte.of(context).papierkorbHinweis,
+                        style: TextStyle(
+                            fontSize: 12,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(child: _raster(assets)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _raster(List<AssetData> assets) => GridView.builder(
             padding: const EdgeInsets.all(AppSpacing.md),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: _kachelBreite,
@@ -151,13 +187,37 @@ class _TrashScreenState extends State<TrashScreen> {
                         color: Colors.black45,
                         child: const Icon(Icons.check_circle, color: Colors.white),
                       ),
+                    // **Sichtbar, nicht versteckt.** Bis hierher gab es
+                    // das Wiederherstellen nur nach einem langen Druck –
+                    // eine Geste, die niemandem gesagt wird. Der
+                    // Papierkorb sah damit aus wie eine Galerie ohne
+                    // Ausgang. Die Auswahl über lange Drücken bleibt für
+                    // mehrere Fotos auf einmal.
+                    if (_selected.isEmpty)
+                      Positioned(
+                        right: 2,
+                        bottom: 2,
+                        child: Tooltip(
+                          message: AppTexte.of(context).einstWiederherstellen,
+                          child: Material(
+                            color: Colors.black54,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => widget.library
+                                  .ausPapierkorbHolen([asset.id]),
+                              child: const Padding(
+                                padding: EdgeInsets.all(6),
+                                child: Icon(Icons.restore_from_trash_outlined,
+                                    size: 20, color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               );
             },
-          );
-        },
-      ),
-    );
-  }
+      );
 }

@@ -145,6 +145,95 @@ Future<String> begriffFuerModell(
   return schabloneFuer(uebersetzt);
 }
 
+/// Höchstens so viele Schlagwörter je Foto.
+///
+/// **Die Zahl ist der eigentliche Schutz.** Vorher gab es keine: Was über
+/// der Schwelle lag, wurde vergeben. In der Bibliothek des Nutzers standen
+/// dadurch **94.040 KI-Schlagwörter auf 7.400 Aufnahmen – 12,7 je Foto**,
+/// mit Spitzen bei fünfzig. Fünf ist die Zahl, die ein Mensch beim
+/// Betrachten eines Fotos auch nennen würde.
+const kiTagsHoechstens = 5;
+
+/// So viel der Gesamtwahrscheinlichkeit muss ein Begriff auf sich ziehen.
+///
+/// Bei einem Vokabular von 55 Begriffen kämen bei Gleichverteilung 1,8 %
+/// auf jeden. Fünf Prozent heisst also: knapp das Dreifache dessen, was
+/// blindes Raten ergäbe.
+const kiTagMindestAnteil = 0.05;
+
+/// Unter dieser Ähnlichkeit wird gar nichts vergeben.
+///
+/// Der Rang allein genügt nicht: Auch auf einem Foto, zu dem kein einziger
+/// Begriff passt, gibt es einen besten. Ohne diesen Boden bekäme jedes
+/// Foto seine fünf Schlagwörter, nur eben die am wenigsten falschen.
+const kiTagUntergrenze = 0.20;
+
+/// Die Temperatur der Softmax-Rechnung.
+///
+/// 100 ist der Wert aus der CLIP-Veröffentlichung selbst (dort als
+/// gelernter `logit_scale`). Er ist kein Regler, sondern gehört zum
+/// Modell: Kosinuswerte liegen zwischen etwa 0,15 und 0,35, und erst
+/// dieser Faktor macht daraus Abstände, die eine Softmax trennen kann.
+const _kiTagTemperatur = 100.0;
+
+/// Welche Begriffe ein Foto bekommt – die Auswahlregel, getrennt vom
+/// Modell und deshalb prüfbar.
+///
+/// **Warum nicht mehr eine feste Schwelle.** Bis hierher galt: Vergib
+/// jeden Begriff mit einer Ähnlichkeit über 0,24. Das setzt voraus, dass
+/// die Werte zwischen Begriffen vergleichbar sind – sie sind es nicht.
+/// Manche Begriffe liegen für jedes Bild hoch, andere feuern nie. An der
+/// echten Bibliothek abzulesen: „Bildschirmfoto" hing an 4.585 von 7.400
+/// Aufnahmen, „Geburtstagstorte" an 4.050.
+///
+/// Richtig ist die Vorgehensweise aus der CLIP-Veröffentlichung selbst:
+/// **rangieren statt schwellen.** Die Ähnlichkeiten gehen durch eine
+/// Softmax über das GESAMTE Vokabular; damit zählt nicht mehr der
+/// absolute Wert eines Begriffs, sondern wie sehr er die übrigen
+/// aussticht. Ein Begriff, der überall mittelhoch liegt, sticht nirgends
+/// aus.
+///
+/// Drei Bedingungen, alle drei müssen gelten:
+///  1. höchstens [hoechstens] Begriffe,
+///  2. Anteil an der Gesamtwahrscheinlichkeit mindestens [mindestAnteil],
+///  3. Ähnlichkeit mindestens [untergrenze] – der Boden für Fotos, zu
+///     denen schlicht nichts passt.
+List<String> waehleTags(
+  List<String> begriffe,
+  List<double> naehe, {
+  int hoechstens = kiTagsHoechstens,
+  double mindestAnteil = kiTagMindestAnteil,
+  double untergrenze = kiTagUntergrenze,
+}) {
+  assert(begriffe.length == naehe.length);
+  if (begriffe.isEmpty) return const [];
+
+  // Der grösste Wert wird abgezogen, bevor exponiert wird – sonst läuft
+  // exp(100 * 0,35) über. Am Ergebnis der Softmax ändert das nichts.
+  var groesste = naehe.first;
+  for (final n in naehe) {
+    if (n > groesste) groesste = n;
+  }
+  if (groesste < untergrenze) return const [];
+
+  final gewichte = [
+    for (final n in naehe) math.exp(_kiTagTemperatur * (n - groesste))
+  ];
+  final summe = gewichte.fold<double>(0, (a, b) => a + b);
+
+  final rang = List<int>.generate(begriffe.length, (i) => i)
+    ..sort((a, b) => naehe[b].compareTo(naehe[a]));
+
+  final treffer = <String>[];
+  for (final i in rang) {
+    if (treffer.length >= hoechstens) break;
+    if (naehe[i] < untergrenze) break;
+    if (gewichte[i] / summe < mindestAnteil) break;
+    treffer.add(begriffe[i]);
+  }
+  return treffer;
+}
+
 /// Ordnet einem Foto (über sein bereits berechnetes CLIP-Bild-Embedding)
 /// automatisch Tags aus dem in den Einstellungen editierbaren Vokabular
 /// (Tabelle `AiTagVocabulary`, siehe `AppDatabase.aiTagVocabularyTerms`) zu –
@@ -196,19 +285,26 @@ class AiTaggingService {
     ClipService clipText,
     Float32List imageEmbedding,
     List<String> vocabulary, {
-    double threshold = 0.24,
+    int hoechstens = kiTagsHoechstens,
+    double mindestAnteil = kiTagMindestAnteil,
+    double untergrenze = kiTagUntergrenze,
     Future<String> Function(String)? insEnglische,
   }) async {
-    final matches = <String>[];
+    if (vocabulary.isEmpty) return const [];
+
+    final naehe = <double>[];
     for (final term in vocabulary) {
       var embedding = _termEmbeddingCache[term];
       if (embedding == null) {
         final fuerModell = await begriffFuerModell(term, insEnglische);
         embedding = _termEmbeddingCache[term] = await clipText.embedText(fuerModell);
       }
-      if (_cosine(imageEmbedding, embedding) >= threshold) matches.add(term);
+      naehe.add(_cosine(imageEmbedding, embedding));
     }
-    return matches;
+    return waehleTags(vocabulary, naehe,
+        hoechstens: hoechstens,
+        mindestAnteil: mindestAnteil,
+        untergrenze: untergrenze);
   }
 
   /// Verwirft die zwischengespeicherten Begriffs-Vektoren.

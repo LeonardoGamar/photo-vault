@@ -20,6 +20,7 @@ import 'reise_detail_screen.dart';
 import 'reisen_screen.dart';
 import 'person_detail_screen.dart';
 import 'timeline_screen.dart';
+import 'trash_screen.dart';
 
 const _previewPeopleCount = 10;
 const _previewAlbumCount = 8;
@@ -91,6 +92,13 @@ class ExploreScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _RecentPhotosStrip(library: library),
+        const SizedBox(height: 28),
+        // Der Papierkorb steht hier und nicht nur in den Einstellungen.
+        // Er ist kein Schalter, sondern ein Ort, an dem Fotos liegen –
+        // und wer eines sucht, sucht es beim Erkunden. Er steht zuletzt,
+        // weil er der einzige Eintrag ist, den man im Regelfall NICHT
+        // braucht.
+        _Papierkorbzeile(library: library),
       ],
     );
   }
@@ -756,6 +764,42 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
               if (yearsAgo != orderedYearsAgo.last) const SizedBox(height: 16),
             ],
           ],
+        );
+      },
+    );
+  }
+}
+
+/// Der Weg in den Papierkorb, mit der Zahl gleich daneben.
+///
+/// Bis Fassung 2.2.1 gab es ihn nur über die Einstellungen – und davor
+/// zwei Jahre lang gar nicht (siehe `jeder_bildschirm_erreichbar_test.dart`).
+/// Er bleibt dort auch stehen: Wer die automatische Leerung einstellt,
+/// will von dort hineinsehen können.
+class _Papierkorbzeile extends StatelessWidget {
+  final LibraryState library;
+  const _Papierkorbzeile({required this.library});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    return StreamBuilder<List<AssetData>>(
+      stream: library.db.watchTrash(),
+      builder: (context, schnappschuss) {
+        final anzahl = schnappschuss.data?.length ?? 0;
+        return Card(
+          margin: EdgeInsets.zero,
+          child: ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text(t.papierkorbTitel),
+            subtitle: Text(anzahl == 0
+                ? t.papierkorbLeer
+                : t.papierkorbAnzahl(anzahl)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => TrashScreen(library: library),
+            )),
+          ),
         );
       },
     );
