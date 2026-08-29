@@ -8,6 +8,7 @@ import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
 import '../services/asset_format.dart';
+import '../services/bilddekodierung.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 
@@ -78,14 +79,25 @@ class AssetThumbnailTile extends StatelessWidget {
             // volle, auf der Platte hinterlegte 400px-Vorschau zu dekodieren
             // und zu cachen – in dichten Rasteransichten (Timeline, Kalender,
             // Alben) sind Kacheln oft deutlich kleiner als 400px.
+            //
+            // **In Stufen und nicht auf den Punkt** – siehe
+            // [dekodierbreite]. Die Kachelbreite ändert sich mit jedem
+            // Punkt Fensterbreite; ohne die Stufen bekäme jeder
+            // Zwischenschritt eines Ziehens am Fenster einen eigenen
+            // Schlüssel im Bildspeicher, und jede sichtbare Kachel würde
+            // dabei neu dekodiert.
             LayoutBuilder(
               builder: (context, constraints) {
                 final dpr = MediaQuery.of(context).devicePixelRatio;
                 return Image.file(
                   paths.absolute(thumbPath),
                   fit: BoxFit.cover,
-                  cacheWidth: constraints.maxWidth.isFinite ? (constraints.maxWidth * dpr).round() : null,
-                  cacheHeight: constraints.maxHeight.isFinite ? (constraints.maxHeight * dpr).round() : null,
+                  cacheWidth: constraints.maxWidth.isFinite
+                      ? dekodierbreite(constraints.maxWidth, dpr)
+                      : null,
+                  cacheHeight: constraints.maxHeight.isFinite
+                      ? dekodierbreite(constraints.maxHeight, dpr)
+                      : null,
                   errorBuilder: (_, __, ___) => _placeholder(),
                 );
               },

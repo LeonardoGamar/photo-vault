@@ -20,6 +20,7 @@ import '../widgets/hoehenprofil.dart';
 import '../widgets/namens_dialog.dart';
 import '../widgets/routenkarte.dart';
 import 'asset_viewer_screen.dart';
+import 'aufnahmen_waehlen_screen.dart';
 import 'gelaende_screen.dart';
 
 /// Eine einzelne Aktivität.
@@ -83,7 +84,10 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
     });
   }
 
-  Aktivitaetsart get _art => Aktivitaetsart.aus(_k.art);
+  /// Die Kennung, wie sie in der Datenbank steht – auch eine selbst
+  /// eingetragene Art. Über die Aufzählung zu gehen machte aus
+  /// „Konzert" ein „Sonstiges".
+  String get _art => _k.art;
 
   Map<String, AssetData> get _nachId => {for (final a in _aufnahmen) a.id: a};
 
@@ -261,29 +265,44 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
   }
 
   Future<void> _artAendern() async {
+    final gewaehlt = await frageAktivitaetsart(context,
+        db: widget.library.db, aktuell: _k.art);
+    if (gewaehlt == null) return;
+    await widget.library.db
+        .aktivitaetAendern(_k.id, AktivitaetenCompanion(art: Value(gewaehlt)));
+    await _laden();
+  }
+
+  /// Fotos dazunehmen oder herausnehmen.
+  ///
+  /// Die Erkennung schneidet an einer Lücke von anderthalb Stunden – das
+  /// trifft oft, aber nicht immer: Das Foto vom Vorabend gehört manchmal
+  /// dazu und das aus der Mittagspause manchmal nicht. Bis hierher liess
+  /// sich daran nichts ändern; die Zuordnung entstand einmal beim
+  /// Bestätigen und blieb dann, wie sie war.
+  Future<void> _aufnahmenBearbeiten() async {
     final t = AppTexte.of(context);
-    final gewaehlt = await showDialog<Aktivitaetsart>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: Text(t.aktivitaetenArtAendern),
-        children: [
-          for (final a in Aktivitaetsart.values)
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, a),
-              child: Row(
-                children: [
-                  Icon(symbolFuerArt(a)),
-                  const SizedBox(width: AppSpacing.md),
-                  Text(nameFuerArt(t, a)),
-                ],
-              ),
-            ),
-        ],
+    final vorher = {for (final a in _aufnahmen) a.id};
+    final neu = await Navigator.of(context).push<Set<String>>(
+      MaterialPageRoute(
+        builder: (_) => AufnahmenWaehlenScreen(
+          library: widget.library,
+          titel: t.aufnahmenWahlTitelAktivitaet,
+          vorhanden: vorher,
+          von: _k.von,
+          bis: _k.bis,
+        ),
       ),
     );
-    if (gewaehlt == null) return;
-    await widget.library.db.aktivitaetAendern(
-        _k.id, AktivitaetenCompanion(art: Value(gewaehlt.kennung)));
+    if (neu == null || !mounted) return;
+    final dazu = neu.difference(vorher).length;
+    final weg = vorher.difference(neu).length;
+    if (dazu == 0 && weg == 0) {
+      melde.hinweis(t.aufnahmenWahlUnveraendert);
+      return;
+    }
+    await widget.library.db.setzeAufnahmenDerAktivitaet(_k.id, neu);
+    melde.erfolg(t.aufnahmenWahlGeaendert(dazu, weg));
     await _laden();
   }
 
@@ -358,7 +377,7 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            Icon(symbolFuerArt(_art), size: 20),
+            Icon(symbolFuerKennung(_art), size: 20),
             const SizedBox(width: AppSpacing.sm),
             Expanded(child: Text(_k.name)),
           ],
@@ -382,6 +401,11 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
               icon: const Icon(Icons.wrong_location_outlined),
               onPressed: _spurEntfernen,
             ),
+          IconButton(
+            tooltip: t.aufnahmenBearbeiten,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            onPressed: _aufnahmenBearbeiten,
+          ),
           IconButton(
             tooltip: t.aktivitaetenArtAendern,
             icon: const Icon(Icons.category_outlined),
@@ -417,7 +441,7 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
                       children: [
                         Text(
                           [
-                            nameFuerArt(t, _art),
+                            nameFuerKennung(t, _art),
                             DateFormat.yMMMd(locale.toString())
                                 .format(_k.von),
                             dauertext(t, _dauer),

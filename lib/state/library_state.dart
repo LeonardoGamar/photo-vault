@@ -187,6 +187,21 @@ class LibraryState extends ChangeNotifier {
   String? aktiveBibliothek;
 
   ReverseGeocoder? geocoder;
+
+  /// Läuft, solange der GeoNames-Datensatz noch gelesen wird.
+  ///
+  /// **Warum das nebenher läuft.** `cities1000.txt` ist 31 MB gross, und
+  /// es zu lesen dauert an der echten Datei **376 ms** – gemessen. Das
+  /// lag bis hierher vor `_ready`, also vor dem ersten Bild: Jeder Start
+  /// begann mit einer reichlichen Drittelsekunde Ladeanzeige für etwas,
+  /// das für das erste Bild niemand braucht.
+  ///
+  /// Wer die Ortsauflösung wirklich braucht (der Import und das
+  /// Nachtragen), wartet hierauf. Die Ansichten fragen weiterhin nur
+  /// [geocoder] ab und bekommen `null`, solange nichts da ist – nach dem
+  /// Laden folgt ein [notifyListeners], damit sich das gerade richtet.
+  Future<void> get geoBereit => _geoLaeuft;
+  Future<void> _geoLaeuft = Future<void>.value();
   bool _ready = false;
   bool get isReady => _ready;
 
@@ -338,7 +353,11 @@ class LibraryState extends ChangeNotifier {
     setzeCartoSchluessel(await db.cartoSchluesselWert());
     _maxGleichzeitig = await db.maxGleichzeitigeAufgaben();
     await _loadModelsIfPresent();
-    await _loadGeoDataIfPresent();
+    // Ohne `await`: siehe [geoBereit]. Das Lesen des GeoNames-Datensatzes
+    // kostet 376 ms, und das erste Bild braucht ihn nicht.
+    _geoLaeuft = _loadGeoDataIfPresent().then((_) {
+      if (geocoder != null) notifyListeners();
+    });
     // Absichtlich ohne `await`: Bei einem grossen Stammbaum sind das
     // viele einzelne Schreibvorgänge, und der Start soll nicht darauf
     // warten. Die Ereignisse tauchen dann eben eine Sekunde später auf
@@ -545,7 +564,8 @@ class LibraryState extends ChangeNotifier {
   /// Wird nach einem Download/Löschen des GeoNames-Datensatzes in den
   /// Einstellungen aufgerufen.
   Future<void> reloadGeoData() async {
-    await _loadGeoDataIfPresent();
+    _geoLaeuft = _loadGeoDataIfPresent();
+    await _geoLaeuft;
     // Ein frisch eingespielter Datensatz ist der Augenblick, in dem
     // Ereignisorte zum ersten Mal auflösbar werden.
     await trageEreignisorteNach();
@@ -1190,6 +1210,11 @@ class LibraryState extends ChangeNotifier {
 
     // Ortsauflösung bleibt hier: reines Nachschlagen im bereits im
     // Speicher liegenden GeoNames-Verzeichnis, kein Bild wird angefasst.
+    //
+    // Erst abwarten, ob das Verzeichnis noch gelesen wird: Seit es
+    // nebenher lädt (siehe [geoBereit]), wäre ein Import in der ersten
+    // halben Sekunde nach dem Start sonst still ohne Ortsnamen geblieben.
+    await geoBereit;
     if (geocoder != null && asset.latitude != null && asset.longitude != null) {
       final result = geocoder!.lookup(asset.latitude!, asset.longitude!);
       if (result != null) {
@@ -1504,6 +1529,7 @@ class LibraryState extends ChangeNotifier {
   /// Datensatzes importiert wurden. Braucht keinen Dateizugriff: Breiten-
   /// und Längengrad liegen bereits in der Datenbank.
   Stream<ImportProgress> backfillLocationNames() async* {
+    await geoBereit;
     final engine = geocoder;
     if (engine == null) {
       yield ImportProgress(0, 0);

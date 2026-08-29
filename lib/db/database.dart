@@ -7,6 +7,7 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 
 import '../services/ai_tagging_service.dart' show defaultAiTagVocabulary;
+import '../services/aktivitaeten.dart' show istBekannteArt;
 import '../services/embedding_codec.dart';
 import '../services/embedding_similarity.dart' show duplikatPaarSchluessel;
 import '../services/exif_camera.dart';
@@ -2011,6 +2012,21 @@ class AppDatabase extends _$AppDatabase {
     }
     return query.watch();
   }
+
+  /// Dieselbe Liste wie [watchTimeline], aber einmalig statt als Strom.
+  ///
+  /// Für Ansichten, die eine Auswahl treffen und danach fertig sind
+  /// (siehe `AufnahmenWaehlenScreen`). Ein Strom wäre dort nicht nur
+  /// unnötig, sondern lästig: Er hinterlässt beim Abbauen einen
+  /// Zeitgeber, und die Liste unter der Hand zu ändern, während jemand
+  /// Häkchen setzt, wäre ohnehin das Gegenteil von hilfreich.
+  Future<List<AssetData>> alleAufnahmen() => (select(assets)
+        ..where((t) =>
+            t.isTrashed.equals(false) &
+            t.isLocked.equals(false) &
+            _isPrimaryGridEntry(t))
+        ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]))
+      .get();
 
   /// Fotos/Videos genau eines Kalenderjahres – im Gegensatz zu
   /// `watchTimeline()` + Dart-seitigem Filtern (früheres Verhalten von
@@ -5197,6 +5213,95 @@ class AppDatabase extends _$AppDatabase {
 
   Future<Set<String>> zugeordneteAktivitaetsAufnahmen() async =>
       {for (final z in await select(aktivitaetAufnahmen).get()) z.assetId};
+
+  /// Die selbst eingetragenen Arten: was in der Spalte steht und keine
+  /// mitgelieferte Art ist.
+  ///
+  /// **Abgeleitet und nicht in einer eigenen Tabelle.** Eine Art
+  /// existiert, solange eine Aktivität sie trägt – so kann keine Liste
+  /// mit Namen volllaufen, die niemand mehr benutzt, und es braucht
+  /// weder einen Schemaschritt noch ein Aufräumen. Der Preis: Wer die
+  /// letzte Aktivität einer eigenen Art umträgt, verliert den Namen aus
+  /// der Auswahl. Er steht danach genau so wieder da, wie er
+  /// hineingekommen ist – als Eingabe.
+  Future<List<String>> eigeneAktivitaetsarten() async {
+    final zeilen = await customSelect(
+      'SELECT DISTINCT art FROM aktivitaeten ORDER BY art',
+      readsFrom: {aktivitaeten},
+    ).get();
+    return [
+      for (final z in zeilen)
+        if (!istBekannteArt(z.read<String>('art'))) z.read<String>('art'),
+    ];
+  }
+
+  /// Setzt die Aufnahmen einer Aktivität auf genau [assetIds].
+  ///
+  /// **Setzen und nicht einzeln hinzufügen/entfernen.** Der Bildschirm
+  /// zeigt eine Auswahl und gibt eine Auswahl zurück; die Unterschiede
+  /// dazwischen sind Sache dieser Zeile und nicht die des Aufrufers.
+  /// Zwei getrennte Aufrufe wären ausserdem zwei Gelegenheiten, dass
+  /// dazwischen etwas schiefgeht.
+  ///
+  /// Führt danach den Zeitraum nach: `von`/`bis` sind aus den Aufnahmen
+  /// abgeleitet und trotzdem gespeichert (damit die Liste sortieren kann,
+  /// ohne für jede Zeile ihre Aufnahmen nachzuschlagen) – ohne diese
+  /// Zeile stünde nach dem Bearbeiten ein Zeitraum da, den keine
+  /// Aufnahme mehr belegt.
+  Future<void> setzeAufnahmenDerAktivitaet(
+          String aktivitaetId, Set<String> assetIds) =>
+      transaction(() async {
+        await (delete(aktivitaetAufnahmen)
+              ..where((t) => t.aktivitaetId.equals(aktivitaetId)))
+            .go();
+        await batch((b) => b.insertAll(aktivitaetAufnahmen, [
+              for (final id in assetIds)
+                AktivitaetAufnahmenCompanion.insert(
+                    aktivitaetId: aktivitaetId, assetId: id),
+            ]));
+        final zeitraum = await _zeitraumVon(assetIds);
+        if (zeitraum != null) {
+          await (update(aktivitaeten)..where((t) => t.id.equals(aktivitaetId)))
+              .write(AktivitaetenCompanion(
+                  von: Value(zeitraum.von), bis: Value(zeitraum.bis)));
+        }
+      });
+
+  /// Setzt die Aufnahmen einer Reise auf genau [assetIds] – wie
+  /// [setzeAufnahmenDerAktivitaet], nur eine Tabelle weiter.
+  Future<void> setzeAufnahmenDerReise(String reiseId, Set<String> assetIds) =>
+      transaction(() async {
+        await (delete(reiseAufnahmen)..where((t) => t.reiseId.equals(reiseId)))
+            .go();
+        await batch((b) => b.insertAll(reiseAufnahmen, [
+              for (final id in assetIds)
+                ReiseAufnahmenCompanion.insert(reiseId: reiseId, assetId: id),
+            ]));
+        final zeitraum = await _zeitraumVon(assetIds);
+        if (zeitraum != null) {
+          await (update(reisen)..where((t) => t.id.equals(reiseId))).write(
+              ReisenCompanion(
+                  von: Value(zeitraum.von), bis: Value(zeitraum.bis)));
+        }
+      });
+
+  /// Erste und letzte Aufnahmezeit einer Menge – `null` bei einer leeren
+  /// Menge.
+  ///
+  /// Dann bleibt der bisherige Zeitraum stehen: Eine Reise ohne Bilder
+  /// hat keinen belegten Zeitraum, und „1970" wäre eine Behauptung. Sie
+  /// steht dann eben mit ihrem alten Datum in der Liste, bis wieder etwas
+  /// darin liegt.
+  Future<({DateTime von, DateTime bis})?> _zeitraumVon(
+      Set<String> assetIds) async {
+    if (assetIds.isEmpty) return null;
+    final zeiten = await (select(assets)
+          ..where((t) => t.id.isIn(assetIds))
+          ..orderBy([(t) => OrderingTerm.asc(t.fileCreatedAt)]))
+        .get();
+    if (zeiten.isEmpty) return null;
+    return (von: zeiten.first.fileCreatedAt, bis: zeiten.last.fileCreatedAt);
+  }
 
   /// Welche Aufnahme zu welcher Reise gehört – für die Zuordnung einer
   /// Aktivität (siehe `reiseFuerAktivitaet`).

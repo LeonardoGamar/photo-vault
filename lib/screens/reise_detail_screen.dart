@@ -11,6 +11,7 @@ import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/routenkarte.dart';
 import '../widgets/namens_dialog.dart';
 import 'asset_viewer_screen.dart';
+import 'aufnahmen_waehlen_screen.dart';
 import 'reisen_screen.dart' show reiseUnterzeile;
 import '../services/meldungsdienst.dart';
 import 'aktivitaet_detail_screen.dart';
@@ -203,6 +204,37 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  /// Fotos dazunehmen oder herausnehmen.
+  ///
+  /// Beim Anlegen kam alles aus dem Zeitraum mit (siehe
+  /// `frageZeitraum`); dass eine Reise am Abflugtag noch drei Bilder aus
+  /// der Küche enthält, war bis hierher nicht zu ändern.
+  Future<void> _aufnahmenBearbeiten() async {
+    final t = AppTexte.of(context);
+    final vorher = {for (final a in _aufnahmen) a.id};
+    final neu = await Navigator.of(context).push<Set<String>>(
+      MaterialPageRoute(
+        builder: (_) => AufnahmenWaehlenScreen(
+          library: widget.library,
+          titel: t.aufnahmenWahlTitelReise,
+          vorhanden: vorher,
+          von: _reise.von,
+          bis: _reise.bis,
+        ),
+      ),
+    );
+    if (neu == null || !mounted) return;
+    final dazu = neu.difference(vorher).length;
+    final weg = vorher.difference(neu).length;
+    if (dazu == 0 && weg == 0) {
+      melde.hinweis(t.aufnahmenWahlUnveraendert);
+      return;
+    }
+    await widget.library.db.setzeAufnahmenDerReise(_reise.id, neu);
+    melde.erfolg(t.aufnahmenWahlGeaendert(dazu, weg));
+    await _laden();
+  }
+
   /// Tippen auf einen Pin: nur die Bilder von dort.
   ///
   /// Nicht der Sprung in die vollständige Liste an der passenden Stelle.
@@ -258,6 +290,11 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
       appBar: AppBar(
         title: Text(_reise.name),
         actions: [
+          IconButton(
+            tooltip: t.aufnahmenBearbeiten,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            onPressed: _aufnahmenBearbeiten,
+          ),
           IconButton(
             tooltip: t.reisenUmbenennen,
             icon: const Icon(Icons.drive_file_rename_outline),

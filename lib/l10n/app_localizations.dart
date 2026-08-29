@@ -9413,6 +9413,84 @@ abstract class AppTexte {
   /// **'„{name}\" entfernt.'**
   String aktivitaetenEntfernt(String name);
 
+  /// No description provided for @aufnahmenWahlTitelAktivitaet.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos der Aktivität'**
+  String get aufnahmenWahlTitelAktivitaet;
+
+  /// No description provided for @aufnahmenWahlTitelReise.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos der Reise'**
+  String get aufnahmenWahlTitelReise;
+
+  /// No description provided for @aufnahmenWahlZeitraum.
+  ///
+  /// In de, this message translates to:
+  /// **'Zeitraum ({von} – {bis})'**
+  String aufnahmenWahlZeitraum(String von, String bis);
+
+  /// No description provided for @aufnahmenWahlAlle.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Fotos'**
+  String get aufnahmenWahlAlle;
+
+  /// No description provided for @aufnahmenWahlGewaehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{nichts gewählt} =1{1 Foto gewählt} other{{anzahl} Fotos gewählt}}'**
+  String aufnahmenWahlGewaehlt(num anzahl);
+
+  /// No description provided for @aufnahmenWahlAusserhalb.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{1 davon ausserhalb der Ansicht} other{{anzahl} davon ausserhalb der Ansicht}}'**
+  String aufnahmenWahlAusserhalb(num anzahl);
+
+  /// No description provided for @aufnahmenWahlLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'In diesem Zeitraum liegt kein Foto. Über „Alle Fotos“ lässt sich eines von ausserhalb dazunehmen.'**
+  String get aufnahmenWahlLeer;
+
+  /// No description provided for @aufnahmenWahlGeaendert.
+  ///
+  /// In de, this message translates to:
+  /// **'{dazu, plural, =0{} =1{1 Foto dazu} other{{dazu} Fotos dazu}}{weg, plural, =0{} =1{, 1 entfernt} other{, {weg} entfernt}}'**
+  String aufnahmenWahlGeaendert(num dazu, num weg);
+
+  /// No description provided for @aufnahmenWahlUnveraendert.
+  ///
+  /// In de, this message translates to:
+  /// **'Nichts geändert.'**
+  String get aufnahmenWahlUnveraendert;
+
+  /// No description provided for @aufnahmenBearbeiten.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos bearbeiten'**
+  String get aufnahmenBearbeiten;
+
+  /// No description provided for @aktivitaetenArtNeu.
+  ///
+  /// In de, this message translates to:
+  /// **'Neue Art …'**
+  String get aktivitaetenArtNeu;
+
+  /// No description provided for @aktivitaetenArtNeuFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'Wie soll die Art heissen?'**
+  String get aktivitaetenArtNeuFrage;
+
+  /// No description provided for @aktArtSpaziergang.
+  ///
+  /// In de, this message translates to:
+  /// **'Spaziergang'**
+  String get aktArtSpaziergang;
+
   /// No description provided for @aktArtWanderung.
   ///
   /// In de, this message translates to:

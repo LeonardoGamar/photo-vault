@@ -174,7 +174,7 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
       AktivitaetenCompanion.insert(
         id: const Uuid().v4(),
         name: angabe.name,
-        art: angabe.art!.kennung,
+        art: angabe.art!,
         von: angabe.von,
         bis: angabe.bis,
         reiseId: Value(reiseId),
@@ -593,7 +593,7 @@ class _AktivitaetskachelState extends State<Aktivitaetskachel> {
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
-    final art = Aktivitaetsart.aus(widget.aktivitaet.art);
+    final art = widget.aktivitaet.art;
     final datum = DateFormat.yMMMd(Localizations.localeOf(context).toString());
     // Die Reise gehört zum Ort und nicht in eine eigene Zeile: Beides
     // beantwortet „wo war das?", und zwei Zeilen dafür machten die
@@ -608,9 +608,9 @@ class _AktivitaetskachelState extends State<Aktivitaetskachel> {
       builder: (context, schnappschuss) => Ortskachel(
         bild: schnappschuss.data,
         paths: widget.library.paths,
-        symbol: symbolFuerArt(art),
+        symbol: symbolFuerKennung(art),
         name: widget.aktivitaet.name,
-        kennzeichen: nameFuerArt(t, art),
+        kennzeichen: nameFuerKennung(t, art),
         // Bei einer Aktivität ist das volle Datum die Auskunft, nicht das
         // Jahr: Sie dauert Stunden, keine Wochen, und „2024" beantwortete
         // die Frage „wann war das?" nicht einmal ungefähr.
@@ -657,7 +657,7 @@ class _AktivitaetszeileState extends State<Aktivitaetszeile> {
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
     final locale = Localizations.localeOf(context);
-    final art = Aktivitaetsart.aus(widget.aktivitaet.art);
+    final art = widget.aktivitaet.art;
     final dauer = widget.aktivitaet.bis.difference(widget.aktivitaet.von);
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -670,7 +670,7 @@ class _AktivitaetszeileState extends State<Aktivitaetszeile> {
             builder: (context, schnappschuss) {
               final asset = schnappschuss.data;
               if (asset == null) {
-                return Center(child: Icon(symbolFuerArt(art)));
+                return Center(child: Icon(symbolFuerKennung(art)));
               }
               return ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.xs),
@@ -685,14 +685,14 @@ class _AktivitaetszeileState extends State<Aktivitaetszeile> {
         ),
         title: Row(
           children: [
-            Icon(symbolFuerArt(art),
+            Icon(symbolFuerKennung(art),
                 size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(width: AppSpacing.xs),
             Expanded(child: Text(widget.aktivitaet.name)),
           ],
         ),
         subtitle: Text([
-          nameFuerArt(t, art),
+          nameFuerKennung(t, art),
           DateFormat.yMMMd(locale.toString()).format(widget.aktivitaet.von),
           dauertext(t, dauer),
           if (widget.reisename case final r?) t.aktivitaetenZuReise(r),

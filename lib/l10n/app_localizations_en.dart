@@ -6068,6 +6068,100 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String get aufnahmenWahlTitelAktivitaet => 'Photos of this activity';
+
+  @override
+  String get aufnahmenWahlTitelReise => 'Photos of this journey';
+
+  @override
+  String aufnahmenWahlZeitraum(String von, String bis) {
+    return 'Period ($von – $bis)';
+  }
+
+  @override
+  String get aufnahmenWahlAlle => 'All photos';
+
+  @override
+  String aufnahmenWahlGewaehlt(num anzahl) {
+    final intl.NumberFormat anzahlNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String anzahlString = anzahlNumberFormat.format(anzahl);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahlString photos selected',
+      one: '1 photo selected',
+      zero: 'nothing selected',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String aufnahmenWahlAusserhalb(num anzahl) {
+    final intl.NumberFormat anzahlNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String anzahlString = anzahlNumberFormat.format(anzahl);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahlString of them outside this view',
+      one: '1 of them outside this view',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get aufnahmenWahlLeer =>
+      'There is no photo in this period. Use “All photos” to pick one from outside it.';
+
+  @override
+  String aufnahmenWahlGeaendert(num dazu, num weg) {
+    final intl.NumberFormat dazuNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String dazuString = dazuNumberFormat.format(dazu);
+    final intl.NumberFormat wegNumberFormat = intl.NumberFormat.compact(
+      locale: localeName,
+    );
+    final String wegString = wegNumberFormat.format(weg);
+
+    String _temp0 = intl.Intl.pluralLogic(
+      dazu,
+      locale: localeName,
+      other: '$dazuString photos added',
+      one: '1 photo added',
+      zero: '',
+    );
+    String _temp1 = intl.Intl.pluralLogic(
+      weg,
+      locale: localeName,
+      other: ', $wegString removed',
+      one: ', 1 removed',
+      zero: '',
+    );
+    return '$_temp0$_temp1';
+  }
+
+  @override
+  String get aufnahmenWahlUnveraendert => 'Nothing changed.';
+
+  @override
+  String get aufnahmenBearbeiten => 'Edit photos';
+
+  @override
+  String get aktivitaetenArtNeu => 'New type …';
+
+  @override
+  String get aktivitaetenArtNeuFrage => 'What should the type be called?';
+
+  @override
+  String get aktArtSpaziergang => 'Walk';
+
+  @override
   String get aktArtWanderung => 'Hike';
 
   @override

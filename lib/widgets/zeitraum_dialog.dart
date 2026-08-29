@@ -13,7 +13,11 @@ typedef Zeitraumangabe = ({
   String name,
   DateTime von,
   DateTime bis,
-  Aktivitaetsart? art,
+
+  /// Die Kennung der Art, wie sie in der Datenbank steht – auch eine
+  /// selbst eingetragene. `null`, wenn nicht nach einer Art gefragt
+  /// wurde (bei einer Reise).
+  String? art,
 });
 
 /// Fragt nach Name und Zeitraum – für eine von Hand angelegte Reise oder
@@ -59,7 +63,7 @@ class _ZeitraumDialogState extends State<_ZeitraumDialog> {
   final _name = TextEditingController();
   late DateTime _von = DateTime.now();
   late DateTime _bis = DateTime.now();
-  Aktivitaetsart _art = Aktivitaetsart.wanderung;
+  String _art = Aktivitaetsart.wanderung.kennung;
   int? _anzahl;
 
   @override
@@ -134,24 +138,28 @@ class _ZeitraumDialogState extends State<_ZeitraumDialog> {
             ),
             if (widget.mitArt) ...[
               const SizedBox(height: AppSpacing.md),
-              DropdownButtonFormField<Aktivitaetsart>(
-                initialValue: _art,
-                decoration: InputDecoration(
-                  labelText: t.zeitraumArt,
-                  border: const OutlineInputBorder(),
+              // Kein Auswahlfeld mit fester Liste, sondern derselbe
+              // Dialog wie in der Aktivität selbst: Nur er kennt die
+              // selbst eingetragenen Arten und den Weg zu einer neuen.
+              InkWell(
+                onTap: () async {
+                  final gewaehlt = await frageAktivitaetsart(context,
+                      db: widget.db, aktuell: _art);
+                  if (!mounted || gewaehlt == null) return;
+                  setState(() => _art = gewaehlt);
+                },
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: t.zeitraumArt,
+                    border: const OutlineInputBorder(),
+                  ),
+                  child: Row(children: [
+                    Icon(symbolFuerKennung(_art), size: 18),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(child: Text(nameFuerKennung(t, _art))),
+                    const Icon(Icons.arrow_drop_down),
+                  ]),
                 ),
-                items: [
-                  for (final a in Aktivitaetsart.values)
-                    DropdownMenuItem(
-                      value: a,
-                      child: Row(children: [
-                        Icon(symbolFuerArt(a), size: 18),
-                        const SizedBox(width: AppSpacing.sm),
-                        Text(nameFuerArt(t, a)),
-                      ]),
-                    ),
-                ],
-                onChanged: (a) => setState(() => _art = a ?? _art),
               ),
             ],
             const SizedBox(height: AppSpacing.md),

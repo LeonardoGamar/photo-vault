@@ -20,6 +20,7 @@ import 'reverse_geocoder.dart';
 
 /// Was für eine Art von Unternehmung es war.
 enum Aktivitaetsart {
+  spaziergang,
   wanderung,
   radtour,
   ausflug,
@@ -40,6 +41,39 @@ enum Aktivitaetsart {
         (a) => a.name == s,
         orElse: () => Aktivitaetsart.sonstiges,
       );
+}
+
+/// Ob diese Kennung eine der mitgelieferten Arten ist.
+///
+/// **Der Unterschied zu [Aktivitaetsart.aus] ist der ganze Punkt.** Jene
+/// macht aus allem Unbekannten `sonstiges` – richtig für eine Zeile aus
+/// einer neueren Fassung, falsch für eine Art, die jemand selbst
+/// eingetragen hat: Deren Name ginge dabei verloren. Wer anzeigen will,
+/// fragt deshalb erst hier.
+bool istBekannteArt(String kennung) =>
+    Aktivitaetsart.values.any((a) => a.name == kennung);
+
+/// Was von einer eingetippten Art in der Datenbank landet.
+///
+/// Gibt die Kennung einer mitgelieferten Art zurück, wenn der Text eine
+/// davon meint – sonst den bereinigten Text selbst. `null` heisst „das
+/// war kein Name".
+///
+/// **Warum der Abgleich sein muss.** Wer „Wanderung" eintippt, bekäme
+/// sonst eine eigene Art neben der mitgelieferten `wanderung`: zwei
+/// Einträge, die dasselbe heissen, einer davon ohne Symbol und ohne
+/// Übersetzung. [bekannteNamen] sind die übersetzten Namen der
+/// mitgelieferten Arten, hereingegeben, damit dieser Dienst ohne
+/// Übersetzungsapparat auskommt.
+String? eigeneArtKennung(String eingabe, Map<Aktivitaetsart, String> bekannteNamen) {
+  final sauber = eingabe.trim();
+  if (sauber.isEmpty) return null;
+  final klein = sauber.toLowerCase();
+  for (final a in Aktivitaetsart.values) {
+    if (a.name == klein) return a.name;
+    if ((bekannteNamen[a] ?? '').toLowerCase() == klein) return a.name;
+  }
+  return sauber;
 }
 
 /// Eine Aufnahme, wie die Erkennung sie braucht.

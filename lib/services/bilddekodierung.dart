@@ -34,3 +34,39 @@ ImageProvider begrenztesBild(File datei, {int kante = maxDekodierKante}) =>
       policy: ResizeImagePolicy.fit,
       allowUpscaling: false,
     );
+
+/// Auf welche Stufen die Zielbreite eines Vorschaubildes gerundet wird.
+///
+/// **Warum überhaupt gerundet wird.** Ein Raster mit `maxCrossAxisExtent`
+/// teilt den vorhandenen Platz gleichmässig auf – die Kachelbreite ist
+/// damit eine Zahl, die sich mit **jedem** Punkt Fensterbreite ändert.
+/// Aus `cacheWidth` wird so bei jedem Zwischenschritt eines Ziehens am
+/// Fenster ein anderer Schlüssel im Bildspeicher: Jede sichtbare Kachel
+/// wird neu dekodiert, und der Speicher füllt sich mit fast gleichen
+/// Fassungen desselben Bildes.
+///
+/// Gemessen an einem Vorschaubild von 400 × 300 Punkten:
+///
+/// ```
+/// ein Dekodiervorgang auf 148 Punkte      0,68 ms, 65.712 Bytes
+/// Fensterbreiten 1000..1400 Punkte    ->  21 verschiedene Zielbreiten
+/// dieselben, auf 32 gerundet          ->   1
+/// ```
+///
+/// Bei fünfzig sichtbaren Kacheln sind das 21 × 50 × 0,68 ms ≈ 0,7
+/// Sekunden Dekodierarbeit für ein einziges Ziehen am Fensterrand – und
+/// einundzwanzig Einträge je Foto in einem Speicher, der insgesamt 100 MB
+/// fasst.
+const int dekodierstufe = 32;
+
+/// Die Zielbreite in Bildpunkten für etwas, das [punkte] Punkte breit
+/// angezeigt wird.
+///
+/// **Aufgerundet, nie abgerundet.** Eine Stufe zu klein hiesse, ein Bild
+/// hochskaliert anzuzeigen – sichtbar unscharf. Der Preis der Rundung ist
+/// höchstens eine Stufe zu viel an Pixeln.
+int dekodierbreite(double punkte, double pixelverhaeltnis) {
+  if (!punkte.isFinite || punkte <= 0) return dekodierstufe;
+  final roh = punkte * pixelverhaeltnis;
+  return (roh / dekodierstufe).ceil() * dekodierstufe;
+}

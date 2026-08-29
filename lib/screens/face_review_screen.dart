@@ -11,6 +11,7 @@ import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../services/bilddekodierung.dart';
 import '../services/face_engine_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -802,7 +803,14 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                             // dekodieren kostet 183 MB statt 22 MB, gemessen.
                             // Beim Durchblättern summiert sich das über den
                             // Bildcache.
-                            cacheWidth: (w * MediaQuery.devicePixelRatioOf(context)).round(),
+                            // In Stufen (siehe [dekodierbreite]): Diese
+                            // Ansicht zeigt die volle Vorschau, und ihre
+                            // Breite hängt am Fenster. Ohne die Stufen
+                            // wird beim Ziehen am Rand bei jedem
+                            // Zwischenschritt neu dekodiert – hier ist
+                            // das kein Vorschaubild, sondern das grosse.
+                            cacheWidth: dekodierbreite(
+                                w, MediaQuery.devicePixelRatioOf(context)),
                           ),
                           if (_rahmenSichtbar)
                             for (final face in _faces)
