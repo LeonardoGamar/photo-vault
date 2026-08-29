@@ -34,6 +34,7 @@ import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
 import '../services/ocr_service.dart';
+import '../services/textstellen.dart';
 import '../services/modell_halter.dart';
 import '../services/platform/folder_access.dart';
 import '../services/native_image_converter.dart';
@@ -1307,6 +1308,9 @@ class LibraryState extends ChangeNotifier {
             cropRelativePath: Value(paths.faceRelativePath(faceId)),
             embedding: embedding != null ? Value(blobFromEmbeddingFloats(embedding)) : const Value.absent(),
             eyeOpenScore: eyeOpenScore != null ? Value(eyeOpenScore) : const Value.absent(),
+            // Auf dem Ausschnitt, der ohnehin schon im Speicher liegt –
+            // kein zweiter Dekodiervorgang, keine zweite Skalierung.
+            schaerfe: Value(gesichtsschaerfe(croppedThumb)),
           ));
         }
       }
@@ -2025,15 +2029,23 @@ class LibraryState extends ChangeNotifier {
         // Datei, Fehler im nativen Aufruf) darf nicht den ganzen Lauf
         // abbrechen.
         try {
-          String? text;
+          List<Textstelle>? stellen;
           if (ueberSystem) {
-            text = await NativeImageConverter.recognizeText(_decodableFile(asset));
+            stellen = await NativeImageConverter.recognizeText(_decodableFile(asset));
           } else {
             final bild = await _decodeAsset(asset);
-            if (bild != null) text = await modell!.erkenneText(bild);
+            if (bild != null) stellen = await modell!.erkenne(bild);
           }
-          if (text != null) {
-            await db.setOcrResult(asset.id, text);
+          if (stellen != null) {
+            // Kein Text im Bild: Nur das Ergebnis merken, keine leere Liste
+            // als „Stellen" ablegen – sonst käme das Foto beim nächsten Lauf
+            // nicht mehr dran, obwohl nichts zu holen war. Genau das
+            // unterscheidet die beiden Fälle in [_ocrOffen].
+            await db.setOcrResult(
+              asset.id,
+              textAusStellen(stellen),
+              boxen: stellen.isEmpty ? null : textstellenNachJson(stellen),
+            );
           }
         } on LesungLiefertNichts catch (e) {
           // NICHT als leeres Ergebnis speichern: Das Foto würde als
@@ -2273,6 +2285,42 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  /// Holt die Gesichtsschärfe für Gesichter nach, die vor Schema 61
+  /// erkannt wurden.
+  ///
+  /// **Aus den gespeicherten Ausschnitten, nicht aus den Fotos.** Der
+  /// 160x160-Ausschnitt liegt für jedes erkannte Gesicht auf der Platte.
+  /// Ihn zu lesen kostet rund zwei Millisekunden; das zugehörige Foto neu zu
+  /// dekodieren kostet je nach Format das Hundertfache – bei 17.867
+  /// Gesichtern der Unterschied zwischen einer halben Minute und einer
+  /// halben Stunde.
+  ///
+  /// Ein Gesicht ohne Ausschnitt (von Hand eingezeichnet, oder die Datei
+  /// fehlt) bleibt ohne Wert stehen, statt den Lauf abzubrechen.
+  Stream<ImportProgress> backfillGesichtsschaerfe() async* {
+    final offen = await db.gesichterOhneSchaerfe();
+    var done = 0;
+    yield ImportProgress(0, offen.length);
+    for (final gesicht in offen) {
+      try {
+        final pfad = gesicht.cropRelativePath;
+        if (pfad != null) {
+          final datei = paths.absolute(pfad);
+          if (await datei.exists()) {
+            final bild = img.decodeImage(await datei.readAsBytes());
+            if (bild != null) {
+              await db.setzeGesichtsschaerfe(gesicht.id, gesichtsschaerfe(bild));
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Gesichtsschärfe fehlgeschlagen für ${gesicht.id}: $e');
+      }
+      done++;
+      yield ImportProgress(done, offen.length);
+    }
+  }
+
   /// Schreibt für jedes Asset in der Bibliothek eine `.xmp`-Sidecar-Datei
   /// neben das Original (Interoperabilität mit Lightroom/darktable/digiKam,
   /// siehe xmp_writer.dart) – läuft absichtlich immer über ALLE Assets neu
@@ -2284,10 +2332,17 @@ class LibraryState extends ChangeNotifier {
   Stream<ImportProgress> writeXmpSidecars() async* {
     final assets = await db.assetsForXmpExport();
     final tagsByAssetId = await db.allTagNamesByAssetId();
+    // Eine Abfrage für alle, nicht eine je Foto – siehe
+    // [AppDatabase.alleGesichtsregionen].
+    final gesichterByAssetId = await db.alleGesichtsregionen();
     var done = 0;
     yield ImportProgress(0, assets.length);
     for (final asset in assets) {
-      final xmp = buildXmpPacket(asset, tagsByAssetId[asset.id] ?? const []);
+      final xmp = buildXmpPacket(
+        asset,
+        tagsByAssetId[asset.id] ?? const [],
+        gesichter: gesichterByAssetId[asset.id] ?? const [],
+      );
       final sidecarFile = paths.absolute(paths.xmpSidecarPath(asset.relativePath));
       await sidecarFile.writeAsString(xmp);
       done++;

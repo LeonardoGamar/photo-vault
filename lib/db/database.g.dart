@@ -312,6 +312,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("ocr_scanned" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _ocrBoxenMeta =
+      const VerificationMeta('ocrBoxen');
+  @override
+  late final GeneratedColumn<String> ocrBoxen = GeneratedColumn<String>(
+      'ocr_boxen', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _aiCaptionMeta =
       const VerificationMeta('aiCaption');
   @override
@@ -429,6 +435,7 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         colorLabel,
         ocrText,
         ocrScanned,
+        ocrBoxen,
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
@@ -700,6 +707,10 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           ocrScanned.isAcceptableOrUnknown(
               data['ocr_scanned']!, _ocrScannedMeta));
     }
+    if (data.containsKey('ocr_boxen')) {
+      context.handle(_ocrBoxenMeta,
+          ocrBoxen.isAcceptableOrUnknown(data['ocr_boxen']!, _ocrBoxenMeta));
+    }
     if (data.containsKey('ai_caption')) {
       context.handle(_aiCaptionMeta,
           aiCaption.isAcceptableOrUnknown(data['ai_caption']!, _aiCaptionMeta));
@@ -850,6 +861,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.string, data['${effectivePrefix}ocr_text']),
       ocrScanned: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}ocr_scanned'])!,
+      ocrBoxen: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ocr_boxen']),
       aiCaption: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ai_caption']),
       aiCaptionDe: attachedDatabase.typeMapping
@@ -1018,6 +1031,19 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   /// Ergebnis ist – analog zu [facesScanned].
   final bool ocrScanned;
 
+  /// Wo im Bild der erkannte Text steht – die Stellen aus [ocrText], je mit
+  /// ihrem Rechteck in Anteilen der Bildkante (siehe
+  /// `services/textstellen.dart`).
+  ///
+  /// Eine eigene Spalte und nicht in [ocrText] hineingerechnet: Die
+  /// Volltextsuche läuft mit `LIKE` über [ocrText], und JSON-Klammern darin
+  /// wären Treffer, die niemand gesucht hat.
+  ///
+  /// `null` heisst „gescannt, aber ohne Stellen" – so sehen alle Fotos aus,
+  /// die vor Schema 60 durch die Texterkennung gingen. Sie kommen beim
+  /// nächsten Lauf erneut dran, siehe [assetsForOcrBackfill].
+  final String? ocrBoxen;
+
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
   /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
@@ -1120,6 +1146,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       this.colorLabel,
       this.ocrText,
       required this.ocrScanned,
+      this.ocrBoxen,
       this.aiCaption,
       this.aiCaptionDe,
       required this.aiCaptionScanned,
@@ -1233,6 +1260,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       map['ocr_text'] = Variable<String>(ocrText);
     }
     map['ocr_scanned'] = Variable<bool>(ocrScanned);
+    if (!nullToAbsent || ocrBoxen != null) {
+      map['ocr_boxen'] = Variable<String>(ocrBoxen);
+    }
     if (!nullToAbsent || aiCaption != null) {
       map['ai_caption'] = Variable<String>(aiCaption);
     }
@@ -1356,6 +1386,9 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ? const Value.absent()
           : Value(ocrText),
       ocrScanned: Value(ocrScanned),
+      ocrBoxen: ocrBoxen == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ocrBoxen),
       aiCaption: aiCaption == null && nullToAbsent
           ? const Value.absent()
           : Value(aiCaption),
@@ -1433,6 +1466,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       colorLabel: serializer.fromJson<String?>(json['colorLabel']),
       ocrText: serializer.fromJson<String?>(json['ocrText']),
       ocrScanned: serializer.fromJson<bool>(json['ocrScanned']),
+      ocrBoxen: serializer.fromJson<String?>(json['ocrBoxen']),
       aiCaption: serializer.fromJson<String?>(json['aiCaption']),
       aiCaptionDe: serializer.fromJson<String?>(json['aiCaptionDe']),
       aiCaptionScanned: serializer.fromJson<bool>(json['aiCaptionScanned']),
@@ -1495,6 +1529,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'colorLabel': serializer.toJson<String?>(colorLabel),
       'ocrText': serializer.toJson<String?>(ocrText),
       'ocrScanned': serializer.toJson<bool>(ocrScanned),
+      'ocrBoxen': serializer.toJson<String?>(ocrBoxen),
       'aiCaption': serializer.toJson<String?>(aiCaption),
       'aiCaptionDe': serializer.toJson<String?>(aiCaptionDe),
       'aiCaptionScanned': serializer.toJson<bool>(aiCaptionScanned),
@@ -1553,6 +1588,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           Value<String?> colorLabel = const Value.absent(),
           Value<String?> ocrText = const Value.absent(),
           bool? ocrScanned,
+          Value<String?> ocrBoxen = const Value.absent(),
           Value<String?> aiCaption = const Value.absent(),
           Value<String?> aiCaptionDe = const Value.absent(),
           bool? aiCaptionScanned,
@@ -1631,6 +1667,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         colorLabel: colorLabel.present ? colorLabel.value : this.colorLabel,
         ocrText: ocrText.present ? ocrText.value : this.ocrText,
         ocrScanned: ocrScanned ?? this.ocrScanned,
+        ocrBoxen: ocrBoxen.present ? ocrBoxen.value : this.ocrBoxen,
         aiCaption: aiCaption.present ? aiCaption.value : this.aiCaption,
         aiCaptionDe: aiCaptionDe.present ? aiCaptionDe.value : this.aiCaptionDe,
         aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
@@ -1739,6 +1776,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrText: data.ocrText.present ? data.ocrText.value : this.ocrText,
       ocrScanned:
           data.ocrScanned.present ? data.ocrScanned.value : this.ocrScanned,
+      ocrBoxen: data.ocrBoxen.present ? data.ocrBoxen.value : this.ocrBoxen,
       aiCaption: data.aiCaption.present ? data.aiCaption.value : this.aiCaption,
       aiCaptionDe:
           data.aiCaptionDe.present ? data.aiCaptionDe.value : this.aiCaptionDe,
@@ -1810,6 +1848,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('colorLabel: $colorLabel, ')
           ..write('ocrText: $ocrText, ')
           ..write('ocrScanned: $ocrScanned, ')
+          ..write('ocrBoxen: $ocrBoxen, ')
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
@@ -1870,6 +1909,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         colorLabel,
         ocrText,
         ocrScanned,
+        ocrBoxen,
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
@@ -1929,6 +1969,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.colorLabel == this.colorLabel &&
           other.ocrText == this.ocrText &&
           other.ocrScanned == this.ocrScanned &&
+          other.ocrBoxen == this.ocrBoxen &&
           other.aiCaption == this.aiCaption &&
           other.aiCaptionDe == this.aiCaptionDe &&
           other.aiCaptionScanned == this.aiCaptionScanned &&
@@ -1986,6 +2027,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<String?> colorLabel;
   final Value<String?> ocrText;
   final Value<bool> ocrScanned;
+  final Value<String?> ocrBoxen;
   final Value<String?> aiCaption;
   final Value<String?> aiCaptionDe;
   final Value<bool> aiCaptionScanned;
@@ -2042,6 +2084,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.colorLabel = const Value.absent(),
     this.ocrText = const Value.absent(),
     this.ocrScanned = const Value.absent(),
+    this.ocrBoxen = const Value.absent(),
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
@@ -2099,6 +2142,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.colorLabel = const Value.absent(),
     this.ocrText = const Value.absent(),
     this.ocrScanned = const Value.absent(),
+    this.ocrBoxen = const Value.absent(),
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
@@ -2162,6 +2206,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<String>? colorLabel,
     Expression<String>? ocrText,
     Expression<bool>? ocrScanned,
+    Expression<String>? ocrBoxen,
     Expression<String>? aiCaption,
     Expression<String>? aiCaptionDe,
     Expression<bool>? aiCaptionScanned,
@@ -2225,6 +2270,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       if (colorLabel != null) 'color_label': colorLabel,
       if (ocrText != null) 'ocr_text': ocrText,
       if (ocrScanned != null) 'ocr_scanned': ocrScanned,
+      if (ocrBoxen != null) 'ocr_boxen': ocrBoxen,
       if (aiCaption != null) 'ai_caption': aiCaption,
       if (aiCaptionDe != null) 'ai_caption_de': aiCaptionDe,
       if (aiCaptionScanned != null) 'ai_caption_scanned': aiCaptionScanned,
@@ -2284,6 +2330,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<String?>? colorLabel,
       Value<String?>? ocrText,
       Value<bool>? ocrScanned,
+      Value<String?>? ocrBoxen,
       Value<String?>? aiCaption,
       Value<String?>? aiCaptionDe,
       Value<bool>? aiCaptionScanned,
@@ -2342,6 +2389,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       colorLabel: colorLabel ?? this.colorLabel,
       ocrText: ocrText ?? this.ocrText,
       ocrScanned: ocrScanned ?? this.ocrScanned,
+      ocrBoxen: ocrBoxen ?? this.ocrBoxen,
       aiCaption: aiCaption ?? this.aiCaption,
       aiCaptionDe: aiCaptionDe ?? this.aiCaptionDe,
       aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
@@ -2499,6 +2547,9 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     if (ocrScanned.present) {
       map['ocr_scanned'] = Variable<bool>(ocrScanned.value);
     }
+    if (ocrBoxen.present) {
+      map['ocr_boxen'] = Variable<String>(ocrBoxen.value);
+    }
     if (aiCaption.present) {
       map['ai_caption'] = Variable<String>(aiCaption.value);
     }
@@ -2580,6 +2631,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('colorLabel: $colorLabel, ')
           ..write('ocrText: $ocrText, ')
           ..write('ocrScanned: $ocrScanned, ')
+          ..write('ocrBoxen: $ocrBoxen, ')
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
@@ -3990,6 +4042,12 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
   late final GeneratedColumn<double> eyeOpenScore = GeneratedColumn<double>(
       'eye_open_score', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _schaerfeMeta =
+      const VerificationMeta('schaerfe');
+  @override
+  late final GeneratedColumn<double> schaerfe = GeneratedColumn<double>(
+      'schaerfe', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _isIgnoredMeta =
       const VerificationMeta('isIgnored');
   @override
@@ -4012,6 +4070,7 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
         cropRelativePath,
         embedding,
         eyeOpenScore,
+        schaerfe,
         isIgnored
       ];
   @override
@@ -4079,6 +4138,10 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
           eyeOpenScore.isAcceptableOrUnknown(
               data['eye_open_score']!, _eyeOpenScoreMeta));
     }
+    if (data.containsKey('schaerfe')) {
+      context.handle(_schaerfeMeta,
+          schaerfe.isAcceptableOrUnknown(data['schaerfe']!, _schaerfeMeta));
+    }
     if (data.containsKey('is_ignored')) {
       context.handle(_isIgnoredMeta,
           isIgnored.isAcceptableOrUnknown(data['is_ignored']!, _isIgnoredMeta));
@@ -4112,6 +4175,8 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
           .read(DriftSqlType.blob, data['${effectivePrefix}embedding']),
       eyeOpenScore: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}eye_open_score']),
+      schaerfe: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}schaerfe']),
       isIgnored: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_ignored'])!,
     );
@@ -4141,6 +4206,19 @@ class FaceData extends DataClass implements Insertable<FaceData> {
   /// unter dem Schwellenwert auswerten.
   final double? eyeOpenScore;
 
+  /// Schärfe des Gesichtsausschnitts (Laplace-Varianz, siehe
+  /// [gesichtsschaerfe]) – `null` heisst „noch nicht berechnet".
+  ///
+  /// **Warum am Gesicht und nicht am Foto.** [Assets.sharpnessScore] misst
+  /// das ganze Bild. Ein Porträt mit unscharfem Gesicht vor scharfem Laub
+  /// besteht diese Prüfung mühelos, und beim Sichten ist genau das die
+  /// Aufnahme, die man aussortieren will.
+  ///
+  /// Gerechnet wird auf dem 160x160-Ausschnitt, der ohnehin entsteht – die
+  /// Zahl kostet damit rund zwei Millisekunden je Gesicht und keinen
+  /// zusätzlichen Dekodiervorgang.
+  final double? schaerfe;
+
   /// Vom Nutzer beiseitegelegt: kein Gesicht (Plakat, Spiegelung, Statue)
   /// oder eine Person, die er nicht benennen will.
   ///
@@ -4161,6 +4239,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       this.cropRelativePath,
       this.embedding,
       this.eyeOpenScore,
+      this.schaerfe,
       required this.isIgnored});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4182,6 +4261,9 @@ class FaceData extends DataClass implements Insertable<FaceData> {
     }
     if (!nullToAbsent || eyeOpenScore != null) {
       map['eye_open_score'] = Variable<double>(eyeOpenScore);
+    }
+    if (!nullToAbsent || schaerfe != null) {
+      map['schaerfe'] = Variable<double>(schaerfe);
     }
     map['is_ignored'] = Variable<bool>(isIgnored);
     return map;
@@ -4207,6 +4289,9 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       eyeOpenScore: eyeOpenScore == null && nullToAbsent
           ? const Value.absent()
           : Value(eyeOpenScore),
+      schaerfe: schaerfe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(schaerfe),
       isIgnored: Value(isIgnored),
     );
   }
@@ -4225,6 +4310,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       cropRelativePath: serializer.fromJson<String?>(json['cropRelativePath']),
       embedding: serializer.fromJson<Uint8List?>(json['embedding']),
       eyeOpenScore: serializer.fromJson<double?>(json['eyeOpenScore']),
+      schaerfe: serializer.fromJson<double?>(json['schaerfe']),
       isIgnored: serializer.fromJson<bool>(json['isIgnored']),
     );
   }
@@ -4242,6 +4328,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       'cropRelativePath': serializer.toJson<String?>(cropRelativePath),
       'embedding': serializer.toJson<Uint8List?>(embedding),
       'eyeOpenScore': serializer.toJson<double?>(eyeOpenScore),
+      'schaerfe': serializer.toJson<double?>(schaerfe),
       'isIgnored': serializer.toJson<bool>(isIgnored),
     };
   }
@@ -4257,6 +4344,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           Value<String?> cropRelativePath = const Value.absent(),
           Value<Uint8List?> embedding = const Value.absent(),
           Value<double?> eyeOpenScore = const Value.absent(),
+          Value<double?> schaerfe = const Value.absent(),
           bool? isIgnored}) =>
       FaceData(
         id: id ?? this.id,
@@ -4272,6 +4360,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
         embedding: embedding.present ? embedding.value : this.embedding,
         eyeOpenScore:
             eyeOpenScore.present ? eyeOpenScore.value : this.eyeOpenScore,
+        schaerfe: schaerfe.present ? schaerfe.value : this.schaerfe,
         isIgnored: isIgnored ?? this.isIgnored,
       );
   FaceData copyWithCompanion(FacesCompanion data) {
@@ -4290,6 +4379,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       eyeOpenScore: data.eyeOpenScore.present
           ? data.eyeOpenScore.value
           : this.eyeOpenScore,
+      schaerfe: data.schaerfe.present ? data.schaerfe.value : this.schaerfe,
       isIgnored: data.isIgnored.present ? data.isIgnored.value : this.isIgnored,
     );
   }
@@ -4307,6 +4397,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           ..write('cropRelativePath: $cropRelativePath, ')
           ..write('embedding: $embedding, ')
           ..write('eyeOpenScore: $eyeOpenScore, ')
+          ..write('schaerfe: $schaerfe, ')
           ..write('isIgnored: $isIgnored')
           ..write(')'))
         .toString();
@@ -4324,6 +4415,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       cropRelativePath,
       $driftBlobEquality.hash(embedding),
       eyeOpenScore,
+      schaerfe,
       isIgnored);
   @override
   bool operator ==(Object other) =>
@@ -4339,6 +4431,7 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           other.cropRelativePath == this.cropRelativePath &&
           $driftBlobEquality.equals(other.embedding, this.embedding) &&
           other.eyeOpenScore == this.eyeOpenScore &&
+          other.schaerfe == this.schaerfe &&
           other.isIgnored == this.isIgnored);
 }
 
@@ -4353,6 +4446,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
   final Value<String?> cropRelativePath;
   final Value<Uint8List?> embedding;
   final Value<double?> eyeOpenScore;
+  final Value<double?> schaerfe;
   final Value<bool> isIgnored;
   final Value<int> rowid;
   const FacesCompanion({
@@ -4366,6 +4460,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     this.cropRelativePath = const Value.absent(),
     this.embedding = const Value.absent(),
     this.eyeOpenScore = const Value.absent(),
+    this.schaerfe = const Value.absent(),
     this.isIgnored = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -4380,6 +4475,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     this.cropRelativePath = const Value.absent(),
     this.embedding = const Value.absent(),
     this.eyeOpenScore = const Value.absent(),
+    this.schaerfe = const Value.absent(),
     this.isIgnored = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -4399,6 +4495,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     Expression<String>? cropRelativePath,
     Expression<Uint8List>? embedding,
     Expression<double>? eyeOpenScore,
+    Expression<double>? schaerfe,
     Expression<bool>? isIgnored,
     Expression<int>? rowid,
   }) {
@@ -4413,6 +4510,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       if (cropRelativePath != null) 'crop_relative_path': cropRelativePath,
       if (embedding != null) 'embedding': embedding,
       if (eyeOpenScore != null) 'eye_open_score': eyeOpenScore,
+      if (schaerfe != null) 'schaerfe': schaerfe,
       if (isIgnored != null) 'is_ignored': isIgnored,
       if (rowid != null) 'rowid': rowid,
     });
@@ -4429,6 +4527,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       Value<String?>? cropRelativePath,
       Value<Uint8List?>? embedding,
       Value<double?>? eyeOpenScore,
+      Value<double?>? schaerfe,
       Value<bool>? isIgnored,
       Value<int>? rowid}) {
     return FacesCompanion(
@@ -4442,6 +4541,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       cropRelativePath: cropRelativePath ?? this.cropRelativePath,
       embedding: embedding ?? this.embedding,
       eyeOpenScore: eyeOpenScore ?? this.eyeOpenScore,
+      schaerfe: schaerfe ?? this.schaerfe,
       isIgnored: isIgnored ?? this.isIgnored,
       rowid: rowid ?? this.rowid,
     );
@@ -4480,6 +4580,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     if (eyeOpenScore.present) {
       map['eye_open_score'] = Variable<double>(eyeOpenScore.value);
     }
+    if (schaerfe.present) {
+      map['schaerfe'] = Variable<double>(schaerfe.value);
+    }
     if (isIgnored.present) {
       map['is_ignored'] = Variable<bool>(isIgnored.value);
     }
@@ -4502,6 +4605,7 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
           ..write('cropRelativePath: $cropRelativePath, ')
           ..write('embedding: $embedding, ')
           ..write('eyeOpenScore: $eyeOpenScore, ')
+          ..write('schaerfe: $schaerfe, ')
           ..write('isIgnored: $isIgnored, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -17577,6 +17681,7 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<String?> colorLabel,
   Value<String?> ocrText,
   Value<bool> ocrScanned,
+  Value<String?> ocrBoxen,
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
@@ -17634,6 +17739,7 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<String?> colorLabel,
   Value<String?> ocrText,
   Value<bool> ocrScanned,
+  Value<String?> ocrBoxen,
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
@@ -17801,6 +17907,9 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<bool> get ocrScanned => $composableBuilder(
       column: $table.ocrScanned, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get ocrBoxen => $composableBuilder(
+      column: $table.ocrBoxen, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnFilters(column));
@@ -17998,6 +18107,9 @@ class $$AssetsTableOrderingComposer
   ColumnOrderings<bool> get ocrScanned => $composableBuilder(
       column: $table.ocrScanned, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get ocrBoxen => $composableBuilder(
+      column: $table.ocrBoxen, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnOrderings(column));
 
@@ -18175,6 +18287,9 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<bool> get ocrScanned => $composableBuilder(
       column: $table.ocrScanned, builder: (column) => column);
 
+  GeneratedColumn<String> get ocrBoxen =>
+      $composableBuilder(column: $table.ocrBoxen, builder: (column) => column);
+
   GeneratedColumn<String> get aiCaption =>
       $composableBuilder(column: $table.aiCaption, builder: (column) => column);
 
@@ -18271,6 +18386,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> colorLabel = const Value.absent(),
             Value<String?> ocrText = const Value.absent(),
             Value<bool> ocrScanned = const Value.absent(),
+            Value<String?> ocrBoxen = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
@@ -18328,6 +18444,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             colorLabel: colorLabel,
             ocrText: ocrText,
             ocrScanned: ocrScanned,
+            ocrBoxen: ocrBoxen,
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
@@ -18385,6 +18502,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> colorLabel = const Value.absent(),
             Value<String?> ocrText = const Value.absent(),
             Value<bool> ocrScanned = const Value.absent(),
+            Value<String?> ocrBoxen = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
@@ -18442,6 +18560,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             colorLabel: colorLabel,
             ocrText: ocrText,
             ocrScanned: ocrScanned,
+            ocrBoxen: ocrBoxen,
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
@@ -19209,6 +19328,7 @@ typedef $$FacesTableCreateCompanionBuilder = FacesCompanion Function({
   Value<String?> cropRelativePath,
   Value<Uint8List?> embedding,
   Value<double?> eyeOpenScore,
+  Value<double?> schaerfe,
   Value<bool> isIgnored,
   Value<int> rowid,
 });
@@ -19223,6 +19343,7 @@ typedef $$FacesTableUpdateCompanionBuilder = FacesCompanion Function({
   Value<String?> cropRelativePath,
   Value<Uint8List?> embedding,
   Value<double?> eyeOpenScore,
+  Value<double?> schaerfe,
   Value<bool> isIgnored,
   Value<int> rowid,
 });
@@ -19265,6 +19386,9 @@ class $$FacesTableFilterComposer extends Composer<_$AppDatabase, $FacesTable> {
 
   ColumnFilters<double> get eyeOpenScore => $composableBuilder(
       column: $table.eyeOpenScore, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get schaerfe => $composableBuilder(
+      column: $table.schaerfe, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get isIgnored => $composableBuilder(
       column: $table.isIgnored, builder: (column) => ColumnFilters(column));
@@ -19311,6 +19435,9 @@ class $$FacesTableOrderingComposer
       column: $table.eyeOpenScore,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<double> get schaerfe => $composableBuilder(
+      column: $table.schaerfe, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get isIgnored => $composableBuilder(
       column: $table.isIgnored, builder: (column) => ColumnOrderings(column));
 }
@@ -19354,6 +19481,9 @@ class $$FacesTableAnnotationComposer
   GeneratedColumn<double> get eyeOpenScore => $composableBuilder(
       column: $table.eyeOpenScore, builder: (column) => column);
 
+  GeneratedColumn<double> get schaerfe =>
+      $composableBuilder(column: $table.schaerfe, builder: (column) => column);
+
   GeneratedColumn<bool> get isIgnored =>
       $composableBuilder(column: $table.isIgnored, builder: (column) => column);
 }
@@ -19391,6 +19521,7 @@ class $$FacesTableTableManager extends RootTableManager<
             Value<String?> cropRelativePath = const Value.absent(),
             Value<Uint8List?> embedding = const Value.absent(),
             Value<double?> eyeOpenScore = const Value.absent(),
+            Value<double?> schaerfe = const Value.absent(),
             Value<bool> isIgnored = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -19405,6 +19536,7 @@ class $$FacesTableTableManager extends RootTableManager<
             cropRelativePath: cropRelativePath,
             embedding: embedding,
             eyeOpenScore: eyeOpenScore,
+            schaerfe: schaerfe,
             isIgnored: isIgnored,
             rowid: rowid,
           ),
@@ -19419,6 +19551,7 @@ class $$FacesTableTableManager extends RootTableManager<
             Value<String?> cropRelativePath = const Value.absent(),
             Value<Uint8List?> embedding = const Value.absent(),
             Value<double?> eyeOpenScore = const Value.absent(),
+            Value<double?> schaerfe = const Value.absent(),
             Value<bool> isIgnored = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -19433,6 +19566,7 @@ class $$FacesTableTableManager extends RootTableManager<
             cropRelativePath: cropRelativePath,
             embedding: embedding,
             eyeOpenScore: eyeOpenScore,
+            schaerfe: schaerfe,
             isIgnored: isIgnored,
             rowid: rowid,
           ),

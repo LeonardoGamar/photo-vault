@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/month_grouped_asset_grid.dart';
+import '../widgets/rasterbedienung.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
@@ -164,8 +165,35 @@ class YearDetailScreen extends StatefulWidget {
   State<YearDetailScreen> createState() => _YearDetailScreenState();
 }
 
-class _YearDetailScreenState extends State<YearDetailScreen> {
+class _YearDetailScreenState extends State<YearDetailScreen>
+    with Rasterbedienung<YearDetailScreen> {
   final Set<String> _selected = {};
+
+  /// Siehe [Rasterbedienung]: beim Tastendruck gibt es weder den Datenstrom
+  /// noch die Constraints.
+  List<AssetData> _geladen = const [];
+  int _spalten = 1;
+
+  @override
+  Set<String> get auswahl => _selected;
+
+  @override
+  AppDatabase get rasterDb => widget.library.db;
+
+  @override
+  List<AssetData> get rasterAssets => _geladen;
+
+  @override
+  int get rasterSpalten => _spalten;
+
+  @override
+  List<List<String>> get rasterGruppen {
+    final m = monatsgruppen(_geladen);
+    return [for (final k in m.schluessel) [for (final a in m.gruppen[k]!) a.id]];
+  }
+
+  @override
+  void rasterOeffne(AssetData asset) => _openViewer(_geladen, asset);
 
   void _toggle(String id) => setState(() {
         if (!_selected.remove(id)) _selected.add(id);
@@ -224,19 +252,29 @@ class _YearDetailScreenState extends State<YearDetailScreen> {
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final yearAssets = snapshot.data!;
+          _geladen = yearAssets;
           if (yearAssets.isEmpty) {
             return Center(child: Text(AppTexte.of(context).kalenderJahrLeer));
           }
-          return Stack(
+          return mitTastatur(
+              kind: Stack(
             children: [
-              MonthGroupedAssetGrid(
-                assets: yearAssets,
-                paths: widget.library.paths,
-                selectedIds: _selected,
-                onLongPress: (asset) => _toggle(asset.id),
-                onHeaderTap: _toggleGroup,
-                onTap: (asset) => _selected.isNotEmpty ? _toggle(asset.id) : _openViewer(yearAssets, asset),
-              ),
+              LayoutBuilder(builder: (context, constraints) {
+                _spalten = rasterSpaltenzahl(
+                  constraints.maxWidth,
+                  mitZeitstrahl:
+                      rasterMitZeitstrahl(monatsgruppen(yearAssets).schluessel.length),
+                );
+                return MonthGroupedAssetGrid(
+                  assets: yearAssets,
+                  paths: widget.library.paths,
+                  selectedIds: _selected,
+                  aktiveKachelId: aktiveKachel,
+                  onLongPress: (asset) => _toggle(asset.id),
+                  onHeaderTap: _toggleGroup,
+                  onTap: rasterKlick,
+                );
+              }),
               if (_selected.isNotEmpty)
                 SelectionActionBar(
                   count: _selected.length,
@@ -288,7 +326,7 @@ class _YearDetailScreenState extends State<YearDetailScreen> {
                   onDelete: _deleteSelected,
                 ),
             ],
-          );
+          ));
         },
       ),
     );

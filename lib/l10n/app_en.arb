@@ -64,6 +64,30 @@
   "suchePlatzhalterBeschreibung": "Description …",
   "suchePlatzhalterText": "Text in the photo …",
   "suchePlatzhalterBildunterschrift": "e.g. “dog”, “sunset” …",
+  "werkzStaubText": "Examines a sample of one camera's shots for a dark speck that keeps sitting in the same place.",
+  "staubTitel": "Find sensor dust",
+  "staubErklaerung": "Sensor dust sits in the same spot on every shot from the same camera. That is exactly how it is recognised: the app examines a sample spread across the whole period and reports only what keeps appearing in the same place. A single dark speck can be anything.",
+  "staubKeineKameras": "No camera is recorded in this library.",
+  "staubSuchen": "Search",
+  "staubFortschritt": "{erledigt} of {gesamt} shots examined",
+  "@staubFortschritt": {
+    "placeholders": { "erledigt": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "staubNichtsGefunden": "{anzahl, plural, =1{No sensor dust was found on the examined shot.} other{No sensor dust was found on {anzahl} examined shots.}}",
+  "@staubNichtsGefunden": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "staubGefunden": "{anzahl, plural, =1{1 spot that keeps appearing} other{{anzahl} spots that keep appearing}}",
+  "@staubGefunden": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "staubAufWievielen": "on {treffer} of {gesamt} examined shots",
+  "@staubAufWievielen": {
+    "placeholders": { "treffer": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "staubImEditorOeffnen": "Open an affected shot in the image editor",
+  "allgKamera": "Camera",
+  "sucheSatzVerwerfen": "Undo interpretation and search literally",
   "sucheOptionen": "Search options",
   "sucheAusloesen": "Search",
   "sucheAnleitung": "Type something to search for, or pick search options.",
@@ -94,6 +118,19 @@
   "viewerEntwicklungAnwendenLang": "Paste the copied develop settings onto this photo",
   "viewerGeschlosseneAugen": "At least one face has its eyes closed",
   "viewerFokusPeaking": "Focus peaking (highlight sharp edges)",
+  "viewerGesichtUnscharf": "Even the sharpest face is soft",
+  "viewerTextZeigen": "Highlight recognised text",
+  "viewerTextVerbergen": "Hide text highlighting",
+  "viewerKeinText": "No text was recognised in this photo.",
+  "viewerTextNochNicht": "No text areas stored for this photo yet – a text recognition run will add them.",
+  "viewerZeileKopiert": "“{text}” copied",
+  "@viewerZeileKopiert": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
   "viewerFlachesSchwenken": "Pan flat instead of on a sphere",
   "viewerFlacheVorschau": "Flat preview instead of 360° view",
   "viewerExportZielordner": "Choose a folder to export to",
@@ -419,6 +456,9 @@
   "aufgGesichterText": "Finds faces and assigns them, as long as the YuNet model is installed.",
   "aufgVorschauText": "Creates thumbnails and previews for photos and videos.",
   "aufgFehlende": "Missing",
+  "aufgGesichtsschaerfeTitel": "Face sharpness",
+  "aufgGesichtsschaerfeText": "Measures how sharp each recognised face is – on the crop that is already stored, without decoding the photos again. When culling, the app then warns if even the sharpest face in a shot is soft.",
+  "werkzBerechneGesichtsschaerfe": "Measure face sharpness",
   "aufgOcrTitel": "Recognise text (OCR)",
   "aufgOcrText": "Finds visible text in photos, entirely locally through Apple's Vision framework.",
   "aufgBeschreibungenTitel": "Image captions",
@@ -946,6 +986,17 @@
   "infoTitel": "Info",
   "infoBeschreibungHinzufuegen": "Add a description",
   "infoKiBeschreibung": "AI caption",
+  "infoErkannterText": "Recognised text",
+  "infoTextKopieren": "Copy text",
+  "infoTextKopiert": "Text copied to the clipboard",
+  "infoTextStellen": "{anzahl, plural, =1{1 text area in the photo} other{{anzahl} text areas in the photo}}",
+  "@infoTextStellen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "infoBewertung": "Rating",
   "infoNiemandZugeordnet": "Nobody assigned yet.",
   "infoDetails": "Details",
@@ -1058,6 +1109,15 @@
   "xmpFeldBeschreibung": "Description",
   "xmpFeldNeueTags": "New tags",
   "xmpFeldStandort": "Location",
+  "xmpFeldGesichter": "Names for recognised faces",
+  "xmpGesichterOhneNamen": "{anzahl, plural, =1{1 face without a name} other{{anzahl} faces without a name}}",
+  "@xmpGesichterOhneNamen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "xmpKeineSidecars": "No XMP sidecars found.",
   "liveWiedergabeStoppen": "Stop playback",
   "liveDauerschleife": "Play on a loop",

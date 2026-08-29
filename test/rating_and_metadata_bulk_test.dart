@@ -101,7 +101,12 @@ void main() {
     final scanned = await importPhoto('a.jpg');
     final unscanned = await importPhoto('b.jpg');
 
-    await db.setOcrResult(scanned.id, 'Hallo Welt');
+    // Seit Schema 60 gehören die Stellen im Bild dazu. Ohne sie gilt das
+    // Foto als nur halb erledigt und kommt wieder dran – das ist genau der
+    // Weg, auf dem die vor Schema 60 erkannten Texte ihre Kästen bekommen
+    // (siehe textstellen_test.dart).
+    await db.setOcrResult(scanned.id, 'Hallo Welt',
+        boxen: '[{"t":"Hallo Welt","x":0.1,"y":0.1,"b":0.3,"h":0.1}]');
 
     final scannedAsset = (await db.assetById(scanned.id))!;
     expect(scannedAsset.ocrText, 'Hallo Welt');

@@ -37,6 +37,14 @@ void main() {
     // Eine Aufstellung der gebrauchten Kommandozeilenwerkzeuge für
     // Entwickler; nirgends in der Oberfläche.
     'lib/services/platform/desktop_image_tools.dart',
+    // Der Satzleser vergleicht EINGABEN gegen deutsche und englische
+    // Wörter („Sommer", „letztes Jahr", „grün"). Das sind keine
+    // Beschriftungen, sondern die Wörter, die der Nutzer tippt – sie durch
+    // AppTexte zu schicken hiesse, dass die App in der englischen
+    // Oberfläche kein deutsches „Sommer" mehr verstünde, obwohl beide
+    // Sprachen nebeneinander vorkommen. Was ANGEZEIGT wird, entsteht in
+    // search_screen.dart und geht dort durch AppTexte.
+    'lib/services/suchsatz.dart',
   };
 
   List<String> zuPruefen() {

@@ -210,6 +210,10 @@ class BackupService {
     // .xmp-Datei genau die Vertraulichkeit unterlaufen, die der Nutzer mit der
     // Backup-Passphrase gerade herstellen wollte.
     final tagsByAssetId = encryptionKey == null ? await _db.allTagNamesByAssetId() : null;
+    // Aus demselben Grund: Ein Name neben einem verschlüsselten Foto sagt
+    // mehr aus als das Foto selbst.
+    final gesichterByAssetId =
+        encryptionKey == null ? await _db.alleGesichtsregionen() : null;
 
     yield BackupProgress(0, pending.length);
 
@@ -254,7 +258,11 @@ class BackupService {
             );
 
             if (encryptionKey == null) {
-              final xmp = buildXmpPacket(asset, tagsByAssetId![asset.id] ?? const []);
+              final xmp = buildXmpPacket(
+                asset,
+                tagsByAssetId![asset.id] ?? const [],
+                gesichter: gesichterByAssetId![asset.id] ?? const [],
+              );
               await File(_paths.xmpSidecarPath(target.path)).writeAsString(xmp);
             }
 

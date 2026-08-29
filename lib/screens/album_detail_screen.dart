@@ -9,6 +9,7 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/pin_dialogs.dart';
+import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
 import '../services/meldungsdienst.dart';
@@ -29,8 +30,32 @@ class AlbumDetailScreen extends StatefulWidget {
   State<AlbumDetailScreen> createState() => _AlbumDetailScreenState();
 }
 
-class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
+class _AlbumDetailScreenState extends State<AlbumDetailScreen>
+    with Rasterbedienung<AlbumDetailScreen> {
   final Set<String> _selected = {};
+
+  /// Siehe [Rasterbedienung]: Beim Tastendruck gibt es weder den Datenstrom
+  /// noch die Constraints, beides wird deshalb beim Bauen festgehalten.
+  List<AssetData> _geladen = const [];
+  int _spalten = 1;
+
+  @override
+  Set<String> get auswahl => _selected;
+
+  @override
+  AppDatabase get rasterDb => widget.library.db;
+
+  @override
+  List<AssetData> get rasterAssets => _geladen;
+
+  @override
+  int get rasterSpalten => _spalten;
+
+  @override
+  void rasterOeffne(AssetData asset) {
+    final index = _geladen.indexWhere((a) => a.id == asset.id);
+    if (index >= 0) _openViewer(_geladen, index);
+  }
 
   void _toggle(String id) => setState(() {
         if (!_selected.remove(id)) _selected.add(id);
@@ -127,6 +152,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
       stream: widget.library.db.watchAlbumAssets(widget.albumId),
       builder: (context, snapshot) {
         final assets = snapshot.data ?? [];
+        _geladen = assets;
         return Scaffold(
           appBar: AppBar(
             title: Text(widget.albumName),
@@ -141,27 +167,35 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
           ),
           body: assets.isEmpty
               ? Center(child: Text(AppTexte.of(context).albumLeer))
-              : Stack(
+              : mitTastatur(
+                  kind: Stack(
                   children: [
-                    GridView.builder(
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 160,
-                        mainAxisSpacing: 4,
-                        crossAxisSpacing: 4,
-                      ),
-                      itemCount: assets.length,
-                      itemBuilder: (context, index) {
-                        final asset = assets[index];
-                        return AssetThumbnailTile(
-                          asset: asset,
-                          paths: widget.library.paths,
-                          selected: _selected.contains(asset.id),
-                          onLongPress: () => _toggle(asset.id),
-                          onTap: () => _selected.isNotEmpty ? _toggle(asset.id) : _openViewer(assets, index),
-                        );
-                      },
-                    ),
+                    LayoutBuilder(builder: (context, constraints) {
+                      _spalten = flachesRasterSpalten(constraints.maxWidth,
+                          seitenpolster: AppSpacing.md * 2);
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 160,
+                          mainAxisSpacing: 4,
+                          crossAxisSpacing: 4,
+                        ),
+                        itemCount: assets.length,
+                        itemBuilder: (context, index) {
+                          final asset = assets[index];
+                          final kachel = AssetThumbnailTile(
+                            asset: asset,
+                            paths: widget.library.paths,
+                            selected: _selected.contains(asset.id),
+                            onLongPress: () => _toggle(asset.id),
+                            onTap: () => rasterKlick(asset),
+                          );
+                          return asset.id == aktiveKachel
+                              ? AktiveKachelRahmen(child: kachel)
+                              : kachel;
+                        },
+                      );
+                    }),
                     if (_selected.isNotEmpty)
                       SelectionActionBar(
                         count: _selected.length,
@@ -213,7 +247,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen> {
                         onDelete: _deleteSelected,
                       ),
                   ],
-                ),
+                )),
         );
       },
     );

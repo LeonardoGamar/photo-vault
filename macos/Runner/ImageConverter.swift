@@ -223,9 +223,9 @@ class ImageConverterChannel: NSObject {
                     return
                 }
                 DispatchQueue.global(qos: .userInitiated).async {
-                    let text = recognizeText(path: path)
+                    let erkannt = recognizeText(path: path)
                     DispatchQueue.main.async {
-                        result(text)
+                        result(erkannt)
                     }
                 }
             case "trimVideo":
@@ -1008,7 +1008,13 @@ class ImageConverterChannel: NSObject {
     /// verbunden zurückgegeben; bei keinem gefundenen Text ein leerer
     /// String (nicht `nil` – `nil` bedeutet "Erkennung fehlgeschlagen",
     /// siehe NativeImageConverter.recognizeText auf Dart-Seite).
-    private static func recognizeText(path: String) -> String? {
+    ///
+    /// Zusätzlich kommt zu jeder Zeile ihr Platz im Bild zurück (siehe
+    /// `services/textstellen.dart`). Vision liefert ihn als Anteil der
+    /// Bildkante, rechnet dabei aber **von unten links**; hier wird daraus
+    /// der oben-links-Ursprung, den Flutter überall sonst verwendet. Die
+    /// Umrechnung gehört an diese eine Stelle und nicht in die Anzeige.
+    private static func recognizeText(path: String) -> [String: Any]? {
         let url = URL(fileURLWithPath: path)
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
             let cgImage = CGImageSourceCreateThumbnailAtIndex(
@@ -1029,8 +1035,23 @@ class ImageConverterChannel: NSObject {
         } catch {
             return nil
         }
-        let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
-        return lines.joined(separator: "\n")
+        var lines: [String] = []
+        var stellen: [[String: Any]] = []
+        for beobachtung in request.results ?? [] {
+            guard let text = beobachtung.topCandidates(1).first?.string, !text.isEmpty else {
+                continue
+            }
+            lines.append(text)
+            let kasten = beobachtung.boundingBox
+            stellen.append([
+                "t": text,
+                "x": kasten.origin.x,
+                "y": 1.0 - (kasten.origin.y + kasten.height),
+                "b": kasten.width,
+                "h": kasten.height,
+            ])
+        }
+        return ["text": lines.joined(separator: "\n"), "stellen": stellen]
     }
 
     private struct VideoThumbnail {

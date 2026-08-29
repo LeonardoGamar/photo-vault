@@ -9,6 +9,7 @@ import 'export_naming.dart';
 import 'native_image_converter.dart';
 import 'storage_paths.dart';
 import '../l10n/app_localizations.dart';
+import 'xmp_regionen.dart';
 import 'xmp_writer.dart';
 
 /// Größe und Format, in denen exportiert wird.
@@ -177,7 +178,13 @@ class ExportService {
       final tagNames = _library != null
           ? (await _library.db.tagsForAsset(asset.id)).map((t) => t.name).toList()
           : const <String>[];
-      final xmp = buildXmpPacket(asset, tagNames);
+      // Die benannten Gesichter gehen mit: Genau dafür exportiert man mit
+      // Beipackzettel – damit das Zielprogramm die Namen übernimmt, statt
+      // sie ein zweites Mal von Hand zu vergeben.
+      final gesichter = _library != null
+          ? await _library.db.gesichtsregionenVon(asset.id)
+          : const <Gesichtsregion>[];
+      final xmp = buildXmpPacket(asset, tagNames, gesichter: gesichter);
       await File(_paths.xmpSidecarPath(targetPath)).writeAsString(xmp);
     }
 

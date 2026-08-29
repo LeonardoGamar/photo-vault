@@ -8,11 +8,47 @@ import '../db/database.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 import 'asset_thumbnail_tile.dart';
+import 'rasterbedienung.dart';
 import 'timeline_grid_layout.dart';
 import 'timeline_scrubber.dart';
 import '../services/meldungsdienst.dart';
 
 const double _scrubberWidth = 64.0;
+
+/// Die Monatsgruppen einer bereits absteigend sortierten Asset-Liste, in
+/// Anzeigereihenfolge.
+///
+/// Frei zugänglich, weil die Tastaturbedienung (siehe
+/// `widgets/rasterbedienung.dart`) dieselbe Gruppierung braucht wie das Raster
+/// selbst: Pfeil nach unten springt eine Zeile INNERHALB eines Monats, und
+/// wenn Bildschirm und Raster hier verschieden gruppierten, spränge der Zeiger
+/// woanders hin als der Rahmen.
+///
+/// Günstiger Integer-Schlüssel (Jahr*100+Monat) statt eines pro Foto neu
+/// formatierten Datums-Strings – bei jeder DB-Änderung liefert
+/// `watchTimeline()` die komplette Liste neu, wodurch diese Gruppierung bei
+/// großen Bibliotheken sonst unnötig oft (kostspielig) neu läuft.
+({List<int> schluessel, Map<int, List<AssetData>> gruppen}) monatsgruppen(List<AssetData> assets) {
+  final gruppen = <int, List<AssetData>>{};
+  for (final a in assets) {
+    final key = a.fileCreatedAt.year * 100 + a.fileCreatedAt.month;
+    gruppen.putIfAbsent(key, () => []).add(a);
+  }
+  final schluessel = gruppen.keys.toList()..sort((a, b) => b.compareTo(a));
+  return (schluessel: schluessel, gruppen: gruppen);
+}
+
+/// Ob neben dem Raster der Zeitstrahl steht – erst ab zwei Monatsgruppen.
+bool rasterMitZeitstrahl(int monatsgruppenAnzahl) => monatsgruppenAnzahl > 1;
+
+/// Wie viele Spalten das Raster bei dieser Gesamtbreite verwendet.
+///
+/// Nimmt die GESAMTE verfügbare Breite entgegen und zieht den Zeitstrahl
+/// selbst ab. Wer die Spaltenzahl von aussen braucht (Tastaturbedienung),
+/// kennt sonst die Breite des Zeitstrahls nicht und käme bei schmalen Fenstern
+/// auf eine Spalte zu viel.
+int rasterSpaltenzahl(double gesamtbreite, {required bool mitZeitstrahl}) =>
+    timelineColumnsForWidth(mitZeitstrahl ? gesamtbreite - _scrubberWidth : gesamtbreite);
 
 /// Rendert eine Liste von Assets gruppiert nach Monat (Überschrift + darunter
 /// ein Foto-Grid) – gemeinsame Darstellung für die Timeline und die
@@ -48,6 +84,14 @@ class MonthGroupedAssetGrid extends StatefulWidget {
   /// Widget-Baum zwischenzeitlich mehrfach neu baut.
   final String? highlightAssetId;
 
+  /// Die Kachel, auf der die Tastatur gerade steht – bekommt einen bleibenden
+  /// Rahmen und wird bei jedem Wechsel in den sichtbaren Bereich gescrollt.
+  ///
+  /// Unterschied zu [highlightAssetId]: Das dort ist ein einmaliger Sprung mit
+  /// ausklingendem Blinken ("hier ist das gesuchte Foto"), das hier ein
+  /// dauerhafter Zeiger, der sich mit den Pfeiltasten bewegt.
+  final String? aktiveKachelId;
+
   /// Wird aufgerufen, sobald nahe genug ans Ende des aktuell geladenen
   /// Ausschnitts gescrollt wurde – der Aufrufer entscheidet, ob und wie viel
   /// mehr nachgeladen wird (siehe TimelineScreens wachsendes Ladefenster).
@@ -72,6 +116,7 @@ class MonthGroupedAssetGrid extends StatefulWidget {
     this.onHeaderTap,
     this.selectedIds,
     this.highlightAssetId,
+    this.aktiveKachelId,
     this.onScrollNearEnd,
     this.nachObenSignal,
   });
@@ -107,6 +152,10 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
   void didUpdateWidget(covariant MonthGroupedAssetGrid oldWidget) {
     super.didUpdateWidget(oldWidget);
     _maybeHandleHighlight();
+    if (widget.aktiveKachelId != null && widget.aktiveKachelId != oldWidget.aktiveKachelId) {
+      final ziel = widget.aktiveKachelId!;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _zeigeAktiveKachel(ziel));
+    }
     if (oldWidget.nachObenSignal != widget.nachObenSignal) {
       oldWidget.nachObenSignal?.removeListener(_nachOben);
       widget.nachObenSignal?.addListener(_nachOben);
@@ -171,6 +220,41 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     });
   }
 
+  /// Scrollt die aktive Kachel in den sichtbaren Bereich – aber nur, wenn sie
+  /// wirklich ausserhalb liegt.
+  ///
+  /// Die Bedingung ist der Kern: Wer mit dem Pfeil eine Zeile weiter geht,
+  /// erwartet, dass die Liste stehen bleibt. Bedingungslos zu scrollen hiesse,
+  /// bei jedem Tastendruck den ganzen Ausschnitt zu verschieben.
+  void _zeigeAktiveKachel(String assetId) {
+    final gridWidth = _lastGridWidth;
+    final groups = _lastGroups;
+    final orderedKeys = _lastOrderedKeys;
+    if (!mounted || !_scrollController.hasClients || gridWidth == null || groups == null || orderedKeys == null) {
+      return;
+    }
+    final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId);
+    if (offset == null) return;
+    final position = _scrollController.position;
+    final zeilenhoehe = timelineRowHeightForWidth(gridWidth);
+    final oben = position.pixels;
+    final unten = oben + position.viewportDimension;
+    // Etwas Luft, damit die Kachel nicht genau abgeschnitten am Rand klebt.
+    if (offset < oben) {
+      _scrollController.animateTo(
+        (offset - zeilenhoehe * 0.5).clamp(0.0, position.maxScrollExtent),
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+      );
+    } else if (offset + zeilenhoehe > unten) {
+      _scrollController.animateTo(
+        (offset + zeilenhoehe * 1.5 - position.viewportDimension).clamp(0.0, position.maxScrollExtent),
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Günstiger Integer-Schlüssel (Jahr*100+Monat) statt eines pro Foto neu
@@ -179,13 +263,10 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     // bei großen Bibliotheken sonst unnötig oft (kostspielig) neu läuft. Der
     // menschenlesbare Monatsname wird weiterhin nur einmal pro Gruppe für
     // die Überschrift formatiert, nicht pro Foto.
-    final groups = <int, List<AssetData>>{};
-    for (final a in widget.assets) {
-      final key = a.fileCreatedAt.year * 100 + a.fileCreatedAt.month;
-      groups.putIfAbsent(key, () => []).add(a);
-    }
-    final orderedKeys = groups.keys.toList()..sort((a, b) => b.compareTo(a));
-    final showScrubber = orderedKeys.length > 1;
+    final geteilt = monatsgruppen(widget.assets);
+    final groups = geteilt.gruppen;
+    final orderedKeys = geteilt.schluessel;
+    final showScrubber = rasterMitZeitstrahl(orderedKeys.length);
     _lastGroups = groups;
     _lastOrderedKeys = orderedKeys;
 
@@ -243,7 +324,11 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                                 onTap: () => widget.onTap(asset),
                                 onLongPress: widget.onLongPress == null ? null : () => widget.onLongPress!(asset),
                               );
-                              return asset.id == _flashingAssetId ? _FlashHighlight(child: tile) : tile;
+                              final Widget kachel =
+                                  asset.id == _flashingAssetId ? _FlashHighlight(child: tile) : tile;
+                              return asset.id == widget.aktiveKachelId
+                                  ? AktiveKachelRahmen(child: kachel)
+                                  : kachel;
                             },
                             childCount: groups[key]!.length,
                           ),

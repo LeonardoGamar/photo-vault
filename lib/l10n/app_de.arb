@@ -127,6 +127,30 @@
   "suchePlatzhalterBeschreibung": "Beschreibung …",
   "suchePlatzhalterText": "Text im Foto …",
   "suchePlatzhalterBildunterschrift": "z.B. „dog“, „sunset“ …",
+  "werkzStaubText": "Untersucht eine Stichprobe der Aufnahmen einer Kamera darauf, ob an immer derselben Stelle ein dunkler Fleck sitzt.",
+  "staubTitel": "Sensorstaub suchen",
+  "staubErklaerung": "Sensorstaub sitzt bei jeder Aufnahme derselben Kamera an derselben Stelle. Genau daran ist er zu erkennen: Die App untersucht eine über den ganzen Zeitraum verteilte Stichprobe und meldet nur, was immer wieder an derselben Stelle auftaucht. Ein einzelnes dunkles Pünktchen kann alles sein.",
+  "staubKeineKameras": "In dieser Bibliothek ist keine Kamera vermerkt.",
+  "staubSuchen": "Suchen",
+  "staubFortschritt": "{erledigt} von {gesamt} Aufnahmen untersucht",
+  "@staubFortschritt": {
+    "placeholders": { "erledigt": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "staubNichtsGefunden": "{anzahl, plural, =1{Auf der untersuchten Aufnahme wurde kein Sensorstaub gefunden.} other{Auf {anzahl} untersuchten Aufnahmen wurde kein Sensorstaub gefunden.}}",
+  "@staubNichtsGefunden": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "staubGefunden": "{anzahl, plural, =1{1 Stelle, die immer wieder auftaucht} other{{anzahl} Stellen, die immer wieder auftauchen}}",
+  "@staubGefunden": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "staubAufWievielen": "auf {treffer} von {gesamt} untersuchten Aufnahmen",
+  "@staubAufWievielen": {
+    "placeholders": { "treffer": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
+  "staubImEditorOeffnen": "Eine betroffene Aufnahme im Bildeditor öffnen",
+  "allgKamera": "Kamera",
+  "sucheSatzVerwerfen": "Deutung zurücknehmen und wörtlich suchen",
   "sucheOptionen": "Suchoptionen",
   "sucheAusloesen": "Suchen",
   "sucheAnleitung": "Gib einen Suchbegriff ein oder wähle Suchoptionen.",
@@ -157,6 +181,19 @@
   "viewerEntwicklungAnwendenLang": "Kopierte Entwicklung auf dieses Foto anwenden",
   "viewerGeschlosseneAugen": "Mindestens ein Gesicht mit geschlossenen Augen erkannt",
   "viewerFokusPeaking": "Fokus-Peaking (scharfe Kanten hervorheben)",
+  "viewerGesichtUnscharf": "Auch das schärfste Gesicht ist unscharf",
+  "viewerTextZeigen": "Erkannten Text hervorheben",
+  "viewerTextVerbergen": "Texthervorhebung ausblenden",
+  "viewerKeinText": "In diesem Foto wurde kein Text erkannt.",
+  "viewerTextNochNicht": "Für dieses Foto sind noch keine Textstellen gespeichert – ein Lauf der Texterkennung holt sie nach.",
+  "viewerZeileKopiert": "„{text}“ kopiert",
+  "@viewerZeileKopiert": {
+    "placeholders": {
+      "text": {
+        "type": "String"
+      }
+    }
+  },
   "viewerFlachesSchwenken": "Flaches Schwenken statt 3D-Kugel",
   "viewerFlacheVorschau": "Flache Vorschau statt 360°-Ansicht",
   "viewerExportZielordner": "Zielordner zum Exportieren wählen",
@@ -750,6 +787,9 @@
   "aufgGesichterText": "Erkennt und ordnet Gesichter zu, sofern das YuNet-Modell installiert ist.",
   "aufgVorschauText": "Erzeugt Thumbnails/Vorschauen für Fotos und Videos.",
   "aufgFehlende": "Fehlende",
+  "aufgGesichtsschaerfeTitel": "Gesichtsschärfe",
+  "aufgGesichtsschaerfeText": "Misst für jedes erkannte Gesicht, wie scharf es ist – auf dem bereits gespeicherten Ausschnitt, ohne die Fotos erneut zu dekodieren. Beim Sichten warnt die App danach, wenn auch das schärfste Gesicht einer Aufnahme unscharf ist.",
+  "werkzBerechneGesichtsschaerfe": "Gesichtsschärfe berechnen",
   "aufgOcrTitel": "Text erkennen (OCR)",
   "aufgOcrText": "Erkennt sichtbaren Text in Fotos, rein lokal über Apples Vision-Framework.",
   "aufgBeschreibungenTitel": "Bildbeschreibungen",
@@ -1682,6 +1722,21 @@
   "infoTitel": "Info",
   "infoBeschreibungHinzufuegen": "Beschreibung hinzufügen",
   "infoKiBeschreibung": "KI-Beschreibung",
+  "infoErkannterText": "Erkannter Text",
+  "infoTextKopieren": "Text kopieren",
+  "infoTextKopiert": "Text in die Zwischenablage kopiert",
+  "infoTextStellen": "{anzahl, plural, =1{1 Textstelle im Bild} other{{anzahl} Textstellen im Bild}}",
+  "@infoTextStellen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "infoErkannterText": "Erkannter Text",
+  "infoTextKopieren": "Text kopieren",
+  "infoTextKopiert": "Text in die Zwischenablage kopiert",
+  "infoTextStellen": "{anzahl, plural, =1{1 Textstelle im Bild} other{{anzahl} Textstellen im Bild}}",
   "infoBewertung": "Bewertung",
   "infoNiemandZugeordnet": "Noch niemand zugeordnet.",
   "infoDetails": "Details",
@@ -2010,6 +2065,15 @@
   "xmpFeldBeschreibung": "Beschreibung",
   "xmpFeldNeueTags": "Neue Tags",
   "xmpFeldStandort": "Standort",
+  "xmpFeldGesichter": "Namen für erkannte Gesichter",
+  "xmpGesichterOhneNamen": "{anzahl, plural, =1{1 Gesicht ohne Namen} other{{anzahl} Gesichter ohne Namen}}",
+  "@xmpGesichterOhneNamen": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "xmpKeineSidecars": "Keine XMP-Sidecars gefunden.",
   "liveWiedergabeStoppen": "Wiedergabe stoppen",
   "liveDauerschleife": "In Dauerschleife abspielen",

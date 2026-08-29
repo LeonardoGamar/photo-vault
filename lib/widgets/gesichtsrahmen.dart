@@ -1,10 +1,10 @@
-import 'package:flutter/gestures.dart' show kPrimaryButton;
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import 'tippfaenger.dart';
 
 /// Ein Kasten um ein erkanntes Gesicht, mit dem Namen darunter.
 ///
@@ -47,8 +47,9 @@ class Gesichtsrahmen extends StatelessWidget {
   });
 
   /// Wie weit der Finger zwischen Aufsetzen und Abheben wandern darf,
-  /// damit es noch als Tipp gilt.
-  static const double tippWackeln = 8;
+  /// damit es noch als Tipp gilt. Liegt seit dem Textrahmen bei
+  /// [Tippfaenger], der sie auswertet.
+  static const double tippWackeln = Tippfaenger.wackeln;
 
   /// Grün benannt, Orange unbenannt, Grau beiseitegelegt.
   static Color farbeFuer(FaceData gesicht) => gesicht.isIgnored
@@ -68,7 +69,7 @@ class Gesichtsrahmen extends StatelessWidget {
       top: gesicht.boxY * flaeche.height,
       width: gesicht.boxW * flaeche.width,
       height: gesicht.boxH * flaeche.height,
-      child: _Tippfaenger(
+      child: Tippfaenger(
         beiTipp: beiTipp,
         // Der Rahmen liegt über der Fläche und fängt den Klick zuerst
         // ab – ohne diese Zeile bekäme man auf einem Gesicht das Menü
@@ -101,69 +102,5 @@ class Gesichtsrahmen extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-/// Nimmt den Tipp entgegen, ohne sich um ihn zu streiten.
-///
-/// **Warum kein gewöhnlicher [GestureDetector].** Im Vollbild liegt das
-/// Foto in einem `PhotoView`, und das erkennt Zoom- und Schiebegesten mit
-/// einem eigenen Erkenner. In der Auseinandersetzung darüber, wem eine
-/// Berührung gehört, gewinnt dieser – ein Tipp auf einen Rahmen kam nie
-/// an, gemessen: die Behandlungsroutine wurde kein einziges Mal
-/// aufgerufen. Ein [Listener] nimmt an dieser Auseinandersetzung gar
-/// nicht teil und bekommt seine Ereignisse in jedem Fall.
-///
-/// Der Preis ist, dass „Tipp" hier selbst entschieden werden muss: als
-/// Berührung, die sich zwischen Aufsetzen und Abheben um weniger als
-/// [Gesichtsrahmen.tippWackeln] bewegt hat. Wer über das Foto zieht,
-/// verschiebt es also weiterhin, auch wenn er dabei auf einem Gesicht
-/// beginnt.
-class _Tippfaenger extends StatefulWidget {
-  final VoidCallback? beiTipp;
-  final void Function(Offset stelle)? beiMenue;
-  final Widget child;
-
-  const _Tippfaenger({
-    required this.beiTipp,
-    required this.beiMenue,
-    required this.child,
-  });
-
-  @override
-  State<_Tippfaenger> createState() => _TippfaengerState();
-}
-
-class _TippfaengerState extends State<_Tippfaenger> {
-  Offset? _start;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget inhalt = Listener(
-      // Nur die linke Taste. Ohne diese Prüfung löste ein Rechtsklick
-      // beides aus: das Menü und das Benennen – zwei Fenster übereinander
-      // für einen Klick.
-      onPointerDown: (e) =>
-          _start = e.buttons == kPrimaryButton ? e.position : null,
-      onPointerUp: (e) {
-        final start = _start;
-        _start = null;
-        if (start == null || widget.beiTipp == null) return;
-        if ((e.position - start).distance > Gesichtsrahmen.tippWackeln) return;
-        widget.beiTipp!();
-      },
-      onPointerCancel: (_) => _start = null,
-      child: widget.child,
-    );
-    // Der Rechtsklick bleibt beim Gestenerkenner: Um ihn streitet sich
-    // niemand, und so bleibt das Menü dort, wo es in der
-    // Gesichts-Bearbeitung schon war.
-    if (widget.beiMenue != null) {
-      inhalt = GestureDetector(
-        onSecondaryTapDown: (d) => widget.beiMenue!(d.globalPosition),
-        child: inhalt,
-      );
-    }
-    return inhalt;
   }
 }

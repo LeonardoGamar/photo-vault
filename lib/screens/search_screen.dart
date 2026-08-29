@@ -8,11 +8,13 @@ import '../l10n/app_localizations.dart';
 import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/clip_service.dart';
 import '../services/search_filters.dart';
+import '../services/suchsatz.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/search_options_sheet.dart';
+import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
 
@@ -24,7 +26,8 @@ class SearchScreen extends StatefulWidget {
   State<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
+class _SearchScreenState extends State<SearchScreen>
+    with Rasterbedienung<SearchScreen> {
   final _queryCtrl = TextEditingController();
   SearchFilters _filters = const SearchFilters();
   bool _loading = false;
@@ -36,6 +39,48 @@ class _SearchScreenState extends State<SearchScreen> {
   List<AssetData> _results = [];
   String? _error;
   final Set<String> _selected = {};
+
+  /// Siehe [Rasterbedienung]. Anders als Zeitleiste und Album hängt die
+  /// Trefferliste an keinem Datenstrom – nach einer Bewertung per Taste muss
+  /// sie deshalb selbst nachgeladen werden, sonst zeigten die Kacheln weiter
+  /// die alten Sterne.
+  int _spalten = 1;
+
+  /// Was der Satzleser aus der letzten Eingabe herausgelesen hat (siehe
+  /// `suchsatz.dart`). Wird unter dem Feld angezeigt – eine Suche, die
+  /// stillschweigend etwas anderes tut, als dasteht, ist die schlimmste Art
+  /// von Suche.
+  List<Satzfund> _satzfunde = const [];
+
+  /// Die Wortlisten aus der Bibliothek, einmal je Sitzung geholt. Personen
+  /// und Orte ändern sich selten, und die Abfrage bei jedem Tastendruck
+  /// erneut zu stellen wäre bei 8000 Aufnahmen spürbar.
+  Suchvokabular? _vokabular;
+
+  @override
+  Set<String> get auswahl => _selected;
+
+  @override
+  AppDatabase get rasterDb => widget.library.db;
+
+  @override
+  List<AssetData> get rasterAssets => _results;
+
+  @override
+  int get rasterSpalten => _spalten;
+
+  @override
+  void rasterOeffne(AssetData asset) {
+    final index = _results.indexWhere((a) => a.id == asset.id);
+    if (index >= 0) _openViewer(index);
+  }
+
+  @override
+  Future<void> rasterAktualisieren() async {
+    final frisch =
+        await widget.library.db.assetsByIds([for (final a in _results) a.id]);
+    if (mounted) setState(() => _results = frisch);
+  }
 
   void _toggleSelected(String id) => setState(() {
         if (!_selected.remove(id)) _selected.add(id);
@@ -117,6 +162,74 @@ class _SearchScreenState extends State<SearchScreen> {
     setState(() {
       _filters = result;
       _queryCtrl.text = result.query;
+    });
+    await _runSearch();
+  }
+
+  Future<Suchvokabular> _holeVokabular() async {
+    final vorhanden = _vokabular;
+    if (vorhanden != null) return vorhanden;
+    final db = widget.library.db;
+    // Einmalige Abfragen und keine Ströme: Ein `watch(...).first` hängt
+    // einen Beobachter an die Tabelle, lässt bei Abbruch einen Zeitgeber
+    // zurück und wirft in einer frisch angelegten Bibliothek „Bad state: No
+    // element". Genau daran ist der Prüfstand hier zuerst gescheitert.
+    final personen = await db.allePersonen();
+    final schlagwoerter = await db.alleTags();
+    final neu = Suchvokabular(
+      personen: {for (final p in personen) p.id: p.name},
+      schlagwoerter: {for (final t in schlagwoerter) t.id: t.name},
+      kameras: await db.distinctCameraModels(),
+      laender: await db.distinctCountries(),
+      regionen: await db.distinctAlleStates(),
+      staedte: await db.distinctAlleCities(),
+    );
+    _vokabular = neu;
+    return neu;
+  }
+
+  /// Die Eingabe erst deuten, dann suchen.
+  ///
+  /// **Nur von Hand ausgelöst**, nicht aus [_runSearch]: Eine gespeicherte
+  /// Suche und das Optionen-Fenster liefern fertige Kriterien. Sie durch den
+  /// Satzleser zu schicken hiesse, dass eine gespeicherte Suche morgen etwas
+  /// anderes finden könnte als heute – genau die Zusage, die ein
+  /// intelligentes Album gibt.
+  ///
+  /// Gedeutet wird nur die Bildsuche. In den anderen Textarten (Dateiname,
+  /// Beschreibung, erkannter Text) ist die Eingabe wörtlich gemeint; wer dort
+  /// nach „2019" sucht, meint die Zeichenfolge und keinen Zeitraum.
+  Future<void> _satzSuche() async {
+    final eingabe = _queryCtrl.text.trim();
+    if (eingabe.isEmpty || _filters.textMode != SearchTextMode.context) {
+      setState(() => _satzfunde = const []);
+      await _runSearch();
+      return;
+    }
+    final deutung = deuteSuchsatz(
+      eingabe,
+      vokabular: await _holeVokabular(),
+      heute: DateTime.now(),
+      grundlage: _filters,
+    );
+    if (!mounted) return;
+    setState(() {
+      _satzfunde = deutung.funde;
+      if (deutung.hatVerstanden) {
+        _filters = deutung.filter;
+        _queryCtrl.text = deutung.rest;
+      }
+    });
+    await _runSearch();
+  }
+
+  /// Nimmt die Deutung zurück: der ursprüngliche Satz wieder ins Feld, alle
+  /// daraus abgeleiteten Kriterien weg.
+  Future<void> _satzVerwerfen(String urspruenglich) async {
+    setState(() {
+      _satzfunde = const [];
+      _filters = SearchFilters(textMode: _filters.textMode, query: urspruenglich);
+      _queryCtrl.text = urspruenglich;
     });
     await _runSearch();
   }
@@ -239,15 +352,16 @@ class _SearchScreenState extends State<SearchScreen> {
                   IconButton(
                     icon: const Icon(Icons.arrow_forward),
                     tooltip: AppTexte.of(context).sucheAusloesen,
-                    onPressed: _loading ? null : _runSearch,
+                    onPressed: _loading ? null : _satzSuche,
                   ),
                 ],
               ),
             ),
             onChanged: (v) => setState(() => _filters = _filters.copyWith(query: v)),
-            onSubmitted: (_) => _runSearch(),
+            onSubmitted: (_) => _satzSuche(),
           ),
         ),
+        if (_satzfunde.isNotEmpty) _Satzmarken(funde: _satzfunde, beiVerwerfen: _satzVerwerfen),
         StreamBuilder<List<SavedSearchData>>(
           stream: widget.library.db.watchSavedSearches(),
           builder: (context, snapshot) {
@@ -293,27 +407,35 @@ class _SearchScreenState extends State<SearchScreen> {
               ? Center(child: Text(AppTexte.of(context).sucheAnleitung))
               : _results.isEmpty && !_loading
                   ? Center(child: Text(AppTexte.of(context).sucheKeineTreffer))
-                  : Stack(
+                  : mitTastatur(
+                      kind: Stack(
                       children: [
-                        GridView.builder(
-                          padding: const EdgeInsets.all(AppSpacing.md),
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 160,
-                            mainAxisSpacing: 4,
-                            crossAxisSpacing: 4,
-                          ),
-                          itemCount: _results.length,
-                          itemBuilder: (context, index) {
-                            final asset = _results[index];
-                            return AssetThumbnailTile(
-                              asset: asset,
-                              paths: widget.library.paths,
-                              selected: _selected.contains(asset.id),
-                              onLongPress: () => _toggleSelected(asset.id),
-                              onTap: () => _selected.isNotEmpty ? _toggleSelected(asset.id) : _openViewer(index),
-                            );
-                          },
-                        ),
+                        LayoutBuilder(builder: (context, constraints) {
+                          _spalten = flachesRasterSpalten(constraints.maxWidth,
+                              seitenpolster: AppSpacing.md * 2);
+                          return GridView.builder(
+                            padding: const EdgeInsets.all(AppSpacing.md),
+                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 160,
+                              mainAxisSpacing: 4,
+                              crossAxisSpacing: 4,
+                            ),
+                            itemCount: _results.length,
+                            itemBuilder: (context, index) {
+                              final asset = _results[index];
+                              final kachel = AssetThumbnailTile(
+                                asset: asset,
+                                paths: widget.library.paths,
+                                selected: _selected.contains(asset.id),
+                                onLongPress: () => _toggleSelected(asset.id),
+                                onTap: () => rasterKlick(asset),
+                              );
+                              return asset.id == aktiveKachel
+                                  ? AktiveKachelRahmen(child: kachel)
+                                  : kachel;
+                            },
+                          );
+                        }),
                         if (_selected.isNotEmpty)
                           SelectionActionBar(
                             count: _selected.length,
@@ -365,9 +487,75 @@ class _SearchScreenState extends State<SearchScreen> {
                             onDelete: _deleteSelected,
                           ),
                       ],
-                    ),
+                    )),
         ),
       ],
+    );
+  }
+}
+
+/// Was der Satzleser aus der Eingabe gemacht hat, als Reihe von Marken.
+///
+/// Steht sichtbar unter dem Suchfeld und nicht in einem Hinweisfenster:
+/// Wer „5 Sterne" tippt und plötzlich weniger Treffer bekommt, muss ohne
+/// Suchen erkennen können, warum – und es mit einem Klick zurücknehmen.
+class _Satzmarken extends StatelessWidget {
+  final List<Satzfund> funde;
+  final void Function(String urspruenglich) beiVerwerfen;
+
+  const _Satzmarken({required this.funde, required this.beiVerwerfen});
+
+  static String _artName(AppTexte t, Satzfundart art) => switch (art) {
+        Satzfundart.person => t.navPersonen,
+        Satzfundart.schlagwort => t.suchoptTagsTitel,
+        Satzfundart.kamera => t.allgKamera,
+        Satzfundart.ort => t.xmpFeldStandort,
+        Satzfundart.zeitraum => t.famstatZeitraum,
+        Satzfundart.bewertung => t.infoBewertung,
+        Satzfundart.farbmarke => t.suchoptFarbmarkierung,
+        Satzfundart.medienart => t.suchoptMedientyp,
+        Satzfundart.favorit => t.auswFavorisieren,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    // Der Satz, wie er dastand – aus den Wortlauten wieder zusammengesetzt
+    // reicht nicht, deshalb nimmt „Verwerfen" die Wortlaute in der
+    // Reihenfolge der Funde plus den Rest.
+    final urspruenglich = [for (final f in funde) f.wortlaut].join(' ');
+    return Padding(
+      padding: const EdgeInsets.only(
+          left: AppSpacing.lg, right: AppSpacing.lg, bottom: AppSpacing.md),
+      child: Row(
+        children: [
+          Expanded(
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final f in funde)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    label: Text(
+                      f.wert.isEmpty
+                          ? _artName(t, f.art)
+                          : '${_artName(t, f.art)}: ${f.wert}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.undo, size: 18),
+            visualDensity: VisualDensity.compact,
+            tooltip: t.sucheSatzVerwerfen,
+            onPressed: () => beiVerwerfen(urspruenglich),
+          ),
+        ],
+      ),
     );
   }
 }

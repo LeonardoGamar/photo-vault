@@ -18,6 +18,7 @@ import '../services/raw_formats.dart' show rawImageExtensions;
 import '../services/search_filters.dart';
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
+import '../services/xmp_regionen.dart';
 
 part 'database.g.dart';
 
@@ -166,6 +167,19 @@ class Assets extends Table {
   /// da ein leerer erkannter Text (kein Text im Bild gefunden) ein gültiges
   /// Ergebnis ist – analog zu [facesScanned].
   BoolColumn get ocrScanned => boolean().withDefault(const Constant(false))();
+
+  /// Wo im Bild der erkannte Text steht – die Stellen aus [ocrText], je mit
+  /// ihrem Rechteck in Anteilen der Bildkante (siehe
+  /// `services/textstellen.dart`).
+  ///
+  /// Eine eigene Spalte und nicht in [ocrText] hineingerechnet: Die
+  /// Volltextsuche läuft mit `LIKE` über [ocrText], und JSON-Klammern darin
+  /// wären Treffer, die niemand gesucht hat.
+  ///
+  /// `null` heisst „gescannt, aber ohne Stellen" – so sehen alle Fotos aus,
+  /// die vor Schema 60 durch die Texterkennung gingen. Sie kommen beim
+  /// nächsten Lauf erneut dran, siehe [assetsForOcrBackfill].
+  TextColumn get ocrBoxen => text().nullable()();
 
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
   /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
@@ -1047,6 +1061,19 @@ class Faces extends Table {
   /// unter dem Schwellenwert auswerten.
   RealColumn get eyeOpenScore => real().nullable()();
 
+  /// Schärfe des Gesichtsausschnitts (Laplace-Varianz, siehe
+  /// [gesichtsschaerfe]) – `null` heisst „noch nicht berechnet".
+  ///
+  /// **Warum am Gesicht und nicht am Foto.** [Assets.sharpnessScore] misst
+  /// das ganze Bild. Ein Porträt mit unscharfem Gesicht vor scharfem Laub
+  /// besteht diese Prüfung mühelos, und beim Sichten ist genau das die
+  /// Aufnahme, die man aussortieren will.
+  ///
+  /// Gerechnet wird auf dem 160x160-Ausschnitt, der ohnehin entsteht – die
+  /// Zahl kostet damit rund zwei Millisekunden je Gesicht und keinen
+  /// zusätzlichen Dekodiervorgang.
+  RealColumn get schaerfe => real().nullable()();
+
   /// Vom Nutzer beiseitegelegt: kein Gesicht (Plakat, Spiegelung, Statue)
   /// oder eine Person, die er nicht benennen will.
   ///
@@ -1375,7 +1402,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 59;
+  int get schemaVersion => 61;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1772,6 +1799,17 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 61) {
+            // Schaerfe des Gesichtsausschnitts (siehe die Spalte). Leer
+            // fuer alles Bisherige; der Nachlauf holt es aus den bereits
+            // gespeicherten Ausschnitten, ohne ein Foto neu zu dekodieren.
+            await _addColumnIfMissing(m, faces, faces.schaerfe, 'faces', 'schaerfe');
+          }
+          if (from < 60) {
+            // Wo der erkannte Text im Bild steht (siehe die Spalte). Leer
+            // fuer alles Bisherige; die Texterkennung holt es nach.
+            await _addColumnIfMissing(m, assets, assets.ocrBoxen, 'assets', 'ocr_boxen');
           }
           if (from < 59) {
             // Wie viele schwere Aufgaben nebeneinander laufen dürfen
@@ -2700,9 +2738,10 @@ class AppDatabase extends _$AppDatabase {
   /// Setzt das Ergebnis der Texterkennung (siehe ImageConverter.swift
   /// `recognizeText`) – [text] darf leer sein (kein Text im Bild gefunden),
   /// `ocrScanned` unterscheidet das von "noch nicht gescannt".
-  Future<void> setOcrResult(String assetId, String text) =>
+  Future<void> setOcrResult(String assetId, String text, {String? boxen}) =>
       (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
         ocrText: Value(text),
+        ocrBoxen: Value(boxen),
         ocrScanned: const Value(true),
       ));
 
@@ -2714,19 +2753,31 @@ class AppDatabase extends _$AppDatabase {
   /// Datenbank nichts zu suchen. Bisher fehlte dieser Filter (Audit-Fund) –
   /// folgenlos nur deshalb, weil die mitverschlüsselte Vorschau ohnehin
   /// nicht dekodierbar ist; verlassen sollte sich darauf niemand.
-  Future<List<AssetData>> assetsForOcrBackfill() => (select(assets)
-        ..where((t) =>
-            t.type.equals('IMAGE') &
-            t.isTrashed.equals(false) &
-            t.isLocked.equals(false) &
-            t.ocrScanned.equals(false)))
-      .get();
+  Future<List<AssetData>> assetsForOcrBackfill() =>
+      (select(assets)..where(_ocrOffen)).get();
 
   /// Zählvariante von [assetsForOcrBackfill], siehe [countLocationBackfill].
-  Future<int> countOcrBackfill() => _countWhere(assets.type.equals('IMAGE') &
-      assets.isTrashed.equals(false) &
-      assets.isLocked.equals(false) &
-      assets.ocrScanned.equals(false));
+  Future<int> countOcrBackfill() => _countWhere(_ocrOffen(assets));
+
+  /// Was die Texterkennung noch vor sich hat.
+  ///
+  /// Zwei Fälle, nicht einer. Der erste ist der alte: nie gescannt. Der
+  /// zweite kam mit Schema 60 dazu – gescannt, Text gefunden, aber ohne die
+  /// Stellen im Bild. Ohne diesen zweiten Fall blieben die 2406 bereits
+  /// erkannten Texte für immer ohne Kästchen, denn `ocrScanned` steht bei
+  /// ihnen längst auf wahr und nichts holte sie je wieder hervor.
+  ///
+  /// Fotos, in denen nachweislich kein Text steht (`ocrText` leer), bleiben
+  /// aussen vor: Bei ihnen gäbe es auch beim zweiten Lauf keine Stellen, und
+  /// es wären über fünftausend vergebliche Durchläufe.
+  Expression<bool> _ocrOffen($AssetsTable t) =>
+      t.type.equals('IMAGE') &
+      t.isTrashed.equals(false) &
+      t.isLocked.equals(false) &
+      (t.ocrScanned.equals(false) |
+          (t.ocrText.isNotNull() &
+              t.ocrText.equals('').not() &
+              t.ocrBoxen.isNull()));
 
   /// Setzt das Ergebnis der KI-Bildbeschreibung (siehe FlorenceCaptioningService) –
   /// analog zu [setOcrResult].
@@ -3730,6 +3781,16 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<TagData>> watchAllTags() =>
       (select(tags)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
 
+  /// Dasselbe als einmalige Abfrage.
+  ///
+  /// Ein `watch(...).first` sieht danach aus, als täte es dasselbe, tut es
+  /// aber nicht: Es hängt einen Beobachter an die Tabelle, lässt bei
+  /// Abbruch einen Zeitgeber zurück und wirft in einer frisch angelegten
+  /// Datenbank „Bad state: No element". Dieselbe Lehre wie bei
+  /// [alleAufnahmen].
+  Future<List<TagData>> alleTags() =>
+      (select(tags)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+
   /// Direkte Tag-Zuordnung per ID statt per Name (anders als [tagAsset], das
   /// den Tag bei Bedarf erst per Name anlegt) – für das Anwenden eines
   /// Kamera-Presets, dessen Tags bereits als IDs gespeichert sind, ohne
@@ -3949,6 +4010,64 @@ class AppDatabase extends _$AppDatabase {
       result.putIfAbsent(assetId, () => []).add(tagName);
     }
     return result;
+  }
+
+  /// Die BENANNTEN Gesichter aller Assets in einer einzigen Abfrage
+  /// (assetId -> Regionen) – für den XMP-Export, aus demselben Grund wie
+  /// [allTagNamesByAssetId]: pro Foto zwei Abfragen wären bei 8000
+  /// Aufnahmen der teuerste Teil des Laufs.
+  ///
+  /// Nur benannte und nicht beiseitegelegte. Eine Region ohne Namen sagt
+  /// dem Zielprogramm nur „hier ist irgendein Kopf", und das findet dessen
+  /// eigene Erkennung selbst.
+  Future<Map<String, List<Gesichtsregion>>> alleGesichtsregionen() async {
+    final abfrage = select(faces).join([
+      innerJoin(people, people.id.equalsExp(faces.personId)),
+    ])
+      ..where(faces.personId.isNotNull() & faces.isIgnored.equals(false));
+    final zeilen = await abfrage.get();
+    final ergebnis = <String, List<Gesichtsregion>>{};
+    for (final zeile in zeilen) {
+      final gesicht = zeile.readTable(faces);
+      final person = zeile.readTable(people);
+      ergebnis.putIfAbsent(gesicht.assetId, () => []).add(Gesichtsregion(
+            name: person.name,
+            links: gesicht.boxX,
+            oben: gesicht.boxY,
+            breite: gesicht.boxW,
+            hoehe: gesicht.boxH,
+          ));
+    }
+    return ergebnis;
+  }
+
+  /// Die benannten Gesichter EINES Fotos – für den Einzelexport, wo eine
+  /// Abfrage über die ganze Bibliothek Verschwendung wäre.
+  Future<List<Gesichtsregion>> gesichtsregionenVon(String assetId) async {
+    final alle = await (select(faces)
+          ..where((f) =>
+              f.assetId.equals(assetId) &
+              f.personId.isNotNull() &
+              f.isIgnored.equals(false)))
+        .get();
+    if (alle.isEmpty) return const [];
+    final namen = {
+      for (final p in await (select(people)
+            ..where((p) => p.id.isIn([for (final f in alle) f.personId!])))
+          .get())
+        p.id: p.name,
+    };
+    return [
+      for (final f in alle)
+        if (namen[f.personId] case final name?)
+          Gesichtsregion(
+            name: name,
+            links: f.boxX,
+            oben: f.boxY,
+            breite: f.boxW,
+            hoehe: f.boxH,
+          ),
+    ];
   }
 
   /// Wie [allTagNamesByAssetId], aber nur die Vorschläge der
@@ -4190,6 +4309,37 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<String>> distinctCountries() => _distinctNonNullValues(assets.locationCountry);
 
+  /// ALLE vorkommenden Bundesländer/Provinzen, ohne Einschränkung auf ein
+  /// Land – für den Satzleser (siehe `suchsatz.dart`), der beim Lesen von
+  /// „Toskana" noch nicht weiss, in welchem Land das liegt.
+  /// Bis zu [grenze] auswertbare Aufnahmen einer Kamera – für die
+  /// Staubsuche (siehe `staubflecken.dart`).
+  ///
+  /// Nur Bilder, kein Papierkorb, nichts Gesperrtes. Und bewusst über den
+  /// ganzen Zeitraum verteilt statt der neuesten: Staub kommt und geht mit
+  /// dem Objektivwechsel; vierzig Aufnahmen desselben Nachmittags würden
+  /// eine Sensorreinigung von vor drei Jahren als heutigen Befund melden.
+  Future<List<AssetData>> aufnahmenDerKamera(String modell, int grenze) async {
+    final alle = await (select(assets)
+          ..where((t) =>
+              t.cameraModel.equals(modell) &
+              t.type.equals('IMAGE') &
+              t.isTrashed.equals(false) &
+              t.isLocked.equals(false))
+          ..orderBy([(t) => OrderingTerm.asc(t.fileCreatedAt)]))
+        .get();
+    if (alle.length <= grenze) return alle;
+    final schritt = alle.length / grenze;
+    return [for (var i = 0; i < grenze; i++) alle[(i * schritt).floor()]];
+  }
+
+  Future<List<String>> distinctAlleStates() =>
+      _distinctNonNullValues(assets.locationState);
+
+  /// Wie [distinctAlleStates], für Städte.
+  Future<List<String>> distinctAlleCities() =>
+      _distinctNonNullValues(assets.locationCity);
+
   /// Wie [distinctCountries], aber nur Bundesländer/Provinzen innerhalb eines
   /// bestimmten Landes – für das kaskadierende Land->Bundesland->Stadt-Dropdown
   /// im Suchoptionen-Panel (jede Ebene schränkt die darunterliegende ein).
@@ -4248,6 +4398,9 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Stream<List<PersonData>> watchPeople() => select(people).watch();
+
+  /// Dasselbe als einmalige Abfrage – siehe [alleTags].
+  Future<List<PersonData>> allePersonen() => select(people).get();
 
   /// Wie viele Personen angelegt sind – für die Zahl am Reiter.
   ///
@@ -4479,6 +4632,27 @@ class AppDatabase extends _$AppDatabase {
     }
     return result;
   }
+
+  /// Gesichter ohne berechnete Schärfe – für den Nachlauf nach Schema 61.
+  ///
+  /// Nur solche mit gespeichertem Ausschnitt: Ohne ihn gäbe es nichts zu
+  /// messen, und sie stünden bei jedem Lauf erneut in der Liste.
+  Future<List<FaceData>> gesichterOhneSchaerfe() => (select(faces)
+        ..where((f) => f.schaerfe.isNull() & f.cropRelativePath.isNotNull()))
+      .get();
+
+  /// Zählvariante von [gesichterOhneSchaerfe].
+  Future<int> countGesichterOhneSchaerfe() async {
+    final zeile = await (selectOnly(faces)
+          ..addColumns([faces.id.count()])
+          ..where(faces.schaerfe.isNull() & faces.cropRelativePath.isNotNull()))
+        .getSingle();
+    return zeile.read(faces.id.count()) ?? 0;
+  }
+
+  Future<void> setzeGesichtsschaerfe(String faceId, double wert) =>
+      (update(faces)..where((f) => f.id.equals(faceId)))
+          .write(FacesCompanion(schaerfe: Value(wert)));
 
   Future<void> assignFacesToPerson(List<String> faceIds, String personId) async {
     // Wer einem beiseitegelegten Gesicht einen Namen gibt, hat es damit
@@ -6127,6 +6301,10 @@ class AppDatabase extends _$AppDatabase {
   Future<void> clearDerivedContentData(List<String> assetIds) async {
     await (update(assets)..where((t) => t.id.isIn(assetIds))).write(const AssetsCompanion(
       ocrText: Value(null),
+      // Die Stellen stehen im Klartext neben dem Text und verraten mit ihm
+      // dasselbe – ohne diese Zeile bliebe der Wortlaut eines gesperrten
+      // Fotos in der unverschlüsselten Datenbank stehen.
+      ocrBoxen: Value(null),
       ocrScanned: Value(false),
       // Damit die Verschlagwortung nach dem Entsperren neu läuft und die
       // gelöschten Begriffe zurückbringt.

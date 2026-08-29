@@ -17,11 +17,14 @@ import '../services/asset_format.dart';
 import '../services/bilddekodierung.dart';
 import '../services/blur_detection.dart';
 import '../services/export_service.dart';
+import '../services/rasterauswahl.dart';
+import '../services/textstellen.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_info_sheet.dart';
 import '../widgets/gesichtsrahmen.dart';
+import '../widgets/textrahmen.dart';
 import '../widgets/live_photo_view.dart';
 import '../widgets/metadata_editor_dialog.dart';
 import '../widgets/panorama_360_view.dart';
@@ -121,6 +124,11 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   /// meist für mehrere hintereinander und nicht für genau eines.
   bool _gesichterZeigen = false;
 
+  /// Ob die gelesenen Textstellen als Kästen über dem Foto liegen (siehe
+  /// [Textrahmen]). Wie bei den Gesichtern eine Sitzungseinstellung: Man
+  /// schaltet sie für ein Schild ein und gleich danach wieder aus.
+  bool _textZeigen = false;
+
   /// Fokus-Peaking (nur im Sichtungs-Modus verfügbar, siehe _CullingHintBar):
   /// hebt lokal scharfe Kanten farbig hervor, ergänzt den reinen
   /// Schärfe-Score um eine ortsaufgelöste Rückmeldung.
@@ -136,13 +144,31 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   /// zurückkommt, damit das Umblättern nicht darauf wartet.
   bool _currentHasClosedEyes = false;
 
+  /// Ob KEIN Gesicht dieses Fotos scharf genug ist (siehe
+  /// [gesichtUnscharfSchwelle]).
+  ///
+  /// Das schärfste zählt, nicht der Durchschnitt: Auf einem Gruppenbild ist
+  /// hinten fast immer jemand weich, und das ist kein Grund, die Aufnahme
+  /// wegzuwerfen. Erst wenn auch der beste Kopf unscharf ist, hat man ein
+  /// Bild ohne brauchbares Gesicht.
+  bool _currentGesichterUnscharf = false;
+
   Future<void> _refreshClosedEyesFlag() async {
     if (!widget.cullingMode) return;
     final assetId = _assets[_currentIndex].id;
     final faces = await widget.db.facesForAsset(assetId);
     final hasClosed = faces.any((f) => f.eyeOpenScore != null && f.eyeOpenScore! < _closedEyesThreshold);
+    final gemessen = [
+      for (final f in faces)
+        if (!f.isIgnored && f.schaerfe != null) f.schaerfe!,
+    ];
+    final unscharf = gemessen.isNotEmpty &&
+        gemessen.reduce((a, b) => a > b ? a : b) < gesichtUnscharfSchwelle;
     if (mounted && _assets[_currentIndex].id == assetId) {
-      setState(() => _currentHasClosedEyes = hasClosed);
+      setState(() {
+        _currentHasClosedEyes = hasClosed;
+        _currentGesichterUnscharf = unscharf;
+      });
     }
   }
 
@@ -252,17 +278,14 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
       Navigator.of(context).maybePop();
       return KeyEventResult.handled;
     }
-    final digitKeys = {
-      LogicalKeyboardKey.digit0: 0,
-      LogicalKeyboardKey.digit1: 1,
-      LogicalKeyboardKey.digit2: 2,
-      LogicalKeyboardKey.digit3: 3,
-      LogicalKeyboardKey.digit4: 4,
-      LogicalKeyboardKey.digit5: 5,
-    };
-    final rating = digitKeys[event.logicalKey];
+    final rating = bewertungFuerZiffer(event.logicalKey);
     if (rating != null) {
       _setRating(rating);
+      return KeyEventResult.handled;
+    }
+    final farbe = farbmarkeFuerZiffer(event.logicalKey);
+    if (farbe != null) {
+      _setColorLabel(farbe);
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.backspace || event.logicalKey == LogicalKeyboardKey.delete) {
@@ -474,6 +497,15 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
     await _refreshCurrentAsset();
   }
 
+  /// Farbmarke über die Tasten 6–9 (siehe [farbmarkeFuerZiffer]). Dieselbe
+  /// Taste noch einmal nimmt die Marke wieder weg – wie ein zweiter Klick auf
+  /// denselben Kreis in der Palette.
+  Future<void> _setColorLabel(String farbe) async {
+    final aktuell = _currentAsset.colorLabel;
+    await widget.db.setColorLabel(_currentAsset.id, aktuell == farbe ? null : farbe);
+    await _refreshCurrentAsset();
+  }
+
   Future<void> _developAsset() async {
     final asset = _currentAsset;
     final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
@@ -622,6 +654,19 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                 onPressed: () =>
                     setState(() => _gesichterZeigen = !_gesichterZeigen),
               ),
+            // Neben den Gesichtern und aus demselben Grund sichtbar statt im
+            // Menü: 2406 der 7988 Aufnahmen dieser Bibliothek tragen
+            // erkannten Text, der bis Schema 60 nirgends zu sehen war.
+            if (asset.type == 'IMAGE' && !asset.isLocked)
+              IconButton(
+                icon: Icon(_textZeigen
+                    ? Icons.text_fields
+                    : Icons.text_fields_outlined),
+                tooltip: _textZeigen
+                    ? AppTexte.of(context).viewerTextVerbergen
+                    : AppTexte.of(context).viewerTextZeigen,
+                onPressed: () => setState(() => _textZeigen = !_textZeigen),
+              ),
             IconButton(
               key: _shareButtonKey,
               icon: const Icon(Icons.ios_share),
@@ -721,6 +766,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                                   library: widget.library,
                                   isCurrent: index == _currentIndex,
                                   gesichterZeigen: _gesichterZeigen,
+                                  textZeigen: _textZeigen,
                                   focusPeakingEnabled: _focusPeakingEnabled);
                             },
                           ),
@@ -778,6 +824,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                 focusPeakingEnabled: _focusPeakingEnabled,
                 onToggleFocusPeaking: () => setState(() => _focusPeakingEnabled = !_focusPeakingEnabled),
                 hasClosedEyes: _currentHasClosedEyes,
+                gesichterUnscharf: _currentGesichterUnscharf,
               ),
             ] else if (_assets.length > 1) ...[
               const Divider(height: 1, color: Colors.white24),
@@ -806,12 +853,17 @@ class _CullingHintBar extends StatelessWidget {
   final bool focusPeakingEnabled;
   final VoidCallback onToggleFocusPeaking;
   final bool hasClosedEyes;
+
+  /// Auch das schärfste Gesicht dieses Fotos liegt unter der Schwelle.
+  final bool gesichterUnscharf;
+
   const _CullingHintBar({
     required this.current,
     required this.total,
     required this.focusPeakingEnabled,
     required this.onToggleFocusPeaking,
     required this.hasClosedEyes,
+    required this.gesichterUnscharf,
   });
 
   @override
@@ -826,17 +878,31 @@ class _CullingHintBar extends StatelessWidget {
             AppTexte.of(context).sichtungHilfeleiste(current, total),
             style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
-          if (hasClosedEyes)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Tooltip(
-                  message: AppTexte.of(context).viewerGeschlosseneAugen,
-                  child: const Icon(Icons.visibility_off_outlined, size: 18, color: Colors.orangeAccent),
-                ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasClosedEyes)
+                    Tooltip(
+                      message: AppTexte.of(context).viewerGeschlosseneAugen,
+                      child: const Icon(Icons.visibility_off_outlined,
+                          size: 18, color: Colors.orangeAccent),
+                    ),
+                  if (gesichterUnscharf) ...[
+                    if (hasClosedEyes) const SizedBox(width: 10),
+                    Tooltip(
+                      message: AppTexte.of(context).viewerGesichtUnscharf,
+                      child: const Icon(Icons.blur_on,
+                          size: 18, color: Colors.orangeAccent),
+                    ),
+                  ],
+                ],
               ),
             ),
+          ),
           Align(
             alignment: Alignment.centerRight,
             child: IconButton(
@@ -1005,6 +1071,9 @@ class _AssetPage extends StatefulWidget {
 
   /// Ob die erkannten Gesichter als Rahmen über dem Foto liegen.
   final bool gesichterZeigen;
+
+  /// Ob die gelesenen Textstellen als Kästen über dem Foto liegen.
+  final bool textZeigen;
   final bool focusPeakingEnabled;
   const _AssetPage(
       {required this.asset,
@@ -1013,6 +1082,7 @@ class _AssetPage extends StatefulWidget {
       required this.library,
       required this.isCurrent,
       this.gesichterZeigen = false,
+      this.textZeigen = false,
       this.focusPeakingEnabled = false});
 
   @override
@@ -1043,6 +1113,10 @@ class _AssetPageState extends State<_AssetPage> {
   List<FaceData> _gesichter = const [];
   Map<String, String> _gesichtsnamen = const {};
 
+  /// Die gelesenen Textstellen dieses Fotos. Anders als die Gesichter
+  /// kostet das keine Abfrage – sie stehen in der Asset-Zeile selbst.
+  late final List<Textstelle> _stellen = textstellenAusJson(widget.asset.ocrBoxen);
+
   /// Die Masse des angezeigten Bildes. Gebraucht, weil die Kästen als
   /// Anteile davon gespeichert sind – ohne sie liegt jeder Rahmen falsch.
   Size? _bildmasse;
@@ -1055,6 +1129,17 @@ class _AssetPageState extends State<_AssetPage> {
   /// Innerhalb der 360°-Ansicht: echte 3D-Kugel (Default) oder flaches
   /// Pan/Zoom über das equirechteckige Bild.
   Panorama360Mode _panoramaMode = Panorama360Mode.sphere;
+
+  /// Legt die angetippte Zeile in die Zwischenablage und sagt, was drin ist.
+  ///
+  /// Die Rückmeldung nennt den Text selbst und nicht nur „kopiert": Bei
+  /// dicht stehenden Zeilen ist die Frage, welche man getroffen hat, die
+  /// einzige, die sich hier stellt.
+  Future<void> _zeileKopieren(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    melde.erfolg(AppTexte.of(context).viewerZeileKopiert(text));
+  }
 
   Future<File> _resolveFile() {
     final relativePath = displayRelativePath(widget.asset);
@@ -1288,7 +1373,11 @@ class _AssetPageState extends State<_AssetPage> {
         final masse = _bildmasse;
         final rahmen =
             widget.gesichterZeigen && masse != null && _gesichter.isNotEmpty;
-        if (overlay == null && !rahmen) {
+        final textkaesten =
+            widget.textZeigen && masse != null && _stellen.isNotEmpty;
+        // Eine Überlagerung genügt, damit das Kind genau das Bild sein muss.
+        final ueberlagert = rahmen || textkaesten;
+        if (overlay == null && !ueberlagert) {
           return Stack(
             children: [
               PhotoView(
@@ -1304,6 +1393,23 @@ class _AssetPageState extends State<_AssetPage> {
                   bottom: AppSpacing.md,
                   child: Center(child: _Hinweisfahne(
                       text: AppTexte.of(context).viewerKeineGesichter)),
+                ),
+              // Zwei verschiedene Auskünfte, und der Unterschied trägt:
+              // „kein Text im Bild" ist ein Ergebnis, „noch keine Stellen
+              // gespeichert" ist ein Foto aus einem Lauf vor Schema 60, das
+              // die Texterkennung noch einmal anfassen muss.
+              if (widget.textZeigen && _stellen.isEmpty)
+                Positioned(
+                  left: AppSpacing.md,
+                  right: AppSpacing.md,
+                  bottom: widget.gesichterZeigen && _gesichter.isEmpty ? 56 : AppSpacing.md,
+                  child: Center(
+                    child: _Hinweisfahne(
+                      text: (widget.asset.ocrText ?? '').trim().isEmpty
+                          ? AppTexte.of(context).viewerKeinText
+                          : AppTexte.of(context).viewerTextNochNicht,
+                    ),
+                  ),
                 ),
               if (isEquirectangular360(asset))
                 Positioned(
@@ -1323,7 +1429,7 @@ class _AssetPageState extends State<_AssetPage> {
           // Mit Rahmen ist das Kind genau das Bild – nur dann liegt ein
           // Kasten bei 0,3 auch auf drei Zehnteln des Fotos und nicht auf
           // drei Zehnteln des Fensters samt seiner schwarzen Ränder.
-          childSize: rahmen ? masse : null,
+          childSize: ueberlagert ? masse : null,
           initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
           minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
           child: Stack(
@@ -1346,6 +1452,13 @@ class _AssetPageState extends State<_AssetPage> {
                       flaeche: masse,
                       beiTipp: () => _gesichtAngetippt(gesicht),
                     ),
+              if (textkaesten)
+                for (final stelle in _stellen)
+                  Textrahmen(
+                    stelle: stelle,
+                    flaeche: masse,
+                    beiTipp: _zeileKopieren,
+                  ),
             ],
           ),
         );

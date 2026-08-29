@@ -831,6 +831,25 @@ List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
         ],
       ),
       Aufgabe(
+        schluessel: 'gesichtsschaerfe',
+        // Kein Modell und kein neuer Dekodiervorgang: Gerechnet wird auf
+        // den bereits gespeicherten 160x160-Ausschnitten, rund zwei
+        // Millisekunden je Gesicht.
+        rechenintensiv: false,
+        icon: Icons.blur_on,
+        titel: t.aufgGesichtsschaerfeTitel,
+        beschreibung: t.aufgGesichtsschaerfeText,
+        offeneZahl: () => library.db.countGesichterOhneSchaerfe(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzBerechneGesichtsschaerfe,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillGesichtsschaerfe(),
+          ),
+        ],
+      ),
+      Aufgabe(
         schluessel: 'embeddings',
         rechenintensiv: true,
         icon: Icons.scatter_plot_outlined,

@@ -247,6 +247,67 @@ class AppTexteDe extends AppTexte {
   String get suchePlatzhalterBildunterschrift => 'z.B. „dog“, „sunset“ …';
 
   @override
+  String get werkzStaubText =>
+      'Untersucht eine Stichprobe der Aufnahmen einer Kamera darauf, ob an immer derselben Stelle ein dunkler Fleck sitzt.';
+
+  @override
+  String get staubTitel => 'Sensorstaub suchen';
+
+  @override
+  String get staubErklaerung =>
+      'Sensorstaub sitzt bei jeder Aufnahme derselben Kamera an derselben Stelle. Genau daran ist er zu erkennen: Die App untersucht eine über den ganzen Zeitraum verteilte Stichprobe und meldet nur, was immer wieder an derselben Stelle auftaucht. Ein einzelnes dunkles Pünktchen kann alles sein.';
+
+  @override
+  String get staubKeineKameras =>
+      'In dieser Bibliothek ist keine Kamera vermerkt.';
+
+  @override
+  String get staubSuchen => 'Suchen';
+
+  @override
+  String staubFortschritt(int erledigt, int gesamt) {
+    return '$erledigt von $gesamt Aufnahmen untersucht';
+  }
+
+  @override
+  String staubNichtsGefunden(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other:
+          'Auf $anzahl untersuchten Aufnahmen wurde kein Sensorstaub gefunden.',
+      one: 'Auf der untersuchten Aufnahme wurde kein Sensorstaub gefunden.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String staubGefunden(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Stellen, die immer wieder auftauchen',
+      one: '1 Stelle, die immer wieder auftaucht',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String staubAufWievielen(int treffer, int gesamt) {
+    return 'auf $treffer von $gesamt untersuchten Aufnahmen';
+  }
+
+  @override
+  String get staubImEditorOeffnen =>
+      'Eine betroffene Aufnahme im Bildeditor öffnen';
+
+  @override
+  String get allgKamera => 'Kamera';
+
+  @override
+  String get sucheSatzVerwerfen => 'Deutung zurücknehmen und wörtlich suchen';
+
+  @override
   String get sucheOptionen => 'Suchoptionen';
 
   @override
@@ -340,6 +401,27 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get viewerFokusPeaking => 'Fokus-Peaking (scharfe Kanten hervorheben)';
+
+  @override
+  String get viewerGesichtUnscharf => 'Auch das schärfste Gesicht ist unscharf';
+
+  @override
+  String get viewerTextZeigen => 'Erkannten Text hervorheben';
+
+  @override
+  String get viewerTextVerbergen => 'Texthervorhebung ausblenden';
+
+  @override
+  String get viewerKeinText => 'In diesem Foto wurde kein Text erkannt.';
+
+  @override
+  String get viewerTextNochNicht =>
+      'Für dieses Foto sind noch keine Textstellen gespeichert – ein Lauf der Texterkennung holt sie nach.';
+
+  @override
+  String viewerZeileKopiert(String text) {
+    return '„$text“ kopiert';
+  }
 
   @override
   String get viewerFlachesSchwenken => 'Flaches Schwenken statt 3D-Kugel';
@@ -1510,6 +1592,16 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgFehlende => 'Fehlende';
+
+  @override
+  String get aufgGesichtsschaerfeTitel => 'Gesichtsschärfe';
+
+  @override
+  String get aufgGesichtsschaerfeText =>
+      'Misst für jedes erkannte Gesicht, wie scharf es ist – auf dem bereits gespeicherten Ausschnitt, ohne die Fotos erneut zu dekodieren. Beim Sichten warnt die App danach, wenn auch das schärfste Gesicht einer Aufnahme unscharf ist.';
+
+  @override
+  String get werkzBerechneGesichtsschaerfe => 'Gesichtsschärfe berechnen';
 
   @override
   String get aufgOcrTitel => 'Text erkennen (OCR)';
@@ -3153,6 +3245,26 @@ class AppTexteDe extends AppTexte {
   String get infoKiBeschreibung => 'KI-Beschreibung';
 
   @override
+  String get infoErkannterText => 'Erkannter Text';
+
+  @override
+  String get infoTextKopieren => 'Text kopieren';
+
+  @override
+  String get infoTextKopiert => 'Text in die Zwischenablage kopiert';
+
+  @override
+  String infoTextStellen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Textstellen im Bild',
+      one: '1 Textstelle im Bild',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get infoBewertung => 'Bewertung';
 
   @override
@@ -3478,6 +3590,20 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get xmpFeldStandort => 'Standort';
+
+  @override
+  String get xmpFeldGesichter => 'Namen für erkannte Gesichter';
+
+  @override
+  String xmpGesichterOhneNamen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Gesichter ohne Namen',
+      one: '1 Gesicht ohne Namen',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get xmpKeineSidecars => 'Keine XMP-Sidecars gefunden.';

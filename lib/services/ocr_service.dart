@@ -10,6 +10,7 @@ import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
 
 import 'onnx_hardswish.dart';
+import 'textstellen.dart';
 
 /// Texterkennung ohne Betriebssystem-Hilfe – zwei ONNX-Modelle aus der
 /// PaddleOCR-Familie, dieselbe Zerlegung wie dort: erst finden, dann lesen.
@@ -156,17 +157,32 @@ class OcrService {
   /// Fall dieser Art ebenso ab. Wie berechtigt das ist, hat sich gezeigt –
   /// die Ursache lag nicht dort, wo alle Messungen sie vermutet hatten,
   /// sondern in einer Textumwandlung unter deutscher Spracheinstellung.
-  Future<String> erkenneText(img.Image bild) async {
-    final stellen = await _findeStellen(bild);
-    if (stellen.isEmpty) return '';
+  Future<String> erkenneText(img.Image bild) async =>
+      textAusStellen(await erkenne(bild));
 
-    final zeilen = <String>[];
+  /// Wie [erkenneText], aber mit dem Platz jeder Zeile im Bild.
+  ///
+  /// Die Kästen fielen bei der Erkennung immer schon an – bis Schema 60
+  /// wurden sie nur weggeworfen. In Anteilen der Bildkante, nicht in Pixeln;
+  /// warum, steht bei [Textstelle].
+  Future<List<Textstelle>> erkenne(img.Image bild) async {
+    final stellen = await _findeStellen(bild);
+    if (stellen.isEmpty) return const [];
+
+    final gelesen = <Textstelle>[];
     for (final stelle in stellen) {
       final text = await _liesStelle(bild, stelle);
-      if (text.isNotEmpty) zeilen.add(text);
+      if (text.isEmpty) continue;
+      gelesen.add(Textstelle(
+        text: text,
+        links: stelle.links / bild.width,
+        oben: stelle.oben / bild.height,
+        breite: (stelle.rechts - stelle.links + 1) / bild.width,
+        hoehe: (stelle.unten - stelle.oben + 1) / bild.height,
+      ));
     }
-    if (zeilen.isEmpty) throw LesungLiefertNichts(stellen.length);
-    return zeilen.join('\n');
+    if (gelesen.isEmpty) throw LesungLiefertNichts(stellen.length);
+    return gelesen;
   }
 
   /// Sucht die Stellen mit Schrift und gibt sie in Lesereihenfolge zurück.

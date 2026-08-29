@@ -10,6 +10,45 @@ import 'package:image/image.dart' as img;
 /// bis vierstelligen Bereich).
 const blurryScoreThreshold = 100.0;
 
+/// Schwellenwert für „dieses Gesicht ist zu weich", angewandt auf einen
+/// 160x160-Gesichtsausschnitt (siehe [gesichtsschaerfe]).
+///
+/// **Warum eine eigene Zahl.** [blurryScoreThreshold] gilt für ein ganzes,
+/// auf 400 Punkte verkleinertes Foto. Auf Gesichtsausschnitte angewandt
+/// träfe sie ein Drittel aller Gesichter dieser Bibliothek – gemessen:
+/// 32,9 %.
+///
+/// **Woher die 40 kommt.** An 1625 echten Ausschnitten aus der Bibliothek
+/// gemessen (`tool/messe_gesichtsschaerfe.dart`), alle 160x160:
+///
+/// ```
+///  1%    6,5      50%   167,8
+///  5%   18,2      75%   386,4
+/// 10%   33,7      90%   812,0
+/// 25%   80,1      99%  2886,3
+/// ```
+///
+/// 40 trifft 12,4 % – und zwar die richtigen: Die Ausschnitte im Bereich um
+/// 25 wurden angesehen und sind sichtbar unbrauchbar (verwackelt, verrauscht
+/// oder zu dunkel), die um den Median herum sind es nicht.
+///
+/// **Was der Wert mitmisst.** Ein dunkles Gesicht hat wenig Kontrast und
+/// damit eine niedrige Varianz, auch wenn es scharf ist. Für die Sichtung
+/// ist das kein Schaden – ein Gesicht, das man nicht erkennt, will man in
+/// beiden Fällen nicht behalten –, aber die Zahl heisst deshalb
+/// „Gesichtsschärfe" und nicht „Unschärfe".
+const gesichtUnscharfSchwelle = 40.0;
+
+/// Die Schärfe eines Gesichtsausschnitts.
+///
+/// Dieselbe Rechnung wie [computeBlurScore] – die Trennung ist die
+/// Bezugsgrösse, nicht die Formel. Ausschnitte sind immer 160x160 (siehe
+/// `FaceEngineService.cropFaceImage`) und damit untereinander vergleichbar,
+/// unabhängig davon, wie gross die Person im Bild war. Genau das ist beim
+/// Sichten die richtige Frage: nicht „wie viele Pixel hat dieses Gesicht",
+/// sondern „sieht es aus der Nähe scharf aus".
+double gesichtsschaerfe(img.Image ausschnitt) => computeBlurScore(ausschnitt);
+
 /// Berechnet einen Schärfe-Score (Laplace-Varianz) für [image] – je niedriger
 /// der Wert, desto unschärfer das Bild. Reine, isolate-taugliche Funktion
 /// (kein Zugriff auf Widgets/Plugins), analog zu ClipService.embedImage:

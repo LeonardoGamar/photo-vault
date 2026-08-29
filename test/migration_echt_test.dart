@@ -51,11 +51,17 @@ void main() {
         expect(tabellen, contains(erwartet), reason: '$name: $erwartet');
       }
 
-      // Die neuen Tabellen sind leer, und an den Aufnahmen hat sich
-      // nichts geändert: Ohne einen einzigen Eintrag verhält sich alles
-      // wie zuvor.
-      expect(await db.alleAktivitaeten(), isEmpty, reason: name);
-      expect(await db.alleSpuren(), isEmpty, reason: name);
+      // Die damals neuen Tabellen lassen sich lesen, und an den Aufnahmen
+      // hat sich nichts geändert.
+      //
+      // Früher stand hier `isEmpty`: Als die Tabellen dazukamen, war das die
+      // richtige Prüfung. Inzwischen sind in der grossen Bibliothek
+      // Aktivitäten und Reisen erkannt worden, und eine leere Tabelle wäre
+      // gerade das Alarmzeichen. Geprüft wird deshalb, dass die Abfrage
+      // durchläuft – die Migration darf sie weder verlieren noch
+      // unlesbar machen.
+      await db.alleAktivitaeten();
+      await db.alleSpuren();
       final nachher = await db.customSelect('SELECT count(*) AS n FROM assets')
           .map((r) => r.read<int>('n'))
           .getSingle();
@@ -63,6 +69,27 @@ void main() {
 
       // Und die Reisen stehen noch – die Tabelle daneben.
       await db.alleReisen();
+
+      // Schema 60: die Spalte ist da, und der bereits erkannte Text ist
+      // unangetastet geblieben. Die Stellen dazu holt erst ein neuer Lauf
+      // der Texterkennung – bis dahin steht dort überall null, und genau
+      // diese Fotos muss der Nachlauf wieder aufgreifen.
+      final offen = await db.countOcrBackfill();
+      // Dieselben Filter wie [_ocrOffen]: Papierkorb und Tresor bleiben
+      // aussen vor. In der grossen Bibliothek trennt genau das 2406
+      // erkannte Texte von 2256 erneut erreichbaren – der Rest liegt im
+      // Papierkorb oder gesperrt, und beides soll die Texterkennung nicht
+      // anfassen.
+      final mitText = await db
+          .customSelect('SELECT count(*) AS n FROM assets '
+              "WHERE type = 'IMAGE' AND is_trashed = 0 AND is_locked = 0 "
+              "AND ocr_text IS NOT NULL AND ocr_text <> '' AND ocr_boxen IS NULL")
+          .map((r) => r.read<int>('n'))
+          .getSingle();
+      expect(offen, greaterThanOrEqualTo(mitText), reason: name);
+      // ignore: avoid_print
+      print('$name: $mitText Aufnahmen mit Text, aber ohne Stellen; '
+          '$offen offen fuer die Texterkennung');
       await db.close();
       // ignore: avoid_print
       print('$name: $vorher Aufnahmen, Fassung $fassung');

@@ -188,6 +188,8 @@ void main() {
 
     final danach = (await db.select(db.assets).get()).single;
     expect(danach.ocrText, isNull, reason: 'erkannter Text ist Bildinhalt');
+    expect(danach.ocrBoxen, isNull,
+        reason: 'die Stellen stehen im Klartext neben dem Text');
     expect(danach.aiCaption, isNull, reason: 'die Bildunterschrift ebenso');
     expect(danach.aiCaptionDe, isNull,
         reason: 'derselbe Satz auf Deutsch ist derselbe Bildinhalt');
@@ -210,7 +212,7 @@ void main() {
     addTearDown(db.close);
     final spalten = db.assets.$columns.map((c) => c.name).toSet();
     const behandelt = {
-      'ocr_text', 'ocr_scanned',
+      'ocr_text', 'ocr_boxen', 'ocr_scanned',
       'ai_caption', 'ai_caption_de', 'ai_caption_scanned',
       'ai_caption_edited', 'ai_tags_scanned',
     };

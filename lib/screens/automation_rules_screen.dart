@@ -41,7 +41,7 @@ class _AutomationRulesScreenState extends State<AutomationRulesScreen> {
 
   Future<void> _editRule({AutomationRuleData? existing}) async {
     final albums = await widget.library.db.watchAlbums().first;
-    final allTags = await widget.library.db.watchAllTags().first;
+    final allTags = await widget.library.db.alleTags();
     final vocabulary = await _vocabularyFuture;
     final existingTagIds = existing == null
         ? <String>{}

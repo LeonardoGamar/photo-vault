@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -8,6 +9,7 @@ import 'develop_color.dart';
 import 'develop_render.dart';
 import 'exif_camera.dart';
 import 'platform/desktop_image_tools.dart';
+import 'textstellen.dart';
 import 'raw_identify_parser.dart';
 import 'raw_formats.dart';
 
@@ -450,12 +452,21 @@ class NativeImageConverter {
 
   /// Erkennt Text in einer Bilddatei über Apples Vision-Framework (rein
   /// on-device, siehe `ImageConverter.swift`s `recognizeText`). Gibt bei
-  /// keinem gefundenen Text einen leeren String zurück, `null` nur, wenn die
+  /// keinem gefundenen Text eine leere Liste zurück, `null` nur, wenn die
   /// native Anbindung fehlt oder die Erkennung selbst fehlgeschlagen ist.
-  static Future<String?> recognizeText(File file) async {
+  ///
+  /// Der Unterschied zwischen „leer" und `null` trägt: Ein Foto ohne Text ist
+  /// fertig bearbeitet, ein fehlgeschlagener Aufruf muss erneut dran (siehe
+  /// `LibraryState.backfillOcrText`).
+  static Future<List<Textstelle>?> recognizeText(File file) async {
     if (!await isSupported()) return null;
     try {
-      return await _channel.invokeMethod<String>('recognizeText', {'path': file.path});
+      final roh = await _channel
+          .invokeMapMethod<String, Object?>('recognizeText', {'path': file.path});
+      if (roh == null) return null;
+      final stellen = roh['stellen'];
+      if (stellen is! List) return const [];
+      return textstellenAusJson(jsonEncode(stellen));
     } on PlatformException {
       return null;
     } on MissingPluginException {

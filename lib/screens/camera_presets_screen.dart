@@ -35,7 +35,7 @@ class _CameraPresetsScreenState extends State<CameraPresetsScreen> {
 
   Future<void> _editPreset({CameraPresetData? existing}) async {
     final albums = await widget.library.db.watchAlbums().first;
-    final allTags = await widget.library.db.watchAllTags().first;
+    final allTags = await widget.library.db.alleTags();
     final knownCameras = await _knownCamerasFuture;
     final existingTagIds = existing == null
         ? <String>{}

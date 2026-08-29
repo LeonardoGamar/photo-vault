@@ -12,6 +12,7 @@ import 'automation_rules_screen.dart';
 import 'background_tasks_screen.dart';
 import 'camera_presets_screen.dart';
 import 'export_presets_screen.dart';
+import 'staubsuche_screen.dart';
 import 'duplicates_screen.dart';
 import 'integrity_check_screen.dart';
 import 'stack_review_screen.dart';
@@ -228,6 +229,18 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
                         builder: (_) => ExportPresetsScreen(library: widget.library)),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.blur_circular_outlined),
+                  title: Text(t.staubTitel),
+                  subtitle: Text(t.werkzStaubText),
+                  isThreeLine: true,
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => StaubsucheScreen(library: widget.library)),
                   ),
                 ),
                 const Divider(height: 1),

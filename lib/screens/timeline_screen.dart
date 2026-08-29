@@ -12,6 +12,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/asset_list_view.dart';
 import '../widgets/month_grouped_asset_grid.dart';
 import '../widgets/pin_dialogs.dart';
+import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
 import 'import_progress_sheet.dart';
@@ -37,7 +38,7 @@ class TimelineScreen extends StatefulWidget {
   State<TimelineScreen> createState() => _TimelineScreenState();
 }
 
-class _TimelineScreenState extends State<TimelineScreen> {
+class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<TimelineScreen> {
   // Wachsendes Ladefenster statt auf einen Schlag die komplette Bibliothek zu
   // laden: `watchTimeline(limit: _windowSize)` bleibt dank
   // `idx_assets_trashed_locked_created` auch für ein großes Fenster ein
@@ -52,6 +53,36 @@ class _TimelineScreenState extends State<TimelineScreen> {
   bool _resolvingHighlight = false;
 
   final Set<String> _selected = {};
+
+  /// Was der Datenstrom zuletzt geliefert hat, plus die Spaltenzahl, die das
+  /// Raster daraus gemacht hat – beides braucht [Rasterbedienung] beim
+  /// Tastendruck, also ausserhalb von `build`.
+  List<AssetData> _geladen = const [];
+  int _spalten = 1;
+
+  @override
+  Set<String> get auswahl => _selected;
+
+  @override
+  AppDatabase get rasterDb => widget.library.db;
+
+  @override
+  List<AssetData> get rasterAssets => _geladen;
+
+  @override
+  int get rasterSpalten => _spalten;
+
+  /// In der Listenansicht steht alles untereinander – eine Spalte, eine
+  /// Gruppe. Sonst die Monatsgruppen, die das Raster auch malt.
+  @override
+  List<List<String>> get rasterGruppen {
+    if (_alsListe) return [[for (final a in _geladen) a.id]];
+    final m = monatsgruppen(_geladen);
+    return [for (final k in m.schluessel) [for (final a in m.gruppen[k]!) a.id]];
+  }
+
+  @override
+  void rasterOeffne(AssetData asset) => _openViewer(_geladen, asset);
 
   /// Raster oder Liste, und wonach die Liste gegliedert wird.
   ///
@@ -223,6 +254,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final assets = snapshot.data!;
+        _geladen = assets;
         if (assets.isEmpty) {
           return EmptyState(
             icon: Icons.photo_outlined,
@@ -232,38 +264,47 @@ class _TimelineScreenState extends State<TimelineScreen> {
           );
         }
 
-        return Stack(
+        return mitTastatur(
+            kind: Stack(
           children: [
             Column(
               children: [
                 _ansichtsLeiste(context),
                 Expanded(
-                  child: _alsListe
-                      ? AssetListView(
-                          assets: assets,
-                          paths: widget.library.paths,
-                          gruppierung: _gruppierung,
-                          selectedIds: _selected,
-                          highlightAssetId: widget.highlightAssetId,
-                          nachObenSignal: widget.nachObenSignal,
-                          onLongPress: (asset) => _toggle(asset.id),
-                          onTap: (asset) => _selected.isNotEmpty
-                              ? _toggle(asset.id)
-                              : _openViewer(assets, asset),
-                        )
-                      : MonthGroupedAssetGrid(
-                          assets: assets,
-                          paths: widget.library.paths,
-                          highlightAssetId: widget.highlightAssetId,
-                          nachObenSignal: widget.nachObenSignal,
-                          selectedIds: _selected,
-                          onLongPress: (asset) => _toggle(asset.id),
-                          onHeaderTap: _toggleGroup,
-                          onTap: (asset) => _selected.isNotEmpty
-                              ? _toggle(asset.id)
-                              : _openViewer(assets, asset),
-                          onScrollNearEnd: () => _maybeGrowWindow(assets.length),
-                        ),
+                  // Die Spaltenzahl steht nur hier fest, wird aber beim
+                  // Tastendruck gebraucht – dort gibt es keine Constraints.
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    _spalten = _alsListe
+                        ? 1
+                        : rasterSpaltenzahl(
+                            constraints.maxWidth,
+                            mitZeitstrahl:
+                                rasterMitZeitstrahl(monatsgruppen(assets).schluessel.length),
+                          );
+                    return _alsListe
+                        ? AssetListView(
+                            assets: assets,
+                            paths: widget.library.paths,
+                            gruppierung: _gruppierung,
+                            selectedIds: _selected,
+                            highlightAssetId: widget.highlightAssetId,
+                            nachObenSignal: widget.nachObenSignal,
+                            onLongPress: (asset) => _toggle(asset.id),
+                            onTap: rasterKlick,
+                          )
+                        : MonthGroupedAssetGrid(
+                            assets: assets,
+                            paths: widget.library.paths,
+                            highlightAssetId: widget.highlightAssetId,
+                            aktiveKachelId: aktiveKachel,
+                            nachObenSignal: widget.nachObenSignal,
+                            selectedIds: _selected,
+                            onLongPress: (asset) => _toggle(asset.id),
+                            onHeaderTap: _toggleGroup,
+                            onTap: rasterKlick,
+                            onScrollNearEnd: () => _maybeGrowWindow(assets.length),
+                          );
+                  }),
                 ),
               ],
             ),
@@ -315,7 +356,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 onDelete: _deleteSelected,
               ),
           ],
-        );
+        ));
       },
     );
   }

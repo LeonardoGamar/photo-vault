@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,7 @@ import '../screens/person_detail_screen.dart';
 import '../services/reverse_geocoder.dart';
 import '../services/asset_format.dart';
 import '../services/storage_paths.dart';
+import '../services/textstellen.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import 'color_label_picker.dart';
@@ -488,6 +490,13 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           onSprache: _kiSpracheWechseln,
                         ),
                       ],
+                      if ((asset.ocrText ?? '').trim().isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _ErkannterText(
+                          text: asset.ocrText!.trim(),
+                          stellen: textstellenAusJson(asset.ocrBoxen).length,
+                        ),
+                      ],
                       const SizedBox(height: 16),
                       Row(
                         children: [
@@ -910,6 +919,73 @@ class _Aufnahmeblock extends StatelessWidget {
 /// Die beiden Sprachknöpfe stehen auch dann da, wenn es die andere Fassung
 /// noch nicht gibt: Nur so lässt sich eine deutsche Bildunterschrift von
 /// Hand anlegen, ohne erst das Übersetzungsmodell zu bemühen.
+/// Der von der Texterkennung gelesene Text – markierbar und kopierbar.
+///
+/// Bis Schema 60 lag er ausschliesslich in der Datenbank und war
+/// ausschliesslich durchsuchbar: 2406 von 7988 Aufnahmen dieser Bibliothek
+/// trugen einen Text, den niemand lesen konnte. Das Anzeigen kostet nichts,
+/// die Zeichenkette liegt längst da.
+class _ErkannterText extends StatelessWidget {
+  final String text;
+
+  /// Wie viele Stellen im Bild dazu bekannt sind. Null heisst: Der Text
+  /// stammt aus einem Lauf vor Schema 60 und hat noch keine Kästen – dann
+  /// steht die Zeile nicht da, statt „0 Stellen" zu behaupten.
+  final int stellen;
+
+  const _ErkannterText({required this.text, required this.stellen});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.text_fields, size: 16, color: farben.onSurfaceVariant),
+            const SizedBox(width: 6),
+            Expanded(child: _SectionLabel(t.infoErkannterText)),
+            IconButton(
+              icon: const Icon(Icons.copy_all_outlined, size: 18),
+              visualDensity: VisualDensity.compact,
+              tooltip: t.infoTextKopieren,
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: text));
+                melde.erfolg(t.infoTextKopiert);
+              },
+            ),
+          ],
+        ),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: farben.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+          // Markierbar und nicht nur lesbar: Der halbe Nutzen einer
+          // Texterkennung ist, eine Telefonnummer vom Schild abzunehmen,
+          // ohne sie abzutippen.
+          child: SelectableText(
+            text,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        if (stellen > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              t.infoTextStellen(stellen),
+              style: TextStyle(fontSize: 11, color: farben.onSurfaceVariant),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _KiBeschreibung extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;

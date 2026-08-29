@@ -482,6 +482,78 @@ abstract class AppTexte {
   /// **'z.B. „dog“, „sunset“ …'**
   String get suchePlatzhalterBildunterschrift;
 
+  /// No description provided for @werkzStaubText.
+  ///
+  /// In de, this message translates to:
+  /// **'Untersucht eine Stichprobe der Aufnahmen einer Kamera darauf, ob an immer derselben Stelle ein dunkler Fleck sitzt.'**
+  String get werkzStaubText;
+
+  /// No description provided for @staubTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Sensorstaub suchen'**
+  String get staubTitel;
+
+  /// No description provided for @staubErklaerung.
+  ///
+  /// In de, this message translates to:
+  /// **'Sensorstaub sitzt bei jeder Aufnahme derselben Kamera an derselben Stelle. Genau daran ist er zu erkennen: Die App untersucht eine über den ganzen Zeitraum verteilte Stichprobe und meldet nur, was immer wieder an derselben Stelle auftaucht. Ein einzelnes dunkles Pünktchen kann alles sein.'**
+  String get staubErklaerung;
+
+  /// No description provided for @staubKeineKameras.
+  ///
+  /// In de, this message translates to:
+  /// **'In dieser Bibliothek ist keine Kamera vermerkt.'**
+  String get staubKeineKameras;
+
+  /// No description provided for @staubSuchen.
+  ///
+  /// In de, this message translates to:
+  /// **'Suchen'**
+  String get staubSuchen;
+
+  /// No description provided for @staubFortschritt.
+  ///
+  /// In de, this message translates to:
+  /// **'{erledigt} von {gesamt} Aufnahmen untersucht'**
+  String staubFortschritt(int erledigt, int gesamt);
+
+  /// No description provided for @staubNichtsGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Auf der untersuchten Aufnahme wurde kein Sensorstaub gefunden.} other{Auf {anzahl} untersuchten Aufnahmen wurde kein Sensorstaub gefunden.}}'**
+  String staubNichtsGefunden(int anzahl);
+
+  /// No description provided for @staubGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{1 Stelle, die immer wieder auftaucht} other{{anzahl} Stellen, die immer wieder auftauchen}}'**
+  String staubGefunden(int anzahl);
+
+  /// No description provided for @staubAufWievielen.
+  ///
+  /// In de, this message translates to:
+  /// **'auf {treffer} von {gesamt} untersuchten Aufnahmen'**
+  String staubAufWievielen(int treffer, int gesamt);
+
+  /// No description provided for @staubImEditorOeffnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine betroffene Aufnahme im Bildeditor öffnen'**
+  String get staubImEditorOeffnen;
+
+  /// No description provided for @allgKamera.
+  ///
+  /// In de, this message translates to:
+  /// **'Kamera'**
+  String get allgKamera;
+
+  /// No description provided for @sucheSatzVerwerfen.
+  ///
+  /// In de, this message translates to:
+  /// **'Deutung zurücknehmen und wörtlich suchen'**
+  String get sucheSatzVerwerfen;
+
   /// No description provided for @sucheOptionen.
   ///
   /// In de, this message translates to:
@@ -661,6 +733,42 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Fokus-Peaking (scharfe Kanten hervorheben)'**
   String get viewerFokusPeaking;
+
+  /// No description provided for @viewerGesichtUnscharf.
+  ///
+  /// In de, this message translates to:
+  /// **'Auch das schärfste Gesicht ist unscharf'**
+  String get viewerGesichtUnscharf;
+
+  /// No description provided for @viewerTextZeigen.
+  ///
+  /// In de, this message translates to:
+  /// **'Erkannten Text hervorheben'**
+  String get viewerTextZeigen;
+
+  /// No description provided for @viewerTextVerbergen.
+  ///
+  /// In de, this message translates to:
+  /// **'Texthervorhebung ausblenden'**
+  String get viewerTextVerbergen;
+
+  /// No description provided for @viewerKeinText.
+  ///
+  /// In de, this message translates to:
+  /// **'In diesem Foto wurde kein Text erkannt.'**
+  String get viewerKeinText;
+
+  /// No description provided for @viewerTextNochNicht.
+  ///
+  /// In de, this message translates to:
+  /// **'Für dieses Foto sind noch keine Textstellen gespeichert – ein Lauf der Texterkennung holt sie nach.'**
+  String get viewerTextNochNicht;
+
+  /// No description provided for @viewerZeileKopiert.
+  ///
+  /// In de, this message translates to:
+  /// **'„{text}“ kopiert'**
+  String viewerZeileKopiert(String text);
 
   /// No description provided for @viewerFlachesSchwenken.
   ///
@@ -2612,6 +2720,24 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Fehlende'**
   String get aufgFehlende;
+
+  /// No description provided for @aufgGesichtsschaerfeTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichtsschärfe'**
+  String get aufgGesichtsschaerfeTitel;
+
+  /// No description provided for @aufgGesichtsschaerfeText.
+  ///
+  /// In de, this message translates to:
+  /// **'Misst für jedes erkannte Gesicht, wie scharf es ist – auf dem bereits gespeicherten Ausschnitt, ohne die Fotos erneut zu dekodieren. Beim Sichten warnt die App danach, wenn auch das schärfste Gesicht einer Aufnahme unscharf ist.'**
+  String get aufgGesichtsschaerfeText;
+
+  /// No description provided for @werkzBerechneGesichtsschaerfe.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichtsschärfe berechnen'**
+  String get werkzBerechneGesichtsschaerfe;
 
   /// No description provided for @aufgOcrTitel.
   ///
@@ -5386,6 +5512,30 @@ abstract class AppTexte {
   /// **'KI-Beschreibung'**
   String get infoKiBeschreibung;
 
+  /// No description provided for @infoErkannterText.
+  ///
+  /// In de, this message translates to:
+  /// **'Erkannter Text'**
+  String get infoErkannterText;
+
+  /// No description provided for @infoTextKopieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Text kopieren'**
+  String get infoTextKopieren;
+
+  /// No description provided for @infoTextKopiert.
+  ///
+  /// In de, this message translates to:
+  /// **'Text in die Zwischenablage kopiert'**
+  String get infoTextKopiert;
+
+  /// No description provided for @infoTextStellen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{1 Textstelle im Bild} other{{anzahl} Textstellen im Bild}}'**
+  String infoTextStellen(int anzahl);
+
   /// No description provided for @infoBewertung.
   ///
   /// In de, this message translates to:
@@ -5896,6 +6046,18 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Standort'**
   String get xmpFeldStandort;
+
+  /// No description provided for @xmpFeldGesichter.
+  ///
+  /// In de, this message translates to:
+  /// **'Namen für erkannte Gesichter'**
+  String get xmpFeldGesichter;
+
+  /// No description provided for @xmpGesichterOhneNamen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{1 Gesicht ohne Namen} other{{anzahl} Gesichter ohne Namen}}'**
+  String xmpGesichterOhneNamen(int anzahl);
 
   /// No description provided for @xmpKeineSidecars.
   ///
