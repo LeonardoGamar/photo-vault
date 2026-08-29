@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../services/baumnavigation.dart';
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
 import '../services/verwandte_anlegen.dart';
@@ -32,7 +33,9 @@ import '../widgets/sanduhr_ansicht.dart';
 import '../services/zierbaum.dart';
 import '../theme/zierbaum_farben.dart';
 import '../widgets/verwandtschaft_text.dart';
+import '../widgets/zoomsteuerung.dart';
 import '../widgets/zierbaum_ansicht.dart';
+import '../widgets/zierbaum_maler.dart';
 import 'familienfotos_screen.dart';
 import 'familienorte_screen.dart';
 import 'familienstatistik_screen.dart';
@@ -152,10 +155,27 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// Stammbaum heraus.
   final List<String> _pfad = [];
 
+  /// Der Ausschnitt des Zierbaums: was verschoben und wie weit gezoomt
+  /// ist. Liegt hier und nicht in der Ansicht, weil die Zoomknöpfe
+  /// daneben stehen und ein Fokuswechsel ihn zurücksetzen muss.
+  final TransformationController _blick = TransformationController();
+
+  /// Auf welchen Baum der [_blick] eingestellt wurde – Mitte und
+  /// Fenstergrösse. Ändert sich eines von beidem, wird neu eingepasst:
+  /// Wer eine andere Person in die Mitte rückt, will sie sehen und nicht
+  /// den Ausschnitt behalten, in dem sie gerade zufällig lag.
+  ({String fokus, Size fenster})? _eingepasstAuf;
+
   @override
   void initState() {
     super.initState();
     _laden();
+  }
+
+  @override
+  void dispose() {
+    _blick.dispose();
+    super.dispose();
   }
 
   Future<void> _laden() async {
@@ -1739,7 +1759,18 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     final t = AppTexte.of(context);
     final geflecht =
         geflechtUm(_netz, fokus.id, [for (final p in _personen) p.id]);
-    final plan = zierbaumplan(geflecht);
+    // **Der Baum wächst mit der Systemschrift.** Ein Schild ist 132 auf
+    // 108 Punkte gross, und in seine Tafel passen genau drei Zeilen:
+    // 56,6 von 67 Punkten. Wer die Schrift des Systems auf 120 Prozent
+    // stellt, braucht 67,9 – und dann malt der Text über den Rand,
+    // genau wie beim gemeldeten Fehler mit den zwei Mehrzeichen. Ein
+    // Schild lässt sich nicht dehnen; also wird der ganze Baum grösser,
+    // mit demselben Kunstgriff, mit dem die Tafel zum Aufhängen
+    // dreifach vergrössert wird.
+    final schriftfaktor = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final schildmasse = const Schildmasse().mal(schriftfaktor);
+    final plan = zierbaumplan(geflecht,
+        masse: const Zierbaummasse().mal(schriftfaktor));
     final farben = Zierbaumfarben.fuer(Theme.of(context).brightness);
 
     if (plan.schilder.length <= 1) {
@@ -1779,21 +1810,59 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
           ),
         ),
       Expanded(
-        // In beide Richtungen rollbar: Ein Baum mit angeheirateter
-        // Verwandtschaft wird breiter als jedes Fenster, und das ist der
-        // Preis dafür, die Äste überhaupt zu sehen.
+        // Verschieben und Zoomen statt zweier ineinandergesteckter
+        // Rollbereiche. Die konnten zwar in beide Richtungen rollen, aber
+        // ein Baum mit angeheirateter Verwandtschaft ist breiter als
+        // jedes Fenster – man bekam ihn nie ganz zu sehen, und ohne
+        // Rollbalken (Tastfläche, Magic Mouse) kam man nicht einmal an
+        // seinen Rand.
         //
         // Die Mindestmasse sind der Grund für den LayoutBuilder: Ein
-        // rollbarer Bereich gibt seinem Kind unbegrenzten Platz, und ein
-        // Kind, das nur so gross ist wie sein Inhalt, hört dort auf. Der
-        // gemalte Grund endete dann mitten im Fenster, und daneben stand
-        // die gewöhnliche Hintergrundfarbe – ein Bild mit einer Kante.
-        child: LayoutBuilder(
-          builder: (context, platz) => SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SingleChildScrollView(
+        // unbeschränkter Bereich gibt seinem Kind unbegrenzten Platz, und
+        // ein Kind, das nur so gross ist wie sein Inhalt, hört dort auf.
+        // Der gemalte Grund endete dann mitten im Fenster, und daneben
+        // stand die gewöhnliche Hintergrundfarbe – ein Bild mit einer
+        // Kante. Herausgezoomt bleibt genau das übrig, deshalb liegt
+        // derselbe Grundton auch unter der ganzen Fläche.
+        child: LayoutBuilder(builder: (context, platz) {
+          final fenster = Size(platz.maxWidth, platz.maxHeight);
+          _passeEin(fokus.id, fenster, plan);
+          return Stack(children: [
+              // Der Grund liegt HINTER dem verschiebbaren Bereich und
+              // bleibt stehen. Läge er darin, wäre er so gross wie der
+              // Baum – und beim Verschieben sähe man seine Kante mitten
+              // im Fenster.
+              Positioned.fill(
+                child: CustomPaint(painter: Zierbaumgrund(farben: farben)),
+              ),
+              Positioned.fill(
+                child: InteractiveViewer(
+          transformationController: _blick,
+          // Der Baum behält seine eigene Grösse, statt ins Fenster
+          // gequetscht zu werden – sonst gäbe es nichts zu verschieben.
+          constrained: false,
+          minScale: kleinsterBaumzoom,
+          maxScale: groessterBaumzoom,
+          // Ohne Rand liesse sich ein Baum, der schmaler ist als das
+          // Fenster, überhaupt nicht bewegen; mit unendlichem Rand
+          // schöbe man ihn versehentlich ganz aus dem Bild und stünde vor
+          // einer leeren Fläche. Eine Fensterbreite ringsum ist beides
+          // nicht: Jedes Schild lässt sich bis an die gegenüberliegende
+          // Kante ziehen, und irgendetwas bleibt immer zu sehen.
+          boundaryMargin: EdgeInsets.symmetric(
+              horizontal: platz.maxWidth, vertical: platz.maxHeight),
+          // Wischen auf einer Tastfläche oder Magic Mouse zoomt, wie auf
+          // der Karte. Ohne diese Zeile verschöbe es nur – und die
+          // Geräte, die kein Rad haben, hätten wieder keinen Zoom.
+          trackpadScrollCausesScale: true,
+          // Die Schriftgrössen stecken schon in den Massen – ohne diese
+          // Zeile käme der Faktor ein zweites Mal obendrauf.
+          child: MediaQuery.withNoTextScaling(
             child: ZierbaumAnsicht(
-              mindestens: Size(platz.maxWidth, platz.maxHeight),
+              // Kein Mindestmass mehr: Der Grund steht dahinter, also
+              // darf der Baum genau so gross sein, wie er ist.
+              malGrund: false,
+              schildmasse: schildmasse,
               plan: plan,
               farben: farben,
               fokusId: fokus.id,
@@ -1824,10 +1893,60 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
               },
             ),
           ),
-        ),
-        ),
+                ),
+              ),
+              Positioned(
+                right: AppSpacing.sm,
+                bottom: AppSpacing.sm,
+                child: Zoomsteuerung(
+                  beiNaeher: () => _baumZoomen(baumZoomschritt, fenster),
+                  beiWeiter: () => _baumZoomen(1 / baumZoomschritt, fenster),
+                  beiEinpassen: () => _blick.value = baumEingepasst(
+                      Size(plan.breite, plan.hoehe), fenster),
+                ),
+              ),
+          ]);
+        }),
       ),
     ]);
+  }
+
+  /// Stellt den Ausschnitt neu ein, wenn ein anderer Baum davorsteht.
+  ///
+  /// **Nicht eingepasst, sondern auf die Mitte gerückt.** Ein Baum mit
+  /// angeheirateter Verwandtschaft passt nur bei einem Drittel seiner
+  /// Grösse ins Fenster, und dort ist keine Beschriftung mehr zu lesen –
+  /// „ganz zeigen" ist deshalb ein Knopf und keine Vorgabe. Gezeigt wird
+  /// in voller Grösse die Person, um die es geht. Vorher begann der
+  /// Ausschnitt am linken Rand des Baumes, also bei irgendeinem
+  /// Urgrossvater.
+  ///
+  /// Läuft mitten im Aufbau und darf deshalb kein `setState` auslösen –
+  /// der [TransformationController] benachrichtigt den
+  /// [InteractiveViewer] selbst, und der zeichnet sich neu.
+  void _passeEin(String fokus, Size fenster, Zierbaumplan plan) {
+    if (_eingepasstAuf?.fokus == fokus && _eingepasstAuf?.fenster == fenster) {
+      return;
+    }
+    _eingepasstAuf = (fokus: fokus, fenster: fenster);
+    final baum = Size(plan.breite, plan.hoehe);
+    final schild = plan.schilder.where((s) => s.personId == fokus).firstOrNull;
+    if (schild == null) {
+      _blick.value = baumEingepasst(baum, fenster);
+      return;
+    }
+    _blick.value = baumErsterBlick(
+      baum: baum,
+      fenster: fenster,
+      fokusSchild:
+          Rect.fromLTWH(schild.links, schild.oben, schild.breite, schild.hoehe),
+    );
+  }
+
+  /// Ein Zoomschritt über die Knöpfe, festgehalten an der Fenstermitte.
+  void _baumZoomen(double faktor, Size fenster) {
+    _blick.value = baumGezoomt(_blick.value, faktor,
+        Offset(fenster.width / 2, fenster.height / 2));
   }
 
   /// Wie [person] zur Mitte steht, aus dem Netz hergeleitet.

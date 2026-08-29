@@ -9,7 +9,9 @@ import '../services/familienorte.dart';
 import '../services/map_clustering.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/zoomsteuerung.dart';
 import '../widgets/mini_location_map.dart';
+import '../widgets/wisch_zoom.dart';
 import '../widgets/pin_dialogs.dart';
 import '../services/lebenslauf.dart';
 import 'asset_viewer_screen.dart';
@@ -58,6 +60,10 @@ class FamilienorteScreen extends StatefulWidget {
 class _FamilienorteScreenState extends State<FamilienorteScreen> {
   static const _standardZoom = 5.0;
   double _zoom = _standardZoom;
+
+  /// Gebraucht für die Zoomknöpfe und den Wisch-Zoom; die Karte kam
+  /// vorher ohne Steuerung aus, weil sie sich nur ums Zeichnen kümmerte.
+  final _steuerung = MapController();
 
   /// Welche Gruppen gerade gezeigt werden. Anfangs alle – die Karte soll
   /// zuerst zeigen, was da ist, und sich erst auf Wunsch verengen.
@@ -192,7 +198,14 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
   Widget _karte(List<Familienort> gezeigt) {
     final gruppen = gruppiereFuerKarte(gezeigt, _zoom,
         (o) => (breite: o.asset.latitude!, laenge: o.asset.longitude!));
-    return FlutterMap(
+    final hoechsteStufe = Kartenstil.dunkel.hoechsteAnzeigeStufe.toDouble();
+    return Stack(children: [
+      Positioned.fill(
+        child: WischZoom(
+          steuerung: _steuerung,
+          groesserZoom: hoechsteStufe,
+          child: FlutterMap(
+      mapController: _steuerung,
       options: MapOptions(
         initialCenter: _mitte(gezeigt),
         initialZoom: _standardZoom,
@@ -259,7 +272,28 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
           ],
         ),
       ],
-    );
+    ),
+        ),
+      ),
+      Positioned(
+        right: 8,
+        bottom: 40,
+        child: Zoomsteuerung(
+          beiNaeher: () => _zoomen(1),
+          beiWeiter: () => _zoomen(-1),
+        ),
+      ),
+    ]);
+  }
+
+  /// Ein Zoomschritt über die Knöpfe – selbst geklemmt, weil `move` die
+  /// Grenze aus den Kartenoptionen nicht kennt.
+  void _zoomen(double schritt) {
+    final kamera = _steuerung.camera;
+    final grenze = Kartenstil.dunkel.hoechsteAnzeigeStufe.toDouble();
+    final neu = (kamera.zoom + schritt).clamp(kamera.minZoom ?? 0.0, grenze);
+    if (neu == kamera.zoom) return;
+    _steuerung.move(kamera.center, neu);
   }
 }
 

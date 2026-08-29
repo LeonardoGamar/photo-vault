@@ -230,4 +230,87 @@ void main() {
           lessThan(const Zierbaummasse().schildBreite * 2));
     });
   });
+
+  group('das Schild traegt, was auf ihm steht', () {
+    test('drei Zeilen passen auf die Tafel', () {
+      // Der gemeldete Fehler: Auf einem Schild lag "Sohn" halb ueber
+      // "Marco". Ein `Flexible` laesst Zeilen nicht ueberlappen - es
+      // QUETSCHT sie, und der Text malt dann ueber seinen eigenen Rand
+      // hinaus.
+      //
+      // Nachgerechnet statt nachgemessen: Ein Widget-Test rendert mit
+      // einer Platzhalterschrift, deren Zeilenmasse andere sind als die
+      // von EB Garamond - er kann diesen Fehler gar nicht zeigen.
+      const masse = Zierbaummasse();
+      const schild = Schildmasse();
+      expect(schild.mindestTafelhoehe(),
+          lessThanOrEqualTo(schild.tafelHoehe(masse.schildHoehe)),
+          reason: 'Name, Verhaeltnis und Lebensdaten muessen hineinpassen');
+    });
+
+    test('zwei Mehrzeichen im Textfluss haetten NICHT gepasst', () {
+      // Die Rechnung, die den Fehler erklaert: Die beiden Zeichen kosten
+      // je rund dreizehn Punkte. Mit ihnen im Fluss braucht die Tafel
+      // mehr, als sie hat - deshalb liegen sie jetzt als Marke am Rand.
+      const masse = Zierbaummasse();
+      const schild = Schildmasse();
+      expect(schild.mindestTafelhoeheMitZeichen(),
+          greaterThan(schild.tafelHoehe(masse.schildHoehe)),
+          reason: 'sonst waere die Verlegung an den Rand unnoetig gewesen');
+    });
+
+    test('auch die vergroesserte Tafel traegt ihre Zeilen', () {
+      // Die Tafel zum Aufhaengen rechnet mit demselben Verhaeltnis.
+      final masse = const Zierbaummasse().mal(3);
+      final schild = const Schildmasse().mal(3);
+      expect(schild.mindestTafelhoehe(),
+          lessThanOrEqualTo(schild.tafelHoehe(masse.schildHoehe)));
+    });
+  });
+
+  group('grössere Systemschrift', () {
+    /// **Der Fund der 18. Prüfrunde, als Rechnung.**
+    ///
+    /// In die Tafel eines Schildes passen genau drei Zeilen: 56,6 von 67
+    /// Punkten. Das Schild ist in Punkten festgelegt, die Schrift folgte
+    /// aber der Systemeinstellung – bei 120 Prozent brauchten dieselben
+    /// drei Zeilen 67,9 Punkte, und der Text malte über seinen Rand.
+    /// Genau das Bild, das der gemeldete Fehler mit den zwei
+    /// Mehrzeichen zeigte, nur ausgelöst durch eine Einstellung des
+    /// Systems statt durch den Inhalt.
+    ///
+    /// Ein Widget-Test findet das nicht – er rendert mit einer
+    /// Platzhalterschrift, deren Zeilenmasse andere sind. Nachgewiesen
+    /// wurde das in derselben Prüfrunde: Der Prüfstand bestand auch
+    /// ohne die Behebung. Die Rechnung gilt für jede Schrift.
+    double platzInDerTafel(Schildmasse m, Zierbaummasse b) =>
+        m.tafelHoehe(b.schildHoehe);
+
+    test('mitgewachsen passt es bei jeder Einstellung', () {
+      for (final faktor in [1.0, 1.15, 1.3, 1.6, 2.0, 3.0]) {
+        final m = const Schildmasse().mal(faktor);
+        final b = const Zierbaummasse().mal(faktor);
+        expect(m.mindestTafelhoehe(), lessThanOrEqualTo(platzInDerTafel(m, b)),
+            reason: 'bei Faktor $faktor');
+      }
+    });
+
+    test('nur die Schrift zu vergrössern sprengt die Tafel', () {
+      // Die Gegenprobe: Genau so war es. Das Schild blieb, die Schrift
+      // wuchs. Ab knapp 1,2 passte es nicht mehr.
+      final tafel = platzInDerTafel(const Schildmasse(), const Zierbaummasse());
+      double bedarf(double faktor) => Schildmasse(
+            schriftName: 14 * faktor,
+            schriftNeben: 11 * faktor,
+          ).mindestTafelhoehe();
+      expect(bedarf(1.0), lessThanOrEqualTo(tafel));
+      // 18,9 + 29,7 Punkte Schrift und 8 Punkte Polster, das gibt
+      // 48,6 f + 8 = 67 bei f = 1,21. Darüber malt der Text über den
+      // Rand – und das ist keine ungewöhnliche Einstellung.
+      expect(bedarf(1.21), lessThanOrEqualTo(tafel));
+      expect(bedarf(1.25), greaterThan(tafel),
+          reason: 'ab hier lag der Text über der Zeile darüber');
+      expect(bedarf(1.5), greaterThan(tafel));
+    });
+  });
 }

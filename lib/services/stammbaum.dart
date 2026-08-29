@@ -507,6 +507,12 @@ class Stammbaumgeflecht {
 /// Geburtsdatum und Name. Ohne sie sprängen die Haushalte bei jedem
 /// Aufbau umher.
 ///
+/// Der Baum reicht in beide Richtungen gleich weit: drei Generationen
+/// hinauf (Urgrosseltern) und drei hinab (Urenkel). Die erste Fassung
+/// ging nur eine hinab – ein Fehler, der beim ersten Blick auf eine
+/// echte Familie auffiel und den die App sogar selbst zugab, indem sie
+/// unter den Kindern ein Mehrzeichen setzte.
+///
 /// **Die Ringe sind aufgezählt, nicht gerechnet.** Ein Suchlauf mit
 /// Schrittbudget wäre kürzer und brächte lauter Verwandte mit, nach denen
 /// niemand gefragt hat – Cousins ersten Grades allein sind bei vier
@@ -570,6 +576,12 @@ Stammbaumgeflecht geflechtUm(
   hausen([for (final p in eigenePartner) ...netz.eltern(p)], -1);
   hausen([for (final p in eigenePartner) ...netz.geschwister(p)], 0);
   hausen([for (final g in geschwister) ...netz.kinder(g)], 1);
+  // Enkel. **Sie fehlten bis zur Meldung ganz**: Der Baum reichte drei
+  // Generationen hinauf und eine hinab. Eine Ahnentafel darf das, ein
+  // Familienbaum nicht – zumal die App mit ihrem Mehrzeichen selbst
+  // sagte, dass da unten noch etwas ist.
+  final kinder = sortiert(netz.kinder(fokus));
+  hausen([for (final k in kinder) ...netz.kinder(k)], 2);
 
   // Ring 3 – eine Stufe weiter, wie besprochen. Die Schwäger sind hier
   // die Partner der Geschwister; ihre Eltern und Geschwister sind das,
@@ -584,6 +596,13 @@ Stammbaumgeflecht geflechtUm(
     for (final p in eigenePartner)
       for (final se in netz.eltern(p)) ...netz.eltern(se)
   ], -2);
+  // Und ebenso weit hinab: Urenkel, und die Kinder der Neffen und
+  // Nichten. Damit reicht der Baum in beide Richtungen gleich weit.
+  final enkel = sortiert([for (final k in kinder) ...netz.kinder(k)]);
+  final neffenNichten =
+      sortiert([for (final g in geschwister) ...netz.kinder(g)]);
+  hausen([for (final e in enkel) ...netz.kinder(e)], 3);
+  hausen([for (final n in neffenNichten) ...netz.kinder(n)], 2);
 
   // Die Elternkante je Person – nur dorthin, wo das Elternhaus im Bild
   // steht. Ein Ast ins Leere wäre eine Behauptung über etwas, das man

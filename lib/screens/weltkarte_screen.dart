@@ -14,8 +14,10 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import 'ortsansicht_screen.dart';
 import '../services/meldungsdienst.dart';
+import '../widgets/zoomsteuerung.dart';
 import '../widgets/mini_location_map.dart'
     show Kachelschicht, buildMapAttribution, kartenHoechsteStufe;
+import '../widgets/wisch_zoom.dart';
 
 /// Die Welt als Karte: wo du warst, und wo du hinwillst.
 ///
@@ -94,6 +96,20 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
   void initState() {
     super.initState();
     _laden();
+  }
+
+  /// Ein Zoomschritt über die Knöpfe.
+  ///
+  /// Selbst geklemmt, weil `move` die Grenze aus den Kartenoptionen
+  /// nicht kennt: Ohne die Klemmung zöge der Knopf die Karte über die
+  /// höchste Stufe hinaus, für die es Kacheln gibt, und man stünde vor
+  /// grauen Flächen.
+  void _zoomen(double schritt) {
+    final kamera = _karte.camera;
+    final grenze = kartenHoechsteStufe(context);
+    final neu = (kamera.zoom + schritt).clamp(kamera.minZoom ?? 0.0, grenze);
+    if (neu == kamera.zoom) return;
+    _karte.move(kamera.center, neu);
   }
 
   /// Die Umrisse liegen als eigene Datei bei; ohne sie bleibt die Karte
@@ -492,7 +508,13 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Stack(
               children: [
-                FlutterMap(
+                // Wisch-Zoom aussen herum: Eine Magic Mouse hat kein
+                // Rad, und die Kartenbibliothek macht aus einer solchen
+                // Geste eine Verschiebung. Siehe [WischZoom].
+                WischZoom(
+                  steuerung: _karte,
+                  groesserZoom: kartenHoechsteStufe(context),
+                  child: FlutterMap(
                   mapController: _karte,
                   options: MapOptions(
                     initialCenter: const ll.LatLng(30, 10),
@@ -531,6 +553,17 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                     ]),
                     buildMapAttribution(context),
                   ],
+                ),
+                ),
+                // Über der Karte, aber links von der Legende: Rechts
+                // unten sitzt bei flutter_map der Quellenhinweis.
+                Positioned(
+                  right: 8,
+                  bottom: 40,
+                  child: Zoomsteuerung(
+                    beiNaeher: () => _zoomen(1),
+                    beiWeiter: () => _zoomen(-1),
+                  ),
                 ),
               ],
             ),

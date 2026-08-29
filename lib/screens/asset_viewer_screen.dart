@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
@@ -20,13 +21,16 @@ import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_info_sheet.dart';
+import '../widgets/gesichtsrahmen.dart';
 import '../widgets/live_photo_view.dart';
 import '../widgets/metadata_editor_dialog.dart';
 import '../widgets/panorama_360_view.dart';
+import '../widgets/person_picker_dialog.dart';
 import '../widgets/video_playback.dart';
 import '../widgets/selection_action_bar.dart' show confirmDialog, runBatchPasteDevelop;
 import 'develop_screen.dart';
 import 'face_review_screen.dart';
+import 'person_detail_screen.dart';
 import 'image_editor_screen.dart';
 import 'similar_photos_screen.dart';
 import 'video_trim_screen.dart';
@@ -109,6 +113,13 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   /// Zeigt die Info-Ansicht als festes Seitenpanel statt als Bottom Sheet,
   /// das das Bild überlappen würde.
   bool _showInfo = false;
+
+  /// Ob die erkannten Gesichter als Rahmen über dem Foto liegen.
+  ///
+  /// Gilt für die ganze Sitzung dieser Ansicht, also auch beim
+  /// Weiterblättern – wer wissen will, wer auf den Fotos ist, will das
+  /// meist für mehrere hintereinander und nicht für genau eines.
+  bool _gesichterZeigen = false;
 
   /// Fokus-Peaking (nur im Sichtungs-Modus verfügbar, siehe _CullingHintBar):
   /// hebt lokal scharfe Kanten farbig hervor, ergänzt den reinen
@@ -596,6 +607,21 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
               tooltip: AppTexte.of(context).viewerInfo,
               onPressed: _toggleInfo,
             ),
+            // Sichtbar in der Leiste und nicht im Rechtsklick-Menü: Wer
+            // wissen will, wer auf einem Foto ist, sucht einen Knopf und
+            // keine verborgene Geste. Dasselbe hatte schon die
+            // Gesichts-Bearbeitung gelehrt.
+            if (asset.type == 'IMAGE' && !asset.isLocked)
+              IconButton(
+                icon: Icon(_gesichterZeigen
+                    ? Icons.face_retouching_natural
+                    : Icons.face_retouching_natural_outlined),
+                tooltip: _gesichterZeigen
+                    ? AppTexte.of(context).viewerGesichterVerbergen
+                    : AppTexte.of(context).viewerGesichterZeigen,
+                onPressed: () =>
+                    setState(() => _gesichterZeigen = !_gesichterZeigen),
+              ),
             IconButton(
               key: _shareButtonKey,
               icon: const Icon(Icons.ios_share),
@@ -694,6 +720,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                                   paths: widget.paths,
                                   library: widget.library,
                                   isCurrent: index == _currentIndex,
+                                  gesichterZeigen: _gesichterZeigen,
                                   focusPeakingEnabled: _focusPeakingEnabled);
                             },
                           ),
@@ -975,6 +1002,9 @@ class _AssetPage extends StatefulWidget {
   final StoragePaths paths;
   final LibraryState? library;
   final bool isCurrent;
+
+  /// Ob die erkannten Gesichter als Rahmen über dem Foto liegen.
+  final bool gesichterZeigen;
   final bool focusPeakingEnabled;
   const _AssetPage(
       {required this.asset,
@@ -982,6 +1012,7 @@ class _AssetPage extends StatefulWidget {
       required this.paths,
       required this.library,
       required this.isCurrent,
+      this.gesichterZeigen = false,
       this.focusPeakingEnabled = false});
 
   @override
@@ -1006,6 +1037,16 @@ class _AssetPageState extends State<_AssetPage> {
   Uint8List? _focusPeakingOverlay;
   Timer? _focusPeakingDebounce;
 
+  /// Die erkannten Gesichter dieses Fotos samt den Namen dahinter – erst
+  /// geladen, wenn jemand sie sehen will. Ein Foto ohne Rahmen soll
+  /// nicht für jede Seite der Blätterliste eine Abfrage kosten.
+  List<FaceData> _gesichter = const [];
+  Map<String, String> _gesichtsnamen = const {};
+
+  /// Die Masse des angezeigten Bildes. Gebraucht, weil die Kästen als
+  /// Anteile davon gespeichert sind – ohne sie liegt jeder Rahmen falsch.
+  Size? _bildmasse;
+
   /// Für als 360° erkannte Fotos (siehe isEquirectangular360): zeigt per
   /// Default die Kugel-Ansicht, `true` schaltet auf die flache Vorschau um
   /// (falsch erkannt, oder der Nutzer will das Originalbild sehen).
@@ -1027,11 +1068,22 @@ class _AssetPageState extends State<_AssetPage> {
   void initState() {
     super.initState();
     _maybeScheduleFocusPeaking();
+    if (widget.gesichterZeigen) unawaited(_gesichterLaden());
   }
 
   @override
   void didUpdateWidget(covariant _AssetPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Ein anderes Foto in derselben Seite: Die alten Rahmen gehören zum
+    // vorigen Bild und lägen sonst auf dem neuen.
+    if (widget.asset.id != oldWidget.asset.id) {
+      _gesichter = const [];
+      _gesichtsnamen = const {};
+      _bildmasse = null;
+      if (widget.gesichterZeigen) unawaited(_gesichterLaden());
+    } else if (widget.gesichterZeigen && !oldWidget.gesichterZeigen) {
+      unawaited(_gesichterLaden());
+    }
     if (widget.focusPeakingEnabled && widget.isCurrent) {
       if (!oldWidget.focusPeakingEnabled || !oldWidget.isCurrent) {
         _maybeScheduleFocusPeaking();
@@ -1047,6 +1099,101 @@ class _AssetPageState extends State<_AssetPage> {
   void dispose() {
     _focusPeakingDebounce?.cancel();
     super.dispose();
+  }
+
+  /// Holt die Gesichter dieses Fotos und die Masse des Bildes.
+  ///
+  /// **Die Masse zuerst aus der Datenbank.** Dort stehen sie beim Import
+  /// bereits, und sie zu lesen kostet nichts – dieselbe Reihenfolge wie
+  /// in der Gesichts-Bearbeitung, wo sie sich bewährt hat. Fehlen sie
+  /// (ältere Einträge, ungewöhnliche Formate), werden sie aus dem
+  /// Bildanbieter geholt, der das Foto ohnehin anzeigt; ein zweites Mal
+  /// dekodiert wird dabei nichts.
+  ///
+  /// Ohne Masse kein Rahmen: Der Anteil 0,3 ist für sich genommen kein
+  /// Ort.
+  Future<void> _gesichterLaden() async {
+    final asset = widget.asset;
+    if (asset.type != 'IMAGE' || asset.isLocked) return;
+    final gesichter = await widget.db.facesForAsset(asset.id);
+    if (!mounted) return;
+    final personen = await widget.db.peopleForAsset(asset.id);
+    if (!mounted || widget.asset.id != asset.id) return;
+    final breite = asset.widthPx, hoehe = asset.heightPx;
+    setState(() {
+      _gesichter = gesichter;
+      _gesichtsnamen = {for (final p in personen) p.id: p.name};
+      if (breite != null && hoehe != null && breite > 0 && hoehe > 0) {
+        _bildmasse = Size(breite.toDouble(), hoehe.toDouble());
+      }
+    });
+    if (_bildmasse == null && gesichter.isNotEmpty) {
+      final datei = await _fileFuture;
+      if (!mounted || widget.asset.id != asset.id) return;
+      final masse = await _masseVon(begrenztesBild(datei));
+      if (!mounted || widget.asset.id != asset.id) return;
+      setState(() => _bildmasse = masse);
+    }
+  }
+
+  /// Die Punktmasse eines Bildanbieters, sobald er geladen ist.
+  Future<Size?> _masseVon(ImageProvider anbieter) {
+    final fertig = Completer<Size?>();
+    final strom = anbieter.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener horcher;
+    horcher = ImageStreamListener(
+      (info, _) {
+        if (!fertig.isCompleted) {
+          fertig.complete(
+              Size(info.image.width.toDouble(), info.image.height.toDouble()));
+        }
+        info.dispose();
+        strom.removeListener(horcher);
+      },
+      onError: (_, __) {
+        if (!fertig.isCompleted) fertig.complete(null);
+        strom.removeListener(horcher);
+      },
+    );
+    strom.addListener(horcher);
+    return fertig.future;
+  }
+
+  /// Ein Tipp auf einen Rahmen.
+  ///
+  /// **Benannt führt zur Person, unbenannt fragt nach dem Namen.** Das
+  /// war der eigentliche Mangel: Benennen ging bisher nur über „das erste
+  /// unbenannte Gesicht dieses Fotos" in der Info-Ansicht – bei einer
+  /// Gruppenaufnahme benannte man damit blind irgendwen.
+  Future<void> _gesichtAngetippt(FaceData gesicht) async {
+    final person = gesicht.personId;
+    final bibliothek = widget.library;
+    if (person != null) {
+      if (bibliothek == null) return;
+      final zeile = await (widget.db.select(widget.db.people)
+            ..where((t) => t.id.equals(person)))
+          .getSingleOrNull();
+      if (!mounted || zeile == null) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PersonDetailScreen(library: bibliothek, person: zeile),
+      ));
+      await _gesichterLaden();
+      return;
+    }
+    if (gesicht.isIgnored) return;
+    final personen = await widget.db.select(widget.db.people).get();
+    if (!mounted) return;
+    final wahl = await showPersonPickerDialog(context, personen,
+        paths: widget.paths,
+        title: AppTexte.of(context).viewerGesichtBenennen);
+    if (wahl == null) return;
+    final id = wahl.newName != null ? const Uuid().v4() : wahl.existingPersonId!;
+    if (wahl.newName != null) {
+      await widget.db
+          .createPerson(PeopleCompanion.insert(id: id, name: wahl.newName!));
+    }
+    await widget.db.assignFacesToPerson([gesicht.id], id);
+    await _gesichterLaden();
   }
 
   /// Nur für einfache Fotos (kein Video, kein Live-Photo-Standbild – dessen
@@ -1136,7 +1283,12 @@ class _AssetPageState extends State<_AssetPage> {
           );
         }
         final overlay = _focusPeakingOverlay;
-        if (overlay == null) {
+        // Die Rahmen brauchen die Masse des Bildes: Ohne sie ist der
+        // Anteil 0,3 kein Ort.
+        final masse = _bildmasse;
+        final rahmen =
+            widget.gesichterZeigen && masse != null && _gesichter.isNotEmpty;
+        if (overlay == null && !rahmen) {
           return Stack(
             children: [
               PhotoView(
@@ -1145,6 +1297,14 @@ class _AssetPageState extends State<_AssetPage> {
                 initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
                 minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
               ),
+              if (widget.gesichterZeigen && _gesichter.isEmpty)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: AppSpacing.md,
+                  child: Center(child: _Hinweisfahne(
+                      text: AppTexte.of(context).viewerKeineGesichter)),
+                ),
               if (isEquirectangular360(asset))
                 Positioned(
                   top: 8,
@@ -1160,6 +1320,10 @@ class _AssetPageState extends State<_AssetPage> {
         }
         return PhotoView.customChild(
           backgroundDecoration: const BoxDecoration(color: Colors.black),
+          // Mit Rahmen ist das Kind genau das Bild – nur dann liegt ein
+          // Kasten bei 0,3 auch auf drei Zehnteln des Fotos und nicht auf
+          // drei Zehnteln des Fensters samt seiner schwarzen Ränder.
+          childSize: rahmen ? masse : null,
           initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
           minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
           child: Stack(
@@ -1172,13 +1336,46 @@ class _AssetPageState extends State<_AssetPage> {
               // auf 317 MB. Das Overlay selbst ist ohnehin begrenzt
               // (siehe computeFocusPeakingOverlay).
               Image(image: begrenztesBild(file), fit: BoxFit.contain),
-              Image.memory(overlay, fit: BoxFit.contain),
+              if (overlay != null) Image.memory(overlay, fit: BoxFit.contain),
+              if (rahmen)
+                for (final gesicht in _gesichter)
+                  if (!gesicht.isIgnored)
+                    Gesichtsrahmen(
+                      gesicht: gesicht,
+                      personName: _gesichtsnamen[gesicht.personId],
+                      flaeche: masse,
+                      beiTipp: () => _gesichtAngetippt(gesicht),
+                    ),
             ],
           ),
         );
       },
     );
   }
+}
+
+/// Ein kurzer Satz auf dunklem Grund, über das Foto gelegt.
+///
+/// Gebraucht für die Auskunft „hier ist kein Gesicht". Ohne sie sähe das
+/// Einschalten der Rahmen bei einer Landschaftsaufnahme aus, als sei der
+/// Knopf kaputt.
+class _Hinweisfahne extends StatelessWidget {
+  final String text;
+  const _Hinweisfahne({required this.text});
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(AppRadius.sm),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          child: Text(text,
+              style: const TextStyle(color: Colors.white, fontSize: 13)),
+        ),
+      );
 }
 
 /// Lädt den verknüpften Video-Asset-Datensatz (für den Dateipfad) und zeigt

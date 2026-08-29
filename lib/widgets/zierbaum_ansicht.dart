@@ -72,11 +72,26 @@ class ZierbaumAnsicht extends StatelessWidget {
 
   /// Wie gross das Bild mindestens wird.
   ///
-  /// Ein rollbarer Bereich gibt seinem Kind unbegrenzten Platz; ohne
+  /// Ein unbeschränkter Bereich gibt seinem Kind unbegrenzten Platz; ohne
   /// diese Untergrenze wäre der gemalte Grund nur so gross wie der Baum,
   /// und daneben stünde die gewöhnliche Hintergrundfarbe – ein Bild mit
-  /// einer Kante mitten im Fenster.
+  /// einer Kante mitten im Fenster. Wer den Grund mit [Zierbaumgrund]
+  /// selbst dahinterlegt, braucht das nicht und lässt es bei null.
   final Size mindestens;
+
+  /// Ob der Grund mitgemalt wird.
+  ///
+  /// Aus, sobald der Baum sich verschieben lässt: Dann steht der Grund
+  /// dahinter still, statt mit ihm aus dem Bild zu wandern.
+  final bool malGrund;
+
+  /// Die Masszahlen des Schildes.
+  ///
+  /// Übergeben und nicht fest: Wer die Systemschrift grösser stellt,
+  /// bekommt grössere Schilder – und keine, in denen der Text über den
+  /// Rand malt. Der [Zierbaumplan] muss mit **demselben** Faktor
+  /// gerechnet sein, sonst stehen die Schilder neben ihren Ästen.
+  final Schildmasse schildmasse;
 
   const ZierbaumAnsicht({
     super.key,
@@ -89,6 +104,8 @@ class ZierbaumAnsicht extends StatelessWidget {
     required this.menueHinweis,
     this.familienname,
     this.mindestens = Size.zero,
+    this.malGrund = true,
+    this.schildmasse = const Schildmasse(),
   });
 
   @override
@@ -108,6 +125,8 @@ class ZierbaumAnsicht extends StatelessWidget {
                 plan: plan,
                 farben: farben,
                 versatzX: versatzX,
+                malGrund: malGrund,
+                schildmasse: schildmasse,
                 // Damit der Stamm an der Person in der Mitte ansetzt und
                 // nicht am tiefsten Schild.
                 fokusId: fokusId,
@@ -124,7 +143,7 @@ class ZierbaumAnsicht extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: farben.familienname,
-                  fontSize: 46,
+                  fontSize: 46 * schildmasse.schriftName / 14,
                   letterSpacing: 2,
                   fontFamily: zierschriftGross,
                 ),
@@ -139,6 +158,7 @@ class ZierbaumAnsicht extends StatelessWidget {
               child: _Schild(
                 inhalt: inhalt(schild.personId),
                 farben: farben,
+                masse: schildmasse,
                 istMitte: schild.personId == fokusId,
                 onTap: () => beiTipp(schild.personId),
                 onMenue: (stelle) => beiMenue(schild.personId, stelle),
@@ -162,9 +182,16 @@ class _Schild extends StatelessWidget {
   /// Der Kurzhinweis am Menüknopf.
   final String menueHinweis;
 
+  /// Dieselben Zahlen, aus denen die Tafel gemalt wird.
+  ///
+  /// Nicht noch einmal getippt: Zwei Sätze wären zwei Schilder, die
+  /// auseinanderlaufen, sobald jemand nur eines davon anfasst.
+  final Schildmasse masse;
+
   const _Schild({
     required this.inhalt,
     required this.farben,
+    required this.masse,
     required this.istMitte,
     required this.onTap,
     required this.onMenue,
@@ -197,16 +224,37 @@ class _Schild extends StatelessWidget {
                   // des Schildes bliebe für den Namen nichts übrig.
                   Profilbild(
                     datei: inhalt.bild,
-                    radius: 19,
+                    radius: masse.portraitRadius,
                     hintergrund: farben.schildUnten,
-                    symbolgroesse: 20,
+                    symbolgroesse: masse.portraitRadius + 1,
                     symbolfarbe: farben.schildRand,
                   ),
-                  const SizedBox(height: 3),
+                  SizedBox(height: masse.portraitAbstand),
                   Expanded(child: _tafel(context)),
                 ],
               ),
             ),
+            // **Die Mehrzeichen liegen AUF der Tafel, nicht in ihr.**
+            // In der Reihe standen sie als vierte und fünfte Zeile in
+            // einem Schild, das für drei gebaut ist: 56,6 Punkte
+            // brauchen die Zeilen, 67 hat die Tafel – mit zwei Zeichen
+            // zu je dreizehn werden daraus 82,6. Ein `Flexible` lässt
+            // Zeilen dann nicht überlappen, es QUETSCHT sie, und der
+            // Text malt über seinen eigenen Rand hinaus. Genau so lag im
+            // gemeldeten Bild „Sohn" halb über „Marco".
+            //
+            // Als Marke am Rand sagen sie dasselbe und kosten keine
+            // Zeile. Und sie liegen im SELBEN Stack wie der Menüknopf:
+            // Ein zweiter Stack darunter machte den Sucher der Tests
+            // blind, der über dem Namen den nächsten Stack sucht.
+            if (inhalt.weitereOben)
+              Positioned(
+                  top: masse.portraitRadius * 2 + masse.portraitAbstand - 1,
+                  left: 0,
+                  right: 0,
+                  child: _mehr()),
+            if (inhalt.weitereUnten)
+              Positioned(bottom: -1, left: 0, right: 0, child: _mehr()),
             // **Ein sichtbarer Weg ins Menü.** Rechtsklick und langes
             // Drücken tun dasselbe, aber beide muss man kennen. Auf der
             // alten Karte stand dieser Knopf, und ihn beim Umbau
@@ -242,24 +290,23 @@ class _Schild extends StatelessWidget {
 
   Widget _tafel(BuildContext context) => Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        padding: EdgeInsets.symmetric(
+            horizontal: masse.polsterX, vertical: masse.polsterY),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [farben.schildOben, farben.schildUnten],
           ),
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(masse.rundung),
           border: Border.all(
             color: istMitte ? farben.mitteRand : farben.schildRand,
-            width: istMitte ? 2.5 : 1,
+            width: istMitte ? masse.randStark : masse.randSchwach,
           ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (inhalt.weitereOben)
-              _mehr(nachOben: true),
             Flexible(
               child: Text(
                 inhalt.name,
@@ -268,7 +315,7 @@ class _Schild extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: farben.schrift,
-                  fontSize: 14,
+                  fontSize: masse.schriftName,
                   height: 1.1,
                   fontFamily: zierschrift,
                   fontVariations: zierGewicht(istMitte ? 700 : 600),
@@ -288,7 +335,7 @@ class _Schild extends StatelessWidget {
                   // Unterschieden wird ueber Groesse und Farbe.
                   style: TextStyle(
                     color: farben.nebenschrift,
-                    fontSize: 11,
+                    fontSize: masse.schriftNeben,
                     fontFamily: zierschrift,
                   ),
                 ),
@@ -302,20 +349,23 @@ class _Schild extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: farben.nebenschrift,
-                    fontSize: 10,
+                    fontSize: masse.schriftNeben,
                     fontFamily: zierschrift,
                   ),
                 ),
               ),
-            if (inhalt.weitereUnten) _mehr(nachOben: false),
           ],
         ),
       );
 
   /// Das Zeichen „hier geht es weiter, aber nicht in diesem Bild".
-  Widget _mehr({required bool nachOben}) => Icon(
-        nachOben ? Icons.more_horiz : Icons.more_horiz,
-        size: 12,
+  ///
+  /// Oben und unten dasselbe Zeichen: Die Richtung sagt schon, wohin es
+  /// weitergeht, und zwei verschiedene Symbole wären zwei Dinge zu
+  /// lernen für eine Aussage.
+  Widget _mehr() => Icon(
+        Icons.more_horiz,
+        size: masse.zeichenGroesse,
         color: farben.schildRand,
       );
 }

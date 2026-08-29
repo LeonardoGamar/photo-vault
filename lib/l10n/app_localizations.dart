@@ -614,6 +614,30 @@ abstract class AppTexte {
   /// **'Gesichter bearbeiten'**
   String get viewerGesichterBearbeiten;
 
+  /// No description provided for @viewerGesichterZeigen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter zeigen'**
+  String get viewerGesichterZeigen;
+
+  /// No description provided for @viewerGesichterVerbergen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter verbergen'**
+  String get viewerGesichterVerbergen;
+
+  /// No description provided for @viewerKeineGesichter.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf diesem Foto ist kein Gesicht erkannt.'**
+  String get viewerKeineGesichter;
+
+  /// No description provided for @viewerGesichtBenennen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesicht benennen'**
+  String get viewerGesichtBenennen;
+
   /// No description provided for @viewerEntwicklungAnwenden.
   ///
   /// In de, this message translates to:
@@ -9064,6 +9088,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Weiter weg'**
   String get karteHerauszoomen;
+
+  /// No description provided for @zoomEinpassen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ganz zeigen'**
+  String get zoomEinpassen;
 
   /// No description provided for @karteEreignisseEinblenden.
   ///

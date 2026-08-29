@@ -16,6 +16,7 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import '../widgets/asset_info_sheet.dart';
+import '../widgets/gesichtsrahmen.dart';
 import '../widgets/person_picker_dialog.dart';
 import '../widgets/pin_dialogs.dart';
 import '../services/meldungsdienst.dart';
@@ -805,58 +806,13 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
                           ),
                           if (_rahmenSichtbar)
                             for (final face in _faces)
-                              Positioned(
-                              left: face.boxX * w,
-                              top: face.boxY * h,
-                              width: face.boxW * w,
-                              height: face.boxH * h,
-                              child: GestureDetector(
-                                onTap: () => _tapFace(face),
-                                // Der Rahmen liegt über der Fläche und
-                                // fängt den Klick zuerst ab – ohne diese
-                                // Zeile bekäme man auf einem Gesicht das
-                                // Menü der freien Fläche.
-                                onSecondaryTapDown: (d) =>
-                                    _kontextmenue(d.globalPosition, face),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: face.isIgnored
-                                          // Genau die Rolle „gilt gerade
-                                          // nicht" – als Rahmen, nicht als
-                                          // Text, deshalb unbedenklich.
-                                          ? DunkleFlaeche.inaktiv
-                                          : face.personId != null
-                                              ? Colors.greenAccent
-                                              : Colors.orangeAccent,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  alignment: Alignment.bottomLeft,
-                                  child: Container(
-                                    color: Colors.black54,
-                                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
-                                    child: Text(
-                                      face.isIgnored
-                                          ? AppTexte.of(context).gesichtIgnoriert
-                                          : face.personId != null
-                                              ? (_personNames[face.personId] ?? '…')
-                                              : AppTexte.of(context).gesichtUnbenannt,
-                                      style: TextStyle(
-                                        // Gedämpft, aber lesbar: „Ignoriert"
-                                        // ist eine Angabe, die man liest,
-                                        // kein abgeschaltetes Bedienelement.
-                                        // white38 wäre hier zu wenig.
-                                        color: face.isIgnored
-                                            ? DunkleFlaeche.zweitText
-                                            : DunkleFlaeche.text,
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              Gesichtsrahmen(
+                                gesicht: face,
+                                personName: _personNames[face.personId],
+                                flaeche: Size(w, h),
+                                beiTipp: () => _tapFace(face),
+                                beiMenue: (stelle) => _kontextmenue(stelle, face),
                               ),
-                            ),
                           if (_addMode && _dragStart != null && _dragCurrent != null)
                             Positioned.fromRect(
                               rect: Rect.fromPoints(_dragStart!, _dragCurrent!),

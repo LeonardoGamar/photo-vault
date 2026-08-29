@@ -2573,45 +2573,44 @@ class LibraryState extends ChangeNotifier {
   /// beim Sperren nie eine unverschlüsselte Kopie einer dieser
   /// Zusatzdateien zurückbleibt (Audit-Fund: `trimmedRelativePath` und
   /// `DevelopMasks.maskRelativePath` fehlten hier ursprünglich).
+  /// **Alle Dateien, die zu einem Foto gehören – an einer Stelle.**
+  ///
+  /// Diese Liste stand dreimal fast gleich im Quelltext: beim
+  /// Verschlüsseln, beim Entschlüsseln und beim endgültigen Löschen. Sie
+  /// ist zweimal auseinandergelaufen, und beide Male fiel es erst einer
+  /// Prüfrunde auf – zuerst fehlten Videozuschnitt und Objektmasken,
+  /// danach der XMP-Beipackzettel. Wer eine Dateiart hinzufügt, trägt sie
+  /// hier ein und ist damit überall richtig.
+  ///
+  /// Nicht vorhandene Dateien stehen mit in der Liste; die drei
+  /// Verwender kommen damit zurecht.
+  Future<List<String>> dateienVon(AssetData asset) async => [
+        asset.relativePath,
+        // Der Beipackzettel neben dem Original: Er trägt Beschreibung,
+        // Schlagwörter, Bewertung und Ort im Klartext. Beim Sperren blieb
+        // er liegen – genau das, wovor der gesperrte Ordner schützen soll
+        // (dieselbe Überlegung wie bei metadata.json in backup_service).
+        paths.xmpSidecarPath(asset.relativePath),
+        if (asset.thumbnailRelativePath != null) asset.thumbnailRelativePath!,
+        if (asset.previewRelativePath != null) asset.previewRelativePath!,
+        if (asset.developedRelativePath != null) asset.developedRelativePath!,
+        if (asset.restoredRelativePath != null) asset.restoredRelativePath!,
+        if (asset.trimmedRelativePath != null) asset.trimmedRelativePath!,
+        for (final face in await db.facesForAsset(asset.id))
+          if (face.cropRelativePath != null) face.cropRelativePath!,
+        for (final mask in await db.masksForAsset(asset.id))
+          mask.maskRelativePath,
+      ];
+
   Future<void> _encryptAssetFiles(AssetData asset, SecretKey key) async {
-    for (final relPath in [
-      asset.relativePath,
-      asset.thumbnailRelativePath,
-      asset.previewRelativePath,
-      asset.developedRelativePath,
-      asset.restoredRelativePath,
-      asset.trimmedRelativePath,
-    ]) {
-      if (relPath != null) await _cryptFileInPlace(relPath, key, encrypt: true);
-    }
-    for (final face in await db.facesForAsset(asset.id)) {
-      if (face.cropRelativePath != null) {
-        await _cryptFileInPlace(face.cropRelativePath!, key, encrypt: true);
-      }
-    }
-    for (final mask in await db.masksForAsset(asset.id)) {
-      await _cryptFileInPlace(mask.maskRelativePath, key, encrypt: true);
+    for (final relPath in await dateienVon(asset)) {
+      await _cryptFileInPlace(relPath, key, encrypt: true);
     }
   }
 
   Future<void> _decryptAssetFiles(AssetData asset, SecretKey key) async {
-    for (final relPath in [
-      asset.relativePath,
-      asset.thumbnailRelativePath,
-      asset.previewRelativePath,
-      asset.developedRelativePath,
-      asset.restoredRelativePath,
-      asset.trimmedRelativePath,
-    ]) {
-      if (relPath != null) await _cryptFileInPlace(relPath, key, encrypt: false);
-    }
-    for (final face in await db.facesForAsset(asset.id)) {
-      if (face.cropRelativePath != null) {
-        await _cryptFileInPlace(face.cropRelativePath!, key, encrypt: false);
-      }
-    }
-    for (final mask in await db.masksForAsset(asset.id)) {
-      await _cryptFileInPlace(mask.maskRelativePath, key, encrypt: false);
+    for (final relPath in await dateienVon(asset)) {
+      await _cryptFileInPlace(relPath, key, encrypt: false);
     }
   }
 
@@ -2840,23 +2839,8 @@ class LibraryState extends ChangeNotifier {
   /// DB-Zeile selbst; das bleibt Sache des Aufrufers (unterschiedliche
   /// Batch-Strategien).
   Future<void> deleteAssetFilesFromDisk(AssetData asset) async {
-    for (final relPath in [
-      asset.relativePath,
-      asset.thumbnailRelativePath,
-      asset.previewRelativePath,
-      asset.developedRelativePath,
-      asset.restoredRelativePath,
-      asset.trimmedRelativePath,
-    ]) {
-      if (relPath != null) await paths.deletePermanently(relPath);
-    }
-    for (final face in await db.facesForAsset(asset.id)) {
-      if (face.cropRelativePath != null) {
-        await paths.deletePermanently(face.cropRelativePath!);
-      }
-    }
-    for (final mask in await db.masksForAsset(asset.id)) {
-      await paths.deletePermanently(mask.maskRelativePath);
+    for (final relPath in await dateienVon(asset)) {
+      await paths.deletePermanently(relPath);
     }
   }
 

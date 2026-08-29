@@ -15,6 +15,7 @@ import '../services/face_suggestions.dart';
 import 'asset_viewer_screen.dart';
 import 'face_review_screen.dart';
 import 'person_suggestions_screen.dart';
+import 'lebenslauf_screen.dart';
 import 'stammbaum_screen.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/profilbild.dart';
@@ -169,6 +170,18 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
       appBar: AppBar(
         title: Text(person.name),
         actions: [
+          // **Die fehlende Tür.** Den Lebenslauf einer Person gab es nur
+          // im Menü ihres Schildes im Stammbaum – wer eine Person
+          // aufschlug, um etwas über sie zu erfahren, fand ihn nicht.
+          // Derselbe Fehler wie beim Papierkorb ohne Eingang.
+          IconButton(
+            tooltip: AppTexte.of(context).lebenslaufVon(person.name),
+            icon: const Icon(Icons.timeline_outlined),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) =>
+                  LebenslaufScreen(library: library, person: person),
+            )),
+          ),
           IconButton(
             tooltip: AppTexte.of(context).stammbaumTitel,
             icon: const Icon(Icons.account_tree_outlined),

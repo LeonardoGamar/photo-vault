@@ -90,12 +90,23 @@ void main() {
   /// Der Bildschirm wird auf eine Route geschoben statt als `home` gesetzt:
   /// Nur dann gibt es einen Zurück-Pfeil, und nur dann lässt sich prüfen,
   /// dass er erst dem Weg durch den Baum folgt.
-  Future<void> zeige(WidgetTester tester, String start) async {
+  Future<void> zeige(WidgetTester tester, String start,
+      {double schriftfaktor = 1.0}) async {
     await tester.pumpWidget(MaterialApp(
+      // Eigener Schlüssel je Durchgang: Ohne ihn behält ein zweiter
+      // Aufruf im selben Prüfstand den Navigator des ersten, und der
+      // Knopf „auf" ist dann gar nicht mehr da.
+      key: ValueKey('$start-$schriftfaktor'),
       locale: const Locale('de'),
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
+      builder: schriftfaktor == 1.0
+          ? null
+          : (context, kind) => MediaQuery.withClampedTextScaling(
+              minScaleFactor: schriftfaktor,
+              maxScaleFactor: schriftfaktor,
+              child: kind!),
       home: Builder(
         builder: (context) => Scaffold(
           body: Center(
@@ -381,6 +392,118 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('noch keine Vorfahren eingetragen'),
         findsOneWidget);
+  });
+
+  group('grössere Systemschrift', () {
+    /// **Der Fund der 18. Prüfrunde.** In die Tafel eines Schildes
+    /// passen genau drei Zeilen: 56,6 von 67 Punkten. Bei 120 Prozent
+    /// Systemschrift braucht dieselbe Tafel 67,9 – und dann malt der
+    /// Text über seinen Rand, genau wie beim gemeldeten Fehler mit den
+    /// zwei Mehrzeichen. Ein Schild lässt sich nicht dehnen, also wächst
+    /// der ganze Baum mit.
+    testWidgets('das Schild wächst mit', (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await zeige(tester, 'kind');
+      final normal = tester.getSize(find.text('Kind'));
+      final schildNormal = tester.getSize(
+          find.ancestor(of: find.text('Kind'), matching: find.byType(Stack)).first);
+
+      await zeige(tester, 'kind', schriftfaktor: 1.5);
+      final gross = tester.getSize(find.text('Kind'));
+      final schildGross = tester.getSize(
+          find.ancestor(of: find.text('Kind'), matching: find.byType(Stack)).first);
+
+      expect(gross.height / normal.height, closeTo(1.5, 0.15),
+          reason: 'die Schrift wird wirklich grösser');
+      expect(schildGross.width / schildNormal.width, closeTo(1.5, 0.05),
+          reason: 'und das Schild im selben Mass – sonst läuft es über');
+    });
+
+  });
+
+  group('den Baum bewegen', () {
+    /// Ein Fenster, in das dieser Baum NICHT hineinpasst – sonst gäbe es
+    /// nichts zu verschieben, und die Prüfung wäre eine Behauptung.
+    Future<void> zeigeGross(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(900, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await zeige(tester, 'kind');
+    }
+
+    testWidgets('ziehen verschiebt die Ansicht', (tester) async {
+      // Vorher lag der Baum in zwei Rollbereichen: An einer Tastfläche
+      // oder einer Magic Mouse kam man damit nicht an seinen Rand.
+      await zeigeGross(tester);
+      final vorher = tester.getRect(find.text('Kind'));
+      await tester.drag(find.byType(InteractiveViewer), const Offset(-120, -60));
+      await tester.pumpAndSettle();
+      final nachher = tester.getRect(find.text('Kind'));
+      // Nicht auf den Punkt: Die Gestenerkennung schluckt die ersten
+      // Punkte einer Bewegung, damit ein Klick mit zittriger Hand kein
+      // Ziehen wird. Es geht um die Richtung und darum, dass überhaupt
+      // etwas passiert.
+      expect(nachher.left, lessThan(vorher.left - 80));
+      expect(nachher.top, lessThan(vorher.top - 20));
+    });
+
+    testWidgets('die Zoomknöpfe machen den Baum grösser und wieder kleiner',
+        (tester) async {
+      await zeigeGross(tester);
+      final vorher = tester.getRect(find.text('Kind'));
+      await tester.tap(find.byTooltip('Näher heran'));
+      await tester.pumpAndSettle();
+      final nah = tester.getRect(find.text('Kind'));
+      expect(nah.width, greaterThan(vorher.width),
+          reason: 'ein Zoomschritt muss zu sehen sein');
+      await tester.tap(find.byTooltip('Weiter weg'));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.text('Kind')).width,
+          closeTo(vorher.width, 0.5));
+    });
+
+    testWidgets('„Ganz zeigen" holt den ganzen Baum ins Bild', (tester) async {
+      // Der Knopf ist die Antwort auf die eigentliche Klage: Ein Baum mit
+      // angeheirateter Verwandtschaft ist breiter als jedes Fenster.
+      await zeigeGross(tester);
+      // Erst hineinzoomen, damit das Einpassen etwas zu tun hat.
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.byTooltip('Näher heran'));
+      }
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.text('Opa')).height, greaterThan(20));
+
+      await tester.tap(find.byTooltip('Ganz zeigen'));
+      await tester.pumpAndSettle();
+      // Oberste und unterste Person stehen beide im Fenster.
+      final fenster = tester.getRect(find.byType(InteractiveViewer));
+      for (final name in ['Opa', 'Kind']) {
+        final kasten = tester.getRect(find.text(name));
+        expect(fenster.contains(kasten.topLeft), isTrue, reason: name);
+        expect(fenster.contains(kasten.bottomRight), isTrue, reason: name);
+      }
+    });
+
+    testWidgets('ein Klick auf eine Person rückt sie ins Bild',
+        (tester) async {
+      // Vorher begann der Ausschnitt in der linken oberen Ecke des
+      // Baumes. Wer eine Person in die Mitte setzte, musste sie danach
+      // erst suchen.
+      await zeigeGross(tester);
+      // Erst alles ins Bild holen – anklicken lässt sich nur, was man
+      // sieht, und der Urgrossvater steht ausserhalb.
+      await tester.tap(find.byTooltip('Ganz zeigen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Opa'));
+      await tester.pumpAndSettle();
+      final fenster = tester.getRect(find.byType(InteractiveViewer));
+      final kasten = tester.getRect(find.text('Opa'));
+      expect(fenster.contains(kasten.center), isTrue,
+          reason: 'die neue Mitte muss zu sehen sein');
+    });
   });
 
   testWidgets('so sieht der Baum aus', (tester) async {
@@ -772,4 +895,73 @@ void main() {
       matchesGoldenFile('golden/stammbaum_hell.png'),
     );
   }, skip: nurAufReferenzplattform);
+
+  testWidgets('ein Schild mit beiden Mehrzeichen laeuft nicht ueber',
+      (tester) async {
+    // Der gemeldete Fehler, am Bildschirmfoto zu sehen: Auf einer Karte
+    // lag "Sohn" halb ueber "Marco". Ursache waren fuenf Zeilen in einem
+    // Schild, das fuer drei gebaut ist - Name, Verhaeltnis, Lebensdaten
+    // plus zwei Mehrzeichen. Sie liegen jetzt als Marke am Rand.
+    tester.view.physicalSize = const Size(1800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // Vier Generationen nach unten, damit die unterste draussen bleibt
+    // und die darueber ein Mehrzeichen traegt.
+    for (final (id, name) in [
+      ('enkel', 'Enkelin'),
+      ('urenkel', 'Urenkel'),
+      ('ururenkel', 'Ururenkel'),
+      ('urururenkel', 'Urururenkel'),
+    ]) {
+      await db.createPerson(PeopleCompanion.insert(id: id, name: name));
+    }
+    await db.fuegeBeziehungHinzu('enkel', 'kind', Verwandtschaft.elternteil);
+    await db.fuegeBeziehungHinzu('urenkel', 'enkel', Verwandtschaft.elternteil);
+    await db.fuegeBeziehungHinzu(
+        'ururenkel', 'urenkel', Verwandtschaft.elternteil);
+    await db.fuegeBeziehungHinzu(
+        'urururenkel', 'ururenkel', Verwandtschaft.elternteil);
+    // Ein zweiter Elternteil, der zur Mitte in keiner Beziehung steht -
+    // genau die Lage aus der Meldung, wo Marco einen Vater hatte, der
+    // von Conny aus niemand ist. Damit traegt Ururenkel BEIDE Zeichen:
+    // oben ein unbekannter Elternteil, unten ein Kind ausserhalb.
+    await db.createPerson(
+        PeopleCompanion.insert(id: 'fremd', name: 'Fremde'));
+    await db.fuegeBeziehungHinzu(
+        'ururenkel', 'fremd', Verwandtschaft.elternteil);
+
+    await zeige(tester, 'kind');
+    expect(tester.takeException(), isNull);
+
+    // Der eigentliche Fund: Der Baum reicht jetzt drei Generationen
+    // hinab, nicht mehr eine.
+    expect(find.text('Enkelin'), findsOneWidget);
+    expect(find.text('Urenkel'), findsOneWidget);
+    expect(find.text('Ururenkel'), findsOneWidget);
+    expect(find.text('Urururenkel'), findsNothing, reason: 'eine Stufe zu weit');
+    expect(find.text('Fremde'), findsNothing, reason: 'mit der Mitte nicht verwandt');
+    // Genau ein Schild traegt beide Zeichen - und das ist das, an dem
+    // es kaputt war.
+    expect(find.byIcon(Icons.more_horiz), findsNWidgets(2));
+
+    // Und nichts wird gequetscht. Das ist die Eigenschaft, die wirklich
+    // kaputt war: Ein `Flexible` laesst seine Zeilen nicht ueberlappen -
+    // es DRUECKT sie zusammen, und der Text malt dann ueber seinen
+    // eigenen Kasten hinaus. Auf dem Bildschirmfoto lag "Sohn" deshalb
+    // halb ueber "Marco", obwohl die Kaesten sauber untereinander lagen.
+    //
+    // Messbar ist es an der Kastenhoehe: Sie muss mindestens die
+    // Zeilenhoehe hergeben.
+    for (final name in ['Enkelin', 'Urenkel', 'Ururenkel', 'Kind']) {
+      final treffer = find.text(name);
+      if (treffer.evaluate().isEmpty) continue;
+      final kasten = tester.getSize(treffer.first);
+      final stil = tester.widget<Text>(treffer.first).style!;
+      final zeilenhoehe = stil.fontSize! * (stil.height ?? 1.2);
+      expect(kasten.height, greaterThanOrEqualTo(zeilenhoehe - 0.5),
+          reason: '"$name" ist auf ${kasten.height.toStringAsFixed(1)} '
+              'gequetscht, braucht aber ${zeilenhoehe.toStringAsFixed(1)}');
+    }
+  });
 }

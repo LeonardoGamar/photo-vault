@@ -18,6 +18,7 @@ import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/wisch_zoom.dart';
+import '../widgets/zoomsteuerung.dart';
 import '../widgets/mini_location_map.dart';
 import '../widgets/pin_dialogs.dart';
 import 'asset_viewer_screen.dart';
@@ -541,7 +542,7 @@ class _MapScreenState extends State<MapScreen> {
           Positioned(
             right: 8,
             bottom: 8,
-            child: _Kartensteuerung(
+            child: Zoomsteuerung(
               beiNaeher: _globusZoom >= (_globeController?.maxZoom ?? 6)
                   ? null
                   : () => _globusZoomen(1),
@@ -593,7 +594,7 @@ class _MapScreenState extends State<MapScreen> {
         Positioned(
           right: 8,
           bottom: 24,
-          child: _Kartensteuerung(
+          child: Zoomsteuerung(
             beiNaeher: () => _flachZoomen(1),
             beiWeiter: () => _flachZoomen(-1),
             beiStandort:
@@ -790,114 +791,6 @@ class _MapScreenState extends State<MapScreen> {
 /// Leisten, die gleich aussehen sollen, laufen sonst früher oder später
 /// auseinander. Was sie tun, unterscheidet sich – wie sie aussehen und
 /// wo sie sitzen, nicht.
-class _Kartensteuerung extends StatelessWidget {
-  final VoidCallback? beiNaeher;
-  final VoidCallback? beiWeiter;
-
-  /// `null` blendet den Standortknopf aus – auf Plattformen ohne
-  /// Ortungsanbindung. Ein Knopf, der nichts tun kann, wäre schlechter
-  /// als keiner.
-  final VoidCallback? beiStandort;
-
-  /// Während der Standort ermittelt wird: Kreisel statt Nadel.
-  final bool standortLaeuft;
-
-  /// `null` blendet den Ereignisschalter aus – wer keinen Stammbaum
-  /// führt, hat nichts umzuschalten. Ein Schalter ohne Wirkung wäre eine
-  /// Behauptung, es gäbe dort etwas.
-  final VoidCallback? beiEreignisse;
-  final bool ereignisseAn;
-
-  const _Kartensteuerung({
-    this.beiNaeher,
-    this.beiWeiter,
-    this.beiStandort,
-    this.standortLaeuft = false,
-    this.beiEreignisse,
-    this.ereignisseAn = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AppTexte.of(context);
-    final farben = Theme.of(context).colorScheme;
-
-    Widget knopf({
-      required IconData symbol,
-      required String hinweis,
-      required VoidCallback? beiDruck,
-      Widget? statt,
-    }) {
-      return Tooltip(
-        message: hinweis,
-        child: InkResponse(
-          onTap: beiDruck,
-          radius: 22,
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: Center(
-              child: statt ??
-                  Icon(symbol,
-                      size: 20,
-                      color: beiDruck == null
-                          ? farben.onSurfaceVariant.withValues(alpha: 0.4)
-                          : farben.onSurfaceVariant),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Material(
-      color: farben.surfaceContainerHighest.withValues(alpha: 0.92),
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          knopf(
-              symbol: Icons.add,
-              hinweis: t.karteHineinzoomen,
-              beiDruck: beiNaeher),
-          Divider(height: 1, thickness: 1, color: farben.outlineVariant),
-          knopf(
-              symbol: Icons.remove,
-              hinweis: t.karteHerauszoomen,
-              beiDruck: beiWeiter),
-          if (beiEreignisse != null) ...[
-            Divider(height: 1, thickness: 1, color: farben.outlineVariant),
-            knopf(
-              symbol: ereignisseAn
-                  ? Icons.event_available_outlined
-                  : Icons.event_busy_outlined,
-              hinweis: ereignisseAn
-                  ? t.karteEreignisseAusblenden
-                  : t.karteEreignisseEinblenden,
-              beiDruck: beiEreignisse,
-            ),
-          ],
-          if (beiStandort != null) ...[
-            Divider(height: 1, thickness: 1, color: farben.outlineVariant),
-            knopf(
-              symbol: Icons.my_location,
-              hinweis: standortLaeuft
-                  ? t.karteStandortSuche
-                  : t.karteStandortZeigen,
-              beiDruck: standortLaeuft ? null : beiStandort,
-              statt: standortLaeuft
-                  ? const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : null,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 /// Ein Marker auf der flachen Karte: das Vorschaubild des jüngsten Fotos
 /// seiner Gruppe, bei mehreren zusätzlich deren Anzahl.
 class _MapThumbMarker extends StatelessWidget {

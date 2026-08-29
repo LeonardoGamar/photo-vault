@@ -45,10 +45,21 @@ class ZierbaumMaler extends CustomPainter {
   final String? fokusId;
   final TextDirection textRichtung;
 
+  /// Ob Grund und Goldstaub mitgemalt werden.
+  ///
+  /// Auf dem Bildschirm nicht: Dort liegt der Baum in einem
+  /// verschiebbaren Bereich, und ein Grund, der mitwandert, hört
+  /// irgendwo auf – man sieht dann seine Kante mitten im Fenster. Er
+  /// wird deshalb von [Zierbaumgrund] hinter den Bereich gemalt und
+  /// bleibt stehen, während der Baum sich bewegt. Für die Tafel gilt
+  /// das nicht: Ein Blatt Papier verschiebt sich nicht.
+  final bool malGrund;
+
   const ZierbaumMaler({
     required this.plan,
     required this.farben,
     this.versatzX = 0,
+    this.malGrund = true,
     this.beschriftung,
     this.familienname,
     this.fokusId,
@@ -58,7 +69,7 @@ class ZierbaumMaler extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _grund(canvas, size);
+    if (malGrund) _grund(canvas, size);
     canvas.save();
     canvas.translate(versatzX, 0);
     _stamm(canvas, size);
@@ -77,7 +88,7 @@ class ZierbaumMaler extends CustomPainter {
       }
     }
     canvas.restore();
-    _staub(canvas, size);
+    if (malGrund) _staub(canvas, size);
     if (familienname != null) _familienname(canvas, size);
   }
 
@@ -339,7 +350,11 @@ class ZierbaumMaler extends CustomPainter {
   ///
   /// Ein Zufallsgenerator hätte bei jedem Aufbau ein anderes Bild
   /// ergeben; auf einem Goldbild wäre das ein Fehlschlag je Lauf.
-  void _staub(Canvas canvas, Size size) {
+  void _staub(Canvas canvas, Size size) => _staubAuf(canvas, size, farben);
+
+  /// Dasselbe Muster für beide Maler – zwei Fassungen wären zwei
+  /// Sternenhimmel.
+  static void _staubAuf(Canvas canvas, Size size, Zierbaumfarben farben) {
     final stift = Paint()..color = farben.staub.withValues(alpha: 0.22);
     const abstand = 47.0;
     for (var x = abstand / 2; x < size.width; x += abstand) {
@@ -387,5 +402,43 @@ class ZierbaumMaler extends CustomPainter {
       alt.farben != farben ||
       alt.versatzX != versatzX ||
       alt.familienname != familienname ||
+      alt.malGrund != malGrund ||
       alt.fokusId != fokusId;
+}
+
+/// Nur der Grund: der warme Schein und der Goldstaub darauf.
+///
+/// **Warum das ein eigener Maler ist.** Auf dem Bildschirm liegt der Baum
+/// in einem Bereich, den man verschieben und zoomen kann. Ein Grund, der
+/// darin mitwandert, ist genau so gross wie der Baum – schiebt man ihn
+/// zur Seite, sieht man seine Kante und dahinter die gewöhnliche
+/// Hintergrundfarbe. Dieser hier bleibt stehen und füllt immer das ganze
+/// Fenster, egal wo der Baum gerade steht.
+///
+/// Der Schein sitzt deshalb auch in der Fenstermitte und nicht am Stamm:
+/// Der Stamm bewegt sich, das Fenster nicht.
+class Zierbaumgrund extends CustomPainter {
+  final Zierbaumfarben farben;
+
+  const Zierbaumgrund({required this.farben});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final flaeche = Offset.zero & size;
+    canvas.drawRect(flaeche, Paint()..color = farben.grundAussen);
+    canvas.drawRect(
+      flaeche,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(size.width / 2, size.height * 0.62),
+          size.longestSide * 0.7,
+          [farben.grundInnen, farben.grundAussen],
+          const [0.0, 1.0],
+        ),
+    );
+    ZierbaumMaler._staubAuf(canvas, size, farben);
+  }
+
+  @override
+  bool shouldRepaint(Zierbaumgrund alt) => alt.farben != farben;
 }

@@ -315,6 +315,19 @@ class AppTexteDe extends AppTexte {
   String get viewerGesichterBearbeiten => 'Gesichter bearbeiten';
 
   @override
+  String get viewerGesichterZeigen => 'Gesichter zeigen';
+
+  @override
+  String get viewerGesichterVerbergen => 'Gesichter verbergen';
+
+  @override
+  String get viewerKeineGesichter =>
+      'Auf diesem Foto ist kein Gesicht erkannt.';
+
+  @override
+  String get viewerGesichtBenennen => 'Gesicht benennen';
+
+  @override
   String get viewerEntwicklungAnwenden => 'Kopierte Entwicklung anwenden';
 
   @override
@@ -5874,6 +5887,9 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get karteHerauszoomen => 'Weiter weg';
+
+  @override
+  String get zoomEinpassen => 'Ganz zeigen';
 
   @override
   String get karteEreignisseEinblenden => 'Lebensereignisse einblenden';

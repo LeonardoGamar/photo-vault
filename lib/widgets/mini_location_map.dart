@@ -794,7 +794,7 @@ class _MiniLocationMapState extends State<MiniLocationMap> {
 
 /// Zwei kleine Knöpfe zum Zoomen.
 ///
-/// Eigenes, kleines Widget statt der `_Kartensteuerung` der grossen
+/// Eigenes, kleines Widget statt der `Zoomsteuerung` der grossen
 /// Karte: Die trägt Standortabfrage und Ereignisschalter mit sich und
 /// wäre in einer 160 Punkte hohen Vorschau zu gross.
 class _Zoomknoepfe extends StatelessWidget {

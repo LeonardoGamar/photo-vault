@@ -160,4 +160,52 @@ void main() {
     expect(a.band, b.band);
     expect(a.elternhausVon, b.elternhausVon);
   });
+
+  group('nach unten so weit wie nach oben', () {
+    /// Der gemeldete Fehler: Der Baum zeigte Urgrosseltern, aber keine
+    /// Enkel. Drei Generationen hinauf, eine hinab - und die App sagte
+    /// mit ihrem Mehrzeichen sogar selbst, dass da unten noch etwas ist.
+    Verwandtschaftsnetz vierGenerationen() => Verwandtschaftsnetz([
+          kante('vater', 'opa', Verwandtschaft.elternteil),
+          kante('ich', 'vater', Verwandtschaft.elternteil),
+          kante('anna', 'vater', Verwandtschaft.elternteil),
+          kante('kind', 'ich', Verwandtschaft.elternteil),
+          kante('enkel', 'kind', Verwandtschaft.elternteil),
+          kante('urenkel', 'enkel', Verwandtschaft.elternteil),
+          kante('neffe', 'anna', Verwandtschaft.elternteil),
+          kante('grossneffe', 'neffe', Verwandtschaft.elternteil),
+        ]);
+    const ids = ['opa', 'vater', 'ich', 'anna', 'kind', 'neffe', 'enkel',
+        'grossneffe', 'urenkel'];
+
+    test('Enkel und Urenkel stehen im Bild', () {
+      final g = geflechtUm(vierGenerationen(), 'ich', ids);
+      int? bandVon(String p) => g.band[g.haushaltVon(p)?.id];
+      expect(bandVon('kind'), 1);
+      expect(bandVon('enkel'), 2, reason: 'der gemeldete Fehler');
+      expect(bandVon('urenkel'), 3);
+    });
+
+    test('auch die Kinder der Neffen', () {
+      final g = geflechtUm(vierGenerationen(), 'ich', ids);
+      expect(g.band[g.haushaltVon('grossneffe')?.id], 2);
+    });
+
+    test('so weit hinab wie hinauf', () {
+      // Die Symmetrie ist der Punkt: Ein Baum, der drei Generationen
+      // hinauf und eine hinab zeigt, ist keiner.
+      final g = geflechtUm(vierGenerationen(), 'ich', ids);
+      final baender = g.haushalte.map((h) => g.band[h.id]!);
+      expect(baender.reduce((a, b) => a < b ? a : b), -2,
+          reason: 'Opa ist der einzige Vorfahre ausser dem Vater');
+      expect(baender.reduce((a, b) => a > b ? a : b), 3);
+    });
+
+    test('wer unten alles zeigt, traegt kein Mehrzeichen', () {
+      final g = geflechtUm(vierGenerationen(), 'ich', ids);
+      expect(g.weitereUnten['kind'], isFalse,
+          reason: 'der Enkel steht jetzt im Bild');
+      expect(g.weitereUnten['enkel'], isFalse);
+    });
+  });
 }

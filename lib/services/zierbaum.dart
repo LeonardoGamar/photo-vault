@@ -278,6 +278,9 @@ class Schildmasse {
   final double portraitRadius;
   final double portraitAbstand;
 
+  /// Das Mehrzeichen an der Kante.
+  final double zeichenGroesse;
+
   const Schildmasse({
     this.rundung = 9,
     this.randStark = 2.5,
@@ -288,6 +291,7 @@ class Schildmasse {
     this.schriftNeben = 11,
     this.portraitRadius = 19,
     this.portraitAbstand = 3,
+    this.zeichenGroesse = 13,
   });
 
   Schildmasse mal(double faktor) => Schildmasse(
@@ -300,11 +304,35 @@ class Schildmasse {
         schriftNeben: schriftNeben * faktor,
         portraitRadius: portraitRadius * faktor,
         portraitAbstand: portraitAbstand * faktor,
+        zeichenGroesse: zeichenGroesse * faktor,
       );
 
   /// Wie hoch die Tafel unter dem Porträt ist.
   double tafelHoehe(double schildHoehe) =>
       schildHoehe - portraitRadius * 2 - portraitAbstand;
+
+  /// Wie viel Höhe die drei Zeilen mindestens brauchen.
+  ///
+  /// **Warum das nachgerechnet gehört und nicht nachgemessen.** Auf einem
+  /// Schild stehen Name, Verhältnis und Lebensdaten. Passen sie nicht,
+  /// quetscht ein `Flexible` sie zusammen – die Kästen bleiben brav
+  /// untereinander, aber der Text malt über seinen eigenen Rand hinaus
+  /// und liegt auf der Zeile darüber. Genau so sah es im gemeldeten
+  /// Bildschirmfoto aus: „Sohn" lag halb über „Marco".
+  ///
+  /// Ein Widget-Test findet das **nicht**: Er rendert mit einer
+  /// Platzhalterschrift, deren Zeilenmasse andere sind als die von EB
+  /// Garamond. Was sich prüfen lässt, ist die Rechnung – und die gilt
+  /// für jede Schrift, deren Zeilen nicht höher sind als der hier
+  /// angesetzte Faktor.
+  double mindestTafelhoehe() =>
+      schriftName * 1.35 + schriftNeben * 1.35 * 2 + polsterY * 2;
+
+  /// Was die Tafel bräuchte, stünden die Mehrzeichen in der Reihe.
+  ///
+  /// Nur für den Prüfstand: Er hält damit fest, warum sie es nicht tun.
+  double mindestTafelhoeheMitZeichen() =>
+      mindestTafelhoehe() + 2 * zeichenGroesse;
 }
 
 /// Rechnet die Anordnung aus.

@@ -312,6 +312,18 @@ class AppTexteEn extends AppTexte {
   String get viewerGesichterBearbeiten => 'Edit faces';
 
   @override
+  String get viewerGesichterZeigen => 'Show faces';
+
+  @override
+  String get viewerGesichterVerbergen => 'Hide faces';
+
+  @override
+  String get viewerKeineGesichter => 'No face detected in this photo.';
+
+  @override
+  String get viewerGesichtBenennen => 'Name this face';
+
+  @override
   String get viewerEntwicklungAnwenden => 'Paste develop settings';
 
   @override
@@ -5845,6 +5857,9 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get karteHerauszoomen => 'Zoom out';
+
+  @override
+  String get zoomEinpassen => 'Fit to window';
 
   @override
   String get karteEreignisseEinblenden => 'Show life events';
