@@ -175,8 +175,12 @@ void main() {
     final id = r.assetId!;
 
     // Zustand, wie ihn die Analyse eines noch offenen Fotos hinterlässt.
+    // MIT deutscher Fassung: Die Übersetzung ist ein eigener Durchgang,
+    // und ein Test, der sie nicht anlegt, kann sie auch nicht vermissen.
+    // Genau daran ist die Lücke bis zur 17. Prüfrunde vorbeigelaufen.
     await db.setOcrResult(id, 'Kontonummer DE12 3456 7890');
     await db.setAiCaption(id, 'a scanned bank statement');
+    await db.setAiCaptionDe(id, 'ein abfotografierter Kontoauszug');
     await db.saveEmbedding(id, Float32List.fromList(List.filled(512, 0.1)));
     await db.setSharpnessScore(id, 42.0);
 
@@ -185,6 +189,8 @@ void main() {
     final danach = (await db.select(db.assets).get()).single;
     expect(danach.ocrText, isNull, reason: 'erkannter Text ist Bildinhalt');
     expect(danach.aiCaption, isNull, reason: 'die Bildunterschrift ebenso');
+    expect(danach.aiCaptionDe, isNull,
+        reason: 'derselbe Satz auf Deutsch ist derselbe Bildinhalt');
     expect(await db.embeddingForAsset(id), isNull,
         reason: 'das Embedding beschreibt den Bildinhalt');
     // Damit nach dem Entsperren neu berechnet wird.
@@ -192,6 +198,55 @@ void main() {
     expect(danach.aiCaptionScanned, isFalse);
     // Die Schärfe verrät nichts über den Inhalt und wird gebraucht.
     expect(danach.sharpnessScore, 42.0);
+  });
+
+  test('kein Feld des Bildinhalts bleibt übersehen zurück', () async {
+    // Die Lücke der 17. Prüfrunde war nicht, dass jemand ai_caption_de für
+    // harmlos hielt – sie war, dass niemand sie bemerkte, als die Spalte
+    // dazukam. Dieser Test zählt die Spalten auf, statt sie einzeln zu
+    // nennen: Eine neue Spalte, die nach Bildinhalt klingt, fällt hier
+    // auf, auch wenn niemand an diese Stelle denkt.
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final spalten = db.assets.$columns.map((c) => c.name).toSet();
+    const behandelt = {
+      'ocr_text', 'ocr_scanned',
+      'ai_caption', 'ai_caption_de', 'ai_caption_scanned',
+      'ai_caption_edited', 'ai_tags_scanned',
+    };
+    const bewusstNicht = {'sharpness_score'};
+    final ausInhalt = spalten.where((n) =>
+        n.startsWith('ocr_') || n.startsWith('ai_') || n == 'sharpness_score');
+    expect(ausInhalt, isNotEmpty, reason: 'sonst prüfte der Test nichts');
+    for (final name in ausInhalt) {
+      expect(behandelt.contains(name) || bewusstNicht.contains(name), isTrue,
+          reason: 'Die Spalte "$name" leitet sich aus dem Bildinhalt ab. '
+              'Entweder gehört sie in clearDerivedContentData, oder es steht '
+              'dort, warum nicht.');
+    }
+  });
+
+  test('eine von Hand geschriebene Bildunterschrift überlebt das Sperren',
+      () async {
+    // Sie wurde vorher gelöscht, und zwar unwiederbringlich: Das Merkmal
+    // ai_caption_edited blieb stehen, und der Nachhol-Durchgang schliesst
+    // genau damit aus, was von Hand geschrieben wurde.
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
+    final paths = await StoragePaths.forTesting(Directory(p.join(tempRoot.path, 'lib5')));
+    final imp = ImportService(db, paths);
+    final inc = Directory(p.join(tempRoot.path, 'in5'))..createSync();
+    final r = await imp.importFile(
+        (File(p.join(inc.path, 'urlaub.jpg'))..writeAsBytesSync(List.filled(64, 5))).path);
+    final id = r.assetId!;
+
+    await db.setAiCaptionVonHand(id, 'Omas achtzigster Geburtstag', deutsch: true);
+    await db.clearDerivedContentData([id]);
+
+    final danach = (await db.select(db.assets).get()).single;
+    expect(danach.aiCaptionDe, 'Omas achtzigster Geburtstag',
+        reason: 'die eigenen Worte folgen derselben Regel wie description');
+    expect(danach.aiCaptionEdited, isTrue);
   });
 
   group('gemeinsamer Bildanalyse-Durchlauf', () {

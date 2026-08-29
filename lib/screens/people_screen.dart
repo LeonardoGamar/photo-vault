@@ -18,6 +18,7 @@ import 'face_cluster_review_screen.dart';
 import 'face_review_screen.dart';
 import 'person_detail_screen.dart';
 import '../services/meldungsdienst.dart';
+import '../widgets/profilbild.dart';
 
 /// Zeigt benannte Personen als Grid sowie – darunter – alle noch nicht
 /// zugeordneten erkannten Gesichter. Die lokale YuNet-Engine erkennt nur
@@ -839,15 +840,13 @@ class _PeopleGrid extends StatelessWidget {
           },
           child: Column(
             children: [
-              CircleAvatar(
+              Profilbild(
+                datei: person.coverFaceCropPath == null
+                    ? null
+                    : library.paths.absolute(person.coverFaceCropPath!),
                 radius: 40,
-                backgroundColor: Colors.grey.shade800,
-                backgroundImage: person.coverFaceCropPath != null
-                    ? FileImage(library.paths.absolute(person.coverFaceCropPath!))
-                    : null,
-                child: person.coverFaceCropPath == null
-                    ? const Icon(Icons.person_outline, size: 32)
-                    : null,
+                hintergrund: Colors.grey.shade800,
+                symbolgroesse: 32,
               ),
               const SizedBox(height: 8),
               Text(person.name, maxLines: 1, overflow: TextOverflow.ellipsis),

@@ -12,6 +12,10 @@ import 'asset_viewer_screen.dart';
 /// Jahresübersicht: eine Kachel pro Jahr mit Titelbild (neuestes Foto des
 /// Jahres) und Foto-/Videoanzahl – zum schnellen Einstieg in ein bestimmtes
 /// Jahr, ohne die komplette Timeline durchscrollen zu müssen.
+/// Kantenlaenge einer Monatskachel – zugleich die Dekodiergroesse des
+/// Vorschaubilds darin.
+const double _kachelKante = 200;
+
 class CalendarScreen extends StatelessWidget {
   final LibraryState library;
   const CalendarScreen({super.key, required this.library});
@@ -100,6 +104,9 @@ class _YearCardState extends State<_YearCard> {
                 return Image.file(
                   widget.library.paths.absolute(thumbPath),
                   fit: BoxFit.cover,
+                  cacheWidth: (_kachelKante *
+                          MediaQuery.devicePixelRatioOf(context))
+                      .round(),
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 );
               },

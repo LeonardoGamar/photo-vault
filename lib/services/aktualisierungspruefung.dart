@@ -35,9 +35,16 @@ class Aktualisierungsstand {
 /// Fragt beim öffentlichen Veröffentlichungsverzeichnis nach, ob es eine
 /// neuere Fassung gibt.
 ///
-/// **Ausschliesslich auf ausdrückliche Anforderung.** Die App spricht sonst
-/// mit keinem Server; die einzigen weiteren Netzabrufe sind das Laden der
-/// KI-Modelle und der Ortsdaten, beide ebenfalls nur auf Knopfdruck. Eine
+/// **Ausschliesslich auf ausdrückliche Anforderung.** Ebenso das Laden der
+/// KI-Modelle und der Ortsdaten – beides nur auf Knopfdruck.
+///
+/// Hier stand einmal, die App spreche sonst mit keinem Server. Das gilt
+/// nicht mehr, seit es die Karte gibt: Sie holt ihre Kacheln beim
+/// Anzeigen von OpenStreetMap, OpenTopoMap, Esri und AWS Open Data, ohne
+/// dass jemand einen Knopf drückt, und in jeder Kacheladresse steht der
+/// Ausschnitt. Der Satz blieb trotzdem stehen und wurde erst in der
+/// 17. Prüfrunde bemerkt; die Oberfläche sagt es jetzt unter
+/// Einstellungen → Karte. Eine
 /// stille Prüfung im Hintergrund würde bei jedem Start verraten, dass und
 /// wann dieses Programm benutzt wird – das wäre ein Bruch mit seiner
 /// Grundhaltung, für den Gegenwert einer Zahl.

@@ -11,6 +11,9 @@ import '../services/asset_format.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 
+/// Kantenlaenge eines Gesichts-Ausschnitts in [LocalImageTile].
+const double _ausschnittKante = 160;
+
 class AssetThumbnailTile extends StatelessWidget {
   final AssetData asset;
   final StoragePaths paths;
@@ -231,6 +234,11 @@ class LocalImageTile extends StatelessWidget {
           Image.file(
             file,
             fit: BoxFit.cover,
+            // Ein Gesichts-Ausschnitt ist klein, aber es sind viele: Die
+            // Gesichtspruefung zeigt hunderte davon nebeneinander.
+            cacheWidth: (_ausschnittKante *
+                    MediaQuery.devicePixelRatioOf(context))
+                .round(),
             errorBuilder: (_, __, ___) => Container(
               color: Colors.grey.shade900,
               child: const Icon(Icons.face_outlined, color: Colors.white24),

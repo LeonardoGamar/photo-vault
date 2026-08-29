@@ -1194,55 +1194,16 @@ class AppTexteEn extends AppTexte {
   String get werkzKeineUnbewerteten => 'No unrated photos found.';
 
   @override
-  String get werkzYunetNoetig =>
-      'This needs the YuNet model first (Settings → AI models).';
-
-  @override
-  String get werkzClipNoetig =>
-      'This needs the CLIP model first (Settings → AI models).';
-
-  @override
-  String get werkzBeschreibungsmodellNoetig =>
-      'This needs the image captioning model first (Settings → AI models).';
-
-  @override
-  String get werkzGeoNoetig =>
-      'This needs the GeoNames dataset first (Settings → Location data).';
-
-  @override
   String get werkzKeinePassenden => 'No matching photos found.';
 
   @override
   String get werkzGesichterScannenTitel => 'Scan for faces';
 
   @override
-  String get werkzGesichterScannenFrage =>
-      'New photos only: quick, and skips photos that have already been scanned.\n\nScan all photos again: goes through the whole library afresh – worth doing after an update to face detection, for instance, or to work out closed-eye detection for photos scanned earlier. On a large library it takes correspondingly longer. Faces you assigned by hand are kept.';
-
-  @override
-  String get werkzNurNeueFotos => 'New photos only';
-
-  @override
-  String get werkzAlleErneutScannen => 'Scan all again';
-
-  @override
   String get werkzScanneNeue => 'Scanning new photos …';
 
   @override
   String get werkzScanneAlle => 'Scanning all photos again …';
-
-  @override
-  String get werkzVorschauNeuTitel => 'Rebuild previews';
-
-  @override
-  String get werkzVorschauNeuFrage =>
-      'Missing only: handles just those photos and videos that currently have no thumbnail – HEIC photos imported before native image conversion was set up, say, or videos imported before video thumbnails existed.\n\nRebuild all: creates new thumbnails and previews for the whole library, which is worth doing after an update to image or video conversion. On a large library it takes correspondingly longer.';
-
-  @override
-  String get werkzNurFehlende => 'Missing only';
-
-  @override
-  String get werkzAlleNeuErstellen => 'Rebuild all';
 
   @override
   String get werkzErstelleFehlende => 'Creating the missing previews …';
@@ -1267,19 +1228,6 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get werkzAlleHabenEmbedding => 'Every photo already has an embedding.';
-
-  @override
-  String get werkzKiTagsTitel => 'Compute AI tags';
-
-  @override
-  String get werkzKiTagsFrage =>
-      'Untagged photos only: quick, and skips photos that already carry at least one tag, whether set by hand or automatically.\n\nAll photos: goes through the whole library afresh and adds fitting AI tags to already tagged photos as well. Existing tags are kept.';
-
-  @override
-  String get werkzNurUngetaggte => 'Untagged only';
-
-  @override
-  String get werkzAlleFotos => 'All photos';
 
   @override
   String get werkzBerechneKiTags => 'Computing AI tags …';
@@ -1347,10 +1295,6 @@ class AppTexteEn extends AppTexte {
   String get werkzAbschnittGesichtserkennung => 'Face detection';
 
   @override
-  String get werkzGesichterScannenUntertitel =>
-      'Run it by hand – new photos or all of them';
-
-  @override
   String get werkzSchwelleLabel =>
       'Similarity threshold for\n\"Select similar as well\"';
 
@@ -1382,55 +1326,16 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
-  String get werkzVorschauNeuUntertitel =>
-      'For every photo, or only for the ones still missing';
-
-  @override
-  String get werkzAbschnittEntwicklung => 'Develop';
-
-  @override
   String get werkzNeuRendernTitel => 'Re-render developed photos';
-
-  @override
-  String get werkzNeuRendernText =>
-      'Renders every photo that has saved develop adjustments (exposure, white balance and the rest) again with those settings unchanged – worth doing after an update to the native image processing.';
-
-  @override
-  String get werkzAbschnittLivePhotos => 'Live Photos';
-
-  @override
-  String get werkzLivePhotoTitel => 'Check for Live Photo pairs again';
-
-  @override
-  String get werkzLivePhotoText =>
-      'For photos and videos imported before this feature existed – links HEIC/JPG stills with MOV videos of the same name.';
 
   @override
   String get werkzAbschnittOrte => 'Locations';
 
   @override
-  String get werkzOrteEinlesenTitel => 'Read locations from photos';
-
-  @override
-  String get werkzOrteEinlesenText =>
-      'For photos imported before the map view existed – reads their EXIF GPS data after the fact.';
-
-  @override
   String get werkzOrteAufloesenTitel => 'Resolve country/region/city';
 
   @override
-  String get werkzOrteAufloesenText =>
-      'Works out the country, state or province and city behind a photo\'s GPS position – entirely local and offline, from the GeoNames dataset (see Settings → Location data). The country, region and city filters in the search options need this.';
-
-  @override
   String get werkzAbschnittKamera => 'Camera';
-
-  @override
-  String get werkzKameradatenTitel => 'Read camera data from photos';
-
-  @override
-  String get werkzKameradatenText =>
-      'For photos imported before the camera display existed – reads camera, lens, focal length, aperture, ISO and shutter speed from the EXIF data after the fact.';
 
   @override
   String get werkzPresetsTitel => 'Manage camera presets';
@@ -1447,57 +1352,11 @@ class AppTexteEn extends AppTexte {
       'Automatically put photos into an album or tag, or mark them as favourites, based on location, AI tag or capture date – like camera presets, but for other conditions.';
 
   @override
-  String get werkzAbschnittQualitaet => 'Photo quality';
-
-  @override
-  String get werkzOcrTitel => 'Recognise text in photos';
-
-  @override
-  String get werkzOcrText =>
-      'For photos imported before text search existed – finds visible text such as signs or documents after the fact, entirely locally through Apple\'s Vision framework.';
-
-  @override
-  String get werkzBeschreibungenTitel => 'Generate image captions';
-
-  @override
-  String get werkzBeschreibungenText =>
-      'For photos imported before the captioning model was installed – writes one short English caption per photo, entirely locally.';
-
-  @override
-  String get werkzUnschaerfeTitel => 'Recompute blur';
-
-  @override
-  String get werkzUnschaerfeText =>
-      'For photos imported before blur detection existed – this is what the \"Show blurry photos only\" search filter needs.';
-
-  @override
-  String get werkzAbschnittBildsuche => 'AI image search';
-
-  @override
   String get werkzAllesNachholenTitel => 'Catch up on all analysis now';
 
   @override
   String get werkzAllesNachholenText =>
       'Starts every expensive step one after another in the background: blur, faces, text recognition, image search, tags and captions. Each step skips what it already has, and the app stays usable throughout.';
-
-  @override
-  String get werkzAnalyseGestartet =>
-      'Analysis is running in the background – progress is shown in the bar at the top.';
-
-  @override
-  String get werkzEmbeddingsTitel => 'Compute CLIP embeddings';
-
-  @override
-  String get werkzEmbeddingsText =>
-      'For photos imported before the CLIP model was installed – without an embedding they show up in neither the AI image search nor the duplicate search.';
-
-  @override
-  String get werkzEmbeddingsFrage =>
-      'Missing only: for photos imported before the CLIP model was installed.\n\nAll photos: recomputes existing ones too. Needed after a change to image preprocessing – since version 1.4 a photo is centre-cropped instead of squashed, and older vectors still come from the squashed image. Until this is done, search and tagging work to two different standards.';
-
-  @override
-  String get werkzKiTagsKarteText =>
-      'Automatically assigns photos fitting tags from a fixed list of terms – \"child\", \"outdoors\", \"birthday\" and so on – using the CLIP model, with no extra download. You can change the tags at any time in a photo\'s info view.';
 
   @override
   String get werkzAbschnittBibliothek => 'Library';
@@ -1536,10 +1395,6 @@ class AppTexteEn extends AppTexte {
   String get werkzXmpSchreibenTitel => 'Write XMP sidecars';
 
   @override
-  String get werkzXmpSchreibenText =>
-      'Puts an .xmp file next to every photo holding its rating, colour label, description, tags and camera data – for Lightroom, darktable or digiKam. Locked photos are skipped. This also happens automatically on export and in unencrypted backups.';
-
-  @override
   String get werkzXmpLesenTitel => 'Read XMP sidecars';
 
   @override
@@ -1573,6 +1428,12 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get aufgWartend => 'Waiting';
+
+  @override
+  String get aufgWenigerGleichzeitig => 'One fewer';
+
+  @override
+  String get aufgMehrGleichzeitig => 'One more';
 
   @override
   String get aufgBetrifft => 'Affects';
@@ -1611,12 +1472,6 @@ class AppTexteEn extends AppTexte {
       'Finds faces and assigns them, as long as the YuNet model is installed.';
 
   @override
-  String get aufgNeueFotos => 'New photos';
-
-  @override
-  String get aufgAlleErneut => 'All again';
-
-  @override
   String get aufgVorschauText =>
       'Creates thumbnails and previews for photos and videos.';
 
@@ -1624,17 +1479,11 @@ class AppTexteEn extends AppTexte {
   String get aufgFehlende => 'Missing';
 
   @override
-  String get aufgAlleNeu => 'All anew';
-
-  @override
   String get aufgOcrTitel => 'Recognise text (OCR)';
 
   @override
   String get aufgOcrText =>
       'Finds visible text in photos, entirely locally through Apple\'s Vision framework.';
-
-  @override
-  String get aufgStarten => 'Start';
 
   @override
   String get aufgBeschreibungenTitel => 'Image captions';
@@ -1658,9 +1507,6 @@ class AppTexteEn extends AppTexte {
       'Automatically assigns photos fitting tags from the vocabulary, using CLIP.';
 
   @override
-  String get aufgUngetaggte => 'Untagged';
-
-  @override
   String get aufgUnschaerfeTitel => 'Blur';
 
   @override
@@ -1671,7 +1517,8 @@ class AppTexteEn extends AppTexte {
   String get aufgOrteTitel => 'Read locations';
 
   @override
-  String get aufgOrteText => 'Reads EXIF GPS data from photos after the fact.';
+  String get aufgOrteText =>
+      'Reads EXIF GPS data from photos after the fact. The number counts photographs without a place; how many carry one in the file only the run itself can tell.';
 
   @override
   String get aufgOrteAufloesenText =>
@@ -1682,14 +1529,14 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get aufgKameraText =>
-      'Reads camera, lens, focal length, aperture, ISO and shutter speed from EXIF.';
+      'Reads camera, lens, focal length, aperture, ISO and shutter speed from EXIF. The number counts photographs without a camera; those with no EXIF at all stay in it.';
 
   @override
   String get aufgLivePhotoTitel => 'Check Live Photo pairs';
 
   @override
   String get aufgLivePhotoText =>
-      'Links HEIC/JPG stills with MOV videos of the same name.';
+      'Links HEIC/JPG stills with MOV videos of the same name. The number counts photographs without a partner; most have none and never will.';
 
   @override
   String get aufgRendernText =>
@@ -3774,6 +3621,10 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get einstBeschrKarte => 'Tile source for the dark map';
+
+  @override
+  String get einstKartenNetzHinweis =>
+      'The map fetches its tiles as you look at it – from OpenStreetMap, OpenTopoMap, Esri and, for terrain, AWS Open Data. Those servers learn which section you are viewing, and with it roughly where your photographs were taken. Without the map nothing of this leaves the machine: country, region and town for a GPS position are looked up in the downloaded place directory.';
 
   @override
   String get einstCartoText =>
@@ -5901,20 +5752,7 @@ class AppTexteEn extends AppTexte {
   String get werkzAlleUebersetzt => 'Every caption has been translated.';
 
   @override
-  String werkzLaeuftSchon(String titel) {
-    return 'Already running as a background task: $titel';
-  }
-
-  @override
   String get aufgLaeuftSchon => 'This analysis is already running.';
-
-  @override
-  String get aufgAndereLaeuft =>
-      'Another analysis is already running. Expensive ones run one after another so that several AI models are never in memory at once.';
-
-  @override
-  String get aufgAnalyseLaeuft =>
-      'The background analysis is working through the same steps right now. You can stop it in the “Catch up on everything” card above.';
 
   @override
   String get infoKiBeschreibungVonHand => 'AI caption, edited by hand';
@@ -5986,10 +5824,6 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get werkzDatumTitel => 'Read capture date from RAW photos';
-
-  @override
-  String get werkzDatumText =>
-      'Reads date, camera and lens straight from RAW files. Needed for formats such as Canon\'s CR3, which yielded nothing on import – those photos carry the file\'s timestamp instead of the capture time.';
 
   @override
   String get werkzDatumFrageTitel => 'Correct the capture date?';
@@ -6493,4 +6327,48 @@ class AppTexteEn extends AppTexte {
   String mitschnittMalGeholt(int anzahl) {
     return '${anzahl}x';
   }
+
+  @override
+  String get aufgTitel => 'Jobs';
+
+  @override
+  String get aufgModusAlle => 'All';
+
+  @override
+  String get aufgErstellen => 'Create job';
+
+  @override
+  String get aufgErstellenText =>
+      'Queue several jobs at once. They run one after another - how many run side by side is set under \"Manage concurrency\".';
+
+  @override
+  String get aufgEinreihen => 'Queue';
+
+  @override
+  String get aufgGleichzeitigTitel => 'Manage concurrency';
+
+  @override
+  String get aufgGleichzeitigText =>
+      'How many compute-heavy jobs may run side by side. Each keeps an AI model in memory and reads the same photographs off the disk again - more is not always faster. Jobs without a model start straight away regardless.';
+
+  @override
+  String get aufgDatumText =>
+      'Reads the capture date back out of RAW files and moves them to the right place on the timeline. Rewrites data and moves files - hence the confirmation.';
+
+  @override
+  String aufgOffeneFotos(int anzahl) {
+    return '$anzahl photographs outstanding';
+  }
+
+  @override
+  String aufgEingereiht(int anzahl) {
+    return '$anzahl jobs queued.';
+  }
+
+  @override
+  String get werkzZuAufgabenText =>
+      'Faces, thumbnails, text recognition, places, keywords and everything else that starts a pass over the library. They live there and nowhere else.';
+
+  @override
+  String get aufgVorschauTitel => 'Generate thumbnails';
 }

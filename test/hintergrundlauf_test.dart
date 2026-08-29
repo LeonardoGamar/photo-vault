@@ -10,10 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/state/hintergrundlauf.dart';
 import 'package:photo_vault/state/library_state.dart';
 
-/// Die Aufgabenübersicht öffnete bisher je Vorgang ein Fortschrittsfenster,
-/// das den Bildschirm sperrte. Diese Tests halten fest, was der Ersatz
-/// können muss: weiterlaufen, sich abbrechen lassen, und dieselbe Arbeit
-/// nicht zweimal gleichzeitig anstossen.
+/// Was die Laufverwaltung können muss: weiterlaufen, sich abbrechen lassen,
+/// dieselbe Arbeit nicht zweimal gleichzeitig anstossen – und seit Fassung
+/// 2.2.4 das, was vorher fehlte: **einreihen statt abweisen**.
 void main() {
   late LibraryState library;
 
@@ -21,27 +20,49 @@ void main() {
 
   /// Ein Nachholvorgang, der sich von aussen steuern lässt – so wie die
   /// echten ein `async*`-Generator sind, der zwischen den Fotos wartet.
-  ({Stream<ImportProgress> Function() strom, void Function(int) schritt, Future<void> Function() schliessen, bool Function() abgeraeumt})
-      steuerbarerLauf(int gesamt) {
+  ({
+    Stream<ImportProgress> Function() strom,
+    void Function(int) schritt,
+    Future<void> Function() schliessen,
+    bool Function() abgeraeumt,
+    bool Function() angefasst,
+  }) steuerbarerLauf(int gesamt) {
     final regler = StreamController<ImportProgress>();
     var abgeraeumt = false;
+    var angefasst = false;
     regler.onCancel = () => abgeraeumt = true;
     return (
-      strom: () => regler.stream,
-      schritt: (n) => regler.add(ImportProgress(n, gesamt, currentFile: 'foto_$n.jpg')),
+      strom: () {
+        angefasst = true;
+        return regler.stream;
+      },
+      schritt: (n) =>
+          regler.add(ImportProgress(n, gesamt, currentFile: 'foto_$n.jpg')),
       schliessen: () => regler.close(),
       abgeraeumt: () => abgeraeumt,
+      angefasst: () => angefasst,
     );
   }
 
-  test('ein Lauf meldet seinen Fortschritt und bleibt nach dem Ende stehen', () async {
+  /// Der Abschluss eines Laufs – seit dem Einreihen gibt die Startfunktion
+  /// selbst kein `Future` mehr zurück, und das ist der Punkt: Einreihen und
+  /// Fertigwerden sind zwei verschiedene Zeitpunkte.
+  Future<void> abschluss(String schluessel) =>
+      library.lauf(schluessel)!.abschluss;
+
+  test('ein Lauf meldet seinen Fortschritt und bleibt nach dem Ende stehen',
+      () async {
     final quelle = steuerbarerLauf(3);
-    final fertig = library.starteAufgabe(
-        schluessel: 'ocr', titel: 'Erkenne Text …', leermeldung: 'nichts zu tun', strom: quelle.strom);
+    library.reiheAufgabeEin(
+        schluessel: 'ocr',
+        titel: 'Erkenne Text …',
+        leermeldung: 'nichts zu tun',
+        strom: quelle.strom);
     await pumpEventQueue();
 
     expect(library.lauf('ocr')!.titel, 'Erkenne Text …');
     expect(library.lauf('ocr')!.laeuft, isTrue);
+    expect(library.lauf('ocr')!.wartet, isFalse);
     expect(library.etwasLaeuft, isTrue);
 
     quelle.schritt(2);
@@ -51,8 +72,10 @@ void main() {
     expect(library.lauf('ocr')!.datei, 'foto_2.jpg');
     expect(library.lauf('ocr')!.anteil, closeTo(2 / 3, 1e-9));
 
+    final fertig = abschluss('ocr');
     await quelle.schliessen();
     await fertig;
+    await pumpEventQueue();
 
     // Der Eintrag verschwindet NICHT von selbst: Sonst wäre nach einem Lauf
     // über Stunden nirgends zu sehen, dass er überhaupt fertig wurde.
@@ -66,12 +89,16 @@ void main() {
 
   test('Abbrechen kündigt das Abonnement – der Generator räumt auf', () async {
     final quelle = steuerbarerLauf(100);
-    final fertig = library.starteAufgabe(
-        schluessel: 'beschreibungen', titel: 'Erzeuge …', leermeldung: 'nichts zu tun', strom: quelle.strom);
+    library.reiheAufgabeEin(
+        schluessel: 'beschreibungen',
+        titel: 'Erzeuge …',
+        leermeldung: 'nichts zu tun',
+        strom: quelle.strom);
     await pumpEventQueue();
     quelle.schritt(7);
     await pumpEventQueue();
 
+    final fertig = abschluss('beschreibungen');
     library.brichAufgabeAb('beschreibungen');
     await fertig;
     await pumpEventQueue();
@@ -88,29 +115,33 @@ void main() {
 
   test('dieselbe Aufgabe startet nicht zweimal gleichzeitig', () async {
     final erste = steuerbarerLauf(10);
-    var zweiteAngefasst = false;
-    final fertig = library.starteAufgabe(
-        schluessel: 'kitags', titel: 'erster Lauf', leermeldung: 'nichts zu tun', strom: erste.strom);
+    final zweite = steuerbarerLauf(10);
+    library.reiheAufgabeEin(
+        schluessel: 'kitags',
+        titel: 'erster Lauf',
+        leermeldung: 'nichts zu tun',
+        strom: erste.strom);
     await pumpEventQueue();
 
-    await library.starteAufgabe(
-      schluessel: 'kitags',
-      titel: 'zweiter Lauf',
-      leermeldung: 'nichts zu tun',
-      strom: () {
-        zweiteAngefasst = true;
-        return const Stream<ImportProgress>.empty();
-      },
+    expect(
+      library.reiheAufgabeEin(
+          schluessel: 'kitags',
+          titel: 'zweiter Lauf',
+          leermeldung: 'nichts zu tun',
+          strom: zweite.strom),
+      Startabweisung.laeuftBereits,
     );
-
-    expect(zweiteAngefasst, isFalse, reason: 'der Strom darf gar nicht erst entstehen');
+    expect(zweite.angefasst(), isFalse,
+        reason: 'der Strom darf gar nicht erst entstehen');
     expect(library.lauf('kitags')!.titel, 'erster Lauf');
 
+    final fertig = abschluss('kitags');
     await erste.schliessen();
     await fertig;
+    await pumpEventQueue();
 
     // Nach dem Ende ist der Platz wieder frei.
-    await library.starteAufgabe(
+    library.reiheAufgabeEin(
         schluessel: 'kitags',
         titel: 'dritter Lauf',
         leermeldung: 'nichts zu tun',
@@ -118,43 +149,56 @@ void main() {
     expect(library.lauf('kitags')!.titel, 'dritter Lauf');
   });
 
-  test('ein Fehler im Strom beendet den Lauf, statt ihn hängen zu lassen', () async {
-    await library.starteAufgabe(
+  test('ein Fehler im Strom beendet den Lauf, statt ihn hängen zu lassen',
+      () async {
+    library.reiheAufgabeEin(
       schluessel: 'xmp',
       titel: 'Schreibe …',
       leermeldung: 'nichts zu tun',
       strom: () => Stream<ImportProgress>.error(StateError('Modell fehlt')),
     );
+    await abschluss('xmp');
+    await pumpEventQueue();
 
     expect(library.lauf('xmp')!.beendet, isTrue);
     expect(library.lauf('xmp')!.fehler, isA<StateError>());
     expect(library.etwasLaeuft, isFalse);
   });
 
-  test('ein beendeter Lauf lässt sich wegräumen, ein laufender nicht', () async {
+  test('ein beendeter Lauf lässt sich wegräumen, ein laufender nicht',
+      () async {
     final quelle = steuerbarerLauf(5);
-    final fertig = library.starteAufgabe(
-        schluessel: 'orte', titel: 'Lese Orte …', leermeldung: 'nichts zu tun', strom: quelle.strom);
+    library.reiheAufgabeEin(
+        schluessel: 'orte',
+        titel: 'Lese Orte …',
+        leermeldung: 'nichts zu tun',
+        strom: quelle.strom);
     await pumpEventQueue();
 
     library.verwerfeLauf('orte');
-    expect(library.lauf('orte'), isNotNull, reason: 'ein laufender Vorgang bleibt sichtbar');
+    expect(library.lauf('orte'), isNotNull,
+        reason: 'ein laufender Vorgang bleibt sichtbar');
 
+    final fertig = abschluss('orte');
     await quelle.schliessen();
     await fertig;
+    await pumpEventQueue();
     library.verwerfeLauf('orte');
     expect(library.lauf('orte'), isNull);
   });
 
-  group('teure Auswertungen laufen einzeln', () {
-    // Seit die Aufgaben kein Fenster mehr sperren, genügten vier Klicks, um
-    // Gesichter, Bildbeschreibung, Einbettung und Übersetzung gleichzeitig
-    // anzustossen – vier KI-Modelle im Speicher und dieselben Fotos vierfach
-    // dekodiert. Das war eine Nebenwirkung des Umbaus, nicht Absicht.
+  group('teure Auswertungen warten aufeinander', () {
+    // Der Anlass gilt weiter: Vier Klicks genügten, um Gesichter,
+    // Bildbeschreibung, Einbettung und Übersetzung gleichzeitig
+    // anzustossen – vier KI-Modelle im Speicher und dieselben Fotos
+    // vierfach dekodiert. Die frühere Antwort darauf war, die zweite
+    // abzuweisen; jetzt wird sie eingereiht.
 
-    test('eine zweite teure Aufgabe wird abgewiesen, eine billige nicht', () async {
+    test('eine zweite teure Aufgabe wartet, eine billige läuft sofort',
+        () async {
       final erste = steuerbarerLauf(100);
-      final fertig = library.starteAufgabe(
+      final zweite = steuerbarerLauf(100);
+      library.reiheAufgabeEin(
         schluessel: 'beschreibungen',
         titel: 'Erzeuge …',
         leermeldung: 'nichts zu tun',
@@ -164,40 +208,127 @@ void main() {
       await pumpEventQueue();
 
       expect(
-        await library.starteAufgabe(
+        library.reiheAufgabeEin(
           schluessel: 'embeddings',
           titel: 'Berechne …',
           leermeldung: 'nichts zu tun',
-          strom: () => const Stream<ImportProgress>.empty(),
+          strom: zweite.strom,
           rechenintensiv: true,
         ),
-        Startabweisung.andereAufgabe,
+        isNull,
+        reason: 'nicht mehr abgewiesen – eingereiht',
       );
-      expect(library.lauf('embeddings'), isNull);
+      await pumpEventQueue();
+      expect(library.lauf('embeddings')!.wartet, isTrue);
+      expect(library.lauf('embeddings')!.laeuft, isFalse);
+      expect(zweite.angefasst(), isFalse,
+          reason: 'ein wartender Lauf fasst seinen Strom nicht an und '
+              'hält damit auch kein Modell im Speicher');
+      expect(library.wartendeAufgaben, hasLength(1));
 
       // Orte einlesen, XMP schreiben und Ähnliches kosten nichts, was sich
       // in die Quere käme – die dürfen nebenher laufen.
-      expect(
-        await library.starteAufgabe(
-          schluessel: 'orte',
-          titel: 'Lese Orte …',
-          leermeldung: 'nichts zu tun',
-          strom: () => const Stream<ImportProgress>.empty(),
-        ),
-        isNull,
+      library.reiheAufgabeEin(
+        schluessel: 'orte',
+        titel: 'Lese Orte …',
+        leermeldung: 'nichts zu tun',
+        strom: () => const Stream<ImportProgress>.empty(),
       );
-      expect(library.lauf('orte'), isNotNull);
+      await pumpEventQueue();
+      expect(library.lauf('orte')!.wartet, isFalse);
 
+      // Sobald die erste durch ist, rückt die wartende nach – von selbst.
+      final fertig = abschluss('beschreibungen');
       await erste.schliessen();
       await fertig;
+      await pumpEventQueue();
 
-      // Danach ist der Platz wieder frei.
-      expect(library.pruefeStart('embeddings', rechenintensiv: true), isNull);
+      expect(library.lauf('embeddings')!.laeuft, isTrue);
+      expect(zweite.angefasst(), isTrue);
+      await zweite.schliessen();
+    });
+
+    test('mit erhöhter Obergrenze laufen zwei nebeneinander', () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      library.db = db;
+
+      final erste = steuerbarerLauf(100);
+      final zweite = steuerbarerLauf(100);
+      library.reiheAufgabeEin(
+          schluessel: 'beschreibungen',
+          titel: 'a',
+          leermeldung: '-',
+          strom: erste.strom,
+          rechenintensiv: true);
+      library.reiheAufgabeEin(
+          schluessel: 'embeddings',
+          titel: 'b',
+          leermeldung: '-',
+          strom: zweite.strom,
+          rechenintensiv: true);
+      await pumpEventQueue();
+      expect(library.lauf('embeddings')!.wartet, isTrue);
+
+      // Das Heraufsetzen lässt sofort nachrücken – niemand soll erst noch
+      // einmal auf „Starten" drücken müssen.
+      await library.setzeMaxGleichzeitig(2);
+      await pumpEventQueue();
+
+      expect(library.maxGleichzeitig, 2);
+      expect(library.lauf('embeddings')!.laeuft, isTrue);
+      expect(library.laufendeSchwerarbeit, hasLength(2));
+      expect(await db.maxGleichzeitigeAufgaben(), 2,
+          reason: 'die Wahl überlebt den Programmstart');
+
+      await erste.schliessen();
+      await zweite.schliessen();
+      await pumpEventQueue();
+    });
+
+    test('eine Null als Obergrenze wird zu eins – sonst liefe nie etwas',
+        () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      library.db = db;
+      await library.setzeMaxGleichzeitig(0);
+      expect(library.maxGleichzeitig, 1);
+    });
+
+    test('ein wartender Lauf lässt sich streichen, ohne den laufenden zu '
+        'stören', () async {
+      final erste = steuerbarerLauf(100);
+      final zweite = steuerbarerLauf(100);
+      library.reiheAufgabeEin(
+          schluessel: 'beschreibungen',
+          titel: 'a',
+          leermeldung: '-',
+          strom: erste.strom,
+          rechenintensiv: true);
+      library.reiheAufgabeEin(
+          schluessel: 'embeddings',
+          titel: 'b',
+          leermeldung: '-',
+          strom: zweite.strom,
+          rechenintensiv: true);
+      await pumpEventQueue();
+
+      library.brichAufgabeAb('embeddings');
+      await pumpEventQueue();
+
+      // Ganz weg, nicht als beendeter Eintrag: Es gab nichts zu sehen, also
+      // gibt es auch kein Ergebnis zu zeigen.
+      expect(library.lauf('embeddings'), isNull);
+      expect(zweite.angefasst(), isFalse);
+      expect(library.lauf('beschreibungen')!.laeuft, isTrue);
+
+      await erste.schliessen();
+      await pumpEventQueue();
     });
 
     test('eine angefragte Analyse wird nachgeholt statt verworfen', () async {
       final quelle = steuerbarerLauf(50);
-      final fertig = library.starteAufgabe(
+      library.reiheAufgabeEin(
         schluessel: 'kitags',
         titel: 'Berechne KI-Tags …',
         leermeldung: 'nichts zu tun',
@@ -213,10 +344,7 @@ void main() {
           reason: 'verworfen wäre schlimmer – frisch importierte Fotos '
               'blieben bis zum nächsten Programmstart ohne Auswertung');
 
-      // Ein zweiter Anlauf schadet nicht.
-      expect(library.pruefeStart('embeddings', rechenintensiv: true),
-          Startabweisung.andereAufgabe);
-
+      final fertig = abschluss('kitags');
       await quelle.schliessen();
       await fertig;
       await pumpEventQueue();
@@ -226,9 +354,10 @@ void main() {
       expect(library.analyseZurueckgestellt, isFalse);
     });
 
-    test('während die Analyse läuft, startet keine teure Aufgabe', () async {
+    test('während die Analyse läuft, wartet eine teure Aufgabe – und läuft '
+        'danach von selbst los', () async {
       // Die Analyse braucht Arbeit, sonst ist sie durch, bevor man
-      // hinsehen kann: eine echte (leere) Datenbank mit einem Foto, dem die
+      // hinsehen kann: eine echte (leere) Datenbank mit Fotos, denen die
       // Texterkennung noch fehlt.
       final db = AppDatabase(NativeDatabase.memory());
       addTearDown(db.close);
@@ -236,7 +365,8 @@ void main() {
       addTearDown(() => tempRoot.deleteSync(recursive: true));
       library
         ..db = db
-        ..paths = await StoragePaths.forTesting(Directory(p.join(tempRoot.path, 'lib')));
+        ..paths =
+            await StoragePaths.forTesting(Directory(p.join(tempRoot.path, 'lib')));
 
       for (var i = 0; i < 40; i++) {
         await db.into(db.assets).insert(AssetsCompanion.insert(
@@ -261,16 +391,34 @@ void main() {
       }
       expect(gesehen, isTrue, reason: 'die Analyse kam gar nicht erst in Gang');
 
-      expect(
-        library.pruefeStart('beschreibungen', rechenintensiv: true),
-        Startabweisung.analyseLaeuft,
-      );
-      // Billige Aufgaben bleiben auch daneben erlaubt.
-      expect(library.pruefeStart('xmp', rechenintensiv: false), isNull);
+      final teuer = steuerbarerLauf(10);
+      library.reiheAufgabeEin(
+          schluessel: 'beschreibungen',
+          titel: 'Erzeuge …',
+          leermeldung: '-',
+          strom: teuer.strom,
+          rechenintensiv: true);
+      await pumpEventQueue();
+      expect(library.lauf('beschreibungen')!.wartet, isTrue);
+      expect(teuer.angefasst(), isFalse);
+
+      // Billige Aufgaben laufen auch daneben sofort.
+      library.reiheAufgabeEin(
+          schluessel: 'xmp',
+          titel: 'Schreibe …',
+          leermeldung: '-',
+          strom: () => const Stream<ImportProgress>.empty());
+      await pumpEventQueue();
+      expect(library.lauf('xmp')!.wartet, isFalse);
 
       library.brichHintergrundanalyseAb();
       await analyse;
-      expect(library.pruefeStart('beschreibungen', rechenintensiv: true), isNull);
+      await pumpEventQueue();
+
+      expect(library.lauf('beschreibungen')!.laeuft, isTrue,
+          reason: 'nach dem Ende der Analyse rückt die wartende nach');
+      await teuer.schliessen();
+      await pumpEventQueue();
     });
   });
 }

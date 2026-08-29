@@ -12,6 +12,7 @@ import 'import_progress_sheet.dart';
 import 'map_screen.dart';
 import 'people_screen.dart';
 import '../services/restore_queue_service.dart';
+import '../services/tresor_waechter.dart';
 import 'restore_queue_screen.dart';
 import 'reisen_screen.dart';
 import 'search_screen.dart';
@@ -229,6 +230,14 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
+  /// Sperrt den Tresor, sobald das Fenster aus dem Blick gerät.
+  ///
+  /// Hier und nicht in `main.dart`: Dort gibt es die [LibraryState] noch
+  /// nicht als Feld, sondern erst im Aufbau. Hier liegt sie am Widget, und
+  /// dieser Bildschirm ist die ganze Sitzung über da.
+  late final Tresorwaechter _tresor =
+      Tresorwaechter(widget.library.sperreTresor)..horche();
+
   /// Zähler, den das Zeitleisten-Symbol hochzählt. Die Zeitleiste springt
   /// bei jeder Änderung zu den neuesten Fotos.
   ///
@@ -372,6 +381,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    _tresor.schweige();
     _zeitleisteNachOben.dispose();
     super.dispose();
   }

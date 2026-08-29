@@ -1206,55 +1206,16 @@ class AppTexteDe extends AppTexte {
   String get werkzKeineUnbewerteten => 'Keine unbewerteten Fotos gefunden.';
 
   @override
-  String get werkzYunetNoetig =>
-      'Dafür wird zuerst das YuNet-Modell benötigt (Einstellungen → KI-Modelle).';
-
-  @override
-  String get werkzClipNoetig =>
-      'Dafür wird zuerst das CLIP-Modell benötigt (Einstellungen → KI-Modelle).';
-
-  @override
-  String get werkzBeschreibungsmodellNoetig =>
-      'Dafür wird zuerst das Bildbeschreibungs-Modell benötigt (Einstellungen → KI-Modelle).';
-
-  @override
-  String get werkzGeoNoetig =>
-      'Dafür wird zuerst der GeoNames-Datensatz benötigt (Einstellungen → Standortdaten).';
-
-  @override
   String get werkzKeinePassenden => 'Keine passenden Fotos gefunden.';
 
   @override
   String get werkzGesichterScannenTitel => 'Gesichter scannen';
 
   @override
-  String get werkzGesichterScannenFrage =>
-      'Nur neue Fotos scannen: schnell, überspringt bereits gescannte Fotos.\n\nAlle Fotos erneut scannen: prüft die komplette Bibliothek neu (z.B. sinnvoll nach einem Update der Gesichtserkennung, oder um die Geschlossene-Augen-Erkennung nachträglich für bereits gescannte Fotos zu berechnen) – dauert bei großen Bibliotheken entsprechend länger. Bereits manuell zugeordnete Gesichter bleiben dabei erhalten.';
-
-  @override
-  String get werkzNurNeueFotos => 'Nur neue Fotos';
-
-  @override
-  String get werkzAlleErneutScannen => 'Alle erneut scannen';
-
-  @override
   String get werkzScanneNeue => 'Scanne neue Fotos …';
 
   @override
   String get werkzScanneAlle => 'Scanne alle Fotos erneut …';
-
-  @override
-  String get werkzVorschauNeuTitel => 'Vorschaubilder neu erstellen';
-
-  @override
-  String get werkzVorschauNeuFrage =>
-      'Nur fehlende: verarbeitet nur Fotos/Videos, die aktuell kein Thumbnail haben (z.B. HEIC-Fotos, die vor Einrichtung der nativen Bildkonvertierung importiert wurden, oder Videos, die vor Einführung der Video-Thumbnail-Erzeugung importiert wurden).\n\nAlle neu erstellen: erzeugt für die komplette Bibliothek neue Thumbnails/Vorschauen – sinnvoll z.B. nach einem Update der Bild- oder Videokonvertierung. Dauert bei großen Bibliotheken entsprechend länger.';
-
-  @override
-  String get werkzNurFehlende => 'Nur fehlende';
-
-  @override
-  String get werkzAlleNeuErstellen => 'Alle neu erstellen';
 
   @override
   String get werkzErstelleFehlende => 'Erstelle fehlende Vorschaubilder …';
@@ -1280,19 +1241,6 @@ class AppTexteDe extends AppTexte {
   @override
   String get werkzAlleHabenEmbedding =>
       'Alle Fotos haben bereits ein Embedding.';
-
-  @override
-  String get werkzKiTagsTitel => 'KI-Tags berechnen';
-
-  @override
-  String get werkzKiTagsFrage =>
-      'Nur ungetaggte Fotos: schnell, überspringt Fotos, die schon mindestens einen Tag haben (manuell oder automatisch).\n\nAlle Fotos: prüft die komplette Bibliothek neu und ergänzt zusätzlich passende KI-Tags bei bereits getaggten Fotos – vorhandene Tags bleiben dabei erhalten.';
-
-  @override
-  String get werkzNurUngetaggte => 'Nur ungetaggte';
-
-  @override
-  String get werkzAlleFotos => 'Alle Fotos';
 
   @override
   String get werkzBerechneKiTags => 'Berechne KI-Tags …';
@@ -1360,10 +1308,6 @@ class AppTexteDe extends AppTexte {
   String get werkzAbschnittGesichtserkennung => 'Gesichtserkennung';
 
   @override
-  String get werkzGesichterScannenUntertitel =>
-      'Manuell auslösen – neue oder alle Fotos';
-
-  @override
   String get werkzSchwelleLabel =>
       'Ähnlichkeitsschwelle für\n\"Ähnliche mit auswählen\"';
 
@@ -1395,55 +1339,16 @@ class AppTexteDe extends AppTexte {
   }
 
   @override
-  String get werkzVorschauNeuUntertitel =>
-      'Für alle Fotos oder nur für noch fehlende';
-
-  @override
-  String get werkzAbschnittEntwicklung => 'Entwicklung';
-
-  @override
   String get werkzNeuRendernTitel => 'Entwickelte Fotos neu rendern';
-
-  @override
-  String get werkzNeuRendernText =>
-      'Rendert alle Fotos mit gespeicherten Entwicklungs-Anpassungen (Belichtung, Weißabgleich & Co.) mit unveränderten Einstellungen neu – z.B. sinnvoll nach einem Update der nativen Bildverarbeitung.';
-
-  @override
-  String get werkzAbschnittLivePhotos => 'Live Photos';
-
-  @override
-  String get werkzLivePhotoTitel => 'Live-Photo-Paare erneut prüfen';
-
-  @override
-  String get werkzLivePhotoText =>
-      'Für Fotos/Videos, die vor dieser Funktion importiert wurden – verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos.';
 
   @override
   String get werkzAbschnittOrte => 'Orte';
 
   @override
-  String get werkzOrteEinlesenTitel => 'Orte aus Fotos einlesen';
-
-  @override
-  String get werkzOrteEinlesenText =>
-      'Für Fotos, die vor Einführung der Kartenansicht importiert wurden – liest EXIF-GPS-Daten nachträglich ein.';
-
-  @override
   String get werkzOrteAufloesenTitel => 'Land/Bundesland/Stadt auflösen';
 
   @override
-  String get werkzOrteAufloesenText =>
-      'Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu – komplett lokal/offline über den GeoNames-Datensatz (siehe Einstellungen → Standortdaten). Für die Land-/Bundesland-/Stadt-Filter in den Suchoptionen nötig.';
-
-  @override
   String get werkzAbschnittKamera => 'Kamera';
-
-  @override
-  String get werkzKameradatenTitel => 'Kameradaten aus Fotos einlesen';
-
-  @override
-  String get werkzKameradatenText =>
-      'Für Fotos, die vor Einführung der Kamera-Anzeige importiert wurden – liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus den EXIF-Daten nachträglich ein.';
 
   @override
   String get werkzPresetsTitel => 'Kamera-Presets verwalten';
@@ -1460,57 +1365,11 @@ class AppTexteDe extends AppTexte {
       'Fotos automatisch anhand von Ort, KI-Tag oder Aufnahmedatum einem Album/Tag zuordnen oder favorisieren – wie Kamera-Presets, nur für andere Bedingungen.';
 
   @override
-  String get werkzAbschnittQualitaet => 'Fotoqualität';
-
-  @override
-  String get werkzOcrTitel => 'Text in Fotos erkennen';
-
-  @override
-  String get werkzOcrText =>
-      'Für Fotos, die vor Einführung der Textsuche importiert wurden – erkennt sichtbaren Text (z.B. Schilder, Dokumente) nachträglich, rein lokal über Apples Vision-Framework.';
-
-  @override
-  String get werkzBeschreibungenTitel => 'Bildbeschreibungen erzeugen';
-
-  @override
-  String get werkzBeschreibungenText =>
-      'Für Fotos, die vor Installation des Bildbeschreibungs-Modells importiert wurden – erzeugt eine kurze, englische Bildunterschrift pro Foto, rein lokal.';
-
-  @override
-  String get werkzUnschaerfeTitel => 'Unschärfe neu berechnen';
-
-  @override
-  String get werkzUnschaerfeText =>
-      'Für Fotos, die vor Einführung der Unschärfe-Erkennung importiert wurden – ermöglicht den Suchfilter \"Nur unscharfe Fotos anzeigen\".';
-
-  @override
-  String get werkzAbschnittBildsuche => 'KI-Bildsuche';
-
-  @override
   String get werkzAllesNachholenTitel => 'Alle Auswertungen jetzt nachholen';
 
   @override
   String get werkzAllesNachholenText =>
       'Startet alle rechenintensiven Schritte nacheinander im Hintergrund: Unschärfe, Gesichter, Texterkennung, Bildsuche, Schlagwörter und Bildbeschreibung. Jeder Schritt überspringt, was er schon hat – die App bleibt bedienbar.';
-
-  @override
-  String get werkzAnalyseGestartet =>
-      'Auswertung läuft im Hintergrund – Fortschritt oben in der Leiste.';
-
-  @override
-  String get werkzEmbeddingsTitel => 'CLIP-Embeddings berechnen';
-
-  @override
-  String get werkzEmbeddingsText =>
-      'Für Fotos, die vor Installation des CLIP-Modells importiert wurden – ohne Embedding tauchen sie in der KI-Bildsuche und der Duplikatsuche nicht auf.';
-
-  @override
-  String get werkzEmbeddingsFrage =>
-      'Nur fehlende: für Fotos, die vor Installation des CLIP-Modells importiert wurden.\n\nAlle Fotos: rechnet auch vorhandene neu. Nötig nach einer Änderung der Bildvorverarbeitung – seit Version 1.4 wird ein Foto mittig zugeschnitten statt gestaucht, und alte Vektoren stammen noch aus dem gestauchten Bild. Bis das nachgeholt ist, arbeiten Bildsuche und Schlagwörter mit zweierlei Mass.';
-
-  @override
-  String get werkzKiTagsKarteText =>
-      'Ordnet Fotos automatisch passende Tags aus einer festen Begriffsliste zu (z.B. \"Kind\", \"Draußen\", \"Geburtstag\") – auf Basis des CLIP-Modells, ohne zusätzlichen Download. Tags lassen sich in der Info-Ansicht eines Fotos jederzeit anpassen.';
 
   @override
   String get werkzAbschnittBibliothek => 'Bibliothek';
@@ -1549,10 +1408,6 @@ class AppTexteDe extends AppTexte {
   String get werkzXmpSchreibenTitel => 'XMP-Sidecars schreiben';
 
   @override
-  String get werkzXmpSchreibenText =>
-      'Legt für jedes Foto eine .xmp-Datei mit Bewertung, Farbmarkierung, Beschreibung, Tags und Kamera-Daten daneben ab – für Lightroom, darktable oder digiKam. Gesperrte Fotos werden übersprungen. Passiert automatisch auch beim Exportieren und bei unverschlüsselten Backups.';
-
-  @override
   String get werkzXmpLesenTitel => 'XMP-Sidecars einlesen';
 
   @override
@@ -1586,6 +1441,12 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgWartend => 'Wartend';
+
+  @override
+  String get aufgWenigerGleichzeitig => 'Eine weniger';
+
+  @override
+  String get aufgMehrGleichzeitig => 'Eine mehr';
 
   @override
   String get aufgBetrifft => 'Betrifft';
@@ -1624,12 +1485,6 @@ class AppTexteDe extends AppTexte {
       'Erkennt und ordnet Gesichter zu, sofern das YuNet-Modell installiert ist.';
 
   @override
-  String get aufgNeueFotos => 'Neue Fotos';
-
-  @override
-  String get aufgAlleErneut => 'Alle erneut';
-
-  @override
   String get aufgVorschauText =>
       'Erzeugt Thumbnails/Vorschauen für Fotos und Videos.';
 
@@ -1637,17 +1492,11 @@ class AppTexteDe extends AppTexte {
   String get aufgFehlende => 'Fehlende';
 
   @override
-  String get aufgAlleNeu => 'Alle neu';
-
-  @override
   String get aufgOcrTitel => 'Text erkennen (OCR)';
 
   @override
   String get aufgOcrText =>
       'Erkennt sichtbaren Text in Fotos, rein lokal über Apples Vision-Framework.';
-
-  @override
-  String get aufgStarten => 'Starten';
 
   @override
   String get aufgBeschreibungenTitel => 'Bildbeschreibungen';
@@ -1671,9 +1520,6 @@ class AppTexteDe extends AppTexte {
       'Ordnet Fotos automatisch passende Tags aus dem Vokabular zu (auf CLIP-Basis).';
 
   @override
-  String get aufgUngetaggte => 'Ungetaggte';
-
-  @override
   String get aufgUnschaerfeTitel => 'Unschärfe';
 
   @override
@@ -1684,7 +1530,8 @@ class AppTexteDe extends AppTexte {
   String get aufgOrteTitel => 'Orte einlesen';
 
   @override
-  String get aufgOrteText => 'Liest EXIF-GPS-Daten aus Fotos nachträglich ein.';
+  String get aufgOrteText =>
+      'Liest EXIF-GPS-Daten aus Fotos nachträglich ein. Die Zahl ist die der Fotos ohne Ort – wie viele davon einen in der Datei tragen, weiss erst der Durchgang.';
 
   @override
   String get aufgOrteAufloesenText =>
@@ -1695,14 +1542,14 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgKameraText =>
-      'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein.';
+      'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein. Die Zahl ist die der Fotos ohne Kameraangabe; Aufnahmen ganz ohne EXIF bleiben darunter.';
 
   @override
   String get aufgLivePhotoTitel => 'Live-Photo-Paare prüfen';
 
   @override
   String get aufgLivePhotoText =>
-      'Verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos.';
+      'Verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos. Die Zahl ist die der Fotos ohne Partner – die allermeisten haben keinen und bekommen auch keinen.';
 
   @override
   String get aufgRendernText =>
@@ -3800,6 +3647,10 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get einstBeschrKarte => 'Kachelquelle der dunklen Karte';
+
+  @override
+  String get einstKartenNetzHinweis =>
+      'Die Karte holt ihre Kacheln beim Anzeigen von OpenStreetMap, OpenTopoMap, Esri und – beim Gelände – von AWS Open Data. Deren Server erfahren dabei, welchen Ausschnitt du ansiehst, und damit ungefähr, wo deine Fotos entstanden sind. Ohne Karte verlässt nichts davon den Rechner: Land, Region und Stadt zu einem GPS-Ort schlägt die App im heruntergeladenen Ortsverzeichnis nach.';
 
   @override
   String get einstCartoText =>
@@ -5930,20 +5781,7 @@ class AppTexteDe extends AppTexte {
   String get werkzAlleUebersetzt => 'Alle Beschreibungen sind übersetzt.';
 
   @override
-  String werkzLaeuftSchon(String titel) {
-    return 'Läuft bereits als Hintergrundaufgabe: $titel';
-  }
-
-  @override
   String get aufgLaeuftSchon => 'Diese Auswertung läuft bereits.';
-
-  @override
-  String get aufgAndereLaeuft =>
-      'Es läuft bereits eine andere Auswertung. Teure Auswertungen laufen nacheinander, damit nicht mehrere KI-Modelle gleichzeitig im Speicher liegen.';
-
-  @override
-  String get aufgAnalyseLaeuft =>
-      'Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.';
 
   @override
   String get infoKiBeschreibungVonHand => 'KI-Beschreibung, von Hand geändert';
@@ -6015,10 +5853,6 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get werkzDatumTitel => 'Aufnahmedatum aus RAW-Fotos nachtragen';
-
-  @override
-  String get werkzDatumText =>
-      'Liest Datum, Kamera und Objektiv direkt aus RAW-Dateien. Nötig für Formate wie Canons CR3, aus denen beim Import nichts gelesen werden konnte – deren Fotos tragen das Datum der Datei statt der Aufnahme.';
 
   @override
   String get werkzDatumFrageTitel => 'Aufnahmedatum richtigstellen?';
@@ -6524,4 +6358,48 @@ class AppTexteDe extends AppTexte {
   String mitschnittMalGeholt(int anzahl) {
     return '${anzahl}x';
   }
+
+  @override
+  String get aufgTitel => 'Aufgaben';
+
+  @override
+  String get aufgModusAlle => 'Alle';
+
+  @override
+  String get aufgErstellen => 'Aufgabe erstellen';
+
+  @override
+  String get aufgErstellenText =>
+      'Mehrere Aufgaben auf einmal einreihen. Sie laufen der Reihe nach ab – wie viele nebeneinander, steht unter „Gleichzeitige Ausführungen verwalten\".';
+
+  @override
+  String get aufgEinreihen => 'Einreihen';
+
+  @override
+  String get aufgGleichzeitigTitel => 'Gleichzeitige Ausführungen verwalten';
+
+  @override
+  String get aufgGleichzeitigText =>
+      'Wie viele rechenintensive Aufgaben nebeneinander laufen dürfen. Jede hält ein KI-Modell im Speicher und liest dieselben Fotos noch einmal von der Platte – mehr ist nicht immer schneller. Aufgaben ohne Modell laufen ohnehin sofort.';
+
+  @override
+  String get aufgDatumText =>
+      'Liest bei RAW-Aufnahmen das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.';
+
+  @override
+  String aufgOffeneFotos(int anzahl) {
+    return '$anzahl Fotos offen';
+  }
+
+  @override
+  String aufgEingereiht(int anzahl) {
+    return '$anzahl Aufgaben eingereiht.';
+  }
+
+  @override
+  String get werkzZuAufgabenText =>
+      'Gesichter, Vorschaubilder, Texterkennung, Orte, Schlagwörter und alles Weitere, was einen Durchgang über die Bibliothek startet. Sie stehen dort und nur dort.';
+
+  @override
+  String get aufgVorschauTitel => 'Vorschaubilder erzeugen';
 }

@@ -3,14 +3,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
-import '../state/hintergrundlauf.dart';
 import '../services/native_image_converter.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
-import '../widgets/progress_dialog.dart';
 import 'asset_viewer_screen.dart';
 import 'automation_rules_screen.dart';
+import 'background_tasks_screen.dart';
 import 'camera_presets_screen.dart';
 import 'export_presets_screen.dart';
 import 'duplicates_screen.dart';
@@ -41,45 +40,6 @@ class _ToolsScreenState extends State<ToolsScreen> {
   late final Future<({bool bereit, List<String> fehlende})>
       _bildwerkzeugstandFuture = NativeImageConverter.bildwerkzeugstand();
 
-  /// Zeigt einen Fortschrittsdialog über einem Nachholvorgang.
-  ///
-  /// Titel und Leermeldung werden VOR dem Dialog aufgelöst: Der Mapper unten
-  /// läuft bei jedem Fortschritts-Ereignis, also lange nach dem Aufbau des
-  /// Dialogs, und dürfte den BuildContext bis dahin nicht festhalten.
-  ///
-  /// [schluessel] ist die Kennung derselben Arbeit in den
-  /// Hintergrundaufgaben. Seit die dort wirklich weiterlaufen, während man
-  /// durch die App geht, liesse sich dieselbe Auswertung sonst ein zweites
-  /// Mal anstossen – zwei Läufe über dieselben Fotos, jeder mit einer
-  /// eigenen Modellsitzung im Speicher.
-  Future<void> _zeigeFortschritt({
-    required String titel,
-    required String wennLeer,
-    required String schluessel,
-    bool rechenintensiv = false,
-    required Stream<dynamic> lauf,
-  }) {
-    final abweisung =
-        widget.library.pruefeStart(schluessel, rechenintensiv: rechenintensiv);
-    if (abweisung != null) {
-      final offen = widget.library.lauf(schluessel);
-      melde.warnung(abweisung == Startabweisung.laeuftBereits && offen != null
-          ? AppTexte.of(context).werkzLaeuftSchon(offen.titel)
-          : abweisungstext(AppTexte.of(context), abweisung));
-      return Future<void>.value();
-    }
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => ProgressDialog(
-        title: titel,
-        stream: lauf.map((p) => p.total == 0
-            ? wennLeer
-            : '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}'),
-      ),
-    );
-  }
-
   /// Lädt alle noch unbewerteten Fotos/Videos und öffnet sie im Vollbild-
   /// Sichtungs-Modus (Culling). Zweiter Einstiegspunkt neben dem "Jetzt
   /// sichten"-Vorschlag direkt nach dem Import (siehe ImportProgressSheet).
@@ -103,282 +63,6 @@ class _ToolsScreenState extends State<ToolsScreen> {
     ));
   }
 
-  Future<void> _runFaceRescan() async {
-    if (!widget.library.faceDetectionAvailable) {
-      melde.warnung(AppTexte.of(context).werkzYunetNoetig);
-      return;
-    }
-
-    final onlyNew = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppTexte.of(context).werkzGesichterScannenTitel),
-        content: Text(AppTexte.of(context).werkzGesichterScannenFrage),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(AppTexte.of(context).allgAbbrechen)),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppTexte.of(context).werkzNurNeueFotos),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppTexte.of(context).werkzAlleErneutScannen),
-          ),
-        ],
-      ),
-    );
-    if (onlyNew == null || !mounted) return;
-
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: onlyNew ? t.werkzScanneNeue : t.werkzScanneAlle,
-      wennLeer: t.werkzKeinePassenden,
-      schluessel: 'gesichter',
-      rechenintensiv: true,
-      lauf: widget.library.rescanFaces(onlyNewPhotos: onlyNew),
-    );
-  }
-
-  Future<void> _runThumbnailRegen() async {
-    final onlyMissing = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppTexte.of(context).werkzVorschauNeuTitel),
-        content: Text(AppTexte.of(context).werkzVorschauNeuFrage),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(AppTexte.of(context).allgAbbrechen)),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppTexte.of(context).werkzNurFehlende),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppTexte.of(context).werkzAlleNeuErstellen),
-          ),
-        ],
-      ),
-    );
-    if (onlyMissing == null || !mounted) return;
-
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: onlyMissing ? t.werkzErstelleFehlende : t.werkzErstelleAlle,
-      wennLeer: t.werkzKeinePassenden,
-      schluessel: 'vorschau',
-      lauf: widget.library.regenerateThumbnails(onlyMissing: onlyMissing),
-    );
-  }
-
-  Future<void> _runRedevelopAll() async {
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzRendereNeu,
-      wennLeer: t.werkzKeineEntwickelten,
-      schluessel: 'rendern',
-      lauf: widget.library.redevelopAll(),
-    );
-  }
-
-  Future<void> _runLivePhotoRelink() async {
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzPruefeLivePhotos,
-      wennLeer: t.werkzKeineUnverknuepften,
-      schluessel: 'livephotos',
-      lauf: widget.library.relinkLivePhotos(),
-    );
-  }
-
-  Future<void> _runEmbeddingBackfill() async {
-    if (!widget.library.clipAvailable) {
-      melde.warnung(AppTexte.of(context).werkzClipNoetig);
-      return;
-    }
-    final alle = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppTexte.of(context).werkzEmbeddingsTitel),
-        content: Text(AppTexte.of(context).werkzEmbeddingsFrage),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(AppTexte.of(context).allgAbbrechen)),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppTexte.of(context).werkzNurFehlende),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppTexte.of(context).werkzAlleFotos),
-          ),
-        ],
-      ),
-    );
-    if (alle == null || !mounted) return;
-
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzBerechneEmbeddings,
-      wennLeer: t.werkzAlleHabenEmbedding,
-      schluessel: 'embeddings',
-      rechenintensiv: true,
-      lauf: widget.library.backfillClipEmbeddings(alle: alle),
-    );
-  }
-
-  Future<void> _runAiTaggingBackfill() async {
-    if (!widget.library.clipAvailable) {
-      melde.warnung(AppTexte.of(context).werkzClipNoetig);
-      return;
-    }
-    final onlyUntagged = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppTexte.of(context).werkzKiTagsTitel),
-        content: Text(AppTexte.of(context).werkzKiTagsFrage),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(AppTexte.of(context).allgAbbrechen)),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppTexte.of(context).werkzNurUngetaggte),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(AppTexte.of(context).werkzAlleFotos),
-          ),
-        ],
-      ),
-    );
-    if (onlyUntagged == null || !mounted) return;
-
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzBerechneKiTags,
-      wennLeer: t.werkzKeinePassenden,
-      schluessel: 'kitags',
-      rechenintensiv: true,
-      lauf: widget.library.backfillAiTags(onlyUntagged: onlyUntagged),
-    );
-  }
-
-  Future<void> _runLocationBackfill() async {
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzLeseOrte,
-      wennLeer: t.werkzAlleHabenOrt,
-      schluessel: 'orte',
-      lauf: widget.library.backfillLocations(),
-    );
-  }
-
-  Future<void> _runLocationNameBackfill() async {
-    if (!widget.library.geoDataAvailable) {
-      melde.warnung(AppTexte.of(context).werkzGeoNoetig);
-      return;
-    }
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzLoeseOrteAuf,
-      wennLeer: t.werkzAlleAufgeloest,
-      schluessel: 'ortsnamen',
-      lauf: widget.library.backfillLocationNames(),
-    );
-  }
-
-  Future<void> _runCameraMetadataBackfill() async {
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzLeseKameradaten,
-      wennLeer: t.werkzAlleHabenKameradaten,
-      schluessel: 'kameradaten',
-      lauf: widget.library.backfillCameraMetadata(),
-    );
-  }
-
-  Future<void> _runDatumskorrektur() async {
-    // Nachfragen, weil dieser Lauf Nutzerdaten anfasst: Er schreibt
-    // Aufnahmedaten um und verschiebt Dateien auf der Platte. Alle anderen
-    // Nachtrage-Läufe ergänzen nur Fehlendes.
-    final los = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppTexte.of(context).werkzDatumFrageTitel),
-        content: Text(AppTexte.of(context).werkzDatumFrage),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(AppTexte.of(context).allgAbbrechen)),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(AppTexte.of(context).werkzDatumStarten),
-          ),
-        ],
-      ),
-    );
-    if (los != true || !mounted) return;
-
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzKorrigiereDatum,
-      wennLeer: t.werkzKeineRawFotos,
-      schluessel: 'aufnahmedatum',
-      lauf: widget.library.korrigiereAufnahmedaten(),
-    );
-  }
-
-  Future<void> _runXmpSidecarExport() async {
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzSchreibeXmp,
-      wennLeer: t.werkzKeineFotosGesperrt,
-      schluessel: 'xmp',
-      lauf: widget.library.writeXmpSidecars(),
-    );
-  }
-
-  Future<void> _runOcrBackfill() async {
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzErkenneText,
-      wennLeer: t.werkzAlleTextDurchsucht,
-      schluessel: 'ocr',
-      rechenintensiv: true,
-      lauf: widget.library.backfillOcrText(),
-    );
-  }
-
-  Future<void> _runCaptionBackfill() async {
-    if (!widget.library.captioningAvailable) {
-      melde.warnung(AppTexte.of(context).werkzBeschreibungsmodellNoetig);
-      return;
-    }
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzErzeugeBeschreibungen,
-      wennLeer: t.werkzAlleHabenBeschreibung,
-      schluessel: 'beschreibungen',
-      rechenintensiv: true,
-      lauf: widget.library.backfillCaptions(),
-    );
-  }
-
-  Future<void> _runBlurBackfill() async {
-    final t = AppTexte.of(context);
-    await _zeigeFortschritt(
-      titel: t.werkzBerechneUnschaerfe,
-      wennLeer: t.werkzAlleHabenUnschaerfe,
-      schluessel: 'unschaerfe',
-      rechenintensiv: true,
-      lauf: widget.library.backfillBlurScores(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
@@ -387,6 +71,28 @@ class _ToolsScreenState extends State<ToolsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
+          // **Der Weg zu den Aufgaben steht ganz oben, und das ist der
+          // Punkt dieser Seite.** Bis Fassung 2.2.4 standen fünfzehn
+          // Durchgänge über die ganze Bibliothek doppelt in der App: hier
+          // als Listeneinträge und in der Aufgabenverwaltung als Karten.
+          // Zwei Oberflächen für dieselbe Arbeit heisst zwei Wege, sie zu
+          // starten, zwei Orte, an denen ein Zusatz vergessen werden kann,
+          // und für den Menschen die Frage, ob das hier dasselbe ist wie
+          // dort. Was bleibt, sind Werkzeuge im Wortsinn: Ansichten,
+          // Vorgaben, Prüfungen – nichts davon startet einen Durchgang.
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.playlist_play_outlined),
+              title: Text(t.aufgTitel),
+              subtitle: Text(t.werkzZuAufgabenText),
+              isThreeLine: true,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => BackgroundTasksScreen(library: widget.library),
+              )),
+            ),
+          ),
+          const SizedBox(height: 20),
           Text(t.werkzAbschnittStatistik, style: Theme.of(context).textTheme.titleMedium),
           Card(
             child: ListTile(
@@ -402,19 +108,14 @@ class _ToolsScreenState extends State<ToolsScreen> {
           ),
           const SizedBox(height: 20),
           Text(t.werkzAbschnittGesichtserkennung, style: Theme.of(context).textTheme.titleMedium),
+          // Nur noch der Regler: Das Scannen selbst ist eine Aufgabe. Der
+          // Regler dagegen ist eine Einstellung, die entscheidet, wie
+          // gefundene Gesichter zu Personen zusammengelegt werden.
           Card(
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.face_retouching_natural_outlined),
-                  title: Text(t.werkzGesichterScannenTitel),
-                  subtitle: Text(t.werkzGesichterScannenUntertitel),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runFaceRescan,
-                ),
-                const Divider(height: 1),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xs),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xs),
                   child: Row(
                     children: [
                       Expanded(
@@ -456,109 +157,50 @@ class _ToolsScreenState extends State<ToolsScreen> {
           ),
           const SizedBox(height: 20),
           Text(t.werkzAbschnittVorschau, style: Theme.of(context).textTheme.titleMedium),
+          // Eine Auskunft, kein Vorgang: ob die Umwandlung für HEIC und RAW
+          // überhaupt einsatzbereit ist. Das Erzeugen der Vorschaubilder
+          // selbst ist eine Aufgabe.
           Card(
-            child: Column(
-              children: [
-                FutureBuilder<({bool bereit, List<String> fehlende})>(
-                  future: _bildwerkzeugstandFuture,
-                  builder: (context, snapshot) {
-                    final stand = snapshot.data;
-                    final bereit = stand?.bereit ?? false;
-                    // Ausserhalb von macOS hängt die Umwandlung an
-                    // externen Werkzeugen, nicht an einer nativen
-                    // Anbindung – dann muss die Auskunft auch die
-                    // Werkzeuge nennen statt auf eine Swift-Datei zu
-                    // verweisen, die es hier gar nicht gibt.
-                    final ueberWerkzeuge = !Platform.isMacOS;
-                    final text = bereit
-                        ? (ueberWerkzeuge
-                            ? t.werkzHeicWerkzeugeAktiv
-                            : t.werkzHeicAktiv)
-                        : (ueberWerkzeuge
-                            ? t.werkzHeicWerkzeugeFehlen(
-                                (stand?.fehlende ?? const <String>[]).join(', '))
-                            : t.werkzHeicInaktiv);
-                    return ListTile(
-                      leading: Icon(
-                        bereit ? Icons.check_circle_outline : Icons.error_outline,
-                        color: bereit
-                            ? context.semantik.erfolg
-                            : context.semantik.warnung,
-                      ),
-                      title: Text(t.werkzHeicTitel),
-                      subtitle: Text(text),
-                      isThreeLine: true,
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.image_outlined),
-                  title: Text(t.werkzVorschauNeuTitel),
-                  subtitle: Text(t.werkzVorschauNeuUntertitel),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runThumbnailRegen,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(t.werkzAbschnittEntwicklung, style: Theme.of(context).textTheme.titleMedium),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.exposure),
-              title: Text(t.werkzNeuRendernTitel),
-              subtitle: Text(t.werkzNeuRendernText),
-              isThreeLine: true,
-              trailing: const Icon(Icons.chevron_right),
-              onTap: _runRedevelopAll,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(t.werkzAbschnittLivePhotos, style: Theme.of(context).textTheme.titleMedium),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.motion_photos_on_outlined),
-              title: Text(t.werkzLivePhotoTitel),
-              subtitle: Text(t.werkzLivePhotoText),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: _runLivePhotoRelink,
+            child: FutureBuilder<({bool bereit, List<String> fehlende})>(
+              future: _bildwerkzeugstandFuture,
+              builder: (context, snapshot) {
+                final stand = snapshot.data;
+                final bereit = stand?.bereit ?? false;
+                // Ausserhalb von macOS hängt die Umwandlung an externen
+                // Werkzeugen, nicht an einer nativen Anbindung – dann muss
+                // die Auskunft auch die Werkzeuge nennen statt auf eine
+                // Swift-Datei zu verweisen, die es hier gar nicht gibt.
+                final ueberWerkzeuge = !Platform.isMacOS;
+                final text = bereit
+                    ? (ueberWerkzeuge ? t.werkzHeicWerkzeugeAktiv : t.werkzHeicAktiv)
+                    : (ueberWerkzeuge
+                        ? t.werkzHeicWerkzeugeFehlen(
+                            (stand?.fehlende ?? const <String>[]).join(', '))
+                        : t.werkzHeicInaktiv);
+                return ListTile(
+                  leading: Icon(
+                    bereit ? Icons.check_circle_outline : Icons.error_outline,
+                    color: bereit ? context.semantik.erfolg : context.semantik.warnung,
+                  ),
+                  title: Text(t.werkzHeicTitel),
+                  subtitle: Text(text),
+                  isThreeLine: true,
+                );
+              },
             ),
           ),
           const SizedBox(height: 20),
           Text(t.werkzAbschnittOrte, style: Theme.of(context).textTheme.titleMedium),
           Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.location_on_outlined),
-                  title: Text(t.werkzOrteEinlesenTitel),
-                  subtitle: Text(t.werkzOrteEinlesenText),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runLocationBackfill,
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.map_outlined),
-                  title: Text(t.werkzOrteAufloesenTitel),
-                  subtitle: Text(t.werkzOrteAufloesenText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runLocationNameBackfill,
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.route_outlined),
-                  title: Text(t.werkzGpxTitel),
-                  subtitle: Text(t.werkzGpxText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) =>
-                        GpxVerortungScreen(library: widget.library),
-                  )),
-                ),
-              ],
+            child: ListTile(
+              leading: const Icon(Icons.route_outlined),
+              title: Text(t.werkzGpxTitel),
+              subtitle: Text(t.werkzGpxText),
+              isThreeLine: true,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => GpxVerortungScreen(library: widget.library),
+              )),
             ),
           ),
           const SizedBox(height: 20),
@@ -566,24 +208,6 @@ class _ToolsScreenState extends State<ToolsScreen> {
           Card(
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.camera_alt_outlined),
-                  title: Text(t.werkzKameradatenTitel),
-                  subtitle: Text(t.werkzKameradatenText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runCameraMetadataBackfill,
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.event_repeat_outlined),
-                  title: Text(t.werkzDatumTitel),
-                  subtitle: Text(t.werkzDatumText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runDatumskorrektur,
-                ),
-                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.tune_outlined),
                   title: Text(t.werkzPresetsTitel),
@@ -616,76 +240,6 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => AutomationRulesScreen(library: widget.library)),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(t.werkzAbschnittQualitaet, style: Theme.of(context).textTheme.titleMedium),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.text_fields_outlined),
-                  title: Text(t.werkzOcrTitel),
-                  subtitle: Text(t.werkzOcrText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runOcrBackfill,
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.short_text_outlined),
-                  title: Text(t.werkzBeschreibungenTitel),
-                  subtitle: Text(t.werkzBeschreibungenText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runCaptionBackfill,
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.deblur_outlined),
-                  title: Text(t.werkzUnschaerfeTitel),
-                  subtitle: Text(t.werkzUnschaerfeText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runBlurBackfill,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(t.werkzAbschnittBildsuche, style: Theme.of(context).textTheme.titleMedium),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.play_circle_outline),
-                  title: Text(t.werkzAllesNachholenTitel),
-                  subtitle: Text(t.werkzAllesNachholenText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    widget.library.starteHintergrundanalyse();
-                    melde.erfolg(t.werkzAnalyseGestartet);
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.travel_explore_outlined),
-                  title: Text(t.werkzEmbeddingsTitel),
-                  subtitle: Text(t.werkzEmbeddingsText),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runEmbeddingBackfill,
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.sell_outlined),
-                  title: Text(t.werkzKiTagsTitel),
-                  subtitle: Text(t.werkzKiTagsKarteText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runAiTaggingBackfill,
                 ),
               ],
             ),
@@ -741,28 +295,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
           const SizedBox(height: 20),
           Text(t.werkzAbschnittInterop, style: Theme.of(context).textTheme.titleMedium),
           Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.description_outlined),
-                  title: Text(t.werkzXmpSchreibenTitel),
-                  subtitle: Text(t.werkzXmpSchreibenText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _runXmpSidecarExport,
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.file_open_outlined),
-                  title: Text(t.werkzXmpLesenTitel),
-                  subtitle: Text(t.werkzXmpLesenText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => XmpImportScreen(library: widget.library)),
-                  ),
-                ),
-              ],
+            child: ListTile(
+              leading: const Icon(Icons.file_open_outlined),
+              title: Text(t.werkzXmpLesenTitel),
+              subtitle: Text(t.werkzXmpLesenText),
+              isThreeLine: true,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => XmpImportScreen(library: widget.library)),
+              ),
             ),
           ),
         ],

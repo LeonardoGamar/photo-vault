@@ -17,6 +17,7 @@ import 'face_review_screen.dart';
 import 'person_suggestions_screen.dart';
 import 'stammbaum_screen.dart';
 import '../services/meldungsdienst.dart';
+import '../widgets/profilbild.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final LibraryState library;
@@ -191,12 +192,13 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   initialData: person,
                   builder: (context, snapshot) {
                     final coverPath = snapshot.data?.coverFaceCropPath;
-                    return CircleAvatar(
+                    return Profilbild(
+                      datei: coverPath == null
+                          ? null
+                          : library.paths.absolute(coverPath),
                       radius: 36,
-                      backgroundColor: Colors.grey.shade800,
-                      backgroundImage:
-                          coverPath != null ? FileImage(library.paths.absolute(coverPath)) : null,
-                      child: coverPath == null ? const Icon(Icons.person_outline, size: 28) : null,
+                      hintergrund: Colors.grey.shade800,
+                      symbolgroesse: 28,
                     );
                   },
                 ),

@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
 import '../services/storage_paths.dart';
+import 'profilbild.dart';
 
 /// Was der Nutzer im Zuordnungs-Dialog entschieden hat.
 class PersonChoice {
@@ -99,11 +100,11 @@ class _PersonPickerDialogState extends State<_PersonPickerDialog> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(
+        Profilbild(
+          datei: bild == null ? null : widget.paths.absolute(bild),
           radius: 14,
-          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-          backgroundImage: bild != null ? FileImage(widget.paths.absolute(bild)) : null,
-          child: bild == null ? const Icon(Icons.person_outline, size: 16) : null,
+          hintergrund: Theme.of(context).colorScheme.surfaceContainerHighest,
+          symbolgroesse: 16,
         ),
         const SizedBox(width: 10),
         imMenue

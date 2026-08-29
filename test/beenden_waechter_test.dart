@@ -78,12 +78,12 @@ void main() {
     setUp(() async {
       library = LibraryState();
       regler = StreamController<ImportProgress>();
-      unawaited(library.starteAufgabe(
+      library.reiheAufgabeEin(
         schluessel: 'beschreibungen',
         titel: 'Erzeuge Bildbeschreibungen …',
         leermeldung: 'nichts zu tun',
         strom: () => regler.stream,
-      ));
+      );
     });
 
     tearDown(() async {

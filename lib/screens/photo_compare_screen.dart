@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../services/bilddekodierung.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
@@ -77,7 +78,15 @@ class _PhotoCompareScreenState extends State<PhotoCompareScreen> {
             // macOS meldet ein Wischen darauf wie ein Trackpad, und
             // Flutters Vorgabe für solche Eingaben ist „verschieben".
             trackpadScrollCausesScale: true,
-            child: Center(child: Image.file(datei, fit: BoxFit.contain)),
+            // Begrenzt dekodieren, und hier besonders: Dieser
+            // Bildschirm zeigt ZWEI Originale gleichzeitig. An der
+            // Prüfbibliothek waren das im schlimmsten Fall 317 MB und
+            // 236 MB nebeneinander – eine halbe Milliarde Byte für zwei
+            // Fotos, die auf je eine halbe Fensterbreite gezeichnet
+            // werden.
+            child: Center(
+              child: Image(image: begrenztesBild(datei), fit: BoxFit.contain),
+            ),
           ),
         ),
         Padding(

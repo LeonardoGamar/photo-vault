@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:panorama_viewer/panorama_viewer.dart';
 
+import '../services/bilddekodierung.dart';
+
 /// Darstellungsart für ein equirechteckiges 360°-Foto (siehe
 /// [Panorama360View]).
 enum Panorama360Mode {
@@ -100,7 +102,15 @@ class _Panorama360ViewState extends State<Panorama360View> {
       // Sensorsteuerung bleibt aus: Am Mac gibt es keine sinnvollen
       // Lage-Sensoren, gedreht wird ausschließlich per Maus/Trackpad.
       sensorControl: SensorControl.none,
-      child: Image.file(widget.imageFile, gaplessPlayback: true),
+      // Begrenzt dekodieren. Ausgerechnet hier fehlte der Deckel, und
+      // ausgerechnet hier sind die Dateien am groessten: Eine
+      // 360°-Aufnahme ist zwei zu eins, die der Prüfbibliothek misst
+      // 7578 × 3788 und belegt als Bitmap 110 MB. Die Vollbildansicht
+      // desselben Fotos begrenzt seit jeher auf 4096.
+      child: Image(
+        image: begrenztesBild(widget.imageFile),
+        gaplessPlayback: true,
+      ),
     );
   }
 
@@ -110,8 +120,8 @@ class _Panorama360ViewState extends State<Panorama360View> {
       transformationController: _transformController,
       minScale: 1.0,
       maxScale: 6.0,
-      child: Image.file(
-        widget.imageFile,
+      child: Image(
+        image: begrenztesBild(widget.imageFile),
         fit: BoxFit.cover,
         gaplessPlayback: true,
       ),

@@ -13,6 +13,7 @@ import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
 import 'color_label_picker.dart';
 import 'star_rating.dart';
+import 'profilbild.dart';
 
 /// Panel mit allen kombinierbaren Suchfiltern (Personen, Text-Suche, Tags,
 /// Kamera, Zeitraum, Medientyp, Anzeigeoptionen) – analog zu Immichs
@@ -469,15 +470,14 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                             Stack(
                               alignment: Alignment.center,
                               children: [
-                                CircleAvatar(
+                                Profilbild(
+                                  datei: person.coverFaceCropPath == null
+                                      ? null
+                                      : widget.library.paths.absolute(
+                                          person.coverFaceCropPath!),
                                   radius: 32,
-                                  backgroundColor: Colors.grey.shade800,
-                                  backgroundImage: person.coverFaceCropPath != null
-                                      ? FileImage(widget.library.paths.absolute(person.coverFaceCropPath!))
-                                      : null,
-                                  child: person.coverFaceCropPath == null
-                                      ? const Icon(Icons.person_outline, size: 28)
-                                      : null,
+                                  hintergrund: Colors.grey.shade800,
+                                  symbolgroesse: 28,
                                 ),
                                 if (selected)
                                   Container(

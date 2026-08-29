@@ -10864,6 +10864,14 @@ class $AppSettingsTable extends AppSettings
   late final GeneratedColumn<String> cartoSchluessel = GeneratedColumn<String>(
       'carto_schluessel', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _maxGleichzeitigMeta =
+      const VerificationMeta('maxGleichzeitig');
+  @override
+  late final GeneratedColumn<int> maxGleichzeitig = GeneratedColumn<int>(
+      'max_gleichzeitig', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
   static const VerificationMeta _translateCaptionsMeta =
       const VerificationMeta('translateCaptions');
   @override
@@ -10895,6 +10903,7 @@ class $AppSettingsTable extends AppSettings
         faceSimilarityThreshold,
         kartenansicht,
         cartoSchluessel,
+        maxGleichzeitig,
         translateCaptions,
         translateSearchAndTags
       ];
@@ -10956,6 +10965,12 @@ class $AppSettingsTable extends AppSettings
           cartoSchluessel.isAcceptableOrUnknown(
               data['carto_schluessel']!, _cartoSchluesselMeta));
     }
+    if (data.containsKey('max_gleichzeitig')) {
+      context.handle(
+          _maxGleichzeitigMeta,
+          maxGleichzeitig.isAcceptableOrUnknown(
+              data['max_gleichzeitig']!, _maxGleichzeitigMeta));
+    }
     if (data.containsKey('translate_captions')) {
       context.handle(
           _translateCaptionsMeta,
@@ -10997,6 +11012,8 @@ class $AppSettingsTable extends AppSettings
           .read(DriftSqlType.string, data['${effectivePrefix}kartenansicht'])!,
       cartoSchluessel: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}carto_schluessel']),
+      maxGleichzeitig: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}max_gleichzeitig'])!,
       translateCaptions: attachedDatabase.typeMapping.read(
           DriftSqlType.bool, data['${effectivePrefix}translate_captions'])!,
       translateSearchAndTags: attachedDatabase.typeMapping.read(
@@ -11081,6 +11098,23 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// hinaus. Er gehört dem, der ihn beantragt.
   final String? cartoSchluessel;
 
+  /// Wie viele rechenintensive Aufgaben gleichzeitig laufen dürfen.
+  ///
+  /// **Warum das eine Einstellung ist und keine Konstante.** Bis hierher
+  /// wurde eine zweite schwere Aufgabe schlicht **abgewiesen**: Wer
+  /// Gesichter scannen liess und danach die Bildbeschreibungen anstiess,
+  /// bekam eine Meldung und musste sich das Ende der ersten merken. Jetzt
+  /// wird sie eingereiht — und wie viele nebeneinander laufen dürfen,
+  /// hängt an der Maschine. Ein Rechner mit 64 GB verkraftet zwei Modelle
+  /// nebeneinander, einer mit 8 GB nicht (allein CLIP-Bild 335 MB und die
+  /// Bildbeschreibung 235 MB, gemessen).
+  ///
+  /// Vorgabe **eins**, also genau das bisherige Verhalten – nur ohne die
+  /// Abweisung. Aufgaben ohne Modell (Orte einlesen, XMP schreiben,
+  /// Live-Photo-Paare) zählen hier nicht mit; sie kosten nichts, was sich
+  /// gegenseitig im Weg stünde.
+  final int maxGleichzeitig;
+
   /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
   final bool translateCaptions;
 
@@ -11104,6 +11138,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       required this.faceSimilarityThreshold,
       required this.kartenansicht,
       this.cartoSchluessel,
+      required this.maxGleichzeitig,
       required this.translateCaptions,
       required this.translateSearchAndTags});
   @override
@@ -11125,6 +11160,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     if (!nullToAbsent || cartoSchluessel != null) {
       map['carto_schluessel'] = Variable<String>(cartoSchluessel);
     }
+    map['max_gleichzeitig'] = Variable<int>(maxGleichzeitig);
     map['translate_captions'] = Variable<bool>(translateCaptions);
     map['translate_search_and_tags'] = Variable<bool>(translateSearchAndTags);
     return map;
@@ -11147,6 +11183,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       cartoSchluessel: cartoSchluessel == null && nullToAbsent
           ? const Value.absent()
           : Value(cartoSchluessel),
+      maxGleichzeitig: Value(maxGleichzeitig),
       translateCaptions: Value(translateCaptions),
       translateSearchAndTags: Value(translateSearchAndTags),
     );
@@ -11169,6 +11206,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           serializer.fromJson<double>(json['faceSimilarityThreshold']),
       kartenansicht: serializer.fromJson<String>(json['kartenansicht']),
       cartoSchluessel: serializer.fromJson<String?>(json['cartoSchluessel']),
+      maxGleichzeitig: serializer.fromJson<int>(json['maxGleichzeitig']),
       translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
       translateSearchAndTags:
           serializer.fromJson<bool>(json['translateSearchAndTags']),
@@ -11188,6 +11226,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           serializer.toJson<double>(faceSimilarityThreshold),
       'kartenansicht': serializer.toJson<String>(kartenansicht),
       'cartoSchluessel': serializer.toJson<String?>(cartoSchluessel),
+      'maxGleichzeitig': serializer.toJson<int>(maxGleichzeitig),
       'translateCaptions': serializer.toJson<bool>(translateCaptions),
       'translateSearchAndTags': serializer.toJson<bool>(translateSearchAndTags),
     };
@@ -11203,6 +11242,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           double? faceSimilarityThreshold,
           String? kartenansicht,
           Value<String?> cartoSchluessel = const Value.absent(),
+          int? maxGleichzeitig,
           bool? translateCaptions,
           bool? translateSearchAndTags}) =>
       AppSettingsData(
@@ -11223,6 +11263,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         cartoSchluessel: cartoSchluessel.present
             ? cartoSchluessel.value
             : this.cartoSchluessel,
+        maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
         translateCaptions: translateCaptions ?? this.translateCaptions,
         translateSearchAndTags:
             translateSearchAndTags ?? this.translateSearchAndTags,
@@ -11250,6 +11291,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       cartoSchluessel: data.cartoSchluessel.present
           ? data.cartoSchluessel.value
           : this.cartoSchluessel,
+      maxGleichzeitig: data.maxGleichzeitig.present
+          ? data.maxGleichzeitig.value
+          : this.maxGleichzeitig,
       translateCaptions: data.translateCaptions.present
           ? data.translateCaptions.value
           : this.translateCaptions,
@@ -11271,6 +11315,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
           ..write('kartenansicht: $kartenansicht, ')
           ..write('cartoSchluessel: $cartoSchluessel, ')
+          ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
@@ -11288,6 +11333,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       faceSimilarityThreshold,
       kartenansicht,
       cartoSchluessel,
+      maxGleichzeitig,
       translateCaptions,
       translateSearchAndTags);
   @override
@@ -11303,6 +11349,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.faceSimilarityThreshold == this.faceSimilarityThreshold &&
           other.kartenansicht == this.kartenansicht &&
           other.cartoSchluessel == this.cartoSchluessel &&
+          other.maxGleichzeitig == this.maxGleichzeitig &&
           other.translateCaptions == this.translateCaptions &&
           other.translateSearchAndTags == this.translateSearchAndTags);
 }
@@ -11317,6 +11364,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<double> faceSimilarityThreshold;
   final Value<String> kartenansicht;
   final Value<String?> cartoSchluessel;
+  final Value<int> maxGleichzeitig;
   final Value<bool> translateCaptions;
   final Value<bool> translateSearchAndTags;
   const AppSettingsCompanion({
@@ -11329,6 +11377,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.faceSimilarityThreshold = const Value.absent(),
     this.kartenansicht = const Value.absent(),
     this.cartoSchluessel = const Value.absent(),
+    this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
   });
@@ -11342,6 +11391,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.faceSimilarityThreshold = const Value.absent(),
     this.kartenansicht = const Value.absent(),
     this.cartoSchluessel = const Value.absent(),
+    this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
   });
@@ -11355,6 +11405,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<double>? faceSimilarityThreshold,
     Expression<String>? kartenansicht,
     Expression<String>? cartoSchluessel,
+    Expression<int>? maxGleichzeitig,
     Expression<bool>? translateCaptions,
     Expression<bool>? translateSearchAndTags,
   }) {
@@ -11371,6 +11422,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
         'face_similarity_threshold': faceSimilarityThreshold,
       if (kartenansicht != null) 'kartenansicht': kartenansicht,
       if (cartoSchluessel != null) 'carto_schluessel': cartoSchluessel,
+      if (maxGleichzeitig != null) 'max_gleichzeitig': maxGleichzeitig,
       if (translateCaptions != null) 'translate_captions': translateCaptions,
       if (translateSearchAndTags != null)
         'translate_search_and_tags': translateSearchAndTags,
@@ -11387,6 +11439,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<double>? faceSimilarityThreshold,
       Value<String>? kartenansicht,
       Value<String?>? cartoSchluessel,
+      Value<int>? maxGleichzeitig,
       Value<bool>? translateCaptions,
       Value<bool>? translateSearchAndTags}) {
     return AppSettingsCompanion(
@@ -11401,6 +11454,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           faceSimilarityThreshold ?? this.faceSimilarityThreshold,
       kartenansicht: kartenansicht ?? this.kartenansicht,
       cartoSchluessel: cartoSchluessel ?? this.cartoSchluessel,
+      maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
       translateCaptions: translateCaptions ?? this.translateCaptions,
       translateSearchAndTags:
           translateSearchAndTags ?? this.translateSearchAndTags,
@@ -11439,6 +11493,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (cartoSchluessel.present) {
       map['carto_schluessel'] = Variable<String>(cartoSchluessel.value);
     }
+    if (maxGleichzeitig.present) {
+      map['max_gleichzeitig'] = Variable<int>(maxGleichzeitig.value);
+    }
     if (translateCaptions.present) {
       map['translate_captions'] = Variable<bool>(translateCaptions.value);
     }
@@ -11461,6 +11518,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
           ..write('kartenansicht: $kartenansicht, ')
           ..write('cartoSchluessel: $cartoSchluessel, ')
+          ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
           ..write(')'))
@@ -22539,6 +22597,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<double> faceSimilarityThreshold,
   Value<String> kartenansicht,
   Value<String?> cartoSchluessel,
+  Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
 });
@@ -22553,6 +22612,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<double> faceSimilarityThreshold,
   Value<String> kartenansicht,
   Value<String?> cartoSchluessel,
+  Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
 });
@@ -22596,6 +22656,10 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<String> get cartoSchluessel => $composableBuilder(
       column: $table.cartoSchluessel,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get maxGleichzeitig => $composableBuilder(
+      column: $table.maxGleichzeitig,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get translateCaptions => $composableBuilder(
@@ -22649,6 +22713,10 @@ class $$AppSettingsTableOrderingComposer
       column: $table.cartoSchluessel,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get maxGleichzeitig => $composableBuilder(
+      column: $table.maxGleichzeitig,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions,
       builder: (column) => ColumnOrderings(column));
@@ -22694,6 +22762,9 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<String> get cartoSchluessel => $composableBuilder(
       column: $table.cartoSchluessel, builder: (column) => column);
 
+  GeneratedColumn<int> get maxGleichzeitig => $composableBuilder(
+      column: $table.maxGleichzeitig, builder: (column) => column);
+
   GeneratedColumn<bool> get translateCaptions => $composableBuilder(
       column: $table.translateCaptions, builder: (column) => column);
 
@@ -22736,6 +22807,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<double> faceSimilarityThreshold = const Value.absent(),
             Value<String> kartenansicht = const Value.absent(),
             Value<String?> cartoSchluessel = const Value.absent(),
+            Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
@@ -22749,6 +22821,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             faceSimilarityThreshold: faceSimilarityThreshold,
             kartenansicht: kartenansicht,
             cartoSchluessel: cartoSchluessel,
+            maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
           ),
@@ -22762,6 +22835,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<double> faceSimilarityThreshold = const Value.absent(),
             Value<String> kartenansicht = const Value.absent(),
             Value<String?> cartoSchluessel = const Value.absent(),
+            Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
           }) =>
@@ -22775,6 +22849,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             faceSimilarityThreshold: faceSimilarityThreshold,
             kartenansicht: kartenansicht,
             cartoSchluessel: cartoSchluessel,
+            maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
           ),

@@ -13,6 +13,7 @@ import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/asset_display_path.dart';
 import '../services/asset_format.dart';
+import '../services/bilddekodierung.dart';
 import '../services/blur_detection.dart';
 import '../services/export_service.dart';
 import '../services/storage_paths.dart';
@@ -44,7 +45,10 @@ enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata, faceReview,
 /// Ausreißer (Panoramen, große Screenshots, 48-MP-Fotos) sinnvoll begrenzt
 /// werden – bei aktiviertem Zoom in [PhotoView] bleibt trotzdem genug
 /// Auflösung für deutliches Hineinzoomen übrig.
-const _maxFullscreenDecodeDimension = 4096;
+///
+/// Die Zahl selbst steht seit der 17. Prüfrunde in
+/// [maxDekodierKante]: Drei weitere Stellen zeigten dieselben Dateien
+/// ohne Deckel, weil sie hier stand und sonst nirgends.
 
 class AssetViewerScreen extends StatefulWidget {
   final List<AssetData> assets;
@@ -149,6 +153,9 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   @override
   void dispose() {
     _slideshowTimer?.cancel();
+    // Der PageController haengt als ChangeNotifier an der PageView; ohne
+    // dies blieb er bei jedem geoeffneten Vollbild zurueck.
+    _controller.dispose();
     super.dispose();
   }
 
@@ -1133,13 +1140,7 @@ class _AssetPageState extends State<_AssetPage> {
           return Stack(
             children: [
               PhotoView(
-                imageProvider: ResizeImage(
-                  FileImage(file),
-                  width: _maxFullscreenDecodeDimension,
-                  height: _maxFullscreenDecodeDimension,
-                  policy: ResizeImagePolicy.fit,
-                  allowUpscaling: false,
-                ),
+                imageProvider: begrenztesBild(file),
                 backgroundDecoration: const BoxDecoration(color: Colors.black),
                 initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
                 minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
@@ -1164,7 +1165,13 @@ class _AssetPageState extends State<_AssetPage> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.file(file, fit: BoxFit.contain),
+              // Derselbe Deckel wie im Zweig ohne Überlagerung. Er
+              // fehlte hier: Die Fokus-Hervorhebung einzuschalten hob
+              // dasselbe Foto von 4096 Punkten auf seine volle Grösse –
+              // bei der breitesten Aufnahme der Prüfbibliothek von 64 MB
+              // auf 317 MB. Das Overlay selbst ist ohnehin begrenzt
+              // (siehe computeFocusPeakingOverlay).
+              Image(image: begrenztesBild(file), fit: BoxFit.contain),
               Image.memory(overlay, fit: BoxFit.contain),
             ],
           ),
@@ -1222,13 +1229,7 @@ class _LivePhotoPageState extends State<_LivePhotoPage> {
           // Video (noch) nicht geladen oder wurde gelöscht – Standbild ohne
           // Live-Funktion zeigen, statt die Ansicht zu blockieren.
           return PhotoView(
-            imageProvider: ResizeImage(
-              FileImage(widget.imageFile),
-              width: _maxFullscreenDecodeDimension,
-              height: _maxFullscreenDecodeDimension,
-              policy: ResizeImagePolicy.fit,
-              allowUpscaling: false,
-            ),
+            imageProvider: begrenztesBild(widget.imageFile),
             backgroundDecoration: const BoxDecoration(color: Colors.black),
             initialScale: widget.isPanorama ? PhotoViewComputedScale.covered : null,
             minScale: widget.isPanorama ? PhotoViewComputedScale.covered : null,

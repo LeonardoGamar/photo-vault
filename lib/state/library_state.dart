@@ -46,6 +46,12 @@ import '../services/storage_paths.dart';
 import '../services/vault_crypto.dart';
 import '../services/xmp_writer.dart';
 import 'hintergrundlauf.dart';
+// [ImportProgress] steht seit der Warteschlange in hintergrundlauf.dart –
+// der Lauf hält seinen eigenen Strom, und ein Feld vom Typ
+// `Stream<ImportProgress>` in einer Datei, die library_state.dart nicht
+// kennen darf, ginge sonst nicht. Von hier weitergereicht, damit die drei
+// Dutzend Bildschirme, die den Typ benutzen, ihren Import behalten.
+export 'hintergrundlauf.dart' show ImportProgress;
 
 /// Die Schritte der Hintergrundanalyse, in der Reihenfolge ihres Ablaufs.
 ///
@@ -77,20 +83,6 @@ class AnalyseFortschritt {
     required this.erledigt,
     required this.gesamt,
   });
-}
-
-class ImportProgress {
-  final int done;
-  final int total;
-  final String? currentFile;
-
-  /// Gesetzt, sobald diese Fortschritts-Meldung eine tatsächlich neu
-  /// importierte Datei betrifft (nicht bei Duplikaten/Fehlern) – für Aufrufer
-  /// wie [ImportProgressSheet], die nach dem Import direkt in den
-  /// Sichtungs-Modus (Culling) springen wollen, ohne die importierten Fotos
-  /// erneut aus der DB abfragen zu müssen.
-  final String? assetId;
-  ImportProgress(this.done, this.total, {this.currentFile, this.assetId});
 }
 
 /// Reine Top-Level-Funktion für `compute()` (siehe [LibraryState._decodeAsset]
@@ -344,6 +336,7 @@ class LibraryState extends ChangeNotifier {
     // main.dart: Sonst zeichnete die erste Karte einen Atemzug lang die
     // schlüssellose Fassung und lüde ihre Kacheln zweimal.
     setzeCartoSchluessel(await db.cartoSchluesselWert());
+    _maxGleichzeitig = await db.maxGleichzeitigeAufgaben();
     await _loadModelsIfPresent();
     await _loadGeoDataIfPresent();
     // Absichtlich ohne `await`: Bei einem grossen Stammbaum sind das
@@ -886,6 +879,9 @@ class LibraryState extends ChangeNotifier {
       _analyse = null;
       _analyseAbbruch = false;
       notifyListeners();
+      // Schwere Aufgaben warten, solange die Analyse arbeitet – jetzt
+      // dürfen sie.
+      _versucheStarten();
     }
   }
 
@@ -931,64 +927,142 @@ class LibraryState extends ChangeNotifier {
   Iterable<Hintergrundlauf> get laufendeAufgaben =>
       _laeufe.values.where((l) => l.laeuft);
 
+  /// Alle Läufe, die eingereiht sind und auf einen Platz warten.
+  Iterable<Hintergrundlauf> get wartendeAufgaben =>
+      _laeufe.values.where((l) => l.wartet);
+
+  /// Alles, was noch offen ist – laufend oder wartend.
+  Iterable<Hintergrundlauf> get offeneAufgaben =>
+      _laeufe.values.where((l) => l.offen);
+
+  /// Wie viele rechenintensive Aufgaben nebeneinander laufen dürfen.
+  ///
+  /// Aus der Datenbank geladen (siehe `AppSettings.maxGleichzeitig`), bis
+  /// dahin gilt die Vorgabe eins. Ein Feld und keine Abfrage bei jedem
+  /// Start: Die Schlange wird bei jedem Fortschrittsbescheid angesehen.
+  int _maxGleichzeitig = 1;
+
+  int get maxGleichzeitig => _maxGleichzeitig;
+
+  Future<void> ladeMaxGleichzeitig() async {
+    _maxGleichzeitig = await db.maxGleichzeitigeAufgaben();
+    notifyListeners();
+    _versucheStarten();
+  }
+
+  /// Setzt die Obergrenze und lässt sofort nachrücken, was dadurch darf.
+  Future<void> setzeMaxGleichzeitig(int anzahl) async {
+    final wert = anzahl < 1 ? 1 : anzahl;
+    if (wert == _maxGleichzeitig) return;
+    _maxGleichzeitig = wert;
+    await db.setzeMaxGleichzeitigeAufgaben(wert);
+    notifyListeners();
+    _versucheStarten();
+  }
+
   /// Ob überhaupt noch etwas arbeitet – einschliesslich der
   /// Hintergrundanalyse, die ihren eigenen Zustand führt. Grundlage für die
   /// Rückfrage beim Beenden (siehe BeendenWaechter).
-  bool get etwasLaeuft => analyseLaeuft || laufendeAufgaben.isNotEmpty;
+  bool get etwasLaeuft => analyseLaeuft || offeneAufgaben.isNotEmpty;
 
   /// Die laufenden Aufgaben, die als teure Auswertung gelten – Modell im
   /// Speicher oder dieselbe Arbeit wie eine Stufe der Hintergrundanalyse.
   Iterable<Hintergrundlauf> get laufendeSchwerarbeit =>
       laufendeAufgaben.where((l) => l.rechenintensiv);
 
-  /// Warum eine Aufgabe gerade nicht starten kann – `null` heisst: sie kann.
+  /// Warum eine Aufgabe gerade nicht eingereiht werden kann – `null`
+  /// heisst: sie kann.
   ///
-  /// Der Grund für diese Prüfung ist eine Nebenwirkung davon, dass die
-  /// Aufgaben kein Fenster mehr sperren: Vier Klicks genügten, um
-  /// Gesichter, Bildbeschreibung, Einbettung und Übersetzung gleichzeitig
-  /// zu starten. Deren Modelle liegen dann zusammen im Speicher (allein
-  /// CLIP-Bild 335 MB und die Bildbeschreibung 235 MB, gemessen), und
-  /// dieselben Fotos werden vierfach dekodiert. Läuft zusätzlich die
-  /// Hintergrundanalyse, arbeiten zwei Durchgänge sogar dieselbe Liste ab
-  /// und schreiben einander die Ergebnisse zu.
+  /// **Es ist nur noch ein Grund übrig.** Bis Fassung 2.2.3 wies diese
+  /// Prüfung auch dann ab, wenn eine andere schwere Aufgabe lief oder die
+  /// Hintergrundanalyse arbeitete. Der Anlass dafür war richtig und gilt
+  /// weiter: Vier Klicks genügten, um Gesichter, Bildbeschreibung,
+  /// Einbettung und Übersetzung gleichzeitig zu starten – deren Modelle
+  /// liegen dann zusammen im Speicher (allein CLIP-Bild 335 MB und die
+  /// Bildbeschreibung 235 MB, gemessen), und dieselben Fotos werden
+  /// vierfach dekodiert.
+  ///
+  /// Die **Antwort** darauf war falsch. Abweisen heisst: Der Mensch muss
+  /// sich merken, was er noch wollte, und das Ende der ersten Aufgabe
+  /// abpassen. Seither wird eingereiht und der Reihe nach abgearbeitet
+  /// (siehe [_versucheStarten]); wie viele nebeneinander dürfen, steht in
+  /// [maxGleichzeitig].
+  ///
+  /// Dieselbe Arbeit zweimal in die Schlange zu stellen bleibt sinnlos.
+  ///
+  /// Ohne die frühere Angabe `rechenintensiv`: Sie entschied, ob abgewiesen
+  /// wird, und tut das nicht mehr. Ein Parameter, den niemand liest, ist
+  /// eine Behauptung über die Regel, die nicht mehr stimmt.
+  Startabweisung? pruefeStart(String schluessel) =>
+      (_laeufe[schluessel]?.offen ?? false) ? Startabweisung.laeuftBereits : null;
+
+  /// Ob [lauf] jetzt losdarf.
   ///
   /// Aufgaben ohne Modell (Orte einlesen, XMP schreiben, Live-Photo-Paare)
-  /// bleiben davon unberührt – sie kosten nichts, was sich gegenseitig im
-  /// Weg stünde.
-  Startabweisung? pruefeStart(String schluessel, {required bool rechenintensiv}) {
-    if (_laeufe[schluessel]?.laeuft ?? false) return Startabweisung.laeuftBereits;
-    if (!rechenintensiv) return null;
-    if (analyseLaeuft) return Startabweisung.analyseLaeuft;
-    if (laufendeSchwerarbeit.isNotEmpty) return Startabweisung.andereAufgabe;
-    return null;
+  /// laufen immer sofort – sie kosten nichts, was sich gegenseitig im Weg
+  /// stünde, und würden in einer Schlange nur warten, ohne dass jemand
+  /// etwas davon hätte.
+  bool _darfLosgehen(Hintergrundlauf lauf) {
+    if (!lauf.rechenintensiv) return true;
+    // Die Analyse arbeitet genau diese Stufen ab – zwei Durchgänge gingen
+    // sonst dieselbe Liste durch, mit zwei Modellsitzungen im Speicher.
+    if (analyseLaeuft) return false;
+    return laufendeSchwerarbeit.length < _maxGleichzeitig;
   }
 
-  /// Startet [strom] unter der Kennung [schluessel] und verfolgt seinen
-  /// Fortschritt in [lauf].
+  /// Lässt aus der Schlange nachrücken, was darf.
   ///
-  /// Gibt den Grund zurück, wenn nicht gestartet wurde (siehe
-  /// [pruefeStart]) – die Oberfläche fragt vorher, prüft hier aber ein
-  /// zweites Mal, weil zwischen Frage und Start ein anderer Lauf begonnen
-  /// haben kann.
-  Future<Startabweisung?> starteAufgabe({
+  /// Wird an jeder Stelle gerufen, an der ein Platz frei werden kann: nach
+  /// dem Einreihen, nach dem Ende eines Laufs, nach dem Ende der
+  /// Hintergrundanalyse und nach einer Änderung von [maxGleichzeitig].
+  ///
+  /// In der Einfügereihenfolge, denn `Map` behält sie in Dart bei – wer
+  /// zuerst angestossen hat, läuft zuerst. Eine eigene Liste daneben wäre
+  /// eine zweite Quelle derselben Wahrheit.
+  void _versucheStarten() {
+    var etwasGestartet = false;
+    for (final lauf in _laeufe.values.where((l) => l.wartet).toList()) {
+      if (!_darfLosgehen(lauf)) continue;
+      lauf.gestartet = true;
+      etwasGestartet = true;
+      unawaited(_fuehreAus(lauf));
+    }
+    if (etwasGestartet) notifyListeners();
+  }
+
+  /// Reiht die Aufgabe [schluessel] ein. Sie läuft los, sobald ein Platz
+  /// frei ist – bei Aufgaben ohne Modell also sofort.
+  ///
+  /// Gibt den Grund zurück, wenn nicht eingereiht wurde (siehe
+  /// [pruefeStart]). Kein `Future`: Das Einreihen selbst ist unmittelbar,
+  /// und wer auf das Ende warten will, nimmt [Hintergrundlauf.abschluss].
+  /// Vorher gab es hier ein `Future`, das erst mit dem **Ende des Laufs**
+  /// erfüllt wurde – dieselbe Rückgabe für zwei ganz verschiedene Dinge,
+  /// und jeder Aufrufer musste wissen, dass er es nicht abwarten darf.
+  Startabweisung? reiheAufgabeEin({
     required String schluessel,
     required String titel,
     required String leermeldung,
     required Stream<ImportProgress> Function() strom,
     bool rechenintensiv = false,
-  }) async {
-    final abweisung = pruefeStart(schluessel, rechenintensiv: rechenintensiv);
+  }) {
+    final abweisung = pruefeStart(schluessel);
     if (abweisung != null) return abweisung;
 
-    final lauf = Hintergrundlauf(
+    _laeufe[schluessel] = Hintergrundlauf(
       schluessel: schluessel,
       titel: titel,
       leermeldung: leermeldung,
       rechenintensiv: rechenintensiv,
+      strom: strom,
     );
-    _laeufe[schluessel] = lauf;
     notifyListeners();
+    _versucheStarten();
+    return null;
+  }
 
+  /// Arbeitet einen Lauf ab, der eben seinen Platz bekommen hat.
+  Future<void> _fuehreAus(Hintergrundlauf lauf) async {
     // Auf [Hintergrundlauf.abschluss] warten statt auf ein `await for`:
     // Der Lauf muss von aussen abbrechbar sein, und ein gekündigtes
     // Abonnement meldet kein `onDone` mehr – ein `await for` bliebe dann
@@ -1002,7 +1076,7 @@ class LibraryState extends ChangeNotifier {
     const drosselMs = 200;
 
     try {
-      lauf.abo = strom().listen(
+      lauf.abo = lauf.strom().listen(
         (p) {
           lauf.erledigt = p.done;
           lauf.gesamt = p.total;
@@ -1030,10 +1104,11 @@ class LibraryState extends ChangeNotifier {
       lauf.beendet = true;
       lauf.abo = null;
       notifyListeners();
+      // Der frei gewordene Platz gehört dem nächsten in der Schlange.
+      _versucheStarten();
       // Eine wegen dieser Aufgabe zurückgestellte Analyse jetzt nachholen.
       _holeZurueckgestellteAnalyseNach();
     }
-    return null;
   }
 
   /// Bricht den Lauf zu [schluessel] ab.
@@ -1046,18 +1121,46 @@ class LibraryState extends ChangeNotifier {
     final lauf = _laeufe[schluessel];
     if (lauf == null || lauf.beendet) return;
     lauf.abgebrochen = true;
+    // Ein wartender Lauf hat noch kein Abonnement – ihn wegzunehmen ist
+    // nichts weiter als ein Streichen aus der Schlange. Er verschwindet
+    // ganz statt als beendeter Eintrag stehenzubleiben: Es gab nichts zu
+    // sehen, also gibt es auch kein Ergebnis zu zeigen.
+    if (lauf.wartet) {
+      _laeufe.remove(schluessel);
+      lauf.beendet = true;
+      lauf.schliesseAb();
+      notifyListeners();
+      return;
+    }
     final abo = lauf.abo;
     lauf.abo = null;
-    unawaited(abo?.cancel());
-    lauf.schliesseAb();
-    lauf.beendet = true;
+    // Erst melden, wenn das Kündigen wirklich durch ist – und nicht,
+    // sobald es angestossen wurde.
+    //
+    // `cancel()` gibt ein Future zurück, das erst erfüllt ist, wenn der
+    // Generator seinen `finally`-Block durchlaufen hat, und genau dort
+    // gibt er sein geliehenes Modell zurück. Vorher stand hier
+    // `unawaited(abo?.cancel())`, unmittelbar gefolgt von
+    // `beendet = true` und `_versucheStarten()`: Der nächste in der
+    // Schlange lief damit los, während der Abgebrochene noch mitten in
+    // seiner letzten Inferenz steckte. Bei der Vorgabe von einer
+    // gleichzeitigen Aufgabe lagen so zwei Modelle nebeneinander im
+    // Speicher (Bildbeschreibung 235 MB und CLIP-Bild 335 MB, gemessen)
+    // – genau der Zustand, den die Grenze verhindern soll.
+    //
+    // Das Ende selbst setzt weiterhin [_fuehreAus] in seinem `finally`,
+    // das auf [Hintergrundlauf.abschluss] wartet. Bis dahin zählt der
+    // Lauf als laufend, und das stimmt auch: Er arbeitet seine letzte
+    // Datei noch ab.
     notifyListeners();
+    unawaited(
+        (abo?.cancel() ?? Future<void>.value()).whenComplete(lauf.schliesseAb));
   }
 
   /// Räumt einen beendeten Lauf weg, damit die Karte wieder ihre Zahlen
   /// zeigt. Ein noch laufender bleibt stehen.
   void verwerfeLauf(String schluessel) {
-    if (_laeufe[schluessel]?.laeuft ?? false) return;
+    if (_laeufe[schluessel]?.offen ?? false) return;
     if (_laeufe.remove(schluessel) != null) notifyListeners();
   }
 
@@ -1478,13 +1581,13 @@ class LibraryState extends ChangeNotifier {
   /// Andersherum zeigte die Datenbank auf einen Pfad, den es noch nicht
   /// gibt.
   Stream<ImportProgress> korrigiereAufnahmedaten() async* {
-    final alle = await db.assetsFuerDatumskorrektur();
     // Nur RAW: Bei JPEG gab es den Rückfall auf den Dateizeitstempel nie,
-    // dort kam das Datum immer aus den EXIF-Daten oder gar nicht.
-    final kandidaten = [
-      for (final a in alle)
-        if (rawImageExtensions.contains(p.extension(a.relativePath).toLowerCase())) a,
-    ];
+    // dort kam das Datum immer aus den EXIF-Daten oder gar nicht. Die
+    // Bedingung steht seit Fassung 59 in der Abfrage selbst – sonst kämen
+    // achttausend Zeilen herüber, von denen hier siebentausend wieder
+    // wegfielen, und die Zahl auf der Karte liesse sich nur ausrechnen,
+    // indem man dieselbe Arbeit ein zweites Mal tut.
+    final kandidaten = await db.assetsFuerDatumskorrektur();
     var done = 0;
     yield ImportProgress(0, kandidaten.length);
     for (final asset in kandidaten) {
@@ -2417,7 +2520,24 @@ class LibraryState extends ChangeNotifier {
   /// Hand gibt), ohne die App beenden zu müssen – der Master-Key ist danach
   /// aus dem Speicher entfernt, der nächste Zugriff verlangt wieder den PIN.
   void lockVaultSession() {
+    if (_vaultKey == null) return;
     _vaultKey = null;
+    // Damit ein offener gesperrter Ordner davon erfährt und sich schliesst,
+    // statt gleich darauf an jeder Kachel zu scheitern.
+    notifyListeners();
+  }
+
+  /// Sperrt die Sitzung **und** räumt die entschlüsselten Zwischenkopien
+  /// weg.
+  ///
+  /// Zwei Schritte, die immer zusammengehören: Ein Schlüssel aus dem
+  /// Speicher nützt wenig, solange die Klartextkopien der eben
+  /// angesehenen Fotos im Temp-Verzeichnis liegen. Bis zur 17. Prüfrunde
+  /// stand die Reihenfolge an genau einer Aufrufstelle im Bildschirm –
+  /// jede weitere hätte sie sich merken müssen.
+  Future<void> sperreTresor() async {
+    lockVaultSession();
+    await clearDecryptCache();
   }
 
   Future<void> _cryptFileInPlace(
@@ -2524,11 +2644,6 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
-  /// Löscht die von [AppDatabase.clearDerivedContentData] genannten
-  /// Dateien – Gesichts-Ausschnitte gesperrter Fotos.
-  ///
-  /// Fehlt eine Datei bereits, ist das kein Fehler: Das Ziel ist, dass sie
-  /// weg ist.
   /// Kehrt [lockAsset] um: entschlüsselt die Dateien wieder in Klartext und
   /// entfernt das Foto (samt Live-Photo-Partner) aus dem gesperrten Ordner.
   Future<void> unlockAsset(AssetData asset) async {

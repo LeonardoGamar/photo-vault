@@ -155,7 +155,14 @@ void main() {
 
     await lauf();
 
-    final asset = (await db.assetsFuerDatumskorrektur()).single;
+    // Seit die RAW-Bedingung in der Abfrage steht, taucht ein JPEG dort
+    // gar nicht erst auf – das ist die schärfere Aussage als „wurde nicht
+    // verändert", und sie schliesst zugleich aus, dass die Datei für
+    // nichts von der Platte gelesen wird.
+    expect(await db.assetsFuerDatumskorrektur(), isEmpty);
+    expect(await db.countDatumskorrektur(), 0);
+
+    final asset = (await db.assetById('a5'))!;
     expect(asset.fileCreatedAt, DateTime(2026, 5, 8));
     expect(asset.relativePath, alt);
   });

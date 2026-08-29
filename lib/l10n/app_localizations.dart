@@ -2072,30 +2072,6 @@ abstract class AppTexte {
   /// **'Keine unbewerteten Fotos gefunden.'**
   String get werkzKeineUnbewerteten;
 
-  /// No description provided for @werkzYunetNoetig.
-  ///
-  /// In de, this message translates to:
-  /// **'Dafür wird zuerst das YuNet-Modell benötigt (Einstellungen → KI-Modelle).'**
-  String get werkzYunetNoetig;
-
-  /// No description provided for @werkzClipNoetig.
-  ///
-  /// In de, this message translates to:
-  /// **'Dafür wird zuerst das CLIP-Modell benötigt (Einstellungen → KI-Modelle).'**
-  String get werkzClipNoetig;
-
-  /// No description provided for @werkzBeschreibungsmodellNoetig.
-  ///
-  /// In de, this message translates to:
-  /// **'Dafür wird zuerst das Bildbeschreibungs-Modell benötigt (Einstellungen → KI-Modelle).'**
-  String get werkzBeschreibungsmodellNoetig;
-
-  /// No description provided for @werkzGeoNoetig.
-  ///
-  /// In de, this message translates to:
-  /// **'Dafür wird zuerst der GeoNames-Datensatz benötigt (Einstellungen → Standortdaten).'**
-  String get werkzGeoNoetig;
-
   /// No description provided for @werkzKeinePassenden.
   ///
   /// In de, this message translates to:
@@ -2108,24 +2084,6 @@ abstract class AppTexte {
   /// **'Gesichter scannen'**
   String get werkzGesichterScannenTitel;
 
-  /// No description provided for @werkzGesichterScannenFrage.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur neue Fotos scannen: schnell, überspringt bereits gescannte Fotos.\n\nAlle Fotos erneut scannen: prüft die komplette Bibliothek neu (z.B. sinnvoll nach einem Update der Gesichtserkennung, oder um die Geschlossene-Augen-Erkennung nachträglich für bereits gescannte Fotos zu berechnen) – dauert bei großen Bibliotheken entsprechend länger. Bereits manuell zugeordnete Gesichter bleiben dabei erhalten.'**
-  String get werkzGesichterScannenFrage;
-
-  /// No description provided for @werkzNurNeueFotos.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur neue Fotos'**
-  String get werkzNurNeueFotos;
-
-  /// No description provided for @werkzAlleErneutScannen.
-  ///
-  /// In de, this message translates to:
-  /// **'Alle erneut scannen'**
-  String get werkzAlleErneutScannen;
-
   /// No description provided for @werkzScanneNeue.
   ///
   /// In de, this message translates to:
@@ -2137,30 +2095,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Scanne alle Fotos erneut …'**
   String get werkzScanneAlle;
-
-  /// No description provided for @werkzVorschauNeuTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Vorschaubilder neu erstellen'**
-  String get werkzVorschauNeuTitel;
-
-  /// No description provided for @werkzVorschauNeuFrage.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur fehlende: verarbeitet nur Fotos/Videos, die aktuell kein Thumbnail haben (z.B. HEIC-Fotos, die vor Einrichtung der nativen Bildkonvertierung importiert wurden, oder Videos, die vor Einführung der Video-Thumbnail-Erzeugung importiert wurden).\n\nAlle neu erstellen: erzeugt für die komplette Bibliothek neue Thumbnails/Vorschauen – sinnvoll z.B. nach einem Update der Bild- oder Videokonvertierung. Dauert bei großen Bibliotheken entsprechend länger.'**
-  String get werkzVorschauNeuFrage;
-
-  /// No description provided for @werkzNurFehlende.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur fehlende'**
-  String get werkzNurFehlende;
-
-  /// No description provided for @werkzAlleNeuErstellen.
-  ///
-  /// In de, this message translates to:
-  /// **'Alle neu erstellen'**
-  String get werkzAlleNeuErstellen;
 
   /// No description provided for @werkzErstelleFehlende.
   ///
@@ -2209,30 +2143,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Alle Fotos haben bereits ein Embedding.'**
   String get werkzAlleHabenEmbedding;
-
-  /// No description provided for @werkzKiTagsTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'KI-Tags berechnen'**
-  String get werkzKiTagsTitel;
-
-  /// No description provided for @werkzKiTagsFrage.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur ungetaggte Fotos: schnell, überspringt Fotos, die schon mindestens einen Tag haben (manuell oder automatisch).\n\nAlle Fotos: prüft die komplette Bibliothek neu und ergänzt zusätzlich passende KI-Tags bei bereits getaggten Fotos – vorhandene Tags bleiben dabei erhalten.'**
-  String get werkzKiTagsFrage;
-
-  /// No description provided for @werkzNurUngetaggte.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur ungetaggte'**
-  String get werkzNurUngetaggte;
-
-  /// No description provided for @werkzAlleFotos.
-  ///
-  /// In de, this message translates to:
-  /// **'Alle Fotos'**
-  String get werkzAlleFotos;
 
   /// No description provided for @werkzBerechneKiTags.
   ///
@@ -2348,12 +2258,6 @@ abstract class AppTexte {
   /// **'Gesichtserkennung'**
   String get werkzAbschnittGesichtserkennung;
 
-  /// No description provided for @werkzGesichterScannenUntertitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Manuell auslösen – neue oder alle Fotos'**
-  String get werkzGesichterScannenUntertitel;
-
   /// No description provided for @werkzSchwelleLabel.
   ///
   /// In de, this message translates to:
@@ -2402,47 +2306,11 @@ abstract class AppTexte {
   /// **'Eingeschränkt – es fehlen: {namen}. Die davon abhängigen Formate bleiben ohne Vorschau; JPG/PNG/WebP/GIF/BMP/TIFF funktionieren weiter.'**
   String werkzHeicWerkzeugeFehlen(String namen);
 
-  /// No description provided for @werkzVorschauNeuUntertitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Für alle Fotos oder nur für noch fehlende'**
-  String get werkzVorschauNeuUntertitel;
-
-  /// No description provided for @werkzAbschnittEntwicklung.
-  ///
-  /// In de, this message translates to:
-  /// **'Entwicklung'**
-  String get werkzAbschnittEntwicklung;
-
   /// No description provided for @werkzNeuRendernTitel.
   ///
   /// In de, this message translates to:
   /// **'Entwickelte Fotos neu rendern'**
   String get werkzNeuRendernTitel;
-
-  /// No description provided for @werkzNeuRendernText.
-  ///
-  /// In de, this message translates to:
-  /// **'Rendert alle Fotos mit gespeicherten Entwicklungs-Anpassungen (Belichtung, Weißabgleich & Co.) mit unveränderten Einstellungen neu – z.B. sinnvoll nach einem Update der nativen Bildverarbeitung.'**
-  String get werkzNeuRendernText;
-
-  /// No description provided for @werkzAbschnittLivePhotos.
-  ///
-  /// In de, this message translates to:
-  /// **'Live Photos'**
-  String get werkzAbschnittLivePhotos;
-
-  /// No description provided for @werkzLivePhotoTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Live-Photo-Paare erneut prüfen'**
-  String get werkzLivePhotoTitel;
-
-  /// No description provided for @werkzLivePhotoText.
-  ///
-  /// In de, this message translates to:
-  /// **'Für Fotos/Videos, die vor dieser Funktion importiert wurden – verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos.'**
-  String get werkzLivePhotoText;
 
   /// No description provided for @werkzAbschnittOrte.
   ///
@@ -2450,47 +2318,17 @@ abstract class AppTexte {
   /// **'Orte'**
   String get werkzAbschnittOrte;
 
-  /// No description provided for @werkzOrteEinlesenTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Orte aus Fotos einlesen'**
-  String get werkzOrteEinlesenTitel;
-
-  /// No description provided for @werkzOrteEinlesenText.
-  ///
-  /// In de, this message translates to:
-  /// **'Für Fotos, die vor Einführung der Kartenansicht importiert wurden – liest EXIF-GPS-Daten nachträglich ein.'**
-  String get werkzOrteEinlesenText;
-
   /// No description provided for @werkzOrteAufloesenTitel.
   ///
   /// In de, this message translates to:
   /// **'Land/Bundesland/Stadt auflösen'**
   String get werkzOrteAufloesenTitel;
 
-  /// No description provided for @werkzOrteAufloesenText.
-  ///
-  /// In de, this message translates to:
-  /// **'Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu – komplett lokal/offline über den GeoNames-Datensatz (siehe Einstellungen → Standortdaten). Für die Land-/Bundesland-/Stadt-Filter in den Suchoptionen nötig.'**
-  String get werkzOrteAufloesenText;
-
   /// No description provided for @werkzAbschnittKamera.
   ///
   /// In de, this message translates to:
   /// **'Kamera'**
   String get werkzAbschnittKamera;
-
-  /// No description provided for @werkzKameradatenTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Kameradaten aus Fotos einlesen'**
-  String get werkzKameradatenTitel;
-
-  /// No description provided for @werkzKameradatenText.
-  ///
-  /// In de, this message translates to:
-  /// **'Für Fotos, die vor Einführung der Kamera-Anzeige importiert wurden – liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus den EXIF-Daten nachträglich ein.'**
-  String get werkzKameradatenText;
 
   /// No description provided for @werkzPresetsTitel.
   ///
@@ -2516,54 +2354,6 @@ abstract class AppTexte {
   /// **'Fotos automatisch anhand von Ort, KI-Tag oder Aufnahmedatum einem Album/Tag zuordnen oder favorisieren – wie Kamera-Presets, nur für andere Bedingungen.'**
   String get werkzRegelnText;
 
-  /// No description provided for @werkzAbschnittQualitaet.
-  ///
-  /// In de, this message translates to:
-  /// **'Fotoqualität'**
-  String get werkzAbschnittQualitaet;
-
-  /// No description provided for @werkzOcrTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Text in Fotos erkennen'**
-  String get werkzOcrTitel;
-
-  /// No description provided for @werkzOcrText.
-  ///
-  /// In de, this message translates to:
-  /// **'Für Fotos, die vor Einführung der Textsuche importiert wurden – erkennt sichtbaren Text (z.B. Schilder, Dokumente) nachträglich, rein lokal über Apples Vision-Framework.'**
-  String get werkzOcrText;
-
-  /// No description provided for @werkzBeschreibungenTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Bildbeschreibungen erzeugen'**
-  String get werkzBeschreibungenTitel;
-
-  /// No description provided for @werkzBeschreibungenText.
-  ///
-  /// In de, this message translates to:
-  /// **'Für Fotos, die vor Installation des Bildbeschreibungs-Modells importiert wurden – erzeugt eine kurze, englische Bildunterschrift pro Foto, rein lokal.'**
-  String get werkzBeschreibungenText;
-
-  /// No description provided for @werkzUnschaerfeTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'Unschärfe neu berechnen'**
-  String get werkzUnschaerfeTitel;
-
-  /// No description provided for @werkzUnschaerfeText.
-  ///
-  /// In de, this message translates to:
-  /// **'Für Fotos, die vor Einführung der Unschärfe-Erkennung importiert wurden – ermöglicht den Suchfilter \"Nur unscharfe Fotos anzeigen\".'**
-  String get werkzUnschaerfeText;
-
-  /// No description provided for @werkzAbschnittBildsuche.
-  ///
-  /// In de, this message translates to:
-  /// **'KI-Bildsuche'**
-  String get werkzAbschnittBildsuche;
-
   /// No description provided for @werkzAllesNachholenTitel.
   ///
   /// In de, this message translates to:
@@ -2575,36 +2365,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Startet alle rechenintensiven Schritte nacheinander im Hintergrund: Unschärfe, Gesichter, Texterkennung, Bildsuche, Schlagwörter und Bildbeschreibung. Jeder Schritt überspringt, was er schon hat – die App bleibt bedienbar.'**
   String get werkzAllesNachholenText;
-
-  /// No description provided for @werkzAnalyseGestartet.
-  ///
-  /// In de, this message translates to:
-  /// **'Auswertung läuft im Hintergrund – Fortschritt oben in der Leiste.'**
-  String get werkzAnalyseGestartet;
-
-  /// No description provided for @werkzEmbeddingsTitel.
-  ///
-  /// In de, this message translates to:
-  /// **'CLIP-Embeddings berechnen'**
-  String get werkzEmbeddingsTitel;
-
-  /// No description provided for @werkzEmbeddingsText.
-  ///
-  /// In de, this message translates to:
-  /// **'Für Fotos, die vor Installation des CLIP-Modells importiert wurden – ohne Embedding tauchen sie in der KI-Bildsuche und der Duplikatsuche nicht auf.'**
-  String get werkzEmbeddingsText;
-
-  /// No description provided for @werkzEmbeddingsFrage.
-  ///
-  /// In de, this message translates to:
-  /// **'Nur fehlende: für Fotos, die vor Installation des CLIP-Modells importiert wurden.\n\nAlle Fotos: rechnet auch vorhandene neu. Nötig nach einer Änderung der Bildvorverarbeitung – seit Version 1.4 wird ein Foto mittig zugeschnitten statt gestaucht, und alte Vektoren stammen noch aus dem gestauchten Bild. Bis das nachgeholt ist, arbeiten Bildsuche und Schlagwörter mit zweierlei Mass.'**
-  String get werkzEmbeddingsFrage;
-
-  /// No description provided for @werkzKiTagsKarteText.
-  ///
-  /// In de, this message translates to:
-  /// **'Ordnet Fotos automatisch passende Tags aus einer festen Begriffsliste zu (z.B. \"Kind\", \"Draußen\", \"Geburtstag\") – auf Basis des CLIP-Modells, ohne zusätzlichen Download. Tags lassen sich in der Info-Ansicht eines Fotos jederzeit anpassen.'**
-  String get werkzKiTagsKarteText;
 
   /// No description provided for @werkzAbschnittBibliothek.
   ///
@@ -2672,12 +2432,6 @@ abstract class AppTexte {
   /// **'XMP-Sidecars schreiben'**
   String get werkzXmpSchreibenTitel;
 
-  /// No description provided for @werkzXmpSchreibenText.
-  ///
-  /// In de, this message translates to:
-  /// **'Legt für jedes Foto eine .xmp-Datei mit Bewertung, Farbmarkierung, Beschreibung, Tags und Kamera-Daten daneben ab – für Lightroom, darktable oder digiKam. Gesperrte Fotos werden übersprungen. Passiert automatisch auch beim Exportieren und bei unverschlüsselten Backups.'**
-  String get werkzXmpSchreibenText;
-
   /// No description provided for @werkzXmpLesenTitel.
   ///
   /// In de, this message translates to:
@@ -2737,6 +2491,18 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Wartend'**
   String get aufgWartend;
+
+  /// No description provided for @aufgWenigerGleichzeitig.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine weniger'**
+  String get aufgWenigerGleichzeitig;
+
+  /// No description provided for @aufgMehrGleichzeitig.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine mehr'**
+  String get aufgMehrGleichzeitig;
 
   /// No description provided for @aufgBetrifft.
   ///
@@ -2799,18 +2565,6 @@ abstract class AppTexte {
   /// **'Erkennt und ordnet Gesichter zu, sofern das YuNet-Modell installiert ist.'**
   String get aufgGesichterText;
 
-  /// No description provided for @aufgNeueFotos.
-  ///
-  /// In de, this message translates to:
-  /// **'Neue Fotos'**
-  String get aufgNeueFotos;
-
-  /// No description provided for @aufgAlleErneut.
-  ///
-  /// In de, this message translates to:
-  /// **'Alle erneut'**
-  String get aufgAlleErneut;
-
   /// No description provided for @aufgVorschauText.
   ///
   /// In de, this message translates to:
@@ -2823,12 +2577,6 @@ abstract class AppTexte {
   /// **'Fehlende'**
   String get aufgFehlende;
 
-  /// No description provided for @aufgAlleNeu.
-  ///
-  /// In de, this message translates to:
-  /// **'Alle neu'**
-  String get aufgAlleNeu;
-
   /// No description provided for @aufgOcrTitel.
   ///
   /// In de, this message translates to:
@@ -2840,12 +2588,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Erkennt sichtbaren Text in Fotos, rein lokal über Apples Vision-Framework.'**
   String get aufgOcrText;
-
-  /// No description provided for @aufgStarten.
-  ///
-  /// In de, this message translates to:
-  /// **'Starten'**
-  String get aufgStarten;
 
   /// No description provided for @aufgBeschreibungenTitel.
   ///
@@ -2883,12 +2625,6 @@ abstract class AppTexte {
   /// **'Ordnet Fotos automatisch passende Tags aus dem Vokabular zu (auf CLIP-Basis).'**
   String get aufgKiTagsText;
 
-  /// No description provided for @aufgUngetaggte.
-  ///
-  /// In de, this message translates to:
-  /// **'Ungetaggte'**
-  String get aufgUngetaggte;
-
   /// No description provided for @aufgUnschaerfeTitel.
   ///
   /// In de, this message translates to:
@@ -2910,7 +2646,7 @@ abstract class AppTexte {
   /// No description provided for @aufgOrteText.
   ///
   /// In de, this message translates to:
-  /// **'Liest EXIF-GPS-Daten aus Fotos nachträglich ein.'**
+  /// **'Liest EXIF-GPS-Daten aus Fotos nachträglich ein. Die Zahl ist die der Fotos ohne Ort – wie viele davon einen in der Datei tragen, weiss erst der Durchgang.'**
   String get aufgOrteText;
 
   /// No description provided for @aufgOrteAufloesenText.
@@ -2928,7 +2664,7 @@ abstract class AppTexte {
   /// No description provided for @aufgKameraText.
   ///
   /// In de, this message translates to:
-  /// **'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein.'**
+  /// **'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein. Die Zahl ist die der Fotos ohne Kameraangabe; Aufnahmen ganz ohne EXIF bleiben darunter.'**
   String get aufgKameraText;
 
   /// No description provided for @aufgLivePhotoTitel.
@@ -2940,7 +2676,7 @@ abstract class AppTexte {
   /// No description provided for @aufgLivePhotoText.
   ///
   /// In de, this message translates to:
-  /// **'Verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos.'**
+  /// **'Verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos. Die Zahl ist die der Fotos ohne Partner – die allermeisten haben keinen und bekommen auch keinen.'**
   String get aufgLivePhotoText;
 
   /// No description provided for @aufgRendernText.
@@ -6449,6 +6185,12 @@ abstract class AppTexte {
   /// **'Kachelquelle der dunklen Karte'**
   String get einstBeschrKarte;
 
+  /// No description provided for @einstKartenNetzHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Karte holt ihre Kacheln beim Anzeigen von OpenStreetMap, OpenTopoMap, Esri und – beim Gelände – von AWS Open Data. Deren Server erfahren dabei, welchen Ausschnitt du ansiehst, und damit ungefähr, wo deine Fotos entstanden sind. Ohne Karte verlässt nichts davon den Rechner: Land, Region und Stadt zu einem GPS-Ort schlägt die App im heruntergeladenen Ortsverzeichnis nach.'**
+  String get einstKartenNetzHinweis;
+
   /// No description provided for @einstCartoText.
   ///
   /// In de, this message translates to:
@@ -9179,29 +8921,11 @@ abstract class AppTexte {
   /// **'Alle Beschreibungen sind übersetzt.'**
   String get werkzAlleUebersetzt;
 
-  /// No description provided for @werkzLaeuftSchon.
-  ///
-  /// In de, this message translates to:
-  /// **'Läuft bereits als Hintergrundaufgabe: {titel}'**
-  String werkzLaeuftSchon(String titel);
-
   /// No description provided for @aufgLaeuftSchon.
   ///
   /// In de, this message translates to:
   /// **'Diese Auswertung läuft bereits.'**
   String get aufgLaeuftSchon;
-
-  /// No description provided for @aufgAndereLaeuft.
-  ///
-  /// In de, this message translates to:
-  /// **'Es läuft bereits eine andere Auswertung. Teure Auswertungen laufen nacheinander, damit nicht mehrere KI-Modelle gleichzeitig im Speicher liegen.'**
-  String get aufgAndereLaeuft;
-
-  /// No description provided for @aufgAnalyseLaeuft.
-  ///
-  /// In de, this message translates to:
-  /// **'Die Hintergrundanalyse arbeitet gerade dieselben Schritte ab. Sie lässt sich oben in der Karte „Alles nachholen“ anhalten.'**
-  String get aufgAnalyseLaeuft;
 
   /// No description provided for @infoKiBeschreibungVonHand.
   ///
@@ -9322,12 +9046,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Aufnahmedatum aus RAW-Fotos nachtragen'**
   String get werkzDatumTitel;
-
-  /// No description provided for @werkzDatumText.
-  ///
-  /// In de, this message translates to:
-  /// **'Liest Datum, Kamera und Objektiv direkt aus RAW-Dateien. Nötig für Formate wie Canons CR3, aus denen beim Import nichts gelesen werden konnte – deren Fotos tragen das Datum der Datei statt der Aufnahme.'**
-  String get werkzDatumText;
 
   /// No description provided for @werkzDatumFrageTitel.
   ///
@@ -10144,6 +9862,78 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'{anzahl}x'**
   String mitschnittMalGeholt(int anzahl);
+
+  /// No description provided for @aufgTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufgaben'**
+  String get aufgTitel;
+
+  /// No description provided for @aufgModusAlle.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle'**
+  String get aufgModusAlle;
+
+  /// No description provided for @aufgErstellen.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufgabe erstellen'**
+  String get aufgErstellen;
+
+  /// No description provided for @aufgErstellenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Mehrere Aufgaben auf einmal einreihen. Sie laufen der Reihe nach ab – wie viele nebeneinander, steht unter „Gleichzeitige Ausführungen verwalten\".'**
+  String get aufgErstellenText;
+
+  /// No description provided for @aufgEinreihen.
+  ///
+  /// In de, this message translates to:
+  /// **'Einreihen'**
+  String get aufgEinreihen;
+
+  /// No description provided for @aufgGleichzeitigTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Gleichzeitige Ausführungen verwalten'**
+  String get aufgGleichzeitigTitel;
+
+  /// No description provided for @aufgGleichzeitigText.
+  ///
+  /// In de, this message translates to:
+  /// **'Wie viele rechenintensive Aufgaben nebeneinander laufen dürfen. Jede hält ein KI-Modell im Speicher und liest dieselben Fotos noch einmal von der Platte – mehr ist nicht immer schneller. Aufgaben ohne Modell laufen ohnehin sofort.'**
+  String get aufgGleichzeitigText;
+
+  /// No description provided for @aufgDatumText.
+  ///
+  /// In de, this message translates to:
+  /// **'Liest bei RAW-Aufnahmen das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.'**
+  String get aufgDatumText;
+
+  /// No description provided for @aufgOffeneFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Fotos offen'**
+  String aufgOffeneFotos(int anzahl);
+
+  /// No description provided for @aufgEingereiht.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Aufgaben eingereiht.'**
+  String aufgEingereiht(int anzahl);
+
+  /// No description provided for @werkzZuAufgabenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter, Vorschaubilder, Texterkennung, Orte, Schlagwörter und alles Weitere, was einen Durchgang über die Bibliothek startet. Sie stehen dort und nur dort.'**
+  String get werkzZuAufgabenText;
+
+  /// No description provided for @aufgVorschauTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschaubilder erzeugen'**
+  String get aufgVorschauTitel;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

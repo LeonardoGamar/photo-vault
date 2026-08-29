@@ -30,6 +30,10 @@ String _describeError(Object e) => e is StateError ? e.message : e.toString();
 /// [matchAgainstExternalLibrary] (günstig, bei jeder Schwellenwert-Änderung
 /// wiederholbar) – analog zum Schieberegler in DuplicatesScreen, der hier
 /// vorher fehlte (Audit-Fund).
+/// Hoehe einer Vergleichszeile – zugleich die Dekodiergroesse der beiden
+/// Vorschaubilder darin.
+const double _zeilenHoehe = 120;
+
 class SecondLibraryCompareScreen extends StatefulWidget {
   final LibraryState library;
   const SecondLibraryCompareScreen({super.key, required this.library});
@@ -260,7 +264,14 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(AppRadius.sm),
                               child: match.externalThumbnail.existsSync()
-                                  ? Image.file(match.externalThumbnail, fit: BoxFit.cover)
+                                  ? Image.file(
+                                      match.externalThumbnail,
+                                      fit: BoxFit.cover,
+                                      cacheWidth: (_zeilenHoehe *
+                                              MediaQuery.devicePixelRatioOf(
+                                                  context))
+                                          .round(),
+                                    )
                                   : Container(
                                       color: Colors.black26,
                                       child: const Icon(Icons.image_not_supported_outlined),

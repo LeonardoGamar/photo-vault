@@ -43,7 +43,8 @@ String? kennungAus(List<int> kopf) {
 
   // PNG: der Signaturblock, der absichtlich so gebaut ist, dass ihn eine
   // Textübertragung zerstört.
-  if (_gleich(kopf, 0, const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) {
+  if (_gleich(
+      kopf, 0, const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) {
     return '.png';
   }
 
@@ -83,6 +84,10 @@ String? _bmff(String marke) => switch (marke) {
       'hevc' || 'hevx' || 'hevm' || 'hevs' => '.heic',
       'mif1' || 'msf1' => '.heic',
       'avif' || 'avis' => '.avif',
+      // Canons neueres RAW-Format steckt im selben Kasten wie ein Film.
+      // Die Marke ist eindeutig – anders als bei den TIFF-RAWs oben lässt
+      // sich CR3 also sicher an den Bytes erkennen.
+      'crx ' => '.cr3',
       _ => null,
     };
 
@@ -94,4 +99,5 @@ bool _gleich(List<int> kopf, int ab, List<int> muster) {
   return true;
 }
 
-bool _text(List<int> kopf, int ab, String muster) => _gleich(kopf, ab, muster.codeUnits);
+bool _text(List<int> kopf, int ab, String muster) =>
+    _gleich(kopf, ab, muster.codeUnits);

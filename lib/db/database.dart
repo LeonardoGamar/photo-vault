@@ -13,6 +13,7 @@ import '../services/exif_camera.dart';
 import '../services/face_threshold.dart';
 import '../services/library_location.dart';
 import '../services/library_stats.dart';
+import '../services/raw_formats.dart' show rawImageExtensions;
 import '../services/search_filters.dart';
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
@@ -1234,6 +1235,23 @@ class AppSettings extends Table {
   /// hinaus. Er gehört dem, der ihn beantragt.
   TextColumn get cartoSchluessel => text().nullable()();
 
+  /// Wie viele rechenintensive Aufgaben gleichzeitig laufen dürfen.
+  ///
+  /// **Warum das eine Einstellung ist und keine Konstante.** Bis hierher
+  /// wurde eine zweite schwere Aufgabe schlicht **abgewiesen**: Wer
+  /// Gesichter scannen liess und danach die Bildbeschreibungen anstiess,
+  /// bekam eine Meldung und musste sich das Ende der ersten merken. Jetzt
+  /// wird sie eingereiht — und wie viele nebeneinander laufen dürfen,
+  /// hängt an der Maschine. Ein Rechner mit 64 GB verkraftet zwei Modelle
+  /// nebeneinander, einer mit 8 GB nicht (allein CLIP-Bild 335 MB und die
+  /// Bildbeschreibung 235 MB, gemessen).
+  ///
+  /// Vorgabe **eins**, also genau das bisherige Verhalten – nur ohne die
+  /// Abweisung. Aufgaben ohne Modell (Orte einlesen, XMP schreiben,
+  /// Live-Photo-Paare) zählen hier nicht mit; sie kosten nichts, was sich
+  /// gegenseitig im Weg stünde.
+  IntColumn get maxGleichzeitig => integer().withDefault(const Constant(1))();
+
   /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
   BoolColumn get translateCaptions => boolean().withDefault(const Constant(false))();
 
@@ -1356,7 +1374,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 58;
+  int get schemaVersion => 59;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1753,6 +1771,12 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 59) {
+            // Wie viele schwere Aufgaben nebeneinander laufen dürfen
+            // (siehe die Spalte). Vorgabe eins = das bisherige Verhalten.
+            await _addColumnIfMissing(m, appSettings, appSettings.maxGleichzeitig,
+                'app_settings', 'max_gleichzeitig');
           }
           if (from < 58) {
             // Der eigene CARTO-Schlüssel (siehe die Spalte). Null heisst
@@ -2620,9 +2644,42 @@ class AppDatabase extends _$AppDatabase {
   /// Bewusst ohne weitere Einschränkung: Ob ein Datum wirklich falsch ist,
   /// weiss erst der Vergleich mit der Datei. Diese Abfrage grenzt nur die
   /// Menge ein, die überhaupt betroffen sein kann.
-  Future<List<AssetData>> assetsFuerDatumskorrektur() => (select(assets)
-        ..where((t) => t.type.equals('IMAGE') & t.isTrashed.equals(false)))
-      .get();
+  /// RAW-Aufnahmen, deren Aufnahmedatum nachgelesen werden soll.
+  ///
+  /// **Die RAW-Bedingung steht hier und nicht mehr im Aufrufer.** Vorher
+  /// lud diese Abfrage ALLE Bilder – bei 7.988 Aufnahmen also achttausend
+  /// Zeilen –, und `korrigiereAufnahmedaten` warf davon in Dart alles weg,
+  /// was keine RAW-Endung hatte. Nebenbei liess sich die Zahl damit nicht
+  /// anzeigen, ohne dieselbe Arbeit ein zweites Mal zu tun. Jetzt
+  /// entscheidet SQL, [countDatumskorrektur] fragt dasselbe, und beide
+  /// können nicht auseinanderlaufen.
+  ///
+  /// Über die Endung des Ablagepfades und **nicht** über die Spalte
+  /// `dateiformat`: Die ist erst seit Fassung 47 da und darf leer sein –
+  /// eine Datei, die ohne Endung hereinkam, hat dort nichts stehen. Mit
+  /// `dateiformat` fielen solche Zeilen stillschweigend heraus, und der
+  /// Prüfstand hat genau das gefangen. Der Ablagepfad dagegen trägt die
+  /// kleingeschriebene Endung der Quelldatei, immer.
+  ///
+  /// Fünfundzwanzig `LIKE` über die ganze Tabelle sind kein Vergnügen,
+  /// aber es ist eine Abfrage statt achttausend Zeilen durch den
+  /// Dart-Speicher.
+  Expression<bool> get _rohaufnahme {
+    Expression<bool>? endungen;
+    for (final e in rawImageExtensions) {
+      final eine = assets.relativePath.lower().like('%$e');
+      endungen = endungen == null ? eine : endungen | eine;
+    }
+    return assets.type.equals('IMAGE') &
+        assets.isTrashed.equals(false) &
+        endungen!;
+  }
+
+  Future<List<AssetData>> assetsFuerDatumskorrektur() =>
+      (select(assets)..where((_) => _rohaufnahme)).get();
+
+  /// Zählvariante von [assetsFuerDatumskorrektur], siehe [countLocationBackfill].
+  Future<int> countDatumskorrektur() => _countWhere(_rohaufnahme);
 
   /// Setzt das Ergebnis der Texterkennung (siehe ImageConverter.swift
   /// `recognizeText`) – [text] darf leer sein (kein Text im Bild gefunden),
@@ -2695,6 +2752,24 @@ class AppDatabase extends _$AppDatabase {
       into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
         id: const Value(0),
         kartenansicht: Value(ansicht),
+      ));
+
+  /// Wie viele schwere Aufgaben gleichzeitig laufen dürfen (siehe die
+  /// Spalte). Ohne gespeicherte Zeile gilt die Vorgabe eins.
+  Future<int> maxGleichzeitigeAufgaben() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    // Eine Null oder ein negativer Wert käme nur aus einer von Hand
+    // veränderten Datenbank – dann liefe gar nichts mehr, und niemand
+    // fände den Grund. Eins ist die Untergrenze.
+    final wert = row?.maxGleichzeitig ?? 1;
+    return wert < 1 ? 1 : wert;
+  }
+
+  Future<void> setzeMaxGleichzeitigeAufgaben(int anzahl) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        maxGleichzeitig: Value(anzahl < 1 ? 1 : anzahl),
       ));
 
   /// Der gespeicherte CARTO-Schlüssel, oder null.
@@ -5899,7 +5974,8 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Entfernt die maschinell aus dem BILDINHALT abgeleiteten Daten eines
-  /// Assets: erkannten Text, KI-Bildunterschrift und CLIP-Embedding.
+  /// Assets: erkannten Text, KI-Bildunterschrift (in **beiden** Sprachen)
+  /// und CLIP-Embedding.
   ///
   /// Wird beim Sperren aufgerufen. Ohne das blieb der Inhalt eines
   /// gesperrten Fotos in der unverschlüsselten `library.sqlite` lesbar –
@@ -5921,6 +5997,16 @@ class AppDatabase extends _$AppDatabase {
   /// - [description] – Nutzer-Freitext, kein abgeleiteter Wert.
   /// - Schlagwörter mit [Tagquelle.hand] – die zu löschen wäre echter
   ///   Datenverlust, nicht nur eine Neuberechnung.
+  /// - Eine Bildunterschrift mit [Assets.aiCaptionEdited] – dann sind es
+  ///   die Worte des Nutzers, und dieselbe Regel wie bei [description]
+  ///   gilt. Bis zur 17. Prüfrunde wurde sie trotzdem gelöscht, und zwar
+  ///   **unwiederbringlich**: Das Merkmal blieb dabei stehen, und
+  ///   [_brauchtBeschreibung] schliesst genau damit aus, was von Hand
+  ///   geschrieben wurde – nach dem Entsperren hätte sie also auch
+  ///   niemand neu berechnet.
+  /// - [Assets.latitude]/[Assets.longitude] – Aufnahmedaten der Datei,
+  ///   nicht aus dem Bild gerechnet, und teils von Hand gesetzt. Sichtbar
+  ///   sind sie nicht: [assetsWithLocation] filtert `isLocked`.
   /// - [sharpnessScore] – eine Zahl über die Bildschärfe verrät nichts
   ///   über den Bildinhalt und wird für die Ausschuss-Sichtung gebraucht.
   /// - Die **Einbettung eines Gesichts** (`faces.embedding`). Sie ist aus
@@ -5937,11 +6023,24 @@ class AppDatabase extends _$AppDatabase {
     await (update(assets)..where((t) => t.id.isIn(assetIds))).write(const AssetsCompanion(
       ocrText: Value(null),
       ocrScanned: Value(false),
-      aiCaption: Value(null),
-      aiCaptionScanned: Value(false),
       // Damit die Verschlagwortung nach dem Entsperren neu läuft und die
       // gelöschten Begriffe zurückbringt.
       aiTagsScanned: Value(false),
+    ));
+
+    // Die Bildunterschrift getrennt, weil sie nur wegdarf, solange sie
+    // wirklich von der Maschine stammt – siehe [aiCaptionEdited] oben.
+    await (update(assets)
+          ..where((t) => t.id.isIn(assetIds) & t.aiCaptionEdited.equals(false)))
+        .write(const AssetsCompanion(
+      aiCaption: Value(null),
+      // **Beide** Sprachen. Bis zur 17. Prüfrunde stand hier nur die
+      // englische, und die Übersetzung blieb im Klartext stehen: Wer sie
+      // eingeschaltet hatte, dem nahm das Sperren den einen Satz weg und
+      // liess denselben Satz auf Deutsch liegen. Der Test dazu hatte das
+      // Feld nie gesetzt und ging deshalb durch.
+      aiCaptionDe: Value(null),
+      aiCaptionScanned: Value(false),
     ));
     await (delete(imageEmbeddings)..where((t) => t.assetId.isIn(assetIds))).go();
     await (delete(assetTags)

@@ -37,6 +37,7 @@ import 'familienstatistik_screen.dart';
 import 'lebenslauf_screen.dart';
 import 'person_detail_screen.dart';
 import '../services/meldungsdienst.dart';
+import '../widgets/profilbild.dart';
 
 /// Breite und Höhe einer Personenkarte. Fest, weil die Verbindungslinien
 /// aus diesen beiden Zahlen und der Anzahl der Karten berechnet werden –
@@ -524,15 +525,13 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                 onPressed: () => Navigator.pop(dialog, weg),
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
+                  leading: Profilbild(
+                    datei: p.coverFaceCropPath == null
+                        ? null
+                        : widget.library.paths
+                            .absolute(p.coverFaceCropPath!),
                     radius: 18,
-                    backgroundImage: p.coverFaceCropPath != null
-                        ? FileImage(
-                            widget.library.paths.absolute(p.coverFaceCropPath!))
-                        : null,
-                    child: p.coverFaceCropPath == null
-                        ? const Icon(Icons.person_outline, size: 18)
-                        : null,
+                    symbolgroesse: 18,
                   ),
                   title: Text(p.name),
                   subtitle:
@@ -1396,15 +1395,13 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
         final person = _nachId[eintrag.key]!;
         final spanne = lebensspanne(person.geburtsdatum, person.sterbedatum);
         return ListTile(
-          leading: CircleAvatar(
+          leading: Profilbild(
+            datei: person.coverFaceCropPath == null
+                ? null
+                : widget.library.paths.absolute(person.coverFaceCropPath!),
             radius: 20,
-            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-            backgroundImage: person.coverFaceCropPath != null
-                ? FileImage(widget.library.paths.absolute(person.coverFaceCropPath!))
-                : null,
-            child: person.coverFaceCropPath == null
-                ? const Icon(Icons.person_outline, size: 18)
-                : null,
+            hintergrund: Theme.of(context).colorScheme.surfaceContainerHigh,
+            symbolgroesse: 18,
           ),
           title: Text(person.name),
           subtitle: Text(
@@ -2104,13 +2101,12 @@ class _Personenkarte extends StatelessWidget {
               // die hier nicht gezeigt werden – siehe Klassendoku von
               // [StammbaumScreen].
               _Mehrzeichen(sichtbar: weitereOben, nachOben: true),
-              CircleAvatar(
+              Profilbild(
+                datei: bild == null ? null : paths.absolute(bild),
                 radius: 26,
-                backgroundColor: farben.surfaceContainerHigh,
-                backgroundImage: bild != null ? FileImage(paths.absolute(bild)) : null,
-                child: bild == null
-                    ? Icon(Icons.person_outline, size: 24, color: farben.outline)
-                    : null,
+                hintergrund: farben.surfaceContainerHigh,
+                symbolgroesse: 24,
+                symbolfarbe: farben.outline,
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(

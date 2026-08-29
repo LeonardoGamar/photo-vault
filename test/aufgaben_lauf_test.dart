@@ -148,12 +148,12 @@ void main() {
     final regler = StreamController<ImportProgress>();
     // Der Lauf wird angestossen, bevor der Bildschirm steht – genau der
     // Fall, um den es geht: Man startet etwas und navigiert weg.
-    unawaited(library.starteAufgabe(
+    library.reiheAufgabeEin(
       schluessel: 'orte',
       titel: 'Lese Orte aus Fotos ein …',
       leermeldung: 'Alle Fotos haben bereits einen Ort.',
       strom: () => regler.stream,
-    ));
+    );
 
     tester.view.physicalSize = const Size(1400, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -196,54 +196,133 @@ void main() {
     await regler.close();
   });
 
-  testWidgets('„Starten" steht nur noch dort, wo wirklich alles bearbeitet wird',
-      (tester) async {
+  testWidgets('jede Karte bietet „Alle", „Fehlende" oder beides – und sonst '
+      'nichts', (tester) async {
     await zeige(tester);
 
-    // Diese Aufgaben schliessen nur die Lücken – ihr Zähler heisst
-    // „Wartend", und der Knopf sagt jetzt, was er tut.
-    const nurLuecken = [
+    // **Zwei Wörter für zwei Sachverhalte.** Vorher standen auf den
+    // Knöpfen sieben verschiedene: „Fehlende", „Neue Fotos",
+    // „Ungetaggte", „Starten", „Alle erneut", „Alle neu", „Alle Fotos" –
+    // und welches wo, war von Karte zu Karte verschieden.
+    const nurFehlende = [
       'Text erkennen (OCR)',
-      'Bildbeschreibungen',
-      'CLIP-Embeddings',
       'Unschärfe',
       'Orte einlesen',
       'Land/Bundesland/Stadt auflösen',
       'Kameradaten einlesen',
       'Live-Photo-Paare prüfen',
     ];
-    // Diese beiden arbeiten die vollständige Liste ab („Betrifft") – dort
-    // wäre „Fehlende" schlicht falsch.
-    const alles = ['Entwickelte Fotos neu rendern', 'XMP-Sidecars schreiben'];
+    const nurAlle = [
+      'Entwickelte Fotos neu rendern',
+      'XMP-Sidecars schreiben',
+      'Aufnahmedatum aus RAW-Fotos nachtragen',
+    ];
+    const beides = ['Bildbeschreibungen', 'CLIP-Embeddings', 'KI-Tags'];
 
-    for (final titel in nurLuecken) {
+    for (final titel in nurFehlende) {
       final karte = find.ancestor(of: find.text(titel), matching: find.byType(Card));
       await hinScrollen(tester, karte);
       expect(find.descendant(of: karte, matching: find.text('Fehlende')), findsOneWidget,
           reason: '$titel holt nur Fehlendes nach');
-      expect(find.descendant(of: karte, matching: find.text('Starten')), findsNothing,
+      expect(find.descendant(of: karte, matching: find.text('Alle')), findsNothing,
           reason: titel);
     }
 
-    for (final titel in alles) {
+    for (final titel in nurAlle) {
       final karte = find.ancestor(of: find.text(titel), matching: find.byType(Card));
       await hinScrollen(tester, karte);
-      expect(find.descendant(of: karte, matching: find.text('Starten')), findsOneWidget,
+      expect(find.descendant(of: karte, matching: find.text('Alle')), findsOneWidget,
           reason: '$titel bearbeitet alles, was es auflistet');
-      expect(find.descendant(of: karte, matching: find.text('Betrifft')), findsOneWidget);
+      expect(find.descendant(of: karte, matching: find.text('Fehlende')), findsNothing,
+          reason: titel);
+    }
+
+    for (final titel in beides) {
+      final karte = find.ancestor(of: find.text(titel), matching: find.byType(Card));
+      await hinScrollen(tester, karte);
+      expect(find.descendant(of: karte, matching: find.text('Alle')), findsOneWidget,
+          reason: titel);
+      expect(find.descendant(of: karte, matching: find.text('Fehlende')), findsOneWidget,
+          reason: titel);
     }
   });
 
-  testWidgets('Werkzeuge stösst dieselbe Arbeit nicht ein zweites Mal an', (tester) async {
-    final regler = StreamController<ImportProgress>();
-    unawaited(library.starteAufgabe(
-      schluessel: 'ocr',
-      titel: 'Erkenne Text in Fotos …',
+  testWidgets('eine zweite schwere Aufgabe stellt sich in die Schlange',
+      (tester) async {
+    // Vorher kam hier eine Abweisung, und wer beides wollte, musste das
+    // Ende der ersten abpassen.
+    final erste = StreamController<ImportProgress>();
+    addTearDown(erste.close);
+    library.reiheAufgabeEin(
+      schluessel: 'beschreibungen',
+      titel: 'Erzeuge Bildbeschreibungen …',
       leermeldung: 'nichts zu tun',
-      strom: () => regler.stream,
-    ));
+      strom: () => erste.stream,
+      rechenintensiv: true,
+    );
+    await zeige(tester);
 
-    tester.view.physicalSize = const Size(1400, 2400);
+    // „Unschärfe" ist rechenintensiv und braucht trotzdem kein Modell –
+    // damit hängt der Test nicht daran, was auf der Maschine installiert
+    // ist.
+    final karte = find.ancestor(
+        of: find.text('Unschärfe'), matching: find.byType(Card));
+    await hinScrollen(tester, karte);
+    await tester.tap(find.descendant(of: karte, matching: find.text('Fehlende')));
+    await einigeBilder(tester);
+
+    expect(library.lauf('unschaerfe')!.wartet, isTrue);
+    // Die Karte sagt es auch: eine wartende Aufgabe.
+    expect(find.descendant(of: karte, matching: find.text('Wartend')), findsOneWidget);
+    expect(find.descendant(of: karte, matching: find.text('1')), findsWidgets);
+    // Und sie lässt sich wieder aus der Schlange nehmen.
+    expect(find.descendant(of: karte, matching: find.text('Abbrechen')), findsOneWidget);
+  });
+
+  testWidgets('der Sammeldialog reiht mehrere auf einmal ein', (tester) async {
+    await zeige(tester);
+
+    await tester.tap(find.text('Aufgabe erstellen'));
+    await tester.pumpAndSettle();
+
+    // Zwei ankreuzen, die ohne Modell auskommen – sonst hinge der Test an
+    // dem, was auf der Maschine installiert ist.
+    for (final titel in ['Orte einlesen', 'Kameradaten einlesen']) {
+      final zeile = find.ancestor(
+          of: find.text(titel), matching: find.byType(CheckboxListTile));
+      await tester.scrollUntilVisible(zeile, 100,
+          scrollable: find.descendant(
+              of: find.byType(AlertDialog), matching: find.byType(Scrollable)).first);
+      await tester.tap(zeile);
+      await tester.pump();
+    }
+    await tester.tap(find.widgetWithText(FilledButton, 'Einreihen'));
+    await einigeBilder(tester);
+
+    // Beide sind angekommen – die leere Datenbank lässt sie sofort
+    // durchlaufen, entscheidend ist, dass es je einen Eintrag gibt.
+    expect(library.lauf('orte'), isNotNull);
+    expect(library.lauf('kameradaten'), isNotNull);
+  });
+
+  testWidgets('ohne Auswahl lässt sich der Sammeldialog nicht abschicken',
+      (tester) async {
+    await zeige(tester);
+    await tester.tap(find.text('Aufgabe erstellen'));
+    await tester.pumpAndSettle();
+
+    final knopf = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Einreihen'));
+    expect(knopf.onPressed, isNull,
+        reason: 'ein Knopf, der nichts tun kann, soll das vorher zeigen');
+  });
+
+  testWidgets('die Werkzeuge starten keine einzige Aufgabe mehr',
+      (tester) async {
+    // **Die Zusicherung, um die es beim Umbau ging.** Dieselben fünfzehn
+    // Durchgänge standen vorher zweimal in der App. Ein Test, der nur die
+    // neue Seite prüft, hätte das Doppelte nicht bemerkt.
+    tester.view.physicalSize = const Size(1400, 3000);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
@@ -251,26 +330,19 @@ void main() {
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
-      // Der Meldungsstapel gehoert dazu: Seit der Meldungszentrale
-      // erscheinen Meldungen dort und nicht mehr als SnackBar im
-      // Scaffold.
       builder: (context, kind) => mitMeldungen(kind),
       home: ToolsScreen(library: library),
     ));
     await einigeBilder(tester);
 
-    final knopf = find.text('Text in Fotos erkennen');
-    await tester.scrollUntilVisible(knopf, 200, scrollable: find.byType(Scrollable).first);
-    await einigeBilder(tester);
-    await tester.tap(knopf);
-    await einigeBilder(tester);
+    for (final aufgabe in aufgabenliste(
+        AppTexte.of(tester.element(find.byType(ToolsScreen))), library)) {
+      expect(find.text(aufgabe.titel), findsNothing,
+          reason: '„${aufgabe.titel}" ist eine Aufgabe und gehört nur in die '
+              'Aufgabenverwaltung');
+    }
 
-    // Kein zweiter Lauf über dieselben Fotos, kein zweites Modell im
-    // Speicher – stattdessen der Hinweis, wo die Arbeit schon läuft.
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(find.text('Läuft bereits als Hintergrundaufgabe: Erkenne Text in Fotos …'),
-        findsOneWidget);
-
-    await regler.close();
+    // Stattdessen steht dort der Weg dorthin.
+    expect(find.text('Aufgaben'), findsOneWidget);
   });
 }

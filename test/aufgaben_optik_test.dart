@@ -104,14 +104,68 @@ void main() {
     expect(find.text('Wartend'), findsWidgets);
 
     // Und die Leiste sitzt rechts vom Inhalt, nicht darunter.
-    final ersteLeiste = find.byIcon(Icons.play_arrow).first;
+    final ersteLeiste = find.byIcon(Icons.image_search).first;
     final leisteMitte = tester.getCenter(ersteLeiste);
     final karteMitte = tester.getCenter(find.byType(Card).first);
     expect(leisteMitte.dx, greaterThan(karteMitte.dx),
         reason: 'die Aktionsleiste gehört an den rechten Rand der Karte');
   });
 
-  testWidgets('was sich neu rechnen lässt, bietet auch „Alle Fotos" an',
+  testWidgets('jede Karte nennt die Zahl der offenen Fotos', (tester) async {
+    // Die dritte Zeile, die es vorher nicht gab: „Aktiv" und „Wartend"
+    // zählen seit der Warteschlange Aufgaben, nicht Fotos. Ohne diese
+    // Zeile wäre die nützlichste Zahl der Seite verschwunden.
+    for (var i = 0; i < 3; i++) {
+      await db.into(db.assets).insert(AssetsCompanion.insert(
+            id: 'o$i',
+            originalFileName: 'o$i.jpg',
+            relativePath: 'originals/o$i.jpg',
+            checksum: 'o$i',
+            type: 'IMAGE',
+            fileCreatedAt: DateTime(2026, 1, 1),
+            importedAt: DateTime(2026, 1, 1),
+          ));
+    }
+    await zeige(tester, const Size(1400, 2600));
+    expect(find.text('3 Fotos offen'), findsWidgets);
+  });
+
+  testWidgets('„offen" steht nur da, wo die Zahl auch auf null gehen kann',
+      (tester) async {
+    // Der Fund der 17. Prüfrunde. Drei Karten zählten Kandidaten und
+    // nannten es „offen": Orte einlesen zeigte 5838, Kameradaten 842,
+    // Live-Photo-Paare 6804 – und nach einem vollständig geglückten
+    // Durchgang stand dort fast dieselbe Zahl. Von 60 Fotos ohne Ort
+    // trugen sieben überhaupt GPS in der Datei. Eine Karte, die nach
+    // getaner Arbeit aussieht wie vorher, sieht aus wie kaputt.
+    //
+    // „Betrifft: n" verspricht nichts, was nicht eintritt.
+    await zeige(tester, const Size(1400, 2600));
+    final texte = AppTexte.of(tester.element(find.byType(Scaffold).first));
+    const kandidaten = {'orte', 'kameradaten', 'livephotos', 'aufnahmedatum',
+        'entwickelt', 'xmp'};
+    for (final aufgabe in aufgabenliste(texte, library)) {
+      if (!kandidaten.contains(aufgabe.schluessel)) continue;
+      expect(aufgabe.offenLabel, texte.aufgBetrifft,
+          reason: 'Die Aufgabe "${aufgabe.schluessel}" zählt Fotos, die sie '
+              'ansieht – nicht Fotos, die danach fertig sind.');
+    }
+  });
+
+  testWidgets('die Kopfzeile passt auch ins schmale Fenster', (tester) async {
+    // Bei 640 Punkten lief sie über: zwei Knöpfe mit langer Beschriftung
+    // neben dem Titel. Dort bleiben nur die Symbole – der Text steht im
+    // Kurzhinweis und damit auch für die Sprachausgabe bereit.
+    await zeige(tester, const Size(640, 900));
+    expect(tester.takeException(), isNull);
+    expect(find.text('Aufgabe erstellen'), findsNothing);
+    expect(find.byTooltip('Aufgabe erstellen'), findsOneWidget);
+
+    await zeige(tester, const Size(1400, 900));
+    expect(find.text('Aufgabe erstellen'), findsOneWidget);
+  });
+
+  testWidgets('was sich neu rechnen lässt, bietet auch „Alle" an',
       (tester) async {
     // Gemeldeter Fehler: Die Karte „CLIP-Embeddings" hatte nur „Starten".
     // Das rechnet ausschliesslich fehlende Fotos – nach der Umstellung
@@ -127,7 +181,7 @@ void main() {
       );
       expect(karte, findsOneWidget, reason: 'Karte „$titel" fehlt');
       expect(
-        find.descendant(of: karte, matching: find.text('Alle Fotos')),
+        find.descendant(of: karte, matching: find.text('Alle')),
         findsOneWidget,
         reason: 'Karte „$titel" bietet kein Neurechnen aller Fotos an',
       );
@@ -143,12 +197,9 @@ void main() {
   });
 
   testWidgets('die Zahlenfelder tragen die echten Werte', (tester) async {
-    // Drei Fotos, die noch keine Texterkennung hatten. Rechts muss die 3
-    // stehen, links die 0 – es läuft ja gerade nichts.
-    //
-    // Dass links auch etwas anderes als 0 stehen KANN, hängt an
-    // LibraryState.analyse und ist von aussen nicht herstellbar; geprüft ist
-    // hier die Verdrahtung beider Felder, nicht der laufende Fall.
+    // Drei Fotos, die noch keine Texterkennung hatten. „Aktiv" und
+    // „Wartend" stehen auf 0 – es läuft ja nichts –, und die Zahl der
+    // offenen Fotos steht in der Zeile darunter.
     for (var i = 0; i < 3; i++) {
       await db.into(db.assets).insert(AssetsCompanion.insert(
             id: 'a$i',
@@ -167,8 +218,10 @@ void main() {
       matching: find.byType(Card),
     );
     expect(ocrKarte, findsOneWidget, reason: 'die Karte muss gebaut sein');
-    expect(find.descendant(of: ocrKarte, matching: find.text('3')), findsOneWidget);
-    expect(find.descendant(of: ocrKarte, matching: find.text('0')), findsOneWidget);
+    expect(find.descendant(of: ocrKarte, matching: find.text('0')), findsNWidgets(2),
+        reason: 'Aktiv und Wartend zählen Aufgaben – hier läuft keine');
+    expect(find.descendant(of: ocrKarte, matching: find.text('3 Fotos offen')),
+        findsOneWidget);
   });
 
   testWidgets('so sieht die Karte aus', (tester) async {

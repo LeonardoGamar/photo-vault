@@ -17,6 +17,7 @@ import 'mini_location_map.dart';
 import 'person_picker_dialog.dart';
 import 'star_rating.dart';
 import '../services/meldungsdienst.dart';
+import 'profilbild.dart';
 
 /// Info-Ansicht für ein einzelnes Asset (Foto/Video) in der Vollbildvorschau
 /// – Layout angelehnt an Google Fotos: Zeilen mit Icon, Titel und optionalem
@@ -540,15 +541,13 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                                     )),
                                     child: Column(
                                       children: [
-                                        CircleAvatar(
+                                        Profilbild(
+                                          datei: item.cropRelativePath == null
+                                              ? null
+                                              : widget.paths.absolute(
+                                                  item.cropRelativePath!),
                                           radius: 26,
-                                          backgroundColor: Colors.grey.shade800,
-                                          backgroundImage: item.cropRelativePath != null
-                                              ? FileImage(widget.paths.absolute(item.cropRelativePath!))
-                                              : null,
-                                          child: item.cropRelativePath == null
-                                              ? const Icon(Icons.person_outline)
-                                              : null,
+                                          hintergrund: Colors.grey.shade800,
                                         ),
                                         const SizedBox(height: 4),
                                         SizedBox(

@@ -21,6 +21,7 @@ import 'reisen_screen.dart';
 import 'person_detail_screen.dart';
 import 'timeline_screen.dart';
 import 'trash_screen.dart';
+import '../widgets/profilbild.dart';
 
 const _previewPeopleCount = 10;
 const _previewAlbumCount = 8;
@@ -32,6 +33,10 @@ const _previewLocationGroupCount = 12;
 /// spezialisierten Bereichen (Personen, Karte, Alben, Timeline) auf einer
 /// Seite, statt dass man dafür einzeln durch die jeweiligen Tabs navigieren
 /// muss. Jede Sektion verlinkt über "Alle anzeigen" auf die volle Ansicht.
+/// Breite einer Karte in den Querlisten – zugleich die Dekodiergroesse
+/// des Vorschaubilds darin.
+const double _kartenKante = 120;
+
 class ExploreScreen extends StatelessWidget {
   final LibraryState library;
   const ExploreScreen({super.key, required this.library});
@@ -166,15 +171,14 @@ class _PeopleStrip extends StatelessWidget {
                   width: 76,
                   child: Column(
                     children: [
-                      CircleAvatar(
+                      Profilbild(
+                        datei: person.coverFaceCropPath == null
+                            ? null
+                            : library.paths
+                                .absolute(person.coverFaceCropPath!),
                         radius: 32,
-                        backgroundColor: Colors.grey.shade800,
-                        backgroundImage: person.coverFaceCropPath != null
-                            ? FileImage(library.paths.absolute(person.coverFaceCropPath!))
-                            : null,
-                        child: person.coverFaceCropPath == null
-                            ? const Icon(Icons.person_outline, size: 28)
-                            : null,
+                        hintergrund: Colors.grey.shade800,
+                        symbolgroesse: 28,
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -405,6 +409,9 @@ class _LocationGroupTile extends StatelessWidget {
                       ? Image.file(
                           library.paths.absolute(thumbPath),
                           fit: BoxFit.cover,
+                          cacheWidth: (_kartenKante *
+                                  MediaQuery.devicePixelRatioOf(context))
+                              .round(),
                           errorBuilder: (_, __, ___) => const Icon(Icons.location_city_outlined, size: 32),
                         )
                       : const Center(child: Icon(Icons.location_city_outlined, size: 32)),
@@ -588,6 +595,9 @@ class _AlbumPreviewTileState extends State<_AlbumPreviewTile> {
                           ? Image.file(
                               widget.library.paths.absolute(thumbPath),
                               fit: BoxFit.cover,
+                              cacheWidth: (_kartenKante *
+                                      MediaQuery.devicePixelRatioOf(context))
+                                  .round(),
                               errorBuilder: (_, __, ___) => const Icon(Icons.photo_album_outlined, size: 32),
                             )
                           : const Center(child: Icon(Icons.photo_album_outlined, size: 32)),

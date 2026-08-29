@@ -12,39 +12,67 @@ import '../services/meldungsdienst.dart';
 /// Eine Aktion innerhalb einer [_TaskCard] – startet einen der
 /// `Stream<ImportProgress>`-Backfills auf [LibraryState] als Lauf, der das
 /// Wegnavigieren überlebt.
-class _TaskAction {
-  final String label;
-  final IconData icon;
-
-  /// Was während des Laufs in der Karte steht – „Bildbeschreibungen werden
-  /// erzeugt". Hiess früher `dialogTitle`, weil er die Kopfzeile des
-  /// Fortschrittsfensters füllte; den Namen behält er nicht, damit niemand
-  /// nach einem Fenster sucht, das es nicht mehr gibt.
-  final String laufTitel;
-  final String emptyMessage;
-  final Stream<ImportProgress> Function() stream;
-  const _TaskAction({
-    required this.label,
-    required this.icon,
-    required this.laufTitel,
-    required this.emptyMessage,
-    required this.stream,
-  });
-}
-
 /// Einheitlicher Hinweistext für ein fehlendes KI-Modell/Datenset – dieselbe
 /// Formulierung wie in ToolsScreen (Werkzeuge), damit beide Einstiegspunkte
 /// nicht auseinanderdriften.
 String? _modelHint(AppTexte t, bool available, String model, String where) =>
     available ? null : t.aufgModellNoetig(model, where);
 
-/// Der Zustand eines laufenden oder eben beendeten Vorgangs, dort wo sonst
-/// die Zahlen „Aktiv/Wartend" stehen.
+/// Wie viel eine Aufgabe anfasst.
 ///
-/// Das ersetzt das frühere Fortschrittsfenster. Es sperrte den Bildschirm,
-/// liess sich nicht beiseitelegen und machte die Bezeichnung
-/// „Hintergrundaufgabe" zur Fehlbeschriftung: Wer die Bibliothek währenddessen
-/// ansehen wollte, musste abbrechen.
+/// **Zwei Angaben statt fünfzehn.** Vorher trug jede Aktion ihre eigene
+/// Beschriftung und ihr eigenes Symbol: „Fehlende", „Neue Fotos",
+/// „Ungetaggte", „Starten", „Alle erneut", „Alle neu", „Alle Fotos" – sieben
+/// Wörter für zwei Sachverhalte, und auf welchem Knopf welches stand, war
+/// von Karte zu Karte verschieden. Gemeint ist immer dasselbe: entweder
+/// alles, oder nur das, was noch fehlt.
+enum Aufgabenmodus {
+  /// Über den ganzen Bestand, auch über das, was schon ein Ergebnis hat.
+  alle,
+
+  /// Nur über das, was noch keines hat.
+  fehlende,
+}
+
+String modusName(AppTexte t, Aufgabenmodus m) => switch (m) {
+      Aufgabenmodus.alle => t.aufgModusAlle,
+      Aufgabenmodus.fehlende => t.aufgFehlende,
+    };
+
+IconData modusSymbol(Aufgabenmodus m) => switch (m) {
+      Aufgabenmodus.alle => Icons.all_inclusive,
+      Aufgabenmodus.fehlende => Icons.image_search,
+    };
+
+/// Eine der Möglichkeiten, eine Aufgabe zu starten.
+class Aufgabenaktion {
+  final Aufgabenmodus modus;
+
+  /// Was während des Laufs in der Karte steht.
+  final String laufTitel;
+
+  /// Was statt „0 / 0" dasteht, wenn es nichts zu tun gab.
+  final String emptyMessage;
+
+  final Stream<ImportProgress> Function() stream;
+
+  /// Rückfrage vor dem Start, oder `null`.
+  ///
+  /// Nur eine Aufgabe hat eine: Die Datumskorrektur schreibt Aufnahmedaten
+  /// um und verschiebt Dateien auf der Platte. Alle anderen ergänzen nur
+  /// Fehlendes, und eine Rückfrage, die man immer bejaht, liest bald
+  /// niemand mehr.
+  final Future<bool> Function(BuildContext)? bestaetigung;
+
+  const Aufgabenaktion({
+    required this.modus,
+    required this.laufTitel,
+    required this.emptyMessage,
+    required this.stream,
+    this.bestaetigung,
+  });
+}
+
 class _Laufanzeige extends StatelessWidget {
   final Hintergrundlauf lauf;
   const _Laufanzeige({required this.lauf});
@@ -184,7 +212,7 @@ class _Zahlenreihe extends StatelessWidget {
 
 /// Ein Knopf der Aktionsleiste.
 ///
-/// Bewusst nicht [_TaskAction]: Die Gesamtanalyse-Karte startet nicht über
+/// Bewusst nicht [Aufgabenaktion]: Die Gesamtanalyse-Karte startet nicht über
 /// ein Fortschrittsfenster, sondern über [LibraryState]. Sie müsste sonst
 /// eine Aktion mit leerem Strom und leerem Titel erfinden, nur um in die
 /// Leiste zu passen.
@@ -329,71 +357,103 @@ class _Aufgabenrahmen extends StatelessWidget {
   }
 }
 
-/// Eine Aufgaben-Karte: Symbol und Titel, Kurzbeschreibung, die Zahlen
-/// „Aktiv" und „Wartend" und rechts die Aktionsleiste.
+/// Alles, was eine Aufgabe ausmacht – als Angabe, nicht als Baustein.
 ///
-/// „Aktiv" ist keine Zierde: Vier dieser Aufgaben sind zugleich Stufen der
-/// Hintergrundanalyse ([stufe]), die weiterläuft, während man durch die App
-/// navigiert. Wer diesen Bildschirm während eines Laufs öffnet, sieht dort
-/// die tatsächlich verbleibende Zahl der gerade bearbeiteten Stufe. Die
-/// übrigen Aufgaben laufen in einem Fortschrittsfenster, das den Bildschirm
-/// verdeckt – bei ihnen steht dort zwangsläufig 0, und das ist richtig so.
-///
-/// [unavailableReason] gesetzt: Leiste abgeschaltet, Grund statt der Zahlen
-/// (fehlendes KI-Modell o.ä.) – dieselben Verfügbarkeits-Getter wie in
-/// ToolsScreen.
-class _TaskCard extends StatefulWidget {
-  final LibraryState library;
-
-  /// Kennung des Laufs dieser Karte (siehe [LibraryState.starteAufgabe]).
-  /// Fest im Quelltext vergeben statt aus dem Titel abgeleitet: Ein
-  /// übersetzter Titel wäre in jeder Sprache eine andere Kennung, und ein
-  /// beim Sprachwechsel laufender Vorgang verschwände aus seiner Karte.
+/// **Warum als Daten.** Dieselbe Liste speist zwei Dinge: die Karten dieses
+/// Bildschirms und den Dialog „Aufgabe erstellen", der mehrere auf einmal
+/// einreiht. Als Widget-Baum geschrieben liesse sich die Liste nur ansehen,
+/// nicht befragen – der Dialog müsste seine eigene führen, und die beiden
+/// liefen beim ersten Zusatz auseinander.
+class Aufgabe {
+  /// Kennung des Laufs. Fest im Quelltext vergeben statt aus dem Titel
+  /// abgeleitet: Ein übersetzter Titel wäre in jeder Sprache eine andere
+  /// Kennung, und ein beim Sprachwechsel laufender Vorgang verschwände aus
+  /// seiner Karte.
   final String schluessel;
 
   final IconData icon;
-  final String title;
-  final String description;
-  final Future<int> Function() pendingCount;
+  final String titel;
+  final String beschreibung;
+
+  /// Wie viele Fotos dieser Aufgabe noch fehlen.
+  final Future<int> Function() offeneZahl;
+
+  /// Beschriftung der offenen Zahl, wenn „offen" nicht das richtige Wort
+  /// ist – bei „neu rendern" etwa sind es nicht offene, sondern betroffene
+  /// Fotos.
+  final String? offenLabel;
 
   /// Ob diese Aufgabe zu den teuren gehört (KI-Modell im Speicher oder
-  /// dieselbe Arbeit wie eine Stufe der Hintergrundanalyse). Solche laufen
-  /// nur einzeln – siehe [LibraryState.pruefeStart].
+  /// dieselbe Arbeit wie eine Stufe der Hintergrundanalyse). Nur solche
+  /// warten aufeinander – siehe [LibraryState.maxGleichzeitig].
   final bool rechenintensiv;
 
   /// Die Stufe der Hintergrundanalyse, die dieselbe Arbeit erledigt – oder
   /// `null`, wenn diese Aufgabe nur von Hand läuft.
   final Analysestufe? stufe;
 
-  /// null heisst „Wartend" – der übersetzte Vorgabewert kann nicht im Kopf
-  /// stehen, dort gibt es noch keinen Kontext.
-  final String? pendingLabel;
-  final String? unavailableReason;
-  final List<_TaskAction> actions;
-  const _TaskCard({
-    required this.library,
+  /// Gesetzt, wenn ein Modell oder Datensatz fehlt: Die Aufgabe steht dann
+  /// mit dem Grund da, statt bedienbar zu sein.
+  final String? nichtVerfuegbar;
+
+  final List<Aufgabenaktion> aktionen;
+
+  const Aufgabe({
     required this.schluessel,
     required this.icon,
-    required this.title,
-    required this.description,
-    required this.pendingCount,
+    required this.titel,
+    required this.beschreibung,
+    required this.offeneZahl,
+    required this.aktionen,
+    this.offenLabel,
     this.rechenintensiv = false,
     this.stufe,
-    this.pendingLabel,
-    this.unavailableReason,
-    required this.actions,
+    this.nichtVerfuegbar,
   });
+
+  bool get bedienbar => nichtVerfuegbar == null;
+
+  /// Die Aktion, die der Sammeldialog nimmt.
+  ///
+  /// Dort wird angekreuzt, nicht je Aufgabe zwischen zwei Knöpfen gewählt.
+  /// Gibt es den gewünschten Modus nicht, tut es der andere: Bei „XMP
+  /// schreiben" gibt es nur „Alle", und diese Aufgabe deshalb aus einer
+  /// Sammelauswahl herauszulassen wäre schwerer zu verstehen als sie
+  /// mitlaufen zu lassen.
+  Aufgabenaktion aktionFuer(Aufgabenmodus modus) =>
+      aktionen.firstWhere((a) => a.modus == modus, orElse: () => aktionen.first);
+}
+
+/// Eine Aufgaben-Karte: Symbol und Titel, Kurzbeschreibung, die Zahlen
+/// „Aktiv" und „Wartend", darunter die Zahl der offenen Fotos, und rechts
+/// die Aktionsleiste.
+///
+/// **„Aktiv" und „Wartend" zählen Aufgaben, nicht Fotos.** Seit es die
+/// Warteschlange gibt (siehe [LibraryState.reiheAufgabeEin]), ist das eine
+/// echte Aussage: Wer drei schwere Aufgaben anstösst, sieht eine aktiv und
+/// zwei wartend. Vorher wurde die zweite abgewiesen, und „Wartend" trug
+/// die Zahl der offenen Fotos – zwei verschiedene Dinge unter einem Wort.
+/// Die offenen Fotos stehen jetzt in eigener Zeile darunter.
+///
+/// Eine Aufgabe kann auch aktiv sein, ohne dass jemand sie hier gestartet
+/// hat: Vier von ihnen sind zugleich Stufen der Hintergrundanalyse
+/// ([Aufgabe.stufe]), die nach dem Import von selbst läuft.
+class _TaskCard extends StatefulWidget {
+  final LibraryState library;
+  final Aufgabe aufgabe;
+  const _TaskCard({required this.library, required this.aufgabe});
 
   @override
   State<_TaskCard> createState() => _TaskCardState();
 }
 
 class _TaskCardState extends State<_TaskCard> {
+  Aufgabe get _a => widget.aufgabe;
+
   // Nur berechnen, wenn die Karte den Zähler überhaupt anzeigt – bei
-  // fehlendem Modell (unavailableReason gesetzt) würde die Abfrage sonst
-  // unnötig eine volle Tabellen-Zählung auslösen, ohne dass das Ergebnis je
-  // sichtbar wird.
-  late Future<int>? _countFuture = widget.unavailableReason == null ? widget.pendingCount() : null;
+  // fehlendem Modell würde die Abfrage sonst unnötig eine volle
+  // Tabellen-Zählung auslösen, ohne dass das Ergebnis je sichtbar wird.
+  late Future<int>? _countFuture = _a.bedienbar ? _a.offeneZahl() : null;
 
   /// Ob der Lauf dieser Karte beim letzten Bescheid schon beendet war –
   /// damit der Zähler genau einmal aufgefrischt wird, wenn ein Vorgang
@@ -413,84 +473,82 @@ class _TaskCardState extends State<_TaskCard> {
   }
 
   void _aufLaufwechsel() {
-    final lauf = widget.library.lauf(widget.schluessel);
+    final lauf = widget.library.lauf(_a.schluessel);
     final beendet = lauf == null || lauf.beendet;
     if (beendet && !_warBeendet) _refreshCount();
     _warBeendet = beendet;
   }
 
   void _refreshCount() {
-    if (widget.unavailableReason != null) return;
-    if (!mounted) return;
+    if (!_a.bedienbar || !mounted) return;
     // Die Abfrage VOR setState anstossen und nur die fertige Future
     // hineinreichen: Ein Pfeilrumpf gäbe hier das `Future` der Zuweisung
     // zurück, und setState verbietet einen Rückgabewert dieser Art
     // ausdrücklich (Zusicherung im Framework).
-    final naechste = widget.pendingCount();
+    final naechste = _a.offeneZahl();
     setState(() {
+      // Ein Pfeilrumpf gäbe hier das `Future` der Zuweisung zurück, und
+      // setState verbietet einen Rückgabewert dieser Art ausdrücklich.
       _countFuture = naechste;
     });
   }
 
-  void _runAction(_TaskAction action) {
-    final abweisung = widget.library
-        .pruefeStart(widget.schluessel, rechenintensiv: widget.rechenintensiv);
+  Future<void> _runAction(Aufgabenaktion action) async {
+    final bestaetigung = action.bestaetigung;
+    if (bestaetigung != null && !await bestaetigung(context)) return;
+    if (!mounted) return;
+    final abweisung = reiheEin(widget.library, _a, action);
     if (abweisung != null) {
       melde.warnung(abweisungstext(AppTexte.of(context), abweisung));
-      return;
     }
-    // Kein `await`: Der Lauf soll weiterlaufen, wenn dieser Bildschirm
-    // längst weg ist. Der Fortschritt kommt über LibraryState zurück.
-    unawaited(widget.library.starteAufgabe(
-      schluessel: widget.schluessel,
-      titel: action.laufTitel,
-      leermeldung: action.emptyMessage,
-      strom: action.stream,
-      rechenintensiv: widget.rechenintensiv,
-    ));
   }
 
   /// Wie viele Fotos die Hintergrundanalyse in dieser Stufe gerade noch vor
   /// sich hat – `0`, wenn sie nicht läuft oder woanders steht.
-  int _aktiv() {
+  int _analyseOffen() {
     final analyse = widget.library.analyse;
-    if (analyse == null || analyse.stufe != widget.stufe) return 0;
+    if (analyse == null || analyse.stufe != _a.stufe) return 0;
     final offen = analyse.gesamt - analyse.erledigt;
     return offen < 0 ? 0 : offen;
   }
 
   @override
   Widget build(BuildContext context) {
-    final reason = widget.unavailableReason;
-    // Auf LibraryState hören, damit „Aktiv" mitläuft, während die
-    // Hintergrundanalyse arbeitet – und damit der eigene Lauf dieser Karte
-    // seinen Fortschritt hierher meldet.
+    // Auf LibraryState hören, damit die Zahlen mitlaufen – auch während die
+    // Hintergrundanalyse arbeitet, und für den eigenen Lauf dieser Karte.
     return ListenableBuilder(
       listenable: widget.library,
       builder: (context, _) {
         final t = AppTexte.of(context);
-        final lauf = widget.library.lauf(widget.schluessel);
+        final lauf = widget.library.lauf(_a.schluessel);
+
+        // Aktiv: der eigene Lauf, und die Analyse, wenn sie gerade genau
+        // diese Stufe abarbeitet. Beides sind Aufgaben, die diese Arbeit
+        // tun – die Karte, die nur die eine zählte, log die andere weg.
+        final aktiv = (lauf?.laeuft ?? false ? 1 : 0) +
+            (_analyseOffen() > 0 ? 1 : 0);
+        final wartend = (lauf?.wartet ?? false) ? 1 : 0;
 
         // Während ein Lauf offen ist, tritt die Aktionsleiste hinter einen
-        // einzigen Knopf zurück: Abbrechen, solange er arbeitet, danach
-        // Schliessen. Vier Aktionen anzubieten, von denen keine etwas tut,
-        // wäre die schlechtere Antwort als eine, die zum Zustand passt.
+        // einzigen Knopf zurück: Abbrechen, solange etwas aussteht, danach
+        // Schliessen. Mehrere Aktionen anzubieten, von denen keine etwas
+        // tut, wäre die schlechtere Antwort als eine, die zum Zustand passt.
         final List<_Leistenknopf> knoepfe;
         if (lauf == null) {
           knoepfe = [
-            for (final aktion in widget.actions)
+            for (final aktion in _a.aktionen)
               _Leistenknopf(
-                label: aktion.label,
-                icon: aktion.icon,
-                onTap: () => _runAction(aktion),
+                label: modusName(t, aktion.modus),
+                icon: modusSymbol(aktion.modus),
+                onTap: () => unawaited(_runAction(aktion)),
               ),
           ];
-        } else if (lauf.laeuft) {
+        } else if (lauf.offen) {
           knoepfe = [
             _Leistenknopf(
               label: t.allgAbbrechen,
               icon: Icons.stop_circle_outlined,
-              onTap: () => widget.library.brichAufgabeAb(widget.schluessel),
+              onTap: () => widget.library.brichAufgabeAb(_a.schluessel),
             ),
           ];
         } else {
@@ -499,7 +557,7 @@ class _TaskCardState extends State<_TaskCard> {
               label: t.allgSchliessen,
               icon: Icons.check,
               onTap: () {
-                widget.library.verwerfeLauf(widget.schluessel);
+                widget.library.verwerfeLauf(_a.schluessel);
                 _refreshCount();
               },
             ),
@@ -507,29 +565,64 @@ class _TaskCardState extends State<_TaskCard> {
         }
 
         return _Aufgabenrahmen(
-          icon: widget.icon,
-          titel: widget.title,
-          beschreibung: widget.description,
+          icon: _a.icon,
+          titel: _a.titel,
+          beschreibung: _a.beschreibung,
           knoepfe: knoepfe,
-          bedienbar: reason == null,
-          inhalt: reason != null
-              ? Text(reason, style: TextStyle(fontSize: 12, color: context.semantik.warnung))
-              : lauf != null
-                  ? _Laufanzeige(lauf: lauf)
-                  : FutureBuilder<int>(
-                      future: _countFuture,
-                      builder: (context, snapshot) => _Zahlenreihe(
-                        linksBeschriftung: t.aufgAktiv,
-                        linksWert: '${_aktiv()}',
-                        rechtsBeschriftung: widget.pendingLabel ?? t.aufgWartend,
-                        rechtsWert: snapshot.hasData ? '${snapshot.data}' : '…',
-                      ),
+          bedienbar: _a.bedienbar,
+          inhalt: _a.nichtVerfuegbar != null
+              ? Text(_a.nichtVerfuegbar!,
+                  style: TextStyle(fontSize: 12, color: context.semantik.warnung))
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Zahlenreihe(
+                      linksBeschriftung: t.aufgAktiv,
+                      linksWert: '$aktiv',
+                      rechtsBeschriftung: t.aufgWartend,
+                      rechtsWert: '$wartend',
                     ),
+                    const SizedBox(height: AppSpacing.sm),
+                    if (lauf != null)
+                      _Laufanzeige(lauf: lauf)
+                    else
+                      FutureBuilder<int>(
+                        future: _countFuture,
+                        builder: (context, snapshot) => Text(
+                          snapshot.hasData
+                              ? (_a.offenLabel == null
+                                  ? t.aufgOffeneFotos(snapshot.data!)
+                                  : '${_a.offenLabel}: ${snapshot.data}')
+                              : '…',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
         );
       },
     );
   }
 }
+
+/// Reiht [aktion] von [aufgabe] ein – der eine Weg, auf dem in dieser App
+/// eine Aufgabe startet.
+///
+/// Als freie Funktion, weil zwei Stellen sie brauchen: die Karte und der
+/// Sammeldialog. Kein `await`: Der Lauf soll weiterlaufen, wenn dieser
+/// Bildschirm längst weg ist.
+Startabweisung? reiheEin(
+        LibraryState library, Aufgabe aufgabe, Aufgabenaktion aktion) =>
+    library.reiheAufgabeEin(
+      schluessel: aufgabe.schluessel,
+      titel: aktion.laufTitel,
+      leermeldung: aktion.emptyMessage,
+      strom: aktion.stream,
+      rechenintensiv: aufgabe.rechenintensiv,
+    );
 
 /// Sonderkarte für [LibraryState.starteHintergrundanalyse]: läuft (anders als
 /// die übrigen Aufgaben hier) bereits echt im Hintergrund weiter, während man
@@ -604,12 +697,366 @@ class _CombinedAnalysisCard extends StatelessWidget {
   }
 }
 
-/// Übersicht aller Hintergrund-/Backfill-Aufgaben im Stil von Immichs
-/// Admin-Seite "Auftrags-Schlangen": pro Aufgabe eine Karte mit Kurzbe-
-/// schreibung, Anzahl noch offener Fotos und Start-Knöpfen. Rein additiv zu
-/// ToolsScreen (Werkzeuge) gedacht – ruft exakt dieselben LibraryState-Streams
-/// auf, ersetzt Werkzeuge aber nicht (viele Stellen in der App verweisen
-/// wörtlich dorthin).
+/// Alle Aufgaben, in der Reihenfolge, in der sie auf dem Bildschirm stehen.
+///
+/// Öffentlich, damit ein Prüfstand sie befragen kann: Dass jede Aufgabe eine
+/// eindeutige Kennung hat und mindestens eine Aktion, lässt sich so
+/// nachrechnen, statt es fünfzehnmal von Hand nachzusehen.
+List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
+      Aufgabe(
+        schluessel: 'gesichter',
+        rechenintensiv: true,
+        // Dieselbe Stufe wie Unschärfe und Einbettung: Der gemeinsame
+        // Durchgang der Analyse dekodiert jedes Foto einmal und erledigt
+        // alle drei daran. Ohne diese Angabe stand hier „Aktiv 0",
+        // während die Analyse sichtbar genau diese Arbeit tat.
+        stufe: Analysestufe.bildanalyse,
+        icon: Icons.face_retouching_natural,
+        titel: t.werkzGesichterScannenTitel,
+        beschreibung: t.aufgGesichterText,
+        offeneZahl: () => library.db.countFaceScan(onlyNew: true),
+        nichtVerfuegbar: _modelHint(
+            t, library.faceDetectionAvailable, t.aufgYunetModell, t.aufgWoModelle),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzScanneAlle,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.rescanFaces(onlyNewPhotos: false),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzScanneNeue,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.rescanFaces(onlyNewPhotos: true),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'vorschau',
+        icon: Icons.photo_size_select_actual_outlined,
+        // Ein eigener Titel und nicht mehr die Abschnittsüberschrift der
+        // Werkzeuge: Dieselbe Zeichenkette an zwei Stellen liest sich
+        // harmlos und macht jede Prüfung „steht diese Aufgabe wirklich
+        // nur hier?" unmöglich.
+        titel: t.aufgVorschauTitel,
+        beschreibung: t.aufgVorschauText,
+        offeneZahl: () => library.db.countThumbnailRegen(onlyMissing: true),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzErstelleAlle,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.regenerateThumbnails(onlyMissing: false),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzErstelleFehlende,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.regenerateThumbnails(onlyMissing: true),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'ocr',
+        rechenintensiv: true,
+        icon: Icons.text_fields,
+        titel: t.aufgOcrTitel,
+        stufe: Analysestufe.texterkennung,
+        beschreibung: t.aufgOcrText,
+        offeneZahl: () => library.db.countOcrBackfill(),
+        // Auf macOS immer verfügbar (Vision-Framework), sonst erst mit
+        // den beiden nachgeladenen Modellen.
+        nichtVerfuegbar:
+            _modelHint(t, library.ocrAvailable, t.aufgOcrModell, t.aufgWoModelle),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzErkenneText,
+            emptyMessage: t.werkzAlleTextDurchsucht,
+            stream: () => library.backfillOcrText(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'beschreibungen',
+        rechenintensiv: true,
+        icon: Icons.subtitles_outlined,
+        titel: t.aufgBeschreibungenTitel,
+        stufe: Analysestufe.bildbeschreibung,
+        beschreibung: t.aufgBeschreibungenText,
+        offeneZahl: () => library.db.countCaptionBackfill(),
+        nichtVerfuegbar: _modelHint(
+            t, library.captioningAvailable, t.aufgBeschreibungsmodell, t.aufgWoModelle),
+        aktionen: [
+          // Nach dem Modellwechsel der eigentlich sinnvolle Weg: Die
+          // vorhandenen Sätze stammen vom abgelösten Modell.
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzErzeugeBeschreibungen,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillCaptions(alle: true),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzErzeugeBeschreibungen,
+            emptyMessage: t.werkzAlleHabenBeschreibung,
+            stream: () => library.backfillCaptions(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'beschreibungen_de',
+        rechenintensiv: true,
+        icon: Icons.translate,
+        titel: t.aufgUebersetzenTitel,
+        beschreibung: t.aufgUebersetzenText,
+        offeneZahl: () => library.db.countCaptionTranslation(),
+        nichtVerfuegbar: _modelHint(t, library.uebersetzungEnDeAvailable,
+            t.aufgUebersetzungsmodell, t.aufgWoModelle),
+        aktionen: [
+          // Nach einem Wechsel des Übersetzungsmodells der sinnvolle Weg.
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzUebersetzeBeschreibungen,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.uebersetzeBildbeschreibungen(alle: true),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzUebersetzeBeschreibungen,
+            emptyMessage: t.werkzAlleUebersetzt,
+            stream: () => library.uebersetzeBildbeschreibungen(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'embeddings',
+        rechenintensiv: true,
+        icon: Icons.scatter_plot_outlined,
+        titel: t.aufgEmbeddingsTitel,
+        stufe: Analysestufe.bildanalyse,
+        beschreibung: t.aufgEmbeddingsText,
+        offeneZahl: () => library.db.countEmbeddingBackfill(),
+        nichtVerfuegbar:
+            _modelHint(t, library.clipAvailable, t.aufgClipModell, t.aufgWoModelle),
+        aktionen: [
+          // Nach der Umstellung der Bildvorverarbeitung der eigentlich
+          // sinnvolle Weg: Die gespeicherten Vektoren stammen noch vom
+          // gestauchten Bild.
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzBerechneEmbeddings,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillClipEmbeddings(alle: true),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzBerechneEmbeddings,
+            emptyMessage: t.werkzAlleHabenEmbedding,
+            stream: () => library.backfillClipEmbeddings(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'kitags',
+        rechenintensiv: true,
+        icon: Icons.sell_outlined,
+        titel: t.aufgKiTagsTitel,
+        stufe: Analysestufe.schlagwoerter,
+        beschreibung: t.aufgKiTagsText,
+        offeneZahl: () => library.db.countAiTagging(onlyUntagged: true),
+        nichtVerfuegbar:
+            _modelHint(t, library.clipAvailable, t.aufgClipModell, t.aufgWoModelle),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzBerechneKiTags,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillAiTags(onlyUntagged: false),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzBerechneKiTags,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillAiTags(onlyUntagged: true),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'unschaerfe',
+        rechenintensiv: true,
+        // Teil des gemeinsamen Durchgangs, siehe Gesichter.
+        stufe: Analysestufe.bildanalyse,
+        icon: Icons.blur_on,
+        titel: t.aufgUnschaerfeTitel,
+        beschreibung: t.aufgUnschaerfeText,
+        offeneZahl: () => library.db.countBlurBackfill(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzBerechneUnschaerfe,
+            emptyMessage: t.werkzAlleHabenUnschaerfe,
+            stream: () => library.backfillBlurScores(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'orte',
+        icon: Icons.place_outlined,
+        titel: t.aufgOrteTitel,
+        beschreibung: t.aufgOrteText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countLocationBackfill(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzLeseOrte,
+            emptyMessage: t.werkzAlleHabenOrt,
+            stream: () => library.backfillLocations(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'ortsnamen',
+        icon: Icons.map_outlined,
+        titel: t.werkzOrteAufloesenTitel,
+        beschreibung: t.aufgOrteAufloesenText,
+        offeneZahl: () => library.db.countLocationNameBackfill(),
+        nichtVerfuegbar: _modelHint(
+            t, library.geoDataAvailable, t.aufgGeoDatensatz, t.aufgWoStandortdaten),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzLoeseOrteAuf,
+            emptyMessage: t.werkzAlleAufgeloest,
+            stream: () => library.backfillLocationNames(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'kameradaten',
+        icon: Icons.photo_camera_outlined,
+        titel: t.aufgKameraTitel,
+        beschreibung: t.aufgKameraText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countCameraMetadataBackfill(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzLeseKameradaten,
+            emptyMessage: t.werkzAlleHabenKameradaten,
+            stream: () => library.backfillCameraMetadata(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'aufnahmedatum',
+        icon: Icons.event_repeat_outlined,
+        titel: t.werkzDatumTitel,
+        beschreibung: t.aufgDatumText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countDatumskorrektur(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzKorrigiereDatum,
+            emptyMessage: t.werkzKeineRawFotos,
+            stream: () => library.korrigiereAufnahmedaten(),
+            // Die einzige Aufgabe mit Rückfrage: Sie schreibt Aufnahmedaten
+            // um und verschiebt Dateien auf der Platte. Alle anderen
+            // ergänzen nur Fehlendes.
+            bestaetigung: _frageDatumskorrektur,
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'livephotos',
+        icon: Icons.motion_photos_on_outlined,
+        titel: t.aufgLivePhotoTitel,
+        beschreibung: t.aufgLivePhotoText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countUnlinkedAssetsOfType('IMAGE'),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzPruefeLivePhotos,
+            emptyMessage: t.werkzKeineUnverknuepften,
+            stream: () => library.relinkLivePhotos(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'rendern',
+        icon: Icons.tune,
+        titel: t.werkzNeuRendernTitel,
+        beschreibung: t.aufgRendernText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countAssetsWithDevelopSettings(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzRendereNeu,
+            emptyMessage: t.werkzKeineEntwickelten,
+            stream: () => library.redevelopAll(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'xmp',
+        icon: Icons.description_outlined,
+        titel: t.werkzXmpSchreibenTitel,
+        beschreibung: t.aufgXmpText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countXmpExport(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzSchreibeXmp,
+            emptyMessage: t.werkzKeineFotosGesperrt,
+            stream: () => library.writeXmpSidecars(),
+          ),
+        ],
+      ),
+    ];
+
+/// Die Rückfrage vor der Datumskorrektur.
+Future<bool> _frageDatumskorrektur(BuildContext context) async {
+  final t = AppTexte.of(context);
+  final los = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(t.werkzDatumFrageTitel),
+      content: Text(t.werkzDatumFrage),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: Text(t.allgAbbrechen)),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(t.werkzDatumStarten),
+        ),
+      ],
+    ),
+  );
+  return los == true;
+}
+
+/// Die Aufgabenverwaltung: **jede** Arbeit, die der Mensch von Hand
+/// anstossen kann, an einer Stelle.
+///
+/// **Das war der eigentliche Fund.** Dieselben fünfzehn Läufe standen
+/// vorher zweimal in der App – hier als Karten und in den Werkzeugen als
+/// Listeneinträge. Zwei Oberflächen für dieselbe Sache heisst: zwei Wege,
+/// eine Aufgabe zu starten, zwei Orte, an denen ein Zusatz vergessen
+/// werden kann, und für den Menschen die Frage, ob das dort dasselbe ist
+/// wie hier. Die Werkzeuge behalten jetzt, was **keine** Aufgabe ist:
+/// Sichten, Duplikate, Stapel, Integritätsprüfung, Vorgaben, Regeln.
+///
+/// Aufbau nach Immichs „Auftrags-Schlangen": je Aufgabe eine Karte mit
+/// Kurzbeschreibung, den Zahlen „Aktiv" und „Wartend", der Zahl der noch
+/// offenen Fotos und rechts einer Leiste mit „Alle" und „Fehlende". In der
+/// Kopfzeile das, was für alle zusammen gilt: mehrere auf einmal einreihen,
+/// und wie viele nebeneinander laufen dürfen.
 class BackgroundTasksScreen extends StatelessWidget {
   final LibraryState library;
   const BackgroundTasksScreen({super.key, required this.library});
@@ -617,339 +1064,224 @@ class BackgroundTasksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
+    final aufgaben = aufgabenliste(t, library);
     return Scaffold(
-      appBar: AppBar(title: Text(t.einstAbschnittHintergrund)),
+      appBar: AppBar(
+        title: Text(t.aufgTitel),
+        // **Ab einer gewissen Enge nur noch Symbole.** „Gleichzeitige
+        // Ausführungen verwalten" ist ein langes Wort; bei 640 Punkten
+        // Fensterbreite lief die Kopfzeile über, und ein Überlauf fällt im
+        // Betrieb nur als roter Balken auf, den niemand meldet. Der
+        // Prüfstand hat es gefangen, bevor es jemand zu sehen bekam.
+        actions: [
+          _Kopfknopf(
+            symbol: Icons.add,
+            beschriftung: t.aufgErstellen,
+            beiKlick: () => unawaited(_zeigeSammeldialog(context, library, aufgaben)),
+          ),
+          _Kopfknopf(
+            symbol: Icons.settings_outlined,
+            beschriftung: t.aufgGleichzeitigTitel,
+            beiKlick: () => unawaited(_zeigeGleichzeitig(context, library)),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           _CombinedAnalysisCard(library: library),
           const SizedBox(height: AppSpacing.md),
-          _TaskCard(
-            library: library,
-            schluessel: 'gesichter',
-            rechenintensiv: true,
-            // Dieselbe Stufe wie Unschärfe und Einbettung: Der gemeinsame
-            // Durchgang der Analyse dekodiert jedes Foto einmal und erledigt
-            // alle drei daran. Ohne diese Angabe stand hier „Aktiv 0",
-            // während die Analyse sichtbar genau diese Arbeit tat.
-            stufe: Analysestufe.bildanalyse,
-            icon: Icons.face_retouching_natural,
-            title: t.werkzGesichterScannenTitel,
-            description: t.aufgGesichterText,
-            pendingCount: () => library.db.countFaceScan(onlyNew: true),
-            unavailableReason: _modelHint(
-                t, library.faceDetectionAvailable, t.aufgYunetModell, t.aufgWoModelle),
-            actions: [
-              _TaskAction(
-                label: t.aufgNeueFotos,
-                icon: Icons.search,
-                laufTitel: t.werkzScanneNeue,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.rescanFaces(onlyNewPhotos: true),
-              ),
-              _TaskAction(
-                label: t.aufgAlleErneut,
-                icon: Icons.all_inclusive,
-                laufTitel: t.werkzScanneAlle,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.rescanFaces(onlyNewPhotos: false),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'vorschau',
-            icon: Icons.photo_size_select_actual_outlined,
-            title: t.werkzAbschnittVorschau,
-            description: t.aufgVorschauText,
-            pendingCount: () => library.db.countThumbnailRegen(onlyMissing: true),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.search,
-                laufTitel: t.werkzErstelleFehlende,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.regenerateThumbnails(onlyMissing: true),
-              ),
-              _TaskAction(
-                label: t.aufgAlleNeu,
-                icon: Icons.all_inclusive,
-                laufTitel: t.werkzErstelleAlle,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.regenerateThumbnails(onlyMissing: false),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'ocr',
-            rechenintensiv: true,
-            icon: Icons.text_fields,
-            title: t.aufgOcrTitel,
-            stufe: Analysestufe.texterkennung,
-            description: t.aufgOcrText,
-            pendingCount: () => library.db.countOcrBackfill(),
-            // Auf macOS immer verfügbar (Vision-Framework), sonst erst mit
-            // den beiden nachgeladenen Modellen.
-            unavailableReason:
-                _modelHint(t, library.ocrAvailable, t.aufgOcrModell, t.aufgWoModelle),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzErkenneText,
-                emptyMessage: t.werkzAlleTextDurchsucht,
-                stream: () => library.backfillOcrText(),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'beschreibungen',
-            rechenintensiv: true,
-            icon: Icons.subtitles_outlined,
-            title: t.aufgBeschreibungenTitel,
-            stufe: Analysestufe.bildbeschreibung,
-            description: t.aufgBeschreibungenText,
-            pendingCount: () => library.db.countCaptionBackfill(),
-            unavailableReason: _modelHint(
-                t, library.captioningAvailable, t.aufgBeschreibungsmodell, t.aufgWoModelle),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzErzeugeBeschreibungen,
-                emptyMessage: t.werkzAlleHabenBeschreibung,
-                stream: () => library.backfillCaptions(),
-              ),
-              // Nach dem Modellwechsel der eigentlich sinnvolle Weg: Die
-              // vorhandenen Sätze stammen vom abgelösten Modell.
-              _TaskAction(
-                label: t.werkzAlleFotos,
-                icon: Icons.all_inclusive,
-                laufTitel: t.werkzErzeugeBeschreibungen,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.backfillCaptions(alle: true),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'beschreibungen_de',
-            rechenintensiv: true,
-            icon: Icons.translate,
-            title: t.aufgUebersetzenTitel,
-            description: t.aufgUebersetzenText,
-            pendingCount: () => library.db.countCaptionTranslation(),
-            unavailableReason: _modelHint(t, library.uebersetzungEnDeAvailable,
-                t.aufgUebersetzungsmodell, t.aufgWoModelle),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzUebersetzeBeschreibungen,
-                emptyMessage: t.werkzAlleUebersetzt,
-                stream: () => library.uebersetzeBildbeschreibungen(),
-              ),
-              // Nach einem Wechsel des Übersetzungsmodells der sinnvolle Weg.
-              _TaskAction(
-                label: t.werkzAlleFotos,
-                icon: Icons.all_inclusive,
-                laufTitel: t.werkzUebersetzeBeschreibungen,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.uebersetzeBildbeschreibungen(alle: true),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'embeddings',
-            rechenintensiv: true,
-            icon: Icons.scatter_plot_outlined,
-            title: t.aufgEmbeddingsTitel,
-            stufe: Analysestufe.bildanalyse,
-            description: t.aufgEmbeddingsText,
-            pendingCount: () => library.db.countEmbeddingBackfill(),
-            unavailableReason:
-                _modelHint(t, library.clipAvailable, t.aufgClipModell, t.aufgWoModelle),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzBerechneEmbeddings,
-                emptyMessage: t.werkzAlleHabenEmbedding,
-                stream: () => library.backfillClipEmbeddings(),
-              ),
-              // Nach der Umstellung der Bildvorverarbeitung der eigentlich
-              // sinnvolle Weg: Die gespeicherten Vektoren stammen noch vom
-              // gestauchten Bild. Fehlte hier, während die Bildbeschreibung
-              // ihn längst hatte – „Starten" rechnete dann nur das eine
-              // fehlende Foto und sah nach getaner Arbeit aus.
-              _TaskAction(
-                label: t.werkzAlleFotos,
-                icon: Icons.all_inclusive,
-                laufTitel: t.werkzBerechneEmbeddings,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.backfillClipEmbeddings(alle: true),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'kitags',
-            rechenintensiv: true,
-            icon: Icons.sell_outlined,
-            title: t.aufgKiTagsTitel,
-            stufe: Analysestufe.schlagwoerter,
-            description: t.aufgKiTagsText,
-            pendingCount: () => library.db.countAiTagging(onlyUntagged: true),
-            unavailableReason:
-                _modelHint(t, library.clipAvailable, t.aufgClipModell, t.aufgWoModelle),
-            actions: [
-              _TaskAction(
-                label: t.aufgUngetaggte,
-                icon: Icons.search,
-                laufTitel: t.werkzBerechneKiTags,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.backfillAiTags(onlyUntagged: true),
-              ),
-              _TaskAction(
-                label: t.werkzAlleFotos,
-                icon: Icons.all_inclusive,
-                laufTitel: t.werkzBerechneKiTags,
-                emptyMessage: t.werkzKeinePassenden,
-                stream: () => library.backfillAiTags(onlyUntagged: false),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'unschaerfe',
-            rechenintensiv: true,
-            // Teil des gemeinsamen Durchgangs, siehe Gesichter.
-            stufe: Analysestufe.bildanalyse,
-            icon: Icons.blur_on,
-            title: t.aufgUnschaerfeTitel,
-            description: t.aufgUnschaerfeText,
-            pendingCount: () => library.db.countBlurBackfill(),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzBerechneUnschaerfe,
-                emptyMessage: t.werkzAlleHabenUnschaerfe,
-                stream: () => library.backfillBlurScores(),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'orte',
-            icon: Icons.place_outlined,
-            title: t.aufgOrteTitel,
-            description: t.aufgOrteText,
-            pendingCount: () => library.db.countLocationBackfill(),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzLeseOrte,
-                emptyMessage: t.werkzAlleHabenOrt,
-                stream: () => library.backfillLocations(),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'ortsnamen',
-            icon: Icons.map_outlined,
-            title: t.werkzOrteAufloesenTitel,
-            description: t.aufgOrteAufloesenText,
-            pendingCount: () => library.db.countLocationNameBackfill(),
-            unavailableReason: _modelHint(
-                t, library.geoDataAvailable, t.aufgGeoDatensatz, t.aufgWoStandortdaten),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzLoeseOrteAuf,
-                emptyMessage: t.werkzAlleAufgeloest,
-                stream: () => library.backfillLocationNames(),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'kameradaten',
-            icon: Icons.photo_camera_outlined,
-            title: t.aufgKameraTitel,
-            description: t.aufgKameraText,
-            pendingCount: () => library.db.countCameraMetadataBackfill(),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzLeseKameradaten,
-                emptyMessage: t.werkzAlleHabenKameradaten,
-                stream: () => library.backfillCameraMetadata(),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'livephotos',
-            icon: Icons.motion_photos_on_outlined,
-            title: t.aufgLivePhotoTitel,
-            description: t.aufgLivePhotoText,
-            pendingCount: () => library.db.countUnlinkedAssetsOfType('IMAGE'),
-            actions: [
-              _TaskAction(
-                label: t.aufgFehlende,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzPruefeLivePhotos,
-                emptyMessage: t.werkzKeineUnverknuepften,
-                stream: () => library.relinkLivePhotos(),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'rendern',
-            icon: Icons.tune,
-            title: t.werkzNeuRendernTitel,
-            description: t.aufgRendernText,
-            pendingLabel: t.aufgBetrifft,
-            pendingCount: () => library.db.countAssetsWithDevelopSettings(),
-            actions: [
-              _TaskAction(
-                label: t.aufgStarten,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzRendereNeu,
-                emptyMessage: t.werkzKeineEntwickelten,
-                stream: () => library.redevelopAll(),
-              ),
-            ],
-          ),
-          _TaskCard(
-            library: library,
-            schluessel: 'xmp',
-            icon: Icons.description_outlined,
-            title: t.werkzXmpSchreibenTitel,
-            description: t.aufgXmpText,
-            pendingLabel: t.aufgBetrifft,
-            pendingCount: () => library.db.countXmpExport(),
-            actions: [
-              _TaskAction(
-                label: t.aufgStarten,
-                icon: Icons.play_arrow,
-                laufTitel: t.werkzSchreibeXmp,
-                emptyMessage: t.werkzKeineFotosGesperrt,
-                stream: () => library.writeXmpSidecars(),
-              ),
-            ],
-          ),
+          for (final aufgabe in aufgaben)
+            _TaskCard(library: library, aufgabe: aufgabe),
         ],
       ),
     );
   }
+}
+
+/// Ein Knopf der Kopfzeile: mit Beschriftung, solange sie hinpasst.
+///
+/// Die Schwelle liegt bei 1000 Punkten und ist gemessen, nicht geraten:
+/// Beide Beschriftungen zusammen brauchen samt Symbolen und Titel gut
+/// 800 Punkte. Darunter bleibt das Symbol, und der Text steht im
+/// Kurzhinweis – verloren geht er also nicht, auch nicht für die
+/// Sprachausgabe.
+class _Kopfknopf extends StatelessWidget {
+  const _Kopfknopf({
+    required this.symbol,
+    required this.beschriftung,
+    required this.beiKlick,
+  });
+
+  final IconData symbol;
+  final String beschriftung;
+  final VoidCallback beiKlick;
+
+  static const schwelle = 1000.0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.sizeOf(context).width < schwelle) {
+      return IconButton(
+        icon: Icon(symbol),
+        tooltip: beschriftung,
+        onPressed: beiKlick,
+      );
+    }
+    return TextButton.icon(
+      onPressed: beiKlick,
+      icon: Icon(symbol),
+      label: Text(beschriftung),
+    );
+  }
+}
+
+/// Reiht mehrere Aufgaben auf einmal ein.
+///
+/// **Erst mit der Warteschlange ist das mehr als eine Spielerei.** Vorher
+/// wäre die zweite Aufgabe abgewiesen worden, und ein Dialog, der fünf
+/// ankreuzen lässt und vier davon verwirft, wäre eine Zumutung. Jetzt
+/// laufen sie der Reihe nach durch.
+Future<void> _zeigeSammeldialog(
+    BuildContext context, LibraryState library, List<Aufgabe> aufgaben) async {
+  final t = AppTexte.of(context);
+  final waehlbar = aufgaben.where((a) => a.bedienbar).toList();
+  final gewaehlt = <String>{};
+  var modus = Aufgabenmodus.fehlende;
+
+  final los = await showDialog<bool>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setzeZustand) => AlertDialog(
+        title: Text(t.aufgErstellen),
+        content: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(t.aufgErstellenText,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              const SizedBox(height: AppSpacing.sm),
+              SegmentedButton<Aufgabenmodus>(
+                segments: [
+                  for (final m in Aufgabenmodus.values)
+                    ButtonSegment(
+                        value: m, label: Text(modusName(t, m)), icon: Icon(modusSymbol(m))),
+                ],
+                selected: {modus},
+                onSelectionChanged: (auswahl) =>
+                    setzeZustand(() => modus = auswahl.first),
+              ),
+              const Divider(height: AppSpacing.xl),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final a in waehlbar)
+                      CheckboxListTile(
+                        dense: true,
+                        value: gewaehlt.contains(a.schluessel),
+                        title: Text(a.titel),
+                        secondary: Icon(a.icon),
+                        onChanged: (an) => setzeZustand(() =>
+                            an == true ? gewaehlt.add(a.schluessel) : gewaehlt.remove(a.schluessel)),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(t.allgAbbrechen)),
+          FilledButton(
+            // Abgeschaltet statt mit einer Meldung quittiert: Ein Knopf,
+            // der nichts tun kann, soll das vorher zeigen.
+            onPressed: gewaehlt.isEmpty ? null : () => Navigator.pop(context, true),
+            child: Text(t.aufgEinreihen),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (los != true) return;
+
+  var eingereiht = 0;
+  for (final a in waehlbar.where((a) => gewaehlt.contains(a.schluessel))) {
+    // Rückfragen übergeht der Sammelweg nicht – er lässt die betroffene
+    // Aufgabe aus. Fünf Dialoge hintereinander wären das Gegenteil dessen,
+    // wofür der Sammelweg da ist, und stillschweigend Dateien zu
+    // verschieben kommt nicht in Frage.
+    final aktion = a.aktionFuer(modus);
+    if (aktion.bestaetigung != null) continue;
+    if (reiheEin(library, a, aktion) == null) eingereiht++;
+  }
+  melde.hinweis(t.aufgEingereiht(eingereiht));
+}
+
+/// Wie viele schwere Aufgaben nebeneinander laufen dürfen.
+Future<void> _zeigeGleichzeitig(BuildContext context, LibraryState library) async {
+  final t = AppTexte.of(context);
+  var wert = library.maxGleichzeitig;
+  final neu = await showDialog<int>(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setzeZustand) => AlertDialog(
+        title: Text(t.aufgGleichzeitigTitel),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t.aufgGleichzeitigText,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  // Ohne Kurzhinweis liest die Sprachausgabe hier zwei
+                  // namenlose Knoepfe um eine nackte Zahl vor.
+                  tooltip: t.aufgWenigerGleichzeitig,
+                  onPressed: wert <= 1 ? null : () => setzeZustand(() => wert--),
+                ),
+                SizedBox(
+                  width: 56,
+                  child: Text('$wert',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: t.aufgMehrGleichzeitig,
+                  // Vier ist keine technische Grenze, sondern eine
+                  // Zumutungsgrenze: Jede schwere Aufgabe hält ein Modell
+                  // im Speicher (CLIP-Bild 335 MB, Bildbeschreibung
+                  // 235 MB, gemessen) und dekodiert dieselben Fotos noch
+                  // einmal.
+                  onPressed: wert >= 4 ? null : () => setzeZustand(() => wert++),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: Text(t.allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, wert),
+              child: Text(t.allgSpeichern)),
+        ],
+      ),
+    ),
+  );
+  if (neu != null) await library.setzeMaxGleichzeitig(neu);
 }

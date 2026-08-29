@@ -4,13 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 
+import '../services/bilddekodierung.dart';
 import '../theme/app_spacing.dart';
 import 'video_playback.dart';
-
-/// Obergrenze für die Dekodierauflösung des Standbilds, aus demselben Grund
-/// wie in `asset_viewer_screen.dart` (dort keine gemeinsame Datei, da als
-/// Bibliotheks-privates `const` nicht über Dateigrenzen hinweg importierbar).
-const _maxDecodeDimension = 4096;
 
 /// Zeigt ein Live-Photo-Standbild an. Zwei Wege, das verknüpfte Video
 /// abzuspielen: Gedrückt halten (Press-and-Hold, wie in Apple Fotos) zeigt es
@@ -111,13 +107,7 @@ class _LivePhotoViewState extends State<LivePhotoView> {
         fit: StackFit.expand,
         children: [
           Image(
-            image: ResizeImage(
-              FileImage(widget.imageFile),
-              width: _maxDecodeDimension,
-              height: _maxDecodeDimension,
-              policy: ResizeImagePolicy.fit,
-              allowUpscaling: false,
-            ),
+            image: begrenztesBild(widget.imageFile),
             fit: BoxFit.contain,
           ),
           if (showVideo)

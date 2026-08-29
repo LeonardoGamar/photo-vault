@@ -103,8 +103,17 @@ void main() {
     expect(find.byType(CircleAvatar), findsWidgets);
 
     final avatare = tester.widgetList<CircleAvatar>(find.byType(CircleAvatar));
-    expect(avatare.any((a) => a.backgroundImage is FileImage), isTrue,
+    final bilder = avatare
+        .map((a) => a.backgroundImage)
+        .whereType<ResizeImage>()
+        .toList();
+    expect(bilder, isNotEmpty,
         reason: 'ohne backgroundImage bliebe nur der graue Platzhalter');
+    // Seit der 17. Prüfrunde geht das Bild durch [begrenztesBild]: Ein
+    // roher FileImage dekodierte die Datei in voller Grösse, und das an
+    // neun gleichlautenden Stellen.
+    expect(bilder.first.imageProvider, isA<FileImage>());
+    expect(bilder.first.policy, ResizeImagePolicy.fit);
   });
 
   testWidgets('eine Person ohne Profilbild bekommt ein Platzhaltersymbol', (tester) async {

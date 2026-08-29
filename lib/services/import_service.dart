@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import 'cr3_gps.dart';
 import 'dateikennung.dart';
 import 'exif_camera.dart';
 import 'exif_gps.dart';
@@ -19,7 +20,17 @@ import 'raw_identify_parser.dart';
 import 'storage_paths.dart';
 
 const _imageExtensions = {
-  '.jpg', '.jpeg', '.png', '.heic', '.heif', '.avif', '.avifs', '.webp', '.gif', '.bmp', '.tiff',
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.heic',
+  '.heif',
+  '.avif',
+  '.avifs',
+  '.webp',
+  '.gif',
+  '.bmp',
+  '.tiff',
   ...rawImageExtensions,
 };
 const _videoExtensions = {'.mp4', '.mov', '.avi', '.mkv', '.m4v'};
@@ -31,7 +42,8 @@ const _videoExtensions = {'.mp4', '.mov', '.avi', '.mkv', '.m4v'};
 /// [ImportService.generateVideoThumbnail]), statt beim Import oder
 /// Backfill vieler Fotos den Haupt-Isolate (und damit die UI) zu blockieren.
 /// Gibt `null` zurück, wenn die Bytes nicht dekodierbar sind.
-({Uint8List jpegBytes, int width, int height})? decodeAndResizeThumbnail(Uint8List bytes) {
+({Uint8List jpegBytes, int width, int height})? decodeAndResizeThumbnail(
+    Uint8List bytes) {
   img.Image? decoded;
   try {
     decoded = img.decodeImage(bytes);
@@ -101,7 +113,8 @@ class ImportService {
     try {
       final ext = p.extension(filePath).toLowerCase();
       if (!_imageExtensions.contains(ext) && !_videoExtensions.contains(ext)) {
-        return ImportResult(filePath, ImportOutcome.failed, error: 'Nicht unterstütztes Format');
+        return ImportResult(filePath, ImportOutcome.failed,
+            error: 'Nicht unterstütztes Format');
       }
       final sourceFile = File(filePath);
       final isImage = _imageExtensions.contains(ext);
@@ -130,7 +143,8 @@ class ImportService {
           : const _ExifMetadata(null, null, CameraInfo());
       final fileCreatedAt = exifMeta.date ?? await sourceFile.lastModified();
 
-      final relativePath = _paths.originalRelativePath(fileCreatedAt, assetId, ext);
+      final relativePath =
+          _paths.originalRelativePath(fileCreatedAt, assetId, ext);
       final targetFile = _paths.absolute(relativePath);
       await targetFile.parent.create(recursive: true);
       final int fileSizeBytes;
@@ -143,7 +157,8 @@ class ImportService {
       }
 
       final thumbResult = isImage
-          ? await generateThumbnailAndPreview(targetFile, assetId, ext, alreadyReadBytes: bytes)
+          ? await generateThumbnailAndPreview(targetFile, assetId, ext,
+              alreadyReadBytes: bytes)
           : await generateVideoThumbnail(targetFile, assetId);
 
       await _db.insertAsset(AssetsCompanion.insert(
@@ -206,10 +221,12 @@ class ImportService {
 
     Uint8List? convertedBytes;
     if (needsNativeConversion) {
-      convertedBytes = await NativeImageConverter.convertToJpegBytes(sourceFile, maxDimension: 2048);
+      convertedBytes = await NativeImageConverter.convertToJpegBytes(sourceFile,
+          maxDimension: 2048);
     }
 
-    final bytesToDecode = convertedBytes ?? alreadyReadBytes ?? await sourceFile.readAsBytes();
+    final bytesToDecode =
+        convertedBytes ?? alreadyReadBytes ?? await sourceFile.readAsBytes();
     // Bei kurzen/beschädigten Dateien wirft `image` teils eine Exception
     // (z.B. RangeError beim Format-Sniffing) statt null zurückzugeben – von
     // decodeAndResizeThumbnail bereits abgefangen, `null` bedeutet für uns
@@ -249,8 +266,10 @@ class ImportService {
   ///
   /// Wird sowohl beim Import als auch beim manuellen "Vorschaubilder neu
   /// erstellen" in den Werkzeugen verwendet.
-  Future<ThumbnailResult> generateVideoThumbnail(File sourceFile, String assetId) async {
-    final native = await NativeImageConverter.generateVideoThumbnail(sourceFile);
+  Future<ThumbnailResult> generateVideoThumbnail(
+      File sourceFile, String assetId) async {
+    final native =
+        await NativeImageConverter.generateVideoThumbnail(sourceFile);
     if (native == null) return const ThumbnailResult();
 
     final result = await compute(decodeAndResizeThumbnail, native.jpegBytes);
@@ -276,7 +295,15 @@ class ImportService {
   /// Werkzeugen (Fotos, die vor Einführung dieser Funktion importiert
   /// wurden). Gibt `null` zurück, wenn keine GPS-Daten vorhanden sind oder
   /// die Datei nicht gelesen werden kann.
-  Future<({double latitude, double longitude})?> readGpsLocation(File file) async {
+  Future<({double latitude, double longitude})?> readGpsLocation(
+      File file) async {
+    // CR3 zuerst, und dann nicht weiter: `package:exif` liest dort
+    // nachweislich gar nichts, ein `readAsBytes` über 31 MB wäre also
+    // aufgewendet für ein sicheres `null`. [leseCr3Gps] kommt mit dem
+    // Kopf der Datei aus.
+    if (await _istCr3(file, null, p.extension(file.path).toLowerCase())) {
+      return _alsGps(await leseCr3Gps(file));
+    }
     try {
       final tags = await readExifFromBytes(await file.readAsBytes());
       return parseExifGps(tags);
@@ -284,6 +311,18 @@ class ImportService {
       return null;
     }
   }
+
+  /// Ob [datei] eine CR3 ist – nach Endung **oder** nach den ersten Bytes.
+  ///
+  /// Beides, weil beides vorkommt: die gewöhnliche `.cr3`, und die Datei,
+  /// deren Name etwas anderes behauptet (siehe [inhaltskennung]).
+  static Future<bool> _istCr3(
+          File datei, Uint8List? bytes, String endung) async =>
+      endung == '.cr3' || (await inhaltskennung(datei, bytes)) == '.cr3';
+
+  static ({double latitude, double longitude})? _alsGps(
+          ({double breite, double laenge})? ort) =>
+      ort == null ? null : (latitude: ort.breite, longitude: ort.laenge);
 
   /// Importiert rekursiv alle unterstützten Dateien aus einem Ordner
   /// (z.B. beim Einbinden einer externen SSD oder eines Kamera-Backups).
@@ -339,7 +378,14 @@ class ImportService {
     }
     final datum = exifDatumAusText(_rohesExifDatum(tags));
     final kamera = parseExifCameraInfo(tags);
-    final gps = parseExifGps(tags);
+    // Der Ort kommt aus den EXIF-Tags – ausser bei CR3, wo keine da sind.
+    // Der native Rückfall unten hilft hier nicht: ImageIO wurde nie nach
+    // dem GPS-Wörterbuch gefragt, und `raw-identify` gibt gar keines aus.
+    // Siehe [leseCr3Gps].
+    final gps = parseExifGps(tags) ??
+        (await _istCr3(datei, bytes, endung)
+            ? _alsGps(await leseCr3Gps(datei))
+            : null);
 
     // Nur nachfassen, wenn wirklich nichts ankam UND es sich um ein
     // RAW-Format handelt. Ein Screenshot ohne EXIF ist der Normalfall und
@@ -357,7 +403,9 @@ class ImportService {
         !heicAndRawExtensions.contains(endung) &&
         heicAndRawExtensions.contains(kennungAus(bytes) ?? endung);
     if (widerspruch ||
-        (datum == null && kamera.isEmpty && rawImageExtensions.contains(endung))) {
+        (datum == null &&
+            kamera.isEmpty &&
+            rawImageExtensions.contains(endung))) {
       final nativ = await NativeImageConverter.readCameraMetadata(datei);
       if (!nativ.isEmpty) {
         return _ExifMetadata(nativ.zeitpunkt, gps, nativ.kamera);
@@ -401,7 +449,8 @@ class ImportService {
   /// Der Zeitstempel, wie er in den Tags steht – umgewandelt wird er von
   /// [exifDatumAusText], damit der native Weg dieselbe Umwandlung nutzt.
   String? _rohesExifDatum(Map<String, IfdTag> tags) =>
-      tags['EXIF DateTimeOriginal']?.printable ?? tags['Image DateTime']?.printable;
+      tags['EXIF DateTimeOriginal']?.printable ??
+      tags['Image DateTime']?.printable;
 }
 
 class _ExifMetadata {

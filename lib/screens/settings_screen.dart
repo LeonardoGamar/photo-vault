@@ -715,8 +715,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _lockVaultSession() async {
-    widget.library.lockVaultSession();
-    await widget.library.clearDecryptCache();
+    await widget.library.sperreTresor();
     if (mounted) setState(() {});
   }
 
@@ -1559,6 +1558,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final t = AppTexte.of(context);
     final aktiv = _cartoSchluessel.text.trim().isNotEmpty;
     return [
+      // Der einzige Weg, auf dem die App ohne Knopfdruck mit einem
+      // fremden Server spricht – und in jeder Kacheladresse steht, welchen
+      // Ausschnitt jemand ansieht. Bis zur 17. Prüfrunde stand das
+      // nirgends; der Text zum Ortsverzeichnis daneben betonte sogar
+      // „komplett lokal", was für die Geokodierung stimmt und deshalb
+      // umso leichter falsch gelesen wird.
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.public_outlined,
+                size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                t.einstKartenNetzHinweis,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
+      ),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         child: Text(

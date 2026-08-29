@@ -37,7 +37,27 @@ class _LockedFolderScreenState extends State<LockedFolderScreen> {
   LibraryState get library => widget.library;
 
   @override
+  void initState() {
+    super.initState();
+    library.addListener(_aufTresorwechsel);
+  }
+
+  /// Fällt der Tresor zu, während dieser Bildschirm offen ist, geht er mit
+  /// zu.
+  ///
+  /// Seit der Wächter beim Verbergen des Fensters sperrt (siehe
+  /// `Tresorwaechter`), kann das jederzeit passieren. Ohne diesen Weg
+  /// bliebe das Gitter stehen und scheiterte an jeder einzelnen Kachel:
+  /// [LibraryState.decryptForViewing] wirft ohne Schlüssel. Ein Bildschirm
+  /// voller Fehlerplätze statt einer klaren Rückkehr.
+  void _aufTresorwechsel() {
+    if (!mounted || library.vaultUnlockedThisSession) return;
+    Navigator.of(context).maybePop();
+  }
+
+  @override
   void dispose() {
+    library.removeListener(_aufTresorwechsel);
     // Entschlüsselte Zwischenkopien (Thumbnails/Vollbild) sollen nicht
     // länger als nötig als Klartext im OS-Temp-Verzeichnis liegen bleiben.
     library.clearDecryptCache();
