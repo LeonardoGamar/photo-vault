@@ -100,3 +100,25 @@ String verwandtschaftText(BuildContext context, Grad grad, Geschlecht? geschlech
       return t.gradKeine;
   }
 }
+
+/// Der Satz für jemanden, den kein einzelnes Wort trifft – „Mutter von
+/// Schwager Michael".
+///
+/// [geschlecht] gehört zur gesuchten Person und bestimmt den ersten Teil,
+/// [geschlechtZwischen] zur Zwischenperson und den zweiten. Beide werden
+/// wirklich gebraucht: „Mutter von Schwägerin Anna" und „Vater von
+/// Schwager Michael" unterscheiden sich in beiden Hälften.
+String verwandtschaftUeberWegText(
+  BuildContext context,
+  Umweg umweg,
+  String nameDerZwischenperson, {
+  Geschlecht? geschlecht,
+  Geschlecht? geschlechtZwischen,
+}) {
+  final t = AppTexte.of(context);
+  return t.gradUeberWeg(
+    verwandtschaftText(context, umweg.schritt, geschlecht),
+    verwandtschaftText(context, umweg.ueberGrad, geschlechtZwischen),
+    nameDerZwischenperson,
+  );
+}

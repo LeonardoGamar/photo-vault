@@ -7,6 +7,8 @@
 /// Funktionen ist beides nachrechenbar.
 library;
 
+import 'package:meta/meta.dart';
+
 /// Wie zwei Personen zusammenhängen.
 enum Verwandtschaft {
   /// Die andere Person ist ein Elternteil. Gerichtet: Die Gegenrichtung
@@ -388,4 +390,273 @@ String? lebensspanne(DateTime? geburt, DateTime? tod, {String geboren = '*', Str
   if (geburt != null && tod != null) return '${geburt.year}–${tod.year}';
   if (geburt != null) return '$geboren${geburt.year}';
   return '$gestorben${tod!.year}';
+}
+
+// ---------------------------------------------------------------------
+// Das Geflecht: Haushalte statt Reihen
+// ---------------------------------------------------------------------
+
+/// Eine Person und ihre Partner als **eine** Einheit.
+///
+/// **Warum das die richtige Klammer ist.** Der Ausschnitt oben führt
+/// Listen nach Rolle: Eltern, Geschwister, Schwäger. Eine Reihe kann aber
+/// nicht ausdrücken, zu **welcher** Schwester ein Schwager gehört – bei
+/// den Grosseltern steht dieser Verzicht sogar ausdrücklich im Baum
+/// („bewusst ohne Verbindungslinie"). Genau danach war gefragt: den Ast
+/// zu sehen, nicht die Reihe.
+///
+/// Ein Haushalt löst das, ohne einen Sonderfall zu brauchen. Der Schwager
+/// steht im Haushalt seiner Frau, seine Eltern hängen an **ihm** – und
+/// das ist dieselbe Elternkante wie die von der Mitte zu ihren Eltern.
+@immutable
+class Haushalt {
+  /// Die Person, an der der Haushalt hängt.
+  final String anker;
+
+  /// Ihre Partner, in der Reihenfolge des Baums.
+  final List<String> partner;
+
+  const Haushalt(this.anker, this.partner);
+
+  /// Alle Bewohner, Anker zuerst.
+  List<String> get personen => [anker, ...partner];
+
+  /// Der Haushalt wird über seinen Anker benannt.
+  String get id => anker;
+
+  @override
+  bool operator ==(Object other) =>
+      other is Haushalt &&
+      other.anker == anker &&
+      other.partner.length == partner.length &&
+      other.partner.every(partner.contains);
+
+  @override
+  int get hashCode => Object.hash(anker, Object.hashAllUnordered(partner));
+
+  @override
+  String toString() => 'Haushalt($anker${partner.isEmpty ? '' : '+$partner'})';
+}
+
+/// Wie viele Haushalte ein Generationsband höchstens trägt.
+///
+/// Vier Geschwister mit Partnern, deren Eltern und deren Geschwistern sind
+/// schnell zwanzig Schilder in zwei Bändern – und ein Bild, in dem man
+/// nichts mehr findet. Was die Grenze schluckt, wird gezählt und genannt
+/// (siehe [Stammbaumgeflecht.verschwiegen]); stillschweigend wegzulassen
+/// wäre das Schlimmste von beidem.
+const maxHaushalteJeBand = 12;
+
+/// Das Geflecht um eine Person: wer mit wem lebt, wer von wem abstammt.
+@immutable
+class Stammbaumgeflecht {
+  final String fokus;
+
+  /// Alle Haushalte, nach Band und darin nach der Reihenfolge des Baums.
+  final List<Haushalt> haushalte;
+
+  /// Haushalt -> Generationsband. 0 ist die Mitte, negativ nach oben.
+  final Map<String, int> band;
+
+  /// **Person** -> Haushalt ihrer Eltern.
+  ///
+  /// An der Person und nicht am Haushalt: In einem Geschwisterhaushalt
+  /// leben zwei Menschen mit **verschiedenen** Eltern. Die Schwester
+  /// stammt von meinen Eltern ab, ihr Mann von seinen. Genau diese beiden
+  /// Linien nebeneinander sind das, was ein Ast zeigen soll – am Haushalt
+  /// festgemacht wäre eine von beiden gelogen.
+  final Map<String, String> elternhausVon;
+
+  /// Je Person: ob über bzw. unter ihr noch etwas steht, das dieses Bild
+  /// nicht zeigt.
+  final Map<String, bool> weitereOben;
+  final Map<String, bool> weitereUnten;
+
+  /// Wie viele Haushalte die Bandgrenze weggelassen hat.
+  final int verschwiegen;
+
+  const Stammbaumgeflecht({
+    required this.fokus,
+    required this.haushalte,
+    required this.band,
+    required this.elternhausVon,
+    required this.weitereOben,
+    required this.weitereUnten,
+    this.verschwiegen = 0,
+  });
+
+  /// Der Haushalt, in dem [person] lebt, oder `null`.
+  Haushalt? haushaltVon(String person) {
+    for (final h in haushalte) {
+      if (h.personen.contains(person)) return h;
+    }
+    return null;
+  }
+
+  /// Alle Haushalte eines Bandes, in ihrer Reihenfolge.
+  List<Haushalt> imBand(int nummer) =>
+      [for (final h in haushalte) if (band[h.id] == nummer) h];
+
+  /// Alle Personen im Bild.
+  Set<String> get personen => {for (final h in haushalte) ...h.personen};
+}
+
+/// Stellt das Geflecht um [fokus] zusammen.
+///
+/// [reihenfolge] ist dieselbe Liste wie bei [ausschnittUm] – nach
+/// Geburtsdatum und Name. Ohne sie sprängen die Haushalte bei jedem
+/// Aufbau umher.
+///
+/// **Die Ringe sind aufgezählt, nicht gerechnet.** Ein Suchlauf mit
+/// Schrittbudget wäre kürzer und brächte lauter Verwandte mit, nach denen
+/// niemand gefragt hat – Cousins ersten Grades allein sind bei vier
+/// Onkeln mit je drei Kindern zwölf zusätzliche Schilder in derselben
+/// Reihe wie die Geschwister. Was hier steht, steht hier absichtlich.
+Stammbaumgeflecht geflechtUm(
+  Verwandtschaftsnetz netz,
+  String fokus,
+  List<String> reihenfolge,
+) {
+  final rang = {for (var i = 0; i < reihenfolge.length; i++) reihenfolge[i]: i};
+  int platz(String id) => rang[id] ?? 1 << 30;
+  List<String> sortiert(Iterable<String> ids) =>
+      ids.toSet().toList()..sort((a, b) => platz(a).compareTo(platz(b)));
+
+  final vergeben = <String>{};
+  final haushalte = <Haushalt>[];
+  final band = <String, int>{};
+  var verschwiegen = 0;
+
+  /// Legt für jeden noch freien Anker einen Haushalt im Band [nummer] an.
+  ///
+  /// Wer schon wohnt, zieht nicht um: Eine Person, die auf zwei Wegen
+  /// erreichbar ist – der Cousin, der zugleich ein Halbgeschwister ist –,
+  /// stünde sonst zweimal im Bild. Zwei Schilder für einen Menschen sind
+  /// kein Baum, sondern ein Fehler.
+  void hausen(Iterable<String> anker, int nummer) {
+    var imBand = band.values.where((b) => b == nummer).length;
+    for (final a in sortiert(anker)) {
+      if (vergeben.contains(a)) continue;
+      if (imBand >= maxHaushalteJeBand) {
+        verschwiegen++;
+        continue;
+      }
+      final mitbewohner =
+          sortiert(netz.partner(a).where((x) => x != a && !vergeben.contains(x)));
+      haushalte.add(Haushalt(a, mitbewohner));
+      band[a] = nummer;
+      vergeben.add(a);
+      vergeben.addAll(mitbewohner);
+      imBand++;
+    }
+  }
+
+  // Ring 0 – die Mitte. Zuerst, damit ihr Partner nirgends sonst landet.
+  hausen([fokus], 0);
+  final eigenePartner = netz.partner(fokus);
+
+  // Ring 1 – Eltern, Geschwister, Kinder.
+  hausen(netz.eltern(fokus), -1);
+  hausen(netz.geschwister(fokus), 0);
+  hausen(netz.kinder(fokus), 1);
+
+  // Ring 2. Die Schwäger stehen hier NICHT als eigener Punkt: Der Partner
+  // eines Geschwisters wohnt längst in dessen Haushalt, und genau das war
+  // der Sinn der Übung.
+  final eltern = sortiert(netz.eltern(fokus));
+  final geschwister = sortiert(netz.geschwister(fokus));
+  hausen([for (final e in eltern) ...netz.eltern(e)], -2);
+  hausen([for (final e in eltern) ...netz.geschwister(e)], -1);
+  hausen([for (final p in eigenePartner) ...netz.eltern(p)], -1);
+  hausen([for (final p in eigenePartner) ...netz.geschwister(p)], 0);
+  hausen([for (final g in geschwister) ...netz.kinder(g)], 1);
+
+  // Ring 3 – eine Stufe weiter, wie besprochen. Die Schwäger sind hier
+  // die Partner der Geschwister; ihre Eltern und Geschwister sind das,
+  // wonach ausdrücklich gefragt war.
+  final schwaeger = sortiert([for (final g in geschwister) ...netz.partner(g)]);
+  final grosseltern =
+      sortiert([for (final e in eltern) ...netz.eltern(e)]);
+  hausen([for (final g in grosseltern) ...netz.eltern(g)], -3);
+  hausen([for (final s in schwaeger) ...netz.eltern(s)], -1);
+  hausen([for (final s in schwaeger) ...netz.geschwister(s)], 0);
+  hausen([
+    for (final p in eigenePartner)
+      for (final se in netz.eltern(p)) ...netz.eltern(se)
+  ], -2);
+
+  // Die Elternkante je Person – nur dorthin, wo das Elternhaus im Bild
+  // steht. Ein Ast ins Leere wäre eine Behauptung über etwas, das man
+  // nicht sieht; dafür gibt es das Mehrzeichen unten.
+  final wohntIn = <String, String>{
+    for (final h in haushalte)
+      for (final person in h.personen) person: h.id,
+  };
+  final elternhausVon = <String, String>{};
+  for (final person in wohntIn.keys) {
+    for (final e in sortiert(netz.eltern(person))) {
+      final haus = wohntIn[e];
+      if (haus != null) {
+        elternhausVon[person] = haus;
+        break;
+      }
+    }
+  }
+
+  // Dieselbe Regel wie in [ausschnittUm]: Ein Mehrzeichen heisst „hier
+  // geht es weiter, aber nicht in diesem Bild".
+  final imBild = wohntIn.keys.toSet();
+  final weitereOben = <String, bool>{};
+  final weitereUnten = <String, bool>{};
+  for (final id in imBild) {
+    weitereOben[id] = !imBild.containsAll(netz.eltern(id));
+    weitereUnten[id] = !imBild.containsAll(netz.kinder(id));
+  }
+
+  haushalte.sort((a, b) {
+    final bandVergleich = band[a.id]!.compareTo(band[b.id]!);
+    return bandVergleich != 0 ? bandVergleich : platz(a.anker).compareTo(platz(b.anker));
+  });
+
+  return Stammbaumgeflecht(
+    fokus: fokus,
+    haushalte: haushalte,
+    band: band,
+    elternhausVon: elternhausVon,
+    weitereOben: weitereOben,
+    weitereUnten: weitereUnten,
+    verschwiegen: verschwiegen,
+  );
+}
+
+/// Der Nachname, der in dieser Familie am häufigsten vorkommt – für die
+/// Zeile unter dem Stamm.
+///
+/// `null`, wenn kein Name mindestens zweimal auftaucht. Bei einer Familie
+/// aus lauter verschiedenen Nachnamen einen davon unter den Baum zu
+/// schreiben wäre eine Behauptung darüber, wessen Baum das ist.
+///
+/// Als letztes Wort des Namens gelesen. Das trifft „Anna Meier" und
+/// „Hans von Berg", nicht aber Namen, die andersherum geschrieben werden –
+/// dafür bräuchte es ein eigenes Feld, und das gibt es nicht.
+String? haeufigsterNachname(Iterable<String> namen) {
+  final zaehler = <String, int>{};
+  for (final name in namen) {
+    final teile = name.trim().split(RegExp(r'\s+'));
+    if (teile.length < 2) continue;
+    final nachname = teile.last;
+    if (nachname.isEmpty) continue;
+    zaehler.update(nachname, (n) => n + 1, ifAbsent: () => 1);
+  }
+  String? beste;
+  var meiste = 1;
+  // Bei Gleichstand der alphabetisch erste – nicht weil er der bessere
+  // wäre, sondern damit dieselbe Familie zweimal denselben Namen zeigt.
+  for (final name in zaehler.keys.toList()..sort()) {
+    if (zaehler[name]! > meiste) {
+      meiste = zaehler[name]!;
+      beste = name;
+    }
+  }
+  return beste;
 }

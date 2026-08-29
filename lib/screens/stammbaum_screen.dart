@@ -13,7 +13,6 @@ import '../l10n/app_localizations.dart';
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
 import '../services/verwandte_anlegen.dart';
-import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../services/faechertafel.dart';
@@ -30,7 +29,10 @@ import '../widgets/faecher_ansicht.dart';
 import '../widgets/familien_zeitleiste.dart';
 import '../widgets/person_picker_dialog.dart';
 import '../widgets/sanduhr_ansicht.dart';
+import '../services/zierbaum.dart';
+import '../theme/zierbaum_farben.dart';
 import '../widgets/verwandtschaft_text.dart';
+import '../widgets/zierbaum_ansicht.dart';
 import 'familienfotos_screen.dart';
 import 'familienorte_screen.dart';
 import 'familienstatistik_screen.dart';
@@ -38,22 +40,6 @@ import 'lebenslauf_screen.dart';
 import 'person_detail_screen.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/profilbild.dart';
-
-/// Breite und Höhe einer Personenkarte. Fest, weil die Verbindungslinien
-/// aus diesen beiden Zahlen und der Anzahl der Karten berechnet werden –
-/// mit von der Schriftlänge abhängigen Breiten wüsste der Zeichner nicht,
-/// wo eine Karte endet.
-const double _karteBreite = 132;
-/// Nachgemessen, nicht geschätzt: zwei Zeichen à 12, Bildkreis 52,
-/// Abstand 4, zweizeiliger Name 34, Bezeichnung 14, Lebensspanne 14,
-/// Polster 16 – zusammen 158. Vorher standen hier 148, und eine Karte mit
-/// zweizeiligem Namen lief unten über („Marianne Schmidt-Hollmann" genügt
-/// dafür). Die zwei Punkte Zugabe fangen die Randbreite ab.
-const double _karteHoehe = 160;
-const double _karteAbstand = AppSpacing.lg;
-
-/// Höhe der Fläche zwischen zwei Generationen.
-const double _verbinderHoehe = 44;
 
 /// Der Stammbaum um eine Person herum.
 ///
@@ -146,7 +132,6 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   /// Ansicht, die man aufschlägt, um die gerade Linie zu sehen. Wer die
   /// Verwandtschaft in der Breite sucht, schaltet sie dazu – und dann
   /// wird es merklich breiter.
-  bool _seitenaeste = false;
 
   List<PersonData> _personen = [];
   Map<String, PersonData> _nachId = {};
@@ -225,16 +210,48 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     if (fokus == null) return;
     setState(() {
       _grade = alleGrade(_netz, fokus, [for (final p in _personen) p.id]);
+      _rangImBaum = {
+        for (var i = 0; i < _personen.length; i++) _personen[i].id: i
+      };
     });
   }
 
   /// Die Bezeichnung einer Person, bezogen auf die Person in der Mitte.
+  ///
+  /// Für alles, wofür die Sprache ein Wort hat, ist das dieses Wort. Für
+  /// den Rest – die Eltern des Schwagers, die Geschwister der Schwägerin –
+  /// wird der Weg dorthin beschrieben ([umwegZu]). „Angeheiratet" bleibt
+  /// nur, wo auch das nicht trägt.
   String? _bezeichnung(PersonData person) {
     final grad = _grade[person.id];
     if (grad == null) return null;
+    if (grad.art == Gradart.angeheiratet) {
+      final umweg = umwegZu(_netz, _fokusId!, person.id,
+          reihenfolge: (id) => _rangImBaum[id] ?? 1 << 30);
+      if (umweg != null) {
+        final zwischen = _nachId[umweg.ueber];
+        if (zwischen != null) {
+          return verwandtschaftUeberWegText(
+            context,
+            umweg,
+            zwischen.name,
+            geschlecht: geschlechtAusText(person.geschlecht),
+            geschlechtZwischen: geschlechtAusText(zwischen.geschlecht),
+          );
+        }
+      }
+    }
     return verwandtschaftText(
         context, grad, geschlechtAusText(person.geschlecht));
   }
+
+  /// Der Platz jeder Person in der ohnehin geführten Reihenfolge
+  /// (Geburtsdatum, dann Name).
+  ///
+  /// Gebraucht, damit [umwegZu] bei zwei gleich guten Wegen immer
+  /// denselben wählt – sonst hiesse dieselbe Person bei jedem Aufbau
+  /// anders, und das fiele als Flackern auf, nicht als Fehler.
+  Map<String, int> _rangImBaum = const {};
 
   void _ruecke(String id) {
     if (id == _fokusId) return;
@@ -919,6 +936,50 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     melde.erfolg(t.stammbaumTafelFertig);
   }
 
+  /// Schreibt den Zierbaum als PDF – das Blatt an die Wand.
+  ///
+  /// Dieselbe Zeichenroutine wie auf dem Bildschirm, nur dreifach so
+  /// gross. Ohne Porträts: Auf dem Blatt gibt es nichts anzutippen, und
+  /// eine Zeichnung wartet nicht darauf, dass Bilder geladen sind.
+  Future<void> _zierbaumDrucken() async {
+    final fokus = _fokusId;
+    if (fokus == null) return;
+    final t = AppTexte.of(context);
+    final geflecht =
+        geflechtUm(_netz, fokus, [for (final p in _personen) p.id]);
+    final farben = Zierbaumfarben.fuer(Theme.of(context).brightness);
+    final richtung = Directionality.of(context);
+    final name = haeufigsterNachname(
+        [for (final id in geflecht.personen) _nachId[id]!.name]);
+    Schildinhalt inhalt(String id) {
+      final person = _nachId[id]!;
+      return Schildinhalt(
+        name: person.name,
+        verwandtschaft: id == fokus ? null : _bezeichnung(person),
+        lebensspanne: lebensspanne(person.geburtsdatum, person.sterbedatum),
+      );
+    }
+
+    final ziel = await FilePicker.platform.saveFile(
+      dialogTitle: t.stammbaumZierbaumDrucken,
+      fileName: zierbaumDateiname,
+      type: FileType.custom,
+      allowedExtensions: const [tafelEndungOhnePunkt],
+    );
+    if (ziel == null || !mounted) return;
+
+    final bytes = await baueZierbaumPdf(
+      geflecht: geflecht,
+      beschriftung: inhalt,
+      familienname: name,
+      farben: farben,
+      textRichtung: richtung,
+    );
+    await File(mitTafelEndung(ziel)).writeAsBytes(bytes);
+    if (!mounted) return;
+    melde.erfolg(t.stammbaumTafelFertig);
+  }
+
   /// Schreibt den Bestand als GEDCOM-Datei.
   ///
   /// Ohne diesen Weg wären die eingetragenen Verwandtschaften in dieser
@@ -1404,9 +1465,11 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
             symbolgroesse: 18,
           ),
           title: Text(person.name),
+          // Ueber [_bezeichnung] und nicht ueber verwandtschaftText: Sonst
+          // stuende in der Liste weiter "angeheiratet", waehrend im Baum
+          // schon der Weg dorthin steht. Zwei Stellen, dieselbe Frage.
           subtitle: Text(
-            verwandtschaftText(context, eintrag.value,
-                geschlechtAusText(person.geschlecht)),
+            _bezeichnung(person) ?? '',
             style: TextStyle(color: Theme.of(context).colorScheme.primary),
           ),
           trailing: Row(
@@ -1575,6 +1638,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                 'orte' => _orteDerFamilie(),
                 'statistik' => _familienstatistik(),
                 'tafel' => _tafelDrucken(),
+                'zierbaum' => _zierbaumDrucken(),
                 'gedcom' => _gedcomExport(),
                 _ => _gedcomImport(),
               },
@@ -1624,6 +1688,12 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                   child: _zeile(Icons.print_outlined, t.stammbaumTafelDrucken),
                 ),
                 PopupMenuItem(
+                  value: 'zierbaum',
+                  enabled: fokus != null,
+                  child: _zeile(
+                      Icons.park_outlined, t.stammbaumZierbaumDrucken),
+                ),
+                PopupMenuItem(
                   value: 'gedcom',
                   enabled: _personen.isNotEmpty,
                   child: _zeile(Icons.ios_share, t.stammbaumGedcomExport),
@@ -1657,352 +1727,107 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     );
   }
 
+  /// Der Zierbaum.
+  ///
+  /// **Er ersetzt die Kartenreihen, er steht nicht daneben.** Die Reihen
+  /// stellten die Verwandtschaft nach Rolle auf und konnten damit die
+  /// Frage nicht beantworten, um die es geht: zu WELCHER Schwester ein
+  /// Schwager gehört. Zwei Bäume nebeneinander wären zwei Orte für
+  /// dieselbe Sache gewesen – derselbe Fehler, den die
+  /// Aufgabenverwaltung gerade abgelegt hat.
   Widget _baum(BuildContext context, PersonData fokus) {
     final t = AppTexte.of(context);
-    final a = ausschnittUm(_netz, fokus.id, [for (final p in _personen) p.id],
-        seitenlinien: _seitenaeste);
+    final geflecht =
+        geflechtUm(_netz, fokus.id, [for (final p in _personen) p.id]);
+    final plan = zierbaumplan(geflecht);
+    final farben = Zierbaumfarben.fuer(Theme.of(context).brightness);
 
-    final eltern = [for (final id in a.eltern) _nachId[id]!];
-    final geschwister = [for (final id in a.geschwister) _nachId[id]!];
-    final partner = [for (final id in a.partner) _nachId[id]!];
-    final kinder = [for (final id in a.kinder) _nachId[id]!];
-    final grosseltern = [for (final id in a.grosseltern) _nachId[id]!];
-    final onkelTanten = [for (final id in a.onkelTanten) _nachId[id]!];
-    final neffenNichten = [for (final id in a.neffenNichten) _nachId[id]!];
-    final schwiegereltern = [for (final id in a.schwiegereltern) _nachId[id]!];
-    final schwaeger = [for (final id in a.schwaeger) _nachId[id]!];
-
-    // Schwager und Schwägerin stehen in derselben Reihe wie die
-    // Geschwister – sie sind dieselbe Generation – und links davon, weil
-    // dort schon alles Angeheiratete und Seitliche sitzt. Als eigene
-    // Gruppe mit eigener Beschriftung: Sie unter „Geschwister" zu
-    // mischen wäre die kürzere Zeile und die falsche Aussage.
-    final links = _seiteLinks(t, geschwister, schwaeger, a);
-    final rechts = _gruppe(t.stammbaumPartner, partner, a, verbunden: true);
-    // Die Breiten sind ausrechenbar, weil eine Karte immer gleich breit
-    // ist – siehe [_karteBreite]. Genau das braucht die Reihe unten: In
-    // einem waagerecht rollbaren Bereich ist die Breite unbegrenzt, und
-    // ein `Expanded` hat dort nichts, wovon es einen Anteil nehmen könnte.
-    final linksBreite = _reiheBreite(geschwister.length) +
-        (schwaeger.isEmpty
-            ? 0.0
-            : AppSpacing.xxl + _reiheBreite(schwaeger.length));
-    final rechtsBreite = partner.isEmpty
-        ? 0.0
-        : AppSpacing.lg + _reiheBreite(partner.length);
-
-    // In beide Richtungen rollbar, aber mittig, solange der Baum ins
-    // Fenster passt. Die Mindestmaße sind der Grund für den LayoutBuilder:
-    // Ein rollbarer Bereich gibt seinem Kind unbegrenzten Platz, und ein
-    // Kind, das nur so groß ist wie sein Inhalt, hat nichts, worin es sich
-    // zentrieren könnte – der Baum klebte sonst in der linken oberen Ecke.
-    return Column(children: [
-      // Derselbe Schalter wie über der Sanduhr, an derselben Stelle: Er
-      // verändert, was zu sehen ist, und das gehört neben das Gesehene.
-      Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-        child: Row(
-          children: [
-            FilterChip(
-              selected: _seitenaeste,
-              onSelected: (an) => setState(() => _seitenaeste = an),
-              avatar: const Icon(Icons.hub_outlined, size: 18),
-              label: Text(t.stammbaumSeitenaeste),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Text(
-                t.stammbaumSeitenaesteHinweis,
-                style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
-              ),
-            ),
-          ],
-        ),
-      ),
-      Expanded(
-        child: LayoutBuilder(
-      builder: (context, platz) => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minWidth: platz.maxWidth,
-              minHeight: platz.maxHeight,
-            ),
-            child: Padding(
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xxl, vertical: AppSpacing.xl),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (grosseltern.isNotEmpty) ...[
-                _beschriftung(t.stammbaumGrosseltern),
-                _reihe(grosseltern, a),
-                // **Bewusst ohne Verbindungslinie.** Welcher Grosselternteil
-                // zu welchem Elternteil gehoert, kann diese Reihe nicht
-                // ausdruecken – bei vier Grosseltern und zwei Eltern
-                // muessten sich die Linien kreuzen. Eine Linie, die man
-                // trotzdem zoege, waere eine Behauptung. Die Beschriftung
-                // und die Naehe sagen genug; wer es genau wissen will,
-                // rueckt auf den Elternteil.
-                const SizedBox(height: AppSpacing.md),
-              ],
-              if (eltern.isNotEmpty) ...[
-                _beschriftung(t.stammbaumEltern),
-                // Die Elternreihe wird genauso ausgeglichen wie die
-                // mittlere: Onkel und Tanten links, Schwiegereltern
-                // rechts. Ohne den Ausgleich säßen die Eltern seitlich
-                // versetzt, und die Linie zur Person darunter träfe
-                // niemanden.
-                _ausgeglicheneReihe(
-                  links: _gruppe(t.stammbaumOnkelTanten, onkelTanten, a),
-                  linksBreite: _reiheBreite(onkelTanten.length),
-                  mitte: _reihe(eltern, a, bezug: _Bezug.elternteil),
-                  rechts:
-                      _gruppe(t.stammbaumSchwiegereltern, schwiegereltern, a),
-                  rechtsBreite: schwiegereltern.isEmpty
-                      ? 0.0
-                      : AppSpacing.lg + _reiheBreite(schwiegereltern.length),
-                ),
-                _Verbinder(anzahl: eltern.length, vieleOben: true),
-              ],
-              // Die mittlere Reihe wird auf der schmaleren Seite
-              // aufgefüllt, damit die Person in der Mitte tatsächlich
-              // waagerecht mittig steht – nur dann treffen die Linien von
-              // oben und unten sie auch.
-              _ausgeglicheneReihe(
-                links: links,
-                linksBreite: linksBreite,
-                mitte: _karte(fokus, a, istFokus: true),
-                rechts: rechts,
-                rechtsBreite: rechtsBreite,
-              ),
-              if (kinder.isNotEmpty) ...[
-                _Verbinder(anzahl: kinder.length, vieleOben: false),
-                // Neffen und Nichten stehen unter ihren Eltern – also
-                // links, wo die Geschwister stehen. Sie unter die eigenen
-                // Kinder zu mischen wäre die kürzere Zeile und die
-                // falsche Aussage.
-                _ausgeglicheneReihe(
-                  links: _gruppe(t.stammbaumNeffenNichten, neffenNichten, a),
-                  linksBreite: _reiheBreite(neffenNichten.length),
-                  mitte: _reihe(kinder, a, bezug: _Bezug.kind),
-                  rechts: null,
-                  rechtsBreite: 0,
-                ),
-                _beschriftung(t.stammbaumKinder),
-              ] else if (neffenNichten.isNotEmpty) ...[
-                // Ohne eigene Kinder gibt es keine Reihe darunter – die
-                // Neffen bekommen dann eine eigene.
-                const SizedBox(height: AppSpacing.md),
-                _beschriftung(t.stammbaumNeffenNichten),
-                _reihe(neffenNichten, a),
-              ],
-              if (a.istLeer) ...[
-                const SizedBox(height: AppSpacing.xxl),
-                SizedBox(
-                  width: 420,
-                  child: Text(
-                    t.stammbaumLeer,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-          ),
-        ),
-      ),
-        ),
-      ),
-    ]);
-  }
-
-  Widget _beschriftung(String text, {bool einzeilig = false}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-        // Bewusst nicht in Großbuchstaben umgewandelt: Der Text kommt aus
-        // der Übersetzung, und ihn im Quelltext umzuformen hiesse, für
-        // jede Sprache dieselbe Schreibweise zu behaupten. Die Zeile hebt
-        // sich über Größe, Sperrung und Farbe genug ab.
-        child: Text(
-          text,
-          maxLines: einzeilig ? 1 : null,
-          softWrap: !einzeilig,
-          overflow: einzeilig ? TextOverflow.ellipsis : TextOverflow.clip,
-          style: TextStyle(
-            fontSize: 10,
-            letterSpacing: 1.2,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+    if (plan.schilder.length <= 1) {
+      return Center(
+        child: SizedBox(
+          width: 420,
+          child: Text(
+            t.stammbaumLeer,
+            textAlign: TextAlign.center,
+            style:
+                TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
       );
+    }
 
-  Widget _reihe(
-    List<PersonData> personen,
-    Stammbaumausschnitt a, {
-    _Bezug bezug = _Bezug.keiner,
-  }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < personen.length; i++) ...[
-          if (i > 0) const SizedBox(width: _karteAbstand),
-          _karte(personen[i], a, bezug: bezug),
-        ],
-      ],
-    );
-  }
-
-  /// Eine beschriftete Nebengruppe (Geschwister, Partner).
-  ///
-  /// [verbunden] zieht einen kurzen Strich zur Mitte – für Partner
-  /// zutreffend. Geschwister bekommen ihn nicht: Sie hängen nicht an der
-  /// Person in der Mitte, sondern an den gemeinsamen Eltern, und eine Linie
-  /// zwischen ihnen behauptete etwas Falsches.
-  /// Die linke Seite der mittleren Reihe: Schwäger, dann Geschwister.
-  ///
-  /// Zwei Gruppen nebeneinander statt einer, weil beide ihre eigene
-  /// Beschriftung brauchen. Die Reihenfolge ist die des Abstands zur
-  /// Person in der Mitte: das eigene Geschwister näher, sein Partner
-  /// weiter aussen.
-  Widget? _seiteLinks(
-    AppTexte t,
-    List<PersonData> geschwister,
-    List<PersonData> schwaeger,
-    Stammbaumausschnitt a,
-  ) {
-    final g = _gruppe(t.stammbaumGeschwister, geschwister, a);
-    final s = _gruppe(t.stammbaumSchwaeger, schwaeger, a);
-    if (s == null) return g;
-    if (g == null) return s;
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      s,
-      // Weiter auseinander als sonst: Beide Gruppen tragen eine
-      // Beschriftung, die über ihre Karten hinausragen darf.
-      const SizedBox(width: AppSpacing.xxl),
-      g,
-    ]);
-  }
-
-  Widget? _gruppe(
-    String titel,
-    List<PersonData> personen,
-    Stammbaumausschnitt a, {
-    bool verbunden = false,
-  }) {
-    if (personen.isEmpty) return null;
-    // Die Beschriftung schwebt über der Reihe, statt sie nach unten zu
-    // drücken: Ein Stack misst sich an seinem nicht positionierten Kind,
-    // die Gruppe ist also genau so hoch wie eine Karte. Vorher machte die
-    // Beschriftung die Seitengruppe höher als die Karte in der Mitte – und
-    // weil die Reihe an der Unterkante ausgerichtet ist, rutschte die
-    // mittlere Karte nach unten weg. Die Linie von den Eltern endete dann
-    // sichtbar über ihr, statt sie zu treffen.
-    final block = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        _reihe(personen, a, bezug: verbunden ? _Bezug.partner : _Bezug.keiner),
-        // **Ausserhalb der Gruppenbreite gezeichnet, in einer Zeile.**
-        // Mit `left: 0, right: 0` ist die Beschriftung so breit wie die
-        // Gruppe – über einer einzelnen Karte bricht ein langer Titel
-        // dann auf drei Zeilen um und schiebt sich über die Karte.
-        // Aufgefallen bei „Schwager und Schwägerin"; „Neffen und Nichten"
-        // und „Schwiegereltern" hätten es über einer Karte genauso
-        // getroffen, nur hatte das noch niemand ausprobiert. Der
-        // Überstand ist begrenzt und endet notfalls mit drei Punkten:
-        // Zwei lange Beschriftungen nebeneinander sollen sich berühren
-        // dürfen, aber nicht ineinanderlaufen.
-        Positioned(
-          top: -16,
-          left: -AppSpacing.xxl,
-          right: -AppSpacing.xxl,
-          child: Center(
-            child: _beschriftung(titel, einzeilig: true),
+    return Column(children: [
+      if (geflecht.verschwiegen > 0)
+        Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          child: Row(
+            children: [
+              Icon(Icons.more_horiz,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  t.stammbaumZuVieleHaushalte(geflecht.verschwiegen),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
+              ),
+            ],
           ),
         ),
-      ],
-    );
-    if (!verbunden) return block;
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        width: AppSpacing.lg,
-        height: 2,
-        color: Theme.of(context).colorScheme.outlineVariant,
+      Expanded(
+        // In beide Richtungen rollbar: Ein Baum mit angeheirateter
+        // Verwandtschaft wird breiter als jedes Fenster, und das ist der
+        // Preis dafür, die Äste überhaupt zu sehen.
+        //
+        // Die Mindestmasse sind der Grund für den LayoutBuilder: Ein
+        // rollbarer Bereich gibt seinem Kind unbegrenzten Platz, und ein
+        // Kind, das nur so gross ist wie sein Inhalt, hört dort auf. Der
+        // gemalte Grund endete dann mitten im Fenster, und daneben stand
+        // die gewöhnliche Hintergrundfarbe – ein Bild mit einer Kante.
+        child: LayoutBuilder(
+          builder: (context, platz) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SingleChildScrollView(
+            child: ZierbaumAnsicht(
+              mindestens: Size(platz.maxWidth, platz.maxHeight),
+              plan: plan,
+              farben: farben,
+              fokusId: fokus.id,
+              menueHinweis: t.stammbaumMenue,
+              familienname: haeufigsterNachname(
+                  [for (final id in geflecht.personen) _nachId[id]!.name]),
+              inhalt: (id) {
+                final person = _nachId[id]!;
+                final bild = person.coverFaceCropPath;
+                return Schildinhalt(
+                  name: person.name,
+                  verwandtschaft: id == fokus.id ? null : _bezeichnung(person),
+                  bild:
+                      bild == null ? null : widget.library.paths.absolute(bild),
+                  lebensspanne: lebensspanne(
+                      person.geburtsdatum, person.sterbedatum),
+                  weitereOben: geflecht.weitereOben[id] ?? false,
+                  weitereUnten: geflecht.weitereUnten[id] ?? false,
+                );
+              },
+              beiTipp: _ruecke,
+              beiMenue: (id, stelle) {
+                final person = _nachId[id]!;
+                final bezug = _bezugZurMitte(id);
+                _karteMenue(stelle, person,
+                    art: _artFuer(person, bezug),
+                    umgekehrt: bezug == _Bezug.kind);
+              },
+            ),
+          ),
+        ),
+        ),
       ),
-      block,
     ]);
-  }
-
-  /// Die Breite einer Reihe aus [anzahl] Karten.
-  double _reiheBreite(int anzahl) =>
-      anzahl == 0 ? 0 : anzahl * _karteBreite + (anzahl - 1) * _karteAbstand;
-
-  /// Die mittlere Reihe, mit der Person in der Mitte auch tatsächlich in
-  /// der Mitte.
-  ///
-  /// Beide Seiten bekommen dieselbe Breite – die der breiteren. Ohne diesen
-  /// Ausgleich säße die Person je nach Zahl der Geschwister und Partner
-  /// seitlich versetzt, und die Linien von den Eltern und zu den Kindern
-  /// träfen sie nicht mehr: Die zeichnen ihre Senkrechte in der Mitte der
-  /// Spalte, nicht auf die Karte.
-  Widget _ausgeglicheneReihe({
-    required Widget? links,
-    required double linksBreite,
-    required Widget mitte,
-    required Widget? rechts,
-    required double rechtsBreite,
-  }) {
-    final seite = linksBreite > rechtsBreite ? linksBreite : rechtsBreite;
-    return IntrinsicHeight(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          SizedBox(
-            width: seite,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: links ?? const SizedBox.shrink(),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          mitte,
-          const SizedBox(width: AppSpacing.md),
-          SizedBox(
-            width: seite,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: rechts ?? const SizedBox.shrink(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _karte(
-    PersonData person,
-    Stammbaumausschnitt a, {
-    bool istFokus = false,
-    _Bezug bezug = _Bezug.keiner,
-  }) {
-    final art = _artFuer(person, bezug);
-    return _Personenkarte(
-      person: person,
-      paths: widget.library.paths,
-      istFokus: istFokus,
-      bezeichnung: istFokus ? null : _bezeichnung(person),
-      weitereOben: a.weitereOben[person.id] ?? false,
-      weitereUnten: a.weitereUnten[person.id] ?? false,
-      onTap: () => _ruecke(person.id),
-      onMenue: (pos) => _karteMenue(pos, person,
-          art: art, umgekehrt: bezug == _Bezug.kind),
-    );
   }
 
   /// Wie [person] zur Mitte steht, aus dem Netz hergeleitet.
@@ -2040,248 +1865,6 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       _Bezug.keiner => null,
     };
   }
-}
-
-/// Eine Personenkarte.
-class _Personenkarte extends StatelessWidget {
-  final PersonData person;
-  final StoragePaths paths;
-  final bool istFokus;
-
-  /// Wie diese Person zur Person in der Mitte steht – „Schwester",
-  /// „Schwiegervater". Bei der Person in der Mitte selbst `null`: „diese
-  /// Person" auf der eigenen Karte wäre nur Füllsel.
-  final String? bezeichnung;
-  final bool weitereOben;
-  final bool weitereUnten;
-  final VoidCallback onTap;
-  final void Function(Offset position) onMenue;
-
-  const _Personenkarte({
-    required this.person,
-    required this.paths,
-    required this.istFokus,
-    required this.bezeichnung,
-    required this.weitereOben,
-    required this.weitereUnten,
-    required this.onTap,
-    required this.onMenue,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final farben = Theme.of(context).colorScheme;
-    final spanne = lebensspanne(person.geburtsdatum, person.sterbedatum);
-    final bild = person.coverFaceCropPath;
-
-    return GestureDetector(
-      onSecondaryTapDown: (d) => onMenue(d.globalPosition),
-      onLongPressStart: (d) => onMenue(d.globalPosition),
-      child: Stack(
-        children: [
-          InkWell(
-        onTap: istFokus ? null : onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Container(
-          width: _karteBreite,
-          height: _karteHoehe,
-          padding: const EdgeInsets.all(AppSpacing.sm),
-          decoration: BoxDecoration(
-            color: istFokus ? farben.surfaceContainerHighest : farben.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(
-              color: istFokus ? farben.primary : farben.outlineVariant,
-              width: istFokus ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Der Hinweis, dass über dieser Person noch Eltern stehen,
-              // die hier nicht gezeigt werden – siehe Klassendoku von
-              // [StammbaumScreen].
-              _Mehrzeichen(sichtbar: weitereOben, nachOben: true),
-              Profilbild(
-                datei: bild == null ? null : paths.absolute(bild),
-                radius: 26,
-                hintergrund: farben.surfaceContainerHigh,
-                symbolgroesse: 24,
-                symbolfarbe: farben.outline,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                person.name,
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: istFokus ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-              if (bezeichnung != null)
-                Text(
-                  bezeichnung!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: farben.primary,
-                  ),
-                ),
-              if (spanne != null)
-                Text(
-                  spanne,
-                  // onSurfaceVariant statt outline – gegen die Kartenfläche
-                  // gemessen kam outline auf 4,07:1, gefordert sind 4,5:1.
-                  style: TextStyle(fontSize: 10, color: farben.onSurfaceVariant),
-                ),
-              _Mehrzeichen(sichtbar: weitereUnten, nachOben: false),
-            ],
-          ),
-        ),
-      ),
-          // Das Menü gab es bisher nur über die rechte Maustaste und langes
-          // Drücken – zwei Gesten, die niemand ausprobiert, wenn nichts
-          // darauf hinweist. Ein sichtbares Zeichen in der Ecke, ruhig
-          // gehalten, damit es die Karte nicht beherrscht; die beiden
-          // Gesten bleiben zusätzlich.
-          Positioned(
-            top: 0,
-            right: 0,
-            child: Builder(
-              builder: (knopfKontext) => IconButton(
-                iconSize: 16,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                constraints: const BoxConstraints(),
-                tooltip: AppTexte.of(context).stammbaumMenue,
-                icon: Icon(Icons.more_vert,
-                    color: Theme.of(context).colorScheme.outline),
-                onPressed: () {
-                  // Das Menü öffnet an der Stelle des Knopfes, nicht am
-                  // Mauszeiger: Bei einem Klick gibt es keinen.
-                  final kasten =
-                      knopfKontext.findRenderObject() as RenderBox;
-                  onMenue(kasten.localToGlobal(kasten.size.bottomLeft(Offset.zero)));
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Das kleine Zeichen an einer Karte: „hier geht es weiter".
-///
-/// Nimmt seinen Platz auch dann ein, wenn es unsichtbar ist – sonst
-/// verschöben sich Bild und Name zwischen Karten mit und ohne Hinweis, und
-/// die Reihe säße nicht mehr auf einer Linie.
-class _Mehrzeichen extends StatelessWidget {
-  final bool sichtbar;
-  final bool nachOben;
-  const _Mehrzeichen({required this.sichtbar, required this.nachOben});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 12,
-      child: sichtbar
-          ? Icon(
-              nachOben ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-              size: 12,
-              color: Theme.of(context).colorScheme.outline,
-            )
-          : null,
-    );
-  }
-}
-
-/// Die Linien zwischen zwei Generationen.
-///
-/// Auf der einen Seite steht eine Person (die in der Mitte), auf der
-/// anderen [anzahl] nebeneinander. Gezeichnet wird ein waagerechter Balken
-/// über der Reihe, kurze Senkrechte zu jeder Karte und eine Senkrechte zur
-/// Mitte hin.
-///
-/// Die Kartenmitten ergeben sich aus fester Kartenbreite und festem
-/// Abstand – deshalb sind beide Konstanten und nicht vom Inhalt abhängig.
-class _Verbinder extends StatelessWidget {
-  final int anzahl;
-
-  /// Ob die vielen Karten oben stehen (Eltern) oder unten (Kinder).
-  final bool vieleOben;
-
-  const _Verbinder({required this.anzahl, required this.vieleOben});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: anzahl * _karteBreite + (anzahl - 1) * _karteAbstand,
-      height: _verbinderHoehe,
-      child: CustomPaint(
-        painter: _VerbinderMaler(
-          anzahl: anzahl,
-          vieleOben: vieleOben,
-          farbe: Theme.of(context).colorScheme.outlineVariant,
-        ),
-      ),
-    );
-  }
-}
-
-class _VerbinderMaler extends CustomPainter {
-  final int anzahl;
-  final bool vieleOben;
-  final Color farbe;
-
-  const _VerbinderMaler({
-    required this.anzahl,
-    required this.vieleOben,
-    required this.farbe,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stift = Paint()
-      ..color = farbe
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    final mitte = size.width / 2;
-    final balkenY = size.height / 2;
-
-    // Die Seite mit den vielen Karten.
-    final vieleY = vieleOben ? 0.0 : size.height;
-    // Die halbe Balkenbreite: von der Mitte der ersten bis zur Mitte der
-    // letzten Karte, also (anzahl-1) volle Kartenschritte.
-    final halberBalken = (anzahl - 1) * (_karteBreite + _karteAbstand) / 2;
-
-    if (anzahl > 1) {
-      canvas.drawLine(
-        Offset(mitte - halberBalken, balkenY),
-        Offset(mitte + halberBalken, balkenY),
-        stift,
-      );
-    }
-    for (var i = 0; i < anzahl; i++) {
-      final x = mitte - halberBalken + i * (_karteBreite + _karteAbstand);
-      canvas.drawLine(Offset(x, vieleY), Offset(x, balkenY), stift);
-    }
-    // Und die eine Senkrechte zur Person in der Mitte.
-    canvas.drawLine(
-      Offset(mitte, balkenY),
-      Offset(mitte, vieleOben ? size.height : 0),
-      stift,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_VerbinderMaler alt) =>
-      alt.anzahl != anzahl || alt.vieleOben != vieleOben || alt.farbe != farbe;
 }
 
 /// Geschlecht sowie Geburts- und Sterbedatum einer Person.

@@ -72,6 +72,21 @@ void main() {
     tempRoot.deleteSync(recursive: true);
   });
 
+  /// Derselbe Bildschirm im hellen Erscheinungsbild.
+  ///
+  /// Der Zierbaum hat zwei Farbsätze, und der zweite ist der, den man
+  /// vergisst. Ein Goldbild je Fassung ist das Gegenmittel.
+  Future<void> zeigeHell(WidgetTester tester, String start) async {
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      theme: buildLightTheme(),
+      home: StammbaumScreen(library: library, startPersonId: start),
+    ));
+    await tester.pumpAndSettle();
+  }
+
   /// Der Bildschirm wird auf eine Route geschoben statt als `home` gesetzt:
   /// Nur dann gibt es einen Zurück-Pfeil, und nur dann lässt sich prüfen,
   /// dass er erst dem Weg durch den Baum folgt.
@@ -99,64 +114,68 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('zeigt Eltern, Geschwister und Lebensdaten', (tester) async {
+  testWidgets('jedes Schild nennt Name und Verhältnis', (tester) async {
     await zeige(tester, 'kind');
 
-    expect(find.text('Eltern'), findsOneWidget);
-    // Je zwei Treffer: der Name auf der Karte und die Bezeichnung
-    // darunter, die hier zufällig gleich lautet.
+    // **Keine Reihenüberschriften mehr.** Der Reihenbaum schrieb
+    // „Eltern" über eine Zeile; der Zierbaum stellt die Leute dorthin,
+    // wo sie hingehören, und schreibt an jedes Schild, wie es zur Mitte
+    // steht. Eine Überschrift kann nicht sagen, zu wem jemand gehört –
+    // genau daran ist der alte Baum gescheitert.
+    expect(find.text('Eltern'), findsNothing);
+    expect(find.text('Geschwister'), findsNothing);
+
+    // Je zwei Treffer: der Name auf dem Schild und das Verhältnis
+    // darunter, das hier zufällig gleich lautet.
     expect(find.text('Vater'), findsNWidgets(2));
     expect(find.text('Mutter'), findsNWidgets(2));
-    // „Geschwister" nur als Überschrift: Die Schwester ist als weiblich
-    // eingetragen, ihre Bezeichnung lautet deshalb „Schwester".
-    expect(find.text('Geschwister'), findsOneWidget);
     expect(find.text('Schwester'), findsNWidgets(2));
-    // Der Jahrgang steht unter dem Namen.
-    expect(find.text('*1931'), findsOneWidget);
   });
 
   testWidgets('zeigt Partner und Kinder der Person in der Mitte',
       (tester) async {
     await zeige(tester, 'vater');
 
-    // „Partner" nur als Überschrift – die Mutter ist als weiblich
-    // eingetragen und heißt deshalb „Partnerin".
-    expect(find.text('Partner'), findsOneWidget);
+    // Die Mutter wohnt jetzt IM Haushalt des Vaters – sie steht neben
+    // ihm, nicht in einer eigenen Reihe „Partner".
     expect(find.text('Partnerin'), findsOneWidget);
-    expect(find.text('Kinder'), findsOneWidget);
-    // Die beiden Kinder heißen „Kind" und „Schwester", ihre Bezeichnungen
+    // Die beiden Kinder heißen „Kind" und „Schwester", ihre Verhältnisse
     // lauten „Sohn" und „Tochter".
     expect(find.text('Kind'), findsOneWidget);
     expect(find.text('Sohn'), findsOneWidget);
     expect(find.text('Schwester'), findsOneWidget);
     expect(find.text('Tochter'), findsOneWidget);
-    // Geschwister hat der Vater keine – die Beschriftung darf dann nicht
-    // als leere Überschrift dastehen.
-    expect(find.text('Geschwister'), findsNothing);
   });
 
   testWidgets('ein Klick rückt die angetippte Person in die Mitte',
       (tester) async {
     await zeige(tester, 'kind');
-    expect(find.text('Opa'), findsNothing, reason: 'Großeltern stehen nicht im Bild');
+    // Der Zierbaum reicht weiter als der Reihenbaum: Großeltern und
+    // Urgroßvater stehen von Anfang an im Bild.
+    expect(find.text('Opa'), findsOneWidget);
+    expect(find.text('Kind'), findsOneWidget, reason: 'die Mitte');
 
-    // Der Name auf der Karte, nicht die gleichlautende Bezeichnung
+    // Der Name auf dem Schild, nicht das gleichlautende Verhältnis
     // darunter – beide führen zum selben Ziel, aber der Test soll sagen,
     // worauf er tippt.
     await tester.tap(find.text('Vater').first);
     await tester.pumpAndSettle();
 
-    // Jetzt steht der Vater in der Mitte, seine Eltern darüber.
-    expect(find.text('Opa'), findsOneWidget);
-    expect(find.text('Oma'), findsOneWidget);
+    // Jetzt steht der Vater in der Mitte: Das Kind heisst von dort aus
+    // „Sohn", und die Großeltern sind zu Eltern geworden.
+    expect(find.text('Sohn'), findsOneWidget);
+    expect(find.text('Urgroßvater'), findsNothing,
+        reason: 'von hier aus ist Uropa der Großvater');
   });
 
   testWidgets('der Zurück-Pfeil folgt dem eigenen Weg durch den Baum',
       (tester) async {
     await zeige(tester, 'kind');
+    expect(find.text('Urgroßvater'), findsOneWidget);
     await tester.tap(find.text('Vater').first);
     await tester.pumpAndSettle();
-    expect(find.text('Opa'), findsOneWidget);
+    expect(find.text('Urgroßvater'), findsNothing,
+        reason: 'von hier aus ist Uropa der Großvater');
 
     // Nicht tester.pageBack(): das sucht nach der Beschriftung "Back",
     // und die Oberfläche läuft hier auf Deutsch.
@@ -165,17 +184,26 @@ void main() {
 
     // Zurück beim Kind – und nicht aus dem Stammbaum heraus.
     expect(find.byType(StammbaumScreen), findsOneWidget);
-    expect(find.text('Opa'), findsNothing);
-    expect(find.text('Geschwister'), findsOneWidget,
-        reason: 'als Überschrift; die Karte selbst nennt sie „Schwester"');
+    expect(find.text('Urgroßvater'), findsOneWidget);
+    expect(find.text('Schwester'), findsNWidgets(2),
+        reason: 'Name und Verhältnis, beide auf ihrem Schild');
   });
 
   testWidgets('weist auf Verwandtschaft hin, die außerhalb des Bildes liegt',
       (tester) async {
+    // Der Zierbaum reicht bis zu den Urgroßeltern. Erst eine Generation
+    // darüber liegt draussen – und dann trägt der Urgroßvater das
+    // Zeichen, sonst niemand.
+    await db.createPerson(
+        PeopleCompanion.insert(id: 'ururopa', name: 'Ururopa'));
+    await db.fuegeBeziehungHinzu('uropa', 'ururopa', Verwandtschaft.elternteil);
+
     await zeige(tester, 'kind');
-    // Genau ein Hinweis nach oben: beim Vater, der selbst Eltern hat. Die
-    // Mutter hat keine, das Kind in der Mitte bekommt nie einen.
-    expect(find.byIcon(Icons.keyboard_arrow_up), findsOneWidget);
+
+    expect(find.text('Uropa'), findsOneWidget);
+    expect(find.text('Ururopa'), findsNothing, reason: 'zu weit draussen');
+    expect(find.byIcon(Icons.more_horiz), findsOneWidget,
+        reason: 'genau am Urgroßvater, über dem es weitergeht');
   });
 
   testWidgets('eine Verbindung lässt sich lösen', (tester) async {
@@ -192,11 +220,17 @@ void main() {
     await tester.tap(find.text('Entfernen'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Mutter'), findsNothing);
-    // Die Schwester bleibt über den Vater in der Reihe – aber die
-    // Bezeichnung ändert sich mit: Sie hat noch beide Eltern eingetragen,
-    // das Kind in der Mitte nur noch einen gemeinsamen. Das sind
-    // Halbgeschwister, und genau das soll dort dann auch stehen.
+    // Die Mutter verschwindet NICHT aus dem Bild – sie wohnt im Haushalt
+    // des Vaters und steht weiter neben ihm. Was sich ändert, ist ihr
+    // Verhältnis zur Mitte: Sie ist jetzt die Partnerin eines
+    // Elternteils, ohne selbst Elternteil zu sein. Dafür gibt es ein
+    // Wort, und es steht auf ihrem Schild.
+    expect(find.text('Mutter'), findsOneWidget, reason: 'nur noch der Name');
+    expect(find.text('Stiefmutter'), findsOneWidget);
+    // Die Schwester bleibt über den Vater im Bild – aber ihr Verhältnis
+    // ändert sich mit: Sie hat noch beide Eltern eingetragen, das Kind in
+    // der Mitte nur noch einen gemeinsamen. Das sind Halbgeschwister, und
+    // genau das soll dort dann auch stehen.
     expect(find.text('Schwester'), findsOneWidget, reason: 'nur noch der Name');
     expect(find.text('Halbschwester'), findsOneWidget);
     expect((await db.alleBeziehungen()).length, 7);
@@ -210,10 +244,41 @@ void main() {
     expect(find.text('Mutter'), findsNWidgets(2));
     // Die Schwester heißt „Schwester" und ist eine – auch zwei Treffer.
     expect(find.text('Schwester'), findsNWidgets(2));
-    expect(find.text('Großvater'), findsNothing,
-        reason: 'im Baum stehen keine Großeltern');
+    expect(find.text('Großvater'), findsOneWidget,
+        reason: 'der Zierbaum reicht bis zu den Urgroßeltern');
     // Auf der Karte in der Mitte steht keine Bezeichnung.
     expect(find.text('diese Person'), findsNothing);
+  });
+
+  testWidgets('die Eltern des Schwagers heissen nach dem Weg zu ihnen',
+      (tester) async {
+    // Der Anlass der ganzen Runde: Bis hierher stand bei diesen Personen
+    // „angeheiratet" – dieselbe Auskunft, die auch ein wildfremder
+    // Vetter bekäme. Und die Rechnung allein beweist nichts: Der Baum
+    // muss sie auch abrufen.
+    await db.createPerson(PeopleCompanion.insert(
+        id: 'schwager', name: 'Michael', geschlecht: const Value('m')));
+    await db.createPerson(PeopleCompanion.insert(
+        id: 'schwiegermutterDerSchwester',
+        name: 'Petra',
+        geschlecht: const Value('w')));
+    await db.fuegeBeziehungHinzu('schwester', 'schwager', Verwandtschaft.partner);
+    await db.fuegeBeziehungHinzu(
+        'schwager', 'schwiegermutterDerSchwester', Verwandtschaft.elternteil);
+
+    // Angeheiratetes steht am Ende der Liste – ein hohes Fenster, sonst
+    // ist die Zeile schlicht noch nicht gebaut und der Sucher findet
+    // nichts, obwohl alles stimmt.
+    await tester.binding.setSurfaceSize(const Size(1000, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await zeige(tester, 'kind');
+    await tester.tap(find.text('Verwandte'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mutter von Schwager Michael'), findsOneWidget);
+    expect(find.text('angeheiratet'), findsNothing,
+        reason: 'für diese Person gibt es jetzt eine Auskunft');
   });
 
   testWidgets('das Geschlecht entscheidet über die Bezeichnung',
@@ -222,7 +287,7 @@ void main() {
     await zeige(tester, 'kind');
     // Ohne Angabe lautet die Bezeichnung „Geschwister" – zusammen mit der
     // Überschrift also zwei Treffer. Mit Angabe stand dort „Schwester".
-    expect(find.text('Geschwister'), findsNWidgets(2),
+    expect(find.text('Geschwister'), findsOneWidget,
         reason: 'ohne Angabe die neutrale Form');
     expect(find.text('Schwester'), findsOneWidget, reason: 'nur noch der Name');
   });
@@ -478,9 +543,9 @@ void main() {
     // Hervorhebung eine Farbe, und eine Farbe ist kein Beleg.
     await tester.tap(find.text('Baum'));
     await tester.pumpAndSettle();
-    expect(find.text('Kinder'), findsOneWidget);
-    expect(find.text('Opa'), findsWidgets,
-        reason: 'Opa ist das Kind des Uropas');
+    expect(find.text('Sohn'), findsWidgets,
+        reason: 'Opa ist der Sohn des Uropas – und das steht auf seinem Schild');
+    expect(find.text('Opa'), findsWidgets);
   });
 
   testWidgets('die Zeitleiste laesst sich vorlesen', (tester) async {
@@ -629,55 +694,58 @@ void main() {
         findsOneWidget);
   });
 
-  testWidgets('der Schalter holt die Seitenaeste in den Baum', (tester) async {
-    tester.view.physicalSize = const Size(1400, 900);
+  testWidgets('der Schwager steht bei seiner Frau, seine Eltern ueber ihm',
+      (tester) async {
+    // **Der Kernbeleg der ganzen Runde.** Vorher stand der Schwager in
+    // einer eigenen Reihe „Schwager und Schwägerin", und welche der
+    // Schwestern ihn geheiratet hatte, war nicht zu sehen. Seine Eltern
+    // standen ueberhaupt nicht im Bild und hiessen „angeheiratet".
+    //
+    // Auch der Schalter „Seitenäste" ist weg: Es gibt nur noch einen
+    // Baum, und der zeigt sie immer.
+    tester.view.physicalSize = const Size(2000, 1400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await zeige(tester, 'kind');
 
-    // Vorgabe: aus. Der Baum zeigt die gerade Linie.
-    expect(find.text('Großeltern'), findsNothing);
-    expect(find.text('Opa'), findsNothing);
-
-    await tester.tap(find.widgetWithText(FilterChip, 'Seitenäste'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Großeltern'), findsOneWidget);
-    expect(find.text('Opa'), findsOneWidget);
-    expect(find.text('Oma'), findsOneWidget);
-  });
-
-  testWidgets('der Schwager steht neben dem Geschwister', (tester) async {
-    // Der gemeldete Fehler: Der Verwandtschaftsrechner nannte ihn
-    // „Schwager", der Baum zeigte ihn nicht. Nachgestellt ist die Lage
-    // aus der echten Bibliothek – die Schwester hat einen Partner.
-    tester.view.physicalSize = const Size(1600, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    await db.createPerson(
-        PeopleCompanion.insert(id: 'schwager', name: 'Schwager'));
+    await db.createPerson(PeopleCompanion.insert(
+        id: 'schwager', name: 'Michael', geschlecht: const Value('m')));
+    await db.createPerson(PeopleCompanion.insert(
+        id: 'schwagersVater', name: 'Kurt', geschlecht: const Value('m')));
     await db.fuegeBeziehungHinzu(
         'schwester', 'schwager', Verwandtschaft.partner);
+    await db.fuegeBeziehungHinzu(
+        'schwager', 'schwagersVater', Verwandtschaft.elternteil);
 
     await zeige(tester, 'kind');
-    // Ohne Seitenäste bleibt es beim schmalen Ausschnitt.
-    expect(find.text('Schwager'), findsNothing);
 
-    await tester.tap(find.widgetWithText(FilterChip, 'Seitenäste'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Schwager und Schwägerin'), findsOneWidget);
-    // Die Karte selbst – die Person heisst hier wie ihre Rolle, deshalb
-    // zweimal derselbe Text und zwei Treffer.
+    // Alle drei sind da – ohne dass jemand einen Schalter umlegen muss.
+    expect(find.text('Michael'), findsOneWidget);
     expect(find.text('Schwager'), findsOneWidget);
+    expect(find.text('Kurt'), findsOneWidget);
+    expect(find.text('Vater von Schwager Michael'), findsOneWidget);
+
+    // Und die Anordnung sagt dasselbe: Michael steht unmittelbar neben
+    // seiner Frau, sein Vater darueber. Eine Reihe nach Rolle konnte das
+    // nicht ausdruecken.
+    final schwester = tester.getCenter(find.text('Schwester').first);
+    final michael = tester.getCenter(find.text('Michael'));
+    final kurt = tester.getCenter(find.text('Kurt'));
+    final mitte = tester.getCenter(find.text('Kind'));
+
+    expect((michael.dy - schwester.dy).abs(), lessThan(20),
+        reason: 'dieselbe Generation, dieselbe Hoehe');
+    expect((michael.dx - schwester.dx).abs(), lessThan(200),
+        reason: 'Seite an Seite, nicht in getrennten Gruppen');
+    expect(kurt.dy, lessThan(michael.dy), reason: 'die Eltern stehen darueber');
+    expect((kurt.dx - michael.dx).abs(), lessThan((kurt.dx - mitte.dx).abs()),
+        reason: 'Kurt steht ueber seinem Sohn, nicht ueber mir');
   });
 
   testWidgets('so sieht der Baum mit Seitenaesten aus', (tester) async {
-    // Der Blick, um den es bei diesem Wunsch ging: Grosseltern oben,
-    // Onkel neben den Eltern, Neffen unter den Geschwistern, und seit
-    // der Beschwerde auch der Schwager neben der Schwester. Ein
-    // Referenzbild, das einen der Aeste weglaesst, behauptet, es gaebe
-    // ihn nicht.
+    // Der Blick, um den es ging: Grosseltern oben, Neffen unter den
+    // Geschwistern, der Schwager NEBEN seiner Frau und seine Eltern
+    // ueber ihm. Es gibt keinen Schalter mehr - der Baum zeigt die
+    // Seitenaeste immer.
     tester.view.physicalSize = const Size(1600, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -686,9 +754,22 @@ void main() {
     await db.fuegeBeziehungHinzu(
         'schwester', 'schwager', Verwandtschaft.partner);
     await zeige(tester, 'kind');
-    await tester.tap(find.widgetWithText(FilterChip, 'Seitenäste'));
-    await tester.pumpAndSettle();
     await expectLater(find.byType(StammbaumScreen),
         matchesGoldenFile('golden/stammbaum_seitenaeste.png'));
+  }, skip: nurAufReferenzplattform);
+
+  testWidgets('so sieht der Baum im hellen Erscheinungsbild aus',
+      (tester) async {
+    // Bronze auf Pergament statt Gold auf Dunkel. Nicht die dunkle
+    // Fassung mit vertauschten Werten: Dieselben Goldtöne auf hellem
+    // Grund verlieren jeden Halt.
+    tester.view.physicalSize = const Size(1000, 700);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await zeigeHell(tester, 'kind');
+    await expectLater(
+      find.byType(StammbaumScreen),
+      matchesGoldenFile('golden/stammbaum_hell.png'),
+    );
   }, skip: nurAufReferenzplattform);
 }

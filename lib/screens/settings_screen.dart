@@ -2240,6 +2240,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
+                  const Divider(height: 1),
+                  // **Der Weg zu den Lizenzen.** Die App liefert seit dem
+                  // Zierbaum zwei Schriften mit, und die SIL Open Font
+                  // License verlangt, dass ihr Text mitgeht. Er ging
+                  // mit – nur konnte ihn niemand lesen: Es gab keine
+                  // Übersicht, in der die angemeldeten Lizenzen
+                  // aufgetaucht wären. Eine Datei im Paket, die
+                  // unerreichbar ist, erfüllt die Auflage dem Buchstaben
+                  // nach und dem Sinn nach nicht.
+                  ListTile(
+                    leading: const Icon(Icons.gavel_outlined),
+                    title: Text(AppTexte.of(context).einstLizenzen),
+                    subtitle: Text(AppTexte.of(context).einstLizenzenText),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showLicensePage(
+                      context: context,
+                      applicationName: 'Photo Vault',
+                      applicationVersion: version,
+                    ),
+                  ),
                 ],
               );
             },

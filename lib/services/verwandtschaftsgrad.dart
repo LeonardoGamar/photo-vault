@@ -8,6 +8,8 @@
 /// nicht an, sondern rechnet es nach.
 library;
 
+import 'package:meta/meta.dart';
+
 import 'stammbaum.dart';
 
 /// Nur für die Bezeichnungen erhoben, siehe `People.geschlecht`.
@@ -304,6 +306,117 @@ bool _ueberPartnerErreichbar(Verwandtschaftsnetz netz, String ich, String andere
     rand = naechste;
   }
   return false;
+}
+
+/// Der Weg zu jemandem, für den es kein eigenes Wort gibt.
+///
+/// „Die Eltern meines Schwagers" heissen auf Deutsch nicht anders als
+/// „angeheiratet" – dieselbe Auskunft, die auch der entfernte Vetter der
+/// zweiten Frau des Onkels bekäme. Genau das war der Anlass: Im Baum
+/// stand bei einer Person, die man beim Namen kennt, ein Wort, das nichts
+/// sagt.
+///
+/// Statt eines Wortes wird deshalb der Weg beschrieben: über wen die
+/// Verbindung läuft, und wie die Gesuchte zu **dieser** Person steht.
+@immutable
+class Umweg {
+  /// Über wen der Weg läuft – jemand, für den es ein Wort gibt.
+  final String ueber;
+
+  /// Wie die Zwischenperson zu mir steht („Schwager").
+  final Grad ueberGrad;
+
+  /// Wie die gesuchte Person zur Zwischenperson steht („Mutter").
+  final Grad schritt;
+
+  const Umweg(this.ueber, this.ueberGrad, this.schritt);
+
+  @override
+  bool operator ==(Object other) =>
+      other is Umweg &&
+      other.ueber == ueber &&
+      other.ueberGrad == ueberGrad &&
+      other.schritt == schritt;
+
+  @override
+  int get hashCode => Object.hash(ueber, ueberGrad, schritt);
+
+  @override
+  String toString() => 'Umweg($ueber ${ueberGrad.art.name}/${schritt.art.name})';
+}
+
+/// Nur diese Schritte taugen für den zweiten Teil des Satzes.
+///
+/// Eine **einzelne** Kante, sonst wird aus der Auskunft eine Kette: „Der
+/// Grossvater des Bruders des Schwagers" erklärt weniger als
+/// „angeheiratet", weil man ihn beim Lesen zurückverfolgen muss.
+bool _einSchritt(Grad grad) => switch (grad.art) {
+      Gradart.vorfahre => grad.aufwaerts == 1,
+      Gradart.nachkomme => grad.abwaerts == 1,
+      Gradart.geschwister || Gradart.partner => true,
+      _ => false,
+    };
+
+/// Ob es für diesen Grad ein Wort gibt, das für sich steht.
+bool _hatEigenesWort(Grad grad) =>
+    grad.art != Gradart.angeheiratet &&
+    grad.art != Gradart.keine &&
+    grad.art != Gradart.selbst;
+
+/// Beschreibt [andere] über eine Zwischenperson – oder `null`, wenn es
+/// dafür keinen Anlass gibt oder auch das nicht trägt.
+///
+/// **Kein Umweg, wo ein Wort steht.** Der Schwager heisst Schwager, nicht
+/// „Mann von Schwester Anna". Diese Prüfung steht hier und nicht beim
+/// Aufrufer: Sonst könnte eine zweite Aufrufstelle irgendwann ein gutes
+/// Wort durch einen umständlichen Satz ersetzen, ohne dass es jemandem
+/// auffällt.
+///
+/// Gesucht wird bei den unmittelbaren Angehörigen von [andere] – Eltern,
+/// Kinder, Partner, Geschwister. Wer davon selbst einen Namen hat
+/// („Schwager"), trägt den Satz.
+///
+/// [reihenfolge] entscheidet bei Gleichstand und muss dieselbe sein, die
+/// der Baum ohnehin führt. Ohne sie hiesse dieselbe Person bei jedem
+/// Aufbau anders, sobald zwei Wege gleich gut sind – und das fiele als
+/// Flackern auf, nicht als Fehler.
+Umweg? umwegZu(
+  Verwandtschaftsnetz netz,
+  String ich,
+  String andere, {
+  int Function(String)? reihenfolge,
+}) {
+  if (ich == andere) return null;
+  if (_hatEigenesWort(bestimmeGrad(netz, ich, andere))) return null;
+
+  final nachbarn = <String>{
+    ...netz.eltern(andere),
+    ...netz.kinder(andere),
+    ...netz.partner(andere),
+    ...netz.geschwister(andere),
+  }..remove(andere);
+
+  Umweg? beste;
+  int? besterRang;
+  int? besterPlatz;
+  for (final ueber in nachbarn) {
+    if (ueber == ich) continue;
+    final ueberGrad = bestimmeGrad(netz, ich, ueber);
+    if (!_hatEigenesWort(ueberGrad)) continue;
+    final schritt = bestimmeGrad(netz, ueber, andere);
+    if (!_einSchritt(schritt)) continue;
+
+    final rang = naeheRang(ueberGrad);
+    final platz = reihenfolge?.call(ueber) ?? 0;
+    if (besterRang == null ||
+        rang < besterRang ||
+        (rang == besterRang && platz < besterPlatz!)) {
+      beste = Umweg(ueber, ueberGrad, schritt);
+      besterRang = rang;
+      besterPlatz = platz;
+    }
+  }
+  return beste;
 }
 
 /// Alle Personen, zu denen von [ich] aus eine Verwandtschaft besteht, samt

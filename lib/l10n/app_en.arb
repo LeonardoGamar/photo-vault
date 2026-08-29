@@ -300,6 +300,8 @@
   "einstDatenbank": "Database",
   "einstDatenbankStand": "Version {version}",
   "einstBauZeile": "Build {bau} · {system} {systemversion}",
+  "einstLizenzen": "Licences",
+  "einstLizenzenText": "The licences of the bundled fonts and of every library in use.",
   "einstNachAktualisierungSuchen": "Check for updates",
   "modellYunetTitel": "Face detection – YuNet",
   "modellYunetText": "Finds faces (bounding boxes) in photos. A lightweight CNN, part of the OpenCV Zoo.",
@@ -1458,10 +1460,6 @@
       }
     }
   },
-  "stammbaumEltern": "Parents",
-  "stammbaumGeschwister": "Siblings",
-  "stammbaumPartner": "Partner",
-  "stammbaumKinder": "Children",
   "stammbaumElternteilHinzufuegen": "Add parent",
   "stammbaumPartnerHinzufuegen": "Add partner",
   "stammbaumKindHinzufuegen": "Add child",
@@ -1483,6 +1481,10 @@
   "stammbaumFehlerSelbst": "A person cannot be related to themselves.",
   "stammbaumFehlerKreis": "That would run in a circle: this person already appears further down the same branch.",
   "stammbaumFehlerVorhanden": "This relationship is already recorded.",
+  "stammbaumZuVieleHaushalte": "{anzahl, plural, =1{One more household does not fit the picture.} other{{anzahl} more households do not fit the picture.}}",
+  "@stammbaumZuVieleHaushalte": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
   "stammbaumLeer": "No relatives recorded for this person yet. Use the buttons at the top right to add parents, a partner or children – either from the people you have already named, or as a new name, even without a single photo.",
   "stammbaumPersonFehlt": "This person no longer exists.",
   "stammbaumGeboren": "Born",
@@ -1713,6 +1715,15 @@
     }
   },
   "gradAngeheiratet": "related by marriage",
+  "gradUeberWeg": "{schritt} of {bezug} {name}",
+  "@gradUeberWeg": {
+    "description": "For relatives with no word of their own - \"mother of brother-in-law Michael\". schritt is the relation to the intermediate person, bezug that person's relation to the one at the centre.",
+    "placeholders": {
+      "schritt": { "type": "String" },
+      "bezug": { "type": "String" },
+      "name": { "type": "String" }
+    }
+  },
   "gradKeine": "not related",
   "navStammbaum": "Family tree",
   "stammbaumAndereWaehlen": "Put another person at the centre",
@@ -2300,12 +2311,6 @@
   "stammbaumAdoptiv": "Adoptive",
   "stammbaumPflege": "Foster",
   "stammbaumAnsichtSanduhr": "Hourglass",
-  "stammbaumGrosseltern": "Grandparents",
-  "stammbaumOnkelTanten": "Aunts and uncles",
-  "stammbaumNeffenNichten": "Nieces and nephews",
-  "stammbaumSchwiegereltern": "Parents-in-law",
-  "stammbaumSeitenaeste": "Side branches",
-  "stammbaumSeitenaesteHinweis": "Grandparents, aunts and uncles, nieces and nephews, parents-in-law – the rest of the close family, without having to move onto them first.",
   "stammbaumSeitenlinien": "Collateral line",
   "stammbaumSeitenlinienHinweis": "Siblings beside the person, their children below – this is what makes nephews, nieces and in-laws visible.",
   "lebenslaufVon": "Life story: {name}",
@@ -2477,6 +2482,7 @@
     }
   },
   "stammbaumKeineFamilienorte": "No photo from this family has a location.",
+  "stammbaumZierbaumDrucken": "Ornamental tree as PDF",
   "stammbaumTafelDrucken": "Chart as PDF …",
   "stammbaumTafelFertig": "The chart has been written.",
   "aufgWirdErmittelt": "Working out what is left …",
@@ -2547,7 +2553,6 @@
   "weltkarteLegendeHand": "Pale, dotted outline: marked by hand, without a photo.",
   "weltkarteLegendeGeplant": "Nearly empty, dashed outline: planned – does not count as visited.",
   "weltkarteOhneUmriss": "Small territories such as the Vatican have no outline; they stay a dot.",
-  "stammbaumSchwaeger": "Siblings-in-law",
   "ortRegionen": "Regions · {besucht} of {gesamt}",
   "@ortRegionen": {
     "placeholders": {

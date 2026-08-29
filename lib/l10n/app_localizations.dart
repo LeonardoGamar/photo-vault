@@ -1898,6 +1898,18 @@ abstract class AppTexte {
   /// **'Bau {bau} · {system} {systemversion}'**
   String einstBauZeile(String bau, String system, String systemversion);
 
+  /// No description provided for @einstLizenzen.
+  ///
+  /// In de, this message translates to:
+  /// **'Lizenzen'**
+  String get einstLizenzen;
+
+  /// No description provided for @einstLizenzenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Lizenzen der mitgelieferten Schriften und aller verwendeten Bibliotheken.'**
+  String get einstLizenzenText;
+
   /// No description provided for @einstNachAktualisierungSuchen.
   ///
   /// In de, this message translates to:
@@ -6995,30 +7007,6 @@ abstract class AppTexte {
   /// **'Stammbaum: {name}'**
   String stammbaumTitelVon(String name);
 
-  /// No description provided for @stammbaumEltern.
-  ///
-  /// In de, this message translates to:
-  /// **'Eltern'**
-  String get stammbaumEltern;
-
-  /// No description provided for @stammbaumGeschwister.
-  ///
-  /// In de, this message translates to:
-  /// **'Geschwister'**
-  String get stammbaumGeschwister;
-
-  /// No description provided for @stammbaumPartner.
-  ///
-  /// In de, this message translates to:
-  /// **'Partner'**
-  String get stammbaumPartner;
-
-  /// No description provided for @stammbaumKinder.
-  ///
-  /// In de, this message translates to:
-  /// **'Kinder'**
-  String get stammbaumKinder;
-
   /// No description provided for @stammbaumElternteilHinzufuegen.
   ///
   /// In de, this message translates to:
@@ -7084,6 +7072,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Diese Verwandtschaft ist schon eingetragen.'**
   String get stammbaumFehlerVorhanden;
+
+  /// No description provided for @stammbaumZuVieleHaushalte.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Ein weiterer Haushalt passt nicht ins Bild.} other{{anzahl} weitere Haushalte passen nicht ins Bild.}}'**
+  String stammbaumZuVieleHaushalte(int anzahl);
 
   /// No description provided for @stammbaumLeer.
   ///
@@ -7294,6 +7288,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'angeheiratet'**
   String get gradAngeheiratet;
+
+  /// Für Verwandte, die kein eigenes Wort haben – „Mutter von Schwager Michael". schritt ist die Beziehung zur Zwischenperson, bezug deren Beziehung zur Person in der Mitte.
+  ///
+  /// In de, this message translates to:
+  /// **'{schritt} von {bezug} {name}'**
+  String gradUeberWeg(String schritt, String bezug, String name);
 
   /// No description provided for @gradKeine.
   ///
@@ -8399,42 +8399,6 @@ abstract class AppTexte {
   /// **'Sanduhr'**
   String get stammbaumAnsichtSanduhr;
 
-  /// No description provided for @stammbaumGrosseltern.
-  ///
-  /// In de, this message translates to:
-  /// **'Großeltern'**
-  String get stammbaumGrosseltern;
-
-  /// No description provided for @stammbaumOnkelTanten.
-  ///
-  /// In de, this message translates to:
-  /// **'Onkel und Tanten'**
-  String get stammbaumOnkelTanten;
-
-  /// No description provided for @stammbaumNeffenNichten.
-  ///
-  /// In de, this message translates to:
-  /// **'Neffen und Nichten'**
-  String get stammbaumNeffenNichten;
-
-  /// No description provided for @stammbaumSchwiegereltern.
-  ///
-  /// In de, this message translates to:
-  /// **'Schwiegereltern'**
-  String get stammbaumSchwiegereltern;
-
-  /// No description provided for @stammbaumSeitenaeste.
-  ///
-  /// In de, this message translates to:
-  /// **'Seitenäste'**
-  String get stammbaumSeitenaeste;
-
-  /// No description provided for @stammbaumSeitenaesteHinweis.
-  ///
-  /// In de, this message translates to:
-  /// **'Großeltern, Onkel und Tanten, Neffen und Nichten, Schwiegereltern – der Rest der engeren Verwandtschaft, ohne dass man erst auf sie rücken muss.'**
-  String get stammbaumSeitenaesteHinweis;
-
   /// No description provided for @stammbaumSeitenlinien.
   ///
   /// In de, this message translates to:
@@ -8837,6 +8801,12 @@ abstract class AppTexte {
   /// **'Von dieser Familie ist kein Foto mit Ortsangabe vorhanden.'**
   String get stammbaumKeineFamilienorte;
 
+  /// No description provided for @stammbaumZierbaumDrucken.
+  ///
+  /// In de, this message translates to:
+  /// **'Zierbaum als PDF'**
+  String get stammbaumZierbaumDrucken;
+
   /// No description provided for @stammbaumTafelDrucken.
   ///
   /// In de, this message translates to:
@@ -9172,12 +9142,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Für kleine Gebiete wie den Vatikan liegt kein Umriss vor; sie bleiben ein Punkt.'**
   String get weltkarteOhneUmriss;
-
-  /// No description provided for @stammbaumSchwaeger.
-  ///
-  /// In de, this message translates to:
-  /// **'Schwager und Schwägerin'**
-  String get stammbaumSchwaeger;
 
   /// No description provided for @ortRegionen.
   ///

@@ -1093,6 +1093,13 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String get einstLizenzen => 'Licences';
+
+  @override
+  String get einstLizenzenText =>
+      'The licences of the bundled fonts and of every library in use.';
+
+  @override
   String get einstNachAktualisierungSuchen => 'Check for updates';
 
   @override
@@ -4168,18 +4175,6 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
-  String get stammbaumEltern => 'Parents';
-
-  @override
-  String get stammbaumGeschwister => 'Siblings';
-
-  @override
-  String get stammbaumPartner => 'Partner';
-
-  @override
-  String get stammbaumKinder => 'Children';
-
-  @override
   String get stammbaumElternteilHinzufuegen => 'Add parent';
 
   @override
@@ -4216,6 +4211,17 @@ class AppTexteEn extends AppTexte {
   @override
   String get stammbaumFehlerVorhanden =>
       'This relationship is already recorded.';
+
+  @override
+  String stammbaumZuVieleHaushalte(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl more households do not fit the picture.',
+      one: 'One more household does not fit the picture.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get stammbaumLeer =>
@@ -4558,6 +4564,11 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get gradAngeheiratet => 'related by marriage';
+
+  @override
+  String gradUeberWeg(String schritt, String bezug, String name) {
+    return '$schritt of $bezug $name';
+  }
 
   @override
   String get gradKeine => 'not related';
@@ -5448,25 +5459,6 @@ class AppTexteEn extends AppTexte {
   String get stammbaumAnsichtSanduhr => 'Hourglass';
 
   @override
-  String get stammbaumGrosseltern => 'Grandparents';
-
-  @override
-  String get stammbaumOnkelTanten => 'Aunts and uncles';
-
-  @override
-  String get stammbaumNeffenNichten => 'Nieces and nephews';
-
-  @override
-  String get stammbaumSchwiegereltern => 'Parents-in-law';
-
-  @override
-  String get stammbaumSeitenaeste => 'Side branches';
-
-  @override
-  String get stammbaumSeitenaesteHinweis =>
-      'Grandparents, aunts and uncles, nieces and nephews, parents-in-law – the rest of the close family, without having to move onto them first.';
-
-  @override
   String get stammbaumSeitenlinien => 'Collateral line';
 
   @override
@@ -5703,6 +5695,9 @@ class AppTexteEn extends AppTexte {
       'No photo from this family has a location.';
 
   @override
+  String get stammbaumZierbaumDrucken => 'Ornamental tree as PDF';
+
+  @override
   String get stammbaumTafelDrucken => 'Chart as PDF …';
 
   @override
@@ -5898,9 +5893,6 @@ class AppTexteEn extends AppTexte {
   @override
   String get weltkarteOhneUmriss =>
       'Small territories such as the Vatican have no outline; they stay a dot.';
-
-  @override
-  String get stammbaumSchwaeger => 'Siblings-in-law';
 
   @override
   String ortRegionen(int besucht, int gesamt) {

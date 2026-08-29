@@ -336,4 +336,97 @@ void main() {
       expect(auswahlwert(null), 'other');
     });
   });
+
+  group('Umweg – wo die Sprache kein Wort hat', () {
+    /// Genau die Kette aus der Anfrage: Schwester, ihr Mann, dessen
+    /// Eltern und dessen Bruder, dazu der Neffe.
+    ///
+    ///   schwagersVater == schwagersMutter
+    ///            |            |
+    ///        schwager  schwagersBruder
+    ///            ||
+    ///   ich    schwester
+    ///              |
+    ///            neffe
+    Verwandtschaftsnetz schwippschaft() => Verwandtschaftsnetz([
+          kante('ich', 'vater', Verwandtschaft.elternteil),
+          kante('schwester', 'vater', Verwandtschaft.elternteil),
+          partnerKanteFuer('schwester', 'schwager'),
+          kante('neffe', 'schwester', Verwandtschaft.elternteil),
+          kante('neffe', 'schwager', Verwandtschaft.elternteil),
+          kante('schwager', 'schwagersVater', Verwandtschaft.elternteil),
+          kante('schwager', 'schwagersMutter', Verwandtschaft.elternteil),
+          kante('schwagersBruder', 'schwagersVater', Verwandtschaft.elternteil),
+          kante('schwagersBruder', 'schwagersMutter', Verwandtschaft.elternteil),
+          partnerKanteFuer('schwagersVater', 'schwagersMutter'),
+        ]);
+
+    test('was ein Wort hat, braucht keinen Umweg', () {
+      final netz = schwippschaft();
+      // Der Schwager selbst, die Schwester, der Neffe: alles benannt.
+      expect(bestimmeGrad(netz, 'ich', 'schwager').art, Gradart.schwager);
+      expect(bestimmeGrad(netz, 'ich', 'schwester').art, Gradart.geschwister);
+      expect(bestimmeGrad(netz, 'ich', 'neffe').art, Gradart.geschwisterkind);
+      // Und deshalb gibt es dort auch nichts zu beschreiben.
+      expect(umwegZu(netz, 'ich', 'schwager'), isNull);
+    });
+
+    test('die Eltern des Schwagers laufen über den Schwager', () {
+      // Vorher stand hier „angeheiratet" – dieselbe Auskunft, die auch
+      // der Vetter der zweiten Frau des Onkels bekäme.
+      final netz = schwippschaft();
+      expect(bestimmeGrad(netz, 'ich', 'schwagersVater').art,
+          Gradart.angeheiratet);
+
+      final umweg = umwegZu(netz, 'ich', 'schwagersVater');
+      expect(umweg, isNotNull);
+      expect(umweg!.ueber, 'schwager');
+      expect(umweg.ueberGrad.art, Gradart.schwager);
+      // „Vater von …" – ein Schritt nach oben, nicht mehr.
+      expect(umweg.schritt.art, Gradart.vorfahre);
+      expect(umweg.schritt.aufwaerts, 1);
+    });
+
+    test('der Bruder des Schwagers ebenso', () {
+      final umweg = umwegZu(schwippschaft(), 'ich', 'schwagersBruder');
+      expect(umweg!.ueber, 'schwager');
+      expect(umweg.schritt.art, Gradart.geschwister);
+    });
+
+    test('bei zwei gleich guten Wegen entscheidet die Reihenfolge', () {
+      // schwagersVater ist von „schwager" aus erreichbar UND von
+      // „schwagersMutter" – nur ist die selbst kein Wort wert, also
+      // bleibt der Schwager. Der Fall, der wirklich zwei Wege hat:
+      // schwagersMutter hängt am Schwager und an schwagersVater.
+      final netz = schwippschaft();
+      final a = umwegZu(netz, 'ich', 'schwagersMutter',
+          reihenfolge: (id) => ['schwager', 'schwagersVater'].indexOf(id));
+      final b = umwegZu(netz, 'ich', 'schwagersMutter',
+          reihenfolge: (id) => ['schwager', 'schwagersVater'].indexOf(id));
+      expect(a, b, reason: 'zweimal gefragt, zweimal dieselbe Antwort');
+      expect(a!.ueber, 'schwager',
+          reason: 'der Schwager hat ein Wort, sein Vater nicht');
+    });
+
+    test('mehr als ein Schritt bleibt „angeheiratet"', () {
+      // Der Grossvater des Schwagers: Ihn über „Vater des Vaters des
+      // Schwagers" zu beschreiben erklärt weniger als gar nichts.
+      final netz = Verwandtschaftsnetz([
+        kante('ich', 'vater', Verwandtschaft.elternteil),
+        kante('schwester', 'vater', Verwandtschaft.elternteil),
+        partnerKanteFuer('schwester', 'schwager'),
+        kante('schwager', 'schwagersVater', Verwandtschaft.elternteil),
+        kante('schwagersVater', 'schwagersOpa', Verwandtschaft.elternteil),
+      ]);
+      expect(bestimmeGrad(netz, 'ich', 'schwagersOpa').art,
+          Gradart.angeheiratet);
+      expect(umwegZu(netz, 'ich', 'schwagersOpa'), isNull);
+    });
+
+    test('wer gar nicht verbunden ist, bekommt auch keinen Umweg', () {
+      final netz = schwippschaft();
+      expect(bestimmeGrad(netz, 'ich', 'fremder').art, Gradart.keine);
+      expect(umwegZu(netz, 'ich', 'fremder'), isNull);
+    });
+  });
 }

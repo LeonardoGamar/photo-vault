@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 2.2.4
+version: 2.2.5
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -139,6 +139,11 @@ dev_dependencies:
   # laesst Meldungen nach Fristen verblassen, und die will man in einem
   # reinen Diensttest pruefen, nicht in Echtzeit abwarten.
   fake_async: ^1.3.1
+  # Die pubspec selbst lesen: Nur so laesst sich pruefen, dass die
+  # mitgelieferte Schrift wirklich eingetragen ist. Eine fehlende
+  # Schrift faellt sonst nicht auf - Flutter nimmt still die des
+  # Systems.
+  yaml: ^3.1.2
   drift_dev: ^2.20.0
   build_runner: ^2.4.13
 
@@ -151,6 +156,29 @@ flutter:
     - assets/globe/8k_earth_daymap.jpg
     - assets/globe/2k_stars_milky_way.jpg
     - assets/geo/gebiete.bin.gz
+    # Die Lizenztexte der beiden Schriften unten. Sie MUESSEN mit
+    # ausgeliefert werden - so verlangt es die SIL Open Font License -,
+    # und sie werden zur Laufzeit in Flutters Lizenzverzeichnis
+    # eingetragen (siehe lib/theme/zierbaum_farben.dart).
+    - assets/fonts/OFL-EBGaramond.txt
+    - assets/fonts/OFL-GreatVibes.txt
+
+  # Die erste eigene Schrift dieses Programms. Bis hierher kam alles vom
+  # System - und sah damit auf macOS, Linux und Windows verschieden aus.
+  # Fuer eine Tafel zum Aufhaengen ist genau das der Punkt: Das gedruckte
+  # Blatt soll ueberall gleich aussehen.
+  #
+  # EB Garamond ist eine VERAENDERLICHE Schrift, eine Datei fuer alle
+  # Schnitte. Das Gewicht kommt deshalb ueber `fontVariations` und nicht
+  # ueber `fontWeight` - siehe zierbaum_ansicht.dart. Statische Schnitte
+  # gibt es im Google-Fonts-Bestand nicht mehr.
+  fonts:
+    - family: Zierschrift
+      fonts:
+        - asset: assets/fonts/EBGaramond-Variable.ttf
+    - family: Zierschrift Gross
+      fonts:
+        - asset: assets/fonts/GreatVibes-Regular.ttf
 
   # Entwickeln-Regler als GPU-Shader (siehe widgets/develop_preview.dart) –
   # plattformübergreifend, anders als das native Core Image.

@@ -14,6 +14,7 @@ import 'screens/home_shell.dart';
 import 'services/beenden_waechter.dart';
 import 'state/library_state.dart';
 import 'theme/app_theme.dart';
+import 'theme/zierbaum_farben.dart' show zierschriftenLizenzenAnmelden;
 import 'widgets/mini_location_map.dart'
     show kartenSpeicherEinrichten, setzeCartoSchluessel;
 import 'widgets/beenden_dialog.dart';
@@ -30,6 +31,9 @@ Future<void> main() async {
   // Muss vor der ersten Karte laufen: Der Kachelspeicher ist ein
   // Einzelstueck, dessen Angaben nur beim ersten Anlegen wirken.
   kartenSpeicherEinrichten();
+  // Die Lizenzen der mitgelieferten Schriften anmelden, damit sie in der
+  // Lizenzuebersicht auftauchen (siehe zierschriftenLizenzenAnmelden).
+  zierschriftenLizenzenAnmelden();
   runApp(const PhotoVaultApp());
 }
 

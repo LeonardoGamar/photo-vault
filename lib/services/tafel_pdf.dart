@@ -19,12 +19,17 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../db/database.dart';
+import '../theme/zierbaum_farben.dart';
 import '../widgets/faecher_ansicht.dart';
+import '../widgets/zierbaum_maler.dart';
 import 'faechertafel.dart';
+import 'stammbaum.dart';
+import 'zierbaum.dart';
 
 const tafelEndung = '.pdf';
 const tafelEndungOhnePunkt = 'pdf';
 const tafelDateiname = 'stammbaum-tafel$tafelEndung';
+const zierbaumDateiname = 'stammbaum-zierbaum$tafelEndung';
 
 String mitTafelEndung(String pfad) =>
     pfad.toLowerCase().endsWith(tafelEndung) ? pfad : '$pfad$tafelEndung';
@@ -143,4 +148,72 @@ Future<ui.Image> _zeichneFaecher({
     // gebraucht.
     aufzeichnung.dispose();
   }
+}
+
+/// Wie viele Punkte der Zierbaum für die Tafel bekommt.
+///
+/// Der Baum auf dem Bildschirm ist rund tausend Punkte breit; drei
+/// Bildpunkte je Punkt ergeben auf A3 rund 200 dpi – dieselbe Rechnung
+/// wie beim Fächer.
+const zierbaumTafelFaktor = 3.0;
+
+/// Der Zierbaum als PDF – die zweite Tafel zum Aufhängen.
+///
+/// **Dieselbe Zeichenroutine wie auf dem Bildschirm**, nur auf einer
+/// dreifach so grossen Leinwand: [ZierbaumMaler] malt Grund, Stamm, Äste
+/// und Ranken hier wie dort. Was hinzukommt, sind die Schilder – auf dem
+/// Bildschirm sind sie Widgets (damit Antippen, Menü und Sprachausgabe
+/// funktionieren), auf dem Blatt gibt es nichts anzutippen. Beide lesen
+/// dieselben [Schildmasse].
+///
+/// **Ohne Porträts**, wie auf jeder gedruckten Ahnentafel. Das ist nicht
+/// nur Geschmack: Ein Bild müsste erst geladen werden, und eine
+/// Zeichnung wartet auf nichts.
+Future<Uint8List> baueZierbaumPdf({
+  required Stammbaumgeflecht geflecht,
+  required Schildbeschriftung beschriftung,
+  required String? familienname,
+  required Zierbaumfarben farben,
+  required TextDirection textRichtung,
+}) async {
+  final masse = const Zierbaummasse().mal(zierbaumTafelFaktor);
+  final plan = zierbaumplan(geflecht, masse: masse);
+
+  final recorder = ui.PictureRecorder();
+  final flaeche = Rect.fromLTWH(0, 0, plan.breite, plan.hoehe);
+  final canvas = Canvas(recorder, flaeche);
+  ZierbaumMaler(
+    plan: plan,
+    farben: farben,
+    beschriftung: beschriftung,
+    familienname: familienname,
+    fokusId: geflecht.fokus,
+    schildmasse: const Schildmasse().mal(zierbaumTafelFaktor),
+    textRichtung: textRichtung,
+  ).paint(canvas, Size(plan.breite, plan.hoehe));
+
+  final bild = await recorder
+      .endRecording()
+      .toImage(plan.breite.round(), plan.hoehe.round());
+  final png = await bild.toByteData(format: ui.ImageByteFormat.png);
+  bild.dispose();
+
+  final dokument = pw.Document();
+  final grafik = pw.MemoryImage(png!.buffer.asUint8List());
+  dokument.addPage(
+    pw.Page(
+      // Hoch oder quer, je nachdem, wie die Familie gewachsen ist. Eine
+      // feste Ausrichtung liesse den Baum in einem der beiden Fälle als
+      // Briefmarke auf dem Blatt stehen.
+      pageFormat: plan.breite >= plan.hoehe
+          ? PdfPageFormat.a3.landscape
+          : PdfPageFormat.a3,
+      // Mit Rand und mittig: Ohne ihn stünde neben dem Bild ein weisser
+      // Streifen, weil das Seitenverhältnis eines Baums selten das eines
+      // Blattes ist – und ein Streifen an einer Kante sieht aus wie ein
+      // Fehler, während ein Rand ringsum wie ein Rand aussieht.
+      build: (kontext) => pw.Center(child: pw.Image(grafik)),
+    ),
+  );
+  return dokument.save();
 }

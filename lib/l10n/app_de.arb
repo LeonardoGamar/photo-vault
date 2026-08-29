@@ -573,6 +573,8 @@
       }
     }
   },
+  "einstLizenzen": "Lizenzen",
+  "einstLizenzenText": "Die Lizenzen der mitgelieferten Schriften und aller verwendeten Bibliotheken.",
   "einstNachAktualisierungSuchen": "Nach Aktualisierung suchen",
   "modellYunetTitel": "Gesichtserkennung – YuNet",
   "modellYunetText": "Erkennt Gesichter (Bounding Boxes) in Fotos. Leichtgewichtiges CNN, Teil von OpenCV Zoo.",
@@ -2442,10 +2444,6 @@
       }
     }
   },
-  "stammbaumEltern": "Eltern",
-  "stammbaumGeschwister": "Geschwister",
-  "stammbaumPartner": "Partner",
-  "stammbaumKinder": "Kinder",
   "stammbaumElternteilHinzufuegen": "Elternteil hinzufügen",
   "stammbaumPartnerHinzufuegen": "Partner hinzufügen",
   "stammbaumKindHinzufuegen": "Kind hinzufügen",
@@ -2467,6 +2465,10 @@
   "stammbaumFehlerSelbst": "Eine Person kann nicht mit sich selbst verwandt sein.",
   "stammbaumFehlerKreis": "Das ginge im Kreis: Die Person steht bereits weiter unten im selben Zweig.",
   "stammbaumFehlerVorhanden": "Diese Verwandtschaft ist schon eingetragen.",
+  "stammbaumZuVieleHaushalte": "{anzahl, plural, =1{Ein weiterer Haushalt passt nicht ins Bild.} other{{anzahl} weitere Haushalte passen nicht ins Bild.}}",
+  "@stammbaumZuVieleHaushalte": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
   "stammbaumLeer": "Für diese Person ist noch keine Verwandtschaft eingetragen. Oben rechts lassen sich Eltern, Partner und Kinder hinzufügen – entweder aus den bereits benannten Personen oder als neuer Name, auch ohne ein einziges Foto.",
   "stammbaumPersonFehlt": "Diese Person gibt es nicht mehr.",
   "stammbaumGeboren": "Geboren",
@@ -2697,6 +2699,15 @@
     }
   },
   "gradAngeheiratet": "angeheiratet",
+  "gradUeberWeg": "{schritt} von {bezug} {name}",
+  "@gradUeberWeg": {
+    "description": "Für Verwandte, die kein eigenes Wort haben – „Mutter von Schwager Michael\". schritt ist die Beziehung zur Zwischenperson, bezug deren Beziehung zur Person in der Mitte.",
+    "placeholders": {
+      "schritt": { "type": "String" },
+      "bezug": { "type": "String" },
+      "name": { "type": "String" }
+    }
+  },
   "gradKeine": "nicht verwandt",
   "navStammbaum": "Stammbaum",
   "stammbaumAndereWaehlen": "Andere Person in die Mitte",
@@ -3284,12 +3295,6 @@
   "stammbaumAdoptiv": "Adoptiv",
   "stammbaumPflege": "Pflege",
   "stammbaumAnsichtSanduhr": "Sanduhr",
-  "stammbaumGrosseltern": "Großeltern",
-  "stammbaumOnkelTanten": "Onkel und Tanten",
-  "stammbaumNeffenNichten": "Neffen und Nichten",
-  "stammbaumSchwiegereltern": "Schwiegereltern",
-  "stammbaumSeitenaeste": "Seitenäste",
-  "stammbaumSeitenaesteHinweis": "Großeltern, Onkel und Tanten, Neffen und Nichten, Schwiegereltern – der Rest der engeren Verwandtschaft, ohne dass man erst auf sie rücken muss.",
   "stammbaumSeitenlinien": "Seitenlinie",
   "stammbaumSeitenlinienHinweis": "Geschwister neben der Person, deren Kinder darunter – so werden auch Neffen, Nichten und Schwäger sichtbar.",
   "lebenslaufVon": "Lebenslauf: {name}",
@@ -3461,6 +3466,7 @@
     }
   },
   "stammbaumKeineFamilienorte": "Von dieser Familie ist kein Foto mit Ortsangabe vorhanden.",
+  "stammbaumZierbaumDrucken": "Zierbaum als PDF",
   "stammbaumTafelDrucken": "Tafel als PDF …",
   "stammbaumTafelFertig": "Die Tafel wurde geschrieben.",
   "aufgWirdErmittelt": "Wird ermittelt …",
@@ -3579,7 +3585,6 @@
   "weltkarteLegendeHand": "Blass, gepunkteter Rand: von Hand markiert, ohne Foto.",
   "weltkarteLegendeGeplant": "Fast leer, gestrichelter Rand: geplant – zählt nicht als besucht.",
   "weltkarteOhneUmriss": "Für kleine Gebiete wie den Vatikan liegt kein Umriss vor; sie bleiben ein Punkt.",
-  "stammbaumSchwaeger": "Schwager und Schwägerin",
   "ortRegionen": "Regionen · {besucht} von {gesamt}",
   "@ortRegionen": {
     "placeholders": {
