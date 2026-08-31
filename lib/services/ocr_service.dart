@@ -44,7 +44,12 @@ class OcrService {
 
   static const erkennungsDatei = 'ocr_det.onnx';
   static const lesungsDatei = 'ocr_rec.onnx';
-  static const zeichenDatei = 'ocr_dict.txt';
+  /// Die Zeichentabelle steht **in der Konfiguration des Modells**, nicht
+  /// in einer eigenen Datei: `latin_PP-OCRv5_mobile_rec` liefert sie als
+  /// `character_dict` in `inference.yml` aus, und eine zweite, von Hand
+  /// gepflegte Liste daneben waere genau die zweite Wahrheit, die frueher
+  /// oder spaeter von der ersten abweicht.
+  static const zeichenDatei = 'ocr_rec.yml';
 
   /// Längste Kante, auf die das Bild für die Erkennung gebracht wird.
   /// Grösser findet mehr kleine Schrift und kostet quadratisch mehr Zeit.
@@ -114,7 +119,21 @@ class OcrService {
     // Neun Megabyte zerlegen und neu zusammensetzen gehört nicht auf den
     // Faden, der die Oberfläche zeichnet.
     final umgebaut = await compute(_umbauen, await quelle.readAsBytes());
-    if (umgebaut == null) return quelle.path;
+    if (umgebaut == null) {
+      // Nichts umzubauen – seit `latin_PP-OCRv5` der Regelfall, das Modell
+      // enthält keinen einzigen HardSwish-Knoten mehr (nachgesehen: 27 im
+      // alten, 0 im neuen). Eine Fassung aus der Zeit davor liegt dann
+      // aber noch da und wird nie wieder geladen; wer sie nicht wegräumt,
+      // lässt neun Megabyte für immer liegen.
+      if (await ziel.exists()) {
+        try {
+          await ziel.delete();
+        } on FileSystemException catch (e) {
+          debugPrint('Alte Umbau-Fassung blieb liegen: ${ziel.path}: $e');
+        }
+      }
+      return quelle.path;
+    }
 
     // Über eine Zwischendatei, damit ein Abbruch mittendrin kein halbes
     // Modell hinterlässt, das beim nächsten Start geladen würde.
@@ -124,14 +143,46 @@ class OcrService {
     return ziel.path;
   }
 
+  /// Liest die Zeichentabelle aus der Modellkonfiguration.
+  ///
+  /// Ein enger Leser fuer genau die eine Stelle, die gebraucht wird - kein
+  /// YAML-Verstaendnis. Gesucht wird der Block `character_dict:`, und
+  /// danach jede Zeile der Form `  - X`, bis eine andere kommt.
+  ///
+  /// **Anfuehrungszeichen gehoeren dazu.** PaddleOCR quotiert die Zeichen,
+  /// die YAML sonst missverstuende - Ziffern und Satzzeichen, 31 von 836
+  /// in der lateinischen Tabelle. Ohne dieses Auspacken stuenden die
+  /// Ziffern als DREI Zeichen in der Tabelle, alle Folgeindizes
+  /// verschoeben sich, und das Modell laese durchweg Unsinn. Zwei
+  /// Apostrophe hintereinander sind YAMLs Schreibweise fuer einen.
+  ///
+  /// Die Reihenfolge IST der Inhalt: Sie ordnet Klassennummern Zeichen zu.
+  /// Leere Eintraege werden deshalb nicht uebersprungen - ein
+  /// ausgelassener verschoebe alles dahinter.
+  @visibleForTesting
+  static List<String> zeichenAusKonfig(String inhalt) {
+    final zeilen = const LineSplitter().convert(inhalt);
+    final start =
+        zeilen.indexWhere((z) => z.trimRight() == '  character_dict:');
+    if (start < 0) return const [];
+    final tabelle = <String>[];
+    for (final zeile in zeilen.skip(start + 1)) {
+      if (!zeile.startsWith('  - ')) break;
+      var wert = zeile.substring(4).trimRight();
+      if (wert.length >= 2 && wert.startsWith("'") && wert.endsWith("'")) {
+        wert = wert.substring(1, wert.length - 1).replaceAll("''", "'");
+      }
+      tabelle.add(wert);
+    }
+    return tabelle;
+  }
+
   static Future<OcrService> load(String modelsDir) async {
     final ort = OnnxRuntime();
     final erkennung = await ort.createSession('$modelsDir/$erkennungsDatei');
     final lesung = await ort.createSession(await lesemodellPfad(modelsDir));
-    final tabelle = const LineSplitter()
-        .convert(await File('$modelsDir/$zeichenDatei').readAsString(encoding: utf8))
-        .where((z) => z.isNotEmpty)
-        .toList();
+    final tabelle = zeichenAusKonfig(
+        await File('$modelsDir/$zeichenDatei').readAsString(encoding: utf8));
     // Leerplatz vorn, Leerzeichen hinten – genau so zählt PaddleOCR.
     return OcrService._(erkennung, lesung, ['', ...tabelle, ' ']);
   }

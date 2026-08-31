@@ -478,18 +478,37 @@ class ModelCatalog {
   ///
   /// Zwei Modelle, weil OCR zwei verschiedene Aufgaben sind: Das erste
   /// findet, WO Text steht, das zweite liest, WAS dort steht. Zusammen
-  /// 13,7 MB – eines der kleinsten Gespanne im Katalog.
+  /// 12,8 MB – das kleinste Gespann im Katalog.
   ///
   /// **Das Findemodell ist das chinesische, das Lesemodell das
   /// lateinische.** Kein Versehen: Wo Schrift steht, hängt nicht von der
   /// Sprache ab, und für diese Richtung gibt es nur die eine gepflegte
-  /// Fassung. Beim Lesen ist die Sprache dagegen entscheidend – die
-  /// chinesische Zeichentabelle kennt weder `ö` noch `Ä`, `Ö`, `ß` oder
-  /// `€` (nachgesehen, nicht vermutet), aus „Straße" würde „Strae".
+  /// Fassung. Beim Lesen ist die Sprache dagegen entscheidend.
   ///
-  /// An einer deutschen Testtafel gemessen: 95,5 % der Zeichen richtig,
-  /// zwei von vier Zeilen fehlerfrei – „Straße des 17. Juni 135" und
-  /// „Preis: 12,50 EUR" ohne einen einzigen Fehler.
+  /// **Das Lesemodell ist seit dem 31.08.2026 `latin_PP-OCRv5`**, vorher
+  /// `latin_PP-OCRv3`. An 96 Proben gemessen – 16 deutsche Zeilen in drei
+  /// Schriften und zwei Grössen, gegen die jeweils ausgelieferte Datei:
+  ///
+  /// ```
+  /// latin v3   9,0 MB   95,5 % der Zeichen   25/96 Zeilen fehlerfrei
+  /// ch v5     16,5 MB   96,8 %               42/96
+  /// ch v5 gross 84 MB   97,9 %               55/96
+  /// latin v5   8,0 MB   99,7 %               90/96      <- gewählt
+  /// ```
+  ///
+  /// Aufschlussreicher als die Prozente ist, WAS schiefging: v3 machte aus
+  /// jedem `ß` ein `B` (39-mal) und liess grosse Umlaute teils ganz weg;
+  /// v5 hat davon keinen einzigen Fehler. Sein einziger Patzer ist der
+  /// Gedankenstrich `–`, und der steht in **keiner** der beiden Tabellen.
+  ///
+  /// Das lateinische v5 ist zugleich **kleiner** als das v3 und gleich
+  /// schnell (12 gegen 10 ms je Stelle). Gemessen an gerendertem Text,
+  /// nicht an Fotos – der Abstand ist zu gross für Zufall, die absoluten
+  /// Zahlen halten auf echten Aufnahmen aber nicht.
+  ///
+  /// **Das Findemodell bleibt bei v4.** Das offizielle v5 wurde gemessen
+  /// (Tafel gerade, 5° und 12° geneigt): beide finden alle acht Zeilen,
+  /// kein Unterschied. Ohne Beleg kein Tausch.
   ///
   /// Wird nur ausserhalb von macOS gebraucht; dort ist Apples
   /// Vision-Framework besser und kostet keinen Download.
@@ -505,15 +524,19 @@ class ModelCatalog {
       ),
       ModelFile(
         'ocr_rec.onnx',
-        'https://huggingface.co/cycloneboy/latin_PP-OCRv3_rec_infer/resolve/main/model.onnx',
-        'e986ac261c2fe3118879d76d68a00186540911838543da9a0a6e7dd096b965b2',
-        8977705,
+        'https://huggingface.co/PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx/resolve/main/inference.onnx',
+        '7888113072263cb471b93f66dd5e2ad70548dc526fa1ace760d0d973dd121498',
+        8042023,
       ),
+      // Die Zeichentabelle des Modells, 836 Einträge – siehe
+      // [OcrService.zeichenAusKonfig]. Aus derselben Ablage wie das Modell
+      // und damit garantiert zu ihm passend; eine getrennt gepflegte
+      // Tabelle wäre eine zweite Wahrheit.
       ModelFile(
-        'ocr_dict.txt',
-        'https://huggingface.co/cycloneboy/latin_PP-OCRv3_rec_infer/resolve/main/latin_dict.txt',
-        'ab1fcc6dbb5ae074d0e8966984ee977ed9d62976abd96c6461a0cdb684ddec90',
-        653,
+        'ocr_rec.yml',
+        'https://huggingface.co/PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx/resolve/main/inference.yml',
+        '0bbe984570f597af3638e50bdf2e8276f3ab26a61966096538b3b0d1849f5c84',
+        6817,
       ),
     ],
     // Beim ersten Laden aus ocr_rec.onnx erzeugt. Der Anlass – HardSwish

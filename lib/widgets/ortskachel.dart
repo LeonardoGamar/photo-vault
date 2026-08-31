@@ -5,6 +5,7 @@ import '../l10n/app_localizations.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 import 'asset_thumbnail_tile.dart';
+import '../services/laendernamen.dart';
 
 /// Der Kopf einer Übersicht: Sinnbild, Titel, und darunter die Zahlen.
 ///
@@ -81,12 +82,14 @@ class Uebersichtskopf extends StatelessWidget {
 ///
 /// Land und Region dürfen einzeln fehlen; die Zeile wird dann kürzer,
 /// statt Kommas ins Leere zu setzen.
-String? ortszeile(AppTexte t, Ortsbezug? bezug) {
+String? ortszeile(AppTexte t, Ortsbezug? bezug, {required String sprache}) {
   if (bezug == null || bezug.ort == null) return null;
   final teile = [
     bezug.ort!,
     if (bezug.region case final r? when r.isNotEmpty && r != bezug.ort) r,
-    if (bezug.land case final l? when l.isNotEmpty) l,
+    // Der Datensatz kennt Länder nur englisch (siehe [landAnzeige]); Orte
+    // und Regionen kommen unverändert durch.
+    if (landAnzeige(bezug.land, sprache) case final l when l.isNotEmpty) l,
   ].join(', ');
   return bezug.weitereOrte == 0
       ? teile

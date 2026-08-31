@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
+import 'package:meta/meta.dart' show visibleForTesting;
 import 'package:drift/native.dart';
 // Nur fuer den Typ der Verbindung in [AppDatabase.bereiteVerbindungVor].
 import 'package:sqlite3/sqlite3.dart' show Database;
@@ -1454,7 +1456,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 64;
+  int get schemaVersion => 65;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1852,6 +1854,45 @@ class AppDatabase extends _$AppDatabase {
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
           }
+          if (from < 65) {
+            // Zuordnungen, die auf die VIDEOHÄLFTE eines Live Photos
+            // zeigen, auf das Foto umbiegen.
+            //
+            // Wie es dazu kam: Die Reise-/Aktivitätserkennung sah bis
+            // hierher auch die Videohälften, weil ihr die Einschränkung
+            // fehlte, die überall sonst gilt (siehe
+            // [aufnahmenFuerReiseerkennung]). Was daraus entstand, hing
+            // davon ab, welche Hälfte gerade Datum und Ort trug – und die
+            // wurden beim Videodatum (Fassung 64) und beim CR3-Nachtrag
+            // nachträglich berichtigt.
+            //
+            // An der gewachsenen Bibliothek: 19 Zuordnungen zeigten auf
+            // eine Videohälfte, nur 5 der zugehörigen Fotos waren
+            // ebenfalls zugeordnet. Zwei Aktivitäten – „Gifhorn -
+            // Mühlenmuseum" und „Eiluhmer Horn" – bestanden damit aus
+            // sieben Videoschnipseln und keinem einzigen Foto.
+            //
+            // `insertOrIgnore`, dann löschen: Ist das Foto schon drin,
+            // bleibt es bei ihm, und die Videozeile fällt trotzdem weg.
+            // Andersherum stünde beides da und jedes Live Photo zählte
+            // doppelt.
+            for (final tabelle in ['aktivitaet_aufnahmen', 'reise_aufnahmen']) {
+              final spalte =
+                  tabelle == 'aktivitaet_aufnahmen' ? 'aktivitaet_id' : 'reise_id';
+              await m.database.customStatement('''
+                INSERT OR IGNORE INTO $tabelle ($spalte, asset_id)
+                SELECT z.$spalte, a.linked_asset_id
+                FROM $tabelle z JOIN assets a ON a.id = z.asset_id
+                WHERE a.type != 'IMAGE' AND a.linked_asset_id IS NOT NULL
+              ''');
+              await m.database.customStatement('''
+                DELETE FROM $tabelle WHERE asset_id IN (
+                  SELECT id FROM assets
+                  WHERE type != 'IMAGE' AND linked_asset_id IS NOT NULL
+                )
+              ''');
+            }
+          }
           if (from < 64) {
             // „Schon nachgesehen" beim Ortsnachtrag (siehe die Spalte).
             // `false` fuer alles Bestehende ist Absicht: Der erste Lauf
@@ -2134,6 +2175,112 @@ class AppDatabase extends _$AppDatabase {
       (t.type.equals('IMAGE') | t.linkedAssetId.isNull()) &
       (t.stackId.isNull() | t.isStackCover.equals(true));
 
+  // ---------------------------------------------------------------------
+  // Datenströme, die einen Schwall aushalten
+  // ---------------------------------------------------------------------
+
+  /// Wie viel Zeit zwischen zwei Durchläufen derselben Abfrage mindestens
+  /// liegt, wenn die Änderungen nicht aufhören.
+  ///
+  /// Nicht kürzer, weil sonst wenig gespart wäre; nicht länger, weil ein
+  /// Hintergrundlauf sonst zu lange ein veraltetes Raster stehen liesse.
+  @visibleForTesting
+  static const drosselfenster = Duration(milliseconds: 400);
+
+  /// Ein Datenstrom auf [bauen], der bei einem **Schwall** von Änderungen
+  /// nicht jede einzelne nachrechnet.
+  ///
+  /// **Warum es das braucht.** Drift lässt eine `watch`-Abfrage bei jeder
+  /// Änderung an einer beteiligten Tabelle neu laufen. Das ist richtig,
+  /// solange Änderungen einzeln kommen — die Hintergrundaufgaben schreiben
+  /// aber Zeile für Zeile, tausendfach hintereinander. An der gewachsenen
+  /// Bibliothek gemessen, 200 einzelne Schreibvorgänge:
+  ///
+  /// ```
+  /// ohne offene Zeitleiste                    0,5 s
+  /// Zeitleiste offen, Ladefenster 600         3,7 s
+  /// Zeitleiste offen, ganze Bibliothek       41,9 s
+  /// ```
+  ///
+  /// Über 8000 Aufnahmen wären das aus einer halben Minute Schreibarbeit
+  /// fast eine halbe Stunde — und die fällt im selben Faden an, in dem
+  /// gezeichnet wird. Was da so teuer ist, sind nicht die Schreibvorgänge,
+  /// sondern die 101 Neudurchläufe, die sie auslösen.
+  ///
+  /// **Die erste Antwort kommt trotzdem sofort.** Gedrosselt wird nur, was
+  /// innerhalb von [drosselfenster] auf einen frischen Durchlauf folgt. Ein
+  /// einzelner Handgriff — ein Herz gesetzt, ein Foto in den Papierkorb —
+  /// wirkt also unverändert augenblicklich; erst der zweite Schreibvorgang
+  /// in derselben Zehntelsekunde wartet. Eine Drosselung, die auch den
+  /// ersten verzögerte, wäre an jeder einzelnen Stelle der Oberfläche zu
+  /// spüren und hier nirgends nötig.
+  Stream<List<D>> _gedrosselt<D>(
+    Selectable<D> Function() bauen,
+    TableUpdateQuery worauf, {
+    Duration fenster = drosselfenster,
+  }) {
+    late StreamController<List<D>> regler;
+    StreamSubscription<void>? horcher;
+    Timer? nachzuegler;
+    var laeuft = false;
+    var nochmal = false;
+    DateTime? zuletzt;
+
+    Future<void> frage() async {
+      // Läuft schon eine Abfrage, wird die nächste einmal nachgeholt – aber
+      // nur einmal. Ohne diese Klammer stapelten sich bei langsamen
+      // Abfragen die Durchläufe genau dann, wenn es ohnehin eng ist.
+      if (laeuft) {
+        nochmal = true;
+        return;
+      }
+      laeuft = true;
+      zuletzt = DateTime.now();
+      try {
+        final zeilen = await bauen().get();
+        if (!regler.isClosed) regler.add(zeilen);
+      } catch (e, spur) {
+        if (!regler.isClosed) regler.addError(e, spur);
+      } finally {
+        laeuft = false;
+        if (nochmal) {
+          nochmal = false;
+          unawaited(frage());
+        }
+      }
+    }
+
+    void gemeldet() {
+      // Ein Nachzügler ist schon bestellt – der holt alles mit ab.
+      if (nachzuegler != null) return;
+      final seit = zuletzt == null
+          ? fenster
+          : DateTime.now().difference(zuletzt!);
+      if (seit >= fenster) {
+        unawaited(frage());
+      } else {
+        nachzuegler = Timer(fenster - seit, () {
+          nachzuegler = null;
+          unawaited(frage());
+        });
+      }
+    }
+
+    regler = StreamController<List<D>>.broadcast(
+      onListen: () {
+        unawaited(frage());
+        horcher = tableUpdates(worauf).listen((_) => gemeldet());
+      },
+      onCancel: () {
+        nachzuegler?.cancel();
+        nachzuegler = null;
+        unawaited(horcher?.cancel());
+        horcher = null;
+      },
+    );
+    return regler.stream;
+  }
+
   /// [limit] begrenzt auf die neuesten [limit] Fotos/Videos (per
   /// `idx_assets_trashed_locked_created` indexgestützt, also auch bei sehr
   /// großen Bibliotheken ein günstiger Index-Walk statt eines vollständigen
@@ -2155,7 +2302,7 @@ class AppDatabase extends _$AppDatabase {
     if (limit != null) {
       query.limit(limit);
     }
-    return query.watch();
+    return _gedrosselt(() => query, TableUpdateQuery.onTable(assets));
   }
 
   /// Dieselbe Liste wie [watchTimeline], aber einmalig statt als Strom.
@@ -2180,15 +2327,15 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<AssetData>> watchTimelineForYear(int year) {
     final start = DateTime(year);
     final end = DateTime(year + 1);
-    return (select(assets)
-          ..where((t) =>
-              t.isTrashed.equals(false) &
-              t.isLocked.equals(false) &
-              _isPrimaryGridEntry(t) &
-              t.fileCreatedAt.isBiggerOrEqualValue(start) &
-              t.fileCreatedAt.isSmallerThanValue(end))
-          ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]))
-        .watch();
+    final abfrage = select(assets)
+      ..where((t) =>
+          t.isTrashed.equals(false) &
+          t.isLocked.equals(false) &
+          _isPrimaryGridEntry(t) &
+          t.fileCreatedAt.isBiggerOrEqualValue(start) &
+          t.fileCreatedAt.isSmallerThanValue(end))
+      ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]);
+    return _gedrosselt(() => abfrage, TableUpdateQuery.onTable(assets));
   }
 
   /// Anzahl Fotos/Videos pro Kalenderjahr für die Jahresübersicht
@@ -2364,10 +2511,10 @@ class AppDatabase extends _$AppDatabase {
   /// sogar endgültig löschen, nur weil es zwischenzeitlich im Papierkorb
   /// liegt.
   Stream<List<AssetData>> watchTrash() {
-    return (select(assets)
-          ..where((t) => t.isTrashed.equals(true) & t.isLocked.equals(false))
-          ..orderBy([(t) => OrderingTerm.desc(t.trashedAt)]))
-        .watch();
+    final abfrage = select(assets)
+      ..where((t) => t.isTrashed.equals(true) & t.isLocked.equals(false))
+      ..orderBy([(t) => OrderingTerm.desc(t.trashedAt)]);
+    return _gedrosselt(() => abfrage, TableUpdateQuery.onTable(assets));
   }
 
   /// Eigener, PIN-geschützter Papierkorb für aus dem gesperrten Ordner
@@ -2375,10 +2522,10 @@ class AppDatabase extends _$AppDatabase {
   /// LockedFolderScreen), damit "gelöscht" bei gesperrten Fotos denselben
   /// Schutz genießt wie "sichtbar".
   Stream<List<AssetData>> watchLockedTrash() {
-    return (select(assets)
-          ..where((t) => t.isTrashed.equals(true) & t.isLocked.equals(true))
-          ..orderBy([(t) => OrderingTerm.desc(t.trashedAt)]))
-        .watch();
+    final abfrage = select(assets)
+      ..where((t) => t.isTrashed.equals(true) & t.isLocked.equals(true))
+      ..orderBy([(t) => OrderingTerm.desc(t.trashedAt)]);
+    return _gedrosselt(() => abfrage, TableUpdateQuery.onTable(assets));
   }
 
   Future<void> setFavorite(String assetId, bool value) =>
@@ -2431,10 +2578,14 @@ class AppDatabase extends _$AppDatabase {
       (update(assets)..where((t) => t.id.isIn(assetIds)))
           .write(AssetsCompanion(fileCreatedAt: Value(fileCreatedAt)));
 
+  /// Siehe [setLocation] – auch hier fallen die alten Ortsnamen mit.
   Future<void> setLocationBulk(List<String> assetIds, double? latitude, double? longitude) =>
       (update(assets)..where((t) => t.id.isIn(assetIds))).write(AssetsCompanion(
         latitude: Value(latitude),
         longitude: Value(longitude),
+        locationCountry: const Value(null),
+        locationState: const Value(null),
+        locationCity: const Value(null),
       ));
 
   Future<void> moveToTrash(List<String> assetIds) async {
@@ -2736,10 +2887,26 @@ class AppDatabase extends _$AppDatabase {
   /// Setzt (oder löscht, bei `null`) den Ort eines Assets – entweder aus
   /// EXIF-GPS-Daten beim Import übernommen oder manuell in der Info-Ansicht
   /// der Vollbildvorschau gesetzt/korrigiert.
+  ///
+  /// **Die ausgeschriebenen Ortsnamen fallen mit.** Sie gehören zur alten
+  /// Koordinate; nach einer Korrektur wären sie schlicht falsch. Und weil
+  /// [assetsForLocationNameBackfill] nur dort nachträgt, wo noch gar kein
+  /// Land steht, blieben sie es für immer: Ein Foto, dessen Ort man von
+  /// Afghanistan nach Niedersachsen zieht, hiesse weiterhin „Baghlān,
+  /// Afghanistan" – im Infoblatt, in den Ortsgruppen der Übersicht und im
+  /// Suchfilter. Genau so hielt sich das Phantomland einer Kamera mit
+  /// verrutschtem Empfänger (31 Aufnahmen einer TG-810 von 2013, die
+  /// wirklich so in der Datei stehen – mit exiftool gegengelesen).
+  ///
+  /// Nach dem Leeren trägt der Nachtrag die richtigen Namen ein; ohne
+  /// Koordinate bleibt es leer, und das ist die Wahrheit.
   Future<void> setLocation(String assetId, double? latitude, double? longitude) =>
       (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
         latitude: Value(latitude),
         longitude: Value(longitude),
+        locationCountry: const Value(null),
+        locationState: const Value(null),
+        locationCity: const Value(null),
       ));
 
   /// Fotos ohne bekannten Ort – für das nachträgliche Einlesen von
@@ -3383,25 +3550,53 @@ class AppDatabase extends _$AppDatabase {
   /// Alle Fotos/Videos, die exakt heute vor 1, 2, 3 … Jahren aufgenommen
   /// wurden (Monat+Tag, unabhängig vom Aufnahmejahr) – für die
   /// "Erinnerungen"-Sektion im Erkunden-Tab, analog zu "Vor X Jahren" in
-  /// Google Fotos/Apple Fotos. Filtert clientseitig statt per SQL-
-  /// Datumsfunktion: bei den für eine private Bibliothek üblichen
-  /// Foto-Mengen (nicht Millionen) unproblematisch und deutlich einfacher
-  /// als SQLite-spezifisches Datums-Handling in reinem SQL.
+  /// Google Fotos/Apple Fotos.
+  ///
+  /// **In zwei Schritten: erst fragen, wer gemeint ist, dann die Gemeinten
+  /// laden.** Der Tagesvergleich bleibt in Dart – `strftime(…, 'localtime')`
+  /// wäre eine Wette auf die Zeitzonenrechnung von SQLite gegen die von
+  /// Dart, und an einem ganzen Jahr durchgespielt lieferte sie zwar überall
+  /// dieselbe Anzahl, aber bei gleichen Zeitstempeln eine andere
+  /// Reihenfolge. Gefragt wird deshalb nur nach Kennung und Datum, und erst
+  /// die Handvoll Treffer wird vollständig geladen.
+  ///
+  /// Vorher wurde die **ganze Bibliothek** in Objekte umgesetzt, um daraus
+  /// zwei Fotos zu behalten – 56 Spalten mal 7341 Zeilen für einen Vergleich
+  /// von Monat und Tag. An der gewachsenen Bibliothek gemessen, und über
+  /// alle 366 Tage gegen die alte Fassung geprüft (6141 Treffer an 260
+  /// Tagen, keine Abweichung):
+  ///
+  /// ```
+  /// alles laden, in Dart filtern   250,1 ms
+  /// erst Kennung und Datum          30,9 ms
+  /// ```
   Future<List<AssetData>> assetsOnThisDay(DateTime today) async {
-    final all = await (select(assets)
-          ..where((t) =>
-              t.isTrashed.equals(false) &
-              t.isLocked.equals(false) &
-              _isPrimaryGridEntry(t)))
+    final schlank = selectOnly(assets)
+      ..addColumns([assets.id, assets.fileCreatedAt])
+      ..where(assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          _isPrimaryGridEntry(assets));
+    final treffer = <String>[];
+    for (final zeile in await schlank.get()) {
+      // Über `rawData` und nicht über `zeile.read(assets.fileCreatedAt)`:
+      // Der bequeme Weg schlägt jede Spalte über ihren Typ-Umsetzer nach,
+      // und bei 7341 Zeilen kostete allein das die Hälfte der Zeit (58 ms
+      // gegen 31 ms). Die Namen sind die, die drift der Abfrage gibt –
+      // stimmten sie nicht, führe das Lesen sofort in einen Fehler, und
+      // [assetsOnThisDayGleichAlterWeg] fängt das im Prüfstand ab.
+      final wann = DateTime.fromMillisecondsSinceEpoch(
+          zeile.rawData.read<int>('assets.file_created_at') * 1000);
+      if (wann.month == today.month &&
+          wann.day == today.day &&
+          wann.year != today.year) {
+        treffer.add(zeile.rawData.read<String>('assets.id'));
+      }
+    }
+    if (treffer.isEmpty) return const [];
+    final geladen = await (select(assets)..where((t) => t.id.isIn(treffer)))
         .get();
-    final matches = all
-        .where((a) =>
-            a.fileCreatedAt.month == today.month &&
-            a.fileCreatedAt.day == today.day &&
-            a.fileCreatedAt.year != today.year)
-        .toList()
+    return geladen
       ..sort((a, b) => b.fileCreatedAt.compareTo(a.fileCreatedAt));
-    return matches;
   }
 
   /// Ersetzt Original-Datei (Pfad + Prüfsumme) eines Assets nach einer
@@ -3936,7 +4131,13 @@ class AppDatabase extends _$AppDatabase {
       ..where(assets.isLocked.equals(false))
       ..where(_isPrimaryGridEntry(assets))
       ..orderBy([OrderingTerm.desc(assets.fileCreatedAt)]);
-    return query.watch().map((rows) => rows.map((r) => r.readTable(assets)).toList());
+    return _gedrosselt(
+      () => query.map((r) => r.readTable(assets)),
+      TableUpdateQuery.allOf([
+        TableUpdateQuery.onTable(assets),
+        TableUpdateQuery.onTable(albumAssets),
+      ]),
+    );
   }
 
   /// Einmalige (nicht-reaktive) Variante von [watchAlbumAssets], u.a. für den
@@ -4284,15 +4485,18 @@ class AppDatabase extends _$AppDatabase {
   /// eigene Datenbankabfrage nötig ist ([tagsForAsset] wäre dort ein
   /// N+1-Problem, das bei großen Bibliotheken spürbar Zeit kostet).
   Future<Map<String, List<String>>> allTagNamesByAssetId() async {
-    final query = select(assetTags).join([
+    // Nur die zwei Spalten – siehe [allEmbeddings]. Hier sind es 25.761
+    // Zeilen, aus denen sonst ebenso viele Paare von Zeilenobjekten
+    // entstehen: 55 ms gegen 23 ms.
+    final query = selectOnly(assetTags).join([
       innerJoin(tags, tags.id.equalsExp(assetTags.tagId)),
-    ]);
-    final rows = await query.get();
+    ])
+      ..addColumns([assetTags.assetId, tags.name]);
     final result = <String, List<String>>{};
-    for (final row in rows) {
-      final assetId = row.readTable(assetTags).assetId;
-      final tagName = row.readTable(tags).name;
-      result.putIfAbsent(assetId, () => []).add(tagName);
+    for (final z in await query.get()) {
+      result
+          .putIfAbsent(z.rawData.read<String>('asset_tags.asset_id'), () => [])
+          .add(z.rawData.read<String>('tags.name'));
     }
     return result;
   }
@@ -4306,21 +4510,31 @@ class AppDatabase extends _$AppDatabase {
   /// dem Zielprogramm nur „hier ist irgendein Kopf", und das findet dessen
   /// eigene Erkennung selbst.
   Future<Map<String, List<Gesichtsregion>>> alleGesichtsregionen() async {
-    final abfrage = select(faces).join([
+    // Nur die sechs Spalten, die gebraucht werden – siehe [allEmbeddings].
+    // An jedem Gesicht hängt sonst seine 512er-Einbettung, zwei Kilobyte je
+    // Zeile, die der XMP-Export nie ansieht: 11,2 ms gegen 3,9 ms.
+    final abfrage = selectOnly(faces).join([
       innerJoin(people, people.id.equalsExp(faces.personId)),
     ])
+      ..addColumns([
+        faces.assetId,
+        people.name,
+        faces.boxX,
+        faces.boxY,
+        faces.boxW,
+        faces.boxH,
+      ])
       ..where(faces.personId.isNotNull() & faces.isIgnored.equals(false));
-    final zeilen = await abfrage.get();
     final ergebnis = <String, List<Gesichtsregion>>{};
-    for (final zeile in zeilen) {
-      final gesicht = zeile.readTable(faces);
-      final person = zeile.readTable(people);
-      ergebnis.putIfAbsent(gesicht.assetId, () => []).add(Gesichtsregion(
-            name: person.name,
-            links: gesicht.boxX,
-            oben: gesicht.boxY,
-            breite: gesicht.boxW,
-            hoehe: gesicht.boxH,
+    for (final z in await abfrage.get()) {
+      ergebnis
+          .putIfAbsent(z.rawData.read<String>('faces.asset_id'), () => [])
+          .add(Gesichtsregion(
+            name: z.rawData.read<String>('people.name'),
+            links: z.rawData.read<double>('faces.box_x'),
+            oben: z.rawData.read<double>('faces.box_y'),
+            breite: z.rawData.read<double>('faces.box_w'),
+            hoehe: z.rawData.read<double>('faces.box_h'),
           ));
     }
     return ergebnis;
@@ -4363,15 +4577,18 @@ class AppDatabase extends _$AppDatabase {
   /// Handvergabe zurück, und der gesperrte Ordner stünde wieder da, wo er
   /// vor Fassung 56 stand – nur eben nach einem Umweg über eine Sicherung.
   Future<Map<String, Set<String>>> kiTagNamesByAssetId() async {
-    final query = select(assetTags).join([
+    // Nur die zwei Spalten – siehe [allEmbeddings].
+    final query = selectOnly(assetTags).join([
       innerJoin(tags, tags.id.equalsExp(assetTags.tagId)),
     ])
+      ..addColumns([assetTags.assetId, tags.name])
       ..where(assetTags.quelle.equals(Tagquelle.ki));
     final result = <String, Set<String>>{};
-    for (final row in await query.get()) {
+    for (final z in await query.get()) {
       result
-          .putIfAbsent(row.readTable(assetTags).assetId, () => <String>{})
-          .add(row.readTable(tags).name);
+          .putIfAbsent(
+              z.rawData.read<String>('asset_tags.asset_id'), () => <String>{})
+          .add(z.rawData.read<String>('tags.name'));
     }
     return result;
   }
@@ -4890,6 +5107,34 @@ class AppDatabase extends _$AppDatabase {
   /// zu lassen. Ebenfalls ohne gelöschte/gesperrte Fotos (siehe
   /// [unassignedFaces]), sonst ließe sich darüber ein Profilbild aus einem
   /// gesperrten Foto auswählen.
+  /// Alle Einbettungen zugeordneter Gesichter, in EINER Abfrage.
+  ///
+  /// Für den Personenvorschlag. [facesForPerson] daneben zu benutzen hiesse
+  /// eine Abfrage je Person – bei 39 Personen also 39 Abfragen, jedes Mal,
+  /// wenn jemand ein Gesicht antippt. An der gewachsenen Bibliothek sind es
+  /// so 2060 Zeilen zu je 512 Byte, zusammen ein Megabyte.
+  ///
+  /// Gesperrte und gelöschte Aufnahmen bleiben draussen – aus demselben
+  /// Grund wie bei [facesForPerson]: Sonst schlüge die App einen Namen vor,
+  /// der aus einem Foto stammt, das der Benutzer gerade weggeschlossen hat.
+  Future<List<({String personId, Uint8List vektor})>>
+      einbettungenZugeordneterGesichter() async {
+    final abfrage = select(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+      ..where(faces.personId.isNotNull() &
+          faces.embedding.isNotNull() &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false));
+    final zeilen = await abfrage.get();
+    return [
+      for (final z in zeilen)
+        if (z.readTable(faces) case final f
+            when f.personId != null && f.embedding != null)
+          (personId: f.personId!, vektor: f.embedding!),
+    ];
+  }
+
   Future<List<FaceData>> facesForPerson(String personId) async {
     final query = select(faces).join([
       innerJoin(assets, assets.id.equalsExp(faces.assetId)),
@@ -5869,6 +6114,17 @@ class AppDatabase extends _$AppDatabase {
         String? region,
         String? stadt
       })>> aufnahmenFuerReiseerkennung() async {
+    // `_isPrimaryGridEntry` wie überall sonst: Die Videohälfte eines Live
+    // Photos ist keine eigene Aufnahme, und ein Stapel zählt einmal.
+    //
+    // OHNE DIESE ZEILE kam ein bestätigter Ausflug als Vorschlag zurück.
+    // Bestätigt wurde, was die Zeitleiste zeigt – die JPGs. Die MOV-Hälften
+    // blieben unzugeordnet, trugen aber dieselbe Zeit und denselben Ort und
+    // fanden sich beim nächsten Blick zu einem neuen Vorschlag desselben
+    // Ausflugs zusammen. An der gewachsenen Bibliothek: ALLE drei noch
+    // offenen Aktivitätsvorschläge waren solche Schatten – „Rautheim" mit
+    // vier Videohälften zu einer bestätigten Aktivität aus vier Fotos, auf
+    // die Sekunde dieselben Aufnahmen.
     final abfrage = selectOnly(assets)
       ..addColumns([
         assets.id,
@@ -5882,7 +6138,8 @@ class AppDatabase extends _$AppDatabase {
       ..where(assets.latitude.isNotNull() &
           assets.longitude.isNotNull() &
           assets.isTrashed.equals(false) &
-          assets.isLocked.equals(false))
+          assets.isLocked.equals(false) &
+          _isPrimaryGridEntry(assets))
       ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)]);
     return [
       for (final z in await abfrage.get())
@@ -6028,12 +6285,16 @@ class AppDatabase extends _$AppDatabase {
   /// Sie taugen nicht zum Erkennen, gehören aber dazu: An der echten
   /// Bibliothek trugen von einer Reise nur zwei Tage GPS-Daten, und im
   /// Fenster dieser zwei Tage lagen 28 weitere Aufnahmen ohne Koordinate.
+  /// Dieselbe Einschränkung wie in [aufnahmenFuerReiseerkennung], und aus
+  /// demselben Grund: Diese Aufnahmen werden einer erkannten Reise
+  /// zugeschlagen, und eine Videohälfte doppelt sonst jedes Live Photo.
   Future<List<({String id, DateTime zeit})>> aufnahmenOhneKoordinate() async {
     final abfrage = selectOnly(assets)
       ..addColumns([assets.id, assets.fileCreatedAt])
       ..where(assets.latitude.isNull() &
           assets.isTrashed.equals(false) &
-          assets.isLocked.equals(false))
+          assets.isLocked.equals(false) &
+          _isPrimaryGridEntry(assets))
       ..orderBy([OrderingTerm.asc(assets.fileCreatedAt)]);
     return [
       for (final z in await abfrage.get())
@@ -6181,14 +6442,20 @@ class AppDatabase extends _$AppDatabase {
           assets.isTrashed.equals(false) &
           assets.isLocked.equals(false))
       ..orderBy([OrderingTerm.desc(assets.fileCreatedAt)]);
-    return query.watch().map((rows) {
-      final seen = <String>{};
-      final result = <AssetData>[];
-      for (final row in rows) {
-        final a = row.readTable(assets);
-        if (seen.add(a.id)) result.add(a);
-      }
-      return result;
+    // Ein Foto mit zwei Gesichtern derselben Person steht zweimal im
+    // Verbund – hier bleibt es bei einem Eintrag.
+    return _gedrosselt(
+      () => query.map((r) => r.readTable(assets)),
+      TableUpdateQuery.allOf([
+        TableUpdateQuery.onTable(assets),
+        TableUpdateQuery.onTable(faces),
+      ]),
+    ).map((zeilen) {
+      final gesehen = <String>{};
+      return [
+        for (final a in zeilen)
+          if (gesehen.add(a.id)) a,
+      ];
     });
   }
 
@@ -6399,17 +6666,31 @@ class AppDatabase extends _$AppDatabase {
   /// Brute-Force-Ähnlichkeitssuche im ClipService (KI-Suche & Duplikate).
   /// Über einen Join gegen Assets gefiltert, damit gelöschte oder gesperrte
   /// Fotos dort nicht auftauchen können.
+  /// **Nur die zwei Spalten, die gebraucht werden.**
+  ///
+  /// Ein `join` in drift holt **jede Spalte jeder beteiligten Tabelle** und
+  /// baut daraus Zeilenobjekte. Hier hing an jeder der 7475 Einbettungen
+  /// eine vollständige Aufnahme mit 56 Spalten, die niemand ansieht. An der
+  /// gewachsenen Bibliothek gemessen: **105 ms gegen 19,3 ms**, dasselbe
+  /// Ergebnis.
+  ///
+  /// Der Verbund selbst bleibt – er ist die Bedingung („nicht im
+  /// Papierkorb, nicht gesperrt"), nicht die Auskunft. Und `rawData` statt
+  /// `read(spalte)`, aus demselben Grund wie in [assetsOnThisDay]: Der
+  /// bequeme Weg schlägt jede Spalte über ihren Typ-Umsetzer nach.
   Future<Map<String, Float32List>> allEmbeddings() async {
-    final query = select(imageEmbeddings).join([
+    final query = selectOnly(imageEmbeddings).join([
       innerJoin(assets, assets.id.equalsExp(imageEmbeddings.assetId)),
     ])
+      ..addColumns([imageEmbeddings.assetId, imageEmbeddings.vector])
       ..where(assets.isTrashed.equals(false) & assets.isLocked.equals(false));
-    final rows = await query.get();
-    return {
-      for (final r in rows)
-        r.readTable(imageEmbeddings).assetId:
-            floatsFromEmbeddingBlob(r.readTable(imageEmbeddings).vector)
-    };
+    final out = <String, Float32List>{};
+    for (final z in await query.get()) {
+      out[z.rawData.read<String>('image_embeddings.asset_id')] =
+          floatsFromEmbeddingBlob(
+              z.rawData.read<Uint8List>('image_embeddings.vector'));
+    }
+    return out;
   }
 
   // -----------------------------------------------------------------------
@@ -6691,10 +6972,12 @@ class AppDatabase extends _$AppDatabase {
     return personen.length;
   }
 
-  Stream<List<AssetData>> watchLockedAssets() => (select(assets)
-        ..where((t) => t.isLocked.equals(true) & t.isTrashed.equals(false))
-        ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]))
-      .watch();
+  Stream<List<AssetData>> watchLockedAssets() {
+    final abfrage = select(assets)
+      ..where((t) => t.isLocked.equals(true) & t.isTrashed.equals(false))
+      ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]);
+    return _gedrosselt(() => abfrage, TableUpdateQuery.onTable(assets));
+  }
 }
 
 /// Bricht [AppDatabase.fuegeBeziehungenHinzu] ab und rollt die Transaktion

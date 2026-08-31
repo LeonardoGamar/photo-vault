@@ -79,12 +79,11 @@ void main() {
 
   /// Wählt im Personenwähler eine bestehende Person aus und bestätigt.
   ///
-  /// Der Wähler ist ein Ausklappfeld, keine Liste: erst aufklappen, dann
-  /// den Namen antippen, dann übernehmen.
+  /// Der Wähler ist seit der Suche eine offene Liste, kein Ausklappfeld:
+  /// Der Name steht sofort da und wird angetippt.
   Future<void> waehlePerson(WidgetTester tester, String name) async {
-    await tester.tap(find.byType(DropdownButtonFormField<PersonData>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(name).last);
+    await tester.tap(find.descendant(
+        of: find.byType(ListTile), matching: find.text(name).last));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Zuordnen'));
     await tester.pumpAndSettle();

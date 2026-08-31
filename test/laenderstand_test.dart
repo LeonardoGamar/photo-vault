@@ -7,15 +7,16 @@ Landeintragung _l(String iso, String name, int regionen,
     (
       iso: iso,
       name: name,
+      nameDe: name,
       hauptstadt: '$name-Stadt',
       kontinent: erdteil,
       regionen: regionen
     );
 
 const _katalog = [
-  (iso: 'DE', name: 'Germany', hauptstadt: 'Berlin', kontinent: 'EU', regionen: 3),
-  (iso: 'MC', name: 'Monaco', hauptstadt: 'Monaco', kontinent: 'EU', regionen: 0),
-  (iso: 'PL', name: 'Poland', hauptstadt: 'Warsaw', kontinent: 'EU', regionen: 2),
+  (iso: 'DE', name: 'Germany', nameDe: 'Deutschland', hauptstadt: 'Berlin', kontinent: 'EU', regionen: 3),
+  (iso: 'MC', name: 'Monaco', nameDe: 'Monaco', hauptstadt: 'Monaco', kontinent: 'EU', regionen: 0),
+  (iso: 'PL', name: 'Poland', nameDe: 'Polen', hauptstadt: 'Warsaw', kontinent: 'EU', regionen: 2),
 ];
 
 const _nachIso = {'Germany': 'DE', 'Monaco': 'MC', 'Poland': 'PL'};
@@ -168,5 +169,22 @@ void main() {
     expect(de.hauptstadt, 'Berlin');
     expect(de.kontinent, 'EU');
     expect(_l('XX', 'Test', 1).regionen, 1);
+  });
+
+  test('eine Ortsmarke ohne Region zählt trotzdem als Ort', () {
+    // 24 der 252 Länder haben keine verzeichnete Region. Ein Zerleger, der
+    // solche Marken verwirft, weil er auf eine Region wartet, streicht
+    // genau diese Orte aus dem Zähler – lautlos.
+    final mc = _stand(marken: [
+      (art: 'ort', schluessel: 'Monaco||Monte-Carlo', wert: Markenart.besucht),
+    ]).firstWhere((l) => l.iso == 'MC');
+    expect(mc.orte, 1);
+    expect(mc.regionenBesucht, 0,
+        reason: 'Monaco hat keine Region, die belegt werden könnte');
+    // Und genau deshalb muss der Ort selbst reichen: Wer Monte-Carlo
+    // abhakt und Monaco danach als unbesucht vorfindet, findet dafür keine
+    // Erklärung.
+    expect(mc.besucht, isTrue);
+    expect(mc.grad, Besuchsgrad.vollstaendig);
   });
 }

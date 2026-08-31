@@ -898,6 +898,7 @@
     }
   },
   "auswOrtHinweis": "Ort (unverändert lassen: nicht antippen)",
+  "auswOrtEntfernen": "Ort entfernen",
   "auswTagTitel": "Tag zu {anzahl} Foto(s) hinzufügen",
   "@auswTagTitel": {
     "placeholders": {
@@ -1182,8 +1183,6 @@
       }
     }
   },
-  "personBestehende": "Bestehende Person",
-  "personNeuAnlegen": "Neue Person anlegen",
   "personZuordnenAktion": "Zuordnen",
   "bestaetigEndgueltigLoeschen": "Endgültig löschen",
   "bestaetigTippeVor": "Tippe zur Bestätigung ",
@@ -4168,5 +4167,40 @@
     }
   },
   "werkzZuAufgabenText": "Gesichter, Vorschaubilder, Texterkennung, Orte, Schlagwörter und alles Weitere, was einen Durchgang über die Bibliothek startet. Sie stehen dort und nur dort.",
-  "aufgVorschauTitel": "Vorschaubilder erzeugen"
+  "aufgVorschauTitel": "Vorschaubilder erzeugen",
+  "sperreTitel": "Diese Bibliothek ist bereits geöffnet",
+  "sperreText": "Ein anderes Fenster von Photo Vault arbeitet gerade mit denselben Daten. Zwei Fenster auf einer Bibliothek zeigen verschiedene Stände und lassen Hintergrundaufgaben doppelt laufen.\n\nEs ist nichts kaputtgegangen – diese Bibliothek wird nur nicht ein zweites Mal geöffnet.",
+  "sperreOrt": "Ort",
+  "sperreErneut": "Erneut versuchen",
+  "sperreNochBelegt": "Sie ist weiterhin geöffnet.",
+  "sperreAndere": "Andere Bibliothek öffnen",
+  "sperreBeenden": "Photo Vault beenden",
+  "sperreAuswahlTitel": "Andere Bibliothek öffnen",
+  "sperreAuswahlLeer": "Es ist keine weitere Bibliothek eingetragen.",
+  "personVorschlag": "Vorschlag der Wiedererkennung",
+  "personSuchenOderAnlegen": "Person suchen oder neu anlegen",
+  "allgLeeren": "Leeren",
+  "personNochKeine": "Es gibt noch keine Person. Tippe einen Namen ein, um die erste anzulegen.",
+  "personKeinTreffer": "Keine Person heisst „{suche}“. Der Knopf legt sie neu an.",
+  "@personKeinTreffer": {
+    "placeholders": {
+      "suche": {
+        "type": "String"
+      }
+    }
+  },
+  "personAnlegenAktion": "„{name}“ anlegen",
+  "@personAnlegenAktion": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "viewerGesichtAufziehen": "Gesicht nachtragen – Rahmen aufziehen",
+  "viewerGesichtAufziehenEnde": "Nachtragen beenden",
+  "viewerGesichtNachtragen": "Nachgetragenes Gesicht benennen",
+  "viewerRahmenZuKlein": "Der Rahmen ist zu klein. Ziehe einen Kasten um das Gesicht.",
+  "viewerRahmenNichtLesbar": "Das Foto liess sich nicht lesen – kein Gesicht angelegt.",
+  "viewerAufziehenHinweis": "Ziehe einen Rahmen um das fehlende Gesicht."
 }

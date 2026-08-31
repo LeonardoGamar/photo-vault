@@ -260,8 +260,10 @@ Future<void> runBatchEditMetadataDialog(BuildContext context, LibraryState libra
     // [LibraryState.setzeAufnahmedatumVonHand]).
     await library.setzeAufnahmedatumVonHand(assetIds, result.date!);
   }
-  if (result.latitude != null && result.longitude != null) {
-    await library.db.setLocationBulk(assetIds, result.latitude, result.longitude);
+  if (result.ortEntfernen) {
+    await library.setzeOrtVonHand(assetIds, null, null);
+  } else if (result.latitude != null && result.longitude != null) {
+    await library.setzeOrtVonHand(assetIds, result.latitude, result.longitude);
   }
 }
 
@@ -270,7 +272,21 @@ class _BatchMetadataResult {
   final DateTime? date;
   final double? latitude;
   final double? longitude;
-  const _BatchMetadataResult({this.description, this.date, this.latitude, this.longitude});
+
+  /// Den Ort ganz wegnehmen statt einen neuen zu setzen.
+  ///
+  /// Einzeln ging das im Infoblatt seit jeher, für eine Auswahl gar nicht –
+  /// und für eine Auswahl braucht man es: Eine Kamera mit verrutschtem
+  /// Empfänger vergibt einen falschen Ort nicht einmal, sondern an alles,
+  /// was in dieser Woche entstand.
+  final bool ortEntfernen;
+
+  const _BatchMetadataResult(
+      {this.description,
+      this.date,
+      this.latitude,
+      this.longitude,
+      this.ortEntfernen = false});
 }
 
 class _BatchMetadataDialog extends StatefulWidget {
@@ -286,6 +302,7 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
   DateTime? _date;
   double? _latitude;
   double? _longitude;
+  bool _ortEntfernen = false;
 
   @override
   void dispose() {
@@ -311,6 +328,7 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
         date: _date,
         latitude: _latitude,
         longitude: _longitude,
+        ortEntfernen: _ortEntfernen,
       ),
     );
   }
@@ -350,12 +368,23 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
               Text(AppTexte.of(context).auswOrtHinweis),
               const SizedBox(height: 8),
               MiniLocationMap(
-                latitude: _latitude,
-                longitude: _longitude,
+                latitude: _ortEntfernen ? null : _latitude,
+                longitude: _ortEntfernen ? null : _longitude,
                 onLocationChanged: (lat, lon) => setState(() {
                   _latitude = lat;
                   _longitude = lon;
+                  // Wer auf die Karte tippt, meint einen Ort und nicht
+                  // dessen Abwesenheit.
+                  _ortEntfernen = false;
                 }),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                dense: true,
+                value: _ortEntfernen,
+                onChanged: (an) => setState(() => _ortEntfernen = an ?? false),
+                title: Text(AppTexte.of(context).auswOrtEntfernen),
               ),
             ],
           ),

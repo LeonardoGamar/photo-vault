@@ -253,7 +253,8 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
             aktivitaet: k,
             library: widget.library,
             reisename: mitReisename ? _reisenamen[k.reiseId] : null,
-            ort: ortszeile(t, _orte[k.id]),
+            ort: ortszeile(t, _orte[k.id],
+                sprache: Localizations.localeOf(context).languageCode),
             onTippen: () => _oeffnen(k),
             befehle: [
               (

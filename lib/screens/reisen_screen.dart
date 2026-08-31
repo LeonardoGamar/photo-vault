@@ -366,7 +366,8 @@ class _ReisenScreenState extends State<ReisenScreen> {
                             key: ValueKey(r.id),
                             reise: r,
                             library: widget.library,
-                            ort: ortszeile(t, _orte[r.id]),
+                            ort: ortszeile(t, _orte[r.id],
+                                sprache: Localizations.localeOf(context).languageCode),
                             onTippen: () => _oeffnen(r),
                             befehle: [
                               (

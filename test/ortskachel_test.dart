@@ -63,7 +63,7 @@ void main() {
           land: 'Italien',
           weitereOrte: 0,
           aufnahmen: 12
-        )),
+        ), sprache: 'de'),
         'Rom, Latium, Italien',
       );
     });
@@ -79,10 +79,10 @@ void main() {
           land: null,
           weitereOrte: 0,
           aufnahmen: 3
-        )),
+        ), sprache: 'de'),
         isNull,
       );
-      expect(ortszeile(t, null), isNull);
+      expect(ortszeile(t, null, sprache: 'de'), isNull);
     });
 
     testWidgets('fehlende Region setzt kein Komma ins Leere', (tester) async {
@@ -94,7 +94,7 @@ void main() {
           land: 'Norwegen',
           weitereOrte: 0,
           aufnahmen: 4
-        )),
+        ), sprache: 'de'),
         'Oslo, Norwegen',
       );
     });
@@ -111,7 +111,7 @@ void main() {
           land: 'Deutschland',
           weitereOrte: 0,
           aufnahmen: 9
-        )),
+        ), sprache: 'de'),
         'Berlin, Deutschland',
       );
     });
@@ -126,7 +126,7 @@ void main() {
         land: 'Italien',
         weitereOrte: 4,
         aufnahmen: 80
-      ));
+      ), sprache: 'de');
       expect(zeile, contains('Rom, Italien'));
       expect(zeile, contains('4'));
     });

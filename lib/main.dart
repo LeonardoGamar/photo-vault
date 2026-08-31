@@ -10,6 +10,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'db/database.dart';
 import 'l10n/app_localizations.dart';
+import 'screens/bibliothek_belegt_screen.dart';
 import 'screens/home_shell.dart';
 import 'services/beenden_waechter.dart';
 import 'state/library_state.dart';
@@ -19,6 +20,7 @@ import 'widgets/mini_location_map.dart'
     show kartenSpeicherEinrichten, setzeCartoSchluessel;
 import 'widgets/beenden_dialog.dart';
 import 'widgets/meldungsfenster.dart';
+import 'widgets/stromhalter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +47,10 @@ class PhotoVaultApp extends StatefulWidget {
 }
 
 class _PhotoVaultAppState extends State<PhotoVaultApp> {
+  /// Der Einstellungsstrom, festgehalten über die Neuaufbauten hinweg, die
+  /// der [Consumer] unten bei jeder Meldung auslöst.
+  final _einstellungen = Stromhalter<AppSettingsData?>();
+
   /// Nötig, um von ausserhalb des Widget-Baums einen Dialog zu zeigen: Die
   /// Frage nach dem Beenden kommt über einen Plattform-Kanal herein, nicht
   /// aus einem Knopfdruck – dort gibt es keinen BuildContext.
@@ -87,7 +93,13 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
           // Anfangszustand (kein Fehler), themeModeFromString(null) liefert
           // ThemeMode.system als Default.
           return StreamBuilder<AppSettingsData?>(
-            stream: library.isReady ? library.db.watchAppSettings() : null,
+            // Festgehalten (siehe [Stromhalter]): Dieser Aufbau läuft bei
+            // JEDER Meldung des Bibliothekszustands erneut, und ein neu
+            // erzeugter Strom hiesse jedes Mal ein neues Abo samt frischer
+            // Abfrage.
+            stream: library.isReady
+                ? _einstellungen.hole(true, () => library.db.watchAppSettings())
+                : null,
             builder: (context, settingsSnapshot) {
               // Der CARTO-Schlüssel geht hier an die Kartenschicht, weil
               // dies die einzige Stelle ist, die IMMER von einer Änderung
@@ -118,9 +130,16 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
                   GlobalWidgetsLocalizations.delegate,
                   GlobalCupertinoLocalizations.delegate,
                 ],
-                home: !library.isReady
-                    ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-                    : HomeShell(library: library),
+                // Reihenfolge mit Bedacht: Die belegte Bibliothek zuerst.
+                // `isReady` bleibt in diesem Fall dauerhaft falsch – wer
+                // nur darauf prüft, zeigt einen Ladekreis, der sich nie
+                // dreht (siehe LibraryState.initialize).
+                home: library.bibliothekBelegt
+                    ? BibliothekBelegtScreen(library: library)
+                    : !library.isReady
+                        ? const Scaffold(
+                            body: Center(child: CircularProgressIndicator()))
+                        : HomeShell(library: library),
               );
             },
           );

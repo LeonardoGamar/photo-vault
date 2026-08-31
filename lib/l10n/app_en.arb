@@ -532,6 +532,7 @@
   "auswDatumUnveraendert": "Leave the date unchanged",
   "auswDatumGesetzt": "Date: {datum}",
   "auswOrtHinweis": "Location (to leave it unchanged, do not tap)",
+  "auswOrtEntfernen": "Remove location",
   "auswTagTitel": "Add a tag to {anzahl} photo(s)",
   "auswTagFeld": "Tag",
   "auswExportTitel": "Export {anzahl} photo(s)",
@@ -702,8 +703,6 @@
   "albumNeuAnlegen": "Create a new album",
   "personZuordnenTitel": "Assign a person",
   "personAktuell": "Currently: {name}",
-  "personBestehende": "Existing person",
-  "personNeuAnlegen": "Create a new person",
   "personZuordnenAktion": "Assign",
   "bestaetigEndgueltigLoeschen": "Delete permanently",
   "bestaetigTippeVor": "Type ",
@@ -3128,5 +3127,40 @@
     }
   },
   "werkzZuAufgabenText": "Faces, thumbnails, text recognition, places, keywords and everything else that starts a pass over the library. They live there and nowhere else.",
-  "aufgVorschauTitel": "Generate thumbnails"
+  "aufgVorschauTitel": "Generate thumbnails",
+  "sperreTitel": "This library is already open",
+  "sperreText": "Another Photo Vault window is working with the same data right now. Two windows on one library show different states and run background tasks twice.\n\nNothing is broken – this library simply will not be opened a second time.",
+  "sperreOrt": "Location",
+  "sperreErneut": "Try again",
+  "sperreNochBelegt": "It is still open.",
+  "sperreAndere": "Open another library",
+  "sperreBeenden": "Quit Photo Vault",
+  "sperreAuswahlTitel": "Open another library",
+  "sperreAuswahlLeer": "No other library is listed.",
+  "personVorschlag": "Suggested by recognition",
+  "personSuchenOderAnlegen": "Search for a person or add a new one",
+  "allgLeeren": "Clear",
+  "personNochKeine": "There is no person yet. Type a name to add the first one.",
+  "personKeinTreffer": "No person is called “{suche}”. The button adds them.",
+  "@personKeinTreffer": {
+    "placeholders": {
+      "suche": {
+        "type": "String"
+      }
+    }
+  },
+  "personAnlegenAktion": "Add “{name}”",
+  "@personAnlegenAktion": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "viewerGesichtAufziehen": "Add a missing face – drag a frame",
+  "viewerGesichtAufziehenEnde": "Stop adding",
+  "viewerGesichtNachtragen": "Name the added face",
+  "viewerRahmenZuKlein": "That frame is too small. Drag a box around the face.",
+  "viewerRahmenNichtLesbar": "The photograph could not be read – no face was added.",
+  "viewerAufziehenHinweis": "Drag a frame around the missing face."
 }

@@ -16,6 +16,7 @@ import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
 import 'import_progress_sheet.dart';
+import '../widgets/stromhalter.dart';
 
 class TimelineScreen extends StatefulWidget {
   final LibraryState library;
@@ -53,6 +54,16 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   bool _resolvingHighlight = false;
 
   final Set<String> _selected = {};
+
+  /// Der Datenstrom der Zeitleiste, festgehalten über Neubauten hinweg.
+  ///
+  /// Stand er direkt im `stream:`, wurde er bei JEDEM Neubau neu abonniert –
+  /// und jedes Abo führt die Abfrage von vorn aus. Neubauten löst hier schon
+  /// jeder Pfeiltastendruck aus (siehe [Rasterbedienung]) und jeder Klick in
+  /// der Mehrfachauswahl. An der gewachsenen Bibliothek waren das 5,1 ms je
+  /// Tastendruck beim Startfenster und 35,9 ms, sobald es auf die ganze
+  /// Bibliothek gewachsen war. Siehe [Stromhalter].
+  final _zeitleiste = Stromhalter<List<AssetData>>();
 
   /// Was der Datenstrom zuletzt geliefert hat, plus die Spaltenzahl, die das
   /// Raster daraus gemacht hat – beides braucht [Rasterbedienung] beim
@@ -250,7 +261,8 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   Widget build(BuildContext context) {
     if (_resolvingHighlight) return const Center(child: CircularProgressIndicator());
     return StreamBuilder<List<AssetData>>(
-      stream: widget.library.db.watchTimeline(limit: _windowSize),
+      stream: _zeitleiste.hole(
+          _windowSize, () => widget.library.db.watchTimeline(limit: _windowSize)),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final assets = snapshot.data!;

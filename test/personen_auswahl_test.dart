@@ -11,11 +11,16 @@ import 'package:photo_vault/widgets/person_picker_dialog.dart';
 
 /// Der Zuordnungs-Dialog.
 ///
-/// Zwei Dinge sind hier neu und beide leicht zu übersehen: dass die
-/// bestehenden Personen ihr Profilbild zeigen, und dass „Ignorieren" nur
-/// dort erscheint, wo der Aufrufer es angeboten hat. Ein Ignorieren-Knopf
-/// an der falschen Stelle würde ein bereits benanntes Gesicht still aus
-/// seiner Person entfernen.
+/// Drei Dinge sind hier leicht zu übersehen: dass die bestehenden Personen
+/// ihr Profilbild zeigen, dass „Ignorieren" nur dort erscheint, wo der
+/// Aufrufer es angeboten hat (ein Ignorieren-Knopf an der falschen Stelle
+/// würde ein bereits benanntes Gesicht still aus seiner Person entfernen),
+/// und dass **dasselbe Feld sucht und anlegt**.
+///
+/// Das letzte ist der heikle Teil: Wer sich vertippt, legt sonst eine
+/// zweite „Marco" an, statt die erste zu finden. Deshalb sagt die
+/// Beschriftung des Knopfes, was er tut, und ein Name, den es schon gibt,
+/// führt zur bestehenden Person statt zu einer neuen.
 void main() {
   late Directory tempRoot;
   late StoragePaths paths;
@@ -95,10 +100,9 @@ void main() {
     ];
     await zeige(tester, leute);
 
-    // Aufklappen, damit die Liste gebaut wird.
-    await tester.tap(find.byType(DropdownButtonFormField<PersonData>));
-    await tester.pumpAndSettle();
-
+    // Die Liste steht sofort da – kein Aufklappen mehr nötig. Genau das
+    // war der Mangel: In einer gewachsenen Bibliothek sind es 39 Bilder
+    // hinter einem zugeklappten Feld.
     expect(find.text('Anna'), findsWidgets);
     expect(find.byType(CircleAvatar), findsWidgets);
 
@@ -121,8 +125,6 @@ void main() {
     // FileImage auf einen nicht vorhandenen Pfad brächte eine rote
     // Fehlerbox mitten in die Liste.
     await zeige(tester, [person('p1', 'Ohne Bild')]);
-    await tester.tap(find.byType(DropdownButtonFormField<PersonData>));
-    await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.person_outline), findsWidgets);
     expect(tester.takeException(), isNull);
@@ -130,8 +132,141 @@ void main() {
 
   testWidgets('ohne bestehende Personen bleibt nur das Namensfeld', (tester) async {
     await zeige(tester, []);
-    expect(find.byType(DropdownButtonFormField<PersonData>), findsNothing);
     expect(find.byType(TextField), findsOneWidget);
+    expect(find.byType(ListTile), findsNothing);
+    expect(find.textContaining('noch keine Person'), findsOneWidget,
+        reason: 'ein leerer Kasten sähe aus, als lade er noch');
+  });
+
+  testWidgets('die Eingabe filtert die Liste', (tester) async {
+    await zeige(tester, [
+      person('p1', 'Anna'),
+      person('p2', 'Bernd'),
+      person('p3', 'Annemarie'),
+    ]);
+    await tester.enterText(find.byType(TextField), 'ann');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Anna'), findsOneWidget);
+    expect(find.text('Annemarie'), findsOneWidget);
+    expect(find.text('Bernd'), findsNothing);
+  });
+
+  testWidgets('wer vorn anfängt, steht oben', (tester) async {
+    // „Ma" meint eher Marco als Thomas – sonst muss man in einer nach
+    // Alphabet sortierten Liste an den Treffern vorbeisuchen.
+    await zeige(tester, [person('p1', 'Thomas'), person('p2', 'Marco')]);
+    await tester.enterText(find.byType(TextField), 'ma');
+    await tester.pumpAndSettle();
+
+    final zeilen = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
+    expect((zeilen.first.title! as Text).data, 'Marco');
+  });
+
+  testWidgets('ein neuer Name legt an, und der Knopf sagt es', (tester) async {
+    PersonChoice? ergebnis;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: ElevatedButton(
+            onPressed: () async {
+              ergebnis = await showPersonPickerDialog(
+                  context, [person('p1', 'Anna')],
+                  paths: paths);
+            },
+            child: const Text('los'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('los'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Zoe');
+    await tester.pumpAndSettle();
+
+    // Genau der Knopftext, nicht „irgendwo steht anlegen": Die
+    // Beschriftung des Suchfeldes enthält das Wort auch.
+    expect(find.text('\u201eZoe\u201c anlegen'), findsOneWidget,
+        reason: 'der Knopf muss sagen, dass er eine NEUE Person anlegt');
+    await tester.tap(find.text('\u201eZoe\u201c anlegen'));
+    await tester.pumpAndSettle();
+
+    expect(ergebnis!.newName, 'Zoe');
+    expect(ergebnis!.existingPersonId, isNull);
+  });
+
+  testWidgets('ein vorhandener Name legt NICHT doppelt an', (tester) async {
+    // Der teuerste Fehler dieses Dialogs: eine zweite „Anna" neben der
+    // ersten. Gross-/Kleinschreibung zählt dabei nicht.
+    PersonChoice? ergebnis;
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: ElevatedButton(
+            onPressed: () async {
+              ergebnis = await showPersonPickerDialog(
+                  context, [person('p1', 'Anna')],
+                  paths: paths);
+            },
+            child: const Text('los'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('los'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'anna');
+    await tester.pumpAndSettle();
+
+    expect(find.text('\u201eanna\u201c anlegen'), findsNothing,
+        reason: 'sonst entstünde eine zweite Anna neben der ersten');
+    await tester.tap(find.text('Zuordnen'));
+    await tester.pumpAndSettle();
+
+    expect(ergebnis!.existingPersonId, 'p1');
+    expect(ergebnis!.newName, isNull);
+  });
+
+  testWidgets('der Vorschlag steht oben und ist vorausgewählt', (tester) async {
+    PersonChoice? ergebnis;
+    final anna = person('p1', 'Anna');
+    final zoe = person('p9', 'Zoe');
+    await tester.pumpWidget(MaterialApp(
+      locale: const Locale('de'),
+      localizationsDelegates: AppTexte.localizationsDelegates,
+      supportedLocales: AppTexte.supportedLocales,
+      home: Builder(
+        builder: (context) => Scaffold(
+          body: ElevatedButton(
+            onPressed: () async {
+              ergebnis = await showPersonPickerDialog(context, [anna, zoe],
+                  paths: paths, suggestedPerson: zoe);
+            },
+            child: const Text('los'),
+          ),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('los'));
+    await tester.pumpAndSettle();
+
+    final zeilen = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
+    expect((zeilen.first.title! as Text).data, 'Zoe',
+        reason: 'der Vorschlag steht vor dem Alphabet');
+    expect(zeilen.first.selected, isTrue);
+
+    // Vorausgewählt, aber NICHT bestätigt: Ein Vorschlag, der sich selbst
+    // bestätigt, ordnet falsch zu, sobald jemand nur schnell wegklickt.
+    expect(ergebnis, isNull);
+    await tester.tap(find.text('Zuordnen'));
+    await tester.pumpAndSettle();
+    expect(ergebnis!.existingPersonId, 'p9');
   });
 
   testWidgets('„Ignorieren" erscheint nur, wenn es angeboten wird', (tester) async {

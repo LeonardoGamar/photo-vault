@@ -1,8 +1,6 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -12,7 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../services/bilddekodierung.dart';
-import '../services/face_engine_service.dart';
+import '../services/gesicht_von_hand.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
@@ -230,11 +228,16 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
     }
 
     final people = await widget.library.db.select(widget.library.db.people).get();
+    // Wer könnte das sein? Die Einbettung liegt am Gesicht, die Rechnung
+    // gab es längst - sie stand nur in der Sammelzuordnung fest.
+    final vorschlag = await widget.library
+        .personenvorschlag(face.embedding, ausser: face.personId);
     if (!mounted) return;
     final currentName = face.personId != null ? _personNames[face.personId] : null;
     final choice = await showPersonPickerDialog(
       context,
       people,
+      suggestedPerson: vorschlag,
       paths: widget.library.paths,
       title: currentName != null
           ? AppTexte.of(context).gesichtUmbenennen
@@ -519,6 +522,8 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
   Future<void> _finishManualBox(Rect normalizedRect) async {
     final people = await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
+    // Kein Vorschlag: Der Rahmen ist gerade erst aufgezogen, eine
+    // Einbettung dazu gibt es noch nicht. Sie entsteht weiter unten.
     final choice = await showPersonPickerDialog(context, people,
         paths: widget.library.paths, title: AppTexte.of(context).gesichtNeuBenennen);
     if (choice == null) return;
@@ -531,49 +536,17 @@ class _FaceReviewScreenState extends State<FaceReviewScreen> {
       personId = choice.existingPersonId!;
     }
 
-    final faceId = const Uuid().v4();
-    final box = DetectedFace(normalizedRect.left, normalizedRect.top, normalizedRect.width, normalizedRect.height, 1.0);
-    final decoded = img.decodeImage(await _displayFile.readAsBytes());
-    if (decoded == null) return;
-    final cropFile = widget.library.paths.absolute(widget.library.paths.faceRelativePath(faceId));
-    final croppedThumb = FaceEngineService.cropFaceImage(decoded, box);
-    await FaceEngineService.saveFaceCrop(croppedThumb, cropFile);
-
-    // Ein Ladefehler (z.B. eine beschädigte Modelldatei) darf den Rest
-    // dieser Methode nicht abbrechen: Ohne dieses try/catch würde die
-    // Exception hier unbehandelt aus dem Tap-Callback fliegen, während der
-    // Crop bereits auf der Platte liegt (siehe oben) – ein verwaistes Foto
-    // ohne zugehörigen Faces-Eintrag, ohne jede Fehlermeldung für den
-    // Nutzer. Stattdessen wird ein Ladefehler wie "kann nicht einbetten"
-    // behandelt: das Gesicht wird trotzdem der Person zugeordnet, nur ohne
-    // Wiedererkennungs-Embedding.
-    Float32List? embedding;
-    try {
-      embedding = await widget.library.faceEngineHalter.mit<Float32List?>((engine) {
-        return engine.canEmbed ? engine.embedFace(decoded, box) : Future<Float32List?>.value(null);
-      });
-    } catch (e) {
-      if (mounted) {
-        melde.fehler(AppTexte.of(context).gesichtEmbeddingFehler('$e'));
-      }
-    }
-
-    await widget.library.db.insertFace(FacesCompanion.insert(
-      id: faceId,
+    // Ausschnitt, Einbettung und Zeile entstehen an einer Stelle - die
+    // Vollbildansicht kann dasselbe und darf keinen zweiten Weg dafür haben.
+    await gesichtVonHandAnlegen(
+      library: widget.library,
       assetId: _asset.id,
-      personId: Value(personId),
-      boxX: box.x,
-      boxY: box.y,
-      boxW: box.width,
-      boxH: box.height,
-      cropRelativePath: Value(widget.library.paths.faceRelativePath(faceId)),
-      embedding: embedding != null
-          ? Value(Uint8List.view(embedding.buffer, embedding.offsetInBytes, embedding.lengthInBytes))
-          : const Value.absent(),
-    ));
-    await widget.library.db.setPersonCoverIfUnset(
-      personId,
-      widget.library.paths.faceRelativePath(faceId),
+      bilddatei: _displayFile,
+      kasten: normalizedRect,
+      personId: personId,
+      beiEinbettungsfehler: (e) {
+        if (mounted) melde.fehler(AppTexte.of(context).gesichtEmbeddingFehler('$e'));
+      },
     );
 
     if (!mounted) return;

@@ -107,6 +107,33 @@ enum Markenart { besucht, geplant }
 /// Eine selbst gesetzte Marke, wie die Auswertung sie braucht.
 typedef Markeneintrag = ({String art, String schluessel, Markenart wert});
 
+/// Was in einer Ortsmarke steht, aufgeschlüsselt.
+typedef Ortsmarkenteile = ({String iso, String region, String ort});
+
+/// Zerlegt den Schlüssel einer Ortsmarke („Land|Region|Ort").
+///
+/// **Die eine Stelle, an der aus einer Ortsmarke ihre Region wird.** Vorher
+/// stand diese Rechnung nur in [laenderstand]; die Regionenübersicht kannte
+/// sie nicht, und deshalb galt eine von Hand markierte Stadt dort als
+/// nirgends. Zwei Bildschirme, dieselben Daten, gegenteilige Auskunft –
+/// siehe die Prüfung „eine markierte Stadt färbt ihr Bundesland".
+///
+/// Gibt `null` zurück, wenn der Schlüssel nicht die drei Teile hat.
+/// [region] darf **leer** sein: 24 Länder haben keine verzeichnete Region,
+/// und ein Ort in Monaco ist trotzdem ein besuchter Ort. Wer eine Region
+/// braucht, prüft das selbst – hier stillschweigend zu verwerfen hiesse,
+/// diese Orte aus dem Zähler zu streichen.
+Ortsmarkenteile? ortsmarkeZerlegen(
+    String schluessel, Map<String, String> nachIso) {
+  final teile = schluessel.split('|');
+  if (teile.length < 3) return null;
+  return (
+    iso: nachIso[teile[0]] ?? teile[0].toUpperCase(),
+    region: teile[1],
+    ort: teile[2],
+  );
+}
+
 /// Ein Land mit allem, was über den Besuch bekannt ist.
 ///
 /// **Fotos und Marken bleiben getrennt sichtbar.** [aufnahmen] ist der
@@ -115,7 +142,16 @@ typedef Markeneintrag = ({String art, String schluessel, Markenart wert});
 /// und genau das ist bei einer Landkarte die interessante Frage.
 class Landstand {
   final String iso;
+
+  /// Der Name aus dem Katalog – **englisch**, und damit derselbe, der in
+  /// den Aufnahmen steht. Zum Anzeigen [nameDe] bzw. [anzeige].
   final String name;
+
+  /// Derselbe Name auf Deutsch.
+  final String nameDe;
+
+  /// Der Name, wie er in der Sprache [sprache] dastehen soll.
+  String anzeige(String sprache) => sprache.startsWith('de') ? nameDe : name;
   final String? hauptstadt;
   final String kontinent;
 
@@ -138,6 +174,7 @@ class Landstand {
   const Landstand({
     required this.iso,
     required this.name,
+    required this.nameDe,
     required this.hauptstadt,
     required this.kontinent,
     required this.regionenGesamt,
@@ -151,8 +188,18 @@ class Landstand {
   ///
   /// „Geplant" zählt ausdrücklich **nicht**: Ein Vorhaben ist kein
   /// Besuch, und ein Länderzähler, der Absichten mitzählt, wäre wertlos.
+  ///
+  /// [orte] steht mit in der Reihe, und zwar wegen der 24 Länder **ohne
+  /// verzeichnete Region**: Dort führt eine von Hand markierte Stadt zu
+  /// keiner belegten Region, weil es keine gibt. Monte-Carlo abzuhaken und
+  /// Monaco dennoch als unbesucht zu führen wäre für den, der es tut, nicht
+  /// zu erklären. Bei allen übrigen Ländern ändert es nichts – dort belegt
+  /// dieselbe Marke ohnehin schon ihre Region.
   bool get besucht =>
-      aufnahmen > 0 || regionenBesucht > 0 || marke == Markenart.besucht;
+      aufnahmen > 0 ||
+      regionenBesucht > 0 ||
+      orte > 0 ||
+      marke == Markenart.besucht;
 
   Besuchsgrad get grad {
     if (!besucht) return Besuchsgrad.nicht;
@@ -226,12 +273,12 @@ List<Landstand> laenderstand({
             m.schluessel);
       case 'ort':
         if (m.wert != Markenart.besucht) continue;
-        final teile = m.schluessel.split('|');
-        if (teile.length < 3) continue;
-        final iso = nachIso[teile[0]] ?? teile[0].toUpperCase();
-        orte.putIfAbsent(iso, () => {}).add('${teile[1]}|${teile[2]}');
-        if (teile[1].isNotEmpty) {
-          merkeRegion(iso, regionscodes['$iso|${teile[1]}'] ?? teile[1]);
+        final teile = ortsmarkeZerlegen(m.schluessel, nachIso);
+        if (teile == null) continue;
+        orte.putIfAbsent(teile.iso, () => {}).add('${teile.region}|${teile.ort}');
+        if (teile.region.isNotEmpty) {
+          merkeRegion(teile.iso,
+              regionscodes['${teile.iso}|${teile.region}'] ?? teile.region);
         }
     }
   }
@@ -241,6 +288,7 @@ List<Landstand> laenderstand({
       Landstand(
         iso: l.iso,
         name: l.name,
+        nameDe: l.nameDe,
         hauptstadt: l.hauptstadt,
         kontinent: l.kontinent,
         regionenGesamt: l.regionen,

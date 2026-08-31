@@ -414,10 +414,15 @@ class _Unterortzeile extends StatelessWidget {
     // Farbton unterscheidet, sind für einen Rotgrünblinden einer.
     final (symbol, farbe) = switch (unterort) {
       _ when unterort.aufnahmen > 0 => (Icons.check_circle, farben.primary),
-      _ when unterort.marke == Markenart.besucht => (
+      // Ein eigener Haken und ein Haken eine Ebene tiefer sehen gleich aus:
+      // Beides heisst „ohne Foto belegt". Welcher es war, steht eine
+      // Ebene weiter, wo man ihn auch wieder wegnehmen kann.
+      _ when unterort.marke == Markenart.besucht || unterort.abgeleitet => (
           Icons.check_circle_outline,
           farben.primary
         ),
+      // NACH der Ableitung: Ein Vorhaben, in dem schon jemand war, ist
+      // kein Vorhaben mehr.
       _ when unterort.marke == Markenart.geplant => (
           Icons.flag_outlined,
           farben.secondary

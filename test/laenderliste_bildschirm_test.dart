@@ -179,4 +179,77 @@ void main() {
     await zeige(tester);
     expect(find.textContaining('GeoNames'), findsOneWidget);
   });
+
+  /// **Der Datensatz ist englisch, die Oberfläche nicht.**
+  ///
+  /// Die Zeilen oben tragen aus historischen Gründen schon deutsche
+  /// Namen; `countryInfo.txt` von GeoNames tut das nicht. Hier steht der
+  /// echte Datensatz – und damit der Fund: In der Länderliste stand
+  /// „Germany", „Poland", „Switzerland".
+  group('Der englische Datensatz in der deutschen Oberflaeche', () {
+    setUp(() async {
+      final laender = File(p.join(tempRoot.path, 'countryInfo.txt'));
+      await laender.writeAsString(
+        '# Kopfzeile\n'
+        'DE\tDEU\t276\tDE\tGermany\tBerlin\t357021\t82927922\tEU\t.de\tEUR\tEuro\t49\t\t\tde-DE\t2921044\t\t\n'
+        'CH\tCHE\t756\tSZ\tSwitzerland\tBern\t41290\t8516543\tEU\t.ch\tCHF\tFranc\t41\t\t\tde-CH\t2658434\t\t\n'
+        'PL\tPOL\t616\tPL\tPoland\tWarsaw\t312685\t37978548\tEU\t.pl\tPLN\tZloty\t48\t\t\tpl\t798544\t\t\n',
+      );
+      final staedte = File(p.join(tempRoot.path, 'cities1000.txt'));
+      final regionen = File(p.join(tempRoot.path, 'admin1CodesASCII.txt'));
+      library.geocoder = await ReverseGeocoder.loadFromFiles(
+          citiesFile: staedte, admin1File: regionen, countryFile: laender);
+    });
+
+    testWidgets('die Namen stehen auf Deutsch da', (tester) async {
+      await aufnahme('a1', land: 'Germany', region: 'Berlin', ort: 'Berlin');
+      await zeige(tester);
+
+      expect(find.text('Deutschland'), findsOneWidget);
+      expect(find.text('Polen'), findsOneWidget);
+      expect(find.text('Schweiz'), findsOneWidget);
+      expect(find.text('Germany'), findsNothing);
+    });
+
+    testWidgets('sortiert wird nach dem deutschen Namen', (tester) async {
+      // Englisch käme Germany, Poland, Switzerland – auf Deutsch
+      // Deutschland, Polen, Schweiz. Nur bei zwei der drei fällt das
+      // zusammen, und genau deshalb ist die Reihenfolge zu prüfen.
+      await zeige(tester);
+      final zeilen = tester
+          .widgetList<ListTile>(find.byType(ListTile))
+          .map((k) => (k.title as Text?)?.data)
+          .whereType<String>()
+          .toList();
+      expect(zeilen, ['Deutschland', 'Polen', 'Schweiz']);
+    });
+
+    testWidgets('gesucht wird in beiden Namen', (tester) async {
+      // Wer „Germany" eintippt, weil er den Namen aus seinen Aufnahmen
+      // kennt, soll Deutschland finden.
+      await zeige(tester);
+      await tester.enterText(find.byType(TextField), 'Deutsch');
+      await tester.pumpAndSettle();
+      expect(find.text('Deutschland'), findsOneWidget);
+      expect(find.text('Polen'), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'Germany');
+      await tester.pumpAndSettle();
+      expect(find.text('Deutschland'), findsOneWidget);
+    });
+
+    testWidgets('in der Datenbank steht der englische Name', (tester) async {
+      // Die Marke soll nicht davon abhängen, in welcher Sprache sie
+      // gesetzt wurde.
+      await zeige(tester);
+      await tester.longPress(find.text('Deutschland'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Als besucht markieren'));
+      await tester.pumpAndSettle();
+
+      final marke = (await db.alleOrtsmarken()).single;
+      expect(marke.schluessel, 'DE');
+      expect(marke.name, 'Germany');
+    });
+  });
 }

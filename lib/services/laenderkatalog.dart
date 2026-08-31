@@ -12,13 +12,26 @@
 /// mehr sieht.
 library;
 
+import 'laendernamen.dart';
+
 /// Ein Land, wie der Datensatz es kennt.
 typedef Landeintragung = ({
   /// Zweibuchstabiger Code, „DE".
   String iso,
 
   /// Ausgeschriebener Name, wie GeoNames ihn führt – **englisch**.
+  ///
+  /// Das ist der Name, unter dem die Umkehr-Geokodierung das Land in die
+  /// Aufnahmen schreibt, und damit der Schlüssel, über den beides
+  /// zusammenfindet. Gezeigt wird er nur, wenn die Oberfläche englisch
+  /// läuft – sonst [nameDe].
   String name,
+
+  /// Derselbe Name auf Deutsch, aus [laendernamenDe].
+  ///
+  /// Fällt auf [name] zurück, wo der Datensatz einen Code führt, den CLDR
+  /// nicht kennt (oder nur falsch beantwortet – siehe dort).
+  String nameDe,
 
   /// Hauptstadt, soweit die Datei eine nennt.
   String? hauptstadt,
@@ -35,16 +48,37 @@ typedef Landeintragung = ({
   int regionen,
 });
 
+/// Der Name eines Eintrags in der Sprache der Oberfläche.
+extension LandeintragungAnzeige on Landeintragung {
+  String anzeige(String sprache) => sprache.startsWith('de') ? nameDe : name;
+}
+
 /// Alle Länder, nach Namen sortiert.
 class Laenderkatalog {
   final List<Landeintragung> laender;
   final Map<String, Landeintragung> _nachIso;
+  final Map<String, Landeintragung> _nachName;
 
-  Laenderkatalog._(this.laender, this._nachIso);
+  Laenderkatalog._(this.laender, this._nachIso, this._nachName);
 
   int get anzahl => laender.length;
 
   Landeintragung? nachIso(String iso) => _nachIso[iso.toUpperCase()];
+
+  /// Der Ländername, wie er in der Sprache [sprache] dastehen soll.
+  ///
+  /// **Nimmt den englischen Namen entgegen**, denn das ist, was in den
+  /// Aufnahmen steht: Die Umkehr-Geokodierung schreibt `location_country`
+  /// aus genau diesem Datensatz. Ohne Treffer bleibt es beim übergebenen
+  /// Namen – ein englischer Name ist besser als ein leeres Feld.
+  String anzeige(String? englisch, String sprache) {
+    if (englisch == null || englisch.isEmpty) return '';
+    if (!sprache.startsWith('de')) return englisch;
+    // Erst der Katalog – der kennt genau die Namen, die auch in den
+    // Aufnahmen stehen. Sonst die Liste, die ohne geladenen Datensatz
+    // auskommt.
+    return _nachName[englisch]?.nameDe ?? landAnzeige(englisch, sprache);
+  }
 
   /// Baut den Katalog aus den Zeilen beider Dateien.
   ///
@@ -83,6 +117,7 @@ class Laenderkatalog {
       final eintrag = (
         iso: iso,
         name: name,
+        nameDe: laendernamenDe[iso] ?? name,
         hauptstadt: hauptstadt.isEmpty ? null : hauptstadt,
         kontinent: s[8].trim(),
         regionen: regionen[iso] ?? 0,
@@ -92,7 +127,8 @@ class Laenderkatalog {
       liste.add(eintrag);
     }
     liste.sort((a, b) => a.name.compareTo(b.name));
-    return Laenderkatalog._(List.unmodifiable(liste), nachIso);
+    return Laenderkatalog._(List.unmodifiable(liste), nachIso,
+        {for (final e in liste) e.name: e});
   }
 }
 

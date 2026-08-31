@@ -13,6 +13,7 @@ import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
 import '../services/meldungsdienst.dart';
+import '../widgets/stromhalter.dart';
 
 class AlbumDetailScreen extends StatefulWidget {
   final LibraryState library;
@@ -33,6 +34,11 @@ class AlbumDetailScreen extends StatefulWidget {
 class _AlbumDetailScreenState extends State<AlbumDetailScreen>
     with Rasterbedienung<AlbumDetailScreen> {
   final Set<String> _selected = {};
+
+  /// Siehe [Stromhalter]: sonst eine frische Abfrage bei jedem Neubau, und
+  /// die löst hier jeder Pfeiltastendruck und jeder Klick in der
+  /// Mehrfachauswahl aus.
+  final _albumstrom = Stromhalter<List<AssetData>>();
 
   /// Siehe [Rasterbedienung]: Beim Tastendruck gibt es weder den Datenstrom
   /// noch die Constraints, beides wird deshalb beim Bauen festgehalten.
@@ -149,7 +155,8 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen>
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AssetData>>(
-      stream: widget.library.db.watchAlbumAssets(widget.albumId),
+      stream: _albumstrom.hole(widget.albumId,
+          () => widget.library.db.watchAlbumAssets(widget.albumId)),
       builder: (context, snapshot) {
         final assets = snapshot.data ?? [];
         _geladen = assets;

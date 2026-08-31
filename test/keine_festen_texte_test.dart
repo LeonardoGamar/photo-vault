@@ -45,6 +45,13 @@ void main() {
     // Sprachen nebeneinander vorkommen. Was ANGEZEIGT wird, entsteht in
     // search_screen.dart und geht dort durch AppTexte.
     'lib/services/suchsatz.dart',
+    // Die Ländernamen sind der deutsche Teil eines zweisprachigen
+    // Verzeichnisses, keine Beschriftung: Sie stehen dort neben ihrem
+    // englischen Gegenstück, und welcher von beiden erscheint, entscheidet
+    // `landAnzeige` an der Sprache der Oberfläche. In die ARB-Dateien
+    // gehörten sie nicht – dort stünden 250 Schlüssel, die niemand je
+    // einzeln anfasst, und der englische Teil käme trotzdem aus GeoNames.
+    'lib/services/laendernamen.dart',
   };
 
   List<String> zuPruefen() {

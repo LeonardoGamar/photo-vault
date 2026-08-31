@@ -1829,6 +1829,9 @@ class AppTexteEn extends AppTexte {
   String get auswOrtHinweis => 'Location (to leave it unchanged, do not tap)';
 
   @override
+  String get auswOrtEntfernen => 'Remove location';
+
+  @override
   String auswTagTitel(int anzahl) {
     return 'Add a tag to $anzahl photo(s)';
   }
@@ -2398,12 +2401,6 @@ class AppTexteEn extends AppTexte {
   String personAktuell(String name) {
     return 'Currently: $name';
   }
-
-  @override
-  String get personBestehende => 'Existing person';
-
-  @override
-  String get personNeuAnlegen => 'Create a new person';
 
   @override
   String get personZuordnenAktion => 'Assign';
@@ -6861,4 +6858,75 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get aufgVorschauTitel => 'Generate thumbnails';
+
+  @override
+  String get sperreTitel => 'This library is already open';
+
+  @override
+  String get sperreText =>
+      'Another Photo Vault window is working with the same data right now. Two windows on one library show different states and run background tasks twice.\n\nNothing is broken – this library simply will not be opened a second time.';
+
+  @override
+  String get sperreOrt => 'Location';
+
+  @override
+  String get sperreErneut => 'Try again';
+
+  @override
+  String get sperreNochBelegt => 'It is still open.';
+
+  @override
+  String get sperreAndere => 'Open another library';
+
+  @override
+  String get sperreBeenden => 'Quit Photo Vault';
+
+  @override
+  String get sperreAuswahlTitel => 'Open another library';
+
+  @override
+  String get sperreAuswahlLeer => 'No other library is listed.';
+
+  @override
+  String get personVorschlag => 'Suggested by recognition';
+
+  @override
+  String get personSuchenOderAnlegen => 'Search for a person or add a new one';
+
+  @override
+  String get allgLeeren => 'Clear';
+
+  @override
+  String get personNochKeine =>
+      'There is no person yet. Type a name to add the first one.';
+
+  @override
+  String personKeinTreffer(String suche) {
+    return 'No person is called “$suche”. The button adds them.';
+  }
+
+  @override
+  String personAnlegenAktion(String name) {
+    return 'Add “$name”';
+  }
+
+  @override
+  String get viewerGesichtAufziehen => 'Add a missing face – drag a frame';
+
+  @override
+  String get viewerGesichtAufziehenEnde => 'Stop adding';
+
+  @override
+  String get viewerGesichtNachtragen => 'Name the added face';
+
+  @override
+  String get viewerRahmenZuKlein =>
+      'That frame is too small. Drag a box around the face.';
+
+  @override
+  String get viewerRahmenNichtLesbar =>
+      'The photograph could not be read – no face was added.';
+
+  @override
+  String get viewerAufziehenHinweis => 'Drag a frame around the missing face.';
 }

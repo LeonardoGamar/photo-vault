@@ -72,10 +72,14 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
     });
   }
 
-  List<Landstand> get _gezeigt {
+  /// Die Sprache der Oberfläche – der Katalog kennt jedes Land englisch
+  /// und deutsch (siehe [Landstand.anzeige]).
+  String get _sprache => Localizations.localeOf(context).languageCode;
+
+  List<Landstand> _gezeigt(String sprache) {
     final alle = _stand ?? const <Landstand>[];
     final suche = _suche.trim().toLowerCase();
-    return [
+    final liste = [
       for (final l in alle)
         if (switch (_filter) {
           _Filter.alle => true,
@@ -83,11 +87,18 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
           _Filter.teilweise => l.grad == Besuchsgrad.teilweise,
           _Filter.nicht => l.grad == Besuchsgrad.nicht,
         })
+          // Gesucht wird in BEIDEN Namen. Wer „Germany" eintippt – weil er
+          // ihn aus den Aufnahmen kennt –, soll Deutschland finden.
           if (suche.isEmpty ||
+              l.anzeige(sprache).toLowerCase().contains(suche) ||
               l.name.toLowerCase().contains(suche) ||
               (l.hauptstadt?.toLowerCase().contains(suche) ?? false))
             l,
     ];
+    // Der Katalog kommt nach dem englischen Namen sortiert. Auf Deutsch
+    // stünde Deutschland dann unter G.
+    liste.sort((a, b) => a.anzeige(sprache).compareTo(b.anzeige(sprache)));
+    return liste;
   }
 
   Future<void> _markieren(Landstand land, Markenart? wert) async {
@@ -98,6 +109,8 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
       await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
         art: 'land',
         schluessel: land.iso,
+        // Der ENGLISCHE Name in die Datenbank: Die Marke soll nicht davon
+        // abhängen, in welcher Sprache sie gesetzt wurde.
         name: land.name,
         status: wert == Markenart.geplant ? 'geplant' : 'besucht',
         angelegtAm: DateTime.now(),
@@ -113,7 +126,7 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
             library: widget.library,
             ebene: Ortsebene.land,
             schluessel: land.iso,
-            name: land.name,
+            name: land.anzeige(_sprache),
           ),
         ))
         // Dort unten kann eine Marke gesetzt worden sein – auch auf einer
@@ -130,7 +143,7 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: Text(land.name),
+              title: Text(land.anzeige(_sprache)),
               subtitle: Text(t.laenderHinweisMarke),
               subtitleTextStyle: TextStyle(
                   fontSize: 12,
@@ -203,7 +216,7 @@ class _LaenderlisteScreenState extends State<LaenderlisteScreen> {
   }
 
   Widget _liste(AppTexte t) {
-    final gezeigt = _gezeigt;
+    final gezeigt = _gezeigt(_sprache);
     if (gezeigt.isEmpty) {
       return Center(
         child: Padding(
@@ -416,7 +429,7 @@ class _Landzeile extends StatelessWidget {
           // Nicht jede Plattform hat Flaggen in ihrer Schrift. Die Zeile
           // bleibt auch dann lesbar – der Name steht daneben, nicht darin.
           : Text(flagge, style: const TextStyle(fontSize: 24)),
-      title: Text(land.name),
+      title: Text(land.anzeige(Localizations.localeOf(context).languageCode)),
       subtitle: Text(unterzeile,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

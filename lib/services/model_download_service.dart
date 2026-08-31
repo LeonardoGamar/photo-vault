@@ -372,6 +372,11 @@ class ModelDownloadService {
       'caption_encoder.onnx',
       'caption_decoder.onnx',
       'caption_vocab.json',
+      // Die Zeichentabelle des alten Lesemodells (latin_PP-OCRv3). Seit
+      // dem Wechsel auf v5 steht die Tabelle in `ocr_rec.yml`, und diese
+      // Datei gehört zu keinem Eintrag mehr – klein, aber sie würde sonst
+      // für immer liegenbleiben und beim Lesen des Ordners verwirren.
+      'ocr_dict.txt',
     ];
     var bytes = 0;
     for (final name in abgeloest) {

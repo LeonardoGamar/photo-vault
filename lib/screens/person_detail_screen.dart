@@ -19,6 +19,7 @@ import 'lebenslauf_screen.dart';
 import 'stammbaum_screen.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/profilbild.dart';
+import '../widgets/stromhalter.dart';
 
 class PersonDetailScreen extends StatefulWidget {
   final LibraryState library;
@@ -34,6 +35,12 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
   PersonData get person => widget.person;
 
   bool _sucheLaeuft = false;
+
+  /// Siehe [Stromhalter]. Die Fotoliste einer Person kostete 3,8 ms je
+  /// Neubau, und der Bildschirm baut auch neu, wenn nur die Person selbst
+  /// sich ändert (der Strom darüber).
+  final _personenstrom = Stromhalter<PersonData?>();
+  final _fotostrom = Stromhalter<List<AssetData>>();
 
   /// Sucht unbenannte Gesichter, die dieser Person ähnlich genug sind, und
   /// legt sie zur Bestätigung vor.
@@ -201,7 +208,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             child: Row(
               children: [
                 StreamBuilder<PersonData?>(
-                  stream: library.db.watchPerson(person.id),
+                  stream: _personenstrom.hole(
+                      person.id, () => library.db.watchPerson(person.id)),
                   initialData: person,
                   builder: (context, snapshot) {
                     final coverPath = snapshot.data?.coverFaceCropPath;
@@ -242,7 +250,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           _ErkennungsStand(library: library, person: person),
           Expanded(
             child: StreamBuilder<List<AssetData>>(
-              stream: library.db.watchAssetsForPerson(person.id),
+              stream: _fotostrom.hole(person.id,
+                  () => library.db.watchAssetsForPerson(person.id)),
               builder: (context, snapshot) {
                 final assets = snapshot.data ?? [];
                 if (assets.isEmpty) {

@@ -21,6 +21,7 @@ import 'person_picker_dialog.dart';
 import 'star_rating.dart';
 import '../services/meldungsdienst.dart';
 import 'profilbild.dart';
+import '../services/laendernamen.dart';
 
 /// Info-Ansicht für ein einzelnes Asset (Foto/Video) in der Vollbildvorschau
 /// – Layout angelehnt an Google Fotos: Zeilen mit Icon, Titel und optionalem
@@ -188,6 +189,9 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   /// demselben Foto (mehrere Personen) lässt sich die Zuordnung durch
   /// erneutes Antippen von "+" fortsetzen.
   Future<void> _addPerson() async {
+    // Vor dem ersten `await` geholt: Danach ist der Kontext nicht mehr
+    // sicher da, und die Analyse mahnt das zu Recht an.
+    final bibliothek = context.read<LibraryState>();
     final faces = await widget.db.facesForAsset(_asset.id);
     final unassigned = faces.where((f) => f.personId == null && !f.isIgnored).toList();
     if (unassigned.isEmpty) {
@@ -197,9 +201,13 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
       return;
     }
     final people = await widget.db.select(widget.db.people).get();
+    final vorschlag =
+        await bibliothek.personenvorschlag(unassigned.first.embedding);
     if (!mounted) return;
     final choice = await showPersonPickerDialog(context, people,
-        paths: widget.paths, title: AppTexte.of(context).personZuordnenTitel);
+        paths: widget.paths,
+        suggestedPerson: vorschlag,
+        title: AppTexte.of(context).personZuordnenTitel);
     if (choice == null) return;
 
     String personId;
@@ -261,7 +269,13 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   }
 
   Future<void> _setLocation(double latitude, double longitude) async {
-    await widget.db.setLocation(_asset.id, latitude, longitude);
+    // Über den Bibliothekszustand: Der trägt die Ortsnamen gleich nach.
+    // Die Datenbankschicht allein leert sie nur (siehe
+    // [AppDatabase.setLocation]), und bis zur nächsten Hintergrundaufgabe
+    // stünde hier gar kein Ort mehr.
+    await context
+        .read<LibraryState>()
+        .setzeOrtVonHand([_asset.id], latitude, longitude);
     await _refresh();
   }
 
@@ -360,7 +374,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
   }
 
   Future<void> _clearLocation() async {
-    await widget.db.setLocation(_asset.id, null, null);
+    await context.read<LibraryState>().setzeOrtVonHand([_asset.id], null, null);
     await _refresh();
   }
 
@@ -463,10 +477,13 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     if (!_kiFocusNode.hasFocus && _kiController.text != _kiText(kiDeutsch)) {
       _kiController.text = _kiText(kiDeutsch);
     }
-    final regionParts = [asset.locationState, asset.locationCountry]
-        .whereType<String>()
-        .where((s) => s.isNotEmpty)
-        .toList();
+    // Der Ortsdatensatz kennt Länder nur englisch; die Region kommt
+    // unverändert durch (siehe [landAnzeige]).
+    final regionParts = [
+      asset.locationState,
+      landAnzeige(asset.locationCountry,
+          Localizations.localeOf(context).languageCode),
+    ].whereType<String>().where((s) => s.isNotEmpty).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

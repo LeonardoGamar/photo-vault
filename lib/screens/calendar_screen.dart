@@ -9,6 +9,7 @@ import '../widgets/rasterbedienung.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
+import '../widgets/stromhalter.dart';
 
 /// Jahresübersicht: eine Kachel pro Jahr mit Titelbild (neuestes Foto des
 /// Jahres) und Foto-/Videoanzahl – zum schnellen Einstieg in ein bestimmtes
@@ -169,6 +170,12 @@ class _YearDetailScreenState extends State<YearDetailScreen>
     with Rasterbedienung<YearDetailScreen> {
   final Set<String> _selected = {};
 
+  /// Siehe [Stromhalter]: Direkt im `stream:` erzeugt, fragte dieser Strom
+  /// bei jedem Neubau von vorn – und Neubauten löst hier jeder Pfeiltasten-
+  /// druck und jeder Klick in der Mehrfachauswahl aus. An einem Jahrgang von
+  /// 1373 Aufnahmen gemessen: 5,8 ms je Neubau.
+  final _jahresstrom = Stromhalter<List<AssetData>>();
+
   /// Siehe [Rasterbedienung]: beim Tastendruck gibt es weder den Datenstrom
   /// noch die Constraints.
   List<AssetData> _geladen = const [];
@@ -248,7 +255,8 @@ class _YearDetailScreenState extends State<YearDetailScreen>
     return Scaffold(
       appBar: AppBar(title: Text('${widget.year}')),
       body: StreamBuilder<List<AssetData>>(
-        stream: widget.library.db.watchTimelineForYear(widget.year),
+        stream: _jahresstrom.hole(widget.year,
+            () => widget.library.db.watchTimelineForYear(widget.year)),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final yearAssets = snapshot.data!;

@@ -24,6 +24,7 @@ import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_info_sheet.dart';
 import '../widgets/gesichtsrahmen.dart';
+import '../services/gesicht_von_hand.dart';
 import '../widgets/textrahmen.dart';
 import '../widgets/live_photo_view.dart';
 import '../widgets/metadata_editor_dialog.dart';
@@ -123,6 +124,19 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   /// Weiterblättern – wer wissen will, wer auf den Fotos ist, will das
   /// meist für mehrere hintereinander und nicht für genau eines.
   bool _gesichterZeigen = false;
+
+  /// Ob gerade ein Rahmen um ein übersehenes Gesicht aufgezogen wird.
+  ///
+  /// **Warum das hier steht und nicht nur in der Gesichts-Bearbeitung.**
+  /// Ein Gesicht nachzutragen hiess bisher: Menü öffnen, in einen zweiten
+  /// Bildschirm wechseln, dort dasselbe Foto noch einmal laden. Der Weg
+  /// war so lang, dass man ihn nicht geht, während man Fotos ansieht – und
+  /// genau dort fällt auf, dass jemand fehlt.
+  ///
+  /// Solange er an ist, sind die Rahmen zwingend sichtbar (man zieht nicht
+  /// blind neben ein Gesicht, das schon einen hat) und PhotoView bekommt
+  /// keine Gesten mehr: Ziehen verschiebt sonst das Bild, statt zu malen.
+  bool _gesichtAufziehen = false;
 
   /// Ob die gelesenen Textstellen als Kästen über dem Foto liegen (siehe
   /// [Textrahmen]). Wie bei den Gesichtern eine Sitzungseinstellung: Man
@@ -644,8 +658,29 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                 tooltip: _gesichterZeigen
                     ? AppTexte.of(context).viewerGesichterVerbergen
                     : AppTexte.of(context).viewerGesichterZeigen,
+                onPressed: () => setState(() {
+                  _gesichterZeigen = !_gesichterZeigen;
+                  // Rahmen aus heisst auch: nicht mehr aufziehen. Sonst
+                  // bliebe ein unsichtbarer Malmodus zurück, in dem sich
+                  // das Bild nicht mehr verschieben lässt.
+                  if (!_gesichterZeigen) _gesichtAufziehen = false;
+                }),
+              ),
+            // Nur wenn die Rahmen an sind: Wer nachtragen will, muss erst
+            // sehen, was schon da ist.
+            if (asset.type == 'IMAGE' && !asset.isLocked && _gesichterZeigen)
+              IconButton(
+                icon: Icon(_gesichtAufziehen
+                    ? Icons.person_add
+                    : Icons.person_add_outlined),
+                color: _gesichtAufziehen
+                    ? Theme.of(context).colorScheme.primary
+                    : null,
+                tooltip: _gesichtAufziehen
+                    ? AppTexte.of(context).viewerGesichtAufziehenEnde
+                    : AppTexte.of(context).viewerGesichtAufziehen,
                 onPressed: () =>
-                    setState(() => _gesichterZeigen = !_gesichterZeigen),
+                    setState(() => _gesichtAufziehen = !_gesichtAufziehen),
               ),
             // Neben den Gesichtern und aus demselben Grund sichtbar statt im
             // Menü: 2406 der 7988 Aufnahmen dieser Bibliothek tragen
@@ -759,6 +794,10 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                                   library: widget.library,
                                   isCurrent: index == _currentIndex,
                                   gesichterZeigen: _gesichterZeigen,
+                                  gesichtAufziehen:
+                                      _gesichtAufziehen && index == _currentIndex,
+                                  beiGesichtAngelegt: () =>
+                                      setState(() => _gesichtAufziehen = false),
                                   textZeigen: _textZeigen,
                                   focusPeakingEnabled: _focusPeakingEnabled);
                             },
@@ -1067,6 +1106,17 @@ class _AssetPage extends StatefulWidget {
   /// Ob die erkannten Gesichter als Rahmen über dem Foto liegen.
   final bool gesichterZeigen;
 
+  /// Ob ein Rahmen um ein übersehenes Gesicht aufgezogen werden kann.
+  /// Immer nur auf der gerade sichtbaren Seite – ein Malmodus auf den
+  /// Nachbarseiten des Blätterwerks wäre unsichtbar und würde dort still
+  /// die Gesten fangen.
+  final bool gesichtAufziehen;
+
+  /// Wird gerufen, sobald ein Gesicht angelegt ist – der Modus endet dann.
+  /// Nach jedem Rahmen von Hand, nicht dauerhaft: Es ist die Ausnahme,
+  /// nicht die Arbeitsweise.
+  final VoidCallback? beiGesichtAngelegt;
+
   /// Ob die gelesenen Textstellen als Kästen über dem Foto liegen.
   final bool textZeigen;
   final bool focusPeakingEnabled;
@@ -1077,6 +1127,8 @@ class _AssetPage extends StatefulWidget {
       required this.library,
       required this.isCurrent,
       this.gesichterZeigen = false,
+      this.gesichtAufziehen = false,
+      this.beiGesichtAngelegt,
       this.textZeigen = false,
       this.focusPeakingEnabled = false});
 
@@ -1085,6 +1137,11 @@ class _AssetPage extends StatefulWidget {
 }
 
 class _AssetPageState extends State<_AssetPage> {
+  /// Die beiden Ecken, während ein Rahmen aufgezogen wird – in Punkten
+  /// der Fotofläche, nicht des Fensters.
+  Offset? _zugAnfang;
+  Offset? _zugJetzt;
+
   // Einmalig ermittelt statt inline in build(): PageView.builder ruft
   // itemBuilder bei jedem Rebuild der übergeordneten Ansicht (z.B. nach dem
   // Umschalten eines Favoriten) für alle aktuell aufgebauten Seiten erneut
@@ -1262,9 +1319,13 @@ class _AssetPageState extends State<_AssetPage> {
     }
     if (gesicht.isIgnored) return;
     final personen = await widget.db.select(widget.db.people).get();
+    // Wer könnte das sein? Ohne Bibliothek gibt es keinen Vorschlag – der
+    // Betrachter läuft auch ohne sie (siehe [widget.library]).
+    final vorschlag = await bibliothek?.personenvorschlag(gesicht.embedding);
     if (!mounted) return;
     final wahl = await showPersonPickerDialog(context, personen,
         paths: widget.paths,
+        suggestedPerson: vorschlag,
         title: AppTexte.of(context).viewerGesichtBenennen);
     if (wahl == null) return;
     final id = wahl.newName != null ? const Uuid().v4() : wahl.existingPersonId!;
@@ -1273,6 +1334,60 @@ class _AssetPageState extends State<_AssetPage> {
           .createPerson(PeopleCompanion.insert(id: id, name: wahl.newName!));
     }
     await widget.db.assignFacesToPerson([gesicht.id], id);
+    await _gesichterLaden();
+  }
+
+  /// Ein aufgezogener Rahmen wird zu einem Gesicht.
+  ///
+  /// [kasten] steht in Anteilen des Fotos (0..1) – dieselbe Rechnung wie
+  /// bei den vorhandenen Rahmen, damit ein neuer dort landet, wo er
+  /// aufgezogen wurde.
+  Future<void> _rahmenFertig(Rect kasten) async {
+    final bibliothek = widget.library;
+    setState(() {
+      _zugAnfang = null;
+      _zugJetzt = null;
+    });
+    if (bibliothek == null) return;
+    if (!rahmenGrossGenug(kasten)) {
+      // Ein Tipp statt eines Zuges. Wortlos verwerfen sähe aus, als sei
+      // der Modus kaputt.
+      if (mounted) melde.hinweis(AppTexte.of(context).viewerRahmenZuKlein);
+      return;
+    }
+
+    final personen = await widget.db.select(widget.db.people).get();
+    if (!mounted) return;
+    // Kein Vorschlag: Der Rahmen ist gerade erst entstanden, eine
+    // Einbettung dazu gibt es noch nicht – sie entsteht beim Anlegen.
+    final wahl = await showPersonPickerDialog(context, personen,
+        paths: widget.paths,
+        title: AppTexte.of(context).viewerGesichtNachtragen);
+    if (wahl == null || !mounted) return;
+
+    final personId = wahl.newName != null ? const Uuid().v4() : wahl.existingPersonId!;
+    if (wahl.newName != null) {
+      await widget.db
+          .createPerson(PeopleCompanion.insert(id: personId, name: wahl.newName!));
+    }
+
+    final datei = await _fileFuture;
+    final angelegt = await gesichtVonHandAnlegen(
+      library: bibliothek,
+      assetId: widget.asset.id,
+      bilddatei: datei,
+      kasten: kasten,
+      personId: personId,
+      beiEinbettungsfehler: (e) {
+        if (mounted) melde.fehler(AppTexte.of(context).gesichtEmbeddingFehler('$e'));
+      },
+    );
+    if (!mounted) return;
+    if (angelegt == null) {
+      melde.fehler(AppTexte.of(context).viewerRahmenNichtLesbar);
+      return;
+    }
+    widget.beiGesichtAngelegt?.call();
     await _gesichterLaden();
   }
 
@@ -1370,8 +1485,13 @@ class _AssetPageState extends State<_AssetPage> {
             widget.gesichterZeigen && masse != null && _gesichter.isNotEmpty;
         final textkaesten =
             widget.textZeigen && masse != null && _stellen.isNotEmpty;
+        // Der Malmodus zählt mit: Gerade auf einem Foto, auf dem die
+        // Erkennung NICHTS gefunden hat, will man nachtragen – und dort ist
+        // `rahmen` falsch, weil es keine Rahmen gibt. Ohne diese Zeile wäre
+        // Nachtragen genau dort unmöglich, wo es am nötigsten ist.
+        final malen = widget.gesichtAufziehen && masse != null;
         // Eine Überlagerung genügt, damit das Kind genau das Bild sein muss.
-        final ueberlagert = rahmen || textkaesten;
+        final ueberlagert = rahmen || textkaesten || malen;
         if (overlay == null && !ueberlagert) {
           return Stack(
             children: [
@@ -1381,7 +1501,18 @@ class _AssetPageState extends State<_AssetPage> {
                 initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
                 minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
               ),
-              if (widget.gesichterZeigen && _gesichter.isEmpty)
+              // Im Malmodus sagt die Fahne, was zu tun ist. Sie ersetzt die
+              // Auskunft „hier ist kein Gesicht" – die ist dann gerade der
+              // Anlass und nicht mehr die Nachricht.
+              if (malen)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: AppSpacing.md,
+                  child: Center(child: _Hinweisfahne(
+                      text: AppTexte.of(context).viewerAufziehenHinweis)),
+                )
+              else if (widget.gesichterZeigen && _gesichter.isEmpty)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -1425,9 +1556,34 @@ class _AssetPageState extends State<_AssetPage> {
           // Kasten bei 0,3 auch auf drei Zehnteln des Fotos und nicht auf
           // drei Zehnteln des Fensters samt seiner schwarzen Ränder.
           childSize: ueberlagert ? masse : null,
+          // Ohne das verschöbe der Zug das Bild, statt einen Rahmen zu
+          // malen: PhotoView greift dieselbe Geste ab.
+          disableGestures: malen,
           initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
           minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
-          child: Stack(
+          child: GestureDetector(
+            // `opaque` nur im Malmodus: Sonst schluckte diese Fläche die
+            // Tipps auf die Gesichtsrahmen darunter.
+            behavior: malen ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+            onPanStart: malen
+                ? (d) => setState(() {
+                      _zugAnfang = d.localPosition;
+                      _zugJetzt = d.localPosition;
+                    })
+                : null,
+            onPanUpdate:
+                malen ? (d) => setState(() => _zugJetzt = d.localPosition) : null,
+            onPanEnd: malen
+                ? (_) {
+                    final a = _zugAnfang, b = _zugJetzt;
+                    if (a == null || b == null) return;
+                    // Die Umrechnung steht in [kastenAusZug] und nicht
+                    // hier: Sie ist die Umkehrung dessen, was
+                    // [Gesichtsrahmen] rechnet, und das gehört geprüft.
+                    unawaited(_rahmenFertig(kastenAusZug(a, b, masse)));
+                  }
+                : null,
+            child: Stack(
             fit: StackFit.expand,
             children: [
               // Derselbe Deckel wie im Zweig ohne Überlagerung. Er
@@ -1454,7 +1610,23 @@ class _AssetPageState extends State<_AssetPage> {
                     flaeche: masse,
                     beiTipp: _zeileKopieren,
                   ),
+              // Der Rahmen, der gerade gezogen wird. Ohne ihn zöge man
+              // blind und sähe erst nach dem Loslassen, was man getroffen
+              // hat.
+              if (malen && _zugAnfang != null && _zugJetzt != null)
+                Positioned.fromRect(
+                  rect: Rect.fromPoints(_zugAnfang!, _zugJetzt!),
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.orangeAccent, width: 2),
+                        color: Colors.orangeAccent.withValues(alpha: 0.15),
+                      ),
+                    ),
+                  ),
+                ),
             ],
+            ),
           ),
         );
       },

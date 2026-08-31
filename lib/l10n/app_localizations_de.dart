@@ -1845,6 +1845,9 @@ class AppTexteDe extends AppTexte {
   String get auswOrtHinweis => 'Ort (unverändert lassen: nicht antippen)';
 
   @override
+  String get auswOrtEntfernen => 'Ort entfernen';
+
+  @override
   String auswTagTitel(int anzahl) {
     return 'Tag zu $anzahl Foto(s) hinzufügen';
   }
@@ -2419,12 +2422,6 @@ class AppTexteDe extends AppTexte {
   String personAktuell(String name) {
     return 'Aktuell: $name';
   }
-
-  @override
-  String get personBestehende => 'Bestehende Person';
-
-  @override
-  String get personNeuAnlegen => 'Neue Person anlegen';
 
   @override
   String get personZuordnenAktion => 'Zuordnen';
@@ -6896,4 +6893,77 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgVorschauTitel => 'Vorschaubilder erzeugen';
+
+  @override
+  String get sperreTitel => 'Diese Bibliothek ist bereits geöffnet';
+
+  @override
+  String get sperreText =>
+      'Ein anderes Fenster von Photo Vault arbeitet gerade mit denselben Daten. Zwei Fenster auf einer Bibliothek zeigen verschiedene Stände und lassen Hintergrundaufgaben doppelt laufen.\n\nEs ist nichts kaputtgegangen – diese Bibliothek wird nur nicht ein zweites Mal geöffnet.';
+
+  @override
+  String get sperreOrt => 'Ort';
+
+  @override
+  String get sperreErneut => 'Erneut versuchen';
+
+  @override
+  String get sperreNochBelegt => 'Sie ist weiterhin geöffnet.';
+
+  @override
+  String get sperreAndere => 'Andere Bibliothek öffnen';
+
+  @override
+  String get sperreBeenden => 'Photo Vault beenden';
+
+  @override
+  String get sperreAuswahlTitel => 'Andere Bibliothek öffnen';
+
+  @override
+  String get sperreAuswahlLeer =>
+      'Es ist keine weitere Bibliothek eingetragen.';
+
+  @override
+  String get personVorschlag => 'Vorschlag der Wiedererkennung';
+
+  @override
+  String get personSuchenOderAnlegen => 'Person suchen oder neu anlegen';
+
+  @override
+  String get allgLeeren => 'Leeren';
+
+  @override
+  String get personNochKeine =>
+      'Es gibt noch keine Person. Tippe einen Namen ein, um die erste anzulegen.';
+
+  @override
+  String personKeinTreffer(String suche) {
+    return 'Keine Person heisst „$suche“. Der Knopf legt sie neu an.';
+  }
+
+  @override
+  String personAnlegenAktion(String name) {
+    return '„$name“ anlegen';
+  }
+
+  @override
+  String get viewerGesichtAufziehen => 'Gesicht nachtragen – Rahmen aufziehen';
+
+  @override
+  String get viewerGesichtAufziehenEnde => 'Nachtragen beenden';
+
+  @override
+  String get viewerGesichtNachtragen => 'Nachgetragenes Gesicht benennen';
+
+  @override
+  String get viewerRahmenZuKlein =>
+      'Der Rahmen ist zu klein. Ziehe einen Kasten um das Gesicht.';
+
+  @override
+  String get viewerRahmenNichtLesbar =>
+      'Das Foto liess sich nicht lesen – kein Gesicht angelegt.';
+
+  @override
+  String get viewerAufziehenHinweis =>
+      'Ziehe einen Rahmen um das fehlende Gesicht.';
 }

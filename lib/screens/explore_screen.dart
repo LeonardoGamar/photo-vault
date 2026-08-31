@@ -22,6 +22,7 @@ import 'person_detail_screen.dart';
 import 'timeline_screen.dart';
 import 'trash_screen.dart';
 import '../widgets/profilbild.dart';
+import '../services/laendernamen.dart';
 
 const _previewPeopleCount = 10;
 const _previewAlbumCount = 8;
@@ -427,7 +428,8 @@ class _LocationGroupTile extends StatelessWidget {
             ),
             if (group.country != null)
               Text(
-                group.country!,
+                landAnzeige(group.country,
+                    Localizations.localeOf(context).languageCode),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),

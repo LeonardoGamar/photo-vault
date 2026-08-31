@@ -16,6 +16,7 @@ import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../services/ai_tagging_service.dart';
 import '../services/backup_service.dart';
+import '../services/bibliothekssperre.dart';
 import '../services/blur_detection.dart';
 import '../services/florence_captioning_service.dart';
 import '../services/clip_service.dart';
@@ -34,6 +35,7 @@ import '../services/library_location.dart';
 import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
 import '../services/ocr_service.dart';
+import '../services/personenvorschlag.dart';
 import '../services/textstellen.dart';
 import '../services/modell_halter.dart';
 import '../services/platform/folder_access.dart';
@@ -229,6 +231,19 @@ class LibraryState extends ChangeNotifier {
   bool _ready = false;
   bool get isReady => _ready;
 
+  /// Gesetzt, wenn eine andere Instanz dieselbe Bibliothek hält. [initialize]
+  /// bricht dann ab, BEVOR die Datenbank geöffnet wird – die Oberfläche zeigt
+  /// statt der Bibliothek den [BibliothekBelegtScreen]. Siehe
+  /// [Bibliothekssperre]: Nur eine wirklich belegte Sperre führt hierher, ein
+  /// unbeantwortbarer Fall wird durchgelassen.
+  bool _bibliothekBelegt = false;
+  bool get bibliothekBelegt => _bibliothekBelegt;
+
+  /// Der Ort, an dem es klemmt – für die Meldung, damit erkennbar ist, um
+  /// WELCHE Bibliothek es geht, wenn mehrere in der Liste stehen.
+  String? _belegterOrt;
+  String? get belegterOrt => _belegterOrt;
+
   // Cache für AppDatabase.allEmbeddings() (KI-Suche, Ähnliche Fotos,
   // Duplikatsuche) – bei einer großen Bibliothek ein potenziell sehr großes
   // Ergebnis (mehrere hundert MB an CLIP-Vektoren), das bisher bei JEDEM
@@ -289,6 +304,36 @@ class LibraryState extends ChangeNotifier {
   double schwelleFuerPerson(PersonData person) =>
       person.similarityThreshold ?? faceSimilarityThreshold;
 
+  /// Wer könnte auf [einbettung] zu sehen sein?
+  ///
+  /// Gibt `null` zurück, wenn nichts nahe genug ist – der Regelfall bei
+  /// einem fremden Gesicht, und richtig so: Ein falscher Vorschlag, den
+  /// jemand übersieht und bestätigt, kostet eine falsche Zuordnung.
+  ///
+  /// [ausser] lässt eine Person aus. Gebraucht beim Umbenennen: Dort ist
+  /// die aktuelle Zuordnung bekannt, und sie sich selbst vorzuschlagen
+  /// hilft niemandem.
+  Future<PersonData?> personenvorschlag(Uint8List? einbettung,
+      {String? ausser}) async {
+    if (einbettung == null) return null;
+    final roh = await db.einbettungenZugeordneterGesichter();
+    final leute = {for (final p in await db.select(db.people).get()) p.id: p};
+    final kerne = personenkerne([
+      for (final e in roh)
+        if (e.personId != ausser && leute.containsKey(e.personId))
+          (personId: e.personId, vektor: floatsFromEmbeddingBlob(e.vektor)),
+    ]);
+    final treffer = besterTreffer(
+      floatsFromEmbeddingBlob(einbettung),
+      kerne,
+      schwelleFuer: (id) {
+        final person = leute[id];
+        return person == null ? faceSimilarityThreshold : schwelleFuerPerson(person);
+      },
+    );
+    return treffer == null ? null : leute[treffer.personId];
+  }
+
   /// Übersetzt [text] ins Englische, sofern das Modell installiert und die
   /// Einstellung eingeschaltet ist – sonst kommt [text] unverändert zurück.
   ///
@@ -340,6 +385,22 @@ class LibraryState extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    // ERST die Bibliothek beanspruchen, DANN die Datenbank öffnen. Zwei
+    // Instanzen auf derselben Datei zeigen verschiedene Stände, lassen
+    // Hintergrundaufgaben doppelt laufen und schreiben abwechselnd
+    // übereinander. Die Wartezeit aus AppDatabase.sperrwartezeitMs wendet
+    // den Schaden ab, nicht die Verwirrung.
+    final wurzel = await LibraryLocation.currentRoot();
+    final befund = await Bibliothekssperre.nimm(wurzel);
+    if (befund.zustand == Sperrzustand.belegt) {
+      _bibliothekBelegt = true;
+      _belegterOrt = wurzel.path;
+      notifyListeners();
+      return;
+    }
+    _bibliothekBelegt = false;
+    _belegterOrt = null;
+
     db = await AppDatabase.open();
     paths = await StoragePaths.instance();
     importService = ImportService(db, paths);
@@ -866,6 +927,14 @@ class LibraryState extends ChangeNotifier {
   /// zurück – statt, wie jetzt, vollständig bis auf die Bildbeschreibung.
   /// Die Texterkennung wiederum arbeitet nativ auf der Datei und hat vom
   /// dekodierten Bild ohnehin nichts.
+  /// Wie oft der Fortschritt einer Hintergrundstufe gemeldet wird.
+  ///
+  /// Nicht öfter, weil jede Meldung den ganzen sichtbaren Baum neu aufbaut;
+  /// nicht seltener, weil eine Anzeige, die nur alle paar Sekunden springt,
+  /// wie ein Stillstand aussieht.
+  @visibleForTesting
+  static const meldeabstand = Duration(milliseconds: 100);
+
   Future<void> starteHintergrundanalyse() async {
     if (_analyse != null) return; // läuft bereits
 
@@ -903,6 +972,15 @@ class LibraryState extends ChangeNotifier {
         // einziges try/catch die ganze Schleife – ein Fehler in Stufe 1 ließ
         // die Stufen 2-6 stillschweigend ausfallen (Audit-Fund).
         try {
+          // **Der Stand wird immer gesetzt, gemeldet wird er zehnmal die
+          // Sekunde.** Jede Meldung baut den gesamten Baum unter dem
+          // `Consumer<LibraryState>` in `main.dart` neu auf – und das ist
+          // alles, was auf dem Bildschirm steht. Über 8000 Aufnahmen und
+          // vier Stufen wären das 32.000 Anlässe dazu, für eine Anzeige,
+          // die kein Bildschirm öfter als sechzigmal die Sekunde zeigt.
+          // Wer den Stand liest, ohne auf eine Meldung zu warten (das
+          // Aufgabenblatt beim Öffnen), sieht trotzdem den aktuellen.
+          var zuletztGemeldet = DateTime.now();
           await for (final p in stufe.lauf()) {
             if (_analyseAbbruch) break;
             _analyse = AnalyseFortschritt(
@@ -912,8 +990,15 @@ class LibraryState extends ChangeNotifier {
               erledigt: p.done,
               gesamt: p.total,
             );
-            notifyListeners();
+            final jetzt = DateTime.now();
+            if (jetzt.difference(zuletztGemeldet) >= meldeabstand) {
+              zuletztGemeldet = jetzt;
+              notifyListeners();
+            }
           }
+          // Der letzte Stand einer Stufe muss ankommen – sonst bliebe die
+          // Anzeige bei „7994 von 8096" stehen.
+          notifyListeners();
         } catch (e) {
           debugPrint('Analysestufe "${stufe.name.name}" fehlgeschlagen, '
               'weiter mit der nächsten: $e');
@@ -1247,6 +1332,37 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+
+  /// Setzt den Ort von Hand – und trägt die Ortsnamen gleich mit nach.
+  ///
+  /// **Beides gehört zusammen.** [AppDatabase.setLocation] leert die alten
+  /// Namen, weil sie zur alten Koordinate gehören; ohne diesen zweiten
+  /// Schritt stünde das Foto bis zum nächsten Lauf der Hintergrundaufgabe
+  /// ohne Ortsangabe da, obwohl gerade eine gesetzt wurde.
+  ///
+  /// Mit `null` für beide Koordinaten wird der Ort entfernt – dann bleiben
+  /// auch die Namen leer, und das ist die Wahrheit: Es ist keiner bekannt.
+  ///
+  /// Ohne eingespielten GeoNames-Datensatz bleibt es bei der Koordinate.
+  Future<void> setzeOrtVonHand(
+      List<String> assetIds, double? breite, double? laenge) async {
+    await db.setLocationBulk(assetIds, breite, laenge);
+    if (breite == null || laenge == null) return;
+    // **Kein `await geoBereit` hier**, anders als beim Import. Der wartet
+    // darauf, weil er in der ersten halben Sekunde nach dem Start laufen
+    // kann; ein Handgriff am Bildschirm kann das nicht. Und der Preis wäre
+    // hoch: `geoBereit` ist ein Future aus dem Zeitgeber-Bereich des
+    // Starts, und darauf zu warten hängt in einem Widget-Prüfstand
+    // wortlos – dieselbe Falle wie beim echten Lesen von der Platte.
+    // Ist das Verzeichnis wirklich noch nicht da, trägt der Nachtrag die
+    // Namen später ein.
+    final treffer = geocoder?.lookup(breite, laenge);
+    if (treffer == null) return;
+    for (final id in assetIds) {
+      await db.setLocationNames(id,
+          country: treffer.country, state: treffer.state, city: treffer.city);
+    }
+  }
 
   /// Führt die Gesichtserkennung für ein Asset aus, dessen Bild bereits
   /// dekodiert vorliegt (siehe [_postProcessNewAsset], wo dasselbe Bild auch

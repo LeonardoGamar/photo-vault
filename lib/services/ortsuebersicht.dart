@@ -9,7 +9,8 @@
 /// mehr, ob „Bayern" einmal oder zweimal gezählt wurde.
 library;
 
-import 'reisefortschritt.dart' show Besuchsangabe, Markenart, Markeneintrag;
+import 'reisefortschritt.dart'
+    show Besuchsangabe, Markenart, Markeneintrag, ortsmarkeZerlegen;
 
 /// Welche Ebene eine Ortsansicht zeigt.
 enum Ortsebene { land, region, ort }
@@ -25,12 +26,24 @@ typedef Unterort = ({
   String name,
   int aufnahmen,
   Markenart? marke,
+
+  /// Belegt durch etwas, das eine Ebene TIEFER liegt: eine von Hand
+  /// markierte Stadt färbt ihr Bundesland.
+  ///
+  /// Getrennt von [marke] und nicht in sie hineingerechnet, denn beides
+  /// bedeutet Verschiedenes: [marke] ist der Haken, den jemand an
+  /// **dieser** Zeile gesetzt hat, und nur er lässt sich hier wieder
+  /// wegnehmen. Wer die Ableitung als eigene Marke ausgäbe, böte einen
+  /// Haken zum Entfernen an, den es gar nicht gibt.
+  bool abgeleitet,
 });
 
 extension UnterortStand on Unterort {
-  /// Belegt heisst: Es gibt Fotos, oder es steht ein Haken von Hand.
-  /// „Geplant" zählt nicht – wie überall in dieser App.
-  bool get besucht => aufnahmen > 0 || marke == Markenart.besucht;
+  /// Belegt heisst: Es gibt Fotos, es steht ein Haken von Hand, oder eine
+  /// Ebene tiefer steht einer. „Geplant" zählt nicht – wie überall in
+  /// dieser App.
+  bool get besucht =>
+      aufnahmen > 0 || marke == Markenart.besucht || abgeleitet;
 }
 
 /// Was über einen Ort bekannt ist.
@@ -141,6 +154,27 @@ Ortsuebersicht ortsuebersicht({
     }
   }
 
+  // Was eine Ebene tiefer steht, färbt die Zeile darüber. Ohne das galt
+  // eine von Hand markierte Stadt in der Regionenübersicht als nirgends,
+  // während die Länderliste dieselbe Marke längst mitzählte – zwei
+  // Bildschirme, dieselben Daten, gegenteilige Auskunft.
+  //
+  // Nur bei den Regionen: Unter einem Ort kommt nichts mehr.
+  final abgeleitet = <String>{};
+  if (ebene == Ortsebene.land) {
+    for (final m in marken) {
+      if (m.art != 'ort' || m.wert != Markenart.besucht) continue;
+      final teile = ortsmarkeZerlegen(m.schluessel, nachIso);
+      if (teile == null || teile.iso != schluessel || teile.region.isEmpty) {
+        continue;
+      }
+      // Ohne auflösbaren Code gibt es keine Zeile, die sich färben liesse
+      // – die Liste führt Regionen unter ihrem Code.
+      final code = regionscodes['${teile.iso}|${teile.region}'];
+      if (code != null) abgeleitet.add(code);
+    }
+  }
+
   final art = switch (ebene) {
     Ortsebene.land => 'land',
     Ortsebene.region => 'region',
@@ -148,11 +182,31 @@ Ortsuebersicht ortsuebersicht({
   };
   final unterart = ebene == Ortsebene.land ? 'region' : 'ort';
 
+  // Ein von Hand markierter Ort gehört ebenso in die Liste. `orteIn`
+  // deckelt bei den sechzig grössten – auf der Weltkarte lässt sich aber
+  // jeder Fleck markieren, und die nächstgelegene Stadt ist oft ein Dorf.
+  // Ohne diese Zeile gäbe es eine Marke in der Datenbank, zu der keine
+  // Zeile existiert: unsichtbar, und deshalb auch nie wieder wegzunehmen.
+  //
+  // Auch geplante gehören dazu, gerade sie: Ein Vorhaben, das man nicht
+  // mehr findet, kann man nicht abhaken.
+  final markierte = <String, String>{};
+  if (ebene == Ortsebene.region) {
+    for (final m in marken) {
+      if (m.art != 'ort') continue;
+      final teile = ortsmarkeZerlegen(m.schluessel, nachIso);
+      if (teile == null) continue;
+      if (regionscodes['${teile.iso}|${teile.region}'] != schluessel) continue;
+      markierte[m.schluessel] = teile.ort;
+    }
+  }
+
   // Was der Datensatz kennt, und dazu alles, was die Fotos nennen: Ein
   // Ort, den `cities1000` nicht führt, aber ein Foto belegt, muss
   // trotzdem in der Liste stehen.
   final alle = <String, String>{
     for (final u in bekannteUnterorte) u.schluessel: u.name,
+    ...markierte,
     ...unternamen,
   };
 
@@ -163,6 +217,7 @@ Ortsuebersicht ortsuebersicht({
         name: e.value,
         aufnahmen: unteraufnahmen[e.key] ?? 0,
         marke: markeFuer(unterart, e.key),
+        abgeleitet: abgeleitet.contains(e.key),
       ),
   ];
 

@@ -403,7 +403,11 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
             ),
           IconButton(
             tooltip: t.aufnahmenBearbeiten,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
+            // `photo_library` und nicht `add_photo_alternate`: Der Knopf
+            // nimmt Fotos auch HERAUS, und ein Pluszeichen sagt das nicht.
+            // Er stand hier zwischen bis zu sechs weiteren Symbolen und
+            // wurde als „Fotos hinzufügen" gelesen, also gar nicht gesucht.
+            icon: const Icon(Icons.photo_library_outlined),
             onPressed: _aufnahmenBearbeiten,
           ),
           IconButton(

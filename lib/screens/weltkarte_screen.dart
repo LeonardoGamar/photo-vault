@@ -18,6 +18,7 @@ import '../widgets/zoomsteuerung.dart';
 import '../widgets/mini_location_map.dart'
     show Kachelschicht, buildMapAttribution, kartenHoechsteStufe;
 import '../widgets/wisch_zoom.dart';
+import '../services/laenderkatalog.dart';
 
 /// Die Welt als Karte: wo du warst, und wo du hinwillst.
 ///
@@ -140,7 +141,8 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     final besucht = await widget.library.db.besuchteOrte();
     final marken = await widget.library.db.alleOrtsmarken();
     if (!mounted) return;
-    final punkte = _sammle(geo, besucht, marken);
+    final punkte = _sammle(
+        geo, besucht, marken, Localizations.localeOf(context).languageCode);
     setState(() {
       _punkte = punkte;
       _flaechen = _umrisse(punkte, grenzen);
@@ -179,6 +181,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     ReverseGeocoder geo,
     List<Besuchsangabe> besucht,
     List<OrtsmarkenData> marken,
+    String sprache,
   ) {
     final aufnahmenJeLand = <String, int>{};
     final regionen = <String, String>{}; // Code -> Name
@@ -231,7 +234,9 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
       ergebnis.add(_Kartenpunkt(
         ebene: _Ebene.land,
         schluessel: iso,
-        name: geo.laenderkatalog.nachIso(iso)?.name ?? iso,
+        // Der angezeigte Name der Marke – auf Deutsch, wo es einen gibt.
+        // Der Schlüssel bleibt der Code, gespeichert wird nichts hiervon.
+        name: geo.laenderkatalog.nachIso(iso)?.anzeige(sprache) ?? iso,
         breite: punkt.breite,
         laenge: punkt.laenge,
         aufnahmen: aufnahmenJeLand[iso] ?? 0,

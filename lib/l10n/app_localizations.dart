@@ -3147,6 +3147,12 @@ abstract class AppTexte {
   /// **'Ort (unverändert lassen: nicht antippen)'**
   String get auswOrtHinweis;
 
+  /// No description provided for @auswOrtEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort entfernen'**
+  String get auswOrtEntfernen;
+
   /// No description provided for @auswTagTitel.
   ///
   /// In de, this message translates to:
@@ -4166,18 +4172,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Aktuell: {name}'**
   String personAktuell(String name);
-
-  /// No description provided for @personBestehende.
-  ///
-  /// In de, this message translates to:
-  /// **'Bestehende Person'**
-  String get personBestehende;
-
-  /// No description provided for @personNeuAnlegen.
-  ///
-  /// In de, this message translates to:
-  /// **'Neue Person anlegen'**
-  String get personNeuAnlegen;
 
   /// No description provided for @personZuordnenAktion.
   ///
@@ -10576,6 +10570,132 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Vorschaubilder erzeugen'**
   String get aufgVorschauTitel;
+
+  /// No description provided for @sperreTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Bibliothek ist bereits geöffnet'**
+  String get sperreTitel;
+
+  /// No description provided for @sperreText.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein anderes Fenster von Photo Vault arbeitet gerade mit denselben Daten. Zwei Fenster auf einer Bibliothek zeigen verschiedene Stände und lassen Hintergrundaufgaben doppelt laufen.\n\nEs ist nichts kaputtgegangen – diese Bibliothek wird nur nicht ein zweites Mal geöffnet.'**
+  String get sperreText;
+
+  /// No description provided for @sperreOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort'**
+  String get sperreOrt;
+
+  /// No description provided for @sperreErneut.
+  ///
+  /// In de, this message translates to:
+  /// **'Erneut versuchen'**
+  String get sperreErneut;
+
+  /// No description provided for @sperreNochBelegt.
+  ///
+  /// In de, this message translates to:
+  /// **'Sie ist weiterhin geöffnet.'**
+  String get sperreNochBelegt;
+
+  /// No description provided for @sperreAndere.
+  ///
+  /// In de, this message translates to:
+  /// **'Andere Bibliothek öffnen'**
+  String get sperreAndere;
+
+  /// No description provided for @sperreBeenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Photo Vault beenden'**
+  String get sperreBeenden;
+
+  /// No description provided for @sperreAuswahlTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Andere Bibliothek öffnen'**
+  String get sperreAuswahlTitel;
+
+  /// No description provided for @sperreAuswahlLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Es ist keine weitere Bibliothek eingetragen.'**
+  String get sperreAuswahlLeer;
+
+  /// No description provided for @personVorschlag.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschlag der Wiedererkennung'**
+  String get personVorschlag;
+
+  /// No description provided for @personSuchenOderAnlegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Person suchen oder neu anlegen'**
+  String get personSuchenOderAnlegen;
+
+  /// No description provided for @allgLeeren.
+  ///
+  /// In de, this message translates to:
+  /// **'Leeren'**
+  String get allgLeeren;
+
+  /// No description provided for @personNochKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'Es gibt noch keine Person. Tippe einen Namen ein, um die erste anzulegen.'**
+  String get personNochKeine;
+
+  /// No description provided for @personKeinTreffer.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Person heisst „{suche}“. Der Knopf legt sie neu an.'**
+  String personKeinTreffer(String suche);
+
+  /// No description provided for @personAnlegenAktion.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}“ anlegen'**
+  String personAnlegenAktion(String name);
+
+  /// No description provided for @viewerGesichtAufziehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesicht nachtragen – Rahmen aufziehen'**
+  String get viewerGesichtAufziehen;
+
+  /// No description provided for @viewerGesichtAufziehenEnde.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachtragen beenden'**
+  String get viewerGesichtAufziehenEnde;
+
+  /// No description provided for @viewerGesichtNachtragen.
+  ///
+  /// In de, this message translates to:
+  /// **'Nachgetragenes Gesicht benennen'**
+  String get viewerGesichtNachtragen;
+
+  /// No description provided for @viewerRahmenZuKlein.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Rahmen ist zu klein. Ziehe einen Kasten um das Gesicht.'**
+  String get viewerRahmenZuKlein;
+
+  /// No description provided for @viewerRahmenNichtLesbar.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Foto liess sich nicht lesen – kein Gesicht angelegt.'**
+  String get viewerRahmenNichtLesbar;
+
+  /// No description provided for @viewerAufziehenHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Ziehe einen Rahmen um das fehlende Gesicht.'**
+  String get viewerAufziehenHinweis;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

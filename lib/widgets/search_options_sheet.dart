@@ -14,6 +14,7 @@ import '../theme/app_theme.dart';
 import 'color_label_picker.dart';
 import 'star_rating.dart';
 import 'profilbild.dart';
+import '../services/laendernamen.dart';
 
 /// Panel mit allen kombinierbaren Suchfiltern (Personen, Text-Suche, Tags,
 /// Kamera, Zeitraum, Medientyp, Anzeigeoptionen) – analog zu Immichs
@@ -858,8 +859,11 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
     String label,
     Future<List<String>> future,
     String? value,
-    ValueChanged<String?>? onChanged,
-  ) {
+    ValueChanged<String?>? onChanged, {
+    /// Wie ein Wert dasteht. Der Wert selbst bleibt, was in der Datenbank
+    /// steht – bei Ländern ist das der englische Name.
+    String Function(String)? beschriftung,
+  }) {
     return FutureBuilder<List<String>>(
       future: future,
       builder: (context, snapshot) {
@@ -867,7 +871,9 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
         // Falls der aktuell gesetzte Wert (noch) nicht in der geladenen
         // Liste steckt (z.B. während des Ladens), trotzdem als Eintrag
         // anbieten, damit DropdownButtonFormField nicht abstürzt.
-        final items = {value, ...values}.whereType<String>().toList()..sort();
+        final zeige = beschriftung ?? (v) => v;
+        final items = {value, ...values}.whereType<String>().toList()
+          ..sort((a, b) => zeige(a).compareTo(zeige(b)));
         return DropdownButtonFormField<String?>(
           initialValue: value,
           isExpanded: true,
@@ -878,7 +884,10 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           ),
           items: [
             DropdownMenuItem(value: null, child: Text(AppTexte.of(context).allgAlle)),
-            for (final v in items) DropdownMenuItem(value: v, child: Text(v, overflow: TextOverflow.ellipsis)),
+            for (final v in items)
+              DropdownMenuItem(
+                  value: v,
+                  child: Text(zeige(v), overflow: TextOverflow.ellipsis)),
           ],
           onChanged: onChanged,
         );
@@ -897,7 +906,15 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
           children: [
             Expanded(
               child: _cameraDropdown(
-                  AppTexte.of(context).suchoptLand, _countriesFuture, _locationCountry, _onCountryChanged),
+                AppTexte.of(context).suchoptLand,
+                _countriesFuture,
+                _locationCountry,
+                _onCountryChanged,
+                // Die Datenbank führt „Germany"; im Feld steht
+                // „Deutschland", und danach ist auch sortiert.
+                beschriftung: (v) => landAnzeige(
+                    v, Localizations.localeOf(context).languageCode),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
