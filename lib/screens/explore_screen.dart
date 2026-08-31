@@ -22,6 +22,7 @@ import 'person_detail_screen.dart';
 import 'timeline_screen.dart';
 import 'trash_screen.dart';
 import '../widgets/profilbild.dart';
+import '../widgets/stromhalter.dart';
 import '../services/laendernamen.dart';
 
 const _previewPeopleCount = 10;
@@ -44,68 +45,92 @@ class ExploreScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    // **Kein `ListView`.** Die Abschnitte hier sind unterschiedlich hoch
+    // (ein Streifen 96 Punkte, die Kartenvorschau 200, die Papierkorbzeile
+    // 72), und eine faule Liste schaetzt ihre Gesamthoehe aus dem, was
+    // gerade ausgelegt ist. Wer bis zum Papierkorb scrollt, hat oben nur
+    // noch die kurzen Abschnitte im Baum – und die Schaetzung bricht ein:
+    //
+    // ```
+    // unten angekommen   1288 von max 1288
+    // ein Zug zurueck     250 von max  352   <- 950 Punkte auf einmal
+    // zwei Zuege spaeter    0 von max 2810   <- ganz oben
+    // ```
+    //
+    // Die Rollposition wird auf das eingebrochene Maximum gekappt, und
+    // wenn die echte Hoehe zurueckkommt, ist sie weg. Von aussen sieht es
+    // aus, als springe die Seite von selbst nach oben.
+    //
+    // Dreizehn Abschnitte auf einmal auszulegen kostet nichts: Die Menge
+    // steckt in den Vorschaubildern, und die liegen in den waagerechten
+    // Listen darin, die faul bleiben. Nebenbei bauen die Abschnitte sich
+    // nicht mehr staendig ab und neu auf – jeder Wiederaufbau hatte seine
+    // Abfrage von vorn begonnen.
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      children: [
-        _MemoriesSection(library: library),
-        const SizedBox(height: 28),
-        _SectionHeader(
-          title: AppTexte.of(context).erkundenPersonen,
-          onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => PeopleScreen(library: library),
-          )),
-        ),
-        const SizedBox(height: 8),
-        _PeopleStrip(library: library),
-        const SizedBox(height: 28),
-        _SectionHeader(
-          title: AppTexte.of(context).erkundenOrte,
-          onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => MapScreen(library: library),
-          )),
-        ),
-        const SizedBox(height: 8),
-        _LocationsPreview(library: library),
-        const SizedBox(height: 12),
-        _LocationGroupsStrip(library: library),
-        const SizedBox(height: 28),
-        // Reisen stehen direkt unter den Orten: Sie sind dieselbe Frage,
-        // eine Ebene größer – nicht „wo war dieses Bild", sondern „wo war
-        // ich, und wie lange".
-        _SectionHeader(
-          title: AppTexte.of(context).erkundenReisen,
-          onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => ReisenScreen(library: library),
-          )),
-        ),
-        const SizedBox(height: 8),
-        _ReisenStrip(library: library),
-        const SizedBox(height: 28),
-        _SectionHeader(
-          title: AppTexte.of(context).erkundenLetzteAlben,
-          onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => AlbumsScreen(library: library),
-          )),
-        ),
-        const SizedBox(height: 8),
-        _RecentAlbumsStrip(library: library),
-        const SizedBox(height: 28),
-        _SectionHeader(
-          title: AppTexte.of(context).erkundenLetzteFotos,
-          onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => TimelineScreen(library: library),
-          )),
-        ),
-        const SizedBox(height: 8),
-        _RecentPhotosStrip(library: library),
-        const SizedBox(height: 28),
-        // Der Papierkorb steht hier und nicht nur in den Einstellungen.
-        // Er ist kein Schalter, sondern ein Ort, an dem Fotos liegen –
-        // und wer eines sucht, sucht es beim Erkunden. Er steht zuletzt,
-        // weil er der einzige Eintrag ist, den man im Regelfall NICHT
-        // braucht.
-        _Papierkorbzeile(library: library),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _MemoriesSection(library: library),
+          const SizedBox(height: 28),
+          _SectionHeader(
+            title: AppTexte.of(context).erkundenPersonen,
+            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => PeopleScreen(library: library),
+            )),
+          ),
+          const SizedBox(height: 8),
+          _PeopleStrip(library: library),
+          const SizedBox(height: 28),
+          _SectionHeader(
+            title: AppTexte.of(context).erkundenOrte,
+            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => MapScreen(library: library),
+            )),
+          ),
+          const SizedBox(height: 8),
+          _LocationsPreview(library: library),
+          const SizedBox(height: 12),
+          _LocationGroupsStrip(library: library),
+          const SizedBox(height: 28),
+          // Reisen stehen direkt unter den Orten: Sie sind dieselbe Frage,
+          // eine Ebene größer – nicht „wo war dieses Bild", sondern „wo war
+          // ich, und wie lange".
+          _SectionHeader(
+            title: AppTexte.of(context).erkundenReisen,
+            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => ReisenScreen(library: library),
+            )),
+          ),
+          const SizedBox(height: 8),
+          _ReisenStrip(library: library),
+          const SizedBox(height: 28),
+          _SectionHeader(
+            title: AppTexte.of(context).erkundenLetzteAlben,
+            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => AlbumsScreen(library: library),
+            )),
+          ),
+          const SizedBox(height: 8),
+          _RecentAlbumsStrip(library: library),
+          const SizedBox(height: 28),
+          _SectionHeader(
+            title: AppTexte.of(context).erkundenLetzteFotos,
+            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => TimelineScreen(library: library),
+            )),
+          ),
+          const SizedBox(height: 8),
+          _RecentPhotosStrip(library: library),
+          const SizedBox(height: 28),
+          // Der Papierkorb steht hier und nicht nur in den Einstellungen.
+          // Er ist kein Schalter, sondern ein Ort, an dem Fotos liegen –
+          // und wer eines sucht, sucht es beim Erkunden. Er steht zuletzt,
+          // weil er der einzige Eintrag ist, den man im Regelfall NICHT
+          // braucht.
+          _Papierkorbzeile(library: library),
+        ],
+      ),
     );
   }
 }
@@ -141,16 +166,30 @@ class _EmptyHint extends StatelessWidget {
   }
 }
 
-class _PeopleStrip extends StatelessWidget {
+/// Die Strom-Halter der Streifen: Seit die Abschnitte nicht mehr
+/// abgebaut werden (siehe [ExploreScreen.build]), bleiben sie stehen –
+/// und werden bei JEDER Meldung des Bibliothekszustands neu gebaut, in
+/// der Hintergrundanalyse also zehnmal je Sekunde. Ein `watch()` im
+/// `stream:` haette dabei jedes Mal ein neues Stream-Objekt geliefert
+/// und damit eine neue Abfrage. Siehe [Stromhalter].
+class _PeopleStrip extends StatefulWidget {
   final LibraryState library;
   const _PeopleStrip({required this.library});
 
   @override
+  State<_PeopleStrip> createState() => _PeopleStripState();
+}
+
+class _PeopleStripState extends State<_PeopleStrip> {
+  final _strom = Stromhalter<List<PersonData>>();
+
+  @override
   Widget build(BuildContext context) {
+    final library = widget.library;
     return SizedBox(
       height: 96,
       child: StreamBuilder<List<PersonData>>(
-        stream: library.db.watchPeople(),
+        stream: _strom.hole(true, () => library.db.watchPeople()),
         builder: (context, snapshot) {
           final people = snapshot.data ?? [];
           if (people.isEmpty) {
@@ -448,16 +487,24 @@ class _LocationGroupTile extends StatelessWidget {
 /// Reisen-Bildschirm, den man dafür öffnet, und nicht in eine
 /// Übersichtsseite, die bei jedem Wechsel auf diesen Reiter neu aufgebaut
 /// wird.
-class _ReisenStrip extends StatelessWidget {
+class _ReisenStrip extends StatefulWidget {
   final LibraryState library;
   const _ReisenStrip({required this.library});
 
   @override
+  State<_ReisenStrip> createState() => _ReisenStripState();
+}
+
+class _ReisenStripState extends State<_ReisenStrip> {
+  final _strom = Stromhalter<List<ReisenData>>();
+
+  @override
   Widget build(BuildContext context) {
+    final library = widget.library;
     return SizedBox(
       height: 92,
       child: StreamBuilder<List<ReisenData>>(
-        stream: library.db.watchReisen(),
+        stream: _strom.hole(true, () => library.db.watchReisen()),
         builder: (context, snapshot) {
           final reisen = snapshot.data ?? const <ReisenData>[];
           if (reisen.isEmpty) {
@@ -520,18 +567,26 @@ class _Reisekachel extends StatelessWidget {
   }
 }
 
-class _RecentAlbumsStrip extends StatelessWidget {
+class _RecentAlbumsStrip extends StatefulWidget {
   final LibraryState library;
   const _RecentAlbumsStrip({required this.library});
 
   @override
+  State<_RecentAlbumsStrip> createState() => _RecentAlbumsStripState();
+}
+
+class _RecentAlbumsStripState extends State<_RecentAlbumsStrip> {
+  final _strom = Stromhalter<List<AlbumData>>();
+
+  @override
   Widget build(BuildContext context) {
+    final library = widget.library;
     return SizedBox(
       height: 150,
       child: StreamBuilder<List<AlbumData>>(
         // Bereits nach createdAt absteigend sortiert -> die ersten N sind
         // die zuletzt angelegten Alben.
-        stream: library.db.watchAlbums(),
+        stream: _strom.hole(true, () => library.db.watchAlbums()),
         builder: (context, snapshot) {
           final albums = snapshot.data ?? [];
           if (albums.isEmpty) {
@@ -622,16 +677,25 @@ class _AlbumPreviewTileState extends State<_AlbumPreviewTile> {
   }
 }
 
-class _RecentPhotosStrip extends StatelessWidget {
+class _RecentPhotosStrip extends StatefulWidget {
   final LibraryState library;
   const _RecentPhotosStrip({required this.library});
 
   @override
+  State<_RecentPhotosStrip> createState() => _RecentPhotosStripState();
+}
+
+class _RecentPhotosStripState extends State<_RecentPhotosStrip> {
+  final _strom = Stromhalter<List<AssetData>>();
+
+  @override
   Widget build(BuildContext context) {
+    final library = widget.library;
     return SizedBox(
       height: 140,
       child: StreamBuilder<List<AssetData>>(
-        stream: library.db.watchTimeline(limit: _previewPhotoCount),
+        stream: _strom.hole(_previewPhotoCount,
+            () => library.db.watchTimeline(limit: _previewPhotoCount)),
         builder: (context, snapshot) {
           final shown = snapshot.data ?? [];
           if (shown.isEmpty) {
@@ -788,17 +852,27 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
 /// zwei Jahre lang gar nicht (siehe `jeder_bildschirm_erreichbar_test.dart`).
 /// Er bleibt dort auch stehen: Wer die automatische Leerung einstellt,
 /// will von dort hineinsehen können.
-class _Papierkorbzeile extends StatelessWidget {
+class _Papierkorbzeile extends StatefulWidget {
   final LibraryState library;
   const _Papierkorbzeile({required this.library});
 
   @override
+  State<_Papierkorbzeile> createState() => _PapierkorbzeileState();
+}
+
+class _PapierkorbzeileState extends State<_Papierkorbzeile> {
+  final _strom = Stromhalter<Papierkorbumfang>();
+
+  @override
   Widget build(BuildContext context) {
+    final library = widget.library;
     final t = AppTexte.of(context);
-    return StreamBuilder<List<AssetData>>(
-      stream: library.db.watchTrash(),
+    // Nur die Zahl, nicht die Aufnahmen: 0,3 statt 13,0 ms je Abo, siehe
+    // [AppDatabase.watchPapierkorbUmfang].
+    return StreamBuilder<Papierkorbumfang>(
+      stream: _strom.hole(true, () => library.db.watchPapierkorbUmfang()),
       builder: (context, schnappschuss) {
-        final anzahl = schnappschuss.data?.length ?? 0;
+        final anzahl = schnappschuss.data?.anzahl ?? 0;
         return Card(
           margin: EdgeInsets.zero,
           child: ListTile(

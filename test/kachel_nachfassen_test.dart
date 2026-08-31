@@ -77,6 +77,70 @@ class _Probebild extends ImageProvider<_Probebild> {
   int get hashCode => nummer;
 }
 
+/// Ein Anbieter, dessen Bildschlüssel die **Adresse** ist – so wie beim
+/// echten `NetworkTileImageProvider`, der sich über `Object.hash(url,
+/// fallbackUrl)` vergleicht.
+///
+/// **Warum [_Launigg] das nicht sieht.** Der gibt jedem Abruf eine eigene
+/// laufende Nummer, damit ein zweiter Anlauf nicht am Bildspeicher
+/// hängenbleibt. Der Kunstgriff stellt aber nebenbei genau das her, was
+/// dem echten Anbieter fehlt: einen anderen Schlüssel je Anlauf. Damit
+/// prüften die drei Stände oben eine Verdrahtung, die es so nur im
+/// Prüfstand gab.
+class _WieDasNetz extends Nachfassanbieter {
+  _WieDasNetz(this.pixel);
+
+  final ui.Image pixel;
+
+  /// Jede angefragte Adresse, in der Reihenfolge der Abrufe.
+  final gefragt = <String>[];
+
+  /// Die eine Kachel, die scheitert – mitten im Bild, nicht im
+  /// Vorratsrand: Eine Kachel am Rand wird nach dem Fehlschlag
+  /// weggeworfen ([EvictErrorTileStrategy.notVisible]) und taucht im
+  /// Nachfassen gar nicht mehr auf.
+  TileCoordinates? opfer;
+
+  @override
+  ImageProvider getImage(TileCoordinates c, TileLayer o) {
+    final adresse = getTileUrl(c, o);
+    gefragt.add(adresse);
+    return _NachAdresse(pixel, adresse, c == opfer);
+  }
+
+  @override
+  ImageProvider getImageWithCancelLoadingSupport(
+          TileCoordinates c, TileLayer o, Future<void> abbruch) =>
+      getImage(c, o);
+}
+
+@immutable
+class _NachAdresse extends ImageProvider<_NachAdresse> {
+  const _NachAdresse(this.pixel, this.adresse, this.scheitert);
+
+  final ui.Image pixel;
+  final String adresse;
+  final bool scheitert;
+
+  @override
+  Future<_NachAdresse> obtainKey(ImageConfiguration k) =>
+      SynchronousFuture(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+          _NachAdresse key, ImageDecoderCallback decode) =>
+      OneFrameImageStreamCompleter(scheitert
+          ? Future.error(Exception('Kachel abgelehnt'))
+          : SynchronousFuture(ImageInfo(image: pixel.clone())));
+
+  @override
+  bool operator ==(Object other) =>
+      other is _NachAdresse && other.adresse == adresse;
+
+  @override
+  int get hashCode => adresse.hashCode;
+}
+
 Future<ui.Image> _einPixel() {
   final fertig = Completer<ui.Image>();
   ui.decodeImageFromPixels(
@@ -264,5 +328,119 @@ void main() {
     expect(hoechstens, lessThanOrEqualTo(kachelVerbindungen),
         reason: 'Es liefen $hoechstens Abrufe auf einmal');
     expect(hoechstens, greaterThan(1), reason: 'gar keine Nebenläufigkeit?');
+  });
+
+  group('mit dem Bildschluessel des echten Anbieters', () {
+    /// **Der Befund, den die drei Staende oben nicht sehen konnten.**
+    ///
+    /// `TileImage.load` haengt seinen Horcher nur an, wenn der
+    /// Bildschluessel sich geaendert hat:
+    ///
+    /// ```dart
+    /// _imageStream = imageProvider.resolve(ImageConfiguration.empty);
+    /// if (_imageStream!.key != oldImageStream?.key) { ... addListener ... }
+    /// ```
+    ///
+    /// Der Rundenzaehler stand bewusst in keiner Adresse. Also blieb der
+    /// Schluessel gleich, es kam kein Horcher dazu, und es wurde nie
+    /// wieder ein Fehler gemeldet. Eine Kachel in der Bildmitte, die
+    /// dauerhaft scheitert, ueber acht Takte zu sechs Sekunden gemessen:
+    ///
+    /// ```
+    ///                    Nachfassen  1  2  3  4  5  6  7  8
+    /// vorher                          1  0  0  0  0  0  0  0
+    /// mit [Nachfassanbieter]          1  0  0  1  0  0  0  0
+    /// ```
+    ///
+    /// Vorher war nach dem ersten Anlauf Schluss: Wer nach fuenf
+    /// Sekunden noch fehlte, fehlte bis zum Programmende. Jetzt greift
+    /// die Staffel aus [kachelNachfassen] wie vorgesehen.
+    testWidgets('eine fehlende Kachel wird auch ein zweites Mal versucht',
+        (tester) async {
+      await _leise(() async {
+        tester.view.physicalSize = const Size(1830, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final anbieter = _WieDasNetz(pixel);
+        anbieter.opfer = const TileCoordinates(2159, 1349, 12);
+        kachelAnbieterFuerTest = anbieter;
+
+        await tester.pumpWidget(const MaterialApp(
+          home: FlutterMap(
+            options: MapOptions(
+              initialCenter: ll.LatLng(52.2, 9.8),
+              initialZoom: 12,
+              maxZoom: 19,
+            ),
+            children: [Kachelschicht(stil: Kartenstil.topo)],
+          ),
+        ));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        anbieter.gefragt.clear();
+
+        var anlaeufe = 0;
+        for (var i = 1; i <= 8; i++) {
+          await tester.pump(const Duration(seconds: 6));
+          await tester.pump(const Duration(milliseconds: 100));
+          anlaeufe += anbieter.gefragt
+              .where((u) => u.contains('/12/2159/1349'))
+              .length;
+          anbieter.gefragt.clear();
+        }
+
+        expect(anlaeufe, greaterThanOrEqualTo(2),
+            reason: 'nach dem ersten Anlauf war Schluss – die Staffel '
+                '5/15/45 Sekunden wurde nie erreicht');
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+        await tester.pump(const Duration(minutes: 2));
+      });
+    });
+
+    testWidgets('nur die gescheiterte Kachel bekommt einen Anhang',
+        (tester) async {
+      // Die Gegenprobe zur Sparsamkeit: Wuerde der Anhang an ALLE
+      // Adressen gehen, zoege jedes Nachfassen den ganzen Bildschirm neu
+      // ueber die Leitung. Die Kachelserver werden gespendet.
+      await _leise(() async {
+        tester.view.physicalSize = const Size(1830, 1000);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final anbieter = _WieDasNetz(pixel);
+        anbieter.opfer = const TileCoordinates(2159, 1349, 12);
+        kachelAnbieterFuerTest = anbieter;
+
+        await tester.pumpWidget(const MaterialApp(
+          home: FlutterMap(
+            options: MapOptions(
+              initialCenter: ll.LatLng(52.2, 9.8),
+              initialZoom: 12,
+              maxZoom: 19,
+            ),
+            children: [Kachelschicht(stil: Kartenstil.topo)],
+          ),
+        ));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        anbieter.gefragt.clear();
+
+        await tester.pump(const Duration(seconds: 6));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final mitAnhang = anbieter.gefragt.where((u) => u.contains('#'));
+        expect(mitAnhang, hasLength(1));
+        expect(mitAnhang.single, contains('/12/2159/1349'));
+        expect(anbieter.gefragt.length, greaterThan(50),
+            reason: 'der Rest des Bildes wird sehr wohl mit durchgesehen – '
+                'nur eben unter derselben Adresse und damit aus dem '
+                'Bildspeicher');
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+        await tester.pump(const Duration(minutes: 2));
+      });
+    });
   });
 }

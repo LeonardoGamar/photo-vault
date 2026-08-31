@@ -2517,6 +2517,43 @@ class AppDatabase extends _$AppDatabase {
     return _gedrosselt(() => abfrage, TableUpdateQuery.onTable(assets));
   }
 
+  /// Wie viel im Papierkorb liegt – **ohne die Aufnahmen selbst zu holen**.
+  ///
+  /// Zwei Stellen zeigen nur diese Kennzahl an (die Papierkorbzeile im
+  /// Erkunden-Bildschirm und die Papierkorb-Einstellung), und beide
+  /// zogen dafür bisher jede Zeile des Papierkorbs mitsamt allen 56
+  /// Spalten über die Isolate-Grenze. An der gewachsenen Bibliothek
+  /// gemessen, 618 Aufnahmen im Papierkorb:
+  ///
+  /// ```
+  /// watchTrash() - volle Zeilen   13,0 ms
+  /// diese Zusammenfassung          0,3 ms
+  /// ```
+  ///
+  /// Das zählt, weil der ganze Widgetbaum bei JEDER Meldung des
+  /// Bibliothekszustands neu gebaut wird – in der Hintergrundanalyse
+  /// zehnmal je Sekunde.
+  Stream<Papierkorbumfang> watchPapierkorbUmfang() {
+    final anzahl = assets.id.count();
+    final bytes = assets.fileSizeBytes.sum();
+    Selectable<Papierkorbumfang> bauen() {
+      final abfrage = selectOnly(assets)
+        ..addColumns([anzahl, bytes])
+        ..where(assets.isTrashed.equals(true) & assets.isLocked.equals(false));
+      return abfrage.map((zeile) => Papierkorbumfang(
+            anzahl: zeile.read(anzahl) ?? 0,
+            bytes: zeile.read(bytes) ?? 0,
+          ));
+    }
+
+    // `_gedrosselt` liefert Listen; eine Zusammenfassung ist immer genau
+    // eine Zeile.
+    return _gedrosselt(bauen, TableUpdateQuery.onTable(assets))
+        .map((zeilen) => zeilen.isEmpty
+            ? const Papierkorbumfang(anzahl: 0, bytes: 0)
+            : zeilen.first);
+  }
+
   /// Eigener, PIN-geschützter Papierkorb für aus dem gesperrten Ordner
   /// gelöschte Fotos – nur über den gesperrten Ordner erreichbar (siehe
   /// LockedFolderScreen), damit "gelöscht" bei gesperrten Fotos denselben
@@ -6986,4 +7023,24 @@ class AppDatabase extends _$AppDatabase {
 class _BeziehungAbbruch implements Exception {
   final Beziehungsfehler grund;
   const _BeziehungAbbruch(this.grund);
+}
+
+/// Was im Papierkorb liegt, in zwei Zahlen – siehe
+/// [AppDatabase.watchPapierkorbUmfang].
+class Papierkorbumfang {
+  const Papierkorbumfang({required this.anzahl, required this.bytes});
+
+  final int anzahl;
+  final int bytes;
+
+  bool get istLeer => anzahl == 0;
+
+  @override
+  bool operator ==(Object other) =>
+      other is Papierkorbumfang &&
+      other.anzahl == anzahl &&
+      other.bytes == bytes;
+
+  @override
+  int get hashCode => Object.hash(anzahl, bytes);
 }

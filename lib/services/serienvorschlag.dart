@@ -49,9 +49,24 @@ Future<List<List<AssetData>>> serienvorschlaege(
     BurstSearchParams(einbettungen, zeiten),
   );
 
+  // **Eine Abfrage fuer alle Gruppen, nicht eine je Gruppe.** Die
+  // Datenbank laeuft auf einem eigenen Isolate; jede Abfrage ist ein
+  // Hin- und Rueckweg ueber die Isolate-Grenze, und davon gab es hier so
+  // viele wie Gruppen. An der gewachsenen Bibliothek gemessen, 324
+  // Gruppen mit 1050 Aufnahmen:
+  //
+  //   eine assetsByIds je Gruppe        52,2 ms
+  //   eine Abfrage, dann verteilen      12,6 ms
+  final alleKennungen = <String>{for (final liste in kennungen) ...liste};
+  final geladen = await db.assetsByIds(alleKennungen.toList());
+  final nachKennung = {for (final a in geladen) a.id: a};
+
   final gruppen = <List<AssetData>>[];
   for (final liste in kennungen) {
-    final aufnahmen = await db.assetsByIds(liste);
+    final aufnahmen = [
+      for (final id in liste)
+        if (nachKennung[id] != null) nachKennung[id]!
+    ];
     if (aufnahmen.length < 2) continue;
     if (verworfen.contains(serienschluessel(aufnahmen))) continue;
     gruppen.add(aufnahmen);

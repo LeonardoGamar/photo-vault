@@ -72,10 +72,20 @@ void main() {
       // HTTP-Client. Deshalb gibt es genau ein Exemplar.
       final stellen = [
         for (final (pfad, inhalt) in quellen)
-          if (inhalt.contains('NetworkTileProvider(')) pfad
+          if (inhalt.contains('Nachfassanbieter(')) pfad
       ];
       expect(stellen, hasLength(1), reason: 'gefunden in: $stellen');
       expect(stellen.single, endsWith('mini_location_map.dart'));
+
+      // Und niemand baut sich am Nachfassanbieter vorbei einen blanken:
+      // Der Anhang an gescheiterte Adressen sitzt in dessen
+      // `getTileUrl`, und ohne ihn wird eine fehlende Kachel nur ein
+      // einziges Mal wiederholt.
+      final blanke = [
+        for (final (pfad, inhalt) in quellen)
+          if (inhalt.contains('NetworkTileProvider(')) pfad
+      ];
+      expect(blanke, isEmpty, reason: 'gefunden in: $blanke');
     });
 
     test('das Einzelstueck wird wirklich wiederverwendet', () {

@@ -29,7 +29,7 @@ Kartenkacheln in der Kartenansicht. Sonst nichts.
 |---|---|
 | ![Fotoorte auf der Karte](docs/screenshots/karte.png) | ![Erkannte Personen](docs/screenshots/personen.png) |
 
-Der Stammbaum, in drei seiner fünf Sichten:
+Der Stammbaum, in drei seiner sechs Sichten:
 
 ![Stammbaum: der Ausschnitt um eine Person, mit berechneten Bezeichnungen](docs/screenshots/stammbaum.png)
 
@@ -202,9 +202,15 @@ echter Hardware.
 - **Familienstammbaum** (eigener Menüpunkt, ⌘0) – wer zu wem gehört, als
   eigene Angabe neben den erkannten Gesichtern: Eltern, Kinder und Partner,
   dazu Geburts- und Sterbedatum sowie – nur für die Bezeichnungen –
-  optional das Geschlecht. Fünf Sichten auf dieselbe Familie:
-  – **Baum**: die unmittelbare Verwandtschaft räumlich angeordnet, ein
-    Klick rückt eine Person in die Mitte
+  optional das Geschlecht. Sechs Sichten auf dieselbe Familie:
+  – **Zierbaum**: die unmittelbare Verwandtschaft räumlich angeordnet,
+    ein Klick rückt eine Person in die Mitte. Gezeichnet als Baum mit
+    sich verjüngenden Ästen, Ranken und dem Familiennamen unten – in
+    zwei Farbsätzen (Gold auf Dunkel, Bronze auf Pergament) und mit
+    mitgelieferten Schriften (EB Garamond und Great Vibes, beide OFL).
+    Die Äste sind keine Verzierung: Jeder ist eine Eltern-Kind-Kante,
+    und ein Schwager hängt am Haushalt **seiner** Frau. Lässt sich als
+    PDF ausgeben
   – **Fächer**: bis zu vier Generationen Vorfahren als Ringe. Ein Platz im
     Ring hat immer genau einen Nachfolger nach innen – deshalb kann hier
     keine Linie mehrdeutig werden, und deshalb zeigt der Fächer
@@ -218,6 +224,9 @@ echter Hardware.
   – **Nachfahren**: alle Nachkommen als eingerückte Gliederung
   – **Verwandte**: *alle* Verwandten mit ihrer Bezeichnung, sortiert von
     den nächsten zu den entferntesten
+  – **Zeitleiste**: eine Zeile je Person auf einer gemeinsamen Achse. Die
+    einzige Ansicht, die **Gleichzeitigkeit** zeigt – wer sich überlappte,
+    wer sich um wenige Jahre verpasst hat
 
   Neben leiblichen Eltern lassen sich **Adoptiv- und Pflegeeltern**
   eintragen; sie zählen überall als Eltern, werden gestrichelt gezeichnet
@@ -309,6 +318,10 @@ echter Hardware.
   Schwelle von fünf Metern; die Schwelle allein reicht nicht, weil sie
   gegen den Abstand zweier Messungen wirkt und der beim Rauschen doppelt
   so gross ist wie dessen Ausschlag.
+- **Kameraflug** – statt selbst zu drehen lässt sich die Kamera die Spur
+  entlang fliegen: Sie folgt dem Weg in Blickrichtung, Höhe und Uhrzeit
+  laufen daneben mit. Anhalten, Tempo ändern und an jede Stelle springen
+  geht während des Flugs
 - **Gelände in drei Dimensionen** – zu einer Spur die Landschaft, die
   topografische Karte als Textur darauf, die Spur darüber. Sie zeigt
   etwas, das weder Karte noch Profil zeigt: *wo im Gelände* der Weg
@@ -363,6 +376,15 @@ echter Hardware.
   deshalb in einer **Hintergrund-Warteschlange**: anstoßen, in der App
   weiterarbeiten, Fortschritt jederzeit einsehbar. Die Warteschlange
   übersteht auch einen App-Neustart; das Original bleibt unverändert
+- **Objektentfernung** – **LaMa** füllt eine übermalte Stelle mit dem,
+  was dahinter plausibel ist: Mülleimer, Stromleitung, fremder Kopf am
+  Bildrand. Der Pinsel arbeitet auf dem Original, das Ergebnis bleibt
+  nicht-destruktiv
+- **Serienvergleich** – bei einer Serie stehen dieselben Gesichter
+  spaltenweise nebeneinander, statt ganze Fotos zu vergleichen. Auf einem
+  Gruppenbild sieht man nicht, wer blinzelt; auf den Ausschnitten sofort.
+  Je Kopf die gemessene Schärfe und „Augen offen", und ein Rahmen um die
+  Aufnahme mit dem schärfsten Gesicht – ein Vorschlag, keine Entscheidung
 - **Geschlossene-Augen-Erkennung** – **OCEC**-Modell markiert beim Sichten
   Fotos, auf denen mindestens ein Gesicht die Augen geschlossen hat –
   hilfreich beim Aussortieren von Blinzlern aus Porträt-/Gruppenserien
@@ -409,6 +431,16 @@ echter Hardware.
   bekommen eine eigene Ansicht mit drei umschaltbaren Modi: **3D-Kugel**
   (Umschauen aus dem Kugelmittelpunkt), **flaches Schwenken** und die
   unveränderte Originalvorschau
+- **Videos nehmen an allem teil** – jedes Video bekommt beim Import ein
+  Standbild in 2048 Punkten als *Vorschau*, nicht nur als Miniatur. Da
+  jede Auswertungsstufe auf die Vorschau schaut, bekommen Videos damit
+  Bildbeschreibung, Schlagwörter, Gesichter, Texterkennung und
+  KI-Bildsuche – ohne dass eine einzige Stufe etwas von Videos wissen
+  muss. Ihr Ort kommt aus dem `moov`-Kasten der Datei
+- **Farbraum bleibt erhalten** – Vorschau, Miniatur und Export tragen ihr
+  Profil bei sich, **Display P3** dort, wo die Aufnahme mehr als sRGB
+  hergibt. Was davon noch offen ist, steht unter
+  [Funktionale Grenzen](#funktionale-grenzen)
 - **XMP-Sidecar-Export und -Import** – Metadaten (Bewertung, Tags,
   Beschreibung) im Lightroom/darktable/digiKam-kompatiblen Format
   exportieren; beim Einlesen zeigt die App zuerst alle Abweichungen zum
@@ -556,7 +588,7 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 58: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 65: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
@@ -565,7 +597,8 @@ ignorierte Gesichter, Klarheit/Vignettierung, importierte Farbtabellen,
 Ortsmarken für Länder und Regionen, Reisen und Reisetagebuch,
 Ereignisorte im Stammbaum, Aktivitäten, GPX-Spuren, Herkunft der
 Schlagwörter, von der Gesichtssuche ausgenommene Fotos, eigener
-CARTO-Schlüssel für die dunkle Karte, …). Drift
+CARTO-Schlüssel für die dunkle Karte, Hintergrundaufgaben,
+Bewertungen, geprüfte Video-Orte, …). Drift
 migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
@@ -606,6 +639,8 @@ Download-Button:
 | Real-ESRGAN x4 | KI-Restaurierung (4× hochskalieren + entrauschen) | BSD-3-Clause | SceneWorks/HuggingFace |
 | OPUS-MT en→de | Bildbeschreibungen in die Oberflächensprache übersetzen | Apache-2.0 (Helsinki-NLP) | Xenova/HuggingFace |
 | OPUS-MT de→en | Deutsche Suchanfragen und Schlagwörter für die Bildsuche übersetzen | Apache-2.0 (Helsinki-NLP) | Xenova/HuggingFace |
+| LaMa | Objektentfernung – Störendes wegretuschieren, die Lücke wird gefüllt | Apache-2.0 (Samsung Research), ONNX-Export von Carve | Carve/HuggingFace |
+| PaddleOCR (latin PP-OCRv5) | Texterkennung in Fotos, zwei Modelle mit zusammen 13,7 MB. **Unter macOS nicht nötig** – dort erledigt das Apples Vision-Framework ohne Download | Apache-2.0 (PaddleOCR) | PaddlePaddle |
 
 Ein Klick auf "Herunterladen" lädt die Dateien direkt von GitHub bzw.
 HuggingFace in den `models/`-Ordner der App (der Pfad je Plattform steht
@@ -674,9 +709,15 @@ im Hintergrund laufen sollen:
 - **Duplikate & ähnliche Fotos suchen** – gruppiert Fotos mit sehr
   ähnlichen CLIP-Embeddings (Kosinus-Ähnlichkeit über einstellbarer
   Schwelle); byte-identische Duplikate werden dagegen bereits beim Import
-  per Prüfsumme automatisch ausgeschlossen
+  per Prüfsumme automatisch ausgeschlossen. Alle gegen alle zu vergleichen
+  wäre quadratisch, deshalb läuft eine Vorfilterung über 32 zufällige
+  Projektionen (eine Form von Locality-Sensitive Hashing). An einer
+  gewachsenen Bibliothek gegen einen vollständigen Lauf gehalten: 41 von
+  42 Gruppen
 - **Serienbilder gruppieren** – gruppiert visuell ähnliche UND zeitlich nah
-  beieinander aufgenommene Fotos zur Durchsicht
+  beieinander aufgenommene Fotos zur Durchsicht. Hier ist die **Zeit** der
+  Vorfilter, nicht die Ähnlichkeit: Eine Serie verlangt ohnehin höchstens
+  30 Sekunden Abstand, und diese Bedingung ist exakt statt geschätzt
 - **Unbewertete Fotos sichten** – geführtes Durchgehen noch nicht bewerteter
   Fotos (Culling)
 - **Vorschaubilder neu erstellen** – *nur fehlende* oder *alle neu
@@ -920,7 +961,7 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   die unangenehmere Lösung.
 - **Texterkennung** nutzt auf macOS Apples Vision-Framework, sonst zwei
   nachladbare Modelle aus der PaddleOCR-Familie (erst finden, dann lesen).
-  An einer deutschen Testtafel gemessen: 95,5 % der Zeichen richtig,
+  An einer deutschen Testtafel gemessen: 99,7 % der Zeichen richtig,
   Umlaute und `ß` kommen durch.
 - **Was unter Windows anders bleibt:** Bibliothek und Modelle liegen im
   **Roaming**-Profil (`%APPDATA%`). Wer sein Profil über ein Netzlaufwerk
@@ -935,6 +976,11 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
 
 ### Funktionale Grenzen
 
+- **Der Bildschirm zeichnet in sRGB.** Vorschau, Miniatur und Export
+  tragen ihren Farbraum bei sich, Display P3 eingeschlossen – gezeichnet
+  wird davon trotzdem in sRGB, weil Flutter sein Fenster auf allen drei
+  Plattformen in sRGB rendert. Der Unterschied ist damit dort behoben, wo
+  die Datei weitergegeben wird, und bleibt offen, wo sie angesehen wird.
 - Die KI-Bildsuche berechnet Ähnlichkeit per Brute-Force über alle
   gespeicherten Embeddings – für private Bibliotheken (bis niedrige
   Zehntausende Fotos) schnell genug.

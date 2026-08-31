@@ -77,6 +77,15 @@ Future<void> _ladeSchrift(WidgetTester tester) async {
     // im Flutter-Zwischenspeicher, nicht im System, und wo der liegt,
     // hängt an der Installation. Deshalb vom Testprogramm aus nach oben
     // gesucht statt einen Pfad zu behaupten.
+    // Die mitgelieferten Zierschriften. Ohne sie stehen die Namen im
+    // Zierbaum als schwarze Kaestchen da: Die Schilder setzen ihre
+    // Schrift ausdruecklich auf 'Zierschrift', und was ein Widget
+    // ausdruecklich verlangt, holt die Testbuehne nicht aus dem Thema
+    // nach. Die Kopfzeile blieb dabei lesbar, weil sie die Schrift des
+    // Themas nimmt - das Bild sah also nur zur Haelfte kaputt aus.
+    await nimm('Zierschrift', ['assets/fonts/EBGaramond-Variable.ttf']);
+    await nimm('Zierschrift Gross', ['assets/fonts/GreatVibes-Regular.ttf']);
+
     final symbolschrift = _sucheSymbolschrift();
     await nimm('MaterialIcons', [if (symbolschrift != null) symbolschrift]);
   });

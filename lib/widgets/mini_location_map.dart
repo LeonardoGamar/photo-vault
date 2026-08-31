@@ -353,7 +353,72 @@ const kachelVersuche = 2;
 /// nicht zu sehen – und dafür sechs Verbindungen statt sechzig.
 const kachelVerbindungen = 6;
 
-NetworkTileProvider? _kachelAnbieter;
+/// Der Anbieter, bei dem ein zweiter Anlauf auch wirklich einer ist.
+///
+/// **Warum es ihn braucht.** [Kachelschicht] zählt nach einem Fehlschlag
+/// eine Zusatzangabe hoch, damit flutter_map `reloadImages` ausführt.
+/// Das tut es auch – aber `TileImage.load` hängt seinen Horcher nur an,
+/// wenn der **Bildschlüssel** sich geändert hat:
+///
+/// ```dart
+/// _imageStream = imageProvider.resolve(ImageConfiguration.empty);
+/// if (_imageStream!.key != oldImageStream?.key) { ... addListener ... }
+/// ```
+///
+/// `NetworkTileImageProvider` vergleicht sich über `Object.hash(url,
+/// fallbackUrl)`, und die Runde stand bewusst in keiner Adresse. Also
+/// blieb der Schlüssel gleich, es kam kein Horcher dazu, und damit wurde
+/// **nie wieder ein Fehler gemeldet**. Gemessen, eine Kachel in der
+/// Bildmitte, die dauerhaft scheitert:
+///
+/// ```
+///                        Nachfassen  1  2  3  4  5  6
+/// Schlüssel gleich (echt)             1  0  0  0  0  0
+/// Schlüssel je Abruf neu (Prüfstand)  1  0  0  1  0  0
+/// ```
+///
+/// Die Staffel 5 s / 15 s / 45 s ([kachelNachfassen]) wurde also nie
+/// erreicht: Wer nach fünf Sekunden noch fehlte, fehlte für immer. Der
+/// vorhandene Prüfstand sah das nicht, weil sein Anbieter jedem Abruf
+/// eine eigene Nummer gibt – ein Kunstgriff gegen den Bildspeicher, der
+/// zugleich genau das Verhalten herstellte, das dem echten Anbieter
+/// fehlt.
+///
+/// **Wie es hier gelöst ist.** Nur die Adresse einer Kachel, die schon
+/// gescheitert ist, bekommt einen Anhang – und zwar als
+/// **Rautenteil**. Der wird von dart:io nicht mitgeschickt: Der Server
+/// sieht denselben Abruf wie immer, aber Flutter sieht einen anderen
+/// Schlüssel und hängt seinen Horcher an. Die Kacheln, die schon liegen,
+/// behalten ihre Adresse und damit ihren Platz im Bildspeicher – sonst
+/// zöge jedes Nachfassen den ganzen Bildschirm neu über die Leitung, und
+/// die Kachelserver werden gespendet.
+class Nachfassanbieter extends NetworkTileProvider {
+  Nachfassanbieter({super.httpClient});
+
+  /// Kachel -> wie oft sie schon gescheitert ist. Nur Einträge für
+  /// Kacheln, die tatsächlich fehlgeschlagen sind.
+  final _gescheitert = <TileCoordinates, int>{};
+
+  @visibleForTesting
+  int get offeneFehlschlaege => _gescheitert.length;
+
+  @override
+  String getTileUrl(TileCoordinates coordinates, TileLayer options) {
+    final adresse = super.getTileUrl(coordinates, options);
+    final versuch = _gescheitert[coordinates];
+    return versuch == null ? adresse : '$adresse#$versuch';
+  }
+
+  void merkeFehlschlag(TileCoordinates koordinaten) {
+    _gescheitert[koordinaten] = (_gescheitert[koordinaten] ?? 0) + 1;
+  }
+
+  /// Nach überstandener Störung wieder bei den blanken Adressen anfangen
+  /// – sonst wüchse die Liste über die ganze Laufzeit.
+  void vergissFehlschlaege() => _gescheitert.clear();
+}
+
+Nachfassanbieter? _kachelAnbieter;
 
 /// Der gemeinsame Kachelanbieter samt Wiederholungen.
 ///
@@ -363,8 +428,8 @@ NetworkTileProvider? _kachelAnbieter;
 /// zusätzlich ungefährlich, den einen weiterzureichen – der Anbieter
 /// schliesst in `dispose()` nur einen selbst erzeugten HTTP-Client, und
 /// unserer wird von aussen übergeben.
-NetworkTileProvider kartenKachelAnbieter() =>
-    _kachelAnbieter ??= NetworkTileProvider(httpClient: kachelNetzClient());
+Nachfassanbieter kartenKachelAnbieter() =>
+    _kachelAnbieter ??= Nachfassanbieter(httpClient: kachelNetzClient());
 
 Client? _kachelNetz;
 
@@ -451,6 +516,7 @@ TileLayer buildMapTileLayer(
   VoidCallback? beiFehler,
 }) {
   final gewaehlt = stil ?? _ausTheme(context);
+  final anbieter = kachelAnbieterFuerTest ?? kartenKachelAnbieter();
   return TileLayer(
     urlTemplate: gewaehlt.kachelUrl,
     subdomains: gewaehlt.unterbereiche,
@@ -460,15 +526,24 @@ TileLayer buildMapTileLayer(
     // Zusatzangaben, die in der Vorlage nicht vorkommen, verändern die
     // Adresse nicht, und damit bleibt auch der Speicherschlüssel gleich.
     additionalOptions: runde == 0 ? const {} : {'nachfassen': '$runde'},
-    errorTileCallback:
-        beiFehler == null ? null : (_, __, ___) => beiFehler(),
+    // Die Koordinate geht mit: Nur die gescheiterte Kachel bekommt beim
+    // naechsten Anlauf einen anderen Bildschluessel, siehe
+    // [Nachfassanbieter].
+    errorTileCallback: beiFehler == null
+        ? null
+        : (kachel, __, ___) {
+            if (anbieter is Nachfassanbieter) {
+              anbieter.merkeFehlschlag(kachel.coordinates);
+            }
+            beiFehler();
+          },
     // 19 ist die Vorgabe von flutter_map; nur OpenTopoMap hoert
     // frueher auf.
     maxNativeZoom: gewaehlt.hoechsteEchteStufe ?? 19,
     // OpenTopoMap bittet ausdrücklich um einen aussagekräftigen
     // User-Agent statt der Vorgabe der Bibliothek.
     userAgentPackageName: 'com.example.photoVault',
-    tileProvider: kachelAnbieterFuerTest ?? kartenKachelAnbieter(),
+    tileProvider: anbieter,
     // Die dunkle Karte ohne CARTO-Schlüssel bekommt helle OSM-Kacheln
     // geliefert und dreht sie hier um (siehe [Kartenstil.dunkel]).
     // `darkModeTileBuilder` gehört zu flutter_map selbst - es ist eine
@@ -578,6 +653,10 @@ class _KachelschichtState extends State<Kachelschicht> {
       _stille = Timer(kachelGeheiltNach, () {
         _stille = null;
         _stufe = 0;
+        // Stoerung vorbei: wieder blanke Adressen, sonst waechst die
+        // Liste ueber die ganze Laufzeit (siehe [Nachfassanbieter]).
+        final anbieter = kachelAnbieterFuerTest ?? kartenKachelAnbieter();
+        if (anbieter is Nachfassanbieter) anbieter.vergissFehlschlaege();
       });
     });
   }

@@ -48,22 +48,50 @@ class BurstSearchParams {
 }
 
 /// Anzahl unabhängiger Zufalls-Projektionen für die Vorfilterung (siehe
-/// [candidateIndexPairs]) – mehr Projektionen erhöhen die Trefferquote
-/// (Recall) auf Kosten von etwas mehr Rechenzeit. 2 ist ein guter Kompromiss:
-/// sehr ähnliche Fotos liegen praktisch immer in mindestens einer der beiden
-/// projizierten Sortierungen nah beieinander.
-const _projectionCount = 2;
+/// [candidateIndexPairs]).
+///
+/// **Vorher standen hier 2 Projektionen mit einem Fenster von 200, und
+/// das war die schlechteste Wahl auf der ganzen Kurve.** Bei gleichem
+/// Aufwand ist es weit besser, oft zu projizieren und jeweils nur wenige
+/// Nachbarn anzusehen: Zwei Sortierungen sind zwei Chancen, und ein
+/// breites Fenster in einer schlechten Sortierung hilft nicht. An der
+/// gewachsenen Bibliothek gemessen (7475 Einbettungen, Schwelle 0,98) –
+/// gezählt werden **Gruppen**, wie der Nutzer sie sieht, nicht Paare:
+///
+/// ```
+/// Wahrheit (alle gegen alle, 9,2 s)   42 Gruppen, 97 Fotos
+///
+///  2 x 200 (vorher)  2.857.158 Paare  21 Gruppen (50 %)  1182 ms
+/// 16 x  25           2.725.401 Paare  37 Gruppen (88 %)  1243 ms
+/// 32 x  16           3.358.697 Paare  41 Gruppen (98 %)  1557 ms
+/// 16 x  50           5.282.401 Paare  41 Gruppen (98 %)  2379 ms
+/// ```
+///
+/// Die alte Einstellung übersah also die **Hälfte aller Duplikatgruppen**
+/// – der Kommentar an dieser Stelle nannte die Chance, ein Paar zu
+/// verpassen, „in der Praxis vernachlässigbar". Sie war es nicht.
+const _projectionCount = 32;
 
 /// Feste statt echter Zufalls-Seeds: dieselben Projektionsrichtungen bei
 /// jedem Lauf, sonst wäre nicht reproduzierbar, welche Gruppen bei
 /// identischen Daten gefunden werden.
-const _projectionSeeds = [0x5EED0001, 0x5EED0002];
+int _projectionSeed(int p) => 0x5EED0001 + p;
 
 /// Wie viele Nachbarn in der sortierten Projektions-Reihenfolge jeweils
 /// verglichen werden – begrenzt die Vorfilterung auf O(n · Fenster) statt
-/// O(n²). 200 ist großzügig bemessen: Duplikat-/Serien-Cluster bestehen in
-/// der Praxis fast nie aus mehr als ein paar Dutzend Fotos.
-const _slidingWindow = 200;
+/// O(n²). Siehe [_projectionCount] für die Messung, aus der die 16 kommt.
+const _slidingWindow = 16;
+
+/// Wie viele Nachbarn eine Aufnahme in der Zeitsortierung höchstens
+/// bekommt (siehe [zeitnachbarPaare]).
+///
+/// **Wogegen das schützt.** Eine Kamera mit ungestellter Uhr schreibt in
+/// jede Datei dieselbe Zeit. In dieser Bibliothek tragen 948 Aufnahmen
+/// denselben Zeitstempel; ohne Deckel wären das allein 449.000 Paare, und
+/// bei einer Bibliothek mit zehntausend solcher Dateien liefe die Suche
+/// minutenlang. Eine echte Serie hat ein paar Dutzend Bilder – 500 ist
+/// grosszügig. Gemessen kostet der Deckel 6 von 518 Serien.
+const zeitnachbarnDeckel = 500;
 
 /// Gruppiert Foto-IDs anhand paarweiser Kosinus-Ähnlichkeit ihrer
 /// CLIP-Embeddings (Union-Find über eine vorgefilterte Kandidatenliste, siehe
@@ -140,16 +168,61 @@ List<List<String>> findBurstGroups(BurstSearchParams params) {
     if (ra != rb) parent[ra] = rb;
   }
 
-  for (final packed in candidateIndexPairs(vectors)) {
+  // **Hier ist die Zeit der Vorfilter, nicht die Zufallsprojektion.**
+  // Eine Serie verlangt ohnehin, dass zwei Aufnahmen höchstens
+  // [BurstSearchParams.maxGap] auseinanderliegen. Diese Bedingung ist
+  // exakt, sie ist nach dem Sortieren praktisch umsonst zu prüfen, und
+  // sie ist weit schärfer als jede Ähnlichkeitsschätzung – Fotos, die
+  // dreissig Sekunden auseinanderliegen, sind ein winziger Teil der
+  // Bibliothek. Die Projektionen dagegen wissen nichts von der Zeit und
+  // verwarfen deshalb Serien, die sie hätten finden müssen.
+  //
+  // An der gewachsenen Bibliothek gemessen (7475 Einbettungen):
+  //
+  //   Wahrheit (alle gegen alle)     518 Gruppen, 1733 Fotos
+  //   vorher, über die Projektionen  324 Gruppen (63 %), 227 ms
+  //   über die Zeit, mit Deckel      512 Gruppen (99 %), 153 ms
+  //
+  // Besser und schneller zugleich, weil dieselbe Bedingung vorher
+  // NACH dem teuren Vergleich stand statt davor.
+  for (final packed in zeitnachbarPaare(timestamps, params.maxGap)) {
     final i = packed ~/ n;
     final j = packed % n;
-    final ti = timestamps[i], tj = timestamps[j];
-    if (ti == null || tj == null) continue;
-    if (ti.difference(tj).abs() > params.maxGap) continue;
     if (_cosineSimilarity(vectors[i], vectors[j]) >= params.threshold) union(i, j);
   }
 
   return _resolveClusters(parent, n, ids);
+}
+
+/// Alle Indexpaare, deren Zeitstempel höchstens [maxGap] auseinanderliegen.
+///
+/// Aufnahmen ohne Datum kommen nicht vor – ein geratener Zeitpunkt wäre
+/// die schlechtere Antwort als gar keine Serie. Gepackt wie in
+/// [candidateIndexPairs] (`kleinerIndex * n + grössererIndex`).
+///
+/// Je Aufnahme höchstens [zeitnachbarnDeckel] Nachbarn, siehe dort.
+List<int> zeitnachbarPaare(List<DateTime?> zeitstempel, Duration maxGap) {
+  final n = zeitstempel.length;
+  final datiert = [
+    for (var i = 0; i < n; i++)
+      if (zeitstempel[i] != null) i
+  ]..sort((a, b) => zeitstempel[a]!.compareTo(zeitstempel[b]!));
+
+  final paare = <int>[];
+  for (var a = 0; a < datiert.length; a++) {
+    final ia = datiert[a];
+    final ta = zeitstempel[ia]!;
+    var nachbarn = 0;
+    for (var b = a + 1; b < datiert.length; b++) {
+      final ib = datiert[b];
+      // Sortiert, also ist die Differenz nie negativ und der erste
+      // Ausreisser beendet das Fenster.
+      if (zeitstempel[ib]!.difference(ta) > maxGap) break;
+      if (++nachbarn > zeitnachbarnDeckel) break;
+      paare.add(ia < ib ? ia * n + ib : ib * n + ia);
+    }
+  }
+  return paare;
 }
 
 List<List<String>> _resolveClusters(List<int> parent, int n, List<String> ids) {
@@ -190,7 +263,7 @@ Set<int> candidateIndexPairs(List<Float32List> vectors) {
 
   final pairs = <int>{};
   for (var p = 0; p < _projectionCount; p++) {
-    final direction = _randomDirection(dim, _projectionSeeds[p]);
+    final direction = _randomDirection(dim, _projectionSeed(p));
     final projValues = Float64List(n);
     for (var i = 0; i < n; i++) {
       projValues[i] = _cosineSimilarity(vectors[i], direction);
