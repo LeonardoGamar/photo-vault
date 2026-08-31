@@ -5984,6 +5984,35 @@ class AppDatabase extends _$AppDatabase {
   Future<Set<String>> zugeordneteAktivitaetsAufnahmen() async =>
       {for (final z in await select(aktivitaetAufnahmen).get()) z.assetId};
 
+  /// Die Kennungen, die WIRKLICH zu dieser Aktivität gespeichert sind.
+  ///
+  /// **Warum das nicht dasselbe ist wie [aufnahmenDerAktivitaet].** Jene
+  /// Abfrage liefert, was sich *zeigen* lässt: Aufnahmen im Papierkorb
+  /// und gesperrte bleiben draussen. Wer aus ihrem Ergebnis die
+  /// Ausgangsmenge für den Auswahlbildschirm baut, hat die
+  /// verschwiegenen Zuordnungen schon verloren – und weil dort beim
+  /// Sichern die Tabelle geleert und neu geschrieben wird
+  /// ([setzeAufnahmenDerAktivitaet]), verschwinden sie endgültig, ohne
+  /// dass jemand etwas angetippt hätte.
+  ///
+  /// Für „was gehört dazu" ist deshalb diese Abfrage die richtige und
+  /// jene die falsche. Sie liest die Zuordnungstabelle selbst und
+  /// verbindet sich mit nichts.
+  Future<Set<String>> zuordnungenDerAktivitaet(String aktivitaetId) async => {
+        for (final z in await (select(aktivitaetAufnahmen)
+              ..where((t) => t.aktivitaetId.equals(aktivitaetId)))
+            .get())
+          z.assetId
+      };
+
+  /// Wie [zuordnungenDerAktivitaet], nur eine Tabelle weiter.
+  Future<Set<String>> zuordnungenDerReise(String reiseId) async => {
+        for (final z in await (select(reiseAufnahmen)
+              ..where((t) => t.reiseId.equals(reiseId)))
+            .get())
+          z.assetId
+      };
+
   /// Die selbst eingetragenen Arten: was in der Spalte steht und keine
   /// mitgelieferte Art ist.
   ///

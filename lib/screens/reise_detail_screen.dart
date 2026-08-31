@@ -211,7 +211,16 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   /// der Küche enthält, war bis hierher nicht zu ändern.
   Future<void> _aufnahmenBearbeiten() async {
     final t = AppTexte.of(context);
-    final vorher = {for (final a in _aufnahmen) a.id};
+    // **Aus der Datenbank, nicht aus der Liste im Bild.** `_aufnahmen`
+    // ist eine Ansicht: Sie laesst weg, was im Papierkorb liegt oder
+    // gesperrt ist, und sie ist leer, solange `_laden()` noch laeuft -
+    // die Knoepfe der Titelleiste stehen aber schon da. Beim Sichern
+    // wird die Zuordnungstabelle geleert und neu geschrieben; alles, was
+    // hier fehlt, waere danach endgueltig weg, ohne dass jemand es
+    // angetippt haette. Gemessen an einem Fall mit drei Zuordnungen:
+    // ein einziger Haken liess eine uebrig.
+    final vorher = await widget.library.db.zuordnungenDerReise(_reise.id);
+    if (!mounted) return;
     final neu = await Navigator.of(context).push<Set<String>>(
       MaterialPageRoute(
         builder: (_) => AufnahmenWaehlenScreen(
@@ -289,7 +298,9 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_reise.name),
-        actions: [
+        // Solange geladen wird, keine Knoepfe - siehe die gleiche Stelle
+        // in aktivitaet_detail_screen.dart.
+        actions: _laedt ? const [] : [
           IconButton(
             tooltip: t.aufnahmenBearbeiten,
             // `photo_library` und nicht `add_photo_alternate`: Der Knopf

@@ -282,7 +282,16 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
   /// Bestätigen und blieb dann, wie sie war.
   Future<void> _aufnahmenBearbeiten() async {
     final t = AppTexte.of(context);
-    final vorher = {for (final a in _aufnahmen) a.id};
+    // **Aus der Datenbank, nicht aus der Liste im Bild.** `_aufnahmen`
+    // ist eine Ansicht: Sie laesst weg, was im Papierkorb liegt oder
+    // gesperrt ist, und sie ist leer, solange `_laden()` noch laeuft -
+    // die Knoepfe der Titelleiste stehen aber schon da. Beim Sichern
+    // wird die Zuordnungstabelle geleert und neu geschrieben; alles, was
+    // hier fehlt, waere danach endgueltig weg, ohne dass jemand es
+    // angetippt haette. Gemessen an einem Fall mit drei Zuordnungen:
+    // ein einziger Haken liess eine uebrig.
+    final vorher = await widget.library.db.zuordnungenDerAktivitaet(_k.id);
+    if (!mounted) return;
     final neu = await Navigator.of(context).push<Set<String>>(
       MaterialPageRoute(
         builder: (_) => AufnahmenWaehlenScreen(
@@ -382,7 +391,15 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
             Expanded(child: Text(_k.name)),
           ],
         ),
-        actions: [
+        // **Solange geladen wird, keine Knoepfe.** Der Rumpf zeigt dann
+        // einen Ladekreis, die Titelleiste stand aber schon vollstaendig
+        // da - und ihre Knoepfe arbeiteten auf Feldern, die `_laden()`
+        // erst noch fuellt. Beim Bearbeiten der Fotos kostete das
+        // Zuordnungen (siehe `_aufnahmenBearbeiten`); beim Spur-Knopf
+        // waere eine zweite Spur an einer Aktivitaet entstanden, die
+        // schon eine hat, weil `_spur` noch null ist und deshalb
+        // "hinzufuegen" statt "entfernen" dasteht.
+        actions: _laedt ? const [] : [
           if (_spur != null)
             IconButton(
               tooltip: t.gelaendeOeffnen,

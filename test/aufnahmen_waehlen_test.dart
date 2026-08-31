@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -150,5 +151,110 @@ void main() {
     await tester.pumpAndSettle();
     expect(ergebnisse['wahl'], isNull);
     await raeumeAb(tester);
+  });
+
+  group('die Ausgangsmenge kommt aus der Datenbank', () {
+    /// **Zwei Wege, auf denen Zuordnungen still verschwanden.**
+    ///
+    /// Beim Sichern wird die Zuordnungstabelle geleert und mit genau der
+    /// zurueckgegebenen Menge neu geschrieben. Wer diese Menge aus einer
+    /// ANSICHT aufbaut statt aus der gespeicherten Zuordnung, verliert
+    /// alles, was die Ansicht nicht zeigt - und zwar endgueltig, ohne
+    /// dass jemand etwas angetippt haette.
+    ///
+    /// 1. `aufnahmenDerAktivitaet` laesst weg, was im Papierkorb liegt
+    ///    oder gesperrt ist.
+    /// 2. Sie ist ausserdem leer, solange `_laden()` laeuft - und die
+    ///    Knoepfe der Titelleiste standen schon da.
+    ///
+    /// Der zweite Fall erklaert einen gemeldeten: Eine Aktivitaet mit
+    /// vier Fotos zeigte "1 Foto gewaehlt", und ein Haken haette die
+    /// anderen drei geloescht.
+    late AppDatabase d2;
+
+    setUp(() async {
+      d2 = db;
+      await d2.into(d2.aktivitaeten).insert(AktivitaetenCompanion.insert(
+            id: 'akt',
+            name: 'Wanderung',
+            art: 'wanderung',
+            von: DateTime(2026, 6, 14, 9),
+            bis: DateTime(2026, 6, 14, 11),
+            angelegtAm: DateTime(2026, 6, 14),
+          ));
+    });
+
+    test('sie enthaelt auch, was der Bildschirm nicht zeigen darf', () async {
+      await (d2.update(d2.assets)..where((t) => t.id.equals('a1')))
+          .write(const AssetsCompanion(isTrashed: Value(true)));
+      await (d2.update(d2.assets)..where((t) => t.id.equals('a2')))
+          .write(const AssetsCompanion(isLocked: Value(true)));
+      await d2.setzeAufnahmenDerAktivitaet('akt', {'a0', 'a1', 'a2'});
+
+      // Was der Bildschirm zeigen kann:
+      final sichtbar = await d2.aufnahmenDerAktivitaet('akt');
+      expect(sichtbar.map((a) => a.id), ['a0']);
+
+      // Was wirklich zugeordnet ist - und was der Auswahlbildschirm
+      // deshalb als Ausgangsmenge bekommen muss:
+      expect(await d2.zuordnungenDerAktivitaet('akt'), {'a0', 'a1', 'a2'});
+    });
+
+    test('Fertig ohne Aenderung laesst alles stehen', () async {
+      await (d2.update(d2.assets)..where((t) => t.id.equals('a1')))
+          .write(const AssetsCompanion(isTrashed: Value(true)));
+      await d2.setzeAufnahmenDerAktivitaet('akt', {'a0', 'a1'});
+
+      // Der Weg, den der Detailbildschirm jetzt geht.
+      final vorher = await d2.zuordnungenDerAktivitaet('akt');
+      await d2.setzeAufnahmenDerAktivitaet('akt', vorher);
+
+      expect(await d2.zuordnungenDerAktivitaet('akt'), {'a0', 'a1'},
+          reason: 'ohne Antippen darf nichts verschwinden');
+    });
+
+    test('ein einziger Haken loescht die uebrigen nicht', () async {
+      await d2.setzeAufnahmenDerAktivitaet('akt', {'a0', 'a1', 'a2'});
+
+      // Der gemeldete Fall: Der Nutzer hakt EIN Foto zusaetzlich an.
+      final vorher = await d2.zuordnungenDerAktivitaet('akt');
+      await d2.setzeAufnahmenDerAktivitaet('akt', {...vorher, 'alt'});
+
+      expect(await d2.zuordnungenDerAktivitaet('akt'),
+          {'a0', 'a1', 'a2', 'alt'});
+    });
+
+    test('dasselbe fuer Reisen', () async {
+      await d2.into(d2.reisen).insert(ReisenCompanion.insert(
+            id: 'r1',
+            name: 'Reise',
+            von: DateTime(2026, 6, 14, 9),
+            bis: DateTime(2026, 6, 14, 11),
+            angelegtAm: DateTime(2026, 6, 14),
+          ));
+      await (d2.update(d2.assets)..where((t) => t.id.equals('a1')))
+          .write(const AssetsCompanion(isTrashed: Value(true)));
+      await d2.setzeAufnahmenDerReise('r1', {'a0', 'a1'});
+
+      expect((await d2.aufnahmenDerReise('r1')).map((a) => a.id), ['a0']);
+      expect(await d2.zuordnungenDerReise('r1'), {'a0', 'a1'});
+    });
+
+    test('und die Bildschirme holen sie sich auch von dort', () {
+      // Die Abfrage allein hilft nichts, wenn der Bildschirm weiter aus
+      // seiner Anzeigeliste baut - genau das war der Fehler. Geprueft
+      // wird deshalb die Verdrahtung, wie in karten_kachelspeicher_test.
+      for (final (pfad, erwartet) in [
+        ('lib/screens/aktivitaet_detail_screen.dart',
+            'zuordnungenDerAktivitaet'),
+        ('lib/screens/reise_detail_screen.dart', 'zuordnungenDerReise'),
+      ]) {
+        final quelle = File(pfad).readAsStringSync();
+        expect(quelle, contains(erwartet),
+            reason: '$pfad baut die Ausgangsmenge nicht aus der Datenbank');
+        expect(quelle, isNot(contains('final vorher = {for (final a in _aufnahmen)')),
+            reason: '$pfad baut sie noch aus der Anzeigeliste');
+      }
+    });
   });
 }
