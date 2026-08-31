@@ -1114,6 +1114,48 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String get einstModellePruefenTitel => 'Verify models';
+
+  @override
+  String get einstModellePruefenText =>
+      'Recomputes the checksum of every installed model file and compares it with the catalogue. Takes a few seconds. Finds files that changed after they were downloaded – the download itself is always checked.';
+
+  @override
+  String einstModellePruefenLaeuft(String datei) {
+    return 'Verifying: $datei';
+  }
+
+  @override
+  String einstModellePruefenAlleGut(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl model files checked, all match.',
+      one: 'One model file checked, it matches.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get einstModellePruefenNichtsDa => 'No model is installed.';
+
+  @override
+  String get einstModellePruefenBefundTitel => 'Model files that stand out';
+
+  @override
+  String get einstModellePruefenBefundText =>
+      'These files are not the ones the catalogue names. Delete the affected model and download it again – only then is what it produces trustworthy.';
+
+  @override
+  String get einstModellZustandFehlt => 'missing';
+
+  @override
+  String get einstModellZustandZuKurz => 'wrong length';
+
+  @override
+  String get einstModellZustandWeichtAb => 'content differs';
+
+  @override
   String einstModelleBelegterPlatz(String groesse) {
     return 'Space used by all models: $groesse';
   }
@@ -3237,6 +3279,17 @@ class AppTexteEn extends AppTexte {
       one: 'one photo',
     );
     return '$_temp0';
+  }
+
+  @override
+  String papierkorbUmfang(int anzahl, String platz) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos',
+      one: 'one photo',
+    );
+    return '$_temp0 · $platz';
   }
 
   @override
@@ -6493,6 +6546,64 @@ class AppTexteEn extends AppTexte {
   String get spurSchonDa => 'This activity already has a track.';
 
   @override
+  String get flugStarten => 'Start flight';
+
+  @override
+  String get flugAnhalten => 'Pause';
+
+  @override
+  String get flugWeiter => 'Continue';
+
+  @override
+  String get flugNochmal => 'Again';
+
+  @override
+  String get flugBeenden => 'Back to overview';
+
+  @override
+  String get flugFortschritt => 'Position along the track';
+
+  @override
+  String get flugHoehe => 'Elevation';
+
+  @override
+  String get flugTempo => 'Speed';
+
+  @override
+  String get flugSteigung => 'Gradient';
+
+  @override
+  String get flugUnterwegs => 'elapsed';
+
+  @override
+  String get flugOhneZeit =>
+      'The track carries no timestamps – without them there is no speed.';
+
+  @override
+  String get flugProfilBeschreibung =>
+      'Elevation profile of the track with the point the flight has reached.';
+
+  @override
+  String flugMeterProfil(int meter) {
+    return '$meter m';
+  }
+
+  @override
+  String flugKmH(String wert) {
+    return '$wert km/h';
+  }
+
+  @override
+  String flugProzent(String wert) {
+    return '$wert %';
+  }
+
+  @override
+  String flugKm(String wert) {
+    return '$wert km';
+  }
+
+  @override
   String get gelaendeTitel => 'Terrain';
 
   @override
@@ -6716,7 +6827,7 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get aufgAblageText =>
-      'Puts items into the folder of their capture month when they are not already there. Changes no date - only the place on disk. Moves files, hence the confirmation.';
+      'Moves photos into the folder of the month they were taken if they are not there, and puts stray .xmp sidecars back next to their photo. Changes no date – only the location on disk. Moves files, hence the confirmation.';
 
   @override
   String get werkzOrdneAblage => 'Sorting the storage ...';

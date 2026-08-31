@@ -235,7 +235,7 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
         titel: _k.name,
         spur: [
           for (final p in _spurpunkte)
-            (breite: p.breite, laenge: p.laenge, hoehe: p.hoehe),
+            (breite: p.breite, laenge: p.laenge, hoehe: p.hoehe, zeit: p.zeit),
         ],
       ),
     ));

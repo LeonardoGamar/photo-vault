@@ -1910,6 +1910,66 @@ abstract class AppTexte {
   /// **'Lade „{titel}“ herunter …'**
   String einstModellLaedt(String titel);
 
+  /// No description provided for @einstModellePruefenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Modelle nachrechnen'**
+  String get einstModellePruefenTitel;
+
+  /// No description provided for @einstModellePruefenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Rechnet die Prüfsumme jeder installierten Modelldatei neu und vergleicht sie mit dem Katalog. Dauert wenige Sekunden. Findet Dateien, die sich nach dem Herunterladen verändert haben – beim Herunterladen selbst wird ohnehin geprüft.'**
+  String get einstModellePruefenText;
+
+  /// No description provided for @einstModellePruefenLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Rechnet nach: {datei}'**
+  String einstModellePruefenLaeuft(String datei);
+
+  /// No description provided for @einstModellePruefenAlleGut.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Eine Modelldatei geprüft, sie stimmt.} other{{anzahl} Modelldateien geprüft, alle stimmen.}}'**
+  String einstModellePruefenAlleGut(int anzahl);
+
+  /// No description provided for @einstModellePruefenNichtsDa.
+  ///
+  /// In de, this message translates to:
+  /// **'Es ist kein Modell installiert.'**
+  String get einstModellePruefenNichtsDa;
+
+  /// No description provided for @einstModellePruefenBefundTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Auffällige Modelldateien'**
+  String get einstModellePruefenBefundTitel;
+
+  /// No description provided for @einstModellePruefenBefundText.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Dateien sind nicht die, die der Katalog nennt. Lösche das betroffene Modell und lade es neu – erst danach ist verlässlich, was es liefert.'**
+  String get einstModellePruefenBefundText;
+
+  /// No description provided for @einstModellZustandFehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'fehlt'**
+  String get einstModellZustandFehlt;
+
+  /// No description provided for @einstModellZustandZuKurz.
+  ///
+  /// In de, this message translates to:
+  /// **'falsche Länge'**
+  String get einstModellZustandZuKurz;
+
+  /// No description provided for @einstModellZustandWeichtAb.
+  ///
+  /// In de, this message translates to:
+  /// **'Inhalt weicht ab'**
+  String get einstModellZustandWeichtAb;
+
   /// No description provided for @einstModelleBelegterPlatz.
   ///
   /// In de, this message translates to:
@@ -5552,6 +5612,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'{anzahl, plural, =1{ein Foto} other{{anzahl} Fotos}}'**
   String papierkorbAnzahl(int anzahl);
+
+  /// No description provided for @papierkorbUmfang.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{ein Foto} other{{anzahl} Fotos}} · {platz}'**
+  String papierkorbUmfang(int anzahl, String platz);
 
   /// No description provided for @papierkorbLeer.
   ///
@@ -9983,6 +10049,102 @@ abstract class AppTexte {
   /// **'Diese Aktivität hat schon eine Spur.'**
   String get spurSchonDa;
 
+  /// No description provided for @flugStarten.
+  ///
+  /// In de, this message translates to:
+  /// **'Flug starten'**
+  String get flugStarten;
+
+  /// No description provided for @flugAnhalten.
+  ///
+  /// In de, this message translates to:
+  /// **'Anhalten'**
+  String get flugAnhalten;
+
+  /// No description provided for @flugWeiter.
+  ///
+  /// In de, this message translates to:
+  /// **'Weiter'**
+  String get flugWeiter;
+
+  /// No description provided for @flugNochmal.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch einmal'**
+  String get flugNochmal;
+
+  /// No description provided for @flugBeenden.
+  ///
+  /// In de, this message translates to:
+  /// **'Zur Übersicht'**
+  String get flugBeenden;
+
+  /// No description provided for @flugFortschritt.
+  ///
+  /// In de, this message translates to:
+  /// **'Stelle auf der Spur'**
+  String get flugFortschritt;
+
+  /// No description provided for @flugHoehe.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhe'**
+  String get flugHoehe;
+
+  /// No description provided for @flugTempo.
+  ///
+  /// In de, this message translates to:
+  /// **'Tempo'**
+  String get flugTempo;
+
+  /// No description provided for @flugSteigung.
+  ///
+  /// In de, this message translates to:
+  /// **'Steigung'**
+  String get flugSteigung;
+
+  /// No description provided for @flugUnterwegs.
+  ///
+  /// In de, this message translates to:
+  /// **'unterwegs'**
+  String get flugUnterwegs;
+
+  /// No description provided for @flugOhneZeit.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Spur trägt keine Zeitstempel – ohne sie gibt es kein Tempo.'**
+  String get flugOhneZeit;
+
+  /// No description provided for @flugProfilBeschreibung.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhenprofil der Spur mit der Stelle, an der der Flug gerade steht.'**
+  String get flugProfilBeschreibung;
+
+  /// No description provided for @flugMeterProfil.
+  ///
+  /// In de, this message translates to:
+  /// **'{meter} m'**
+  String flugMeterProfil(int meter);
+
+  /// No description provided for @flugKmH.
+  ///
+  /// In de, this message translates to:
+  /// **'{wert} km/h'**
+  String flugKmH(String wert);
+
+  /// No description provided for @flugProzent.
+  ///
+  /// In de, this message translates to:
+  /// **'{wert} %'**
+  String flugProzent(String wert);
+
+  /// No description provided for @flugKm.
+  ///
+  /// In de, this message translates to:
+  /// **'{wert} km'**
+  String flugKm(String wert);
+
   /// No description provided for @gelaendeTitel.
   ///
   /// In de, this message translates to:
@@ -10358,7 +10520,7 @@ abstract class AppTexte {
   /// No description provided for @aufgAblageText.
   ///
   /// In de, this message translates to:
-  /// **'Legt Aufnahmen in den Ordner ihres Aufnahmemonats, wenn sie dort nicht liegen. Ändert kein Datum – nur den Ort auf der Platte. Verschiebt Dateien, deshalb mit Rückfrage.'**
+  /// **'Legt Aufnahmen in den Ordner ihres Aufnahmemonats, wenn sie dort nicht liegen, und legt liegengebliebene .xmp-Beipackzettel wieder neben ihr Foto. Ändert kein Datum – nur den Ort auf der Platte. Verschiebt Dateien, deshalb mit Rückfrage.'**
   String get aufgAblageText;
 
   /// No description provided for @werkzOrdneAblage.

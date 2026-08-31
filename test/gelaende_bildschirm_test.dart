@@ -50,9 +50,9 @@ void main() {
     WidgetTester tester, {
     required http.Client netz,
     List<Gelaendespurpunkt> spur = const [
-      (breite: 50.61, laenge: 9.86, hoehe: 400),
-      (breite: 50.62, laenge: 9.88, hoehe: 620),
-      (breite: 50.63, laenge: 9.90, hoehe: 550),
+      (breite: 50.61, laenge: 9.86, hoehe: 400.0, zeit: null),
+      (breite: 50.62, laenge: 9.88, hoehe: 620.0, zeit: null),
+      (breite: 50.63, laenge: 9.90, hoehe: 550.0, zeit: null),
     ],
   }) async {
     tester.view.physicalSize = const Size(1000, 800);

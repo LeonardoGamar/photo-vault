@@ -179,4 +179,83 @@ void main() {
     expect((await db.assetsFuerAblageordnung()).map((a) => a.id),
         isNot(contains('fremd')));
   });
+
+  /// **Der Beipackzettel zieht mit um.**
+  ///
+  /// Bis Fassung 2.6 tat er das nicht. An der echten Bibliothek lagen
+  /// dadurch 1244 von 7370 `.xmp`-Dateien an einem Platz, an dem ihr Foto
+  /// längst nicht mehr war – mit Beschreibung, Schlagwörtern,
+  /// Personennamen und Ort im Klartext. Weil [dateienVon] den NEUEN Pfad
+  /// nennt, wurden sie weder beim Sperren verschlüsselt noch beim Löschen
+  /// entfernt.
+  test('ein Umzug nimmt den Beipackzettel mit', () async {
+    final asset = await lege('x.jpg', DateTime(2007, 1, 4));
+    final alterZettel = pfade.absolute(pfade.xmpSidecarPath(asset.relativePath))
+      ..writeAsStringSync('<x:xmpmeta>Oma im Garten</x:xmpmeta>');
+    await nurSpalteAendern(asset.id, DateTime(2013, 8, 27));
+
+    await library.ordneAblageNeu().drain<void>();
+
+    final neu = (await db.assetById(asset.id))!;
+    final neuerZettel = pfade.absolute(pfade.xmpSidecarPath(neu.relativePath));
+    expect(alterZettel.existsSync(), isFalse,
+        reason: 'sonst bleibt ein Metadatensatz ohne Foto liegen');
+    expect(neuerZettel.existsSync(), isTrue);
+    expect(neuerZettel.readAsStringSync(), contains('Oma im Garten'));
+  });
+
+  test('eine Aufnahme ohne Beipackzettel zieht trotzdem um', () async {
+    final asset = await lege('y.jpg', DateTime(2007, 1, 4));
+    await nurSpalteAendern(asset.id, DateTime(2013, 8, 27));
+    await library.ordneAblageNeu().drain<void>();
+    expect((await db.assetById(asset.id))!.relativePath, contains('2013/08'));
+  });
+
+  test('ein liegengebliebener Zettel wird eingesammelt', () async {
+    // Genau der Zustand, den die 1244 hinterlassen haben: Das Foto liegt
+    // richtig, der Zettel steht noch am alten Platz.
+    final asset = await lege('z.jpg', DateTime(2020, 4, 5));
+    final verirrt = pfade.absolute('originals/00-1/11/${asset.id}.xmp')
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('<x:xmpmeta/>');
+
+    expect(await db.countAblageordnung(), 0,
+        reason: 'die Aufnahme selbst liegt richtig – nur der Zettel nicht');
+    expect(await library.zaehleAblageordnung(), 1,
+        reason: 'die Karte muss diese Arbeit anzeigen, sonst sieht sie niemand');
+
+    await library.ordneAblageNeu().drain<void>();
+
+    expect(verirrt.existsSync(), isFalse);
+    expect(pfade.absolute(pfade.xmpSidecarPath(asset.relativePath)).existsSync(),
+        isTrue);
+    expect(await library.zaehleAblageordnung(), 0,
+        reason: 'ein zweiter Lauf haette sonst wieder etwas zu tun');
+  });
+
+  test('ein Zettel ohne Aufnahme wird in Ruhe gelassen', () async {
+    // Löschen ist hier nicht die Aufgabe: Wem der Zettel gehört, weiss
+    // niemand mehr, und ein Lauf, der Dateien wegwirft, muss anders
+    // heissen als „ordnen".
+    final fremd = pfade.absolute('originals/2019/09/nicht-vorhanden.xmp')
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('<x:xmpmeta/>');
+    expect(await library.verirrteBeipackzettel(), isEmpty);
+    await library.ordneAblageNeu().drain<void>();
+    expect(fremd.existsSync(), isTrue);
+  });
+
+  test('der Fortschritt zaehlt Aufnahmen und Zettel zusammen', () async {
+    final a = await lege('p.jpg', DateTime(2007, 1, 4));
+    await nurSpalteAendern(a.id, DateTime(2016, 6));
+    final b = await lege('q.jpg', DateTime(2020, 4, 5));
+    pfade.absolute('originals/00-1/11/${b.id}.xmp')
+      ..parent.createSync(recursive: true)
+      ..writeAsStringSync('<x:xmpmeta/>');
+
+    final schritte = await library.ordneAblageNeu().toList();
+    expect(schritte.first.total, 2,
+        reason: 'die Gesamtzahl darf unterwegs nicht wachsen');
+    expect(schritte.last.done, 2);
+  });
 }

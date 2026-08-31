@@ -1812,9 +1812,15 @@ class LibraryState extends ChangeNotifier {
   /// unverschiebbare Datei dort, wo sie liegt.
   Stream<ImportProgress> ordneAblageNeu() async* {
     final betroffen = await db.assetsFuerAblageordnung();
+    // Die liegengebliebenen Beipackzettel gehören zur selben Aufgabe: Sie
+    // an ihren Platz zu legen ist das, was „Ablage ordnen" heisst. Sie
+    // stehen VOR dem Lauf fest, damit die Gesamtzahl von Anfang an stimmt
+    // – ein Fortschritt, der unterwegs wächst, ist keiner.
+    final zettel = await verirrteBeipackzettel();
+    final gesamt = betroffen.length + zettel.length;
     var done = 0;
     var verschoben = 0;
-    yield ImportProgress(0, betroffen.length);
+    yield ImportProgress(0, gesamt);
     for (final asset in betroffen) {
       try {
         await _datumUmschreiben(asset, asset.fileCreatedAt);
@@ -1823,12 +1829,35 @@ class LibraryState extends ChangeNotifier {
         debugPrint('Ablage: ${asset.originalFileName} nicht umgelegt: $e');
       }
       done++;
-      yield ImportProgress(done, betroffen.length,
-          currentFile: asset.originalFileName);
+      yield ImportProgress(done, gesamt, currentFile: asset.originalFileName);
     }
-    debugPrint('Ablage neu geordnet: $verschoben von ${betroffen.length}');
+    var zettelVerschoben = 0;
+    for (final z in zettel) {
+      // Der Zettel eines soeben umgezogenen Fotos ist oben schon
+      // mitgekommen; dann ist hier nichts mehr zu tun.
+      final quelle = paths.absolute(z.von);
+      if (await quelle.exists()) {
+        try {
+          await paths.absolute(z.nach).parent.create(recursive: true);
+          await quelle.rename(paths.absolute(z.nach).path);
+          zettelVerschoben++;
+        } catch (e) {
+          debugPrint('Beipackzettel ${z.von} nicht umgelegt: $e');
+        }
+      }
+      done++;
+      yield ImportProgress(done, gesamt, currentFile: p.basename(z.nach));
+    }
+    debugPrint('Ablage neu geordnet: $verschoben von ${betroffen.length}, '
+        'Beipackzettel $zettelVerschoben von ${zettel.length}');
     notifyListeners();
   }
+
+  /// Was die Aufgabe „Ablage nach Datum ordnen" zu tun hat: falsch
+  /// einsortierte Aufnahmen **und** liegengebliebene Beipackzettel. Beides
+  /// in einer Zahl, weil ein Lauf beides erledigt.
+  Future<int> zaehleAblageordnung() async =>
+      await db.countAblageordnung() + (await verirrteBeipackzettel()).length;
 
   /// Setzt das Aufnahmedatum von Hand – und legt die Datei dorthin, wo sie
   /// nach dem neuen Datum hingehört.
@@ -1869,6 +1898,15 @@ class LibraryState extends ChangeNotifier {
     try {
       await ziel.parent.create(recursive: true);
       await quelle.rename(ziel.path);
+      // Der Beipackzettel liegt als einzige abgeleitete Datei NEBEN dem
+      // Original – alle anderen (Miniatur, Vorschau, Entwickeltes,
+      // Gesichtsausschnitte) stehen in eigenen Ordnern unter ihrer
+      // Kennung und sind von einem Umzug gar nicht betroffen. Bleibt er
+      // liegen, ist er ein Metadatensatz ohne Foto: Beschreibung,
+      // Schlagwörter, Personennamen und Ort im Klartext an einer Stelle,
+      // die niemand mehr aufräumt – und die beim Sperren nicht
+      // mitverschlüsselt wird, weil [dateienVon] den NEUEN Pfad nennt.
+      await _beipackzettelMitnehmen(alterPfad, neuerPfad);
     } on FileSystemException catch (e) {
       debugPrint('Ablage: ${asset.id} nicht verschiebbar: $e');
       // Das Datum trotzdem richtigstellen – ein falsch einsortierter
@@ -1887,6 +1925,64 @@ class LibraryState extends ChangeNotifier {
       } catch (_) {}
       rethrow;
     }
+  }
+
+  /// Legt den `.xmp`-Beipackzettel neben die Datei, die gerade umgezogen
+  /// ist. Fehlt er, ist nichts zu tun – nicht jede Aufnahme hat einen.
+  ///
+  /// Scheitert bewusst still: Ein liegengebliebener Beipackzettel ist
+  /// ärgerlich, aber er darf keinen Umzug rückgängig machen, der sonst
+  /// geklappt hat. Er wird beim nächsten Lauf von
+  /// [verirrteBeipackzettel] ohnehin eingesammelt.
+  Future<void> _beipackzettelMitnehmen(String alterPfad, String neuerPfad) async {
+    final alt = paths.absolute(paths.xmpSidecarPath(alterPfad));
+    if (!await alt.exists()) return;
+    try {
+      await alt.rename(paths.absolute(paths.xmpSidecarPath(neuerPfad)).path);
+    } on FileSystemException catch (e) {
+      debugPrint('Beipackzettel blieb liegen: ${alt.path}: $e');
+    }
+  }
+
+  /// **Beipackzettel, die ihr Foto verloren haben.**
+  ///
+  /// Bis Fassung 2.6 nahm ein Umzug den `.xmp` nicht mit. An der echten
+  /// Bibliothek blieben dadurch **1244 von 7370** an ihrem alten Platz
+  /// zurück – 949 davon in `originals/00-1/11`, dem Ordner, den ein
+  /// EXIF-Datum „0000:00:00" einmal erzeugte (`DateTime(0,0,0)` ist der
+  /// 30. November des Jahres −1; der Jahresschutz in [exifDatumAusText]
+  /// unterbindet das heute, die Dateien von damals blieben).
+  ///
+  /// Ein solcher Zettel ist kein toter Platzhalter: Er trägt Beschreibung,
+  /// Schlagwörter, Bewertung, Personennamen und Ort im Klartext. Er wird
+  /// beim Sperren nicht mitverschlüsselt, weil [dateienVon] den neuen Pfad
+  /// nennt, und beim endgültigen Löschen nicht entfernt, aus demselben
+  /// Grund.
+  ///
+  /// Erkannt wird er am Dateinamen: Der ist die Kennung der Aufnahme.
+  /// Gibt es die Aufnahme, und liegt ihr Zettel nicht dort, wo sie liegt,
+  /// gehört er dorthin verschoben. Gibt es die Aufnahme nicht mehr, bleibt
+  /// er stehen – Löschen ist hier nicht die Aufgabe.
+  ///
+  /// Der Durchgang durch `originals/` kostet an 15 358 Dateien 9 ms warm
+  /// und 70 ms kalt; billig genug, um daraus einen Zähler zu speisen.
+  Future<List<({String von, String nach})>> verirrteBeipackzettel() async {
+    final wurzel = Directory(p.join(paths.root.path, 'originals'));
+    if (!wurzel.existsSync()) return const [];
+    final pfadJeKennung = {
+      for (final a in await db.allAssetsForIntegrityCheck()) a.id: a.relativePath
+    };
+    final gefunden = <({String von, String nach})>[];
+    await for (final eintrag in wurzel.list(recursive: true, followLinks: false)) {
+      if (eintrag is! File) continue;
+      final rel = p.relative(eintrag.path, from: paths.root.path);
+      if (p.extension(rel).toLowerCase() != '.xmp') continue;
+      final aufnahme = pfadJeKennung[p.basenameWithoutExtension(rel)];
+      if (aufnahme == null) continue;
+      final soll = paths.xmpSidecarPath(aufnahme);
+      if (soll != rel) gefunden.add((von: rel, nach: soll));
+    }
+    return gefunden;
   }
 
   /// Erkennt Text nachträglich für Fotos, die vor Einführung der OCR-Suche

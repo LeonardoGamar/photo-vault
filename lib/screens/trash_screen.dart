@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
+import '../services/groessentext.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/empty_state.dart';
@@ -56,6 +57,40 @@ class _TrashScreenState extends State<TrashScreen> {
         title: Text(_selected.isEmpty
             ? AppTexte.of(context).papierkorbTitel
             : AppTexte.of(context).papierkorbAusgewaehlt(_selected.length)),
+        // Wieviel hier liegt, stand bisher nirgends – weder hier noch in
+        // den Einstellungen. An einer gewachsenen Bibliothek waren es
+        // 6,01 GB, sieben Prozent des Bestands. Unter dem Titel und nicht
+        // in der Liste, damit die Zahl auch dann dasteht, wenn gerade
+        // etwas ausgewählt ist.
+        bottom: _selected.isNotEmpty
+            ? null
+            : PreferredSize(
+                preferredSize: const Size.fromHeight(20),
+                child: StreamBuilder<List<AssetData>>(
+                  stream: widget.library.db.watchTrash(),
+                  builder: (context, papierkorb) {
+                    final liegend = papierkorb.data ?? const <AssetData>[];
+                    if (liegend.isEmpty) return const SizedBox(height: 20);
+                    final platz = liegend.fold<int>(
+                        0, (summe, a) => summe + a.fileSizeBytes);
+                    return Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                            left: AppSpacing.md, bottom: AppSpacing.sm),
+                        child: Text(
+                          AppTexte.of(context).papierkorbUmfang(
+                              liegend.length, groessentext(platz)),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color:
+                                    Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
         actions: [
           if (_selected.isNotEmpty) ...[
             IconButton(

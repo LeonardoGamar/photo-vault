@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import '../l10n/app_localizations.dart';
 import '../services/gelaende_laden.dart';
+import '../services/gelaendeflug.dart';
 import '../services/gelaendekacheln.dart';
 import '../services/gelaendesicht.dart';
 import '../theme/app_spacing.dart';
@@ -46,6 +47,7 @@ class GelaendeScreen extends StatefulWidget {
 class _GelaendeScreenState extends State<GelaendeScreen> {
   Gelaendenetz? _netz;
   List<Raumpunkt> _spurImRaum = const [];
+  List<Flugwert> _spurwerte = const [];
   ui.Image? _karte;
   bool _laedt = true;
 
@@ -130,10 +132,12 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
         gitter,
         grundfarbe: karte == null ? gelaendeGrundfarbe : const Color(0xFFFFFFFF),
       );
+      final gerechnet = _spurInMeter(gitter, gebaut);
       setState(() {
         _netz = gebaut;
         _karte = karte;
-        _spurImRaum = _spurInMeter(gitter, gebaut);
+        _spurImRaum = gerechnet.linie;
+        _spurwerte = gerechnet.werte;
         _laedt = false;
       });
     } finally {
@@ -141,7 +145,8 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
     }
   }
 
-  /// Rechnet die Spur in dieselben Meter wie das Netz.
+  /// Rechnet die Spur in dieselben Meter wie das Netz – und liefert die
+  /// Zahlen dazu gleich mit.
   ///
   /// **Die Höhe kommt aus der Datei, nicht aus den Kacheln** – was das
   /// Gerät gemessen hat, ist die Aussage, die Kacheln sind die Kulisse.
@@ -150,21 +155,39 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
   /// Zwei Meter Zugabe: Eine Linie genau auf der Oberfläche verschwindet
   /// halb darin, weil das Gitter zwischen den Stützpunkten gerade
   /// verläuft und der Berg gewölbt ist.
-  List<Raumpunkt> _spurInMeter(Hoehengitter gitter, Gelaendenetz netz) {
+  ///
+  /// Linie und Werte entstehen in einem Zug und sind damit
+  /// zwangsläufig gleich lang.
+  ///
+  /// Getrennt gerechnet wäre es ein Fehler, der still bleibt: Punkte ohne
+  /// jede Höhe fallen hier heraus, und eine zweite Schleife über
+  /// `widget.spur` ergäbe eine um genau diese Punkte längere Werteliste.
+  /// Jede Höhe und jedes Tempo stünde danach an der falschen Stelle,
+  /// ohne dass irgendwo etwas abstürzt. Deshalb der gemeinsame Rückgabe-
+  /// wert und der Merkposten in [Gelaendeflug].
+  ({List<Raumpunkt> linie, List<Flugwert> werte}) _spurInMeter(
+      Hoehengitter gitter, Gelaendenetz netz) {
     final g = gitter.verkleinert(gelaendeGitterkante);
     final spanne = g.spanne;
     final mittlereHoehe = (spanne.tief + spanne.hoch) / 2;
-    return [
-      for (final p in widget.spur)
-        if (p.hoehe ?? g.anOrt(p.breite, p.laenge) case final h?)
-          (
-            x: ((p.laenge - g.west) / (g.ost - g.west) - 0.5) *
-                netz.breiteMeter,
-            y: (0.5 - (g.nord - p.breite) / (g.nord - g.sued)) *
-                netz.hoeheMeter,
-            z: (h + 2 - mittlereHoehe) * gelaendeUeberhoehung,
-          ),
-    ];
+    final linie = <Raumpunkt>[];
+    final werte = <Flugwert>[];
+    for (final p in widget.spur) {
+      final h = p.hoehe ?? g.anOrt(p.breite, p.laenge);
+      if (h == null) continue;
+      linie.add((
+        x: ((p.laenge - g.west) / (g.ost - g.west) - 0.5) * netz.breiteMeter,
+        y: (0.5 - (g.nord - p.breite) / (g.nord - g.sued)) * netz.hoeheMeter,
+        z: (h + 2 - mittlereHoehe) * gelaendeUeberhoehung,
+      ));
+      // **Die Höhe der Datei, nicht die aus dem Gitter.** Wo die
+      // Aufzeichnung eine trägt, ist sie die Aussage; das Gelände ist
+      // nur eingesprungen, damit die Linie nicht abreisst. Für die
+      // Anzeige zählt nur, was gemessen wurde – sonst stünde eine aus
+      // Kacheln geratene Zahl neben einer echten, ununterscheidbar.
+      werte.add((hoehe: p.hoehe, zeit: p.zeit));
+    }
+    return (linie: linie, werte: werte);
   }
 
   @override
@@ -212,6 +235,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
                       child: Gelaendeansicht(
                         netz: _netz!,
                         spur: _spurImRaum,
+                        spurwerte: _spurwerte,
                         karte: _karte,
                       ),
                     ),

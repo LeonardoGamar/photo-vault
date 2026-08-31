@@ -35,6 +35,7 @@ import '../widgets/mini_location_map.dart' show Kartenstil, setzeCartoSchluessel
 import 'kachelmitschnitt_screen.dart';
 import 'map_screen.dart' show Kartenansicht;
 import '../services/meldungsdienst.dart';
+import '../services/groessentext.dart';
 
 class SettingsScreen extends StatefulWidget {
   final LibraryState library;
@@ -250,11 +251,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(0)} KB';
-    if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
-  }
 
   /// Datum in der Schreibweise der aktiven Sprache – 17.08.2026 gegen
   /// 8/17/2026. Vorher stand hier `${d}.${m}.${y}` von Hand zusammengesetzt,
@@ -334,6 +330,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
       melde.warnung(AppTexte.of(context).einstOrdnerNichtGeoeffnet(path));
     }
   }
+
+  /// Rechnet die Prüfsummen aller installierten Modelle nach.
+  ///
+  /// Warum das nicht beim Programmstart läuft: Der Durchgang kostet
+  /// gemessen rund 2,6 Sekunden (CLIP allein 1,12 s für 606 MB). Das ist
+  /// wenig genug für einen Knopf und zu viel für jeden Start.
+  Future<void> _pruefeModelle() async {
+    var laeuft = '';
+    void Function(void Function())? blattSetState;
+
+    // Wie beim Herunterladen bewusst ohne `await`: Das Future des Sheets
+    // löst erst beim Schliessen auf, die Prüfung darunter liefe sonst nie.
+    showModalBottomSheet<void>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      builder: (context) => StatefulBuilder(builder: (context, setBlattState) {
+        blattSetState = setBlattState;
+        return Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(AppTexte.of(context).einstModellePruefenTitel,
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              Text(AppTexte.of(context).einstModellePruefenLaeuft(laeuft),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        );
+      }),
+    );
+
+    List<Modellbefund> befunde = const [];
+    try {
+      befunde = await widget.library.modelDownloadService.pruefeAlleInstallierten(
+        ModelCatalog.all,
+        fortschritt: (datei) {
+          laeuft = datei;
+          blattSetState?.call(() {});
+        },
+      );
+    } finally {
+      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+    }
+    if (!mounted) return;
+
+    final auffaellig = befunde.where((b) => !b.inOrdnung).toList();
+    if (befunde.isEmpty) {
+      melde.hinweis(AppTexte.of(context).einstModellePruefenNichtsDa);
+      return;
+    }
+    if (auffaellig.isEmpty) {
+      melde.erfolg(
+          AppTexte.of(context).einstModellePruefenAlleGut(befunde.length));
+      return;
+    }
+    // Ein Fund gehört nicht in eine Meldung, die nach acht Sekunden
+    // verblasst: Er verlangt eine Handlung, und die Dateinamen muss man
+    // lesen können.
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppTexte.of(context).einstModellePruefenBefundTitel),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppTexte.of(context).einstModellePruefenBefundText),
+            const SizedBox(height: AppSpacing.md),
+            for (final b in auffaellig)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: Text('${b.dateiname} – ${_zustandstext(context, b.zustand)}',
+                    style: Theme.of(context).textTheme.bodySmall),
+              ),
+          ],
+        ),
+        actions: [
+          FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(AppTexte.of(context).allgSchliessen)),
+        ],
+      ),
+    );
+  }
+
+  String _zustandstext(BuildContext context, Modellzustand zustand) =>
+      switch (zustand) {
+        Modellzustand.fehlt => AppTexte.of(context).einstModellZustandFehlt,
+        Modellzustand.zuKurz => AppTexte.of(context).einstModellZustandZuKurz,
+        Modellzustand.weichtAb => AppTexte.of(context).einstModellZustandWeichtAb,
+        // Kommt hier nicht an – `auffaellig` filtert ihn weg. Ein
+        // `default` würde einen neuen Zustand stillschweigend schlucken.
+        Modellzustand.stimmt => '',
+      };
 
   Future<void> _downloadModel(ModelCatalogEntry entry) async {
     setState(() => _downloading.add(entry.id));
@@ -1289,7 +1385,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ListTile(
                 leading: const Icon(Icons.sd_storage_outlined),
                 title: Text(AppTexte.of(context).einstSpeicherbedarf),
-                subtitle: Text(_sizeBytes == null ? AppTexte.of(context).einstWirdBerechnet : _formatBytes(_sizeBytes!)),
+                subtitle: Text(_sizeBytes == null ? AppTexte.of(context).einstWirdBerechnet : groessentext(_sizeBytes!)),
               ),
             ],
           ),
@@ -1362,7 +1458,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             installed: widget.library.isModelInstalled(entry),
             downloading: _downloading.contains(entry.id),
             groesse: widget.library.isModelInstalled(entry)
-                ? _formatBytes(widget.library.modelDownloadService.belegteBytes(entry))
+                ? groessentext(widget.library.modelDownloadService.belegteBytes(entry))
                 : null,
             onDownload: () => _downloadModel(entry),
             onDelete: () => _deleteModel(entry),
@@ -1373,10 +1469,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Text(
             AppTexte.of(context).einstModelleBelegterPlatz(
-                _formatBytes(widget.library.modelDownloadService.gesamteBytes())),
+                groessentext(widget.library.modelDownloadService.gesamteBytes())),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
+          ),
+        ),
+        // Die Prüfsumme im Katalog wirkte bis zur 21. Prüfrunde genau
+        // einmal – beim Herunterladen. Danach entschied allein, ob die
+        // Datei da ist. Hier ist der Weg, sie noch einmal zu befragen.
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.verified_outlined),
+            title: Text(AppTexte.of(context).einstModellePruefenTitel),
+            subtitle: Text(AppTexte.of(context).einstModellePruefenText),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _pruefeModelle,
           ),
         ),
         const SizedBox(height: 12),
@@ -2117,13 +2225,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   StreamBuilder<List<AssetData>>(
                     stream: widget.library.db.watchTrash(),
                     builder: (context, papierkorb) {
-                      final anzahl = papierkorb.data?.length ?? 0;
+                      final liegend = papierkorb.data ?? const <AssetData>[];
+                      final anzahl = liegend.length;
+                      // **Wieviel Platz hier liegt, stand nirgends.** An
+                      // einer gewachsenen Bibliothek waren es 619
+                      // Aufnahmen und 6,01 GB – sieben Prozent des
+                      // Bestands, unsichtbar. Die Zahl der Fotos allein
+                      // sagt darüber nichts: 619 Bildschirmfotos wären
+                      // ein Bruchteil davon.
+                      final platz = liegend.fold<int>(
+                          0, (summe, a) => summe + a.fileSizeBytes);
                       return ListTile(
                         leading: const Icon(Icons.delete_outline),
                         title: Text(AppTexte.of(context).papierkorbTitel),
                         subtitle: Text(anzahl == 0
                             ? AppTexte.of(context).papierkorbLeer
-                            : AppTexte.of(context).papierkorbAnzahl(anzahl)),
+                            : AppTexte.of(context)
+                                .papierkorbUmfang(anzahl, groessentext(platz))),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () => Navigator.of(context).push(MaterialPageRoute(
                           builder: (_) => TrashScreen(library: widget.library),

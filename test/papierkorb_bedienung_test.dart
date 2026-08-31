@@ -36,7 +36,7 @@ void main() {
     wurzel.deleteSync(recursive: true);
   });
 
-  Future<void> imPapierkorb(String id) async {
+  Future<void> imPapierkorb(String id, {int bytes = 0}) async {
     await db.into(db.assets).insert(AssetsCompanion.insert(
           id: id,
           originalFileName: '$id.jpg',
@@ -47,6 +47,7 @@ void main() {
           importedAt: DateTime(2026),
           isTrashed: const Value(true),
           trashedAt: Value(DateTime(2026, 8, 1)),
+          fileSizeBytes: Value(bytes),
         ));
   }
 
@@ -129,6 +130,36 @@ void main() {
     // Bedienung.
     expect(find.byIcon(Icons.restore_from_trash_outlined), findsOneWidget);
 
+    await abbauen(tester);
+  });
+
+  /// **Wieviel hier liegt, muss dastehen.**
+  ///
+  /// An einer gewachsenen Bibliothek lagen 619 Aufnahmen und 6,01 GB im
+  /// Papierkorb – sieben Prozent des Bestands. Weder dieser Bildschirm
+  /// noch die Einstellungen nannten den Platz mit einem Wort, und die
+  /// Zahl der Fotos allein sagt darüber nichts: 619 Bildschirmfotos wären
+  /// ein Bruchteil davon.
+  testWidgets('der Umfang steht über der Liste', (tester) async {
+    await imPapierkorb('a', bytes: 3 * 1024 * 1024);
+    await imPapierkorb('b', bytes: 5 * 1024 * 1024);
+    await tester.pumpWidget(bildschirm());
+    await tester.pump();
+    await tester.pump();
+
+    final t = AppTexte.of(tester.element(find.byType(TrashScreen)));
+    expect(find.text(t.papierkorbUmfang(2, '8.0 MB')), findsOneWidget,
+        reason: 'Zahl und Platz, sonst bleibt der Verbrauch unsichtbar');
+
+    await abbauen(tester);
+  });
+
+  testWidgets('ein leerer Papierkorb nennt keinen Umfang', (tester) async {
+    await tester.pumpWidget(bildschirm());
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining('KB'), findsNothing);
+    expect(find.textContaining('MB'), findsNothing);
     await abbauen(tester);
   });
 }

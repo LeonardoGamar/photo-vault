@@ -40,7 +40,8 @@ void main() {
         id: 'probe',
         sourceUrl: 'http://127.0.0.1',
         files: [
-          ModelFile(name, 'http://127.0.0.1:${server.port}/$name', pruefsumme),
+          ModelFile(name, 'http://127.0.0.1:${server.port}/$name', pruefsumme,
+              daten.length),
         ],
       );
 

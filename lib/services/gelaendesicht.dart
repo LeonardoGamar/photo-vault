@@ -34,8 +34,18 @@ class Gelaendekamera {
   /// Drehung um die Hochachse, im Bogenmass. 0 heisst: von Süden aus.
   final double drehung;
 
-  /// Neigung, im Bogenmass. 0 wäre senkrecht von oben (eine Karte),
-  /// π/2 wäre auf Augenhöhe (nichts als ein Strich).
+  /// Neigung, im Bogenmass – **0 ist Augenhöhe, π/2 ist senkrecht von
+  /// oben.**
+  ///
+  /// Hier stand es lange andersherum. Nachgerechnet an [projiziere]:
+  /// Bei 0 ist `y2 = y1` und `z2 = z`, die Tiefe ist also der waagerechte
+  /// Abstand und oben im Bild ist oben in der Welt – ein Blick von der
+  /// Seite. Bei π/2 ist `y2 = -z` und `z2 = y1`, die Tiefe kommt aus der
+  /// Höhe und oben im Bild ist Norden – eine Karte.
+  ///
+  /// Aufgefallen ist es erst beim Flug: Die erste Fassung stellte die
+  /// Kamera auf 1,26 in der Annahme, das sei flach. Es war das Gegenteil,
+  /// und der Flug sah aus wie eine gekippte Karte.
   final double neigung;
 
   /// Wie weit die Kamera vom Mittelpunkt weg steht, in Metern.
@@ -48,12 +58,26 @@ class Gelaendekamera {
   /// Die Mitte des Bildes.
   final Offset mitte;
 
+  /// Der Punkt, um den die Kamera kreist – in denselben Metern wie das
+  /// Netz.
+  ///
+  /// Bis zum Flug gab es ihn nicht: Die Kamera drehte sich immer um den
+  /// Nullpunkt, also um die Mitte der geladenen Landschaft. Für eine
+  /// Ansicht, die das Ganze zeigt, ist das genau richtig; für einen Flug
+  /// entlang der Spur muss sich der Bezugspunkt mitbewegen. Der
+  /// Nullpunkt bleibt die Vorgabe, damit sich für die Handbedienung
+  /// nichts ändert.
+  final Raumpunkt blickpunkt;
+
+  static const Raumpunkt nullpunkt = (x: 0.0, y: 0.0, z: 0.0);
+
   const Gelaendekamera({
     required this.drehung,
     required this.neigung,
     required this.entfernung,
     required this.brennweite,
     required this.mitte,
+    this.blickpunkt = nullpunkt,
   });
 
   Gelaendekamera kopieMit({
@@ -62,6 +86,7 @@ class Gelaendekamera {
     double? entfernung,
     double? brennweite,
     Offset? mitte,
+    Raumpunkt? blickpunkt,
   }) =>
       Gelaendekamera(
         drehung: drehung ?? this.drehung,
@@ -69,6 +94,7 @@ class Gelaendekamera {
         entfernung: entfernung ?? this.entfernung,
         brennweite: brennweite ?? this.brennweite,
         mitte: mitte ?? this.mitte,
+        blickpunkt: blickpunkt ?? this.blickpunkt,
       );
 
   /// Rechnet einen Raumpunkt auf den Bildschirm.
@@ -78,16 +104,22 @@ class Gelaendekamera {
   /// eine [Bildpunkt.tiefe] ≤ 0 – wer sie zeichnet, bekommt Unsinn, und
   /// deshalb steht die Zahl dabei.
   Bildpunkt projiziere(Raumpunkt p) {
+    // Erst den Blickpunkt abziehen: Gedreht und gekippt wird um ihn,
+    // nicht um den Nullpunkt der Landschaft.
+    final px = p.x - blickpunkt.x;
+    final py = p.y - blickpunkt.y;
+    final pz = p.z - blickpunkt.z;
+
     final cd = math.cos(drehung);
     final sd = math.sin(drehung);
-    final x1 = p.x * cd - p.y * sd;
-    final y1 = p.x * sd + p.y * cd;
+    final x1 = px * cd - py * sd;
+    final y1 = px * sd + py * cd;
 
     final cn = math.cos(neigung);
     final sn = math.sin(neigung);
     // Nach dem Kippen zeigt y2 in die Tiefe und z2 nach oben im Bild.
-    final y2 = y1 * cn - p.z * sn;
-    final z2 = y1 * sn + p.z * cn;
+    final y2 = y1 * cn - pz * sn;
+    final z2 = y1 * sn + pz * cn;
 
     final tiefe = y2 + entfernung;
     if (tiefe <= 1) {

@@ -25,7 +25,24 @@ void main() {
   });
   tearDown(() => dir.deleteSync(recursive: true));
 
-  void lege(String name) => File('${dir.path}/$name').writeAsStringSync('x');
+  /// Legt eine Attrappe in der Länge, die der Katalog nennt.
+  ///
+  /// Ein blosses `'x'` genügt seit der 21. Prüfrunde nicht mehr:
+  /// [ModelDownloadService.isEntryInstalled] vergleicht die Länge mit
+  /// [ModelFile.bytes], damit eine abgebrochene Übertragung nicht als
+  /// fertig gilt und eine geänderte Fassung im Katalog die alte Datei
+  /// nicht stillschweigend überlebt.
+  void lege(String name) {
+    final laenge = ModelCatalog.all
+        .expand((e) => e.files)
+        .firstWhere((f) => f.fileName == name)
+        .bytes;
+    // Als Loch-Datei: Die Attrappen zusammen sind über 100 MB, und
+    // geschrieben werden müssen sie nicht – geprüft wird die Länge.
+    final datei = File('${dir.path}/$name').openSync(mode: FileMode.write);
+    datei.truncateSync(laenge);
+    datei.closeSync();
+  }
 
   test('beide Richtungen stehen im Katalog', () {
     expect(ModelCatalog.all, contains(ModelCatalog.translationEnDe));

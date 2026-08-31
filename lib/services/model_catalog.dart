@@ -28,9 +28,31 @@ class ModelFile {
   /// Vergleich fehl, wird die heruntergeladene Datei verworfen. Schützt vor
   /// stillschweigend veränderten/kompromittierten Downloads, da hier ONNX-
   /// Modelldateien direkt in die App-Inferenz geladen werden.
+  ///
+  /// **Sie wirkte lange nur genau einmal**, nämlich beim Herunterladen:
+  /// Danach fragte `isEntryInstalled` allein, ob die Datei *da* ist. Eine
+  /// später ausgetauschte Modelldatei fiel nie wieder auf, und eine im
+  /// Katalog geänderte Adresse erreichte niemanden, der das Modell schon
+  /// hatte. Beides hängt jetzt an [bytes] (billig, immer) und
+  /// `ModelDownloadService.pruefe` (gründlich, auf Verlangen).
   final String sha256;
 
-  const ModelFile(this.fileName, this.url, this.sha256);
+  /// Länge der Datei am [url] in Bytes.
+  ///
+  /// Nicht abgetippt, sondern aus den Kopfzeilen der Auslieferung geholt
+  /// und gegen die tatsächlich installierten Dateien gegengelesen – bei
+  /// HuggingFace steht in `x-linked-etag` genau die SHA-256 oben, was
+  /// beides in einem Zug bestätigt.
+  ///
+  /// Wozu: Ein `stat` kostet nichts und beantwortet zwei Fragen, für die
+  /// es sonst 2,6 Sekunden Prüfsummenrechnung bräuchte – ist die Datei
+  /// abgeschnitten, und ist es überhaupt die Fassung, die der Katalog
+  /// heute will? Was eine Grösse **nicht** beantwortet: ob jemand sie
+  /// gegen eine gleich grosse andere getauscht hat. Dafür gibt es
+  /// `pruefe`.
+  final int bytes;
+
+  const ModelFile(this.fileName, this.url, this.sha256, this.bytes);
 }
 
 class ModelCatalogEntry {
@@ -121,6 +143,7 @@ class ModelCatalog {
         'face_detection_yunet.onnx',
         'https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx',
         '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4',
+        232589,
       ),
     ],
   );
@@ -133,33 +156,69 @@ class ModelCatalog {
         'face_recognition_sface.onnx',
         'https://github.com/opencv/opencv_zoo/raw/main/models/face_recognition_sface/face_recognition_sface_2021dec.onnx',
         '0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79',
+        38696353,
       ),
     ],
   );
 
+  /// CLIP ViT-B/32 – Bildsuche, KI-Schlagwörter, Duplikate und Serien.
+  ///
+  /// **Seit der 21. Prüfrunde in fp16 statt fp32.** CLIP war das einzige
+  /// unquantisierte Modell im Katalog – kein Beschluss, sondern das erste
+  /// Modell des Projekts, das danach nie wieder angefasst wurde. Von den
+  /// sieben Fassungen, die Xenova anbietet, wurden zwei gemessen (600
+  /// echte Fotos, `docs/clip_quantisierung.md`):
+  ///
+  /// * **uint8 spart 452 MB und ist es nicht wert.** Der Kosinus zwischen
+  ///   beiden Fassungen desselben Fotos liegt bei 0,9236 – auf einer
+  ///   Skala, auf der zwei *verschiedene* Fotos bei 0,477 liegen, ist das
+  ///   weit weg. Die Schwelle 0,92 fände 52 statt 103 Paare, und von den
+  ///   ersten sechs Suchtreffern stimmten nur 37 von 60 überein. Schneller
+  ///   ist es obendrein nicht (20,0 gegen 16,8 ms).
+  /// * **fp16 ändert nichts am Ergebnis.** Kosinus 0,999999 (Text
+  ///   1,000000), alle drei Schwellen liefern dieselbe Zahl, die Suche
+  ///   60 von 60. Entscheidend: **die gespeicherten Einbettungen bleiben
+  ///   gültig** – es muss nichts neu gerechnet werden.
+  ///
+  /// Der Preis ist Rechenzeit, weil die CPU fp16 nicht selbst rechnet und
+  /// ONNX Runtime vor jeder Stufe wandelt: Bild 16,8 → 27,0 ms je Foto,
+  /// Text 12,5 → 17,9 ms je Suche. Das Bild läuft einmal je Aufnahme in
+  /// der Hintergrundanalyse, der Text nur, wenn jemand tippt.
+  ///
+  /// **Die Grenzen bleiben `tensor(float)`** – nur die Gewichte sind
+  /// halbiert. Nachgesehen, nicht angenommen: Ein- und Ausgabe beider
+  /// Encoder sind unverändert float32, [ClipService] braucht keine Zeile.
+  ///
+  /// CoreML wurde mitgemessen und bringt hier nichts (17,1 gegen 16,8 ms),
+  /// anders als bei [neuralRestore] – ein Faltungsnetz auf grossen Kacheln
+  /// und ein Aufmerksamkeitsnetz auf 224×224 sind verschiedene Lasten.
   static const clip = ModelCatalogEntry(
     id: 'clip_vit_b32',
     sourceUrl: 'https://huggingface.co/Xenova/clip-vit-base-patch32',
     files: [
       ModelFile(
         'clip_image_encoder.onnx',
-        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model.onnx',
-        'fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40',
+        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model_fp16.onnx',
+        '35c4e0fb0aeee527dcde1693520b214a34424a786babd530f35366bad5844efd',
+        176080659,
       ),
       ModelFile(
         'clip_text_encoder.onnx',
-        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/text_model.onnx',
-        '3f6571f5bad13a97c469c1622e1cfc4d9aef78b79fdbfcff804ca357bfada8cc',
+        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/text_model_fp16.onnx',
+        'df587ffbf248bf20d44fa6e16adc5ebc27ead691860e5333dbdaab5fd6bf3f6e',
+        127339794,
       ),
       ModelFile(
         'vocab.json',
         'https://huggingface.co/openai/clip-vit-base-patch32/resolve/main/vocab.json',
         '5047b556ce86ccaf6aa22b3ffccfc52d391ea4accdab9c2f2407da5b742d4363',
+        862328,
       ),
       ModelFile(
         'merges.txt',
         'https://huggingface.co/openai/clip-vit-base-patch32/resolve/main/merges.txt',
         'f526393189112391ce6f9795d4695f704121ce452c3aad1f5335cc41337eba85',
+        524657,
       ),
     ],
   );
@@ -189,11 +248,13 @@ class ModelCatalog {
         'sam_vision_encoder.onnx',
         'https://huggingface.co/Xenova/sam-vit-base/resolve/main/onnx/vision_encoder_quantized.onnx',
         'd9d7bca3b256ab71b3b7cdc35839983bc8ebaf68ea9022f15805ac43955cd247',
+        101088469,
       ),
       ModelFile(
         'sam_prompt_mask_decoder.onnx',
         'https://huggingface.co/Xenova/sam-vit-base/resolve/main/onnx/prompt_encoder_mask_decoder_quantized.onnx',
         'cb90b279f549d2cab7fd6e20c38522438c65d84bdcca3d2a764cff7d857fdce2',
+        4903810,
       ),
     ],
   );
@@ -241,31 +302,37 @@ class ModelCatalog {
         'florence_vision.onnx',
         'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/vision_encoder_quantized.onnx',
         '3b79d54f23f666f731549db23cb070c35a979ce19cbd9720e90e67a78dc9768c',
+        93746540,
       ),
       ModelFile(
         'florence_embed.onnx',
         'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/embed_tokens_quantized.onnx',
         '6b2258db1c8ee9b160576ccde3cd3814d83a2edaed0dd1c6ca9ff3c38fa62214',
+        39390433,
       ),
       ModelFile(
         'florence_encoder.onnx',
         'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/encoder_model_quantized.onnx',
         'f4ad7a68f1fb875d3bcf735ea14a7021b7ba7e83baf7cf10289881b4ed6d9b85',
+        43651493,
       ),
       ModelFile(
         'florence_decoder.onnx',
         'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/decoder_model_merged_quantized.onnx',
         'f22f52f980c33df0efa15932c2f3db6d9d3595ce6387eca938b8cfe23dc4c641',
+        98177697,
       ),
       ModelFile(
         'florence_vocab.json',
         'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/vocab.json',
         '394fdc63c71aabe0a9b97117f5d62fb5fcc4d59b2b3ea929a3929e6a53217b3c',
+        1099884,
       ),
       ModelFile(
         'florence_merges.txt',
         'https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/merges.txt',
         '1ce1664773c50f3e0cc8842619a93edc4624525b728b188a9e0be33b7726adc5',
+        456318,
       ),
     ],
   );
@@ -290,6 +357,7 @@ class ModelCatalog {
         'eye_state_ocec_n.onnx',
         'https://github.com/PINTO0309/OCEC/releases/download/onnx/ocec_n.onnx',
         'c1e2af08ad822cb3d685babe0221499cdbf4952c0272cc66e5ed76c4007ef54e',
+        176580,
       ),
     ],
   );
@@ -314,6 +382,7 @@ class ModelCatalog {
         'real_esrgan_x4.onnx',
         'https://huggingface.co/SceneWorks/real-esrgan-onnx/resolve/main/real_esrgan_x4.onnx',
         '5c586662929cbc686c1a5c38d9c060dbdb4ea5863a1f7672b8c0761e6b89c033',
+        67051616,
       ),
     ],
   );
@@ -329,6 +398,7 @@ class ModelCatalog {
     'translate_vocab.json',
     'https://huggingface.co/Xenova/opus-mt-en-de/resolve/main/tokenizer.json',
     '8e0fcf45621ea87fa680c7f9969c37a7f819c1f4c7658a2e6e0879b866a14b17',
+        5498450,
   );
 
   /// Englisch → Deutsch, für die Bildbeschreibungen.
@@ -364,11 +434,13 @@ class ModelCatalog {
         'translate_en_de_encoder.onnx',
         'https://huggingface.co/Xenova/opus-mt-en-de/resolve/main/onnx/encoder_model_quantized.onnx',
         '15834b45fabd2dfb8c6c029b3ca3e7289aeefd90ece798ce42bcf548d1bd3b8d',
+        49366942,
       ),
       ModelFile(
         'translate_en_de_decoder.onnx',
         'https://huggingface.co/Xenova/opus-mt-en-de/resolve/main/onnx/decoder_model_quantized.onnx',
         '75ef79aa9bde9e3dce9ca584c29507be5f464973f6c600c89ff419bc8de29ebc',
+        56281702,
       ),
       _uebersetzungsVokabular,
     ],
@@ -390,11 +462,13 @@ class ModelCatalog {
         'translate_de_en_encoder.onnx',
         'https://huggingface.co/Xenova/opus-mt-de-en/resolve/main/onnx/encoder_model_quantized.onnx',
         '4cedda8f8c89b72a42b3c6cd1e7a27f2de24457093e3bf80cb3e46829641fcd8',
+        49366942,
       ),
       ModelFile(
         'translate_de_en_decoder.onnx',
         'https://huggingface.co/Xenova/opus-mt-de-en/resolve/main/onnx/decoder_model_quantized.onnx',
         'e44c1c4b50e8f51e49d4d5e54a9af1550dc74763d4023644a38af62611e6efc9',
+        56281702,
       ),
       _uebersetzungsVokabular,
     ],
@@ -427,16 +501,19 @@ class ModelCatalog {
         'ocr_det.onnx',
         'https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx',
         'd2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9',
+        4745517,
       ),
       ModelFile(
         'ocr_rec.onnx',
         'https://huggingface.co/cycloneboy/latin_PP-OCRv3_rec_infer/resolve/main/model.onnx',
         'e986ac261c2fe3118879d76d68a00186540911838543da9a0a6e7dd096b965b2',
+        8977705,
       ),
       ModelFile(
         'ocr_dict.txt',
         'https://huggingface.co/cycloneboy/latin_PP-OCRv3_rec_infer/resolve/main/latin_dict.txt',
         'ab1fcc6dbb5ae074d0e8966984ee977ed9d62976abd96c6461a0cdb684ddec90',
+        653,
       ),
     ],
     // Beim ersten Laden aus ocr_rec.onnx erzeugt. Der Anlass – HardSwish
@@ -465,6 +542,7 @@ class ModelCatalog {
         'lama_fp32.onnx',
         'https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx',
         '1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6',
+        208044816,
       ),
     ],
   );

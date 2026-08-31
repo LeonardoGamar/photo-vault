@@ -41,7 +41,39 @@ void main() {
     // Nur die erste Datei anlegen – ein halb installierter Eintrag.
     lege(eintrag.files.first.fileName, 4096);
     expect(dienst.belegteBytes(eintrag), 4096);
-    expect(dienst.isEntryInstalled(eintrag), eintrag.files.length == 1);
+    // Und selbst wenn der Eintrag nur diese eine Datei hätte, gilt er
+    // nicht als installiert: 4096 Bytes sind nicht die Länge, die der
+    // Katalog nennt. Genau das ist der Sinn der Längenprüfung.
+    expect(dienst.isEntryInstalled(eintrag), isFalse);
+  });
+
+  /// **Die Länge entscheidet mit, nicht nur das Dasein.**
+  ///
+  /// Bis zur 21. Prüfrunde fragte [ModelDownloadService.isEntryInstalled]
+  /// allein `existsSync()`. Eine abgebrochene Übertragung galt damit als
+  /// fertig, und eine im Katalog geänderte Fassung erreichte niemanden,
+  /// der die alte schon hatte – beim Wechsel von CLIP auf fp16 wäre die
+  /// 352-MB-Datei stillschweigend liegengeblieben.
+  test('eine abgeschnittene Datei gilt nicht als installiert', () {
+    for (final f in eintrag.files) {
+      lege(f.fileName, f.bytes);
+    }
+    expect(dienst.isEntryInstalled(eintrag), isTrue);
+
+    lege(eintrag.files.first.fileName, eintrag.files.first.bytes - 1);
+    expect(dienst.isEntryInstalled(eintrag), isFalse);
+  });
+
+  test('jede Katalogdatei kennt ihre Länge', () {
+    // Ein vergessener Eintrag machte die Prüfung oben wirkungslos: Bei
+    // `bytes == 0` gälte jede Datei als falsch lang und damit als nie
+    // installiert.
+    for (final e in ModelCatalog.all) {
+      for (final f in e.files) {
+        expect(f.bytes, greaterThan(0), reason: '${f.fileName} ohne Länge');
+        expect(f.sha256, hasLength(64), reason: '${f.fileName} ohne Prüfsumme');
+      }
+    }
   });
 
   test('die Gesamtsumme erfasst auch Dateien ausserhalb des Katalogs', () {

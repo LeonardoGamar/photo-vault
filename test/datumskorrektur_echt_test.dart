@@ -150,4 +150,47 @@ void main() {
     expect(uhr.elapsedMilliseconds, lessThan(ersteRunde ~/ 10),
         reason: 'der zweite Lauf darf die Dateien nicht noch einmal lesen');
   }, timeout: const Timeout(Duration(minutes: 30)));
+
+  /// **Die liegengebliebenen Beipackzettel an der echten Bibliothek.**
+  ///
+  /// 1244 von 7370 lagen dort, wo ihr Foto einmal war. Der Lauf muss sie
+  /// alle einsammeln und keinen einzigen verlieren – ein `.xmp` trägt
+  /// Beschreibung, Schlagwörter, Personennamen und Ort.
+  test('jeder verirrte Beipackzettel findet zu seinem Foto zurueck', () async {
+    if (wurzel == null) {
+      markTestSkipped('PV_ECHTE_BIBLIOTHEK nicht gesetzt – siehe Kopf');
+      return;
+    }
+    final (:db, :pfade, :library) = await oeffne();
+
+    final vorher = await library.verirrteBeipackzettel();
+    stdout.writeln('verirrte Beipackzettel: ${vorher.length}');
+    expect(vorher, isNotEmpty, reason: 'sonst prueft dieser Lauf nichts');
+
+    final inhalt = {
+      for (final z in vorher.take(50))
+        z.von: pfade.absolute(z.von).readAsStringSync()
+    };
+
+    final uhr = Stopwatch()..start();
+    await library.ordneAblageNeu().drain<void>();
+    stdout.writeln('${vorher.length} umgelegt in ${uhr.elapsedMilliseconds} ms');
+
+    var fehlt = 0, verfaelscht = 0;
+    for (final z in vorher) {
+      if (!pfade.absolute(z.nach).existsSync()) {
+        fehlt++;
+        stdout.writeln('  FEHLT: ${z.nach}');
+      } else if (inhalt.containsKey(z.von) &&
+          pfade.absolute(z.nach).readAsStringSync() != inhalt[z.von]) {
+        verfaelscht++;
+      }
+      expect(pfade.absolute(z.von).existsSync(), isFalse,
+          reason: '${z.von} liegt immer noch am alten Platz');
+    }
+    expect(fehlt, 0, reason: 'kein Zettel darf unterwegs verlorengehen');
+    expect(verfaelscht, 0, reason: 'der Inhalt muss unveraendert ankommen');
+    expect(await library.verirrteBeipackzettel(), isEmpty,
+        reason: 'ein zweiter Lauf haette sonst wieder etwas zu tun');
+  }, timeout: const Timeout(Duration(minutes: 30)));
 }

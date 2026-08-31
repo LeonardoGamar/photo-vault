@@ -1007,7 +1007,7 @@ List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
         titel: t.aufgAblageTitel,
         beschreibung: t.aufgAblageText,
         offenLabel: t.aufgBetrifft,
-        offeneZahl: () => library.db.countAblageordnung(),
+        offeneZahl: () => library.zaehleAblageordnung(),
         aktionen: [
           Aufgabenaktion(
             modus: Aufgabenmodus.alle,

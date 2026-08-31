@@ -46,6 +46,34 @@ class ModelDownloadProgress {
 /// Cloud-Zwischendienst – die App spricht dabei ausschließlich mit den in
 /// [ModelCatalog] hinterlegten, öffentlichen Open-Source-Quellen
 /// (GitHub/HuggingFace), nie mit einem eigenen Server.
+/// Zustand einer einzelnen Modelldatei bei der Nachprüfung.
+///
+/// Sprachfrei wie [Gradart] und die übrigen Aufzählungen der Dienste: Der
+/// Satz dazu entsteht in der Oberfläche, nicht hier.
+enum Modellzustand {
+  /// Prüfsumme stimmt – die Datei ist die, die der Katalog nennt.
+  stimmt,
+
+  /// Gar nicht da.
+  fehlt,
+
+  /// Falsche Länge. Fast immer ein abgebrochener Download, manchmal eine
+  /// veraltete Fassung aus einem früheren Katalog.
+  zuKurz,
+
+  /// Richtige Länge, falscher Inhalt. Der einzige Zustand, den allein das
+  /// Nachrechnen findet – und der Grund, warum es ihn gibt.
+  weichtAb,
+}
+
+class Modellbefund {
+  final String dateiname;
+  final Modellzustand zustand;
+  const Modellbefund(this.dateiname, this.zustand);
+
+  bool get inOrdnung => zustand == Modellzustand.stimmt;
+}
+
 class ModelDownloadService {
   /// [datenGrenze] misst die Pause ZWISCHEN zwei Datenstücken, nicht die
   /// Gesamtdauer – eine 350-MB-Datei darf also beliebig lange laufen, solange
@@ -67,8 +95,28 @@ class ModelDownloadService {
   /// als gescheitert gilt.
   static const _versuche = 3;
 
-  bool isEntryInstalled(ModelCatalogEntry entry) {
-    return entry.files.every((f) => File(p.join(modelsDir, f.fileName)).existsSync());
+  /// Gilt der Eintrag als einsatzbereit?
+  ///
+  /// Bis zur 21. Prüfrunde lautete die ganze Frage „liegt die Datei da?".
+  /// Das war an zwei Stellen zu wenig:
+  ///
+  /// * Eine **abgeschnittene** Datei – abgebrochener Download, volle
+  ///   Platte – galt als installiert, und der Fehler kam erst beim Laden
+  ///   des Modells heraus.
+  /// * Eine im Katalog **geänderte Fassung** erreichte niemanden, der das
+  ///   Modell schon hatte. Beim Wechsel von CLIP auf fp16 wäre die alte
+  ///   Datei stillschweigend liegengeblieben, für immer und ohne Hinweis.
+  ///
+  /// Die Länge beantwortet beides für den Preis eines `stat`. Was sie
+  /// nicht beantwortet – ob jemand die Datei gegen eine gleich grosse
+  /// getauscht hat –, beantwortet [pruefe].
+  bool isEntryInstalled(ModelCatalogEntry entry) =>
+      entry.files.every((f) => _laengePasst(f));
+
+  bool _laengePasst(ModelFile f) {
+    final datei = File(p.join(modelsDir, f.fileName));
+    if (!datei.existsSync()) return false;
+    return datei.lengthSync() == f.bytes;
   }
 
   /// Lädt alle Dateien eines Katalog-Eintrags herunter und meldet dabei
@@ -182,6 +230,59 @@ class ModelDownloadService {
   Future<String> _sha256OfFile(File file) async {
     final digest = await sha256.bind(file.openRead()).first;
     return digest.toString();
+  }
+
+  /// Was bei der Prüfung einer einzelnen Modelldatei herauskam.
+  ///
+  /// [fehlt] und [zuKurz] fallen schon [isEntryInstalled] auf; sie stehen
+  /// hier trotzdem, damit ein Bericht nicht schweigt, wo etwas fehlt.
+  /// [weichtAb] ist der Fall, für den es diese Prüfung gibt: Die Datei hat
+  /// die richtige Länge und den falschen Inhalt.
+  Future<List<Modellbefund>> pruefe(ModelCatalogEntry entry) async {
+    final befunde = <Modellbefund>[];
+    for (final f in entry.files) {
+      final datei = File(p.join(modelsDir, f.fileName));
+      if (!datei.existsSync()) {
+        befunde.add(Modellbefund(f.fileName, Modellzustand.fehlt));
+        continue;
+      }
+      if (await datei.length() != f.bytes) {
+        befunde.add(Modellbefund(f.fileName, Modellzustand.zuKurz));
+        continue;
+      }
+      final tatsaechlich = await _sha256OfFile(datei);
+      befunde.add(Modellbefund(
+          f.fileName,
+          tatsaechlich == f.sha256.toLowerCase()
+              ? Modellzustand.stimmt
+              : Modellzustand.weichtAb));
+    }
+    return befunde;
+  }
+
+  /// Alle installierten Einträge nachrechnen.
+  ///
+  /// Nicht installierte bleiben aussen vor – „fehlt" ist kein Befund,
+  /// wenn niemand das Modell haben wollte. Gemessen kostet der Durchgang
+  /// über alle Modelle rund 2,6 Sekunden (CLIP allein 1,12 s für 606 MB);
+  /// deshalb hängt er an einem Knopf und nicht am Programmstart.
+  Future<List<Modellbefund>> pruefeAlleInstallierten(
+      List<ModelCatalogEntry> eintraege,
+      {void Function(String dateiname)? fortschritt}) async {
+    final befunde = <Modellbefund>[];
+    for (final eintrag in eintraege) {
+      // Nicht `isEntryInstalled`: Das ist gerade die Prüfung, die hier
+      // schärfer wiederholt wird – eine zu kurze Datei soll im Bericht
+      // stehen und nicht dazu führen, dass der Eintrag übersprungen wird.
+      final irgendwasDa = eintrag.files
+          .any((f) => File(p.join(modelsDir, f.fileName)).existsSync());
+      if (!irgendwasDa) continue;
+      for (final f in eintrag.files) {
+        fortschritt?.call(f.fileName);
+      }
+      befunde.addAll(await pruefe(eintrag));
+    }
+    return befunde;
   }
 
   Future<void> deleteEntry(ModelCatalogEntry entry) async {
