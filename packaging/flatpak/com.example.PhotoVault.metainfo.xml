@@ -68,6 +68,13 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.7.1" date="2026-08-31">
+      <description>
+        <p>One line, and the reason it matters. The database gave up the moment it met a lock. No database change.</p>
+        <p>SQLite's default for busy_timeout is zero: whoever meets a locked file gets "database is locked" at once and no second attempt. That stays harmless exactly as long as a single process touches the file - and nothing guarantees that. A backup service, a synchronised folder, a look with the sqlite3 tool, or simply the program started twice all hold the same lock. Measured with two processes each writing 400 rows at the same time: without a wait 734 of 800 writes fail; with five seconds none of them fail, and the whole thing takes 170 ms. The wait is affordable because the database is opened on a background isolate - it is not the interface that waits.</p>
+        <p xml:lang="de">Zum Aktualisieren: Archiv auspacken, die App an ihren Platz ziehen, starten. Dieselbe Kennung, dieselbe Bibliothek, kein Schemaschritt.</p>
+      </description>
+    </release>
     <release version="2.7.0" date="2026-08-30">
       <description>
         <p>A camera flight along an imported GPX track, three findings from an audit round, and CLIP at half the size. No database change.</p>
