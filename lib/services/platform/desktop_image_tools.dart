@@ -289,6 +289,18 @@ class DesktopImageTools {
   /// Zwischendatei anschließend mit dem `image`-Paket verkleinert – in
   /// einem Isolate, damit die UI nicht blockiert (Muster: der bestehende
   /// Thumbnail-Pfad in import_service.dart).
+  /// **Zum Farbraum.** Was hier herauskommt, trägt das Profil, das das
+  /// Werkzeug hineingeschrieben hat: `heif-dec` reicht das ICC-Profil einer
+  /// HEIC durch, und das `image`-Paket trägt es beim Verkleinern und
+  /// Kodieren weiter (nachgemessen). `dcraw_emu` dagegen entwickelt
+  /// voreingestellt nach sRGB – RAW-Vorschauen sind auf Linux und Windows
+  /// also sRGB, während sie auf macOS seit der Umstellung Display P3 sind
+  /// (siehe `ausgabefarbraum` in ImageConverter.swift).
+  ///
+  /// Bewusst nicht angeglichen: `dcraw_emu -o 7` gäbe DCI-P3-Zahlen aus,
+  /// und die TIFF-Ausgabe trägt kein Profil dazu. Weite Farben ohne Profil
+  /// sind schlechter als enge mit – sie werden als sRGB gelesen und sehen
+  /// dann falsch aus, statt nur blass.
   static Future<Uint8List?> convertToJpeg(
     File datei, {
     int maxDimension = 2048,

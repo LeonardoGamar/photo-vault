@@ -318,6 +318,16 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
   late final GeneratedColumn<String> ocrBoxen = GeneratedColumn<String>(
       'ocr_boxen', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _gpsGeprueftMeta =
+      const VerificationMeta('gpsGeprueft');
+  @override
+  late final GeneratedColumn<bool> gpsGeprueft = GeneratedColumn<bool>(
+      'gps_geprueft', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("gps_geprueft" IN (0, 1))'),
+      defaultValue: const Constant(false));
   static const VerificationMeta _aiCaptionMeta =
       const VerificationMeta('aiCaption');
   @override
@@ -436,6 +446,7 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         ocrText,
         ocrScanned,
         ocrBoxen,
+        gpsGeprueft,
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
@@ -711,6 +722,12 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
       context.handle(_ocrBoxenMeta,
           ocrBoxen.isAcceptableOrUnknown(data['ocr_boxen']!, _ocrBoxenMeta));
     }
+    if (data.containsKey('gps_geprueft')) {
+      context.handle(
+          _gpsGeprueftMeta,
+          gpsGeprueft.isAcceptableOrUnknown(
+              data['gps_geprueft']!, _gpsGeprueftMeta));
+    }
     if (data.containsKey('ai_caption')) {
       context.handle(_aiCaptionMeta,
           aiCaption.isAcceptableOrUnknown(data['ai_caption']!, _aiCaptionMeta));
@@ -863,6 +880,8 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.bool, data['${effectivePrefix}ocr_scanned'])!,
       ocrBoxen: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ocr_boxen']),
+      gpsGeprueft: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}gps_geprueft'])!,
       aiCaption: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ai_caption']),
       aiCaptionDe: attachedDatabase.typeMapping
@@ -1044,6 +1063,25 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   /// nächsten Lauf erneut dran, siehe [assetsForOcrBackfill].
   final String? ocrBoxen;
 
+  /// Ob in dieser Datei schon einmal nach einem GPS-Ort gesucht wurde.
+  ///
+  /// **Warum es diese Spalte gibt.** Der Nachtrag „Orte einlesen" nahm bis
+  /// Fassung 2.6 jede Aufnahme ohne Koordinate – das sind an einer echten
+  /// Bibliothek 5756 von 7988 – und las sie **vollständig** ein, um in den
+  /// EXIF-Daten nachzusehen. Gemessen an 400 dieser Fotos: 3,3 Sekunden
+  /// und 1215 MB für **null** Treffer; hochgerechnet rund 47 Sekunden und
+  /// 17,5 GB je Lauf. Und beim nächsten Lauf wieder, denn ein erfolgloser
+  /// Blick hinterliess keine Spur.
+  ///
+  /// Ein Screenshot, ein weitergeleitetes Bild, eine Kamera ohne Empfänger
+  /// – die tragen keinen Ort und werden auch beim zwanzigsten Lauf keinen
+  /// tragen. Das hier ist die Notiz „nachgesehen, nichts da".
+  ///
+  /// `false` für alles Bestehende: Nach dem Umstieg läuft der Nachtrag
+  /// genau **einmal** über die ganze Bibliothek – und findet dabei die
+  /// Videos, an die er vorher nie herankam. Danach ist er still.
+  final bool gpsGeprueft;
+
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
   /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
@@ -1147,6 +1185,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       this.ocrText,
       required this.ocrScanned,
       this.ocrBoxen,
+      required this.gpsGeprueft,
       this.aiCaption,
       this.aiCaptionDe,
       required this.aiCaptionScanned,
@@ -1263,6 +1302,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
     if (!nullToAbsent || ocrBoxen != null) {
       map['ocr_boxen'] = Variable<String>(ocrBoxen);
     }
+    map['gps_geprueft'] = Variable<bool>(gpsGeprueft);
     if (!nullToAbsent || aiCaption != null) {
       map['ai_caption'] = Variable<String>(aiCaption);
     }
@@ -1389,6 +1429,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrBoxen: ocrBoxen == null && nullToAbsent
           ? const Value.absent()
           : Value(ocrBoxen),
+      gpsGeprueft: Value(gpsGeprueft),
       aiCaption: aiCaption == null && nullToAbsent
           ? const Value.absent()
           : Value(aiCaption),
@@ -1467,6 +1508,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrText: serializer.fromJson<String?>(json['ocrText']),
       ocrScanned: serializer.fromJson<bool>(json['ocrScanned']),
       ocrBoxen: serializer.fromJson<String?>(json['ocrBoxen']),
+      gpsGeprueft: serializer.fromJson<bool>(json['gpsGeprueft']),
       aiCaption: serializer.fromJson<String?>(json['aiCaption']),
       aiCaptionDe: serializer.fromJson<String?>(json['aiCaptionDe']),
       aiCaptionScanned: serializer.fromJson<bool>(json['aiCaptionScanned']),
@@ -1530,6 +1572,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'ocrText': serializer.toJson<String?>(ocrText),
       'ocrScanned': serializer.toJson<bool>(ocrScanned),
       'ocrBoxen': serializer.toJson<String?>(ocrBoxen),
+      'gpsGeprueft': serializer.toJson<bool>(gpsGeprueft),
       'aiCaption': serializer.toJson<String?>(aiCaption),
       'aiCaptionDe': serializer.toJson<String?>(aiCaptionDe),
       'aiCaptionScanned': serializer.toJson<bool>(aiCaptionScanned),
@@ -1589,6 +1632,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           Value<String?> ocrText = const Value.absent(),
           bool? ocrScanned,
           Value<String?> ocrBoxen = const Value.absent(),
+          bool? gpsGeprueft,
           Value<String?> aiCaption = const Value.absent(),
           Value<String?> aiCaptionDe = const Value.absent(),
           bool? aiCaptionScanned,
@@ -1668,6 +1712,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         ocrText: ocrText.present ? ocrText.value : this.ocrText,
         ocrScanned: ocrScanned ?? this.ocrScanned,
         ocrBoxen: ocrBoxen.present ? ocrBoxen.value : this.ocrBoxen,
+        gpsGeprueft: gpsGeprueft ?? this.gpsGeprueft,
         aiCaption: aiCaption.present ? aiCaption.value : this.aiCaption,
         aiCaptionDe: aiCaptionDe.present ? aiCaptionDe.value : this.aiCaptionDe,
         aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
@@ -1777,6 +1822,8 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrScanned:
           data.ocrScanned.present ? data.ocrScanned.value : this.ocrScanned,
       ocrBoxen: data.ocrBoxen.present ? data.ocrBoxen.value : this.ocrBoxen,
+      gpsGeprueft:
+          data.gpsGeprueft.present ? data.gpsGeprueft.value : this.gpsGeprueft,
       aiCaption: data.aiCaption.present ? data.aiCaption.value : this.aiCaption,
       aiCaptionDe:
           data.aiCaptionDe.present ? data.aiCaptionDe.value : this.aiCaptionDe,
@@ -1849,6 +1896,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('ocrText: $ocrText, ')
           ..write('ocrScanned: $ocrScanned, ')
           ..write('ocrBoxen: $ocrBoxen, ')
+          ..write('gpsGeprueft: $gpsGeprueft, ')
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
@@ -1910,6 +1958,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         ocrText,
         ocrScanned,
         ocrBoxen,
+        gpsGeprueft,
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
@@ -1970,6 +2019,7 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.ocrText == this.ocrText &&
           other.ocrScanned == this.ocrScanned &&
           other.ocrBoxen == this.ocrBoxen &&
+          other.gpsGeprueft == this.gpsGeprueft &&
           other.aiCaption == this.aiCaption &&
           other.aiCaptionDe == this.aiCaptionDe &&
           other.aiCaptionScanned == this.aiCaptionScanned &&
@@ -2028,6 +2078,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<String?> ocrText;
   final Value<bool> ocrScanned;
   final Value<String?> ocrBoxen;
+  final Value<bool> gpsGeprueft;
   final Value<String?> aiCaption;
   final Value<String?> aiCaptionDe;
   final Value<bool> aiCaptionScanned;
@@ -2085,6 +2136,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.ocrText = const Value.absent(),
     this.ocrScanned = const Value.absent(),
     this.ocrBoxen = const Value.absent(),
+    this.gpsGeprueft = const Value.absent(),
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
@@ -2143,6 +2195,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.ocrText = const Value.absent(),
     this.ocrScanned = const Value.absent(),
     this.ocrBoxen = const Value.absent(),
+    this.gpsGeprueft = const Value.absent(),
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
@@ -2207,6 +2260,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<String>? ocrText,
     Expression<bool>? ocrScanned,
     Expression<String>? ocrBoxen,
+    Expression<bool>? gpsGeprueft,
     Expression<String>? aiCaption,
     Expression<String>? aiCaptionDe,
     Expression<bool>? aiCaptionScanned,
@@ -2271,6 +2325,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       if (ocrText != null) 'ocr_text': ocrText,
       if (ocrScanned != null) 'ocr_scanned': ocrScanned,
       if (ocrBoxen != null) 'ocr_boxen': ocrBoxen,
+      if (gpsGeprueft != null) 'gps_geprueft': gpsGeprueft,
       if (aiCaption != null) 'ai_caption': aiCaption,
       if (aiCaptionDe != null) 'ai_caption_de': aiCaptionDe,
       if (aiCaptionScanned != null) 'ai_caption_scanned': aiCaptionScanned,
@@ -2331,6 +2386,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<String?>? ocrText,
       Value<bool>? ocrScanned,
       Value<String?>? ocrBoxen,
+      Value<bool>? gpsGeprueft,
       Value<String?>? aiCaption,
       Value<String?>? aiCaptionDe,
       Value<bool>? aiCaptionScanned,
@@ -2390,6 +2446,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       ocrText: ocrText ?? this.ocrText,
       ocrScanned: ocrScanned ?? this.ocrScanned,
       ocrBoxen: ocrBoxen ?? this.ocrBoxen,
+      gpsGeprueft: gpsGeprueft ?? this.gpsGeprueft,
       aiCaption: aiCaption ?? this.aiCaption,
       aiCaptionDe: aiCaptionDe ?? this.aiCaptionDe,
       aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
@@ -2550,6 +2607,9 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     if (ocrBoxen.present) {
       map['ocr_boxen'] = Variable<String>(ocrBoxen.value);
     }
+    if (gpsGeprueft.present) {
+      map['gps_geprueft'] = Variable<bool>(gpsGeprueft.value);
+    }
     if (aiCaption.present) {
       map['ai_caption'] = Variable<String>(aiCaption.value);
     }
@@ -2632,6 +2692,7 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('ocrText: $ocrText, ')
           ..write('ocrScanned: $ocrScanned, ')
           ..write('ocrBoxen: $ocrBoxen, ')
+          ..write('gpsGeprueft: $gpsGeprueft, ')
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
@@ -4202,8 +4263,20 @@ class FaceData extends DataClass implements Insertable<FaceData> {
   /// Wahrscheinlichkeit "Augen offen" (0..1, siehe EyeStateService) – `null`
   /// heißt "noch nicht berechnet" (kein Landmark verfügbar, oder das
   /// Augen-Modell war zum Scan-Zeitpunkt nicht installiert), NICHT "Augen
-  /// geschlossen". Für die Sichtungs-Warnung erst ab einem gesetzten Wert
-  /// unter dem Schwellenwert auswerten.
+  /// geschlossen".
+  ///
+  /// **Alle vor Fassung 63 berechneten Werte sind gelöscht.** Sie entstanden
+  /// mit einer falschen Normierung (0..1 statt -1..1) und stimmten nicht:
+  /// An der echten Bibliothek meldete das Modell für 64,5 % der grossen
+  /// Gesichter „geschlossen"; fünf zufällig herausgegriffene Gesichter mit
+  /// dem Wert 0,00 hatten allesamt die Augen offen, ein schlafendes Kind
+  /// stand bei 0,98. Nachgesehen wurde an den gespeicherten Ausschnitten,
+  /// nicht im Quelltext – im Quelltext sah die Zeile richtig aus.
+  ///
+  /// Der Wert wird deshalb nur noch dort gezeigt, wo das Gesicht daneben
+  /// steht (siehe SerienvergleichScreen) und nicht mehr als Warnung ohne
+  /// Bild: Eine Behauptung, die man nicht nachprüfen kann, gehört nicht in
+  /// einen Ablauf, an dessen Ende gelöscht wird.
   final double? eyeOpenScore;
 
   /// Schärfe des Gesichtsausschnitts (Laplace-Varianz, siehe
@@ -17532,6 +17605,210 @@ class SpurpunkteCompanion extends UpdateCompanion<SpurpunkteData> {
   }
 }
 
+class $VerworfeneSerienTable extends VerworfeneSerien
+    with TableInfo<$VerworfeneSerienTable, VerworfeneSerienData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VerworfeneSerienTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _schluesselMeta =
+      const VerificationMeta('schluessel');
+  @override
+  late final GeneratedColumn<String> schluessel = GeneratedColumn<String>(
+      'schluessel', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _verworfenAmMeta =
+      const VerificationMeta('verworfenAm');
+  @override
+  late final GeneratedColumn<DateTime> verworfenAm = GeneratedColumn<DateTime>(
+      'verworfen_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [schluessel, verworfenAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'verworfene_serien';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<VerworfeneSerienData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('schluessel')) {
+      context.handle(
+          _schluesselMeta,
+          schluessel.isAcceptableOrUnknown(
+              data['schluessel']!, _schluesselMeta));
+    } else if (isInserting) {
+      context.missing(_schluesselMeta);
+    }
+    if (data.containsKey('verworfen_am')) {
+      context.handle(
+          _verworfenAmMeta,
+          verworfenAm.isAcceptableOrUnknown(
+              data['verworfen_am']!, _verworfenAmMeta));
+    } else if (isInserting) {
+      context.missing(_verworfenAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {schluessel};
+  @override
+  VerworfeneSerienData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VerworfeneSerienData(
+      schluessel: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}schluessel'])!,
+      verworfenAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}verworfen_am'])!,
+    );
+  }
+
+  @override
+  $VerworfeneSerienTable createAlias(String alias) {
+    return $VerworfeneSerienTable(attachedDatabase, alias);
+  }
+}
+
+class VerworfeneSerienData extends DataClass
+    implements Insertable<VerworfeneSerienData> {
+  final String schluessel;
+  final DateTime verworfenAm;
+  const VerworfeneSerienData(
+      {required this.schluessel, required this.verworfenAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['schluessel'] = Variable<String>(schluessel);
+    map['verworfen_am'] = Variable<DateTime>(verworfenAm);
+    return map;
+  }
+
+  VerworfeneSerienCompanion toCompanion(bool nullToAbsent) {
+    return VerworfeneSerienCompanion(
+      schluessel: Value(schluessel),
+      verworfenAm: Value(verworfenAm),
+    );
+  }
+
+  factory VerworfeneSerienData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VerworfeneSerienData(
+      schluessel: serializer.fromJson<String>(json['schluessel']),
+      verworfenAm: serializer.fromJson<DateTime>(json['verworfenAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'schluessel': serializer.toJson<String>(schluessel),
+      'verworfenAm': serializer.toJson<DateTime>(verworfenAm),
+    };
+  }
+
+  VerworfeneSerienData copyWith({String? schluessel, DateTime? verworfenAm}) =>
+      VerworfeneSerienData(
+        schluessel: schluessel ?? this.schluessel,
+        verworfenAm: verworfenAm ?? this.verworfenAm,
+      );
+  VerworfeneSerienData copyWithCompanion(VerworfeneSerienCompanion data) {
+    return VerworfeneSerienData(
+      schluessel:
+          data.schluessel.present ? data.schluessel.value : this.schluessel,
+      verworfenAm:
+          data.verworfenAm.present ? data.verworfenAm.value : this.verworfenAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VerworfeneSerienData(')
+          ..write('schluessel: $schluessel, ')
+          ..write('verworfenAm: $verworfenAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(schluessel, verworfenAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VerworfeneSerienData &&
+          other.schluessel == this.schluessel &&
+          other.verworfenAm == this.verworfenAm);
+}
+
+class VerworfeneSerienCompanion extends UpdateCompanion<VerworfeneSerienData> {
+  final Value<String> schluessel;
+  final Value<DateTime> verworfenAm;
+  final Value<int> rowid;
+  const VerworfeneSerienCompanion({
+    this.schluessel = const Value.absent(),
+    this.verworfenAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VerworfeneSerienCompanion.insert({
+    required String schluessel,
+    required DateTime verworfenAm,
+    this.rowid = const Value.absent(),
+  })  : schluessel = Value(schluessel),
+        verworfenAm = Value(verworfenAm);
+  static Insertable<VerworfeneSerienData> custom({
+    Expression<String>? schluessel,
+    Expression<DateTime>? verworfenAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (schluessel != null) 'schluessel': schluessel,
+      if (verworfenAm != null) 'verworfen_am': verworfenAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VerworfeneSerienCompanion copyWith(
+      {Value<String>? schluessel,
+      Value<DateTime>? verworfenAm,
+      Value<int>? rowid}) {
+    return VerworfeneSerienCompanion(
+      schluessel: schluessel ?? this.schluessel,
+      verworfenAm: verworfenAm ?? this.verworfenAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (schluessel.present) {
+      map['schluessel'] = Variable<String>(schluessel.value);
+    }
+    if (verworfenAm.present) {
+      map['verworfen_am'] = Variable<DateTime>(verworfenAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VerworfeneSerienCompanion(')
+          ..write('schluessel: $schluessel, ')
+          ..write('verworfenAm: $verworfenAm, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -17588,6 +17865,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $VerworfeneAktivitaetenTable(this);
   late final $SpurenTable spuren = $SpurenTable(this);
   late final $SpurpunkteTable spurpunkte = $SpurpunkteTable(this);
+  late final $VerworfeneSerienTable verworfeneSerien =
+      $VerworfeneSerienTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -17631,7 +17910,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         aktivitaetAufnahmen,
         verworfeneAktivitaeten,
         spuren,
-        spurpunkte
+        spurpunkte,
+        verworfeneSerien
       ];
 }
 
@@ -17682,6 +17962,7 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<String?> ocrText,
   Value<bool> ocrScanned,
   Value<String?> ocrBoxen,
+  Value<bool> gpsGeprueft,
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
@@ -17740,6 +18021,7 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<String?> ocrText,
   Value<bool> ocrScanned,
   Value<String?> ocrBoxen,
+  Value<bool> gpsGeprueft,
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
@@ -17910,6 +18192,9 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<String> get ocrBoxen => $composableBuilder(
       column: $table.ocrBoxen, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get gpsGeprueft => $composableBuilder(
+      column: $table.gpsGeprueft, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnFilters(column));
@@ -18110,6 +18395,9 @@ class $$AssetsTableOrderingComposer
   ColumnOrderings<String> get ocrBoxen => $composableBuilder(
       column: $table.ocrBoxen, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get gpsGeprueft => $composableBuilder(
+      column: $table.gpsGeprueft, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnOrderings(column));
 
@@ -18290,6 +18578,9 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<String> get ocrBoxen =>
       $composableBuilder(column: $table.ocrBoxen, builder: (column) => column);
 
+  GeneratedColumn<bool> get gpsGeprueft => $composableBuilder(
+      column: $table.gpsGeprueft, builder: (column) => column);
+
   GeneratedColumn<String> get aiCaption =>
       $composableBuilder(column: $table.aiCaption, builder: (column) => column);
 
@@ -18387,6 +18678,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> ocrText = const Value.absent(),
             Value<bool> ocrScanned = const Value.absent(),
             Value<String?> ocrBoxen = const Value.absent(),
+            Value<bool> gpsGeprueft = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
@@ -18445,6 +18737,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             ocrText: ocrText,
             ocrScanned: ocrScanned,
             ocrBoxen: ocrBoxen,
+            gpsGeprueft: gpsGeprueft,
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
@@ -18503,6 +18796,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<String?> ocrText = const Value.absent(),
             Value<bool> ocrScanned = const Value.absent(),
             Value<String?> ocrBoxen = const Value.absent(),
+            Value<bool> gpsGeprueft = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
@@ -18561,6 +18855,7 @@ class $$AssetsTableTableManager extends RootTableManager<
             ocrText: ocrText,
             ocrScanned: ocrScanned,
             ocrBoxen: ocrBoxen,
+            gpsGeprueft: gpsGeprueft,
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
@@ -26087,6 +26382,137 @@ typedef $$SpurpunkteTableProcessedTableManager = ProcessedTableManager<
     ),
     SpurpunkteData,
     PrefetchHooks Function()>;
+typedef $$VerworfeneSerienTableCreateCompanionBuilder
+    = VerworfeneSerienCompanion Function({
+  required String schluessel,
+  required DateTime verworfenAm,
+  Value<int> rowid,
+});
+typedef $$VerworfeneSerienTableUpdateCompanionBuilder
+    = VerworfeneSerienCompanion Function({
+  Value<String> schluessel,
+  Value<DateTime> verworfenAm,
+  Value<int> rowid,
+});
+
+class $$VerworfeneSerienTableFilterComposer
+    extends Composer<_$AppDatabase, $VerworfeneSerienTable> {
+  $$VerworfeneSerienTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$VerworfeneSerienTableOrderingComposer
+    extends Composer<_$AppDatabase, $VerworfeneSerienTable> {
+  $$VerworfeneSerienTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$VerworfeneSerienTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VerworfeneSerienTable> {
+  $$VerworfeneSerienTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => column);
+}
+
+class $$VerworfeneSerienTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $VerworfeneSerienTable,
+    VerworfeneSerienData,
+    $$VerworfeneSerienTableFilterComposer,
+    $$VerworfeneSerienTableOrderingComposer,
+    $$VerworfeneSerienTableAnnotationComposer,
+    $$VerworfeneSerienTableCreateCompanionBuilder,
+    $$VerworfeneSerienTableUpdateCompanionBuilder,
+    (
+      VerworfeneSerienData,
+      BaseReferences<_$AppDatabase, $VerworfeneSerienTable,
+          VerworfeneSerienData>
+    ),
+    VerworfeneSerienData,
+    PrefetchHooks Function()> {
+  $$VerworfeneSerienTableTableManager(
+      _$AppDatabase db, $VerworfeneSerienTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VerworfeneSerienTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VerworfeneSerienTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VerworfeneSerienTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> schluessel = const Value.absent(),
+            Value<DateTime> verworfenAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VerworfeneSerienCompanion(
+            schluessel: schluessel,
+            verworfenAm: verworfenAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String schluessel,
+            required DateTime verworfenAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VerworfeneSerienCompanion.insert(
+            schluessel: schluessel,
+            verworfenAm: verworfenAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$VerworfeneSerienTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $VerworfeneSerienTable,
+    VerworfeneSerienData,
+    $$VerworfeneSerienTableFilterComposer,
+    $$VerworfeneSerienTableOrderingComposer,
+    $$VerworfeneSerienTableAnnotationComposer,
+    $$VerworfeneSerienTableCreateCompanionBuilder,
+    $$VerworfeneSerienTableUpdateCompanionBuilder,
+    (
+      VerworfeneSerienData,
+      BaseReferences<_$AppDatabase, $VerworfeneSerienTable,
+          VerworfeneSerienData>
+    ),
+    VerworfeneSerienData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -26169,4 +26595,6 @@ class $AppDatabaseManager {
       $$SpurenTableTableManager(_db, _db.spuren);
   $$SpurpunkteTableTableManager get spurpunkte =>
       $$SpurpunkteTableTableManager(_db, _db.spurpunkte);
+  $$VerworfeneSerienTableTableManager get verworfeneSerien =>
+      $$VerworfeneSerienTableTableManager(_db, _db.verworfeneSerien);
 }

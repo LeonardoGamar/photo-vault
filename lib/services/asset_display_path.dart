@@ -17,9 +17,15 @@ import '../db/database.dart';
 /// Belichtungs-/Weißabgleich-Anpassungen des Nutzers, siehe
 /// LibraryState._decodableFile. Aus demselben Grund auch nicht im
 /// (destruktiven) ImageEditorScreen oder der Gesichts-Review verwendet.
+/// **Bei einem Video zählt die Vorschau nicht.** Seit die Auswertung auch
+/// Videos erreicht, trägt jedes Video eine Vorschau – ein Standbild aus
+/// der ersten Sekunde. Als Anzeigepfad genommen ersetzte es den Film durch
+/// ein Foto: Der Betrachter bekäme ein unbewegliches Bild und keinen
+/// Abspieler. Ein zugeschnittenes Video (`trimmedRelativePath`) steht
+/// weiterhin davor, denn das ist ein Film.
 String displayRelativePath(AssetData asset) =>
     asset.restoredRelativePath ??
     asset.developedRelativePath ??
     asset.trimmedRelativePath ??
-    asset.previewRelativePath ??
+    (asset.type == 'VIDEO' ? null : asset.previewRelativePath) ??
     asset.relativePath;

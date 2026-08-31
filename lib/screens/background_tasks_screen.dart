@@ -58,10 +58,11 @@ class Aufgabenaktion {
 
   /// Rückfrage vor dem Start, oder `null`.
   ///
-  /// Nur eine Aufgabe hat eine: Die Datumskorrektur schreibt Aufnahmedaten
-  /// um und verschiebt Dateien auf der Platte. Alle anderen ergänzen nur
-  /// Fehlendes, und eine Rückfrage, die man immer bejaht, liest bald
-  /// niemand mehr.
+  /// Zwei Aufgaben haben eine, und beide aus demselben Grund: Sie fassen
+  /// Dateien auf der Platte an. Die Datumskorrektur schreibt Aufnahmedaten
+  /// um und verschiebt danach, das Neuordnen der Ablage verschiebt ohne
+  /// das Datum anzufassen. Alle anderen ergänzen nur Fehlendes, und eine
+  /// Rückfrage, die man immer bejaht, liest bald niemand mehr.
   final Future<bool> Function(BuildContext)? bestaetigung;
 
   const Aufgabenaktion({
@@ -928,6 +929,15 @@ List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
         offenLabel: t.aufgBetrifft,
         offeneZahl: () => library.db.countLocationBackfill(),
         aktionen: [
+          // „Alle" liest auch die, in denen schon einmal nachgesehen
+          // wurde – der Weg für Dateien, die ausserhalb der App
+          // nachträglich Koordinaten bekommen haben.
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzLeseOrte,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillLocations(alle: true),
+          ),
           Aufgabenaktion(
             modus: Aufgabenmodus.fehlende,
             laufTitel: t.werkzLeseOrte,
@@ -982,10 +992,49 @@ List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
             laufTitel: t.werkzKorrigiereDatum,
             emptyMessage: t.werkzKeineRawFotos,
             stream: () => library.korrigiereAufnahmedaten(),
-            // Die einzige Aufgabe mit Rückfrage: Sie schreibt Aufnahmedaten
-            // um und verschiebt Dateien auf der Platte. Alle anderen
-            // ergänzen nur Fehlendes.
+            // Eine der beiden Aufgaben mit Rückfrage: Sie schreibt
+            // Aufnahmedaten um und verschiebt Dateien auf der Platte.
             bestaetigung: _frageDatumskorrektur,
+          ),
+        ],
+      ),
+      // Direkt hinter der Datumskorrektur: Die verschiebt Dateien nach
+      // dem neu gelesenen Datum, und was danach noch schief liegt, ist
+      // genau der Fall für diese Karte.
+      Aufgabe(
+        schluessel: 'ablage',
+        icon: Icons.folder_copy_outlined,
+        titel: t.aufgAblageTitel,
+        beschreibung: t.aufgAblageText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countAblageordnung(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzOrdneAblage,
+            emptyMessage: t.werkzAblageStimmt,
+            stream: () => library.ordneAblageNeu(),
+            // Die zweite Aufgabe mit Rückfrage, aus demselben Grund wie
+            // die erste: Sie fasst Dateien auf der Platte an.
+            bestaetigung: _frageAblage,
+          ),
+        ],
+      ),
+      // Vor den Live-Photo-Paaren: Wer als Video geführt wird, obwohl er
+      // ein Standbild ist, wird auch bei der Paarsuche nicht gefunden.
+      Aufgabe(
+        schluessel: 'dateiarten',
+        icon: Icons.rule_folder_outlined,
+        titel: t.aufgDateiartTitel,
+        beschreibung: t.aufgDateiartText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countAssetsOfType('VIDEO'),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzPruefeDateiarten,
+            emptyMessage: t.werkzAlleArtenStimmen,
+            stream: () => library.repariereDateiarten(),
           ),
         ],
       ),
@@ -1053,6 +1102,27 @@ Future<bool> _frageDatumskorrektur(BuildContext context) async {
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
           child: Text(t.werkzDatumStarten),
+        ),
+      ],
+    ),
+  );
+  return los == true;
+}
+
+/// Die Rückfrage vor dem Neuordnen der Ablage.
+Future<bool> _frageAblage(BuildContext context) async {
+  final t = AppTexte.of(context);
+  final los = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(t.werkzAblageFrageTitel),
+      content: Text(t.werkzAblageFrage),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context), child: Text(t.allgAbbrechen)),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(t.werkzAblageStarten),
         ),
       ],
     ),

@@ -52,6 +52,7 @@ void main() {
         isTrashed: false,
         isLocked: false,
         faceScanExcluded: false,
+        gpsGeprueft: false,
         fileSizeBytes: 100,
         backedUp: false,
         autoBackedUp: false,

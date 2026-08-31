@@ -181,6 +181,26 @@ class Assets extends Table {
   /// nächsten Lauf erneut dran, siehe [assetsForOcrBackfill].
   TextColumn get ocrBoxen => text().nullable()();
 
+  /// Ob in dieser Datei schon einmal nach einem GPS-Ort gesucht wurde.
+  ///
+  /// **Warum es diese Spalte gibt.** Der Nachtrag „Orte einlesen" nahm bis
+  /// Fassung 2.6 jede Aufnahme ohne Koordinate – das sind an einer echten
+  /// Bibliothek 5756 von 7988 – und las sie **vollständig** ein, um in den
+  /// EXIF-Daten nachzusehen. Gemessen an 400 dieser Fotos: 3,3 Sekunden
+  /// und 1215 MB für **null** Treffer; hochgerechnet rund 47 Sekunden und
+  /// 17,5 GB je Lauf. Und beim nächsten Lauf wieder, denn ein erfolgloser
+  /// Blick hinterliess keine Spur.
+  ///
+  /// Ein Screenshot, ein weitergeleitetes Bild, eine Kamera ohne Empfänger
+  /// – die tragen keinen Ort und werden auch beim zwanzigsten Lauf keinen
+  /// tragen. Das hier ist die Notiz „nachgesehen, nichts da".
+  ///
+  /// `false` für alles Bestehende: Nach dem Umstieg läuft der Nachtrag
+  /// genau **einmal** über die ganze Bibliothek – und findet dabei die
+  /// Videos, an die er vorher nie herankam. Danach ist er still.
+  BoolColumn get gpsGeprueft =>
+      boolean().withDefault(const Constant(false))();
+
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
   /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
@@ -880,6 +900,23 @@ class VerworfeneAktivitaeten extends Table {
   Set<Column> get primaryKey => {schluessel};
 }
 
+/// Eine abgelehnte Serie. [schluessel] ist die Kennung der ersten Aufnahme
+/// der Gruppe – wie bei [VerworfeneReisen] und [VerworfeneAktivitaeten].
+///
+/// **Warum es die Tabelle braucht.** Die Serienerkennung findet in der
+/// Prüfbibliothek 286 brauchbare Gruppen; bis Fassung 62 verschwand eine
+/// abgelehnte Gruppe nur aus der Liste und stand beim nächsten Öffnen
+/// wieder da. Wer einmal „nein" gesagt hat, will nicht jedes Mal erneut
+/// gefragt werden – dieselbe Überlegung wie bei Reisen und Aktivitäten,
+/// nur hatte sie hier gefehlt.
+class VerworfeneSerien extends Table {
+  TextColumn get schluessel => text()();
+  DateTimeColumn get verworfenAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {schluessel};
+}
+
 /// Eine aufgezeichnete Spur – die GPX-Datei einer Wanderung oder
 /// Radtour.
 ///
@@ -1057,8 +1094,20 @@ class Faces extends Table {
   /// Wahrscheinlichkeit "Augen offen" (0..1, siehe EyeStateService) – `null`
   /// heißt "noch nicht berechnet" (kein Landmark verfügbar, oder das
   /// Augen-Modell war zum Scan-Zeitpunkt nicht installiert), NICHT "Augen
-  /// geschlossen". Für die Sichtungs-Warnung erst ab einem gesetzten Wert
-  /// unter dem Schwellenwert auswerten.
+  /// geschlossen".
+  ///
+  /// **Alle vor Fassung 63 berechneten Werte sind gelöscht.** Sie entstanden
+  /// mit einer falschen Normierung (0..1 statt -1..1) und stimmten nicht:
+  /// An der echten Bibliothek meldete das Modell für 64,5 % der grossen
+  /// Gesichter „geschlossen"; fünf zufällig herausgegriffene Gesichter mit
+  /// dem Wert 0,00 hatten allesamt die Augen offen, ein schlafendes Kind
+  /// stand bei 0,98. Nachgesehen wurde an den gespeicherten Ausschnitten,
+  /// nicht im Quelltext – im Quelltext sah die Zeile richtig aus.
+  ///
+  /// Der Wert wird deshalb nur noch dort gezeigt, wo das Gesicht daneben
+  /// steht (siehe SerienvergleichScreen) und nicht mehr als Warnung ohne
+  /// Bild: Eine Behauptung, die man nicht nachprüfen kann, gehört nicht in
+  /// einen Ablauf, an dessen Ende gelöscht wird.
   RealColumn get eyeOpenScore => real().nullable()();
 
   /// Schärfe des Gesichtsausschnitts (Laplace-Varianz, siehe
@@ -1388,6 +1437,7 @@ class DuplikatAusnahmen extends Table {
   VerworfeneAktivitaeten,
   Spuren,
   Spurpunkte,
+  VerworfeneSerien,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -1402,7 +1452,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 61;
+  int get schemaVersion => 64;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1799,6 +1849,27 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 64) {
+            // „Schon nachgesehen" beim Ortsnachtrag (siehe die Spalte).
+            // `false` fuer alles Bestehende ist Absicht: Der erste Lauf
+            // nach dem Umstieg geht noch einmal ueber alles – und findet
+            // dabei die Videos, an die er vorher nie herankam.
+            await _addColumnIfMissing(
+                m, assets, assets.gpsGeprueft, 'assets', 'gps_geprueft');
+          }
+          if (from < 63) {
+            // Die alten Augenwerte entstanden mit falscher Normierung und
+            // sagten „geschlossen" zu offenen Augen. `null` heisst laut
+            // Spaltendoku „noch nicht berechnet" – das ist die ehrliche
+            // Auskunft, bis ein Gesichtsdurchlauf sie neu ermittelt.
+            await m.database
+                .customStatement('UPDATE faces SET eye_open_score = NULL');
+          }
+          if (from < 62) {
+            // Abgelehnte Serienvorschlaege – bis hierher verschwand ein
+            // „nein" mit dem Schliessen des Bildschirms.
+            await m.createTable(verworfeneSerien);
           }
           if (from < 61) {
             // Schaerfe des Gesichtsausschnitts (siehe die Spalte). Leer
@@ -2312,6 +2383,14 @@ class AppDatabase extends _$AppDatabase {
   /// relatives Verschieben (jedes Foto würde sonst seinen ursprünglichen
   /// Abstand zu den anderen behalten müssen), sondern ein einfaches
   /// "alle auf diesen einen Zeitpunkt setzen" für die Auswahlleiste.
+  /// **Schreibt nur die Spalte.** Wer ein Datum auf Wunsch des Menschen
+  /// ändert, muss über [LibraryState.setzeAufnahmedatumVonHand] gehen: Das
+  /// Datum bestimmt den Ablageort, und die Datei muss mitgehen. Hier
+  /// stehenzubleiben hinterliess an der echten Bibliothek 1102 Aufnahmen,
+  /// deren Ordner etwas anderes behauptet als ihre Zeile. Ein Prüfstand
+  /// hält die Bildschirme davon fern (siehe
+  /// `datum_setzen_verschiebt_test.dart`); für Prüfstände selbst ist der
+  /// kurze Weg hier richtig.
   Future<void> setFileCreatedAtBulk(List<String> assetIds, DateTime fileCreatedAt) =>
       (update(assets)..where((t) => t.id.isIn(assetIds)))
           .write(AssetsCompanion(fileCreatedAt: Value(fileCreatedAt)));
@@ -2606,6 +2685,14 @@ class AppDatabase extends _$AppDatabase {
       (update(assets)..where((t) => t.id.equals(assetId)))
           .write(AssetsCompanion(description: Value(description)));
 
+  /// **Schreibt nur die Spalte.** Wer ein Datum auf Wunsch des Menschen
+  /// ändert, muss über [LibraryState.setzeAufnahmedatumVonHand] gehen: Das
+  /// Datum bestimmt den Ablageort, und die Datei muss mitgehen. Hier
+  /// stehenzubleiben hinterliess an der echten Bibliothek 1102 Aufnahmen,
+  /// deren Ordner etwas anderes behauptet als ihre Zeile. Ein Prüfstand
+  /// hält die Bildschirme davon fern (siehe
+  /// `datum_setzen_verschiebt_test.dart`); für Prüfstände selbst ist der
+  /// kurze Weg hier richtig.
   Future<void> setFileCreatedAt(String assetId, DateTime fileCreatedAt) =>
       (update(assets)..where((t) => t.id.equals(assetId)))
           .write(AssetsCompanion(fileCreatedAt: Value(fileCreatedAt)));
@@ -2624,15 +2711,43 @@ class AppDatabase extends _$AppDatabase {
   /// Funktion importiert wurden. Nur Fotos, da Videos i.d.R. keine
   /// EXIF-GPS-Daten haben (Ort muss dort manuell in der Info-Ansicht
   /// gesetzt werden).
-  Future<List<AssetData>> assetsForLocationBackfill() => (select(assets)
-        ..where((t) =>
-            t.type.equals('IMAGE') & t.isTrashed.equals(false) & t.latitude.isNull()))
-      .get();
+  /// Alles ohne Ort – **Videos eingeschlossen**.
+  ///
+  /// Der Filter auf `IMAGE` stand hier von Anfang an und schloss damit
+  /// genau die Gruppe aus, bei der noch etwas zu holen war: In der
+  /// Prüfbibliothek trugen 43 von 60 zufällig geprüften Videos einen Ort
+  /// in der Datei und keines von 440 einen in der Datenbank. Bei den
+  /// Fotos ist der Topf dagegen leer – von 59 geprüften unverorteten
+  /// iPhone- und Canon-Aufnahmen trug keine einzige noch GPS.
+  ///
+  /// **[alle] = false überspringt, was schon einmal angesehen wurde**
+  /// (siehe [Assets.gpsGeprueft]). Ohne das las jeder Lauf dieselben
+  /// tausende Dateien vollständig ein, um wieder nichts zu finden:
+  /// gemessen 3,3 s und 1215 MB je 400 Fotos, hochgerechnet 47 s und
+  /// 17,5 GB. `alle = true` ist der Weg für den Fall, dass jemand die
+  /// Dateien ausserhalb der App mit Koordinaten versehen hat.
+  Expression<bool> _ohneOrt(bool alle) {
+    final grund = assets.isTrashed.equals(false) & assets.latitude.isNull();
+    return alle ? grund : grund & assets.gpsGeprueft.equals(false);
+  }
+
+  Future<List<AssetData>> assetsForLocationBackfill({bool alle = false}) =>
+      (select(assets)..where((_) => _ohneOrt(alle))).get();
 
   /// Zählvariante von [assetsForLocationBackfill] – für Anzeigezwecke (siehe
   /// BackgroundTasksScreen), ohne die vollen Zeilen aus der DB zu holen.
-  Future<int> countLocationBackfill() =>
-      _countWhere(assets.type.equals('IMAGE') & assets.isTrashed.equals(false) & assets.latitude.isNull());
+  Future<int> countLocationBackfill({bool alle = false}) =>
+      _countWhere(_ohneOrt(alle));
+
+  /// Vermerkt für mehrere Aufnahmen auf einmal, dass in ihrer Datei nach
+  /// einem Ort gesucht wurde – gleich ob mit Erfolg.
+  ///
+  /// Blockweise und nicht je Datei: Das Suchen selbst ist der teure Teil,
+  /// aber tausende Einzelschreibvorgänge daneben wären es auch (gemessen
+  /// bei den Ortsnamen: 2131 ms einzeln gegen 139 ms in Blöcken).
+  Future<void> markGpsGeprueft(List<String> assetIds) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(const AssetsCompanion(gpsGeprueft: Value(true)));
 
   /// Setzt die Kamera-/Objektiv-/Aufnahme-Angaben eines Assets (siehe
   /// CameraInfo) – beim Import automatisch oder nachträglich über das
@@ -2657,19 +2772,22 @@ class AppDatabase extends _$AppDatabase {
   /// (z.B. Screenshots), werden dadurch bei jedem Lauf erneut geprüft – wie
   /// bei [assetsForLocationBackfill] bewusst in Kauf genommen, da das
   /// erneute Prüfen sehr günstig ist.
-  Future<List<AssetData>> assetsForCameraMetadataBackfill() => (select(assets)
-        ..where((t) =>
-            t.type.equals('IMAGE') &
-            t.isTrashed.equals(false) &
-            t.cameraMake.isNull() &
-            t.cameraModel.isNull()))
-      .get();
-
-  /// Zählvariante von [assetsForCameraMetadataBackfill], siehe [countLocationBackfill].
-  Future<int> countCameraMetadataBackfill() => _countWhere(assets.type.equals('IMAGE') &
+  /// **Videos gehören dazu.** Bis Fassung 2.5 stand hier `type = 'IMAGE'`,
+  /// und damit blieben 275 Videos aussen vor, die Hersteller und Gerät in
+  /// der Datei tragen – 228 davon in Apples Schlüsselliste, weitere acht
+  /// in den klassischen Atomen `©mak`/`©mod` (siehe [kameraAusMoov]).
+  /// Der Lauf las stattdessen 842 Fotos, von denen nachweislich **keines**
+  /// eine Kameraangabe in der Datei hat, und änderte nichts.
+  Expression<bool> get _ohneKameraangabe =>
       assets.isTrashed.equals(false) &
       assets.cameraMake.isNull() &
-      assets.cameraModel.isNull());
+      assets.cameraModel.isNull();
+
+  Future<List<AssetData>> assetsForCameraMetadataBackfill() =>
+      (select(assets)..where((_) => _ohneKameraangabe)).get();
+
+  /// Zählvariante von [assetsForCameraMetadataBackfill], siehe [countLocationBackfill].
+  Future<int> countCameraMetadataBackfill() => _countWhere(_ohneKameraangabe);
 
   /// Setzt Aufnahmezeitpunkt und – falls der Monat wechselt – den neuen
   /// Ablageort einer Datei.
@@ -2689,11 +2807,23 @@ class AppDatabase extends _$AppDatabase {
   /// RAW-Fotos, deren Aufnahmedatum aus dem Dateizeitstempel stammen
   /// könnte – Kandidaten für die Datumskorrektur.
   ///
-  /// Warum RAW: `package:exif` liest nur TIFF/JPEG. Formate wie CR3
-  /// (ISO-BMFF-Container) liefern dort NULL Tags, und dann fällt der
-  /// Import auf `lastModified()` der Quelldatei zurück. Bei JPEG-Fotos
-  /// gibt es diesen Weg nicht – deren Datum kam immer aus den EXIF-Daten
-  /// oder es gab keines.
+  /// Warum RAW **und Video**: `package:exif` liest nur TIFF/JPEG. Formate
+  /// wie CR3 und die Videocontainer MOV/MP4 liefern dort NULL Tags, und
+  /// dann fällt der Import auf `lastModified()` der Quelldatei zurück –
+  /// also auf den Zeitpunkt des letzten Kopierens.
+  ///
+  /// **Die Videos fehlten hier bis Fassung 2.5.** Der Kommentar an dieser
+  /// Stelle begründete das damit, dass es den Rückfall nur bei RAW gebe.
+  /// An der echten Bibliothek nachgezählt war das falsch: 309 von 440
+  /// Videos tragen einen Aufnahmezeitpunkt in der Datei, **kein einziges**
+  /// trug den richtigen in der Datenbank, und 196 lagen um mehr als einen
+  /// Tag daneben. Der Leser dafür steht in [zeitAusMoov]; diese Abfrage
+  /// war das, was ihn nie zu Gesicht bekam.
+  ///
+  /// Gewöhnliche JPEG bleiben aussen vor: Dort kam das Datum immer aus den
+  /// EXIF-Daten oder es gab überhaupt keines in der Datei (nachgezählt:
+  /// 1774 Aufnahmen ohne jede Zeitangabe, die auch ein erneutes Lesen
+  /// nicht datieren könnte).
   ///
   /// Bewusst ohne weitere Einschränkung: Ob ein Datum wirklich falsch ist,
   /// weiss erst der Vergleich mit der Datei. Diese Abfrage grenzt nur die
@@ -2724,10 +2854,48 @@ class AppDatabase extends _$AppDatabase {
       final eine = assets.relativePath.lower().like('%$e');
       endungen = endungen == null ? eine : endungen | eine;
     }
-    return assets.type.equals('IMAGE') &
-        assets.isTrashed.equals(false) &
-        endungen!;
+    return assets.isTrashed.equals(false) &
+        (assets.type.equals('VIDEO') |
+            (assets.type.equals('IMAGE') & endungen!));
   }
+
+  /// Aufnahmen, deren **Ablageordner nicht zu ihrem Datum passt**.
+  ///
+  /// Der Ablagepfad ist `originals/JJJJ/MM/<Kennung><Endung>` (siehe
+  /// [StoragePaths.originalRelativePath]). Wer das Datum von Hand setzte,
+  /// bekam bis Fassung 2.6 nur die Spalte geändert – die Datei blieb im
+  /// Ordner des alten Monats. An einer echten Bibliothek betraf das
+  /// **1102 von 7988 Aufnahmen**, davon 948 aus einer einzigen
+  /// Sammelbearbeitung.
+  ///
+  /// Die Ursache ist behoben (siehe
+  /// [LibraryState.setzeAufnahmedatumVonHand]); das hier räumt auf, was
+  /// vorher entstanden ist.
+  ///
+  /// **In SQL und nicht in Dart**, obwohl der Pfad in Dart gebaut wird:
+  /// Sonst kämen achttausend Zeilen herüber, damit von jeder zwei Zahlen
+  /// verglichen werden. `substr(…, 11, 7)` schneidet die sieben Zeichen
+  /// `JJJJ/MM` hinter `originals/` heraus.
+  ///
+  /// `'localtime'` ist zwingend: `originalRelativePath` nimmt Jahr und
+  /// Monat der **Ortszeit**. Ohne den Modifier läge jede Aufnahme aus der
+  /// ersten Stunde eines Monats scheinbar falsch. Sollten sich die beiden
+  /// Zeitrechnungen doch einmal um eine Stunde uneinig sein, ist das
+  /// harmlos: Der Lauf berechnet denselben Pfad und verschiebt nichts.
+  ///
+  /// **Der Papierkorb ist dabei**, anders als bei der Datumskorrektur: Ein
+  /// gelöschtes Foto liegt weiterhin unter `originals/`, und die Frage
+  /// lautet hier nicht „stimmt das Datum", sondern „stimmt der Ordner".
+  Expression<bool> get _ablageFalsch => const CustomExpression<bool>(
+        "relative_path LIKE 'originals/%' AND substr(relative_path, 11, 7) "
+        "<> strftime('%Y/%m', file_created_at, 'unixepoch', 'localtime')",
+      );
+
+  Future<List<AssetData>> assetsFuerAblageordnung() =>
+      (select(assets)..where((_) => _ablageFalsch)).get();
+
+  /// Zählvariante von [assetsFuerAblageordnung], siehe [countLocationBackfill].
+  Future<int> countAblageordnung() => _countWhere(_ablageFalsch);
 
   Future<List<AssetData>> assetsFuerDatumskorrektur() =>
       (select(assets)..where((_) => _rohaufnahme)).get();
@@ -2770,8 +2938,26 @@ class AppDatabase extends _$AppDatabase {
   /// Fotos, in denen nachweislich kein Text steht (`ocrText` leer), bleiben
   /// aussen vor: Bei ihnen gäbe es auch beim zweiten Lauf keine Stellen, und
   /// es wären über fünftausend vergebliche Durchläufe.
+  /// Was sich aus dem Bildinhalt auswerten lässt.
+  ///
+  /// Jedes Bild – **und jedes Video, von dem ein Standbild vorliegt**. Der
+  /// Filter `type = 'IMAGE'` stand in dreiundzwanzig Abfragen und liess
+  /// damit die 440 Videos der Prüfbibliothek aus jeder Stufe heraus: null
+  /// Beschreibungen, null Schlagwörter, null Gesichter, null Einbettungen,
+  /// null erkannte Texte. Immich wertet bei Videos genau dieses eine
+  /// Standbild aus und schreibt die Einschränkung in seine Doku; hier lag
+  /// das Bild seit dem Import auf der Platte und niemand sah es an.
+  ///
+  /// Die Vorschau ist zugleich die Bedingung und der Weg dorthin: Sie ist
+  /// das, was `LibraryState._decodableFile` liefert. Ein Video ohne
+  /// Standbild (die Extraktion scheitert an beschädigten Dateien) bleibt
+  /// deshalb aussen vor, statt jede Stufe einzeln scheitern zu lassen.
+  Expression<bool> _auswertbar($AssetsTable t) =>
+      t.type.equals('IMAGE') |
+      (t.type.equals('VIDEO') & t.previewRelativePath.isNotNull());
+
   Expression<bool> _ocrOffen($AssetsTable t) =>
-      t.type.equals('IMAGE') &
+      _auswertbar(t) &
       t.isTrashed.equals(false) &
       t.isLocked.equals(false) &
       (t.ocrScanned.equals(false) |
@@ -2883,7 +3069,7 @@ class AppDatabase extends _$AppDatabase {
   /// zum Wegwerfen getippter Sätze; wer die Maschine wieder ranlassen will,
   /// leert das Feld.
   Expression<bool> _brauchtBeschreibung(bool alle) =>
-      assets.type.equals('IMAGE') &
+      _auswertbar(assets) &
       assets.isTrashed.equals(false) &
       assets.isLocked.equals(false) &
       assets.aiCaptionEdited.equals(false) &
@@ -2904,7 +3090,7 @@ class AppDatabase extends _$AppDatabase {
   /// Schalter ist das Auseinanderdriften zu wahrscheinlich, um es nur zu
   /// prüfen.
   Expression<bool> _uebersetzbareBeschreibung(bool alle) =>
-      assets.type.equals('IMAGE') &
+      _auswertbar(assets) &
       assets.isTrashed.equals(false) &
       assets.isLocked.equals(false) &
       assets.aiCaption.isNotNull() &
@@ -2992,7 +3178,7 @@ class AppDatabase extends _$AppDatabase {
     final query = select(assets).join([
       leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
     ])
-      ..where(assets.type.equals('IMAGE') &
+      ..where(_auswertbar(assets) &
           assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
           (assets.sharpnessScore.isNull() |
@@ -3009,14 +3195,14 @@ class AppDatabase extends _$AppDatabase {
   /// Werkzeugen. Gesperrte Fotos ausgenommen, siehe [assetsForOcrBackfill].
   Future<List<AssetData>> assetsForBlurBackfill() => (select(assets)
         ..where((t) =>
-            t.type.equals('IMAGE') &
+            _auswertbar(t) &
             t.isTrashed.equals(false) &
             t.isLocked.equals(false) &
             t.sharpnessScore.isNull()))
       .get();
 
   /// Zählvariante von [assetsForBlurBackfill], siehe [countLocationBackfill].
-  Future<int> countBlurBackfill() => _countWhere(assets.type.equals('IMAGE') &
+  Future<int> countBlurBackfill() => _countWhere(_auswertbar(assets) &
       assets.isTrashed.equals(false) &
       assets.isLocked.equals(false) &
       assets.sharpnessScore.isNull());
@@ -3224,6 +3410,11 @@ class AppDatabase extends _$AppDatabase {
       .get();
 
   /// Zählvariante von [unlinkedAssetsOfType], siehe [countLocationBackfill].
+  /// Wie viele Aufnahmen dieser Art es gibt – für die Anzeige „betrifft N"
+  /// bei der Prüfung der Dateiarten.
+  Future<int> countAssetsOfType(String type) =>
+      _countWhere(assets.type.equals(type));
+
   Future<int> countUnlinkedAssetsOfType(String type) =>
       _countWhere(assets.type.equals(type) & assets.isTrashed.equals(false) & assets.linkedAssetId.isNull());
 
@@ -3236,6 +3427,27 @@ class AppDatabase extends _$AppDatabase {
 
   // ---------------------------------------------------------------------
   // Serien-/Burst-Stapel (siehe StackReviewScreen, findBurstGroups)
+
+  Future<Set<String>> verworfeneSerienvorschlaege() async =>
+      {for (final z in await select(verworfeneSerien).get()) z.schluessel};
+
+  Future<void> verwirfSerienvorschlag(String schluessel) =>
+      into(verworfeneSerien).insertOnConflictUpdate(VerworfeneSerienCompanion.insert(
+          schluessel: schluessel, verworfenAm: DateTime.now()));
+
+  /// Die Einbettungen, die für einen Serienvorschlag überhaupt in Frage
+  /// kommen: alles, was nicht schon in einem Stapel liegt.
+  ///
+  /// Ohne diese Einschränkung fände der nächste Lauf dieselben Gruppen
+  /// erneut – die Mitglieder eines Stapels sind aus dem Raster
+  /// verschwunden, aus der Einbettungstabelle aber nicht.
+  Future<Set<String>> bereitsGestapelt() async {
+    final zeilen = await (selectOnly(assets)
+          ..addColumns([assets.id])
+          ..where(assets.stackId.isNotNull()))
+        .get();
+    return {for (final z in zeilen) z.read(assets.id)!};
+  }
   // ---------------------------------------------------------------------
 
   /// Fasst [assetIds] zu einem neuen Stapel zusammen: [coverAssetId] (muss in
@@ -3290,7 +3502,7 @@ class AppDatabase extends _$AppDatabase {
     final query = select(assets)
       ..where((t) => t.isTrashed.equals(false) & t.isLocked.equals(false));
     if (onlyMissing) {
-      query.where((t) => t.thumbnailRelativePath.isNull());
+      query.where(_fehlendeVorschau);
     }
     return query.get();
   }
@@ -3299,8 +3511,22 @@ class AppDatabase extends _$AppDatabase {
   Future<int> countThumbnailRegen({required bool onlyMissing}) => _countWhere(onlyMissing
       ? assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
-          assets.thumbnailRelativePath.isNull()
+          _fehlendeVorschau(assets)
       : assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+
+  /// „Fehlt hier ein Vorschaubild?"
+  ///
+  /// Bei einem Video zählt zusätzlich die **Vorschau**, nicht nur die
+  /// Miniatur: Erst das grosse Standbild macht es auswertbar (siehe
+  /// [_auswertbar]). Die 440 Videos der Prüfbibliothek hatten fast alle
+  /// eine Miniatur und keines eine Vorschau – ohne diese Unterscheidung
+  /// hätte „Fehlende erzeugen" sie für erledigt gehalten.
+  ///
+  /// Bei einem Bild dagegen ist eine fehlende Vorschau der Normalfall: Sie
+  /// entsteht nur für HEIC und RAW.
+  Expression<bool> _fehlendeVorschau($AssetsTable t) =>
+      t.thumbnailRelativePath.isNull() |
+      (t.type.equals('VIDEO') & t.previewRelativePath.isNull());
 
   /// Für die Bibliotheks-Integritätsprüfung (IntegrityCheckScreen): bewusst
   /// vollständig ungefiltert (auch gelöscht/gesperrt), da all diese Assets
@@ -3340,6 +3566,29 @@ class AppDatabase extends _$AppDatabase {
   Future<void> clearMissingFaceCropPath(String faceId) =>
       (update(faces)..where((t) => t.id.equals(faceId)))
           .write(const FacesCompanion(cropRelativePath: Value(null)));
+
+  /// Aufnahmen, die als Video geführt werden – Anwärter dafür, dass der
+  /// Name etwas anderes behauptet als die Bytes (siehe
+  /// `LibraryState.repariereDateiarten`).
+  Future<List<AssetData>> alsVideoGefuehrte() =>
+      (select(assets)..where((t) => t.type.equals('VIDEO'))).get();
+
+  /// Trägt für eine Aufnahme die Art ein, die ihre Bytes hergeben, und
+  /// nimmt dabei alles zurück, was aus der falschen Annahme entstanden ist.
+  ///
+  /// Miniatur und Dauer werden ausdrücklich geleert: Die Miniatur kam vom
+  /// Videowandler und ist bei diesen Dateien nie entstanden, und eine
+  /// Laufzeit hat ein Standbild nicht.
+  Future<void> setzeDateiart(String assetId, String art,
+          {required String dateiformat}) =>
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
+        type: Value(art),
+        dateiformat: Value(dateiformat),
+        thumbnailRelativePath: const Value(null),
+        previewRelativePath: const Value(null),
+        durationSeconds: const Value(null),
+      ));
 
   Future<void> updateThumbnailInfo(
     String assetId, {
@@ -4637,18 +4886,47 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// Nur solche mit gespeichertem Ausschnitt: Ohne ihn gäbe es nichts zu
   /// messen, und sie stünden bei jedem Lauf erneut in der Liste.
-  Future<List<FaceData>> gesichterOhneSchaerfe() => (select(faces)
-        ..where((f) => f.schaerfe.isNull() & f.cropRelativePath.isNotNull()))
-      .get();
+  Future<List<FaceData>> gesichterOhneSchaerfe() async {
+    final zeilen = await (select(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+          ..where(_schaerfeOffen))
+        .get();
+    return [for (final z in zeilen) z.readTable(faces)];
+  }
 
   /// Zählvariante von [gesichterOhneSchaerfe].
   Future<int> countGesichterOhneSchaerfe() async {
-    final zeile = await (selectOnly(faces)
-          ..addColumns([faces.id.count()])
-          ..where(faces.schaerfe.isNull() & faces.cropRelativePath.isNotNull()))
-        .getSingle();
+    final abfrage = selectOnly(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+      ..addColumns([faces.id.count()])
+      ..where(_schaerfeOffen);
+    final zeile = await abfrage.getSingle();
     return zeile.read(faces.id.count()) ?? 0;
   }
+
+  /// Wessen Schärfe noch aussteht.
+  ///
+  /// **Gesperrte Aufnahmen bleiben draussen.** Ihr Ausschnitt liegt als
+  /// Chiffrat auf der Platte; `decodeImage` gibt dafür `null` zurück, der
+  /// Wert bliebe leer, und die Aufgabe fände dieselben Gesichter beim
+  /// nächsten Lauf wieder. Eine Hintergrundaufgabe, die dauerhaft „noch N
+  /// offen" meldet und nie fertig wird, ist schlimmer als eine, die es gar
+  /// nicht gibt – und die Zahl gehört ausserdem zu den Auskünften, die der
+  /// gesperrte Ordner nicht geben soll.
+  Expression<bool> get _schaerfeOffen =>
+      faces.schaerfe.isNull() &
+      faces.cropRelativePath.isNotNull() &
+      assets.isLocked.equals(false);
+
+  /// Trägt einen neu gezeichneten Ausschnitt samt seiner Schärfe ein.
+  Future<void> setzeGesichtsausschnitt(String faceId, String pfad,
+          {double? schaerfe}) =>
+      (update(faces)..where((f) => f.id.equals(faceId))).write(FacesCompanion(
+        cropRelativePath: Value(pfad),
+        schaerfe: schaerfe == null ? const Value.absent() : Value(schaerfe),
+      ));
 
   Future<void> setzeGesichtsschaerfe(String faceId, double wert) =>
       (update(faces)..where((f) => f.id.equals(faceId)))
@@ -5887,7 +6165,7 @@ class AppDatabase extends _$AppDatabase {
     // ist (siehe [unassignedFaces]).
     final query = select(assets)
       ..where((t) =>
-          t.type.equals('IMAGE') &
+          _auswertbar(t) &
           t.isTrashed.equals(false) &
           t.isLocked.equals(false) &
           // Gilt auch fuer "alle erneut durchsuchen" - sonst waere die
@@ -5906,7 +6184,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Zählvariante von [assetsForFaceScan], siehe [countLocationBackfill].
   Future<int> countFaceScan({required bool onlyNew}) {
-    var predicate = assets.type.equals('IMAGE') &
+    var predicate = _auswertbar(assets) &
         assets.isTrashed.equals(false) &
         assets.isLocked.equals(false) &
         assets.faceScanExcluded.equals(false);
@@ -5993,7 +6271,7 @@ class AppDatabase extends _$AppDatabase {
     final query = select(assets).join([
       leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
     ])
-      ..where(assets.type.equals('IMAGE') &
+      ..where(_auswertbar(assets) &
           assets.isTrashed.equals(false) &
           // Gesperrte Fotos ausgenommen, siehe [assetsForOcrBackfill]: Ein
           // CLIP-Embedding beschreibt den Bildinhalt und ist damit ebenso
@@ -6011,7 +6289,7 @@ class AppDatabase extends _$AppDatabase {
       leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
     ])
       ..addColumns([countExpr])
-      ..where(assets.type.equals('IMAGE') &
+      ..where(_auswertbar(assets) &
           assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
           imageEmbeddings.assetId.isNull());
@@ -6037,13 +6315,14 @@ class AppDatabase extends _$AppDatabase {
   Future<List<AssetData>> assetsForAiTagging({required bool onlyUntagged}) async {
     if (!onlyUntagged) {
       return (select(assets)
-            ..where((t) => t.type.equals('IMAGE') & t.isTrashed.equals(false) & t.isLocked.equals(false)))
+            ..where((t) =>
+                _auswertbar(t) & t.isTrashed.equals(false) & t.isLocked.equals(false)))
           .get();
     }
     final query = select(assets).join([
       leftOuterJoin(assetTags, assetTags.assetId.equalsExp(assets.id)),
     ])
-      ..where(assets.type.equals('IMAGE') &
+      ..where(_auswertbar(assets) &
           assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
           assets.aiTagsScanned.equals(false) &
@@ -6062,14 +6341,14 @@ class AppDatabase extends _$AppDatabase {
   Future<int> countAiTagging({required bool onlyUntagged}) async {
     if (!onlyUntagged) {
       return _countWhere(
-          assets.type.equals('IMAGE') & assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+          _auswertbar(assets) & assets.isTrashed.equals(false) & assets.isLocked.equals(false));
     }
     final countExpr = assets.id.count();
     final query = selectOnly(assets).join([
       leftOuterJoin(assetTags, assetTags.assetId.equalsExp(assets.id)),
     ])
       ..addColumns([countExpr])
-      ..where(assets.type.equals('IMAGE') &
+      ..where(_auswertbar(assets) &
           assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
           // Muss deckungsgleich mit assetsForAiTagging bleiben, sonst zeigt

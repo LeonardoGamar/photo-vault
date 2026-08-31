@@ -20,6 +20,20 @@ import 'package:flutter/widgets.dart';
 /// einer davon stand.
 const maxDekodierKante = 4096;
 
+/// **Was hier noch offen ist: der Bildschirm.**
+///
+/// Seit der Umstellung tragen Vorschau, Miniatur und Export ihren
+/// Farbraum bei sich – Display P3, wo die Aufnahme mehr als sRGB hergibt.
+/// Gezeichnet wird davon trotzdem in sRGB: Flutter rendert sein Fenster
+/// auf allen drei Plattformen in sRGB, und daran ändert kein Profil in
+/// der Datei etwas.
+///
+/// Der Unterschied ist damit dort behoben, wo die Datei weitergegeben
+/// wird (Export, XMP-Beilage, fremde Programme), und bleibt dort offen,
+/// wo sie angesehen wird. Das ist die kleinere Hälfte, aber es ist die
+/// sichtbare – und sie kostet, anders als diese Umstellung, eine
+/// Auseinandersetzung mit dem Fensterfarbraum aller drei Plattformen.
+
 /// Ein Bild aus [datei], das höchstens [kante] Punkte je Seite belegt.
 ///
 /// `fit` statt `exact`: Das Seitenverhältnis bleibt, die längere Kante

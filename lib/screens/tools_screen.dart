@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/native_image_converter.dart';
+import '../services/serienvorschlag.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
@@ -40,6 +41,36 @@ class _ToolsScreenState extends State<ToolsScreen> {
   // nicht bei jedem Rebuild neu in den Ladezustand zurückfällt.
   late final Future<({bool bereit, List<String> fehlende})>
       _bildwerkzeugstandFuture = NativeImageConverter.bildwerkzeugstand();
+
+  /// Wie viele Serien darauf warten, zu Stapeln zu werden.
+  ///
+  /// **Warum die Zahl hier steht.** Die Erkennung findet an der echten
+  /// Bibliothek 286 brauchbare Gruppen – und es gab null Stapel. Nicht
+  /// weil die Erkennung nichts fände, sondern weil nirgends stand, dass
+  /// da etwas wartet. Derselbe Befund wie bei den Bewertungen: die
+  /// Maschinerie vollständig, der Weg dorthin unsichtbar.
+  ///
+  /// Der Lauf kostet an 6930 Einbettungen 240 ms in einem eigenen Isolat
+  /// und läuft einmal beim Öffnen dieses Bildschirms.
+  Future<int>? _serienzahl;
+
+  @override
+  void initState() {
+    super.initState();
+    _serienzahl = _zaehleSerien();
+  }
+
+  Future<int> _zaehleSerien() async {
+    if (!widget.library.clipAvailable) return 0;
+    try {
+      final gruppen = await serienvorschlaege(
+          widget.library.db, await widget.library.cachedEmbeddings());
+      return gruppen.length;
+    } catch (e) {
+      debugPrint('Serienzahl nicht ermittelt: $e');
+      return 0;
+    }
+  }
 
   /// Lädt alle noch unbewerteten Fotos/Videos und öffnet sie im Vollbild-
   /// Sichtungs-Modus (Culling). Zweiter Einstiegspunkt neben dem "Jetzt
@@ -284,12 +315,56 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 ListTile(
                   leading: const Icon(Icons.filter_none_outlined),
                   title: Text(t.werkzStapelTitel),
-                  subtitle: Text(t.werkzStapelText),
-                  isThreeLine: true,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => StackReviewScreen(library: widget.library)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t.werkzStapelText),
+                      // Die Zahl als Zeichen rechts ist auf einen Blick zu
+                      // sehen; was sie bedeutet, muss trotzdem dastehen.
+                      FutureBuilder<int>(
+                        future: _serienzahl,
+                        builder: (context, schnappschuss) {
+                          final zahl = schnappschuss.data ?? 0;
+                          if (zahl == 0) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              t.werkzStapelGefunden(zahl),
+                              style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.primary),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
+                  isThreeLine: true,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FutureBuilder<int>(
+                        future: _serienzahl,
+                        builder: (context, schnappschuss) {
+                          final zahl = schnappschuss.data;
+                          if (zahl == null || zahl == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(right: AppSpacing.sm),
+                            child: Badge(label: Text('$zahl')),
+                          );
+                        },
+                      ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () async {
+                    await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            StackReviewScreen(library: widget.library)));
+                    if (mounted) setState(() => _serienzahl = _zaehleSerien());
+                  },
                 ),
                 const Divider(height: 1),
                 ListTile(

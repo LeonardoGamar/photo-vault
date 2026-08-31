@@ -94,6 +94,29 @@ class AnalyseFortschritt {
 /// damit beim Import oder Backfill vieler Fotos hintereinander spürbar die
 /// UI. Gibt `null` zurück, wenn die Bytes nicht dekodierbar sind (z.B.
 /// beschädigte Datei).
+///
+/// **Hier wird ohne Deckel dekodiert, und das ist Absicht.** Gemessen an der
+/// Prüfbibliothek (19. Prüfrunde):
+///
+/// ```
+/// 20383 × 4077  dekodieren 1442 ms   Arbeitssatz 301 -> 1205 MB
+/// 16350 × 3788  dekodieren 1376 ms   Arbeitssatz      ->  981 MB
+///  3456 × 5184  dekodieren  755 ms
+/// laenger als 4096 Punkte: 1062 von 5784 Aufnahmen ohne Vorschaudatei
+/// ```
+///
+/// Ein Deckel wie bei der Anzeige (`begrenztesBild`) würde diese Spitze
+/// nehmen, aber die Ergebnisse ändern: YuNet fände auf einem verkleinerten
+/// Bild andere – kleinere – Gesichter, und die Bibliothek bestünde danach
+/// aus zwei Beständen, einem vor und einem nach dem Deckel. Die Spitze ist
+/// vorübergehend, tritt je Foto einzeln auf und wird mit dem Isolat wieder
+/// freigegeben; die Uneinheitlichkeit wäre dauerhaft. Deshalb gemessen,
+/// notiert und nicht geändert.
+///
+/// Die Übergabe an ein weiteres `compute()` (etwa
+/// `compute(computeBlurScore, decoded)`) ist dagegen kein Posten: gemessen
+/// 28 ms Aufschlag bei 249 MB Bilddaten, bei kleineren Aufnahmen unter der
+/// Messgenauigkeit.
 img.Image? decodeImageBytes(Uint8List bytes) {
   try {
     return img.decodeImage(bytes);
@@ -1244,6 +1267,25 @@ class LibraryState extends ChangeNotifier {
     EyeStateService? eyeState,
     required bool deleteExistingUnassigned,
   }) async {
+    // **Ohne Bild wird gar nichts angefasst.** Nicht die vorhandenen
+    // Gesichter gelöscht, und vor allem nicht der Vermerk „gescannt"
+    // gesetzt. Bis Fassung 2.5 stand dieser Vermerk am Ende des Rumpfes,
+    // ausserhalb der `decoded != null`-Prüfung: Liess sich ein Foto nicht
+    // dekodieren, galt es danach trotzdem als gescannt – und der Modus
+    // „nur Fehlende" ging für immer daran vorbei, auch bei der
+    // Hintergrundanalyse. Ein Lauf, der an beschädigten Dateien
+    // vorbeirauscht und „fertig" meldet, ist genau die Art Ergebnis, der
+    // man nicht ansieht, dass sie keines ist.
+    //
+    // (An der Prüfbibliothek hatte der Fehler noch nichts angerichtet:
+    // Kein Foto war als gescannt vermerkt, ohne dass Unschärfe und
+    // Einbettung – die dasselbe dekodierte Bild brauchen – dastanden.)
+    //
+    // Ein früher Ausstieg und keine Bedingung um den Vermerk herum, damit
+    // die Regel baulich gilt und nicht an einer Stelle hängt, die beim
+    // nächsten Umbau mitwandern muss.
+    if (decoded == null) return;
+
     if (deleteExistingUnassigned) {
       // Die Ausschnitte der gelöschten Zeilen müssen mit weg. Sonst
       // hinterlässt jedes „alle Fotos erneut scannen" den kompletten alten
@@ -1265,54 +1307,52 @@ class LibraryState extends ChangeNotifier {
     ];
 
     try {
-      if (decoded != null) {
-        final boxes = await engine.detectFaces(decoded);
-        for (final box in boxes) {
-          // Dieselbe Schwelle wie die Unterdrückung mehrfacher Erkennungen
-          // derselben Stelle (FaceEngineService.detectFaces) – es ist
-          // dieselbe Frage: Ist das nochmal dieses Gesicht?
-          if (ignorierteBoxen
-              .any((alt) => FacePostprocess.iou(alt, box) > 0.3)) {
-            continue;
-          }
-          final faceId = const Uuid().v4();
-          final cropFile = paths.absolute(paths.faceRelativePath(faceId));
-          final croppedThumb = FaceEngineService.cropFaceImage(decoded, box);
-          await FaceEngineService.saveFaceCrop(croppedThumb, cropFile);
-
-          Float32List? embedding;
-          if (engine.canEmbed) {
-            embedding = await engine.embedFace(decoded, box);
-          }
-
-          // Nutzt dieselben Landmarks weiter, die YuNet für diese Box schon
-          // geliefert hat (siehe FaceEngineService.detectFaces) – keine
-          // erneute Erkennung nötig, nur ein kleiner Zusatz-Klassifikator
-          // auf zwei winzigen Augen-Ausschnitten.
-          double? eyeOpenScore;
-          if (eyeState != null) {
-            try {
-              eyeOpenScore = await eyeState.eyeOpenScore(decoded, box);
-            } catch (e) {
-              debugPrint('Augen-Zustand-Erkennung fehlgeschlagen für ${asset.originalFileName}: $e');
-            }
-          }
-
-          await db.insertFace(FacesCompanion.insert(
-            id: faceId,
-            assetId: asset.id,
-            boxX: box.x,
-            boxY: box.y,
-            boxW: box.width,
-            boxH: box.height,
-            cropRelativePath: Value(paths.faceRelativePath(faceId)),
-            embedding: embedding != null ? Value(blobFromEmbeddingFloats(embedding)) : const Value.absent(),
-            eyeOpenScore: eyeOpenScore != null ? Value(eyeOpenScore) : const Value.absent(),
-            // Auf dem Ausschnitt, der ohnehin schon im Speicher liegt –
-            // kein zweiter Dekodiervorgang, keine zweite Skalierung.
-            schaerfe: Value(gesichtsschaerfe(croppedThumb)),
-          ));
+      final boxes = await engine.detectFaces(decoded);
+      for (final box in boxes) {
+        // Dieselbe Schwelle wie die Unterdrückung mehrfacher Erkennungen
+        // derselben Stelle (FaceEngineService.detectFaces) – es ist
+        // dieselbe Frage: Ist das nochmal dieses Gesicht?
+        if (ignorierteBoxen
+            .any((alt) => FacePostprocess.iou(alt, box) > 0.3)) {
+          continue;
         }
+        final faceId = const Uuid().v4();
+        final cropFile = paths.absolute(paths.faceRelativePath(faceId));
+        final croppedThumb = FaceEngineService.cropFaceImage(decoded, box);
+        await FaceEngineService.saveFaceCrop(croppedThumb, cropFile);
+
+        Float32List? embedding;
+        if (engine.canEmbed) {
+          embedding = await engine.embedFace(decoded, box);
+        }
+
+        // Nutzt dieselben Landmarks weiter, die YuNet für diese Box schon
+        // geliefert hat (siehe FaceEngineService.detectFaces) – keine
+        // erneute Erkennung nötig, nur ein kleiner Zusatz-Klassifikator
+        // auf zwei winzigen Augen-Ausschnitten.
+        double? eyeOpenScore;
+        if (eyeState != null) {
+          try {
+            eyeOpenScore = await eyeState.eyeOpenScore(decoded, box);
+          } catch (e) {
+            debugPrint('Augen-Zustand-Erkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+          }
+        }
+
+        await db.insertFace(FacesCompanion.insert(
+          id: faceId,
+          assetId: asset.id,
+          boxX: box.x,
+          boxY: box.y,
+          boxW: box.width,
+          boxH: box.height,
+          cropRelativePath: Value(paths.faceRelativePath(faceId)),
+          embedding: embedding != null ? Value(blobFromEmbeddingFloats(embedding)) : const Value.absent(),
+          eyeOpenScore: eyeOpenScore != null ? Value(eyeOpenScore) : const Value.absent(),
+          // Auf dem Ausschnitt, der ohnehin schon im Speicher liegt –
+          // kein zweiter Dekodiervorgang, keine zweite Skalierung.
+          schaerfe: Value(gesichtsschaerfe(croppedThumb)),
+        ));
       }
       await db.markFacesScanned([asset.id]);
     } catch (e) {
@@ -1509,21 +1549,87 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  /// Setzt die Dateiart auf das, was die Bytes hergeben.
+  ///
+  /// **Der Anlass.** In der Prüfbibliothek sind 31 von 440 als Video
+  /// geführten Aufnahmen in Wahrheit JPEG oder HEIC – Standbilder, die
+  /// unter einem `.mov`-Namen ankamen. Bis zur Umstellung entschied
+  /// ausschliesslich die Endung, und als Video geführt fielen sie aus
+  /// jeder Auswertung heraus: keine Beschreibung, keine Schlagwörter,
+  /// keine Gesichter, kein Ort. Ihre Miniatur fehlte ebenfalls — der
+  /// Videowandler bekam ein Standbild und lieferte nichts (gemessen: 33
+  /// der 440 hatten keine).
+  ///
+  /// Die Datei bleibt liegen, wo sie liegt, und behält ihren Namen. Nur
+  /// die Art wird berichtigt und alles Abgeleitete verworfen; Miniatur,
+  /// Vorschau, Ort, Datum und Auswertung holen danach die gewohnten
+  /// Aufgaben nach — sie sehen die Aufnahme jetzt zum ersten Mal.
+  Stream<ImportProgress> repariereDateiarten() async* {
+    final verdaechtig = await db.alsVideoGefuehrte();
+    var done = 0;
+    var berichtigt = 0;
+    yield ImportProgress(0, verdaechtig.length);
+    for (final asset in verdaechtig) {
+      try {
+        final datei = paths.absolute(asset.relativePath);
+        if (await datei.exists()) {
+          final kennung = await ImportService.inhaltskennung(datei, null);
+          if (kennung != null) {
+            await db.setzeDateiart(asset.id, 'IMAGE',
+                dateiformat: kennung.substring(1));
+            berichtigt++;
+          }
+        }
+      } catch (e) {
+        debugPrint('Dateiart für ${asset.originalFileName} nicht geprüft: $e');
+      }
+      done++;
+      yield ImportProgress(done, verdaechtig.length,
+          currentFile: asset.originalFileName);
+    }
+    debugPrint('Dateiarten berichtigt: $berichtigt');
+  }
+
   /// Liest GPS-Orte nachträglich aus Fotos ein, die vor Einführung dieser
   /// Funktion importiert wurden (siehe Werkzeuge → Orte). Fotos ohne
   /// EXIF-GPS-Daten bleiben unverändert – nur ein Fund führt zu einem
   /// DB-Update.
-  Stream<ImportProgress> backfillLocations() async* {
-    final assets = await db.assetsForLocationBackfill();
+  Stream<ImportProgress> backfillLocations({bool alle = false}) async* {
+    final assets = await db.assetsForLocationBackfill(alle: alle);
     var done = 0;
     yield ImportProgress(0, assets.length);
-    for (final asset in assets) {
-      final gps = await importService.readGpsLocation(paths.absolute(asset.relativePath));
-      if (gps != null) {
-        await db.setLocation(asset.id, gps.latitude, gps.longitude);
+
+    // Der Vermerk „nachgesehen" blockweise, aus demselben Grund wie bei
+    // den Ortsnamen: Das Lesen der Datei ist der teure Teil, aber
+    // tausende Einzelschreibvorgänge daneben wären es auch. Blöcke und
+    // nicht ein einziger Schreibvorgang am Ende, damit ein Abbruch nach
+    // der halben Zeit die halbe Arbeit behält.
+    const blockGroesse = 200;
+    var block = <String>[];
+    Future<void> blockSchreiben() async {
+      if (block.isEmpty) return;
+      final zuSchreiben = block;
+      block = [];
+      await db.markGpsGeprueft(zuSchreiben);
+    }
+
+    try {
+      for (final asset in assets) {
+        final gps =
+            await importService.readGpsLocation(paths.absolute(asset.relativePath));
+        if (gps != null) {
+          await db.setLocation(asset.id, gps.latitude, gps.longitude);
+        }
+        block.add(asset.id);
+        if (block.length >= blockGroesse) await blockSchreiben();
+        done++;
+        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
       }
-      done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+    } finally {
+      // Auch bei Abbruch: Was angesehen wurde, ist angesehen. Ein
+      // gekündigtes Abonnement hält den Generator beim nächsten `yield`
+      // an und durchläuft diesen Block.
+      await blockSchreiben();
     }
   }
 
@@ -1611,12 +1717,12 @@ class LibraryState extends ChangeNotifier {
   /// Andersherum zeigte die Datenbank auf einen Pfad, den es noch nicht
   /// gibt.
   Stream<ImportProgress> korrigiereAufnahmedaten() async* {
-    // Nur RAW: Bei JPEG gab es den Rückfall auf den Dateizeitstempel nie,
-    // dort kam das Datum immer aus den EXIF-Daten oder gar nicht. Die
-    // Bedingung steht seit Fassung 59 in der Abfrage selbst – sonst kämen
-    // achttausend Zeilen herüber, von denen hier siebentausend wieder
-    // wegfielen, und die Zahl auf der Karte liesse sich nur ausrechnen,
-    // indem man dieselbe Arbeit ein zweites Mal tut.
+    // RAW und Videos: Bei beiden liest `package:exif` nichts, und der
+    // Import fiel auf den Zeitstempel der Datei zurück. Bei JPEG gab es
+    // diesen Weg nie. Die Bedingung steht seit Fassung 59 in der Abfrage
+    // selbst – sonst kämen achttausend Zeilen herüber, von denen hier
+    // siebentausend wieder wegfielen, und die Zahl auf der Karte liesse
+    // sich nur ausrechnen, indem man dieselbe Arbeit ein zweites Mal tut.
     final kandidaten = await db.assetsFuerDatumskorrektur();
     var done = 0;
     yield ImportProgress(0, kandidaten.length);
@@ -1658,7 +1764,7 @@ class LibraryState extends ChangeNotifier {
   /// wieder im falschen Monat. Gemessen an einer echten Bibliothek waren
   /// das 36 von 36 der noch falsch datierten Fotos.
   ///
-  /// Nur RAW-Dateien: Bei JPEG kam das Datum immer aus den EXIF-Daten,
+  /// Nur RAW und Videos: Bei JPEG kam das Datum immer aus den EXIF-Daten,
   /// dort gibt es nichts nachzuholen.
   Future<void> ausPapierkorbHolen(List<String> assetIds) async {
     // Erst zurückholen. Scheitert das Nachlesen danach, ist das Foto
@@ -1669,7 +1775,9 @@ class LibraryState extends ChangeNotifier {
       final asset = await db.assetById(id);
       if (asset == null) continue;
       final endung = p.extension(asset.relativePath).toLowerCase();
-      if (!rawImageExtensions.contains(endung)) continue;
+      if (asset.type != 'VIDEO' && !rawImageExtensions.contains(endung)) {
+        continue;
+      }
 
       final datei = paths.absolute(asset.relativePath);
       if (!await datei.exists()) continue;
@@ -1688,6 +1796,66 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  /// Legt Aufnahmen in den Ordner, der zu ihrem Datum gehört.
+  ///
+  /// Räumt auf, was entstand, solange ein von Hand gesetztes Datum die
+  /// Datei liegen liess: An einer echten Bibliothek 1102 von 7988
+  /// Aufnahmen, deren Ordner etwas anderes behauptet als ihre Zeile.
+  ///
+  /// **Das Datum wird dabei nicht angefasst.** Es gilt als richtig – es
+  /// ist ja das, was jemand von Hand gesetzt hat. Falsch ist nur der Ort
+  /// auf der Platte. Wer das Datum aus der Datei neu lesen will, nimmt die
+  /// Datumskorrektur; die beiden Aufgaben tun ausdrücklich Verschiedenes.
+  ///
+  /// Ein Fehlschlag beim Verschieben hält den Lauf nicht auf: Die übrigen
+  /// tausend sind davon unabhängig, und [_datumUmschreiben] lässt eine
+  /// unverschiebbare Datei dort, wo sie liegt.
+  Stream<ImportProgress> ordneAblageNeu() async* {
+    final betroffen = await db.assetsFuerAblageordnung();
+    var done = 0;
+    var verschoben = 0;
+    yield ImportProgress(0, betroffen.length);
+    for (final asset in betroffen) {
+      try {
+        await _datumUmschreiben(asset, asset.fileCreatedAt);
+        verschoben++;
+      } catch (e) {
+        debugPrint('Ablage: ${asset.originalFileName} nicht umgelegt: $e');
+      }
+      done++;
+      yield ImportProgress(done, betroffen.length,
+          currentFile: asset.originalFileName);
+    }
+    debugPrint('Ablage neu geordnet: $verschoben von ${betroffen.length}');
+    notifyListeners();
+  }
+
+  /// Setzt das Aufnahmedatum von Hand – und legt die Datei dorthin, wo sie
+  /// nach dem neuen Datum hingehört.
+  ///
+  /// **Warum das nicht mehr direkt in die Datenbank geht.** Die beiden
+  /// Wege, auf denen man ein Datum von Hand setzt (Info-Ansicht und
+  /// Sammelbearbeitung), schrieben bis Fassung 2.5 nur die Spalte. Die
+  /// Datei blieb in `originals/2007/01/` liegen, während die Datenbank
+  /// 2013 behauptete. An der echten Bibliothek gemessen: bei **1102 von
+  /// 7988 Aufnahmen** widersprachen sich Ablagepfad und Datum, davon 948
+  /// aus einer einzigen Sammelbearbeitung.
+  ///
+  /// Sichtbar wird das nirgends in der App – sie geht immer über den in
+  /// der Datenbank vermerkten Pfad. Es fällt dem auf die Füsse, der die
+  /// Bibliothek im Dateimanager ansieht, ein Backup einspielt oder die
+  /// Ordner als das liest, was sie zu sein behaupten. Ein Ablageschema,
+  /// dem man nicht trauen kann, ist keines.
+  Future<void> setzeAufnahmedatumVonHand(
+      List<String> assetIds, DateTime neu) async {
+    for (final id in assetIds) {
+      final asset = await db.assetById(id);
+      if (asset == null) continue;
+      await _datumUmschreiben(asset, neu);
+    }
+    notifyListeners();
+  }
+
   Future<void> _datumUmschreiben(AssetData asset, DateTime neu) async {
     final alterPfad = asset.relativePath;
     final neuerPfad = paths.originalRelativePath(
@@ -1702,7 +1870,7 @@ class LibraryState extends ChangeNotifier {
       await ziel.parent.create(recursive: true);
       await quelle.rename(ziel.path);
     } on FileSystemException catch (e) {
-      debugPrint('Datumskorrektur: ${asset.id} nicht verschiebbar: $e');
+      debugPrint('Ablage: ${asset.id} nicht verschiebbar: $e');
       // Das Datum trotzdem richtigstellen – ein falsch einsortierter
       // Ordner ist das kleinere Übel gegenüber einem falschen Datum in
       // Zeitleiste, Kalender und Suche.

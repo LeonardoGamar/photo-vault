@@ -99,6 +99,46 @@ class AppTexteDe extends AppTexte {
   String get kuerzelTitel => 'Tastaturkürzel';
 
   @override
+  String get kuerzelRaster => 'Raster (Zeitleiste, Kalender, Album, Suche)';
+
+  @override
+  String get kuerzelUmschaltKlick => 'Umschalt-Klick';
+
+  @override
+  String get kuerzelStrgKlick => 'Strg-/⌘-Klick';
+
+  @override
+  String get kuerzelUmschaltPfeil => 'Umschalt + Pfeil';
+
+  @override
+  String get kuerzelBereichWaehlen => 'Alles bis hierher dazunehmen';
+
+  @override
+  String get kuerzelEinzelnWaehlen => 'Eine einzelne Kachel umschalten';
+
+  @override
+  String get kuerzelRahmenBewegen => 'Den Rahmen durchs Raster bewegen';
+
+  @override
+  String get kuerzelAuswahlZiehen => 'Die Auswahl mitziehen';
+
+  @override
+  String get kuerzelFarbmarkeSetzen => 'Farbmarke setzen';
+
+  @override
+  String get kuerzelAuswahlLeeren => 'Auswahl leeren';
+
+  @override
+  String get kuerzelFotoOeffnen => 'Foto öffnen';
+
+  @override
+  String get kuerzelWirktAuf =>
+      'Die Tasten wirken auf die Auswahl. Gibt es keine, wirken sie auf die Kachel, auf der der Rahmen steht.';
+
+  @override
+  String get einstBeschrKuerzel => 'Alle Tastaturkürzel auf einen Blick';
+
+  @override
   String get kuerzelNavigation => 'Navigation';
 
   @override
@@ -298,6 +338,11 @@ class AppTexteDe extends AppTexte {
   }
 
   @override
+  String staubUebersprungen(int anzahl, int gesamt) {
+    return '$anzahl von $gesamt Aufnahmen liessen sich nicht lesen und wurden übersprungen.';
+  }
+
+  @override
   String get staubImEditorOeffnen =>
       'Eine betroffene Aufnahme im Bildeditor öffnen';
 
@@ -394,10 +439,6 @@ class AppTexteDe extends AppTexte {
   @override
   String get viewerEntwicklungAnwendenLang =>
       'Kopierte Entwicklung auf dieses Foto anwenden';
-
-  @override
-  String get viewerGeschlosseneAugen =>
-      'Mindestens ein Gesicht mit geschlossenen Augen erkannt';
 
   @override
   String get viewerFokusPeaking => 'Fokus-Peaking (scharfe Kanten hervorheben)';
@@ -1588,7 +1629,7 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgVorschauText =>
-      'Erzeugt Thumbnails/Vorschauen für Fotos und Videos.';
+      'Erzeugt Miniaturen und Vorschauen für Fotos und Videos. Bei einem Video entsteht dabei ein Standbild aus der ersten Sekunde – erst damit kann es überhaupt ausgewertet werden (Beschreibung, Schlagwörter, Gesichter, Text). Nach diesem Lauf lohnen die übrigen Aufgaben einen Durchgang.';
 
   @override
   String get aufgFehlende => 'Fehlende';
@@ -1654,7 +1695,21 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgKameraText =>
-      'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein. Die Zahl ist die der Fotos ohne Kameraangabe; Aufnahmen ganz ohne EXIF bleiben darunter.';
+      'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus den Metadaten ein – bei Fotos aus EXIF, bei Videos aus dem Container. Die Zahl ist die der Aufnahmen ohne Kameraangabe; was gar keine Metadaten trägt, bleibt darunter.';
+
+  @override
+  String get aufgDateiartTitel => 'Dateiarten prüfen';
+
+  @override
+  String get aufgDateiartText =>
+      'Manche Standbilder kommen unter einem Videonamen an – als Video geführt fallen sie aus jeder Auswertung heraus, bekommen kein Vorschaubild und keinen Ort. Der Lauf sieht in die Bytes und berichtigt die Art. Danach lohnt ein Durchgang der übrigen Aufgaben.';
+
+  @override
+  String get werkzPruefeDateiarten => 'Prüfe Dateiarten …';
+
+  @override
+  String get werkzAlleArtenStimmen =>
+      'Alle Aufnahmen sind richtig eingeordnet.';
 
   @override
   String get aufgLivePhotoTitel => 'Live-Photo-Paare prüfen';
@@ -3080,6 +3135,65 @@ class AppTexteDe extends AppTexte {
       'Fotos, die sich ähneln UND innerhalb weniger Sekunden aufgenommen wurden, werden hier als Serie vorgeschlagen. \"Übernehmen\" fasst eine Gruppe zu einem Stapel zusammen – nur das Titelbild bleibt danach in der Übersicht sichtbar, nichts wird gelöscht.';
 
   @override
+  String stapelAlleUebernehmen(int anzahl) {
+    return 'Alle $anzahl übernehmen';
+  }
+
+  @override
+  String get stapelAlleFrageTitel => 'Alle Serien übernehmen?';
+
+  @override
+  String stapelAlleFrage(int anzahl) {
+    return '$anzahl Gruppen werden zu Stapeln zusammengefasst. Titelbild ist jeweils das schärfste Foto. Nichts geht dabei verloren – „Serie auflösen“ im Info-Blatt nimmt jede Gruppierung wieder zurück.';
+  }
+
+  @override
+  String werkzStapelGefunden(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Serien warten',
+      one: '1 Serie wartet',
+      zero: 'Keine Serien gefunden',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get serienvergleichTitel => 'Serie vergleichen';
+
+  @override
+  String get serienvergleichErklaerung =>
+      'Dieselben Gesichter nebeneinander. Auf einem ganzen Foto sieht man nicht, wer blinzelt – auf den Ausschnitten sofort. Der Rahmen markiert die Aufnahme mit dem schärfsten Gesicht; das ist ein Vorschlag, keine Entscheidung.';
+
+  @override
+  String get serienvergleichOhneGesichter =>
+      'Auf diesen Aufnahmen wurde kein Gesicht erkannt – verglichen werden nur die Bilder selbst.';
+
+  @override
+  String get serienvergleichSchaerfstes => 'Schärfstes Gesicht der Serie';
+
+  @override
+  String serienvergleichSchaerfe(int wert) {
+    return 'Schärfe $wert';
+  }
+
+  @override
+  String serienvergleichAugen(int prozent) {
+    return 'Augen offen: $prozent %';
+  }
+
+  @override
+  String get serienvergleichOhneWert => 'Schärfe noch nicht gemessen';
+
+  @override
+  String get serienvergleichOeffnen => 'Gesichter vergleichen';
+
+  @override
+  String get serienvergleichZuKurz =>
+      'Zum Vergleichen braucht es mindestens zwei Aufnahmen.';
+
+  @override
   String get stapelKeine => 'Keine Serienbilder gefunden.';
 
   @override
@@ -3239,6 +3353,10 @@ class AppTexteDe extends AppTexte {
   String get infoTitel => 'Info';
 
   @override
+  String get infoVideoStandbild =>
+      'Ausgewertet auf einem Standbild aus der ersten Sekunde – nicht auf dem ganzen Film.';
+
+  @override
   String get infoBeschreibungHinzufuegen => 'Beschreibung hinzufügen';
 
   @override
@@ -3322,6 +3440,19 @@ class AppTexteDe extends AppTexte {
   String backupGrenzeErreicht(int anzahl) {
     return 'Grenze erreicht – $anzahl Datei(en) folgen beim nächsten Lauf';
   }
+
+  @override
+  String backupUebernommen(int anzahl) {
+    return '$anzahl Einträge aus dem Datenbank-Schnappschuss übernommen (Personen, Stammbaum, Reisen, Aktivitäten …)';
+  }
+
+  @override
+  String get backupAusschnitteNeu =>
+      'Gesichtsausschnitte werden neu gezeichnet …';
+
+  @override
+  String get einstBackupManuellHinweis =>
+      'Eine Sicherung mit Passphrase nimmt zusätzlich einen verschlüsselten Schnappschuss der Datenbank mit – Personen, Stammbaum, Reisen, Aktivitäten und gespeicherte Suchen kommen damit beim Wiederherstellen zurück. Ohne Passphrase enthält die Sicherung nur die Originale und die Beilagen daneben (Beschreibung, Sterne, Farbmarke, Ort, Schlagwörter, Alben); alles Übrige liesse sich danach nicht wiederherstellen.';
 
   @override
   String backupNichtGesichert(int anzahl) {
@@ -5986,7 +6117,7 @@ class AppTexteDe extends AppTexte {
   String get aufgOcrModell => 'das Texterkennungs-Modell';
 
   @override
-  String get werkzDatumTitel => 'Aufnahmedatum aus RAW-Fotos nachtragen';
+  String get werkzDatumTitel => 'Aufnahmedatum aus RAW und Videos nachtragen';
 
   @override
   String get werkzDatumFrageTitel => 'Aufnahmedatum richtigstellen?';
@@ -5999,10 +6130,11 @@ class AppTexteDe extends AppTexte {
   String get werkzDatumStarten => 'Richtigstellen';
 
   @override
-  String get werkzKorrigiereDatum => 'Lese Aufnahmedaten aus RAW-Fotos …';
+  String get werkzKorrigiereDatum => 'Lese Aufnahmedaten aus RAW und Videos …';
 
   @override
-  String get werkzKeineRawFotos => 'Keine RAW-Fotos in der Bibliothek.';
+  String get werkzKeineRawFotos =>
+      'Keine RAW-Aufnahmen und keine Videos in der Bibliothek.';
 
   @override
   String get karteGlobusZoomHinweis =>
@@ -6612,7 +6744,30 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aufgDatumText =>
-      'Liest bei RAW-Aufnahmen das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.';
+      'Liest bei RAW-Aufnahmen und Videos das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.';
+
+  @override
+  String get aufgAblageTitel => 'Ablage nach Datum ordnen';
+
+  @override
+  String get aufgAblageText =>
+      'Legt Aufnahmen in den Ordner ihres Aufnahmemonats, wenn sie dort nicht liegen. Ändert kein Datum – nur den Ort auf der Platte. Verschiebt Dateien, deshalb mit Rückfrage.';
+
+  @override
+  String get werkzOrdneAblage => 'Ordne die Ablage …';
+
+  @override
+  String get werkzAblageStimmt => 'Jede Aufnahme liegt im Ordner ihres Datums.';
+
+  @override
+  String get werkzAblageFrageTitel => 'Ablage neu ordnen?';
+
+  @override
+  String get werkzAblageFrage =>
+      'Aufnahmen, deren Ordner nicht zu ihrem Aufnahmedatum passt, werden in den richtigen Monatsordner verschoben. Die Aufnahmedaten selbst bleiben unverändert. In der App ändert sich dadurch nichts Sichtbares – wohl aber die Ordnerstruktur der Bibliothek auf der Platte.';
+
+  @override
+  String get werkzAblageStarten => 'Ablage ordnen';
 
   @override
   String aufgOffeneFotos(int anzahl) {

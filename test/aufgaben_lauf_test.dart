@@ -106,8 +106,19 @@ void main() {
 
   /// Rollt, bis [finder] im Bild ist – die Liste ist länger als jedes
   /// Testfenster.
+  /// Scrollt zu einer Karte – **erst zurück an den Anfang**.
+  ///
+  /// `scrollUntilVisible` sucht nur in einer Richtung. Wer eine Karte
+  /// ansteuert, die weiter oben liegt als die zuletzt angesteuerte, bekommt
+  /// „Bad state: No element" – nicht „nicht gefunden", sondern einen
+  /// Absturz an einem Finder ohne Treffer. Aufgefallen ist das, als eine
+  /// Karte dazukam und die Prüfliste damit nicht mehr in Bildschirmreihen-
+  /// folge stand; die Reihenfolge der Liste soll aber egal sein.
   Future<void> hinScrollen(WidgetTester tester, Finder finder) async {
-    await tester.scrollUntilVisible(finder, 200, scrollable: find.byType(Scrollable).first);
+    final liste = find.byType(Scrollable).first;
+    await tester.drag(liste, const Offset(0, 20000));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(finder, 200, scrollable: liste);
     await tester.pumpAndSettle();
   }
 
@@ -207,17 +218,25 @@ void main() {
     const nurFehlende = [
       'Text erkennen (OCR)',
       'Unschärfe',
-      'Orte einlesen',
       'Land/Bundesland/Stadt auflösen',
       'Kameradaten einlesen',
+      'Dateiarten prüfen',
       'Live-Photo-Paare prüfen',
     ];
     const nurAlle = [
       'Entwickelte Fotos neu rendern',
       'XMP-Sidecars schreiben',
-      'Aufnahmedatum aus RAW-Fotos nachtragen',
+      'Aufnahmedatum aus RAW und Videos nachtragen',
+      'Ablage nach Datum ordnen',
     ];
-    const beides = ['Bildbeschreibungen', 'CLIP-Embeddings', 'KI-Tags'];
+    // „Orte einlesen" hat seit Fassung 2.6 beides: „Fehlende" überspringt,
+    // wo schon einmal nachgesehen wurde, „Alle" sieht auch dort erneut hin.
+    const beides = [
+      'Bildbeschreibungen',
+      'CLIP-Embeddings',
+      'KI-Tags',
+      'Orte einlesen',
+    ];
 
     for (final titel in nurFehlende) {
       final karte = find.ancestor(of: find.text(titel), matching: find.byType(Card));

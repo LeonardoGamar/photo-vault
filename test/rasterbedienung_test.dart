@@ -28,6 +28,7 @@ AssetData _foto(String id) => AssetData(
       isTrashed: false,
       isLocked: false,
       faceScanExcluded: false,
+      gpsGeprueft: false,
       backedUp: false,
       autoBackedUp: false,
       facesScanned: false,

@@ -20,9 +20,21 @@ void main() {
       markTestSkipped('PV_MIGRATION_DIR nicht gesetzt');
       return;
     }
-    for (final name in ['gross.sqlite', 'alt32.sqlite', 'alt27.sqlite']) {
+    // Fehlt eine der drei Vorlagen, wird sie übersprungen statt den Lauf
+    // zu Fall zu bringen: Sie sind Kopien gewachsener Bibliotheken und
+    // liegen nicht dauerhaft irgendwo. Fehlen ALLE, meldet sich der
+    // Prüfstand ausdrücklich ab – ein stiller Durchlauf wäre das
+    // Schlechteste von beidem.
+    final vorhanden = [
+      for (final name in ['gross.sqlite', 'alt32.sqlite', 'alt27.sqlite'])
+        if (File('$ordner/$name').existsSync()) name
+    ];
+    if (vorhanden.isEmpty) {
+      markTestSkipped('keine der drei Vorlagen liegt in $ordner');
+      return;
+    }
+    for (final name in vorhanden) {
       final datei = File('$ordner/$name');
-      expect(datei.existsSync(), isTrue, reason: '$name fehlt');
 
       final db = AppDatabase(NativeDatabase(datei));
       // Die erste Abfrage löst die Migration aus.
@@ -90,6 +102,26 @@ void main() {
       // ignore: avoid_print
       print('$name: $mitText Aufnahmen mit Text, aber ohne Stellen; '
           '$offen offen fuer die Texterkennung');
+      // Schema 64: die Spalte ist da und steht überall auf `false`. Das
+      // ist Absicht – der erste Ortsnachtrag nach dem Umstieg geht noch
+      // einmal über alles und findet dabei die Videos, an die er vorher
+      // nie herankam. Erst danach ist er still.
+      final nochNieAngesehen = await db
+          .customSelect(
+              'SELECT count(*) AS n FROM assets WHERE gps_geprueft = 0')
+          .map((r) => r.read<int>('n'))
+          .getSingle();
+      expect(nochNieAngesehen, nachher, reason: '$name: alle unangesehen');
+      expect(await db.countLocationBackfill(),
+          (await db.assetsForLocationBackfill()).length,
+          reason: '$name: Zahl und Liste');
+
+      // Schema 64 daneben: Wie viele Aufnahmen liegen im Ordner eines
+      // anderen Monats, als ihr Datum sagt (siehe [ordneAblageNeu])?
+      final schief = await db.countAblageordnung();
+      // ignore: avoid_print
+      print('$name: $schief Aufnahmen im falschen Monatsordner');
+
       await db.close();
       // ignore: avoid_print
       print('$name: $vorher Aufnahmen, Fassung $fassung');

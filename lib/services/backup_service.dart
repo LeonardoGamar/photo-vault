@@ -2,15 +2,21 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:cryptography/cryptography.dart';
+import 'package:drift/drift.dart' show Variable;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import 'blur_detection.dart';
+import 'face_engine_service.dart';
 import 'import_service.dart';
 import 'storage_paths.dart';
 import 'vault_crypto.dart';
 import 'xmp_writer.dart';
+
+import 'package:image/image.dart' as img;
 
 /// Geworfen, wenn ein verschlüsseltes Backup ohne Passphrase geöffnet werden
 /// soll – der Aufrufer zeigt seinen eigenen, übersetzten Hinweis.
@@ -40,8 +46,24 @@ class BackupProgress {
   /// Dateien auslässt, darf nicht wie eine vollständige aussehen.
   final int? fehlgeschlagen;
 
+  /// Wie viele Zeilen aus dem Datenbank-Schnappschuss übernommen wurden –
+  /// Personen, Gesichter, Verwandtschaften, Reisen, Aktivitäten und alles
+  /// Weitere, was in keiner Datei-Beilage steht. `null`, wenn die Sicherung
+  /// keinen Schnappschuss enthielt (eine von Hand angestossene tut das
+  /// nicht) oder er sich nicht lesen liess.
+  final int? uebernommeneZeilen;
+
+  /// Wahr, solange die Wiederherstellung die Gesichtsausschnitte neu
+  /// zeichnet. Das ist eine eigene Stufe mit eigener Zählung – ohne diesen
+  /// Hinweis sähe es aus, als finge der Lauf von vorne an.
+  final bool ausschnitteNeu;
+
   BackupProgress(this.done, this.total,
-      {this.currentFile, this.grenzeOffen, this.fehlgeschlagen});
+      {this.currentFile,
+      this.grenzeOffen,
+      this.fehlgeschlagen,
+      this.uebernommeneZeilen,
+      this.ausschnitteNeu = false});
 }
 
 /// Kopiert die Bibliothek manuell in einen vom Nutzer gewählten Ordner.
@@ -190,6 +212,22 @@ class BackupService {
     final backupRoot = Directory(p.join(destinationRootPath, _backupFolderName));
     final originalsOut = Directory(p.join(backupRoot.path, 'originals'));
     await originalsOut.create(recursive: true);
+
+    // Bei einer verschlüsselten Sicherung von Hand kommt der Schnappschuss
+    // der Datenbank mit – genau wie bei der automatischen. Ohne ihn brächte
+    // eine Wiederherstellung die Fotos zurück und liesse die Namen an den
+    // Gesichtern, den Stammbaum, Reisen und Aktivitäten liegen (Befund der
+    // 19. Prüfrunde).
+    //
+    // **Nur verschlüsselt.** Eine Klartext-Datenbank neben den Fotos wäre
+    // dasselbe Leck, das die 16. Prüfrunde bei `metadata.json` geschlossen
+    // hat, nur grösser: Sie beschriebe jede Aufnahme, auch die im
+    // gesperrten Ordner. Wer eine Sicherung von Hand ohne Passphrase
+    // anlegt, bekommt deshalb weiterhin Fotos plus Beilagen – und der
+    // Einstellungstext sagt das inzwischen auch.
+    if (encryptionKey != null) {
+      await _writeEncryptedDatabaseSnapshot(backupRoot, encryptionKey);
+    }
 
     // Zwischenlager – warum und was passiert, wenn es nicht reicht: siehe
     // [_ueberZwischendatei]. Geht es verloren (Neustart), entsteht kein
@@ -513,6 +551,7 @@ class BackupService {
     final metadataFile = File(p.join(backupRootPath, 'metadata.json'));
     List<Map<String, dynamic>> metaAssets = const [];
     File? entschluesselteMetadaten;
+    File? entschluesselterSchnappschuss;
     // Ab hier kann eine entschlüsselte Klartext-Kopie der Metadaten im
     // Temp-Verzeichnis liegen (Dateinamen, GPS, Tags, Beschreibungen aller
     // gesicherten Fotos). Sie MUSS in jedem Fall wieder verschwinden –
@@ -618,10 +657,264 @@ class BackupService {
       if (await metadataFile.exists()) {
         await _applyMetadataExport(entschluesselteMetadaten ?? metadataFile);
       }
+
+      // Und zuletzt alles, was in keiner Beilage steht: Namen an
+      // Gesichtern, Stammbaum, Reisen, Aktivitäten, Spuren, gespeicherte
+      // Suchen. Die automatische Sicherung legt dafür seit jeher einen
+      // verschlüsselten Schnappschuss der Datenbank ab – bis zur
+      // 19. Prüfrunde las ihn nur der Prüfstand.
+      final schnappschuss = File(p.join(backupRootPath, 'library.sqlite.enc'));
+      if (decryptionKey != null && await schnappschuss.exists()) {
+        // Dieselbe Sorgfalt wie bei den Metadaten oben: Ab hier liegt eine
+        // vollständige Klartext-Datenbank im Temp-Verzeichnis, und die muss
+        // in jedem Fall wieder verschwinden – auch bei einem Abbruch.
+        entschluesselterSchnappschuss = File(p.join(Directory.systemTemp.path,
+            'photovault_restore_${_uuid.v4()}.sqlite'));
+        try {
+          await VaultCrypto.decryptFile(
+              schnappschuss, entschluesselterSchnappschuss, decryptionKey);
+          final zeilen =
+              await uebernimmAusSchnappschuss(entschluesselterSchnappschuss);
+          yield BackupProgress(files.length, files.length,
+              uebernommeneZeilen: zeilen);
+          // Die Ausschnitte zu den zurückgekommenen Gesichtern neu
+          // zeichnen – sonst stünden alle Namen da und kein Bild dazu.
+          yield* _zeichneAusschnitteNach();
+        } catch (e) {
+          // Ein unlesbarer Schnappschuss darf die Wiederherstellung nicht
+          // entwerten – die Fotos und ihre Beilagen sind zu diesem
+          // Zeitpunkt längst zurück.
+          debugPrint('Schnappschuss nicht übernommen: $e');
+        }
+      }
     } finally {
       if (entschluesselteMetadaten != null && await entschluesselteMetadaten.exists()) {
         await entschluesselteMetadaten.delete();
       }
+      if (entschluesselterSchnappschuss != null &&
+          await entschluesselterSchnappschuss.exists()) {
+        await entschluesselterSchnappschuss.delete();
+      }
+    }
+  }
+
+  /// Die Tabellen, die aus dem Datenbank-Schnappschuss übernommen werden –
+  /// in dieser Reihenfolge, weil spätere auf frühere zeigen.
+  ///
+  /// **Warum es diese Liste überhaupt gibt.** `metadata.json` trägt, was
+  /// sich als Datei-Beilage weitergeben lässt: Beschreibung, Sterne,
+  /// Farbmarke, Ort, Schlagwörter, Alben. Alles andere – die Namen an den
+  /// Gesichtern, der Stammbaum, Reisen, Aktivitäten, Spuren, gespeicherte
+  /// Suchen – steht nur in der Datenbank. Die automatische Sicherung legt
+  /// von der längst einen verschlüsselten Schnappschuss ab und beschreibt
+  /// ihn in ihrer eigenen Doku als das, „aus dem sich bei Datenverlust
+  /// alles außer den Rohdateien wiederherstellen lässt". Gelesen hat ihn
+  /// bis zur 19. Prüfrunde **nichts** – der einzige Wiederherstellungsweg
+  /// der App wertete ausschliesslich `metadata.json` aus. Gemessen an einer
+  /// gewachsenen Bibliothek hiess das: 39 Personen und 2045 benannte
+  /// Gesichter, 20 Verwandtschaften, 2 Reisen mit 423 Zuordnungen und 15
+  /// Aktivitäten mit 485 Zuordnungen kamen nicht zurück.
+  ///
+  /// **Was bewusst fehlt.** Alles, was auf eine Datei zeigt, die in der
+  /// Sicherung gar nicht liegt (Objektmasken, Videozuschnitte), und alles,
+  /// was der Zielbibliothek gehört und nicht der gesicherten
+  /// (`backup_settings` mit ihrem Schlüssel, `privacy_settings`,
+  /// `restore_jobs`, `backup_records`). Die Einbettungen bleiben ebenfalls
+  /// draussen: Sie sind der grösste Posten und rechnen sich von selbst neu.
+  static const uebernommeneTabellen = <String>[
+    'people',
+    'faces',
+    'face_match_feedback',
+    'person_beziehungen',
+    'lebensereignisse',
+    'reisen',
+    'reise_aufnahmen',
+    'verworfene_reisen',
+    'aktivitaeten',
+    'aktivitaet_aufnahmen',
+    'verworfene_aktivitaeten',
+    'ortsmarken',
+    'spuren',
+    'spurpunkte',
+    'saved_searches',
+    'duplikat_ausnahmen',
+    'camera_presets',
+    'camera_preset_tags',
+    'automation_rules',
+    'automation_rule_tags',
+    'develop_presets',
+    'export_presets',
+    'develop_settings',
+    'develop_history',
+    'ai_tag_vocabulary',
+  ];
+
+  /// Übernimmt aus dem entschlüsselten Schnappschuss alles, was
+  /// `metadata.json` nicht trägt.
+  ///
+  /// **Zugeordnet wird über die Prüfsumme**, nicht über die Kennung: Der
+  /// Restore importiert jede Datei neu und vergibt dabei neue Kennungen.
+  /// Eine Zeile, deren Aufnahme in der Zielbibliothek fehlt (weil die Datei
+  /// nicht in der Sicherung lag oder nicht lesbar war), wird ausgelassen
+  /// statt auf eine fremde Aufnahme gelegt.
+  ///
+  /// **Die Spalten kommen aus dem Schema**, nicht aus einer zweiten Liste:
+  /// Eine ältere Sicherung kennt weniger Spalten als die laufende Fassung,
+  /// und eine von Hand gepflegte Aufzählung wäre die naheliegendste Art,
+  /// dass eine neue Spalte still verlorengeht.
+  @visibleForTesting
+  Future<int> uebernimmAusSchnappschuss(File schnappschuss) async {
+    final quelle = sqlite3.open(schnappschuss.path, mode: OpenMode.readOnly);
+    try {
+      final zielSpalten = <String, Set<String>>{};
+      for (final tabelle in _db.allTables) {
+        zielSpalten[tabelle.actualTableName] = {
+          for (final s in tabelle.$columns) s.name,
+        };
+      }
+
+      // Prüfsumme -> Kennung in dieser Bibliothek.
+      final nachPruefsumme = <String, String>{
+        for (final a in await _db.select(_db.assets).get()) a.checksum: a.id,
+      };
+      // Kennung im Schnappschuss -> Kennung hier.
+      final assetZuordnung = <String, String>{};
+      for (final z in quelle.select('SELECT id, checksum FROM assets')) {
+        final neu = nachPruefsumme[z['checksum'] as String?];
+        if (neu != null) assetZuordnung[z['id'] as String] = neu;
+      }
+
+      var uebernommen = 0;
+      for (final tabelle in uebernommeneTabellen) {
+        final erlaubt = zielSpalten[tabelle];
+        if (erlaubt == null) continue;
+        final vorhanden = quelle.select(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+            [tabelle]);
+        if (vorhanden.isEmpty) continue;
+
+        // Nur Spalten, die es hier UND dort gibt – eine ältere Sicherung
+        // hat weniger, eine neuere könnte mehr haben.
+        final spalten = [
+          for (final z in quelle.select('PRAGMA table_info("$tabelle")'))
+            if (erlaubt.contains(z['name'] as String)) z['name'] as String,
+        ];
+        if (spalten.isEmpty) continue;
+        final hatAssetId = spalten.contains('asset_id');
+
+        final liste = spalten.map((s) => '"$s"').join(', ');
+        final platzhalter = List.filled(spalten.length, '?').join(', ');
+        final befehl =
+            'INSERT OR IGNORE INTO "$tabelle" ($liste) VALUES ($platzhalter)';
+
+        for (final zeile in quelle.select('SELECT * FROM "$tabelle"')) {
+          final werte = <Object?>[];
+          var ueberspringen = false;
+          for (final spalte in spalten) {
+            var wert = zeile[spalte];
+            if (spalte == 'asset_id' && hatAssetId) {
+              wert = assetZuordnung[wert];
+              if (wert == null) {
+                ueberspringen = true;
+                break;
+              }
+            }
+            werte.add(wert);
+          }
+          if (ueberspringen) continue;
+          try {
+            await _db.customInsert(befehl,
+                variables: [for (final w in werte) Variable(w)]);
+            uebernommen++;
+          } catch (e) {
+            // Je Zeile abgesichert – eine Zeile, die hier nicht hineinpasst
+            // (ein Fremdschlüssel auf eine ausgelassene Aufnahme etwa), darf
+            // die Wiederherstellung nicht abbrechen.
+            debugPrint('Zeile aus $tabelle nicht übernommen: $e');
+          }
+        }
+      }
+      // Und die Marke „schon nach Gesichtern durchsucht" mit.
+      //
+      // Ohne sie liefe die Hintergrundanalyse über genau die Aufnahmen, für
+      // die gerade Gesichter zurückgekommen sind, fände dieselben Köpfe
+      // erneut und legte sie ein zweites Mal an – diesmal ohne Namen. Die
+      // Marke steht im Schnappschuss und wird deshalb von dort genommen,
+      // nicht geraten: Eine Aufnahme, die dort nie durchsucht wurde, soll
+      // auch hier noch durchsucht werden.
+      for (final z in quelle
+          .select('SELECT id, faces_scanned FROM assets WHERE faces_scanned = 1')) {
+        final neueId = assetZuordnung[z['id'] as String];
+        if (neueId == null) continue;
+        await _db.markFacesScanned([neueId]);
+      }
+
+      return uebernommen;
+    } finally {
+      quelle.close();
+    }
+  }
+
+  /// Zeichnet die Gesichtsausschnitte neu, die mit dem Schnappschuss
+  /// zurückkamen.
+  ///
+  /// **Warum sie nicht in der Sicherung liegen.** Gesichert werden die
+  /// Originale, nichts Abgeleitetes – Miniaturen, Vorschauen und
+  /// Ausschnitte entstehen beim Import neu. Der Ausschnitt aber ist das,
+  /// was man in der Personenübersicht *sieht*: Ohne ihn kämen zwar alle
+  /// Namen zurück, die Übersicht wäre aber eine Wand aus leeren Kacheln.
+  ///
+  /// **Kein Modell nötig.** Der Kasten steht in der wiederhergestellten
+  /// Zeile; [FaceEngineService.cropFaceImage] ist eine reine Bildoperation.
+  /// Es wird also nicht neu erkannt (das ergäbe andere Gesichter und damit
+  /// Doppelungen), sondern nur nachgezeichnet.
+  ///
+  /// Ein Foto wird höchstens einmal dekodiert, auch wenn mehrere Gesichter
+  /// darauf sind.
+  Stream<BackupProgress> _zeichneAusschnitteNach() async* {
+    // Gefragt wird die Platte, nicht die Spalte: `cropRelativePath` steht
+    // auch bei den zurückgespielten Zeilen da, nur die Datei dahinter fehlt.
+    final nachAsset = <String, List<FaceData>>{};
+    for (final g in await _db.select(_db.faces).get()) {
+      final pfad = g.cropRelativePath;
+      if (pfad == null) continue;
+      if (await _paths.absolute(pfad).exists()) continue;
+      nachAsset.putIfAbsent(g.assetId, () => []).add(g);
+    }
+    if (nachAsset.isEmpty) return;
+
+    var done = 0;
+    yield BackupProgress(0, nachAsset.length, ausschnitteNeu: true);
+    for (final eintrag in nachAsset.entries) {
+      try {
+        final asset = await _db.assetById(eintrag.key);
+        if (asset != null) {
+          final datei = _paths
+              .absolute(asset.previewRelativePath ?? asset.relativePath);
+          if (await datei.exists()) {
+            final bild = await compute(_dekodiere, await datei.readAsBytes());
+            if (bild != null) {
+              for (final gesicht in eintrag.value) {
+                final ausschnitt = FaceEngineService.cropFaceImage(
+                    bild,
+                    DetectedFace(gesicht.boxX, gesicht.boxY, gesicht.boxW,
+                        gesicht.boxH, 1.0));
+                final ziel = _paths.faceRelativePath(gesicht.id);
+                await FaceEngineService.saveFaceCrop(
+                    ausschnitt, _paths.absolute(ziel));
+                await _db.setzeGesichtsausschnitt(gesicht.id, ziel,
+                    schaerfe: gesichtsschaerfe(ausschnitt));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // Je Foto abgesichert: Eine Datei, die sich nicht lesen lässt, darf
+        // die übrigen Ausschnitte nicht mitnehmen.
+        debugPrint('Gesichtsausschnitte für ${eintrag.key} nicht erneuert: $e');
+      }
+      done++;
+      yield BackupProgress(done, nachAsset.length, ausschnitteNeu: true);
     }
   }
 
@@ -850,6 +1143,7 @@ class BackupService {
     final snapshotFile = File(snapshotPath);
     try {
       await _db.customStatement('VACUUM INTO ?', [snapshotPath]);
+      entferneGesperrteAus(snapshotPath);
       final target = File(p.join(backupRoot.path, 'library.sqlite.enc'));
       await VaultCrypto.encryptFile(snapshotFile, target, encryptionKey);
     } finally {
@@ -882,5 +1176,72 @@ class VerschluesselteNamen {
       secretKey: schluessel,
     );
     return mac.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+}
+
+/// Streicht alle gesperrten Aufnahmen aus einem Datenbank-Schnappschuss.
+///
+/// **Warum das sein muss.** Die 16. Prüfrunde fand, dass `metadata.json`
+/// auch die Aufnahmen im gesperrten Ordner beschrieb – Dateinamen,
+/// Beschreibungen, Schlagwörter im Klartext, in einer Datei, die
+/// typischerweise in einem Cloud-Ordner liegt. Behoben wurde das dort.
+/// Zwanzig Zeilen weiter schreibt dieselbe Sicherung einen Schnappschuss
+/// der **kompletten** Datenbank, und in dem standen dieselben Zeilen
+/// weiterhin: Dateiname, Ort, Beschreibung, Schlagwörter und über die
+/// Gesichter sogar die Namen der abgebildeten Personen. Verschlüsselt zwar
+/// – aber mit der Sicherungs-Passphrase, nicht mit dem PIN. Der
+/// Einstellungstext sagt zum gesperrten Ordner ausdrücklich, er blende die
+/// Fotos „überall sonst (Timeline, Suche, Alben, Personen, Karte, Backup)"
+/// aus.
+///
+/// **Aus dem Schema abgeleitet, nicht abgeschrieben.** Welche Tabellen an
+/// einer Aufnahme hängen, steht in `PRAGMA table_info` – jede Tabelle mit
+/// einer Spalte `asset_id`. Eine Liste von Hand wäre die naheliegendste
+/// Art, dass eine später hinzugekommene Tabelle vergessen wird; genau
+/// diese Form hatte der Fund, der hier steht.
+void entferneGesperrteAus(String schnappschussPfad) {
+  final db = sqlite3.open(schnappschussPfad);
+  try {
+    final gesperrte = db
+        .select('SELECT id FROM assets WHERE is_locked = 1')
+        .map((z) => z['id'] as String)
+        .toList();
+    if (gesperrte.isEmpty) return;
+    final platzhalter = List.filled(gesperrte.length, '?').join(',');
+    for (final tabelle in _tabellenMitAssetId(db)) {
+      db.execute(
+          'DELETE FROM "$tabelle" WHERE asset_id IN ($platzhalter)', gesperrte);
+    }
+    db.execute('DELETE FROM assets WHERE is_locked = 1');
+    // Ohne das bliebe der gelöschte Inhalt in den freigewordenen Seiten der
+    // Datei stehen – lesbar für jeden, der die entschlüsselte Datei mit
+    // einem Hexeditor öffnet, statt sie als Datenbank zu befragen.
+    db.execute('VACUUM');
+  } finally {
+    db.close();
+  }
+}
+
+List<String> _tabellenMitAssetId(Database db) {
+  final namen = db
+      .select("SELECT name FROM sqlite_master WHERE type = 'table' "
+          "AND name NOT LIKE 'sqlite_%'")
+      .map((z) => z['name'] as String);
+  return [
+    for (final name in namen)
+      if (db
+          .select('PRAGMA table_info("$name")')
+          .any((z) => z['name'] == 'asset_id'))
+        name,
+  ];
+}
+
+/// Reine Top-Level-Funktion für `compute()` – wie `decodeImageBytes` in
+/// library_state.dart.
+img.Image? _dekodiere(Uint8List bytes) {
+  try {
+    return img.decodeImage(bytes);
+  } catch (_) {
+    return null;
   }
 }

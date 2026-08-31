@@ -60,6 +60,19 @@
     }
   },
   "kuerzelTitel": "Tastaturkürzel",
+  "kuerzelRaster": "Raster (Zeitleiste, Kalender, Album, Suche)",
+  "kuerzelUmschaltKlick": "Umschalt-Klick",
+  "kuerzelStrgKlick": "Strg-/⌘-Klick",
+  "kuerzelUmschaltPfeil": "Umschalt + Pfeil",
+  "kuerzelBereichWaehlen": "Alles bis hierher dazunehmen",
+  "kuerzelEinzelnWaehlen": "Eine einzelne Kachel umschalten",
+  "kuerzelRahmenBewegen": "Den Rahmen durchs Raster bewegen",
+  "kuerzelAuswahlZiehen": "Die Auswahl mitziehen",
+  "kuerzelFarbmarkeSetzen": "Farbmarke setzen",
+  "kuerzelAuswahlLeeren": "Auswahl leeren",
+  "kuerzelFotoOeffnen": "Foto öffnen",
+  "kuerzelWirktAuf": "Die Tasten wirken auf die Auswahl. Gibt es keine, wirken sie auf die Kachel, auf der der Rahmen steht.",
+  "einstBeschrKuerzel": "Alle Tastaturkürzel auf einen Blick",
   "kuerzelNavigation": "Navigation",
   "kuerzelVollbild": "Vollbildansicht",
   "kuerzelSichtung": "Sichtungs-Modus (Culling)",
@@ -148,6 +161,10 @@
   "@staubAufWievielen": {
     "placeholders": { "treffer": { "type": "int" }, "gesamt": { "type": "int" } }
   },
+  "staubUebersprungen": "{anzahl} von {gesamt} Aufnahmen liessen sich nicht lesen und wurden übersprungen.",
+  "@staubUebersprungen": {
+    "placeholders": { "anzahl": { "type": "int" }, "gesamt": { "type": "int" } }
+  },
   "staubImEditorOeffnen": "Eine betroffene Aufnahme im Bildeditor öffnen",
   "allgKamera": "Kamera",
   "sucheSatzVerwerfen": "Deutung zurücknehmen und wörtlich suchen",
@@ -179,7 +196,6 @@
   "viewerGesichtBenennen": "Gesicht benennen",
   "viewerEntwicklungAnwenden": "Kopierte Entwicklung anwenden",
   "viewerEntwicklungAnwendenLang": "Kopierte Entwicklung auf dieses Foto anwenden",
-  "viewerGeschlosseneAugen": "Mindestens ein Gesicht mit geschlossenen Augen erkannt",
   "viewerFokusPeaking": "Fokus-Peaking (scharfe Kanten hervorheben)",
   "viewerGesichtUnscharf": "Auch das schärfste Gesicht ist unscharf",
   "viewerTextZeigen": "Erkannten Text hervorheben",
@@ -785,7 +801,7 @@
   "aufgWoModelle": "Einstellungen → KI-Modelle",
   "aufgWoStandortdaten": "Einstellungen → Standortdaten",
   "aufgGesichterText": "Erkennt und ordnet Gesichter zu, sofern das YuNet-Modell installiert ist.",
-  "aufgVorschauText": "Erzeugt Thumbnails/Vorschauen für Fotos und Videos.",
+  "aufgVorschauText": "Erzeugt Miniaturen und Vorschauen für Fotos und Videos. Bei einem Video entsteht dabei ein Standbild aus der ersten Sekunde – erst damit kann es überhaupt ausgewertet werden (Beschreibung, Schlagwörter, Gesichter, Text). Nach diesem Lauf lohnen die übrigen Aufgaben einen Durchgang.",
   "aufgFehlende": "Fehlende",
   "aufgGesichtsschaerfeTitel": "Gesichtsschärfe",
   "aufgGesichtsschaerfeText": "Misst für jedes erkannte Gesicht, wie scharf es ist – auf dem bereits gespeicherten Ausschnitt, ohne die Fotos erneut zu dekodieren. Beim Sichten warnt die App danach, wenn auch das schärfste Gesicht einer Aufnahme unscharf ist.",
@@ -804,7 +820,11 @@
   "aufgOrteText": "Liest EXIF-GPS-Daten aus Fotos nachträglich ein. Die Zahl ist die der Fotos ohne Ort – wie viele davon einen in der Datei tragen, weiss erst der Durchgang.",
   "aufgOrteAufloesenText": "Ordnet dem GPS-Ort eines Fotos Land, Bundesland/Provinz und Stadt zu.",
   "aufgKameraTitel": "Kameradaten einlesen",
-  "aufgKameraText": "Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein. Die Zahl ist die der Fotos ohne Kameraangabe; Aufnahmen ganz ohne EXIF bleiben darunter.",
+  "aufgKameraText": "Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus den Metadaten ein – bei Fotos aus EXIF, bei Videos aus dem Container. Die Zahl ist die der Aufnahmen ohne Kameraangabe; was gar keine Metadaten trägt, bleibt darunter.",
+  "aufgDateiartTitel": "Dateiarten prüfen",
+  "aufgDateiartText": "Manche Standbilder kommen unter einem Videonamen an – als Video geführt fallen sie aus jeder Auswertung heraus, bekommen kein Vorschaubild und keinen Ort. Der Lauf sieht in die Bytes und berichtigt die Art. Danach lohnt ein Durchgang der übrigen Aufgaben.",
+  "werkzPruefeDateiarten": "Prüfe Dateiarten …",
+  "werkzAlleArtenStimmen": "Alle Aufnahmen sind richtig eingeordnet.",
   "aufgLivePhotoTitel": "Live-Photo-Paare prüfen",
   "aufgLivePhotoText": "Verknüpft HEIC/JPG-Standbilder mit gleichnamigen MOV-Videos. Die Zahl ist die der Fotos ohne Partner – die allermeisten haben keinen und bekommen auch keinen.",
   "aufgRendernText": "Rendert Fotos mit gespeicherten Entwicklungs-Anpassungen unverändert neu.",
@@ -1625,6 +1645,34 @@
   "aehnlClipFehlt": "KI-Bildsuche nicht verfügbar – CLIP-Modell fehlt (siehe Einstellungen → KI-Modelle).",
   "aehnlKeineTreffer": "Für dieses Foto liegt noch kein KI-Embedding vor (siehe Werkzeuge → KI-Bildsuche → CLIP-Embeddings berechnen) oder es gibt keine ähnlichen Fotos in der Bibliothek.",
   "stapelErklaerung": "Fotos, die sich ähneln UND innerhalb weniger Sekunden aufgenommen wurden, werden hier als Serie vorgeschlagen. \"Übernehmen\" fasst eine Gruppe zu einem Stapel zusammen – nur das Titelbild bleibt danach in der Übersicht sichtbar, nichts wird gelöscht.",
+  "stapelAlleUebernehmen": "Alle {anzahl} übernehmen",
+  "@stapelAlleUebernehmen": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "stapelAlleFrageTitel": "Alle Serien übernehmen?",
+  "stapelAlleFrage": "{anzahl} Gruppen werden zu Stapeln zusammengefasst. Titelbild ist jeweils das schärfste Foto. Nichts geht dabei verloren – „Serie auflösen“ im Info-Blatt nimmt jede Gruppierung wieder zurück.",
+  "@stapelAlleFrage": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "werkzStapelGefunden": "{anzahl, plural, =0{Keine Serien gefunden} =1{1 Serie wartet} other{{anzahl} Serien warten}}",
+  "@werkzStapelGefunden": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "serienvergleichTitel": "Serie vergleichen",
+  "serienvergleichErklaerung": "Dieselben Gesichter nebeneinander. Auf einem ganzen Foto sieht man nicht, wer blinzelt – auf den Ausschnitten sofort. Der Rahmen markiert die Aufnahme mit dem schärfsten Gesicht; das ist ein Vorschlag, keine Entscheidung.",
+  "serienvergleichOhneGesichter": "Auf diesen Aufnahmen wurde kein Gesicht erkannt – verglichen werden nur die Bilder selbst.",
+  "serienvergleichSchaerfstes": "Schärfstes Gesicht der Serie",
+  "serienvergleichSchaerfe": "Schärfe {wert}",
+  "@serienvergleichSchaerfe": {
+    "placeholders": { "wert": { "type": "int" } }
+  },
+  "serienvergleichAugen": "Augen offen: {prozent} %",
+  "@serienvergleichAugen": {
+    "placeholders": { "prozent": { "type": "int" } }
+  },
+  "serienvergleichOhneWert": "Schärfe noch nicht gemessen",
+  "serienvergleichOeffnen": "Gesichter vergleichen",
+  "serienvergleichZuKurz": "Zum Vergleichen braucht es mindestens zwei Aufnahmen.",
   "stapelKeine": "Keine Serienbilder gefunden.",
   "allgVerwerfen": "Verwerfen",
   "statTitel": "Statistik",
@@ -1720,6 +1768,7 @@
   },
   "infoKeineUnbenannten": "Keine unbenannten Gesichter auf diesem Foto gefunden – falls noch keine Gesichtserkennung gelaufen ist, siehe Werkzeuge → Gesichter scannen.",
   "infoTitel": "Info",
+  "infoVideoStandbild": "Ausgewertet auf einem Standbild aus der ersten Sekunde – nicht auf dem ganzen Film.",
   "infoBeschreibungHinzufuegen": "Beschreibung hinzufügen",
   "infoKiBeschreibung": "KI-Beschreibung",
   "infoErkannterText": "Erkannter Text",
@@ -1768,6 +1817,12 @@
       }
     }
   },
+  "backupUebernommen": "{anzahl} Einträge aus dem Datenbank-Schnappschuss übernommen (Personen, Stammbaum, Reisen, Aktivitäten …)",
+  "@backupUebernommen": {
+    "placeholders": { "anzahl": { "type": "int" } }
+  },
+  "backupAusschnitteNeu": "Gesichtsausschnitte werden neu gezeichnet …",
+  "einstBackupManuellHinweis": "Eine Sicherung mit Passphrase nimmt zusätzlich einen verschlüsselten Schnappschuss der Datenbank mit – Personen, Stammbaum, Reisen, Aktivitäten und gespeicherte Suchen kommen damit beim Wiederherstellen zurück. Ohne Passphrase enthält die Sicherung nur die Originale und die Beilagen daneben (Beschreibung, Sterne, Farbmarke, Ort, Schlagwörter, Alben); alles Übrige liesse sich danach nicht wiederherstellen.",
   "backupNichtGesichert": "{anzahl} Datei(en) konnten nicht gesichert werden – sie werden beim nächsten Lauf erneut versucht",
   "@backupNichtGesichert": {
     "placeholders": {
@@ -3617,12 +3672,12 @@
   "modellOcrText": "Findet Text in Fotos und liest ihn – zwei Modelle, zusammen 13,7 MB. Deckt das lateinische Alphabet samt Umlauten und ß ab. Unter macOS nicht nötig: Dort erledigt das Apples Vision-Framework ohne Download.",
   "modellOcrLizenz": "Apache 2.0 (PaddleOCR)",
   "aufgOcrModell": "das Texterkennungs-Modell",
-  "werkzDatumTitel": "Aufnahmedatum aus RAW-Fotos nachtragen",
+  "werkzDatumTitel": "Aufnahmedatum aus RAW und Videos nachtragen",
   "werkzDatumFrageTitel": "Aufnahmedatum richtigstellen?",
   "werkzDatumFrage": "Fotos, deren Aufnahmedatum bisher vom Dateizeitstempel stammte, bekommen das echte Datum aus der RAW-Datei. Sie rücken damit in der Zeitleiste und im Kalender an die richtige Stelle und werden auf der Festplatte in den passenden Monatsordner verschoben.\n\nDie Fotos selbst werden nicht verändert. Rückgängig machen lässt sich der Lauf nicht.",
   "werkzDatumStarten": "Richtigstellen",
-  "werkzKorrigiereDatum": "Lese Aufnahmedaten aus RAW-Fotos …",
-  "werkzKeineRawFotos": "Keine RAW-Fotos in der Bibliothek.",
+  "werkzKorrigiereDatum": "Lese Aufnahmedaten aus RAW und Videos …",
+  "werkzKeineRawFotos": "Keine RAW-Aufnahmen und keine Videos in der Bibliothek.",
   "karteGlobusZoomHinweis": "Weiter heranzoomen zeigt keine zusätzlichen Details – die Erdtextur ist ein einzelnes Bild. Tippe auf einen Pin, um an dieser Stelle in die Karte zu wechseln.",
   "karteHineinzoomen": "Näher heran",
   "karteHerauszoomen": "Weiter weg",
@@ -4054,7 +4109,14 @@
   "aufgEinreihen": "Einreihen",
   "aufgGleichzeitigTitel": "Gleichzeitige Ausführungen verwalten",
   "aufgGleichzeitigText": "Wie viele rechenintensive Aufgaben nebeneinander laufen dürfen. Jede hält ein KI-Modell im Speicher und liest dieselben Fotos noch einmal von der Platte – mehr ist nicht immer schneller. Aufgaben ohne Modell laufen ohnehin sofort.",
-  "aufgDatumText": "Liest bei RAW-Aufnahmen das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.",
+  "aufgDatumText": "Liest bei RAW-Aufnahmen und Videos das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.",
+  "aufgAblageTitel": "Ablage nach Datum ordnen",
+  "aufgAblageText": "Legt Aufnahmen in den Ordner ihres Aufnahmemonats, wenn sie dort nicht liegen. Ändert kein Datum – nur den Ort auf der Platte. Verschiebt Dateien, deshalb mit Rückfrage.",
+  "werkzOrdneAblage": "Ordne die Ablage …",
+  "werkzAblageStimmt": "Jede Aufnahme liegt im Ordner ihres Datums.",
+  "werkzAblageFrageTitel": "Ablage neu ordnen?",
+  "werkzAblageFrage": "Aufnahmen, deren Ordner nicht zu ihrem Aufnahmedatum passt, werden in den richtigen Monatsordner verschoben. Die Aufnahmedaten selbst bleiben unverändert. In der App ändert sich dadurch nichts Sichtbares – wohl aber die Ordnerstruktur der Bibliothek auf der Platte.",
+  "werkzAblageStarten": "Ablage ordnen",
   "aufgOffeneFotos": "{anzahl} Fotos offen",
   "@aufgOffeneFotos": {
     "placeholders": {

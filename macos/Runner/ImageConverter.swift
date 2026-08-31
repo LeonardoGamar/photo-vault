@@ -340,7 +340,7 @@ class ImageConverterChannel: NSObject {
         else { return nil }
 
         let scaledImage = downscale(hdrImage, maxDimension: maxDimension)
-        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
+        guard let colorSpace = ausgabefarbraum else { return nil }
         guard
             let cgImage = sharedCIContext.createCGImage(
                 scaledImage, from: scaledImage.extent, format: .RGBA8, colorSpace: colorSpace
@@ -608,7 +608,7 @@ class ImageConverterChannel: NSObject {
         }
 
         guard let outputImage = filter.outputImage,
-            let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+            let colorSpace = ausgabefarbraum,
             let cgImage = sharedCIContext.createCGImage(
                 outputImage, from: outputImage.extent, format: .RGBA8, colorSpace: colorSpace
             )
@@ -742,7 +742,7 @@ class ImageConverterChannel: NSObject {
         guard var renderedImage = output else { return nil }
         renderedImage = compositeMaskLayers(renderedImage, maskLayers)
 
-        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+        guard let colorSpace = ausgabefarbraum,
             let cgImage = sharedCIContext.createCGImage(
                 renderedImage, from: renderedImage.extent, format: .RGBA8, colorSpace: colorSpace
             )
@@ -849,6 +849,12 @@ class ImageConverterChannel: NSObject {
 
     private static func applyCurveAndMixer(_ input: CIImage, _ a: DevelopAdjustments) -> CIImage {
         var image = input
+        // **Arbeitsfarbraum, nicht Ausgabefarbraum.** Hier steht, in
+        // welchem Raum Kurve und Farbmischer rechnen - und das muss sRGB
+        // bleiben: Die Dart-Seite stellt fuer die Shader-Vorschau
+        // dieselbe Rechnung an (siehe develop_color.dart, "die Mathematik
+        // nur einmal"). Wuerde hier P3 stehen, zeigte die Vorschau beim
+        // Ziehen etwas anderes als das gerenderte Ergebnis.
         guard let raum = CGColorSpace(name: CGColorSpace.sRGB) else { return image }
 
         if let lut = a.curveLut, lut.count == 256 * 3, let f = CIFilter(name: "CIColorCurves") {
@@ -987,6 +993,29 @@ class ImageConverterChannel: NSObject {
         CGImageDestinationAddImage(ziel, image, nil)
         guard CGImageDestinationFinalize(ziel) else { return nil }
         return data as Data
+    }
+
+    /// Der Farbraum, in dem alles herausgerendert wird.
+    ///
+    /// **Warum nicht sRGB.** Hier stand an drei Stellen fest sRGB, und
+    /// ImageIO schreibt fuer sRGB gar kein Profil in die Datei - das ist
+    /// der stillschweigende Standard. Gemessen an der echten Bibliothek:
+    /// Eine iPhone-HEIC in Display P3 mit HDR-Gainmap ergab eine Vorschau
+    /// ohne jedes Profil, also sRGB. 42 von 80 iPhone-Aufnahmen sind
+    /// Display P3, und jede neuere Kamera liefert mehr als sRGB.
+    ///
+    /// Display P3 enthaelt sRGB vollstaendig: Ein sRGB-Foto sieht danach
+    /// gleich aus, ein P3-Foto endlich richtig. Und ImageIO bettet das
+    /// Profil ein, sobald es nicht sRGB ist - nachgemessen, das ist der
+    /// ganze Unterschied zwischen "ohne Profil" und "Display P3" in der
+    /// Ausgabedatei.
+    ///
+    /// **Nicht zu verwechseln mit dem Arbeitsfarbraum** in
+    /// [applyCurveAndMixer]: Der bestimmt, wie Kurve und Farbmischer
+    /// rechnen, und muss sRGB bleiben, weil die Dart-Seite dieselbe
+    /// Rechnung fuer die Shader-Vorschau anstellt.
+    private static var ausgabefarbraum: CGColorSpace? {
+        CGColorSpace(name: CGColorSpace.displayP3)
     }
 
     private static func encodeJpeg(_ image: CGImage, quality: Double) -> Data? {

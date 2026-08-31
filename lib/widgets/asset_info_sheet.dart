@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../screens/person_detail_screen.dart';
+import '../screens/serienvergleich_screen.dart';
 import '../services/reverse_geocoder.dart';
 import '../services/asset_format.dart';
 import '../services/storage_paths.dart';
@@ -252,7 +253,10 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
       time?.hour ?? _asset.fileCreatedAt.hour,
       time?.minute ?? _asset.fileCreatedAt.minute,
     );
-    await widget.db.setFileCreatedAt(_asset.id, combined);
+    // Über LibraryState, damit die Datei in den Ordner des neuen Monats
+    // mitgeht (siehe [LibraryState.setzeAufnahmedatumVonHand]).
+    await context.read<LibraryState>().setzeAufnahmedatumVonHand(
+        [_asset.id], combined);
     await _refresh();
   }
 
@@ -369,6 +373,24 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     if (stackId == null) return;
     await widget.db.unstackAssets(stackId);
     await _refresh();
+  }
+
+  /// Öffnet den Serienvergleich für den Stapel dieses Titelbildes.
+  Future<void> _serieVergleichen() async {
+    final stackId = _asset.stackId;
+    if (stackId == null) return;
+    final library = context.read<LibraryState>();
+    final serie = await widget.db.assetsInStack(stackId);
+    if (!mounted) return;
+    if (serie.length < 2) {
+      melde.hinweis(AppTexte.of(context).serienvergleichZuKurz);
+      return;
+    }
+    serie.sort((a, b) => a.fileCreatedAt.compareTo(b.fileCreatedAt));
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          SerienvergleichScreen(library: library, serie: serie),
+    ));
   }
 
   String _formatFileSize(int bytes) {
@@ -489,6 +511,23 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           vonHand: asset.aiCaptionEdited,
                           onSprache: _kiSpracheWechseln,
                         ),
+                        // Bei einem Video ruht alles Erkannte auf einem
+                        // einzigen Standbild. Das gehört dazugesagt: Wer
+                        // „drei Personen" liest, nimmt sonst an, der ganze
+                        // Film sei durchsucht worden.
+                        if (asset.type == 'VIDEO') ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            AppTexte.of(context).infoVideoStandbild,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant),
+                          ),
+                        ],
                       ],
                       if ((asset.ocrText ?? '').trim().isNotEmpty) ...[
                         const SizedBox(height: 12),
@@ -610,7 +649,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           editIcon: Icons.close,
                           editTooltip: AppTexte.of(context).infoOrtEntfernen,
                         ),
-                      if (asset.isStackCover && asset.stackSize != null)
+                      if (asset.isStackCover && asset.stackSize != null) ...[
                         _IconDetailRow(
                           icon: Icons.filter_none_outlined,
                           title: AppTexte.of(context).infoSerie(asset.stackSize!),
@@ -619,6 +658,25 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           editIcon: Icons.close,
                           editTooltip: AppTexte.of(context).infoSerieAufloesen,
                         ),
+                        // Der zweite Weg in den Vergleich – der erste liegt
+                        // beim Zusammenfassen. Danach kommt man dort nicht
+                        // mehr hin, und genau dann will man ihn: Wer eine
+                        // Serie gestapelt hat, sucht später das beste Bild
+                        // darin.
+                        Padding(
+                          padding: const EdgeInsets.only(left: 40, top: 4),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: _serieVergleichen,
+                              icon: const Icon(
+                                  Icons.face_retouching_natural, size: 18),
+                              label: Text(AppTexte.of(context)
+                                  .serienvergleichOeffnen),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
 
                       _SectionLabel(AppTexte.of(context).suchoptTagsTitel),

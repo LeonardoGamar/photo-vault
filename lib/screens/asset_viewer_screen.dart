@@ -136,14 +136,6 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
 
   /// Schwellenwert für "Augen geschlossen" – siehe EyeStateService, der
   /// Score ist die Wahrscheinlichkeit "Augen offen".
-  static const _closedEyesThreshold = 0.5;
-
-  /// Ob mindestens ein Gesicht im aktuell angezeigten Foto geschlossene
-  /// Augen hat (nur im Sichtungs-Modus abgefragt, siehe
-  /// [_refreshClosedEyesFlag]) – standardmäßig false, bis die DB-Abfrage
-  /// zurückkommt, damit das Umblättern nicht darauf wartet.
-  bool _currentHasClosedEyes = false;
-
   /// Ob KEIN Gesicht dieses Fotos scharf genug ist (siehe
   /// [gesichtUnscharfSchwelle]).
   ///
@@ -153,11 +145,15 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   /// Bild ohne brauchbares Gesicht.
   bool _currentGesichterUnscharf = false;
 
-  Future<void> _refreshClosedEyesFlag() async {
+  /// Prüft, ob die Gesichter des aktuellen Fotos alle zu weich sind.
+  ///
+  /// Hiess bis Fassung 63 `_refreshClosedEyesFlag` und prüfte zusätzlich
+  /// den Augenzustand – der steht jetzt im Serienvergleich, neben dem
+  /// Gesicht, über das er etwas sagt.
+  Future<void> _pruefeGesichtsschaerfe() async {
     if (!widget.cullingMode) return;
     final assetId = _assets[_currentIndex].id;
     final faces = await widget.db.facesForAsset(assetId);
-    final hasClosed = faces.any((f) => f.eyeOpenScore != null && f.eyeOpenScore! < _closedEyesThreshold);
     final gemessen = [
       for (final f in faces)
         if (!f.isIgnored && f.schaerfe != null) f.schaerfe!,
@@ -165,10 +161,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
     final unscharf = gemessen.isNotEmpty &&
         gemessen.reduce((a, b) => a > b ? a : b) < gesichtUnscharfSchwelle;
     if (mounted && _assets[_currentIndex].id == assetId) {
-      setState(() {
-        _currentHasClosedEyes = hasClosed;
-        _currentGesichterUnscharf = unscharf;
-      });
+      setState(() => _currentGesichterUnscharf = unscharf);
     }
   }
 
@@ -184,7 +177,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
   void initState() {
     super.initState();
     _assets.addAll(widget.assets);
-    unawaited(_refreshClosedEyesFlag());
+    unawaited(_pruefeGesichtsschaerfe());
   }
 
   @override
@@ -755,7 +748,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                             itemCount: _assets.length,
                             onPageChanged: (i) {
                               setState(() => _currentIndex = i);
-                              unawaited(_refreshClosedEyesFlag());
+                              unawaited(_pruefeGesichtsschaerfe());
                             },
                             itemBuilder: (context, index) {
                               final a = _assets[index];
@@ -823,7 +816,6 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
                 total: _assets.length,
                 focusPeakingEnabled: _focusPeakingEnabled,
                 onToggleFocusPeaking: () => setState(() => _focusPeakingEnabled = !_focusPeakingEnabled),
-                hasClosedEyes: _currentHasClosedEyes,
                 gesichterUnscharf: _currentGesichterUnscharf,
               ),
             ] else if (_assets.length > 1) ...[
@@ -852,7 +844,6 @@ class _CullingHintBar extends StatelessWidget {
   final int total;
   final bool focusPeakingEnabled;
   final VoidCallback onToggleFocusPeaking;
-  final bool hasClosedEyes;
 
   /// Auch das schärfste Gesicht dieses Fotos liegt unter der Schwelle.
   final bool gesichterUnscharf;
@@ -862,7 +853,6 @@ class _CullingHintBar extends StatelessWidget {
     required this.total,
     required this.focusPeakingEnabled,
     required this.onToggleFocusPeaking,
-    required this.hasClosedEyes,
     required this.gesichterUnscharf,
   });
 
@@ -885,14 +875,19 @@ class _CullingHintBar extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (hasClosedEyes)
-                    Tooltip(
-                      message: AppTexte.of(context).viewerGeschlosseneAugen,
-                      child: const Icon(Icons.visibility_off_outlined,
-                          size: 18, color: Colors.orangeAccent),
-                    ),
+                  // **Die Warnung „geschlossene Augen" steht hier nicht
+                  // mehr.** Sie behauptete etwas über ein Gesicht, das man
+                  // an dieser Stelle nicht sieht – und sie hatte unrecht:
+                  // An der echten Bibliothek meldete das Modell für 64,5 %
+                  // der grossen Gesichter „geschlossen", und fünf zufällig
+                  // herausgegriffene Gesichter mit dem Wert 0,00 hatten
+                  // allesamt die Augen offen. In einem Ablauf, an dessen
+                  // Ende gelöscht wird, ist eine unprüfbare Falschaussage
+                  // schlimmer als keine Aussage.
+                  //
+                  // Der Wert steht jetzt im Serienvergleich, direkt neben
+                  // dem Gesicht, über das er etwas sagt.
                   if (gesichterUnscharf) ...[
-                    if (hasClosedEyes) const SizedBox(width: 10),
                     Tooltip(
                       message: AppTexte.of(context).viewerGesichtUnscharf,
                       child: const Icon(Icons.blur_on,

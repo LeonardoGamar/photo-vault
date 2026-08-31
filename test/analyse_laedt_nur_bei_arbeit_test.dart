@@ -62,4 +62,38 @@ void main() {
         reason: 'ohne offene Fotos darf kein Modell in den Speicher – '
             'angefordert wurde aber: ${versuche.join(", ")}');
   });
+
+  /// **„Gescannt" darf nur dastehen, wenn hingesehen wurde.**
+  ///
+  /// Bis Fassung 2.5 setzte `_scanFacesForDecodedAsset` den Vermerk auch
+  /// dann, wenn sich das Foto gar nicht dekodieren liess – der Aufruf
+  /// stand ausserhalb der `decoded != null`-Prüfung. Danach ging der Modus
+  /// „nur Fehlende" für immer daran vorbei, samt Hintergrundanalyse. Ein
+  /// Lauf, der an beschädigten Dateien vorbeirauscht und „fertig" meldet,
+  /// ist genau die Art Ergebnis, der man nicht ansieht, dass sie keines
+  /// ist.
+  ///
+  /// Ein Prüfstand mit echter Erkennung geht hier nicht – die braucht das
+  /// YuNet-Modell, das im Prüflauf nicht liegt. Also wird der Quelltext
+  /// gelesen: Der frühe Ausstieg muss VOR jedem Schreibvorgang stehen.
+  test('ohne dekodiertes Bild wird nichts vermerkt', () {
+    final quelle = File('lib/state/library_state.dart').readAsStringSync();
+    final von = quelle.indexOf('Future<void> _scanFacesForDecodedAsset(');
+    expect(von, greaterThan(0), reason: 'Methode umbenannt? Dann hier mit.');
+    final bis = quelle.indexOf('\n  Future<', von + 10);
+    final rumpf = quelle.substring(von, bis);
+
+    final ausstieg = rumpf.indexOf('if (decoded == null) return;');
+    expect(ausstieg, greaterThan(0),
+        reason: 'der frühe Ausstieg fehlt – ein nicht dekodierbares Foto '
+            'würde wieder als gescannt vermerkt');
+    for (final schreibt in [
+      'db.markFacesScanned',
+      'db.insertFace',
+      'db.deleteUnassignedFacesForAsset',
+    ]) {
+      expect(rumpf.indexOf(schreibt), greaterThan(ausstieg),
+          reason: '$schreibt steht vor dem Ausstieg');
+    }
+  });
 }

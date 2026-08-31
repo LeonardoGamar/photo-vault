@@ -108,7 +108,14 @@ class EyeStateService {
         for (var xx = 0; xx < _eyeStateInputWidth; xx++) {
           final pixel = resized.getPixel(xx, yy);
           final value = c == 0 ? pixel.b : (c == 1 ? pixel.g : pixel.r);
-          chw[idx++] = value / 255.0;
+          // Auf -1..1, nicht auf 0..1. Mit `value / 255` meldete das Modell
+          // für Gesichter mit offenen Augen Werte um 0,00 – nachgesehen an
+          // den gespeicherten Ausschnitten: fünf Gesichter mit dem Wert
+          // 0,00 hatten alle die Augen offen, ein schlafendes Kind stand
+          // bei 0,98. An denselben Ausschnitten mit dieser Normierung
+          // gegengerechnet kippen genau die sichtbar offenen Augen auf
+          // Werte über 0,9.
+          chw[idx++] = (value / 255.0 - 0.5) / 0.5;
         }
       }
     }

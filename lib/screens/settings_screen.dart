@@ -22,6 +22,7 @@ import '../services/model_catalog.dart';
 import '../state/library_state.dart';
 import '../services/platform/reveal_in_file_manager.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/tastenkuerzel.dart';
 import '../theme/app_theme.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/progress_dialog.dart';
@@ -303,6 +304,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Der Dienst meldet nur Zahlen und Dateinamen; ob die Mengenbegrenzung
   /// gegriffen hat, steht als Zahl in [BackupProgress.grenzeOffen] und wird
   /// erst hier zu einem Satz.
+  /// Die Zeile im Fortschrittsfenster der Wiederherstellung.
+  ///
+  /// Die Übernahme aus dem Datenbank-Schnappschuss muss dastehen: Sie ist
+  /// der Unterschied zwischen „die Fotos sind zurück" und „die Bibliothek
+  /// ist zurück", und ohne ein Wort dazu bemerkt man erst Tage später, dass
+  /// die Namen an den Gesichtern fehlen.
+  static String _wiederherstellZeile(AppTexte t, BackupProgress p) {
+    if (p.uebernommeneZeilen != null) {
+      return t.backupUebernommen(p.uebernommeneZeilen!);
+    }
+    if (p.ausschnitteNeu) {
+      return '${t.backupAusschnitteNeu}  ${p.done} / ${p.total}';
+    }
+    return '${p.done} / ${p.total}'
+        '${p.currentFile != null ? ' — ${p.currentFile}' : ''}';
+  }
+
   static String _backupZeile(AppTexte t, BackupProgress p) {
     if (p.fehlgeschlagen != null) return t.backupNichtGesichert(p.fehlgeschlagen!);
     if (p.grenzeOffen != null) return t.backupGrenzeErreicht(p.grenzeOffen!);
@@ -759,13 +777,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => ProgressDialog(
-        title: AppTexte.of(context).einstBackupWiederherstellenLaeuft,
-        fehlerText: (e) => _fehlertext(context, e),
-        stream: widget.library.backupService
-            .restoreFromBackup(source, widget.library.importService, passphrase: passphrase)
-            .map((p) => '${p.done} / ${p.total}${p.currentFile != null ? ' — ${p.currentFile}' : ''}'),
-      ),
+      builder: (dialogContext) {
+        // Die Texte einmal hier holen und nicht im Rückruf des Stroms: Der
+        // läuft später, und der Prüfer nimmt den Kontext dann zu Recht
+        // nicht mehr an.
+        final t = AppTexte.of(dialogContext);
+        return ProgressDialog(
+          title: t.einstBackupWiederherstellenLaeuft,
+          fehlerText: (e) => _fehlertext(dialogContext, e),
+          stream: widget.library.backupService
+              .restoreFromBackup(source, widget.library.importService,
+                  passphrase: passphrase)
+              .map((p) => _wiederherstellZeile(t, p)),
+        );
+      },
     );
     _refresh();
   }
@@ -930,11 +955,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           beschreibung: t.einstBeschrGefahr,
           inhalt: _gruppeGefahr,
         ),
+        // Die Tafel gab es schon; erreichbar war sie nur über „?" – eine
+        // Taste, die nirgends stand. Hier ist sie auffindbar, und die
+        // Suche oben findet sie mit (Befund der 19. Prüfrunde).
+        _Gruppe(
+          icon: Icons.keyboard_outlined,
+          titel: t.kuerzelTitel,
+          beschreibung: t.einstBeschrKuerzel,
+          inhalt: _gruppeKuerzel,
+        ),
         _Gruppe(
           icon: Icons.info_outline,
           titel: t.einstUeberTitel,
           beschreibung: t.einstBeschrUeber,
           inhalt: _gruppeUeber,
+        ),
+      ];
+
+  List<Widget> _gruppeKuerzel() => const [
+        Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg, vertical: AppSpacing.sm),
+          child: Tastenkuerzeltafel(),
         ),
       ];
 
@@ -1859,6 +1901,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 controlAffinity: ListTileControlAffinity.leading,
                 title: Text(AppTexte.of(context).einstBackupVerschluesseln),
                 subtitle: Text(AppTexte.of(context).einstBackupPassphraseAbfrage),
+              ),
+              // Was mitkommt und was nicht. Der Hinweis stand nirgends, und
+              // der Unterschied ist erheblich: Ohne Passphrase liegt kein
+              // Schnappschuss der Datenbank in der Sicherung, und damit
+              // kämen Personen, Stammbaum, Reisen und Aktivitäten beim
+              // Zurückspielen nicht wieder (Befund der 19. Prüfrunde).
+              Padding(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0,
+                    AppSpacing.lg, AppSpacing.md),
+                child: Text(
+                  AppTexte.of(context).einstBackupManuellHinweis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                ),
               ),
               const Divider(height: 1),
               Padding(

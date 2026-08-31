@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:exif/exif.dart';
-import 'package:flutter/foundation.dart' show compute, visibleForTesting;
+import 'package:flutter/foundation.dart' show compute;
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
@@ -18,6 +18,8 @@ import 'native_image_converter.dart';
 import 'raw_formats.dart';
 import 'raw_identify_parser.dart';
 import 'storage_paths.dart';
+import 'video_gps.dart';
+import 'video_metadaten.dart';
 
 const _imageExtensions = {
   '.jpg',
@@ -42,6 +44,14 @@ const _videoExtensions = {'.mp4', '.mov', '.avi', '.mkv', '.m4v'};
 /// [ImportService.generateVideoThumbnail]), statt beim Import oder
 /// Backfill vieler Fotos den Haupt-Isolate (und damit die UI) zu blockieren.
 /// Gibt `null` zurück, wenn die Bytes nicht dekodierbar sind.
+/// Kantenlänge, in der das Standbild eines Videos geholt wird.
+///
+/// Dieselbe Zahl wie bei den Vorschauen für HEIC und RAW – aus demselben
+/// Grund: Darauf laufen Gesichtserkennung, Texterkennung, CLIP und die
+/// Bildbeschreibung. Die Miniatur (400 Punkte) entsteht daraus und nicht
+/// umgekehrt.
+const int videoStandbildKante = 2048;
+
 ({Uint8List jpegBytes, int width, int height})? decodeAndResizeThumbnail(
     Uint8List bytes) {
   img.Image? decoded;
@@ -117,7 +127,21 @@ class ImportService {
             error: 'Nicht unterstütztes Format');
       }
       final sourceFile = File(filePath);
-      final isImage = _imageExtensions.contains(ext);
+      // **Die Bytes schlagen den Namen.** In der Prüfbibliothek trugen 31
+      // von 440 als Video geführten Aufnahmen in Wahrheit ein JPEG oder
+      // HEIC – Standbilder, die unter einem `.mov`-Namen ankamen. Als
+      // Video geführt fielen sie aus jeder Auswertung heraus (23 Abfragen
+      // filtern `type = 'IMAGE'`), ihr Ort wurde nie gelesen, und die
+      // Vollbildansicht setzte einen Abspieler davor, der nichts
+      // abspielen konnte.
+      //
+      // Geprüft wird nur diese eine Richtung: [inhaltskennung] beantwortet
+      // die Frage „welches BILDformat" und schweigt zu Videomarken. Ein
+      // Name, der ein Bild behauptet, bleibt deshalb unangetastet – dort
+      // gäbe es kein Signal, das widerspräche.
+      final istBildNachName = _imageExtensions.contains(ext);
+      final isImage = istBildNachName ||
+          (await inhaltskennung(sourceFile, null)) != null;
 
       // Für Bilder werden die Bytes ohnehin für EXIF/Thumbnail gebraucht –
       // dort einmalig laden und die Prüfsumme daraus berechnen. Videos sind
@@ -141,7 +165,26 @@ class ImportService {
       final exifMeta = isImage
           ? await _readExifMetadata(bytes!, sourceFile, ext)
           : const _ExifMetadata(null, null, CameraInfo());
-      final fileCreatedAt = exifMeta.date ?? await sourceFile.lastModified();
+      // Videos haben keine EXIF-Daten, aber sehr wohl einen Ort, einen
+      // Aufnahmezeitpunkt und eine Kamera – alles drei steht im
+      // `moov`-Kasten und kostet ein paar Sprünge, keinen Durchlauf durch
+      // die Datei (siehe [leseVideoMetadaten]). In EINEM Lesevorgang, weil
+      // `moov` bei Videos oft hinter den Rohdaten steht: dreimal einzeln
+      // hiesse dreimal durch die Kastenkette einer Gigabyte-Datei.
+      //
+      // Ohne das käme nichts davon je an. In der Prüfbibliothek: 216 Orte
+      // und 309 Aufnahmezeitpunkte, die in der Datei standen und nie in
+      // der Datenbank ankamen – kein einziges der 440 Videos war richtig
+      // datiert.
+      final videoMeta =
+          isImage ? leereVideometadaten : await leseVideoMetadaten(sourceFile);
+      final videoOrt = _alsGps(videoMeta.ort);
+      // Der Zeitstempel der Datei ist der letzte Ausweg, nicht der zweite:
+      // Er ist nach jedem Kopieren, Sichern und Zurückholen der Zeitpunkt
+      // eben dieses Vorgangs.
+      final fileCreatedAt = exifMeta.date ??
+          videoMeta.zeit?.zeitpunkt ??
+          await sourceFile.lastModified();
 
       final relativePath =
           _paths.originalRelativePath(fileCreatedAt, assetId, ext);
@@ -179,10 +222,10 @@ class ImportService {
         heightPx: Value(thumbResult.height),
         durationSeconds: Value(thumbResult.durationSeconds),
         fileSizeBytes: Value(fileSizeBytes),
-        latitude: Value(exifMeta.gps?.latitude),
-        longitude: Value(exifMeta.gps?.longitude),
-        cameraMake: Value(exifMeta.camera.make),
-        cameraModel: Value(exifMeta.camera.model),
+        latitude: Value(exifMeta.gps?.latitude ?? videoOrt?.latitude),
+        longitude: Value(exifMeta.gps?.longitude ?? videoOrt?.longitude),
+        cameraMake: Value(exifMeta.camera.make ?? videoMeta.hersteller),
+        cameraModel: Value(exifMeta.camera.model ?? videoMeta.geraet),
         lensModel: Value(exifMeta.camera.lensModel),
         focalLengthMm: Value(exifMeta.camera.focalLengthMm),
         fNumber: Value(exifMeta.camera.fNumber),
@@ -266,10 +309,25 @@ class ImportService {
   ///
   /// Wird sowohl beim Import als auch beim manuellen "Vorschaubilder neu
   /// erstellen" in den Werkzeugen verwendet.
+  /// Erzeugt Miniatur **und Vorschau** aus einem Standbild des Videos.
+  ///
+  /// **Warum ein Video eine Vorschau bekommt.** Vorschaudateien gab es
+  /// bisher nur für Formate, die Flutter nicht selbst zeichnen kann. Sie
+  /// sind aber zugleich das, worauf jede Auswertung schaut (siehe
+  /// `LibraryState._decodableFile`) – und die Videos schauten deshalb aus
+  /// jeder Stufe heraus: In der Prüfbibliothek hatten 440 Videos null
+  /// Beschreibungen, null Schlagwörter, null Gesichter, null Einbettungen.
+  /// Mit dem Standbild als Vorschau nehmen sie an allem teil, ohne dass
+  /// eine einzige Auswertungsstufe etwas von Videos wissen muss.
+  ///
+  /// Das Standbild wird deshalb in [videoStandbildKante] geholt statt in
+  /// Miniaturgrösse: Die Miniatur entsteht daraus, die Vorschau bleibt
+  /// gross genug für Gesichtserkennung und Texterkennung.
   Future<ThumbnailResult> generateVideoThumbnail(
       File sourceFile, String assetId) async {
-    final native =
-        await NativeImageConverter.generateVideoThumbnail(sourceFile);
+    final native = await NativeImageConverter.generateVideoThumbnail(
+        sourceFile,
+        maxDimension: videoStandbildKante);
     if (native == null) return const ThumbnailResult();
 
     final result = await compute(decodeAndResizeThumbnail, native.jpegBytes);
@@ -282,8 +340,12 @@ class ImportService {
     final thumbRelativePath = _paths.thumbnailRelativePath(assetId);
     await _paths.absolute(thumbRelativePath).writeAsBytes(result.jpegBytes);
 
+    final previewRelativePath = _paths.previewRelativePath(assetId);
+    await _paths.absolute(previewRelativePath).writeAsBytes(native.jpegBytes);
+
     return ThumbnailResult(
       thumbnailRelativePath: thumbRelativePath,
+      previewRelativePath: previewRelativePath,
       width: result.width,
       height: result.height,
       durationSeconds: native.durationSeconds,
@@ -297,13 +359,29 @@ class ImportService {
   /// die Datei nicht gelesen werden kann.
   Future<({double latitude, double longitude})?> readGpsLocation(
       File file) async {
+    final endung = p.extension(file.path).toLowerCase();
     // CR3 zuerst, und dann nicht weiter: `package:exif` liest dort
     // nachweislich gar nichts, ein `readAsBytes` über 31 MB wäre also
     // aufgewendet für ein sicheres `null`. [leseCr3Gps] kommt mit dem
     // Kopf der Datei aus.
-    if (await _istCr3(file, null, p.extension(file.path).toLowerCase())) {
+    if (await _istCr3(file, null, endung)) {
       return _alsGps(await leseCr3Gps(file));
     }
+
+    // Videos: derselbe Container, dieselbe Krankheit. `package:exif` liest
+    // weder MOV noch MP4; in der Prüfbibliothek trugen 43 von 60 zufällig
+    // geprüften Videos einen Ort in der Datei und **keines von 440** einen
+    // in der Datenbank. Siehe [leseVideoGps].
+    //
+    // Massgeblich sind die Bytes, nicht die Endung: Ein als `.mov`
+    // benanntes JPEG geht unten durch die EXIF-Tür. Und umgekehrt darf ein
+    // echtes Video **nie** dorthin gelangen – `readAsBytes` zöge sonst
+    // mehrere Gigabyte in den Speicher, für ein sicheres `null`.
+    if (_videoExtensions.contains(endung) &&
+        (await inhaltskennung(file, null)) == null) {
+      return _alsGps(await leseVideoGps(file));
+    }
+
     try {
       final tags = await readExifFromBytes(await file.readAsBytes());
       return parseExifGps(tags);
@@ -346,8 +424,9 @@ class ImportService {
   /// gelesen und nicht die ganze Datei: Beim nachträglichen Erzeugen der
   /// Vorschaubilder geht das über tausende Dateien.
   ///
-  /// Öffentlich, damit ein Prüfstand die Weiche einzeln ansehen kann.
-  @visibleForTesting
+  /// Öffentlich, weil ausser dem Prüfstand inzwischen auch
+  /// `LibraryState.repariereDateiarten` diese Weiche braucht: Sie ist die
+  /// einzige Stelle, die „welches Format steckt wirklich drin" beantwortet.
   static Future<String?> inhaltskennung(File datei, Uint8List? schon) async {
     if (schon != null) return kennungAus(schon);
     try {
@@ -429,6 +508,22 @@ class ImportService {
   /// Denselben Rückfall wie beim Import: Liefert `package:exif` bei einer
   /// RAW-Datei gar nichts, wird der native Weg gefragt.
   Future<Aufnahmedaten> readAufnahmedaten(File file) async {
+    // Videos zuerst, und dann nicht weiter. Zwei Gründe: `package:exif`
+    // liest MOV und MP4 ohnehin nicht, und ein `readAsBytes` auf eine
+    // 1,7-GB-Aufnahme zöge die ganze Datei in den Speicher, um sicher
+    // nichts zu finden. Massgeblich sind die Bytes und nicht die Endung –
+    // in dieser Bibliothek tragen 31 Standbilder einen `.mov`-Namen, und
+    // die gehören durch die EXIF-Tür.
+    final endung = p.extension(file.path).toLowerCase();
+    if (_videoExtensions.contains(endung) &&
+        (await inhaltskennung(file, null)) == null) {
+      final meta = await leseVideoMetadaten(file);
+      return Aufnahmedaten(
+        CameraInfo(make: meta.hersteller, model: meta.geraet),
+        meta.zeit?.zeitpunkt,
+      );
+    }
+
     Map<String, IfdTag> tags = const {};
     try {
       tags = await readExifFromBytes(await file.readAsBytes());
@@ -437,9 +532,7 @@ class ImportService {
     }
     final kamera = parseExifCameraInfo(tags);
     final datum = exifDatumAusText(_rohesExifDatum(tags));
-    if (kamera.isEmpty &&
-        datum == null &&
-        rawImageExtensions.contains(p.extension(file.path).toLowerCase())) {
+    if (kamera.isEmpty && datum == null && rawImageExtensions.contains(endung)) {
       final nativ = await NativeImageConverter.readCameraMetadata(file);
       if (!nativ.isEmpty) return nativ;
     }
@@ -448,8 +541,25 @@ class ImportService {
 
   /// Der Zeitstempel, wie er in den Tags steht – umgewandelt wird er von
   /// [exifDatumAusText], damit der native Weg dieselbe Umwandlung nutzt.
+  ///
+  /// Die Reihenfolge ist die Rangfolge:
+  ///
+  /// - `DateTimeOriginal` ist der Auslösezeitpunkt und damit die Antwort.
+  /// - `DateTimeDigitized` ist der Zeitpunkt der Digitalisierung – bei
+  ///   einer Kamera derselbe, bei einem Scan der des Scans. Immer noch
+  ///   näher an der Wahrheit als das Letzte.
+  /// - `Image DateTime` ist der Zeitpunkt der letzten **Änderung**. Wer
+  ///   ein Foto 2019 in einem Bildbearbeiter gespeichert hat, findet es
+  ///   sonst unter 2019 statt unter dem Aufnahmejahr.
+  ///
+  /// `DateTimeDigitized` fehlte bis Fassung 2.5. In der Prüfbibliothek
+  /// änderte das Nachtragen an keinem einzigen Foto etwas – dort trägt
+  /// jedes Bild mit einem Digitalisierungsdatum auch ein Aufnahmedatum.
+  /// Es steht trotzdem hier, weil der Sprung von der ersten auf die dritte
+  /// Wahl der teuerste im ganzen Feld ist.
   String? _rohesExifDatum(Map<String, IfdTag> tags) =>
       tags['EXIF DateTimeOriginal']?.printable ??
+      tags['EXIF DateTimeDigitized']?.printable ??
       tags['Image DateTime']?.printable;
 }
 

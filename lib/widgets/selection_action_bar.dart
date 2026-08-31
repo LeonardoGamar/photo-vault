@@ -255,7 +255,10 @@ Future<void> runBatchEditMetadataDialog(BuildContext context, LibraryState libra
     await library.db.setDescriptionBulk(assetIds, result.description!);
   }
   if (result.date != null) {
-    await library.db.setFileCreatedAtBulk(assetIds, result.date!);
+    // Über LibraryState und nicht über die Datenbankschicht: Das Datum
+    // bestimmt den Ablageort, und die Datei muss mit (siehe
+    // [LibraryState.setzeAufnahmedatumVonHand]).
+    await library.setzeAufnahmedatumVonHand(assetIds, result.date!);
   }
   if (result.latitude != null && result.longitude != null) {
     await library.db.setLocationBulk(assetIds, result.latitude, result.longitude);

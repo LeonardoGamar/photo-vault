@@ -5,6 +5,7 @@ import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/tastenkuerzel.dart';
 import 'albums_screen.dart';
 import 'calendar_screen.dart';
 import 'explore_screen.dart';
@@ -564,11 +565,10 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-/// Zentrale Übersicht aller Tastaturkürzel der App, über "?" erreichbar
-/// (siehe [_HomeShellState._handleKeyEvent]) – bislang mussten Nutzer die
-/// Kürzel aus dem Quellcode kennen oder erraten; die Sichtungs-Modus-
-/// Hinweiszeile in der Vollbildansicht erklärte bisher nur ihre eigenen drei
-/// Kürzel, nicht die allgemeinen.
+/// Das Fenster hinter „?" (siehe [_HomeShellState._handleKeyEvent]).
+///
+/// Die Tafel selbst steht in [Tastenkuerzeltafel] – sie hängt seit der
+/// 19. Prüfrunde auch in den Einstellungen, weil „?" nirgends genannt wurde.
 class _ShortcutsOverviewDialog extends StatelessWidget {
   const _ShortcutsOverviewDialog();
 
@@ -577,78 +577,14 @@ class _ShortcutsOverviewDialog extends StatelessWidget {
     final t = AppTexte.of(context);
     return AlertDialog(
       title: Text(t.kuerzelTitel),
-      content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _ShortcutSection(title: t.kuerzelNavigation, shortcuts: [
-                ('⌘1 – ⌘0', t.kuerzelBereicheWechseln),
-                ('—', t.kuerzelReisenOhne),
-                ('?', t.kuerzelUebersichtOeffnen),
-              ]),
-              const SizedBox(height: 16),
-              _ShortcutSection(title: t.kuerzelVollbild, shortcuts: [
-                ('← / →', t.kuerzelVorherigesNaechstes),
-                (t.kuerzelLeertaste, t.kuerzelNaechstesFoto),
-                ('0 – 5', t.kuerzelBewertungSetzen),
-                ('F', t.kuerzelFavoritUmschalten),
-                ('⌫ / Delete', t.kuerzelPapierkorbMitBestaetigung),
-                ('Esc', t.allgSchliessen),
-              ]),
-              const SizedBox(height: 16),
-              _ShortcutSection(title: t.kuerzelSichtung, shortcuts: [
-                ('⌫ / Delete', t.kuerzelSofortAblehnen),
-              ]),
-            ],
-          ),
-        ),
+      content: const SizedBox(
+        width: 460,
+        child: SingleChildScrollView(child: Tastenkuerzeltafel()),
       ),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(t.allgSchliessen)),
-      ],
-    );
-  }
-}
-
-class _ShortcutSection extends StatelessWidget {
-  final String title;
-  final List<(String, String)> shortcuts;
-  const _ShortcutSection({required this.title, required this.shortcuts});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        for (final (key, description) in shortcuts)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: 110,
-                  child: Text(
-                    key,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                Expanded(
-                    child: Text(description,
-                        style: Theme.of(context).textTheme.bodyMedium)),
-              ],
-            ),
-          ),
       ],
     );
   }

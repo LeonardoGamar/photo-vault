@@ -36,6 +36,7 @@ AssetData foto(
     sharpnessScore: schaerfe,
     isLocked: false,
     faceScanExcluded: false,
+    gpsGeprueft: false,
     ocrScanned: false,
     autoBackedUp: false,
     backedUp: false,

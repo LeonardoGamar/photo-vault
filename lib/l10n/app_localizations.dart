@@ -248,6 +248,84 @@ abstract class AppTexte {
   /// **'Tastaturkürzel'**
   String get kuerzelTitel;
 
+  /// No description provided for @kuerzelRaster.
+  ///
+  /// In de, this message translates to:
+  /// **'Raster (Zeitleiste, Kalender, Album, Suche)'**
+  String get kuerzelRaster;
+
+  /// No description provided for @kuerzelUmschaltKlick.
+  ///
+  /// In de, this message translates to:
+  /// **'Umschalt-Klick'**
+  String get kuerzelUmschaltKlick;
+
+  /// No description provided for @kuerzelStrgKlick.
+  ///
+  /// In de, this message translates to:
+  /// **'Strg-/⌘-Klick'**
+  String get kuerzelStrgKlick;
+
+  /// No description provided for @kuerzelUmschaltPfeil.
+  ///
+  /// In de, this message translates to:
+  /// **'Umschalt + Pfeil'**
+  String get kuerzelUmschaltPfeil;
+
+  /// No description provided for @kuerzelBereichWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alles bis hierher dazunehmen'**
+  String get kuerzelBereichWaehlen;
+
+  /// No description provided for @kuerzelEinzelnWaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine einzelne Kachel umschalten'**
+  String get kuerzelEinzelnWaehlen;
+
+  /// No description provided for @kuerzelRahmenBewegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Den Rahmen durchs Raster bewegen'**
+  String get kuerzelRahmenBewegen;
+
+  /// No description provided for @kuerzelAuswahlZiehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Auswahl mitziehen'**
+  String get kuerzelAuswahlZiehen;
+
+  /// No description provided for @kuerzelFarbmarkeSetzen.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbmarke setzen'**
+  String get kuerzelFarbmarkeSetzen;
+
+  /// No description provided for @kuerzelAuswahlLeeren.
+  ///
+  /// In de, this message translates to:
+  /// **'Auswahl leeren'**
+  String get kuerzelAuswahlLeeren;
+
+  /// No description provided for @kuerzelFotoOeffnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Foto öffnen'**
+  String get kuerzelFotoOeffnen;
+
+  /// No description provided for @kuerzelWirktAuf.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Tasten wirken auf die Auswahl. Gibt es keine, wirken sie auf die Kachel, auf der der Rahmen steht.'**
+  String get kuerzelWirktAuf;
+
+  /// No description provided for @einstBeschrKuerzel.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Tastaturkürzel auf einen Blick'**
+  String get einstBeschrKuerzel;
+
   /// No description provided for @kuerzelNavigation.
   ///
   /// In de, this message translates to:
@@ -536,6 +614,12 @@ abstract class AppTexte {
   /// **'auf {treffer} von {gesamt} untersuchten Aufnahmen'**
   String staubAufWievielen(int treffer, int gesamt);
 
+  /// No description provided for @staubUebersprungen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} von {gesamt} Aufnahmen liessen sich nicht lesen und wurden übersprungen.'**
+  String staubUebersprungen(int anzahl, int gesamt);
+
   /// No description provided for @staubImEditorOeffnen.
   ///
   /// In de, this message translates to:
@@ -721,12 +805,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Kopierte Entwicklung auf dieses Foto anwenden'**
   String get viewerEntwicklungAnwendenLang;
-
-  /// No description provided for @viewerGeschlosseneAugen.
-  ///
-  /// In de, this message translates to:
-  /// **'Mindestens ein Gesicht mit geschlossenen Augen erkannt'**
-  String get viewerGeschlosseneAugen;
 
   /// No description provided for @viewerFokusPeaking.
   ///
@@ -2712,7 +2790,7 @@ abstract class AppTexte {
   /// No description provided for @aufgVorschauText.
   ///
   /// In de, this message translates to:
-  /// **'Erzeugt Thumbnails/Vorschauen für Fotos und Videos.'**
+  /// **'Erzeugt Miniaturen und Vorschauen für Fotos und Videos. Bei einem Video entsteht dabei ein Standbild aus der ersten Sekunde – erst damit kann es überhaupt ausgewertet werden (Beschreibung, Schlagwörter, Gesichter, Text). Nach diesem Lauf lohnen die übrigen Aufgaben einen Durchgang.'**
   String get aufgVorschauText;
 
   /// No description provided for @aufgFehlende.
@@ -2826,8 +2904,32 @@ abstract class AppTexte {
   /// No description provided for @aufgKameraText.
   ///
   /// In de, this message translates to:
-  /// **'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus EXIF ein. Die Zahl ist die der Fotos ohne Kameraangabe; Aufnahmen ganz ohne EXIF bleiben darunter.'**
+  /// **'Liest Kamera, Objektiv, Brennweite, Blende, ISO und Belichtungszeit aus den Metadaten ein – bei Fotos aus EXIF, bei Videos aus dem Container. Die Zahl ist die der Aufnahmen ohne Kameraangabe; was gar keine Metadaten trägt, bleibt darunter.'**
   String get aufgKameraText;
+
+  /// No description provided for @aufgDateiartTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateiarten prüfen'**
+  String get aufgDateiartTitel;
+
+  /// No description provided for @aufgDateiartText.
+  ///
+  /// In de, this message translates to:
+  /// **'Manche Standbilder kommen unter einem Videonamen an – als Video geführt fallen sie aus jeder Auswertung heraus, bekommen kein Vorschaubild und keinen Ort. Der Lauf sieht in die Bytes und berichtigt die Art. Danach lohnt ein Durchgang der übrigen Aufgaben.'**
+  String get aufgDateiartText;
+
+  /// No description provided for @werkzPruefeDateiarten.
+  ///
+  /// In de, this message translates to:
+  /// **'Prüfe Dateiarten …'**
+  String get werkzPruefeDateiarten;
+
+  /// No description provided for @werkzAlleArtenStimmen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Aufnahmen sind richtig eingeordnet.'**
+  String get werkzAlleArtenStimmen;
 
   /// No description provided for @aufgLivePhotoTitel.
   ///
@@ -5259,6 +5361,84 @@ abstract class AppTexte {
   /// **'Fotos, die sich ähneln UND innerhalb weniger Sekunden aufgenommen wurden, werden hier als Serie vorgeschlagen. \"Übernehmen\" fasst eine Gruppe zu einem Stapel zusammen – nur das Titelbild bleibt danach in der Übersicht sichtbar, nichts wird gelöscht.'**
   String get stapelErklaerung;
 
+  /// No description provided for @stapelAlleUebernehmen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle {anzahl} übernehmen'**
+  String stapelAlleUebernehmen(int anzahl);
+
+  /// No description provided for @stapelAlleFrageTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Serien übernehmen?'**
+  String get stapelAlleFrageTitel;
+
+  /// No description provided for @stapelAlleFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Gruppen werden zu Stapeln zusammengefasst. Titelbild ist jeweils das schärfste Foto. Nichts geht dabei verloren – „Serie auflösen“ im Info-Blatt nimmt jede Gruppierung wieder zurück.'**
+  String stapelAlleFrage(int anzahl);
+
+  /// No description provided for @werkzStapelGefunden.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Keine Serien gefunden} =1{1 Serie wartet} other{{anzahl} Serien warten}}'**
+  String werkzStapelGefunden(int anzahl);
+
+  /// No description provided for @serienvergleichTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Serie vergleichen'**
+  String get serienvergleichTitel;
+
+  /// No description provided for @serienvergleichErklaerung.
+  ///
+  /// In de, this message translates to:
+  /// **'Dieselben Gesichter nebeneinander. Auf einem ganzen Foto sieht man nicht, wer blinzelt – auf den Ausschnitten sofort. Der Rahmen markiert die Aufnahme mit dem schärfsten Gesicht; das ist ein Vorschlag, keine Entscheidung.'**
+  String get serienvergleichErklaerung;
+
+  /// No description provided for @serienvergleichOhneGesichter.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf diesen Aufnahmen wurde kein Gesicht erkannt – verglichen werden nur die Bilder selbst.'**
+  String get serienvergleichOhneGesichter;
+
+  /// No description provided for @serienvergleichSchaerfstes.
+  ///
+  /// In de, this message translates to:
+  /// **'Schärfstes Gesicht der Serie'**
+  String get serienvergleichSchaerfstes;
+
+  /// No description provided for @serienvergleichSchaerfe.
+  ///
+  /// In de, this message translates to:
+  /// **'Schärfe {wert}'**
+  String serienvergleichSchaerfe(int wert);
+
+  /// No description provided for @serienvergleichAugen.
+  ///
+  /// In de, this message translates to:
+  /// **'Augen offen: {prozent} %'**
+  String serienvergleichAugen(int prozent);
+
+  /// No description provided for @serienvergleichOhneWert.
+  ///
+  /// In de, this message translates to:
+  /// **'Schärfe noch nicht gemessen'**
+  String get serienvergleichOhneWert;
+
+  /// No description provided for @serienvergleichOeffnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter vergleichen'**
+  String get serienvergleichOeffnen;
+
+  /// No description provided for @serienvergleichZuKurz.
+  ///
+  /// In de, this message translates to:
+  /// **'Zum Vergleichen braucht es mindestens zwei Aufnahmen.'**
+  String get serienvergleichZuKurz;
+
   /// No description provided for @stapelKeine.
   ///
   /// In de, this message translates to:
@@ -5500,6 +5680,12 @@ abstract class AppTexte {
   /// **'Info'**
   String get infoTitel;
 
+  /// No description provided for @infoVideoStandbild.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausgewertet auf einem Standbild aus der ersten Sekunde – nicht auf dem ganzen Film.'**
+  String get infoVideoStandbild;
+
   /// No description provided for @infoBeschreibungHinzufuegen.
   ///
   /// In de, this message translates to:
@@ -5637,6 +5823,24 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Grenze erreicht – {anzahl} Datei(en) folgen beim nächsten Lauf'**
   String backupGrenzeErreicht(int anzahl);
+
+  /// No description provided for @backupUebernommen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Einträge aus dem Datenbank-Schnappschuss übernommen (Personen, Stammbaum, Reisen, Aktivitäten …)'**
+  String backupUebernommen(int anzahl);
+
+  /// No description provided for @backupAusschnitteNeu.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichtsausschnitte werden neu gezeichnet …'**
+  String get backupAusschnitteNeu;
+
+  /// No description provided for @einstBackupManuellHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine Sicherung mit Passphrase nimmt zusätzlich einen verschlüsselten Schnappschuss der Datenbank mit – Personen, Stammbaum, Reisen, Aktivitäten und gespeicherte Suchen kommen damit beim Wiederherstellen zurück. Ohne Passphrase enthält die Sicherung nur die Originale und die Beilagen daneben (Beschreibung, Sterne, Farbmarke, Ort, Schlagwörter, Alben); alles Übrige liesse sich danach nicht wiederherstellen.'**
+  String get einstBackupManuellHinweis;
 
   /// No description provided for @backupNichtGesichert.
   ///
@@ -9200,7 +9404,7 @@ abstract class AppTexte {
   /// No description provided for @werkzDatumTitel.
   ///
   /// In de, this message translates to:
-  /// **'Aufnahmedatum aus RAW-Fotos nachtragen'**
+  /// **'Aufnahmedatum aus RAW und Videos nachtragen'**
   String get werkzDatumTitel;
 
   /// No description provided for @werkzDatumFrageTitel.
@@ -9224,13 +9428,13 @@ abstract class AppTexte {
   /// No description provided for @werkzKorrigiereDatum.
   ///
   /// In de, this message translates to:
-  /// **'Lese Aufnahmedaten aus RAW-Fotos …'**
+  /// **'Lese Aufnahmedaten aus RAW und Videos …'**
   String get werkzKorrigiereDatum;
 
   /// No description provided for @werkzKeineRawFotos.
   ///
   /// In de, this message translates to:
-  /// **'Keine RAW-Fotos in der Bibliothek.'**
+  /// **'Keine RAW-Aufnahmen und keine Videos in der Bibliothek.'**
   String get werkzKeineRawFotos;
 
   /// No description provided for @karteGlobusZoomHinweis.
@@ -10142,8 +10346,50 @@ abstract class AppTexte {
   /// No description provided for @aufgDatumText.
   ///
   /// In de, this message translates to:
-  /// **'Liest bei RAW-Aufnahmen das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.'**
+  /// **'Liest bei RAW-Aufnahmen und Videos das Aufnahmedatum aus der Datei nach und rückt sie im Zeitstrahl an die richtige Stelle. Schreibt Daten um und verschiebt Dateien – deshalb mit Rückfrage.'**
   String get aufgDatumText;
+
+  /// No description provided for @aufgAblageTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Ablage nach Datum ordnen'**
+  String get aufgAblageTitel;
+
+  /// No description provided for @aufgAblageText.
+  ///
+  /// In de, this message translates to:
+  /// **'Legt Aufnahmen in den Ordner ihres Aufnahmemonats, wenn sie dort nicht liegen. Ändert kein Datum – nur den Ort auf der Platte. Verschiebt Dateien, deshalb mit Rückfrage.'**
+  String get aufgAblageText;
+
+  /// No description provided for @werkzOrdneAblage.
+  ///
+  /// In de, this message translates to:
+  /// **'Ordne die Ablage …'**
+  String get werkzOrdneAblage;
+
+  /// No description provided for @werkzAblageStimmt.
+  ///
+  /// In de, this message translates to:
+  /// **'Jede Aufnahme liegt im Ordner ihres Datums.'**
+  String get werkzAblageStimmt;
+
+  /// No description provided for @werkzAblageFrageTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Ablage neu ordnen?'**
+  String get werkzAblageFrageTitel;
+
+  /// No description provided for @werkzAblageFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmen, deren Ordner nicht zu ihrem Aufnahmedatum passt, werden in den richtigen Monatsordner verschoben. Die Aufnahmedaten selbst bleiben unverändert. In der App ändert sich dadurch nichts Sichtbares – wohl aber die Ordnerstruktur der Bibliothek auf der Platte.'**
+  String get werkzAblageFrage;
+
+  /// No description provided for @werkzAblageStarten.
+  ///
+  /// In de, this message translates to:
+  /// **'Ablage ordnen'**
+  String get werkzAblageStarten;
 
   /// No description provided for @aufgOffeneFotos.
   ///

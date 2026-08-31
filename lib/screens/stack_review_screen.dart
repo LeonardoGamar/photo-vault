@@ -1,14 +1,15 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
-import '../services/embedding_similarity.dart';
+import '../services/serienvorschlag.dart';
+import 'serienvergleich_screen.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
+import '../widgets/selection_action_bar.dart';
 
 /// Gruppiert Fotos, die sich sowohl visuell ähneln ALS AUCH zeitlich nah
 /// beieinander aufgenommen wurden ([findBurstGroups]) – z.B. Serienbilder
@@ -36,6 +37,9 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
   /// vom Nutzer per Antippen änderbar.
   final Map<int, int> _coverIndexByGroup = {};
 
+  /// Läuft gerade „alle übernehmen"?
+  bool _uebernimmtAlle = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,23 +57,8 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
         return;
       }
 
-      final embeddings = await widget.library.cachedEmbeddings();
-      final knownAssets = await widget.library.db.assetsByIds(embeddings.keys.toList());
-      final fileCreatedAt = {for (final a in knownAssets) a.id: a.fileCreatedAt};
-
-      // Der paarweise Vergleich läuft in einem eigenen Isolate (siehe
-      // findBurstGroups), damit die UI bei größeren Bibliotheken
-      // währenddessen nicht einfriert.
-      final groupIdLists = await compute(
-        findBurstGroups,
-        BurstSearchParams(embeddings, fileCreatedAt),
-      );
-
-      final groups = <List<AssetData>>[];
-      for (final idList in groupIdLists) {
-        final groupAssets = await widget.library.db.assetsByIds(idList);
-        if (groupAssets.length >= 2) groups.add(groupAssets);
-      }
+      final groups = await serienvorschlaege(
+          widget.library.db, await widget.library.cachedEmbeddings());
 
       if (!mounted) return;
       setState(() {
@@ -118,10 +107,46 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
     });
   }
 
-  void _discardGroup(int groupIndex) => setState(() {
-        _groups.removeAt(groupIndex);
-        _reindexCovers();
+  Future<void> _discardGroup(int groupIndex) async {
+    // Gemerkt, nicht nur weggeblendet: Wer einmal „nein" gesagt hat, will
+    // nicht bei jedem Öffnen erneut gefragt werden.
+    await widget.library.db
+        .verwirfSerienvorschlag(serienschluessel(_groups[groupIndex]));
+    if (!mounted) return;
+    setState(() {
+      _groups.removeAt(groupIndex);
+      _reindexCovers();
+    });
+  }
+
+  /// Übernimmt alle vorgeschlagenen Serien auf einmal.
+  ///
+  /// **Warum es den Knopf braucht.** In der Prüfbibliothek findet die
+  /// Erkennung 286 brauchbare Gruppen. Einzeln bestätigt wären das 286
+  /// Klicks – genau die Rechnung, an der bis 2.5.0 die Bewertungen
+  /// scheiterten. Das Titelbild ist je Gruppe das schärfste Foto, und
+  /// „Serie auflösen" im Info-Blatt nimmt jede Gruppierung wieder zurück;
+  /// verloren geht dabei nichts.
+  Future<void> _uebernimmAlle() async {
+    setState(() => _uebernimmtAlle = true);
+    try {
+      for (var i = _groups.length - 1; i >= 0; i--) {
+        final gruppe = _groups[i];
+        await widget.library.db.createStack(
+          const Uuid().v4(),
+          [for (final a in gruppe) a.id],
+          gruppe[_coverIndexByGroup[i] ?? 0].id,
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _groups.clear();
+        _coverIndexByGroup.clear();
       });
+    } finally {
+      if (mounted) setState(() => _uebernimmtAlle = false);
+    }
+  }
 
   void _reindexCovers() {
     final reindexed = <int, int>{};
@@ -133,10 +158,39 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
       ..addAll(reindexed);
   }
 
+  Future<void> _frageAlle() async {
+    final t = AppTexte.of(context);
+    final anzahl = _groups.length;
+    final ja = await confirmDialog(
+        context, t.stapelAlleFrageTitel, t.stapelAlleFrage(anzahl));
+    if (ja) await _uebernimmAlle();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(AppTexte.of(context).werkzStapelTitel)),
+      appBar: AppBar(
+        title: Text(AppTexte.of(context).werkzStapelTitel),
+        actions: [
+          // 286 Gruppen einzeln zu bestätigen wären 286 Klicks – genau die
+          // Rechnung, an der bis 2.5.0 die Bewertungen scheiterten.
+          if (_groups.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.md),
+              child: FilledButton.tonalIcon(
+                onPressed: _uebernimmtAlle ? null : _frageAlle,
+                icon: _uebernimmtAlle
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.done_all),
+                label: Text(AppTexte.of(context)
+                    .stapelAlleUebernehmen(_groups.length)),
+              ),
+            ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -187,6 +241,18 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
                   Expanded(
                     child: Text(AppTexte.of(context).stapelSerie(groupIndex + 1, group.length),
                         style: Theme.of(context).textTheme.titleSmall),
+                  ),
+                  // Vor dem Verwerfen: erst ansehen, wer blinzelt.
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SerienvergleichScreen(
+                            library: widget.library, serie: group),
+                      ),
+                    ),
+                    icon: const Icon(Icons.face_retouching_natural, size: 18),
+                    label:
+                        Text(AppTexte.of(context).serienvergleichOeffnen),
                   ),
                   TextButton(
                     onPressed: () => _discardGroup(groupIndex),

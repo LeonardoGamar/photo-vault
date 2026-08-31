@@ -48,6 +48,12 @@ class _StaubsucheScreenState extends State<StaubsucheScreen> {
   List<Staubstelle>? _ergebnis;
   List<AssetData> _untersucht = const [];
 
+  /// Wie viele Aufnahmen gezogen wurden. Unterscheidet sich von
+  /// [_untersucht], sobald eine Datei fehlt oder sich nicht lesen lässt –
+  /// und dann muss es dastehen: „kein Staub gefunden" nach fünf von vierzig
+  /// Aufnahmen ist keine Entwarnung.
+  int _gezogen = 0;
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +82,21 @@ class _StaubsucheScreenState extends State<StaubsucheScreen> {
     final proAufnahme = <List<Staubverdacht>>[];
     final genommen = <AssetData>[];
     for (final asset in aufnahmen) {
-      final datei = widget.library.paths.absolute(asset.relativePath);
+      // Die Vorschau, wenn es eine gibt – genau wie überall sonst, wo aus
+      // dem Bildinhalt etwas gerechnet wird (siehe
+      // `LibraryState._decodeAsset`). Ohne das fiel die Suche bei jeder
+      // RAW-Aufnahme still aus: Das `image`-Paket dekodiert weder CR3 noch
+      // DNG und gibt nach neun Millisekunden `null` zurück. Bei einer
+      // Canon EOS R10 mit 939 Aufnahmen blieben von vierzig gezogenen fünf
+      // übrig – und gemeldet wurde „kein Staub gefunden".
+      //
+      // Die Vorschau misst 2048 Punkte an der langen Kante und liegt damit
+      // über den [staubSuchkante] 1024, auf die ohnehin verkleinert wird.
+      // Es geht also keine Genauigkeit verloren, nur Speicher: Das grösste
+      // Original der Prüfbibliothek treibt den Arbeitssatz beim Dekodieren
+      // von 328 auf 1226 MB, seine Vorschau nicht messbar.
+      final datei = widget.library.paths
+          .absolute(asset.previewRelativePath ?? asset.relativePath);
       try {
         if (await datei.exists()) {
           // In einem eigenen Isolat: Die Weichzeichnung braucht knapp eine
@@ -101,6 +121,7 @@ class _StaubsucheScreenState extends State<StaubsucheScreen> {
       _laeuft = false;
       _ergebnis = stellen;
       _untersucht = genommen;
+      _gezogen = aufnahmen.length;
     });
   }
 
@@ -151,6 +172,14 @@ class _StaubsucheScreenState extends State<StaubsucheScreen> {
           ],
           if (_ergebnis != null) ...[
             const SizedBox(height: AppSpacing.xl),
+            // Vor dem Ergebnis und unabhängig davon, wie es ausfällt: Auch
+            // ein Fund ruht nur auf dem, was gelesen werden konnte.
+            if (_untersucht.length < _gezogen) ...[
+              _Uebersprungen(
+                  uebersprungen: _gezogen - _untersucht.length,
+                  gezogen: _gezogen),
+              const SizedBox(height: AppSpacing.lg),
+            ],
             if (_ergebnis!.isEmpty)
               _Sauber(untersucht: _untersucht.length)
             else
@@ -170,6 +199,39 @@ class _StaubsucheScreenState extends State<StaubsucheScreen> {
 List<Staubverdacht>? _sucheInDatei(String pfad) {
   final bild = img.decodeImage(File(pfad).readAsBytesSync());
   return bild == null ? null : findeStaubverdacht(bild);
+}
+
+/// Der Hinweis, dass die Stichprobe kleiner war als gezogen.
+///
+/// Ein „kein Sensorstaub gefunden" nach fünf von vierzig Aufnahmen ist
+/// keine Entwarnung – und ein Fund auf fünf von vierzig ist auch keine
+/// belastbare Aussage. Deshalb steht der Hinweis über beiden Ergebnissen
+/// und nicht nur über dem freundlichen.
+class _Uebersprungen extends StatelessWidget {
+  final int uebersprungen;
+  final int gezogen;
+  const _Uebersprungen({required this.uebersprungen, required this.gezogen});
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.info_outline, size: 20, color: farben.tertiary),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            AppTexte.of(context).staubUebersprungen(uebersprungen, gezogen),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: farben.tertiary),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _Sauber extends StatelessWidget {

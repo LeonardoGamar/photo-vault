@@ -81,8 +81,15 @@ void main() {
     }
 
     expect(letzter, 2, reason: 'beide Dateien wurden angesehen');
-    expect(await db.countLocationBackfill(), 1,
+    // Ueber `alle: true` gezaehlt: Seit Fassung 64 vermerkt der Lauf, wo
+    // er nachgesehen hat, und die gewoehnliche Zahl faellt danach auf
+    // null. Gefragt ist hier aber, wer einen ORT bekommen hat – und das
+    // ist genau die CR3.
+    expect(await db.countLocationBackfill(alle: true), 1,
         reason: 'genau die CR3 hat einen Ort bekommen');
+    expect(await db.countLocationBackfill(), 0,
+        reason: 'beide sind angesehen, keine steht mehr an');
+    expect((await db.assetById('ohne_ort.jpg'))!.latitude, isNull);
 
     final zeile = await db.assetById('mit_ort.cr3');
     expect(zeile!.latitude, closeTo(52.2431111, 1e-6));

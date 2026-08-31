@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.6.0" date="2026-08-30">
+      <description>
+        <p>Capture dates for videos, and two background tasks that finally do what their card promises. The database moves from version 61 to 64; the migration runs by itself on first start.</p>
+        <p>Not one of 440 videos carried the right capture date. 309 of them hold one inside the file - it simply never arrived. The cause was not a reader that got it wrong but no reader at all: the EXIF library reads TIFF and JPEG, not MOV and MP4, so the import fell back on the file timestamp, which after every copy, backup and restore is the moment of that operation. 166 videos were off by more than a day, the oldest by twelve years. A reader now walks the container for three storage places: Apple's creationdate key with its time zone, the classic day atom, and the movie header. The time zone is the whole point - the movie header is supposed to hold UTC and Apple obeys, but measured against 28 videos carrying a GPS time as an incorruptible referee, it held local time throughout. So it is read as local time, and the program states whether a date is exact to the second or only to the zone offset. Checked against exiftool on 440 real files: 309 of 309 correct.</p>
+        <p>The task that should have fixed this did not look at videos. "Read capture date" asked for RAW photographs only; the same for camera data, which asked for images and thereby left 275 videos with maker and model in the file untouched while reading 842 photographs that provably carry none. Both now cover videos.</p>
+        <p>A date set by hand takes the file with it. Setting a date from the info panel or the batch dialog wrote only the column - the file stayed in the folder of the old month. In a grown library that affected 1,102 of 7,988 shots. Nothing looks wrong inside the program, which always follows the recorded path; it shows to whoever opens the library in a file manager or restores a backup. Both ways now move the file, and a new task with a confirmation puts the existing ones in order without touching a single date.</p>
+        <p>"Read places" remembers where it has looked. The task took every shot without coordinates - 5,756 of 7,988 - and read each file completely to look at the EXIF data. Measured on 400 of them: 3.3 seconds and 1,215 MB for zero hits, and again on the next run, because an unsuccessful look left no trace. A new column records it. The first run after the upgrade still goes over everything once and finds the 246 video locations it could never reach before; after that it is quiet. An "All" button remains for files given coordinates outside the program.</p>
+        <p>Also fixed: the face scan marked a photograph as scanned even when it could not be decoded at all, after which "missing only" passed it by forever. Zero cases in the test library - the fault was there, the damage was not.</p>
+      </description>
+    </release>
     <release version="2.5.0" date="2026-08-29">
       <description>
         <p>Six points from the comparison with neighbouring programs - and the most important one did not come from the comparison but from the library itself. The database moves from version 59 to 61; the migration runs by itself on first start.</p>
