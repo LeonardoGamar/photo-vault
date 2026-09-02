@@ -6455,9 +6455,6 @@ class AppTexteEn extends AppTexte {
   String get aufnahmenWahlUnveraendert => 'Nothing changed.';
 
   @override
-  String get aufnahmenBearbeiten => 'Edit photos';
-
-  @override
   String get aktivitaetenArtNeu => 'New type …';
 
   @override
@@ -6929,4 +6926,161 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get viewerAufziehenHinweis => 'Drag a frame around the missing face.';
+
+  @override
+  String get karteEigene => 'Custom map';
+
+  @override
+  String get einstEigeneKarteTitel => 'Custom map source';
+
+  @override
+  String get einstEigeneKarteText =>
+      'The bundled maps stop early: OpenStreetMap serves real tiles up to level 19, OpenTopoMap up to 17. If you need house numbers, building outlines or aerial imagery, enter your own source here. It then appears as a fourth entry in the map menu.';
+
+  @override
+  String einstEigeneKarteAktiv(String name) {
+    return '$name is set up';
+  }
+
+  @override
+  String get einstEigeneKarteOhne => 'No custom source set up';
+
+  @override
+  String get einstEigeneKarteVorlage => 'Use a template';
+
+  @override
+  String einstEigeneKarteVorlageGemessen(String stufe) {
+    return 'up to level $stufe, measured';
+  }
+
+  @override
+  String einstEigeneKarteVorlageLautAnbieter(String stufe) {
+    return 'up to level $stufe, per the provider';
+  }
+
+  @override
+  String get einstEigeneKarteName => 'Name';
+
+  @override
+  String get einstEigeneKarteAdresse => 'Tile URL';
+
+  @override
+  String einstEigeneKarteAdresseHinweis(String muster) {
+    return 'https://…/$muster.png';
+  }
+
+  @override
+  String get einstEigeneKarteNennung => 'Attribution';
+
+  @override
+  String get einstEigeneKarteNennungHinweis =>
+      '© provider, © OpenStreetMap contributors';
+
+  @override
+  String get einstEigeneKarteStufe => 'Highest zoom level';
+
+  @override
+  String einstEigeneKarteSchluesselHinweis(String marke) {
+    return 'The key belongs in the URL – replace $marke with your own.';
+  }
+
+  @override
+  String einstEigeneKarteWoher(String quelle) {
+    return 'Keys are available at $quelle';
+  }
+
+  @override
+  String get einstEigeneKarteSitzung => 'Get Google session';
+
+  @override
+  String get einstEigeneKarteSitzungText =>
+      'Google only serves tiles once a session token exists. Put your key into the URL and fetch one here; it lasts about two weeks.';
+
+  @override
+  String get einstEigeneKarteSitzungOk =>
+      'Session fetched and inserted into the URL';
+
+  @override
+  String einstEigeneKarteSitzungFehler(String fehler) {
+    return 'Google returned no session: $fehler';
+  }
+
+  @override
+  String get einstEigeneKarteSitzungOhneSchluessel =>
+      'The URL still has no key in it';
+
+  @override
+  String get einstEigeneKarteEntfernen => 'Remove source';
+
+  @override
+  String get einstEigeneKarteGespeichert => 'Custom map source saved';
+
+  @override
+  String get einstEigeneKarteEntfernt => 'Custom map source removed';
+
+  @override
+  String get einstEigeneKarteFehlerLeer => 'A URL is required';
+
+  @override
+  String get einstEigeneKarteFehlerHttp =>
+      'The URL must start with http:// or https://';
+
+  @override
+  String einstEigeneKarteFehlerPlatzhalter(String teile) {
+    return 'The URL is missing $teile';
+  }
+
+  @override
+  String einstEigeneKarteFehlerUnbekannt(String teile) {
+    return 'The URL contains a placeholder in braces that the map does not know – only $teile are allowed';
+  }
+
+  @override
+  String get einstEigeneKarteFehlerNennung =>
+      'Attribution is a licence requirement and must not be empty';
+
+  @override
+  String get einstEigeneKarteWarnungTitel =>
+      'Before you switch on a third-party map source';
+
+  @override
+  String get einstEigeneKarteWarnungUebermittlung =>
+      'Every tile is a request to that provider. It reveals which part of the world you are looking at, how far you zoom in and how long you stay. With the bundled maps the other end is a donated server without an account – here it is a key issued to you.';
+
+  @override
+  String get einstEigeneKarteWarnungOffline =>
+      'Tiles you have looked at stay on disk and remain available without a network; pre-loading whole areas works for this source too. Without pre-loading, anything you have never looked at stays grey when offline.';
+
+  @override
+  String get einstEigeneKarteWarnungBedingungen =>
+      'How far a provider permits caching is set out in its terms – some allow it for a limited time, some not at all, and Google explicitly forbids offline use. That is exactly what this app does: keep tiles and show them again without a network. Whether that is permitted for your provider is not something the app can decide for you.';
+
+  @override
+  String get einstEigeneKarteWarnungAnnehmen => 'Understood, switch on';
+
+  @override
+  String get einstEigeneKarteFehlerSchluessel =>
+      'The URL still contains the template\'s placeholder – put your own key there';
+
+  @override
+  String get aufnahmenHinzufuegen => 'Add photos';
+
+  @override
+  String get aufnahmenAusAktivitaetEntfernen => 'Remove from activity';
+
+  @override
+  String get aufnahmenAusReiseEntfernen => 'Remove from trip';
+
+  @override
+  String aufnahmenEntferntAktivitaet(int anzahl) {
+    return 'Removed $anzahl photo(s) from the activity';
+  }
+
+  @override
+  String aufnahmenEntferntReise(int anzahl) {
+    return 'Removed $anzahl photo(s) from the trip';
+  }
+
+  @override
+  String get auswAuswaehlen => 'Select';
 }

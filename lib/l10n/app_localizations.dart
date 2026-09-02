@@ -9893,12 +9893,6 @@ abstract class AppTexte {
   /// **'Nichts geändert.'**
   String get aufnahmenWahlUnveraendert;
 
-  /// No description provided for @aufnahmenBearbeiten.
-  ///
-  /// In de, this message translates to:
-  /// **'Fotos bearbeiten'**
-  String get aufnahmenBearbeiten;
-
   /// No description provided for @aktivitaetenArtNeu.
   ///
   /// In de, this message translates to:
@@ -10696,6 +10690,252 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Ziehe einen Rahmen um das fehlende Gesicht.'**
   String get viewerAufziehenHinweis;
+
+  /// No description provided for @karteEigene.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene Karte'**
+  String get karteEigene;
+
+  /// No description provided for @einstEigeneKarteTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene Kartenquelle'**
+  String get einstEigeneKarteTitel;
+
+  /// No description provided for @einstEigeneKarteText.
+  ///
+  /// In de, this message translates to:
+  /// **'Die mitgelieferten Karten hören früh auf: OpenStreetMap liefert echte Kacheln bis Stufe 19, OpenTopoMap bis 17. Wer Hausnummern, Gebäudeumrisse oder ein Luftbild braucht, trägt hier eine eigene Quelle ein. Sie erscheint danach als vierter Eintrag im Kartenmenü.'**
+  String get einstEigeneKarteText;
+
+  /// No description provided for @einstEigeneKarteAktiv.
+  ///
+  /// In de, this message translates to:
+  /// **'{name} ist eingerichtet'**
+  String einstEigeneKarteAktiv(String name);
+
+  /// No description provided for @einstEigeneKarteOhne.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine eigene Quelle eingerichtet'**
+  String get einstEigeneKarteOhne;
+
+  /// No description provided for @einstEigeneKarteVorlage.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorlage übernehmen'**
+  String get einstEigeneKarteVorlage;
+
+  /// No description provided for @einstEigeneKarteVorlageGemessen.
+  ///
+  /// In de, this message translates to:
+  /// **'bis Stufe {stufe}, nachgemessen'**
+  String einstEigeneKarteVorlageGemessen(String stufe);
+
+  /// No description provided for @einstEigeneKarteVorlageLautAnbieter.
+  ///
+  /// In de, this message translates to:
+  /// **'bis Stufe {stufe}, laut Anbieter'**
+  String einstEigeneKarteVorlageLautAnbieter(String stufe);
+
+  /// No description provided for @einstEigeneKarteName.
+  ///
+  /// In de, this message translates to:
+  /// **'Name'**
+  String get einstEigeneKarteName;
+
+  /// No description provided for @einstEigeneKarteAdresse.
+  ///
+  /// In de, this message translates to:
+  /// **'Kacheladresse'**
+  String get einstEigeneKarteAdresse;
+
+  /// No description provided for @einstEigeneKarteAdresseHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'https://…/{muster}.png'**
+  String einstEigeneKarteAdresseHinweis(String muster);
+
+  /// No description provided for @einstEigeneKarteNennung.
+  ///
+  /// In de, this message translates to:
+  /// **'Namensnennung'**
+  String get einstEigeneKarteNennung;
+
+  /// No description provided for @einstEigeneKarteNennungHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'© Anbieter, © OpenStreetMap contributors'**
+  String get einstEigeneKarteNennungHinweis;
+
+  /// No description provided for @einstEigeneKarteStufe.
+  ///
+  /// In de, this message translates to:
+  /// **'Höchste Zoomstufe'**
+  String get einstEigeneKarteStufe;
+
+  /// No description provided for @einstEigeneKarteSchluesselHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Schlüssel gehört mit in die Adresse – ersetze {marke} durch deinen eigenen.'**
+  String einstEigeneKarteSchluesselHinweis(String marke);
+
+  /// No description provided for @einstEigeneKarteWoher.
+  ///
+  /// In de, this message translates to:
+  /// **'Schlüssel gibt es bei {quelle}'**
+  String einstEigeneKarteWoher(String quelle);
+
+  /// No description provided for @einstEigeneKarteSitzung.
+  ///
+  /// In de, this message translates to:
+  /// **'Google-Sitzung holen'**
+  String get einstEigeneKarteSitzung;
+
+  /// No description provided for @einstEigeneKarteSitzungText.
+  ///
+  /// In de, this message translates to:
+  /// **'Google liefert Kacheln erst nach einer Sitzungskennung. Trage deinen Schlüssel in die Adresse ein und hole sie hier; sie hält rund zwei Wochen.'**
+  String get einstEigeneKarteSitzungText;
+
+  /// No description provided for @einstEigeneKarteSitzungOk.
+  ///
+  /// In de, this message translates to:
+  /// **'Sitzung geholt und in die Adresse eingesetzt'**
+  String get einstEigeneKarteSitzungOk;
+
+  /// No description provided for @einstEigeneKarteSitzungFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Google gab keine Sitzung: {fehler}'**
+  String einstEigeneKarteSitzungFehler(String fehler);
+
+  /// No description provided for @einstEigeneKarteSitzungOhneSchluessel.
+  ///
+  /// In de, this message translates to:
+  /// **'In der Adresse steht noch kein Schlüssel'**
+  String get einstEigeneKarteSitzungOhneSchluessel;
+
+  /// No description provided for @einstEigeneKarteEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Quelle entfernen'**
+  String get einstEigeneKarteEntfernen;
+
+  /// No description provided for @einstEigeneKarteGespeichert.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene Kartenquelle gespeichert'**
+  String get einstEigeneKarteGespeichert;
+
+  /// No description provided for @einstEigeneKarteEntfernt.
+  ///
+  /// In de, this message translates to:
+  /// **'Eigene Kartenquelle entfernt'**
+  String get einstEigeneKarteEntfernt;
+
+  /// No description provided for @einstEigeneKarteFehlerLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Adresse geht es nicht'**
+  String get einstEigeneKarteFehlerLeer;
+
+  /// No description provided for @einstEigeneKarteFehlerHttp.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Adresse muss mit http:// oder https:// anfangen'**
+  String get einstEigeneKarteFehlerHttp;
+
+  /// No description provided for @einstEigeneKarteFehlerPlatzhalter.
+  ///
+  /// In de, this message translates to:
+  /// **'In der Adresse fehlen {teile}'**
+  String einstEigeneKarteFehlerPlatzhalter(String teile);
+
+  /// No description provided for @einstEigeneKarteFehlerUnbekannt.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Adresse enthält einen Platzhalter in geschweiften Klammern, den die Karte nicht kennt – erlaubt sind nur {teile}'**
+  String einstEigeneKarteFehlerUnbekannt(String teile);
+
+  /// No description provided for @einstEigeneKarteFehlerNennung.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Namensnennung ist eine Lizenzauflage und darf nicht leer bleiben'**
+  String get einstEigeneKarteFehlerNennung;
+
+  /// No description provided for @einstEigeneKarteWarnungTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Bevor du eine fremde Kartenquelle einschaltest'**
+  String get einstEigeneKarteWarnungTitel;
+
+  /// No description provided for @einstEigeneKarteWarnungUebermittlung.
+  ///
+  /// In de, this message translates to:
+  /// **'Jede Kachel ist ein Abruf bei diesem Anbieter. Er sieht daran, welchen Ausschnitt der Welt du dir gerade ansiehst, wie tief du hineinzoomst und wie lange du bleibst. Bei den mitgelieferten Karten steht am anderen Ende ein gespendeter Server ohne Konto – hier steht ein Schlüssel, der auf dich ausgestellt ist.'**
+  String get einstEigeneKarteWarnungUebermittlung;
+
+  /// No description provided for @einstEigeneKarteWarnungOffline.
+  ///
+  /// In de, this message translates to:
+  /// **'Angesehene Kacheln bleiben auf der Platte und stehen auch ohne Netz wieder zur Verfügung; das Vorladen ganzer Gebiete gilt ebenso für diese Quelle. Ohne Vorladen bleibt ohne Netz grau, was du noch nie angesehen hast.'**
+  String get einstEigeneKarteWarnungOffline;
+
+  /// No description provided for @einstEigeneKarteWarnungBedingungen.
+  ///
+  /// In de, this message translates to:
+  /// **'Wie weit ein Anbieter das Zwischenspeichern erlaubt, steht in seinen Nutzungsregeln – manche gestatten es befristet, manche gar nicht, und Google untersagt die Offline-Nutzung ausdrücklich. Genau das tut diese App: Kacheln behalten und ohne Netz wieder zeigen. Ob das für deinen Anbieter zulässig ist, kann dir die App nicht abnehmen.'**
+  String get einstEigeneKarteWarnungBedingungen;
+
+  /// No description provided for @einstEigeneKarteWarnungAnnehmen.
+  ///
+  /// In de, this message translates to:
+  /// **'Verstanden, einschalten'**
+  String get einstEigeneKarteWarnungAnnehmen;
+
+  /// No description provided for @einstEigeneKarteFehlerSchluessel.
+  ///
+  /// In de, this message translates to:
+  /// **'In der Adresse steht noch die Marke aus der Vorlage – setze dort deinen eigenen Schlüssel ein'**
+  String get einstEigeneKarteFehlerSchluessel;
+
+  /// No description provided for @aufnahmenHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos hinzufügen'**
+  String get aufnahmenHinzufuegen;
+
+  /// No description provided for @aufnahmenAusAktivitaetEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus der Aktivität entfernen'**
+  String get aufnahmenAusAktivitaetEntfernen;
+
+  /// No description provided for @aufnahmenAusReiseEntfernen.
+  ///
+  /// In de, this message translates to:
+  /// **'Aus der Reise entfernen'**
+  String get aufnahmenAusReiseEntfernen;
+
+  /// No description provided for @aufnahmenEntferntAktivitaet.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Foto(s) aus der Aktivität entfernt'**
+  String aufnahmenEntferntAktivitaet(int anzahl);
+
+  /// No description provided for @aufnahmenEntferntReise.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Foto(s) aus der Reise entfernt'**
+  String aufnahmenEntferntReise(int anzahl);
+
+  /// No description provided for @auswAuswaehlen.
+  ///
+  /// In de, this message translates to:
+  /// **'Auswählen'**
+  String get auswAuswaehlen;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

@@ -34,6 +34,11 @@ enum Kartenansicht {
   hell('hell'),
   dunkel('dunkel'),
   topo('topo'),
+
+  /// Die selbst eingetragene Quelle (siehe [Eigenkarte]). Steht nur im
+  /// Menü, wenn eine eingerichtet ist – sonst wäre es ein Eintrag, der
+  /// eine leere Karte zeigt.
+  eigene('eigene'),
   globus('globus');
 
   const Kartenansicht(this.alsText);
@@ -53,6 +58,15 @@ enum Kartenansicht {
   static Kartenansicht ausText(String? text) => values
       .where((a) => a.alsText == text)
       .followedBy([dunkel]).first;
+
+  /// Die Ansichten, die gerade zur Wahl stehen.
+  ///
+  /// [eigene] fällt heraus, solange keine Quelle eingerichtet ist. Das
+  /// gilt auch für eine **gemerkte** Wahl: Wer die eigene Karte
+  /// einstellt und sie später wieder löscht, fände sonst beim nächsten
+  /// Start eine leere Karte ohne Hinweis vor.
+  static List<Kartenansicht> verfuegbar({required bool mitEigener}) =>
+      [for (final a in values) if (a != eigene || mitEigener) a];
 }
 
 /// Zoomstufe beim Öffnen der flachen Karte ohne bestimmtes Ziel.
@@ -151,7 +165,14 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _load() async {
     // Erst die gemerkte Ansicht, dann die Orte: Sonst baute der Bildschirm
     // kurz die dunkle Karte auf und schaltete sichtbar um.
-    final gemerkt = Kartenansicht.ausText(await widget.library.db.kartenansicht());
+    var gemerkt = Kartenansicht.ausText(await widget.library.db.kartenansicht());
+    // Eine gemerkte eigene Karte, die es nicht mehr gibt, führte sonst in
+    // eine leere Ansicht ohne jeden Hinweis – siehe
+    // [Kartenansicht.verfuegbar].
+    if (!Kartenansicht.verfuegbar(mitEigener: eigeneKarte != null)
+        .contains(gemerkt)) {
+      gemerkt = Kartenansicht.dunkel;
+    }
     final assets = await widget.library.db.assetsWithLocation();
     final ereignisse = await widget.library.db.ereignisseMitKoordinateUndName();
     if (!mounted) return;
@@ -436,6 +457,7 @@ class _MapScreenState extends State<MapScreen> {
               Kartenansicht.hell => Icons.light_mode_outlined,
               Kartenansicht.dunkel => Icons.dark_mode_outlined,
               Kartenansicht.topo => Icons.terrain_outlined,
+              Kartenansicht.eigene => Icons.travel_explore_outlined,
               Kartenansicht.globus => Icons.public,
             }),
             onSelected: _setMode,
@@ -446,6 +468,9 @@ class _MapScreenState extends State<MapScreen> {
                   AppTexte.of(context).karteDunkel),
               _modeMenuItem(Kartenansicht.topo, Icons.terrain_outlined,
                   AppTexte.of(context).karteTopografie),
+              if (eigeneKarte case final k?)
+                _modeMenuItem(Kartenansicht.eigene,
+                    Icons.travel_explore_outlined, k.name),
               _modeMenuItem(Kartenansicht.globus, Icons.public,
                   AppTexte.of(context).karteGlobus),
             ],
@@ -574,6 +599,7 @@ class _MapScreenState extends State<MapScreen> {
     final stil = switch (_mode) {
       Kartenansicht.hell => Kartenstil.hell,
       Kartenansicht.topo => Kartenstil.topo,
+      Kartenansicht.eigene => Kartenstil.eigene,
       // Der Globus zeichnet keine Kacheln; der Wert wird dann nicht
       // benutzt, muss aber existieren.
       Kartenansicht.dunkel || Kartenansicht.globus => Kartenstil.dunkel,
@@ -713,6 +739,7 @@ class _MapScreenState extends State<MapScreen> {
     final grenze = switch (neueAnsicht) {
       Kartenansicht.hell => Kartenstil.hell,
       Kartenansicht.topo => Kartenstil.topo,
+      Kartenansicht.eigene => Kartenstil.eigene,
       Kartenansicht.dunkel || Kartenansicht.globus => Kartenstil.dunkel,
     }
         .hoechsteAnzeigeStufe

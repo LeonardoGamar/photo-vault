@@ -84,23 +84,52 @@
   "staubSuchen": "Search",
   "staubFortschritt": "{erledigt} of {gesamt} shots examined",
   "@staubFortschritt": {
-    "placeholders": { "erledigt": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "erledigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "staubNichtsGefunden": "{anzahl, plural, =1{No sensor dust was found on the examined shot.} other{No sensor dust was found on {anzahl} examined shots.}}",
   "@staubNichtsGefunden": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "staubGefunden": "{anzahl, plural, =1{1 spot that keeps appearing} other{{anzahl} spots that keep appearing}}",
   "@staubGefunden": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "staubAufWievielen": "on {treffer} of {gesamt} examined shots",
   "@staubAufWievielen": {
-    "placeholders": { "treffer": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "treffer": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "staubUebersprungen": "{anzahl} of {gesamt} photos could not be read and were skipped.",
   "@staubUebersprungen": {
-    "placeholders": { "anzahl": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "staubImEditorOeffnen": "Open an affected shot in the image editor",
   "allgKamera": "Camera",
@@ -327,9 +356,21 @@
   "einstModellePruefenTitel": "Verify models",
   "einstModellePruefenText": "Recomputes the checksum of every installed model file and compares it with the catalogue. Takes a few seconds. Finds files that changed after they were downloaded – the download itself is always checked.",
   "einstModellePruefenLaeuft": "Verifying: {datei}",
-  "@einstModellePruefenLaeuft": {"placeholders": {"datei": {"type": "String"}}},
+  "@einstModellePruefenLaeuft": {
+    "placeholders": {
+      "datei": {
+        "type": "String"
+      }
+    }
+  },
   "einstModellePruefenAlleGut": "{anzahl, plural, =1{One model file checked, it matches.} other{{anzahl} model files checked, all match.}}",
-  "@einstModellePruefenAlleGut": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@einstModellePruefenAlleGut": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "einstModellePruefenNichtsDa": "No model is installed.",
   "einstModellePruefenBefundTitel": "Model files that stand out",
   "einstModellePruefenBefundText": "These files are not the ones the catalogue names. Delete the affected model and download it again – only then is what it produces trustworthy.",
@@ -970,16 +1011,28 @@
   "stapelErklaerung": "Photos that look alike AND were taken within a few seconds of each other are suggested here as a series. \"Apply\" collapses a group into one stack – only the cover image stays visible in the overview, and nothing is deleted.",
   "stapelAlleUebernehmen": "Accept all {anzahl}",
   "@stapelAlleUebernehmen": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "stapelAlleFrageTitel": "Accept all series?",
   "stapelAlleFrage": "{anzahl} groups will be combined into stacks. The sharpest photo becomes the cover. Nothing is lost – “Ungroup series” in the info sheet undoes any grouping.",
   "@stapelAlleFrage": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "werkzStapelGefunden": "{anzahl, plural, =0{No series found} =1{1 series is waiting} other{{anzahl} series are waiting}}",
   "@werkzStapelGefunden": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "serienvergleichTitel": "Compare series",
   "serienvergleichErklaerung": "The same faces side by side. On a whole photo you cannot see who blinked – on the crops you can, at once. The frame marks the shot with the sharpest face; that is a suggestion, not a decision.",
@@ -987,11 +1040,19 @@
   "serienvergleichSchaerfstes": "Sharpest face of the series",
   "serienvergleichSchaerfe": "Sharpness {wert}",
   "@serienvergleichSchaerfe": {
-    "placeholders": { "wert": { "type": "int" } }
+    "placeholders": {
+      "wert": {
+        "type": "int"
+      }
+    }
   },
   "serienvergleichAugen": "Eyes open: {prozent} %",
   "@serienvergleichAugen": {
-    "placeholders": { "prozent": { "type": "int" } }
+    "placeholders": {
+      "prozent": {
+        "type": "int"
+      }
+    }
   },
   "serienvergleichOhneWert": "Sharpness not measured yet",
   "serienvergleichOeffnen": "Compare faces",
@@ -1023,7 +1084,16 @@
     }
   },
   "papierkorbUmfang": "{anzahl, plural, =1{one photo} other{{anzahl} photos}} · {platz}",
-  "@papierkorbUmfang": {"placeholders": {"anzahl": {"type": "int"}, "platz": {"type": "String"}}},
+  "@papierkorbUmfang": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      },
+      "platz": {
+        "type": "String"
+      }
+    }
+  },
   "papierkorbLeer": "The trash is empty.",
   "videoNichtGeoeffnet": "The video could not be opened.",
   "videoZuschneidenFehler": "Trimming failed.",
@@ -1078,7 +1148,11 @@
   "backupGrenzeErreicht": "Limit reached – {anzahl} file(s) follow on the next run",
   "backupUebernommen": "{anzahl} entries taken from the database snapshot (people, family tree, trips, activities …)",
   "@backupUebernommen": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "backupAusschnitteNeu": "Redrawing face crops …",
   "einstBackupManuellHinweis": "A backup with a passphrase also carries an encrypted snapshot of the database – people, family tree, trips, activities and saved searches come back when you restore. Without a passphrase the backup holds only the originals and the sidecars beside them (description, stars, colour label, location, tags, albums); everything else could not be restored afterwards.",
@@ -1615,7 +1689,11 @@
   "stammbaumFehlerVorhanden": "This relationship is already recorded.",
   "stammbaumZuVieleHaushalte": "{anzahl, plural, =1{One more household does not fit the picture.} other{{anzahl} more households do not fit the picture.}}",
   "@stammbaumZuVieleHaushalte": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "stammbaumLeer": "No relatives recorded for this person yet. Use the buttons at the top right to add parents, a partner or children – either from the people you have already named, or as a new name, even without a single photo.",
   "stammbaumPersonFehlt": "This person no longer exists.",
@@ -1851,9 +1929,15 @@
   "@gradUeberWeg": {
     "description": "For relatives with no word of their own - \"mother of brother-in-law Michael\". schritt is the relation to the intermediate person, bezug that person's relation to the one at the centre.",
     "placeholders": {
-      "schritt": { "type": "String" },
-      "bezug": { "type": "String" },
-      "name": { "type": "String" }
+      "schritt": {
+        "type": "String"
+      },
+      "bezug": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
     }
   },
   "gradKeine": "not related",
@@ -2819,17 +2903,16 @@
       }
     }
   },
-    "aufnahmenWahlTitelAktivitaet": "Photos of this activity",
+  "aufnahmenWahlTitelAktivitaet": "Photos of this activity",
   "aufnahmenWahlTitelReise": "Photos of this journey",
-  "aufnahmenWahlZeitraum": "Period ({von} \u2013 {bis})",
+  "aufnahmenWahlZeitraum": "Period ({von} – {bis})",
   "aufnahmenWahlAlle": "All photos",
   "aufnahmenWahlGewaehlt": "{anzahl, plural, =0{nothing selected} =1{1 photo selected} other{{anzahl} photos selected}}",
   "aufnahmenWahlAusserhalb": "{anzahl, plural, =1{1 of them outside this view} other{{anzahl} of them outside this view}}",
-  "aufnahmenWahlLeer": "There is no photo in this period. Use \u201cAll photos\u201d to pick one from outside it.",
+  "aufnahmenWahlLeer": "There is no photo in this period. Use “All photos” to pick one from outside it.",
   "aufnahmenWahlGeaendert": "{dazu, plural, =0{} =1{1 photo added} other{{dazu} photos added}}{weg, plural, =0{} =1{, 1 removed} other{, {weg} removed}}",
   "aufnahmenWahlUnveraendert": "Nothing changed.",
-  "aufnahmenBearbeiten": "Edit photos",
-  "aktivitaetenArtNeu": "New type \u2026",
+  "aktivitaetenArtNeu": "New type …",
   "aktivitaetenArtNeuFrage": "What should the type be called?",
   "aktArtSpaziergang": "Walk",
   "aktArtWanderung": "Hike",
@@ -2929,13 +3012,37 @@
   "flugOhneZeit": "The track carries no timestamps – without them there is no speed.",
   "flugProfilBeschreibung": "Elevation profile of the track with the point the flight has reached.",
   "flugMeterProfil": "{meter} m",
-  "@flugMeterProfil": {"placeholders": {"meter": {"type": "int"}}},
+  "@flugMeterProfil": {
+    "placeholders": {
+      "meter": {
+        "type": "int"
+      }
+    }
+  },
   "flugKmH": "{wert} km/h",
-  "@flugKmH": {"placeholders": {"wert": {"type": "String"}}},
+  "@flugKmH": {
+    "placeholders": {
+      "wert": {
+        "type": "String"
+      }
+    }
+  },
   "flugProzent": "{wert} %",
-  "@flugProzent": {"placeholders": {"wert": {"type": "String"}}},
+  "@flugProzent": {
+    "placeholders": {
+      "wert": {
+        "type": "String"
+      }
+    }
+  },
   "flugKm": "{wert} km",
-  "@flugKm": {"placeholders": {"wert": {"type": "String"}}},
+  "@flugKm": {
+    "placeholders": {
+      "wert": {
+        "type": "String"
+      }
+    }
+  },
   "gelaendeTitel": "Terrain",
   "gelaendeOeffnen": "Show terrain",
   "gelaendeLaedt": "Fetching elevations …",
@@ -3162,5 +3269,123 @@
   "viewerGesichtNachtragen": "Name the added face",
   "viewerRahmenZuKlein": "That frame is too small. Drag a box around the face.",
   "viewerRahmenNichtLesbar": "The photograph could not be read – no face was added.",
-  "viewerAufziehenHinweis": "Drag a frame around the missing face."
+  "viewerAufziehenHinweis": "Drag a frame around the missing face.",
+  "karteEigene": "Custom map",
+  "einstEigeneKarteTitel": "Custom map source",
+  "einstEigeneKarteText": "The bundled maps stop early: OpenStreetMap serves real tiles up to level 19, OpenTopoMap up to 17. If you need house numbers, building outlines or aerial imagery, enter your own source here. It then appears as a fourth entry in the map menu.",
+  "einstEigeneKarteAktiv": "{name} is set up",
+  "@einstEigeneKarteAktiv": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteOhne": "No custom source set up",
+  "einstEigeneKarteVorlage": "Use a template",
+  "einstEigeneKarteVorlageGemessen": "up to level {stufe}, measured",
+  "@einstEigeneKarteVorlageGemessen": {
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteVorlageLautAnbieter": "up to level {stufe}, per the provider",
+  "@einstEigeneKarteVorlageLautAnbieter": {
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteName": "Name",
+  "einstEigeneKarteAdresse": "Tile URL",
+  "einstEigeneKarteAdresseHinweis": "https://…/{muster}.png",
+  "einstEigeneKarteNennung": "Attribution",
+  "einstEigeneKarteNennungHinweis": "© provider, © OpenStreetMap contributors",
+  "einstEigeneKarteStufe": "Highest zoom level",
+  "einstEigeneKarteSchluesselHinweis": "The key belongs in the URL – replace {marke} with your own.",
+  "@einstEigeneKarteSchluesselHinweis": {
+    "placeholders": {
+      "marke": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteWoher": "Keys are available at {quelle}",
+  "@einstEigeneKarteWoher": {
+    "placeholders": {
+      "quelle": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteSitzung": "Get Google session",
+  "einstEigeneKarteSitzungText": "Google only serves tiles once a session token exists. Put your key into the URL and fetch one here; it lasts about two weeks.",
+  "einstEigeneKarteSitzungOk": "Session fetched and inserted into the URL",
+  "einstEigeneKarteSitzungFehler": "Google returned no session: {fehler}",
+  "@einstEigeneKarteSitzungFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteSitzungOhneSchluessel": "The URL still has no key in it",
+  "einstEigeneKarteEntfernen": "Remove source",
+  "einstEigeneKarteGespeichert": "Custom map source saved",
+  "einstEigeneKarteEntfernt": "Custom map source removed",
+  "einstEigeneKarteFehlerLeer": "A URL is required",
+  "einstEigeneKarteFehlerHttp": "The URL must start with http:// or https://",
+  "einstEigeneKarteFehlerPlatzhalter": "The URL is missing {teile}",
+  "einstEigeneKarteFehlerUnbekannt": "The URL contains a placeholder in braces that the map does not know – only {teile} are allowed",
+  "einstEigeneKarteFehlerNennung": "Attribution is a licence requirement and must not be empty",
+  "einstEigeneKarteWarnungTitel": "Before you switch on a third-party map source",
+  "einstEigeneKarteWarnungUebermittlung": "Every tile is a request to that provider. It reveals which part of the world you are looking at, how far you zoom in and how long you stay. With the bundled maps the other end is a donated server without an account – here it is a key issued to you.",
+  "einstEigeneKarteWarnungOffline": "Tiles you have looked at stay on disk and remain available without a network; pre-loading whole areas works for this source too. Without pre-loading, anything you have never looked at stays grey when offline.",
+  "einstEigeneKarteWarnungBedingungen": "How far a provider permits caching is set out in its terms – some allow it for a limited time, some not at all, and Google explicitly forbids offline use. That is exactly what this app does: keep tiles and show them again without a network. Whether that is permitted for your provider is not something the app can decide for you.",
+  "einstEigeneKarteWarnungAnnehmen": "Understood, switch on",
+  "@einstEigeneKarteAdresseHinweis": {
+    "placeholders": {
+      "muster": {
+        "type": "String"
+      }
+    }
+  },
+  "@einstEigeneKarteFehlerPlatzhalter": {
+    "placeholders": {
+      "teile": {
+        "type": "String"
+      }
+    }
+  },
+  "@einstEigeneKarteFehlerUnbekannt": {
+    "placeholders": {
+      "teile": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteFehlerSchluessel": "The URL still contains the template's placeholder – put your own key there",
+  "aufnahmenHinzufuegen": "Add photos",
+  "aufnahmenAusAktivitaetEntfernen": "Remove from activity",
+  "aufnahmenAusReiseEntfernen": "Remove from trip",
+  "aufnahmenEntferntAktivitaet": "Removed {anzahl} photo(s) from the activity",
+  "@aufnahmenEntferntAktivitaet": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aufnahmenEntferntReise": "Removed {anzahl} photo(s) from the trip",
+  "@aufnahmenEntferntReise": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswAuswaehlen": "Select"
 }

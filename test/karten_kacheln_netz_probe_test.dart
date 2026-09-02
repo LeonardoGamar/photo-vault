@@ -97,6 +97,13 @@ void main() {
       (Kartenstil.dunkel, 7.0),
       (Kartenstil.topo, 7.0),
       (Kartenstil.dunkel, 8.0),
+      // Bis zur Strassenebene, und darueber hinaus: Genau davon hiess
+      // es, es sei „nicht moeglich".
+      (Kartenstil.hell, 14.0),
+      (Kartenstil.hell, 17.0),
+      (Kartenstil.hell, 19.0),
+      (Kartenstil.dunkel, 19.0),
+      (Kartenstil.topo, 17.0),
     ]) {
       final anteil = await _probe(tester, stil,
           zoom: zoom, warten: const Duration(seconds: 12));

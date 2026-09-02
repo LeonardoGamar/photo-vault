@@ -43,7 +43,8 @@ import '../services/native_image_converter.dart';
 import '../services/restore_queue_service.dart';
 import '../services/restore_service.dart';
 import '../services/reverse_geocoder.dart';
-import '../widgets/mini_location_map.dart' show setzeCartoSchluessel;
+import '../widgets/mini_location_map.dart'
+    show setzeCartoSchluessel, setzeEigeneKarte;
 import '../services/segmentation_service.dart';
 import '../services/storage_paths.dart';
 import '../services/vault_crypto.dart';
@@ -436,6 +437,7 @@ class LibraryState extends ChangeNotifier {
     // main.dart: Sonst zeichnete die erste Karte einen Atemzug lang die
     // schlüssellose Fassung und lüde ihre Kacheln zweimal.
     setzeCartoSchluessel(await db.cartoSchluesselWert());
+    setzeEigeneKarte(await db.eigeneKarteWert());
     _maxGleichzeitig = await db.maxGleichzeitigeAufgaben();
     await _loadModelsIfPresent();
     // Ohne `await`: siehe [geoBereit]. Das Lesen des GeoNames-Datensatzes

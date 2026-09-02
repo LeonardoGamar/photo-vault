@@ -6489,9 +6489,6 @@ class AppTexteDe extends AppTexte {
   String get aufnahmenWahlUnveraendert => 'Nichts geändert.';
 
   @override
-  String get aufnahmenBearbeiten => 'Fotos bearbeiten';
-
-  @override
   String get aktivitaetenArtNeu => 'Neue Art …';
 
   @override
@@ -6966,4 +6963,161 @@ class AppTexteDe extends AppTexte {
   @override
   String get viewerAufziehenHinweis =>
       'Ziehe einen Rahmen um das fehlende Gesicht.';
+
+  @override
+  String get karteEigene => 'Eigene Karte';
+
+  @override
+  String get einstEigeneKarteTitel => 'Eigene Kartenquelle';
+
+  @override
+  String get einstEigeneKarteText =>
+      'Die mitgelieferten Karten hören früh auf: OpenStreetMap liefert echte Kacheln bis Stufe 19, OpenTopoMap bis 17. Wer Hausnummern, Gebäudeumrisse oder ein Luftbild braucht, trägt hier eine eigene Quelle ein. Sie erscheint danach als vierter Eintrag im Kartenmenü.';
+
+  @override
+  String einstEigeneKarteAktiv(String name) {
+    return '$name ist eingerichtet';
+  }
+
+  @override
+  String get einstEigeneKarteOhne => 'Keine eigene Quelle eingerichtet';
+
+  @override
+  String get einstEigeneKarteVorlage => 'Vorlage übernehmen';
+
+  @override
+  String einstEigeneKarteVorlageGemessen(String stufe) {
+    return 'bis Stufe $stufe, nachgemessen';
+  }
+
+  @override
+  String einstEigeneKarteVorlageLautAnbieter(String stufe) {
+    return 'bis Stufe $stufe, laut Anbieter';
+  }
+
+  @override
+  String get einstEigeneKarteName => 'Name';
+
+  @override
+  String get einstEigeneKarteAdresse => 'Kacheladresse';
+
+  @override
+  String einstEigeneKarteAdresseHinweis(String muster) {
+    return 'https://…/$muster.png';
+  }
+
+  @override
+  String get einstEigeneKarteNennung => 'Namensnennung';
+
+  @override
+  String get einstEigeneKarteNennungHinweis =>
+      '© Anbieter, © OpenStreetMap contributors';
+
+  @override
+  String get einstEigeneKarteStufe => 'Höchste Zoomstufe';
+
+  @override
+  String einstEigeneKarteSchluesselHinweis(String marke) {
+    return 'Der Schlüssel gehört mit in die Adresse – ersetze $marke durch deinen eigenen.';
+  }
+
+  @override
+  String einstEigeneKarteWoher(String quelle) {
+    return 'Schlüssel gibt es bei $quelle';
+  }
+
+  @override
+  String get einstEigeneKarteSitzung => 'Google-Sitzung holen';
+
+  @override
+  String get einstEigeneKarteSitzungText =>
+      'Google liefert Kacheln erst nach einer Sitzungskennung. Trage deinen Schlüssel in die Adresse ein und hole sie hier; sie hält rund zwei Wochen.';
+
+  @override
+  String get einstEigeneKarteSitzungOk =>
+      'Sitzung geholt und in die Adresse eingesetzt';
+
+  @override
+  String einstEigeneKarteSitzungFehler(String fehler) {
+    return 'Google gab keine Sitzung: $fehler';
+  }
+
+  @override
+  String get einstEigeneKarteSitzungOhneSchluessel =>
+      'In der Adresse steht noch kein Schlüssel';
+
+  @override
+  String get einstEigeneKarteEntfernen => 'Quelle entfernen';
+
+  @override
+  String get einstEigeneKarteGespeichert => 'Eigene Kartenquelle gespeichert';
+
+  @override
+  String get einstEigeneKarteEntfernt => 'Eigene Kartenquelle entfernt';
+
+  @override
+  String get einstEigeneKarteFehlerLeer => 'Ohne Adresse geht es nicht';
+
+  @override
+  String get einstEigeneKarteFehlerHttp =>
+      'Die Adresse muss mit http:// oder https:// anfangen';
+
+  @override
+  String einstEigeneKarteFehlerPlatzhalter(String teile) {
+    return 'In der Adresse fehlen $teile';
+  }
+
+  @override
+  String einstEigeneKarteFehlerUnbekannt(String teile) {
+    return 'Die Adresse enthält einen Platzhalter in geschweiften Klammern, den die Karte nicht kennt – erlaubt sind nur $teile';
+  }
+
+  @override
+  String get einstEigeneKarteFehlerNennung =>
+      'Die Namensnennung ist eine Lizenzauflage und darf nicht leer bleiben';
+
+  @override
+  String get einstEigeneKarteWarnungTitel =>
+      'Bevor du eine fremde Kartenquelle einschaltest';
+
+  @override
+  String get einstEigeneKarteWarnungUebermittlung =>
+      'Jede Kachel ist ein Abruf bei diesem Anbieter. Er sieht daran, welchen Ausschnitt der Welt du dir gerade ansiehst, wie tief du hineinzoomst und wie lange du bleibst. Bei den mitgelieferten Karten steht am anderen Ende ein gespendeter Server ohne Konto – hier steht ein Schlüssel, der auf dich ausgestellt ist.';
+
+  @override
+  String get einstEigeneKarteWarnungOffline =>
+      'Angesehene Kacheln bleiben auf der Platte und stehen auch ohne Netz wieder zur Verfügung; das Vorladen ganzer Gebiete gilt ebenso für diese Quelle. Ohne Vorladen bleibt ohne Netz grau, was du noch nie angesehen hast.';
+
+  @override
+  String get einstEigeneKarteWarnungBedingungen =>
+      'Wie weit ein Anbieter das Zwischenspeichern erlaubt, steht in seinen Nutzungsregeln – manche gestatten es befristet, manche gar nicht, und Google untersagt die Offline-Nutzung ausdrücklich. Genau das tut diese App: Kacheln behalten und ohne Netz wieder zeigen. Ob das für deinen Anbieter zulässig ist, kann dir die App nicht abnehmen.';
+
+  @override
+  String get einstEigeneKarteWarnungAnnehmen => 'Verstanden, einschalten';
+
+  @override
+  String get einstEigeneKarteFehlerSchluessel =>
+      'In der Adresse steht noch die Marke aus der Vorlage – setze dort deinen eigenen Schlüssel ein';
+
+  @override
+  String get aufnahmenHinzufuegen => 'Fotos hinzufügen';
+
+  @override
+  String get aufnahmenAusAktivitaetEntfernen => 'Aus der Aktivität entfernen';
+
+  @override
+  String get aufnahmenAusReiseEntfernen => 'Aus der Reise entfernen';
+
+  @override
+  String aufnahmenEntferntAktivitaet(int anzahl) {
+    return '$anzahl Foto(s) aus der Aktivität entfernt';
+  }
+
+  @override
+  String aufnahmenEntferntReise(int anzahl) {
+    return '$anzahl Foto(s) aus der Reise entfernt';
+  }
+
+  @override
+  String get auswAuswaehlen => 'Auswählen';
 }

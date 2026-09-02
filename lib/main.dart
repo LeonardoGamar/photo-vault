@@ -16,8 +16,9 @@ import 'services/beenden_waechter.dart';
 import 'state/library_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/zierbaum_farben.dart' show zierschriftenLizenzenAnmelden;
+import 'services/eigenkarte.dart';
 import 'widgets/mini_location_map.dart'
-    show kartenSpeicherEinrichten, setzeCartoSchluessel;
+    show kartenSpeicherEinrichten, setzeCartoSchluessel, setzeEigeneKarte;
 import 'widgets/beenden_dialog.dart';
 import 'widgets/meldungsfenster.dart';
 import 'widgets/stromhalter.dart';
@@ -109,6 +110,16 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
               // Rückwirkung auf den Aufbau - sie stösst keinen zweiten
               // Durchgang an.
               setzeCartoSchluessel(settingsSnapshot.data?.cartoSchluessel);
+              // Dieselbe Stelle, derselbe Grund: Die eigene Kartenquelle
+              // steht in derselben Zeile der Einstellungen.
+              setzeEigeneKarte(Eigenkarte.aus(
+                name: settingsSnapshot.data?.eigeneKarteName,
+                url: settingsSnapshot.data?.eigeneKarteUrl,
+                nennung: settingsSnapshot.data?.eigeneKarteNennung,
+                stufe: settingsSnapshot.data?.eigeneKarteStufe,
+                zugestimmt:
+                    settingsSnapshot.data?.eigeneKarteZugestimmt ?? false,
+              ));
               return MaterialApp(
                 title: 'Photo Vault',
                 navigatorKey: _navigator,

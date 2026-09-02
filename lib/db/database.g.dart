@@ -11041,6 +11041,40 @@ class $AppSettingsTable extends AppSettings
   late final GeneratedColumn<String> cartoSchluessel = GeneratedColumn<String>(
       'carto_schluessel', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _eigeneKarteNameMeta =
+      const VerificationMeta('eigeneKarteName');
+  @override
+  late final GeneratedColumn<String> eigeneKarteName = GeneratedColumn<String>(
+      'eigene_karte_name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _eigeneKarteUrlMeta =
+      const VerificationMeta('eigeneKarteUrl');
+  @override
+  late final GeneratedColumn<String> eigeneKarteUrl = GeneratedColumn<String>(
+      'eigene_karte_url', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _eigeneKarteNennungMeta =
+      const VerificationMeta('eigeneKarteNennung');
+  @override
+  late final GeneratedColumn<String> eigeneKarteNennung =
+      GeneratedColumn<String>('eigene_karte_nennung', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _eigeneKarteStufeMeta =
+      const VerificationMeta('eigeneKarteStufe');
+  @override
+  late final GeneratedColumn<int> eigeneKarteStufe = GeneratedColumn<int>(
+      'eigene_karte_stufe', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _eigeneKarteZugestimmtMeta =
+      const VerificationMeta('eigeneKarteZugestimmt');
+  @override
+  late final GeneratedColumn<bool> eigeneKarteZugestimmt =
+      GeneratedColumn<bool>('eigene_karte_zugestimmt', aliasedName, false,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintIsAlways(
+              'CHECK ("eigene_karte_zugestimmt" IN (0, 1))'),
+          defaultValue: const Constant(false));
   static const VerificationMeta _maxGleichzeitigMeta =
       const VerificationMeta('maxGleichzeitig');
   @override
@@ -11080,6 +11114,11 @@ class $AppSettingsTable extends AppSettings
         faceSimilarityThreshold,
         kartenansicht,
         cartoSchluessel,
+        eigeneKarteName,
+        eigeneKarteUrl,
+        eigeneKarteNennung,
+        eigeneKarteStufe,
+        eigeneKarteZugestimmt,
         maxGleichzeitig,
         translateCaptions,
         translateSearchAndTags
@@ -11142,6 +11181,36 @@ class $AppSettingsTable extends AppSettings
           cartoSchluessel.isAcceptableOrUnknown(
               data['carto_schluessel']!, _cartoSchluesselMeta));
     }
+    if (data.containsKey('eigene_karte_name')) {
+      context.handle(
+          _eigeneKarteNameMeta,
+          eigeneKarteName.isAcceptableOrUnknown(
+              data['eigene_karte_name']!, _eigeneKarteNameMeta));
+    }
+    if (data.containsKey('eigene_karte_url')) {
+      context.handle(
+          _eigeneKarteUrlMeta,
+          eigeneKarteUrl.isAcceptableOrUnknown(
+              data['eigene_karte_url']!, _eigeneKarteUrlMeta));
+    }
+    if (data.containsKey('eigene_karte_nennung')) {
+      context.handle(
+          _eigeneKarteNennungMeta,
+          eigeneKarteNennung.isAcceptableOrUnknown(
+              data['eigene_karte_nennung']!, _eigeneKarteNennungMeta));
+    }
+    if (data.containsKey('eigene_karte_stufe')) {
+      context.handle(
+          _eigeneKarteStufeMeta,
+          eigeneKarteStufe.isAcceptableOrUnknown(
+              data['eigene_karte_stufe']!, _eigeneKarteStufeMeta));
+    }
+    if (data.containsKey('eigene_karte_zugestimmt')) {
+      context.handle(
+          _eigeneKarteZugestimmtMeta,
+          eigeneKarteZugestimmt.isAcceptableOrUnknown(
+              data['eigene_karte_zugestimmt']!, _eigeneKarteZugestimmtMeta));
+    }
     if (data.containsKey('max_gleichzeitig')) {
       context.handle(
           _maxGleichzeitigMeta,
@@ -11189,6 +11258,17 @@ class $AppSettingsTable extends AppSettings
           .read(DriftSqlType.string, data['${effectivePrefix}kartenansicht'])!,
       cartoSchluessel: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}carto_schluessel']),
+      eigeneKarteName: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}eigene_karte_name']),
+      eigeneKarteUrl: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}eigene_karte_url']),
+      eigeneKarteNennung: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}eigene_karte_nennung']),
+      eigeneKarteStufe: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}eigene_karte_stufe']),
+      eigeneKarteZugestimmt: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool,
+          data['${effectivePrefix}eigene_karte_zugestimmt'])!,
       maxGleichzeitig: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}max_gleichzeitig'])!,
       translateCaptions: attachedDatabase.typeMapping.read(
@@ -11275,6 +11355,57 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// hinaus. Er gehört dem, der ihn beantragt.
   final String? cartoSchluessel;
 
+  /// Anzeigename der eigenen Kartenquelle, z. B. „Mapbox Streets".
+  ///
+  /// **Warum es diese Quelle überhaupt gibt.** Die drei mitgelieferten
+  /// Stile hängen an frei betriebenen Servern: OpenStreetMap trägt bis
+  /// Zoomstufe 19, OpenTopoMap nur bis 17. Wer Hausnummern und
+  /// Gebäudeumrisse braucht oder ein Luftbild, kommt an einem
+  /// Anbieter mit Schlüssel nicht vorbei – und der gehört dem, der ihn
+  /// beantragt, genau wie beim CARTO-Schlüssel.
+  ///
+  /// Als vier lose Spalten und nicht als Tabelle: Es ist **eine**
+  /// Quelle, nicht eine Liste. Wer zwischen mehreren wechseln will,
+  /// tauscht die Angaben – eine Verwaltung mit Anlegen, Umbenennen und
+  /// Löschen wäre für einen einzigen Eintrag zu viel Maschine.
+  final String? eigeneKarteName;
+
+  /// Adressvorlage der eigenen Kartenquelle, mit `{z}`, `{x}`, `{y}`.
+  ///
+  /// Der Schlüssel steht **mit in dieser Adresse** und nicht in einer
+  /// eigenen Spalte. Das ist Absicht: Jeder Anbieter hängt ihn woanders
+  /// hin – Mapbox als `?access_token=`, MapTiler als `?key=`,
+  /// Thunderforest als `?apikey=`, Google als `?session=…&key=`. Eine
+  /// eigene Spalte müsste all diese Formen kennen und wäre bei jedem
+  /// weiteren Anbieter wieder falsch.
+  final String? eigeneKarteUrl;
+
+  /// Die Namensnennung, die unter der eigenen Karte stehen muss.
+  ///
+  /// Keine Zierde, sondern die Lizenzauflage praktisch jedes Anbieters.
+  /// Deshalb ist sie ein Pflichtfeld in der Einstellung: Ohne sie lässt
+  /// sich die Quelle nicht einschalten.
+  final String? eigeneKarteNennung;
+
+  /// Höchste Stufe, für die der eigene Anbieter echte Kacheln liefert.
+  ///
+  /// Ohne Angabe gilt 19. Zu hoch angesetzt heisst: leere oder
+  /// einfarbige Kacheln, ohne Fehlermeldung – genau die Falle, die bei
+  /// OpenTopoMap gemessen wurde (siehe `Kartenstil.topo`).
+  final int? eigeneKarteStufe;
+
+  /// Ob der Hinweis zu Datenübermittlung und Offline-Nutzung bestätigt
+  /// wurde.
+  ///
+  /// **Ein eigener Wert und keine blosse Dialogfrage**, weil er etwas
+  /// anderes bedeutet als „Adresse eingetragen": Diese App holt ihre
+  /// Kacheln sonst von Servern, die niemandem Rechenschaft schulden.
+  /// Eine Fremdquelle mit Schlüssel sieht dagegen jede angesehene
+  /// Stelle **und** weiss, wer hinsieht. Wer das einschaltet, soll es
+  /// einmal ausdrücklich gelesen haben – und nicht bei jedem Start neu
+  /// gefragt werden.
+  final bool eigeneKarteZugestimmt;
+
   /// Wie viele rechenintensive Aufgaben gleichzeitig laufen dürfen.
   ///
   /// **Warum das eine Einstellung ist und keine Konstante.** Bis hierher
@@ -11315,6 +11446,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       required this.faceSimilarityThreshold,
       required this.kartenansicht,
       this.cartoSchluessel,
+      this.eigeneKarteName,
+      this.eigeneKarteUrl,
+      this.eigeneKarteNennung,
+      this.eigeneKarteStufe,
+      required this.eigeneKarteZugestimmt,
       required this.maxGleichzeitig,
       required this.translateCaptions,
       required this.translateSearchAndTags});
@@ -11337,6 +11473,19 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     if (!nullToAbsent || cartoSchluessel != null) {
       map['carto_schluessel'] = Variable<String>(cartoSchluessel);
     }
+    if (!nullToAbsent || eigeneKarteName != null) {
+      map['eigene_karte_name'] = Variable<String>(eigeneKarteName);
+    }
+    if (!nullToAbsent || eigeneKarteUrl != null) {
+      map['eigene_karte_url'] = Variable<String>(eigeneKarteUrl);
+    }
+    if (!nullToAbsent || eigeneKarteNennung != null) {
+      map['eigene_karte_nennung'] = Variable<String>(eigeneKarteNennung);
+    }
+    if (!nullToAbsent || eigeneKarteStufe != null) {
+      map['eigene_karte_stufe'] = Variable<int>(eigeneKarteStufe);
+    }
+    map['eigene_karte_zugestimmt'] = Variable<bool>(eigeneKarteZugestimmt);
     map['max_gleichzeitig'] = Variable<int>(maxGleichzeitig);
     map['translate_captions'] = Variable<bool>(translateCaptions);
     map['translate_search_and_tags'] = Variable<bool>(translateSearchAndTags);
@@ -11360,6 +11509,19 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       cartoSchluessel: cartoSchluessel == null && nullToAbsent
           ? const Value.absent()
           : Value(cartoSchluessel),
+      eigeneKarteName: eigeneKarteName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eigeneKarteName),
+      eigeneKarteUrl: eigeneKarteUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eigeneKarteUrl),
+      eigeneKarteNennung: eigeneKarteNennung == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eigeneKarteNennung),
+      eigeneKarteStufe: eigeneKarteStufe == null && nullToAbsent
+          ? const Value.absent()
+          : Value(eigeneKarteStufe),
+      eigeneKarteZugestimmt: Value(eigeneKarteZugestimmt),
       maxGleichzeitig: Value(maxGleichzeitig),
       translateCaptions: Value(translateCaptions),
       translateSearchAndTags: Value(translateSearchAndTags),
@@ -11383,6 +11545,13 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           serializer.fromJson<double>(json['faceSimilarityThreshold']),
       kartenansicht: serializer.fromJson<String>(json['kartenansicht']),
       cartoSchluessel: serializer.fromJson<String?>(json['cartoSchluessel']),
+      eigeneKarteName: serializer.fromJson<String?>(json['eigeneKarteName']),
+      eigeneKarteUrl: serializer.fromJson<String?>(json['eigeneKarteUrl']),
+      eigeneKarteNennung:
+          serializer.fromJson<String?>(json['eigeneKarteNennung']),
+      eigeneKarteStufe: serializer.fromJson<int?>(json['eigeneKarteStufe']),
+      eigeneKarteZugestimmt:
+          serializer.fromJson<bool>(json['eigeneKarteZugestimmt']),
       maxGleichzeitig: serializer.fromJson<int>(json['maxGleichzeitig']),
       translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
       translateSearchAndTags:
@@ -11403,6 +11572,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           serializer.toJson<double>(faceSimilarityThreshold),
       'kartenansicht': serializer.toJson<String>(kartenansicht),
       'cartoSchluessel': serializer.toJson<String?>(cartoSchluessel),
+      'eigeneKarteName': serializer.toJson<String?>(eigeneKarteName),
+      'eigeneKarteUrl': serializer.toJson<String?>(eigeneKarteUrl),
+      'eigeneKarteNennung': serializer.toJson<String?>(eigeneKarteNennung),
+      'eigeneKarteStufe': serializer.toJson<int?>(eigeneKarteStufe),
+      'eigeneKarteZugestimmt': serializer.toJson<bool>(eigeneKarteZugestimmt),
       'maxGleichzeitig': serializer.toJson<int>(maxGleichzeitig),
       'translateCaptions': serializer.toJson<bool>(translateCaptions),
       'translateSearchAndTags': serializer.toJson<bool>(translateSearchAndTags),
@@ -11419,6 +11593,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           double? faceSimilarityThreshold,
           String? kartenansicht,
           Value<String?> cartoSchluessel = const Value.absent(),
+          Value<String?> eigeneKarteName = const Value.absent(),
+          Value<String?> eigeneKarteUrl = const Value.absent(),
+          Value<String?> eigeneKarteNennung = const Value.absent(),
+          Value<int?> eigeneKarteStufe = const Value.absent(),
+          bool? eigeneKarteZugestimmt,
           int? maxGleichzeitig,
           bool? translateCaptions,
           bool? translateSearchAndTags}) =>
@@ -11440,6 +11619,19 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         cartoSchluessel: cartoSchluessel.present
             ? cartoSchluessel.value
             : this.cartoSchluessel,
+        eigeneKarteName: eigeneKarteName.present
+            ? eigeneKarteName.value
+            : this.eigeneKarteName,
+        eigeneKarteUrl:
+            eigeneKarteUrl.present ? eigeneKarteUrl.value : this.eigeneKarteUrl,
+        eigeneKarteNennung: eigeneKarteNennung.present
+            ? eigeneKarteNennung.value
+            : this.eigeneKarteNennung,
+        eigeneKarteStufe: eigeneKarteStufe.present
+            ? eigeneKarteStufe.value
+            : this.eigeneKarteStufe,
+        eigeneKarteZugestimmt:
+            eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
         maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
         translateCaptions: translateCaptions ?? this.translateCaptions,
         translateSearchAndTags:
@@ -11468,6 +11660,21 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       cartoSchluessel: data.cartoSchluessel.present
           ? data.cartoSchluessel.value
           : this.cartoSchluessel,
+      eigeneKarteName: data.eigeneKarteName.present
+          ? data.eigeneKarteName.value
+          : this.eigeneKarteName,
+      eigeneKarteUrl: data.eigeneKarteUrl.present
+          ? data.eigeneKarteUrl.value
+          : this.eigeneKarteUrl,
+      eigeneKarteNennung: data.eigeneKarteNennung.present
+          ? data.eigeneKarteNennung.value
+          : this.eigeneKarteNennung,
+      eigeneKarteStufe: data.eigeneKarteStufe.present
+          ? data.eigeneKarteStufe.value
+          : this.eigeneKarteStufe,
+      eigeneKarteZugestimmt: data.eigeneKarteZugestimmt.present
+          ? data.eigeneKarteZugestimmt.value
+          : this.eigeneKarteZugestimmt,
       maxGleichzeitig: data.maxGleichzeitig.present
           ? data.maxGleichzeitig.value
           : this.maxGleichzeitig,
@@ -11492,6 +11699,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
           ..write('kartenansicht: $kartenansicht, ')
           ..write('cartoSchluessel: $cartoSchluessel, ')
+          ..write('eigeneKarteName: $eigeneKarteName, ')
+          ..write('eigeneKarteUrl: $eigeneKarteUrl, ')
+          ..write('eigeneKarteNennung: $eigeneKarteNennung, ')
+          ..write('eigeneKarteStufe: $eigeneKarteStufe, ')
+          ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
@@ -11510,6 +11722,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       faceSimilarityThreshold,
       kartenansicht,
       cartoSchluessel,
+      eigeneKarteName,
+      eigeneKarteUrl,
+      eigeneKarteNennung,
+      eigeneKarteStufe,
+      eigeneKarteZugestimmt,
       maxGleichzeitig,
       translateCaptions,
       translateSearchAndTags);
@@ -11526,6 +11743,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.faceSimilarityThreshold == this.faceSimilarityThreshold &&
           other.kartenansicht == this.kartenansicht &&
           other.cartoSchluessel == this.cartoSchluessel &&
+          other.eigeneKarteName == this.eigeneKarteName &&
+          other.eigeneKarteUrl == this.eigeneKarteUrl &&
+          other.eigeneKarteNennung == this.eigeneKarteNennung &&
+          other.eigeneKarteStufe == this.eigeneKarteStufe &&
+          other.eigeneKarteZugestimmt == this.eigeneKarteZugestimmt &&
           other.maxGleichzeitig == this.maxGleichzeitig &&
           other.translateCaptions == this.translateCaptions &&
           other.translateSearchAndTags == this.translateSearchAndTags);
@@ -11541,6 +11763,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<double> faceSimilarityThreshold;
   final Value<String> kartenansicht;
   final Value<String?> cartoSchluessel;
+  final Value<String?> eigeneKarteName;
+  final Value<String?> eigeneKarteUrl;
+  final Value<String?> eigeneKarteNennung;
+  final Value<int?> eigeneKarteStufe;
+  final Value<bool> eigeneKarteZugestimmt;
   final Value<int> maxGleichzeitig;
   final Value<bool> translateCaptions;
   final Value<bool> translateSearchAndTags;
@@ -11554,6 +11781,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.faceSimilarityThreshold = const Value.absent(),
     this.kartenansicht = const Value.absent(),
     this.cartoSchluessel = const Value.absent(),
+    this.eigeneKarteName = const Value.absent(),
+    this.eigeneKarteUrl = const Value.absent(),
+    this.eigeneKarteNennung = const Value.absent(),
+    this.eigeneKarteStufe = const Value.absent(),
+    this.eigeneKarteZugestimmt = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
@@ -11568,6 +11800,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.faceSimilarityThreshold = const Value.absent(),
     this.kartenansicht = const Value.absent(),
     this.cartoSchluessel = const Value.absent(),
+    this.eigeneKarteName = const Value.absent(),
+    this.eigeneKarteUrl = const Value.absent(),
+    this.eigeneKarteNennung = const Value.absent(),
+    this.eigeneKarteStufe = const Value.absent(),
+    this.eigeneKarteZugestimmt = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
@@ -11582,6 +11819,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<double>? faceSimilarityThreshold,
     Expression<String>? kartenansicht,
     Expression<String>? cartoSchluessel,
+    Expression<String>? eigeneKarteName,
+    Expression<String>? eigeneKarteUrl,
+    Expression<String>? eigeneKarteNennung,
+    Expression<int>? eigeneKarteStufe,
+    Expression<bool>? eigeneKarteZugestimmt,
     Expression<int>? maxGleichzeitig,
     Expression<bool>? translateCaptions,
     Expression<bool>? translateSearchAndTags,
@@ -11599,6 +11841,13 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
         'face_similarity_threshold': faceSimilarityThreshold,
       if (kartenansicht != null) 'kartenansicht': kartenansicht,
       if (cartoSchluessel != null) 'carto_schluessel': cartoSchluessel,
+      if (eigeneKarteName != null) 'eigene_karte_name': eigeneKarteName,
+      if (eigeneKarteUrl != null) 'eigene_karte_url': eigeneKarteUrl,
+      if (eigeneKarteNennung != null)
+        'eigene_karte_nennung': eigeneKarteNennung,
+      if (eigeneKarteStufe != null) 'eigene_karte_stufe': eigeneKarteStufe,
+      if (eigeneKarteZugestimmt != null)
+        'eigene_karte_zugestimmt': eigeneKarteZugestimmt,
       if (maxGleichzeitig != null) 'max_gleichzeitig': maxGleichzeitig,
       if (translateCaptions != null) 'translate_captions': translateCaptions,
       if (translateSearchAndTags != null)
@@ -11616,6 +11865,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<double>? faceSimilarityThreshold,
       Value<String>? kartenansicht,
       Value<String?>? cartoSchluessel,
+      Value<String?>? eigeneKarteName,
+      Value<String?>? eigeneKarteUrl,
+      Value<String?>? eigeneKarteNennung,
+      Value<int?>? eigeneKarteStufe,
+      Value<bool>? eigeneKarteZugestimmt,
       Value<int>? maxGleichzeitig,
       Value<bool>? translateCaptions,
       Value<bool>? translateSearchAndTags}) {
@@ -11631,6 +11885,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           faceSimilarityThreshold ?? this.faceSimilarityThreshold,
       kartenansicht: kartenansicht ?? this.kartenansicht,
       cartoSchluessel: cartoSchluessel ?? this.cartoSchluessel,
+      eigeneKarteName: eigeneKarteName ?? this.eigeneKarteName,
+      eigeneKarteUrl: eigeneKarteUrl ?? this.eigeneKarteUrl,
+      eigeneKarteNennung: eigeneKarteNennung ?? this.eigeneKarteNennung,
+      eigeneKarteStufe: eigeneKarteStufe ?? this.eigeneKarteStufe,
+      eigeneKarteZugestimmt:
+          eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
       maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
       translateCaptions: translateCaptions ?? this.translateCaptions,
       translateSearchAndTags:
@@ -11670,6 +11930,22 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (cartoSchluessel.present) {
       map['carto_schluessel'] = Variable<String>(cartoSchluessel.value);
     }
+    if (eigeneKarteName.present) {
+      map['eigene_karte_name'] = Variable<String>(eigeneKarteName.value);
+    }
+    if (eigeneKarteUrl.present) {
+      map['eigene_karte_url'] = Variable<String>(eigeneKarteUrl.value);
+    }
+    if (eigeneKarteNennung.present) {
+      map['eigene_karte_nennung'] = Variable<String>(eigeneKarteNennung.value);
+    }
+    if (eigeneKarteStufe.present) {
+      map['eigene_karte_stufe'] = Variable<int>(eigeneKarteStufe.value);
+    }
+    if (eigeneKarteZugestimmt.present) {
+      map['eigene_karte_zugestimmt'] =
+          Variable<bool>(eigeneKarteZugestimmt.value);
+    }
     if (maxGleichzeitig.present) {
       map['max_gleichzeitig'] = Variable<int>(maxGleichzeitig.value);
     }
@@ -11695,6 +11971,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('faceSimilarityThreshold: $faceSimilarityThreshold, ')
           ..write('kartenansicht: $kartenansicht, ')
           ..write('cartoSchluessel: $cartoSchluessel, ')
+          ..write('eigeneKarteName: $eigeneKarteName, ')
+          ..write('eigeneKarteUrl: $eigeneKarteUrl, ')
+          ..write('eigeneKarteNennung: $eigeneKarteNennung, ')
+          ..write('eigeneKarteStufe: $eigeneKarteStufe, ')
+          ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
@@ -23026,6 +23307,11 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<double> faceSimilarityThreshold,
   Value<String> kartenansicht,
   Value<String?> cartoSchluessel,
+  Value<String?> eigeneKarteName,
+  Value<String?> eigeneKarteUrl,
+  Value<String?> eigeneKarteNennung,
+  Value<int?> eigeneKarteStufe,
+  Value<bool> eigeneKarteZugestimmt,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
@@ -23041,6 +23327,11 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<double> faceSimilarityThreshold,
   Value<String> kartenansicht,
   Value<String?> cartoSchluessel,
+  Value<String?> eigeneKarteName,
+  Value<String?> eigeneKarteUrl,
+  Value<String?> eigeneKarteNennung,
+  Value<int?> eigeneKarteStufe,
+  Value<bool> eigeneKarteZugestimmt,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
@@ -23085,6 +23376,26 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<String> get cartoSchluessel => $composableBuilder(
       column: $table.cartoSchluessel,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get eigeneKarteName => $composableBuilder(
+      column: $table.eigeneKarteName,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get eigeneKarteUrl => $composableBuilder(
+      column: $table.eigeneKarteUrl,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get eigeneKarteNennung => $composableBuilder(
+      column: $table.eigeneKarteNennung,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get eigeneKarteStufe => $composableBuilder(
+      column: $table.eigeneKarteStufe,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get eigeneKarteZugestimmt => $composableBuilder(
+      column: $table.eigeneKarteZugestimmt,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get maxGleichzeitig => $composableBuilder(
@@ -23142,6 +23453,26 @@ class $$AppSettingsTableOrderingComposer
       column: $table.cartoSchluessel,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get eigeneKarteName => $composableBuilder(
+      column: $table.eigeneKarteName,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get eigeneKarteUrl => $composableBuilder(
+      column: $table.eigeneKarteUrl,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get eigeneKarteNennung => $composableBuilder(
+      column: $table.eigeneKarteNennung,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get eigeneKarteStufe => $composableBuilder(
+      column: $table.eigeneKarteStufe,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get eigeneKarteZugestimmt => $composableBuilder(
+      column: $table.eigeneKarteZugestimmt,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get maxGleichzeitig => $composableBuilder(
       column: $table.maxGleichzeitig,
       builder: (column) => ColumnOrderings(column));
@@ -23191,6 +23522,21 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<String> get cartoSchluessel => $composableBuilder(
       column: $table.cartoSchluessel, builder: (column) => column);
 
+  GeneratedColumn<String> get eigeneKarteName => $composableBuilder(
+      column: $table.eigeneKarteName, builder: (column) => column);
+
+  GeneratedColumn<String> get eigeneKarteUrl => $composableBuilder(
+      column: $table.eigeneKarteUrl, builder: (column) => column);
+
+  GeneratedColumn<String> get eigeneKarteNennung => $composableBuilder(
+      column: $table.eigeneKarteNennung, builder: (column) => column);
+
+  GeneratedColumn<int> get eigeneKarteStufe => $composableBuilder(
+      column: $table.eigeneKarteStufe, builder: (column) => column);
+
+  GeneratedColumn<bool> get eigeneKarteZugestimmt => $composableBuilder(
+      column: $table.eigeneKarteZugestimmt, builder: (column) => column);
+
   GeneratedColumn<int> get maxGleichzeitig => $composableBuilder(
       column: $table.maxGleichzeitig, builder: (column) => column);
 
@@ -23236,6 +23582,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<double> faceSimilarityThreshold = const Value.absent(),
             Value<String> kartenansicht = const Value.absent(),
             Value<String?> cartoSchluessel = const Value.absent(),
+            Value<String?> eigeneKarteName = const Value.absent(),
+            Value<String?> eigeneKarteUrl = const Value.absent(),
+            Value<String?> eigeneKarteNennung = const Value.absent(),
+            Value<int?> eigeneKarteStufe = const Value.absent(),
+            Value<bool> eigeneKarteZugestimmt = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
@@ -23250,6 +23601,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             faceSimilarityThreshold: faceSimilarityThreshold,
             kartenansicht: kartenansicht,
             cartoSchluessel: cartoSchluessel,
+            eigeneKarteName: eigeneKarteName,
+            eigeneKarteUrl: eigeneKarteUrl,
+            eigeneKarteNennung: eigeneKarteNennung,
+            eigeneKarteStufe: eigeneKarteStufe,
+            eigeneKarteZugestimmt: eigeneKarteZugestimmt,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
@@ -23264,6 +23620,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<double> faceSimilarityThreshold = const Value.absent(),
             Value<String> kartenansicht = const Value.absent(),
             Value<String?> cartoSchluessel = const Value.absent(),
+            Value<String?> eigeneKarteName = const Value.absent(),
+            Value<String?> eigeneKarteUrl = const Value.absent(),
+            Value<String?> eigeneKarteNennung = const Value.absent(),
+            Value<int?> eigeneKarteStufe = const Value.absent(),
+            Value<bool> eigeneKarteZugestimmt = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
@@ -23278,6 +23639,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             faceSimilarityThreshold: faceSimilarityThreshold,
             kartenansicht: kartenansicht,
             cartoSchluessel: cartoSchluessel,
+            eigeneKarteName: eigeneKarteName,
+            eigeneKarteUrl: eigeneKarteUrl,
+            eigeneKarteNennung: eigeneKarteNennung,
+            eigeneKarteStufe: eigeneKarteStufe,
+            eigeneKarteZugestimmt: eigeneKarteZugestimmt,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,

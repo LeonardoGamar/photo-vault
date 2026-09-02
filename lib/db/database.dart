@@ -23,6 +23,7 @@ import '../services/search_filters.dart';
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
 import '../services/xmp_regionen.dart';
+import '../services/eigenkarte.dart';
 
 part 'database.g.dart';
 
@@ -1316,6 +1317,58 @@ class AppSettings extends Table {
   /// hinaus. Er gehört dem, der ihn beantragt.
   TextColumn get cartoSchluessel => text().nullable()();
 
+  /// Anzeigename der eigenen Kartenquelle, z. B. „Mapbox Streets".
+  ///
+  /// **Warum es diese Quelle überhaupt gibt.** Die drei mitgelieferten
+  /// Stile hängen an frei betriebenen Servern: OpenStreetMap trägt bis
+  /// Zoomstufe 19, OpenTopoMap nur bis 17. Wer Hausnummern und
+  /// Gebäudeumrisse braucht oder ein Luftbild, kommt an einem
+  /// Anbieter mit Schlüssel nicht vorbei – und der gehört dem, der ihn
+  /// beantragt, genau wie beim CARTO-Schlüssel.
+  ///
+  /// Als vier lose Spalten und nicht als Tabelle: Es ist **eine**
+  /// Quelle, nicht eine Liste. Wer zwischen mehreren wechseln will,
+  /// tauscht die Angaben – eine Verwaltung mit Anlegen, Umbenennen und
+  /// Löschen wäre für einen einzigen Eintrag zu viel Maschine.
+  TextColumn get eigeneKarteName => text().nullable()();
+
+  /// Adressvorlage der eigenen Kartenquelle, mit `{z}`, `{x}`, `{y}`.
+  ///
+  /// Der Schlüssel steht **mit in dieser Adresse** und nicht in einer
+  /// eigenen Spalte. Das ist Absicht: Jeder Anbieter hängt ihn woanders
+  /// hin – Mapbox als `?access_token=`, MapTiler als `?key=`,
+  /// Thunderforest als `?apikey=`, Google als `?session=…&key=`. Eine
+  /// eigene Spalte müsste all diese Formen kennen und wäre bei jedem
+  /// weiteren Anbieter wieder falsch.
+  TextColumn get eigeneKarteUrl => text().nullable()();
+
+  /// Die Namensnennung, die unter der eigenen Karte stehen muss.
+  ///
+  /// Keine Zierde, sondern die Lizenzauflage praktisch jedes Anbieters.
+  /// Deshalb ist sie ein Pflichtfeld in der Einstellung: Ohne sie lässt
+  /// sich die Quelle nicht einschalten.
+  TextColumn get eigeneKarteNennung => text().nullable()();
+
+  /// Höchste Stufe, für die der eigene Anbieter echte Kacheln liefert.
+  ///
+  /// Ohne Angabe gilt 19. Zu hoch angesetzt heisst: leere oder
+  /// einfarbige Kacheln, ohne Fehlermeldung – genau die Falle, die bei
+  /// OpenTopoMap gemessen wurde (siehe `Kartenstil.topo`).
+  IntColumn get eigeneKarteStufe => integer().nullable()();
+
+  /// Ob der Hinweis zu Datenübermittlung und Offline-Nutzung bestätigt
+  /// wurde.
+  ///
+  /// **Ein eigener Wert und keine blosse Dialogfrage**, weil er etwas
+  /// anderes bedeutet als „Adresse eingetragen": Diese App holt ihre
+  /// Kacheln sonst von Servern, die niemandem Rechenschaft schulden.
+  /// Eine Fremdquelle mit Schlüssel sieht dagegen jede angesehene
+  /// Stelle **und** weiss, wer hinsieht. Wer das einschaltet, soll es
+  /// einmal ausdrücklich gelesen haben – und nicht bei jedem Start neu
+  /// gefragt werden.
+  BoolColumn get eigeneKarteZugestimmt =>
+      boolean().withDefault(const Constant(false))();
+
   /// Wie viele rechenintensive Aufgaben gleichzeitig laufen dürfen.
   ///
   /// **Warum das eine Einstellung ist und keine Konstante.** Bis hierher
@@ -1456,7 +1509,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 65;
+  int get schemaVersion => 66;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1853,6 +1906,22 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 66) {
+            // Die eigene Kartenquelle (siehe die Spalten). Alles leer und
+            // nicht zugestimmt = genau das bisherige Verhalten: Der
+            // Eintrag taucht im Kartenmenue erst auf, wenn er ausgefuellt
+            // ist.
+            for (final spalte in [
+              appSettings.eigeneKarteName,
+              appSettings.eigeneKarteUrl,
+              appSettings.eigeneKarteNennung,
+              appSettings.eigeneKarteStufe,
+              appSettings.eigeneKarteZugestimmt,
+            ]) {
+              await _addColumnIfMissing(
+                  m, appSettings, spalte, 'app_settings', spalte.name);
+            }
           }
           if (from < 65) {
             // Zuordnungen, die auf die VIDEOHÄLFTE eines Live Photos
@@ -3280,6 +3349,42 @@ class AppDatabase extends _$AppDatabase {
   /// `?key=` ohne Wert, und der Server antwortete mit dem Wasserzeichen
   /// statt mit einer Karte – also genau dem Zustand, den die
   /// Einstellung beheben soll.
+  /// Die eigene Kartenquelle, oder null, wenn keine eingerichtet ist.
+  ///
+  /// Alles-oder-nichts: Fehlt Adresse, Namensnennung oder die
+  /// Zustimmung, gibt es keine Quelle. Eine halb ausgefuellte Quelle
+  /// waere schlimmer als keine – die Karte bliebe leer, und die
+  /// Namensnennung ist eine Lizenzauflage, keine Kür.
+  Future<Eigenkarte?> eigeneKarteWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    if (row == null) return null;
+    return Eigenkarte.aus(
+      name: row.eigeneKarteName,
+      url: row.eigeneKarteUrl,
+      nennung: row.eigeneKarteNennung,
+      stufe: row.eigeneKarteStufe,
+      zugestimmt: row.eigeneKarteZugestimmt,
+    );
+  }
+
+  /// Legt die eigene Kartenquelle ab. `null` loescht sie wieder.
+  Future<void> setzeEigeneKarteWert(Eigenkarte? karte) {
+    String? sauber(String? w) {
+      final t = w?.trim();
+      return t == null || t.isEmpty ? null : t;
+    }
+
+    return into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+      id: const Value(0),
+      eigeneKarteName: Value(sauber(karte?.name)),
+      eigeneKarteUrl: Value(sauber(karte?.url)),
+      eigeneKarteNennung: Value(sauber(karte?.nennung)),
+      eigeneKarteStufe: Value(karte?.stufe),
+      eigeneKarteZugestimmt: Value(karte?.zugestimmt ?? false),
+    ));
+  }
+
   Future<void> setzeCartoSchluesselWert(String? schluessel) {
     final wert = schluessel?.trim();
     return into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(

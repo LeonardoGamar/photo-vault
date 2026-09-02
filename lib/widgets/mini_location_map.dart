@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -10,6 +11,7 @@ import 'package:http/io_client.dart';
 import 'package:http/retry.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
+import '../services/eigenkarte.dart';
 import '../services/kachelmitschnitt.dart';
 import '../theme/app_spacing.dart';
 import 'wisch_zoom.dart';
@@ -36,6 +38,19 @@ void setzeCartoSchluessel(String? schluessel) {
   final wert = schluessel?.trim();
   _cartoSchluessel = wert == null || wert.isEmpty ? null : wert;
 }
+
+/// Die eingerichtete eigene Kartenquelle, oder null.
+Eigenkarte? _eigeneKarte;
+
+/// Die gerade geltende eigene Kartenquelle, oder null.
+Eigenkarte? get eigeneKarte => _eigeneKarte;
+
+/// Setzt die eigene Kartenquelle für alle Karten dieser App.
+///
+/// Modulweit aus demselben Grund wie beim CARTO-Schlüssel: Es ist eine
+/// app-weite Angabe, und [buildMapTileLayer] wird an sechs Stellen ohne
+/// jeden Zustand aufgerufen.
+void setzeEigeneKarte(Eigenkarte? karte) => _eigeneKarte = karte;
 
 /// Die verfügbaren Kartenstile.
 ///
@@ -114,6 +129,21 @@ enum Kartenstil {
     kachelUrl: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
     namensnennung: '© OpenStreetMap contributors, SRTM | © opentopomap.org (CC-BY-SA)',
     hoechsteEchteStufe: 17,
+  ),
+
+  /// Die selbst eingetragene Quelle – Adresse, Namensnennung und
+  /// Zoomgrenze kommen aus den Einstellungen (siehe [Eigenkarte]).
+  ///
+  /// **Der einzige Stil ohne feste Adresse**, und deshalb der einzige,
+  /// der `null` liefern kann: Ist keine Quelle eingerichtet, taucht er
+  /// im Kartenmenü gar nicht erst auf (siehe `Kartenansicht`). Die
+  /// Ausweichwerte hier sind nur da, damit ein versehentlicher Aufruf
+  /// nicht wirft – die Karte fiele dann auf OpenStreetMap zurück, was
+  /// sichtbar falsch ist und nichts kaputt macht.
+  eigene(
+    kachelUrl: _osmKacheln,
+    namensnennung: _osmNennung,
+    hoechsteEchteStufe: 19,
   );
 
   const Kartenstil({
@@ -142,13 +172,18 @@ enum Kartenstil {
   /// `keine_festen_texte_test.dart` wie ein vergessener
   /// Oberflächentext aus – „key" sind drei Buchstaben am Stück. Als Teil
   /// einer Adresse, die mit `https` beginnt, ist es eindeutig keiner.
-  String get kachelUrl =>
-      _ueberCarto ? '$_cartoKacheln$_cartoSchluessel' : _kachelUrl;
+  String get kachelUrl {
+    if (this == eigene && _eigeneKarte != null) return _eigeneKarte!.url;
+    return _ueberCarto ? '$_cartoKacheln$_cartoSchluessel' : _kachelUrl;
+  }
 
   /// Die Namensnennung – eine Lizenzauflage, und sie muss zu den
   /// Kacheln passen, die tatsächlich im Bild stehen. CARTO verlangt sie
   /// ausdrücklich auch bei Nutzung mit Schlüssel.
-  String get namensnennung => _ueberCarto ? _cartoNennung : _namensnennung;
+  String get namensnennung {
+    if (this == eigene && _eigeneKarte != null) return _eigeneKarte!.nennung;
+    return _ueberCarto ? _cartoNennung : _namensnennung;
+  }
 
   List<String> get unterbereiche =>
       _ueberCarto ? _cartoUnterbereiche : _unterbereiche;
@@ -161,7 +196,12 @@ enum Kartenstil {
 
   /// Höchste Stufe, für die der Anbieter echte Kacheln liefert. `null`
   /// heisst „so weit wie die Karte zoomt".
-  int? get hoechsteEchteStufe => _ueberCarto ? 20 : _hoechsteEchteStufe;
+  int? get hoechsteEchteStufe {
+    if (this == eigene && _eigeneKarte != null) {
+      return _eigeneKarte!.hoechsteEchteStufe;
+    }
+    return _ueberCarto ? 20 : _hoechsteEchteStufe;
+  }
 
   /// Bis hierhin darf die Karte zoomen.
   ///
@@ -353,6 +393,209 @@ const kachelVersuche = 2;
 /// nicht zu sehen – und dafür sechs Verbindungen statt sechzig.
 const kachelVerbindungen = 6;
 
+/// Wie lange ein Kachelabruf schweigen darf, bevor er abgebrochen wird.
+///
+/// **Bis hierher stand im ganzen Kachelweg keine einzige Zeitgrenze** –
+/// weder am Verbinden noch am Warten auf die Antwort. Das klingt nach
+/// einer Kleinigkeit und ist der Unterschied zwischen einer Karte, die
+/// sich erholt, und einer, die für den Rest der Sitzung grau bleibt.
+///
+/// Denn [kachelVerbindungen] deckelt die Zahl gleichzeitiger
+/// Verbindungen zu einem Server auf sechs. Bleiben sechs Antworten aus –
+/// halboffene Verbindungen nach Ruhezustand, Netzwechsel oder einem
+/// Server, der annimmt und schweigt –, wartet **jeder weitere Abruf auf
+/// einen Platz, der nie frei wird**. An einem Server nachgestellt, der
+/// annimmt und nichts sagt:
+///
+/// ```
+/// nach 2 s : 6 Verbindungen offen, 0 Abrufe fertig
+/// nach 10 s: siebter Abruf immer noch nicht fertig
+/// ```
+///
+/// Und weil dieser siebte Abruf nie **scheitert**, sondern schlicht
+/// wartet, meldet flutter_map auch keine gescheiterte Kachel. Die
+/// Nachfass-Staffel aus [kachelNachfassen] wird damit nie ausgelöst: Es
+/// gibt ja keinen Fehler, an dem sie sich festmachen könnte. Die Kachel
+/// bleibt für immer im Zustand „lädt".
+///
+/// **`connectionTimeout` ist dafür der falsche Griff**, und das war der
+/// erste Anlauf: Die Verbindung STEHT ja – sie wird angenommen, es kommt
+/// nur nichts zurück. Im selben Versuch gemessen: mit
+/// `connectionTimeout: 1 s` brach nach zwanzig Sekunden **kein
+/// einziger** der acht Abrufe ab. Es braucht eine Frist auf die
+/// **Antwort**, und sie muss die Verbindung wirklich abräumen, nicht nur
+/// das Warten aufgeben.
+///
+/// Fünfzehn Sekunden, und die Uhr wird einmal neu gestellt, sobald die
+/// Kopfzeilen da sind: einmal fürs Verbinden und Antworten, einmal für
+/// den Rumpf. Zum Vergleich die gemessenen Wirklichkeiten – 36 Kacheln
+/// in einem Zug, echte Abrufe:
+///
+/// ```
+/// OSM  z12  138 ms      OSM  z19  2.080 ms
+/// Topo z12  213 ms      Topo z17    135 ms
+/// OpenTopoMap frisch gerendert (MISS): 1,72 s
+/// ```
+///
+/// **Eine Frist auf Stille wäre schöner gewesen und ist nicht zu
+/// haben.** Der erste Entwurf stellte die Uhr bei jedem angekommenen
+/// Stück neu, damit ein langsamer, aber laufender Abruf nicht
+/// abgeschnitten wird. Der Prüfstand zeigte, dass dieses Stück nie
+/// einzeln ankommt: `HttpClientResponse` gibt den Rumpf **am Stück**
+/// heraus, nachdem er vollständig gelesen ist. An einem Server
+/// gemessen, der acht Stücke im Abstand von 250 ms schickt:
+///
+/// ```
+/// Server: Stueck 0 .. 7 raus, 60410 .. 62182 ms
+/// Client: 8 x 128 B, alle bei 62437 ms
+/// ```
+///
+/// Das Neustellen steht trotzdem im Code – es kostet nichts und wäre
+/// richtig, falls eine Plattform doch stückweise liefert. Verlassen darf
+/// man sich nicht darauf: In der Praxis deckt die zweite Uhr den ganzen
+/// Rumpf ab.
+const kachelZeitgrenze = Duration(seconds: 15);
+
+/// Der Client, der einen schweigenden Abruf nicht ewig laufen lässt.
+///
+/// **Warum ein eigener Client und nicht `Future.timeout`.** Eine Frist
+/// auf das Future gibt nur das Warten auf – die Verbindung darunter
+/// bleibt belegt, und genau darum geht es hier. Der Abbruch muss bis zum
+/// Socket durchschlagen. `package:http` kann das seit 1.6 über
+/// [Abortable]: `IOClient` hängt sich an den `abortTrigger` und ruft
+/// `HttpClientRequest.abort`.
+///
+/// Deshalb wird die Anfrage hier **umkopiert** – mit einem Auslöser, der
+/// entweder von der Frist oder vom ursprünglichen Auslöser kommt. Der
+/// muss mit, sonst verlöre die Karte ihre eigene Abbruchmöglichkeit für
+/// Kacheln, die beim Ziehen aus dem Bild laufen.
+///
+/// **Und der Fehler muss die Farbe wechseln.** flutter_map behandelt
+/// [RequestAbortedException] als geplanten Abbruch: durchsichtige Kachel,
+/// kein Fehler, kein neuer Versuch. Für einen Abbruch beim Ziehen ist das
+/// richtig, für eine abgelaufene Frist genau falsch – die Kachel bliebe
+/// stumm leer. Wer wegen der Frist stirbt, stirbt deshalb als
+/// [ClientException], und damit greifen [kachelFehlerNochmalVersuchen],
+/// der `RetryClient` und am Ende die Staffel aus [Kachelschicht].
+class ZeitgrenzeClient extends BaseClient {
+  ZeitgrenzeClient(this._innen, {this.frist = kachelZeitgrenze});
+
+  final Client _innen;
+  final Duration frist;
+
+  @override
+  Future<StreamedResponse> send(BaseRequest anfrage) async {
+    final abbruch = Completer<void>();
+    var wegenFrist = false;
+    Timer? uhr;
+
+    void stelleUhr() {
+      uhr?.cancel();
+      uhr = Timer(frist, () {
+        if (abbruch.isCompleted) return;
+        wegenFrist = true;
+        abbruch.complete();
+      });
+    }
+
+    void ausschalten() {
+      uhr?.cancel();
+      uhr = null;
+    }
+
+    // Der eigene Auslöser der Karte muss weiter durchschlagen – siehe
+    // Klassenkommentar.
+    if (anfrage case Abortable(:final abortTrigger?)) {
+      unawaited(abortTrigger.whenComplete(() {
+        if (!abbruch.isCompleted) abbruch.complete();
+      }));
+    }
+    stelleUhr();
+
+    Never uebersetze(Object fehler, StackTrace spur) {
+      if (wegenFrist) {
+        Error.throwWithStackTrace(
+          // Englisch wie die uebrigen Meldungen dieser Schicht: Sie
+          // landen unveraendert im Kachelmitschnitt, neben denen von
+          // dart:io, und werden nicht uebersetzt.
+          ClientException(
+              'Aborted: no response within ${frist.inSeconds} s', anfrage.url),
+          spur,
+        );
+      }
+      Error.throwWithStackTrace(fehler, spur);
+    }
+
+    final kopie = AbortableStreamedRequest(anfrage.method, anfrage.url,
+        abortTrigger: abbruch.future)
+      ..followRedirects = anfrage.followRedirects
+      ..headers.addAll(anfrage.headers)
+      ..maxRedirects = anfrage.maxRedirects
+      ..persistentConnection = anfrage.persistentConnection;
+    if (anfrage.contentLength != null) {
+      kopie.contentLength = anfrage.contentLength;
+    }
+    unawaited(anfrage.finalize().forEach(kopie.sink.add).then(
+          (_) => kopie.sink.close(),
+          onError: (Object f, StackTrace s) => kopie.sink.addError(f, s),
+        ));
+
+    final StreamedResponse antwort;
+    try {
+      antwort = await _innen.send(kopie);
+    } catch (fehler, spur) {
+      ausschalten();
+      uebersetze(fehler, spur);
+    }
+    // Die Kopfzeilen sind da – ab hier zählt die Stille im Rumpf.
+    stelleUhr();
+
+    final durchgereicht = StreamController<List<int>>();
+    late final StreamSubscription<List<int>> abo;
+    abo = antwort.stream.listen(
+      (stueck) {
+        stelleUhr();
+        durchgereicht.add(stueck);
+      },
+      onError: (Object fehler, StackTrace spur) {
+        ausschalten();
+        if (wegenFrist) {
+          durchgereicht.addError(
+              ClientException(
+                  'Aborted: response body stalled for ${frist.inSeconds} s',
+                  anfrage.url),
+              spur);
+        } else {
+          durchgereicht.addError(fehler, spur);
+        }
+        durchgereicht.close();
+      },
+      onDone: () {
+        ausschalten();
+        durchgereicht.close();
+      },
+    );
+    durchgereicht.onCancel = () {
+      ausschalten();
+      return abo.cancel();
+    };
+
+    return StreamedResponse(
+      durchgereicht.stream,
+      antwort.statusCode,
+      contentLength: antwort.contentLength,
+      request: antwort.request,
+      headers: antwort.headers,
+      isRedirect: antwort.isRedirect,
+      persistentConnection: antwort.persistentConnection,
+      reasonPhrase: antwort.reasonPhrase,
+    );
+  }
+
+  @override
+  void close() => _innen.close();
+}
+
 /// Der Anbieter, bei dem ein zweiter Anlauf auch wirklich einer ist.
 ///
 /// **Warum es ihn braucht.** [Kachelschicht] zählt nach einem Fehlschlag
@@ -392,8 +635,79 @@ const kachelVerbindungen = 6;
 /// behalten ihre Adresse und damit ihren Platz im Bildspeicher – sonst
 /// zöge jedes Nachfassen den ganzen Bildschirm neu über die Leitung, und
 /// die Kachelserver werden gespendet.
+/// Der Kachelspeicher, der den Nachfass-Anhang nicht mitzaehlt.
+///
+/// **Warum es ihn braucht.** [Nachfassanbieter] haengt an die Adresse
+/// einer gescheiterten Kachel einen Rautenteil `#1`, `#2` … Das ist fuer
+/// den Server unsichtbar (dart:io schneidet ihn ab) und fuer Flutters
+/// Bildspeicher genau der gewuenschte Unterschied. Fuer den
+/// **Kachelspeicher auf der Platte** ist es einer zu viel: Dessen
+/// Schluessel ist eine UUID Fassung 5 ueber der vollen Adresse, und die
+/// aendert sich mit jedem Zeichen. Nachgerechnet:
+///
+/// ```
+/// .../12/2148/1370.png     -> 1a3d912d-cc8b-5121-842d-fccfb3a86bd6
+/// .../12/2148/1370.png#1   -> 257e26da-952e-5b88-960d-b5c1ac48d0be
+/// .../12/2148/1370.png#2   -> 0af6f85d-700f-586e-8b5e-60482706d685
+/// ```
+///
+/// Zwei Schaeden folgen daraus, und beide treffen genau den Fall, fuer
+/// den es das Vorladen gibt. **Erstens** wird eine Kachel, die einmal
+/// gescheitert ist, danach nie wieder auf der Platte gesucht – die
+/// vorgeladene Fassung liegt da und wird nicht mehr gefunden. Ohne Netz
+/// bleibt das Loch also stehen, obwohl das Bild bereits im Haus ist.
+/// **Zweitens** landete dieselbe Kachel bei Erfolg ein zweites Mal im
+/// Speicher, unter dem verunreinigten Schluessel.
+///
+/// Hier wird der Rautenteil deshalb abgeschnitten, bevor gelesen oder
+/// geschrieben wird. Der Bildspeicher sieht weiterhin zwei verschiedene
+/// Adressen, die Platte nur eine.
+class FragmentloserSpeicher implements MapCachingProvider {
+  /// Um einen bereits gebauten Speicher herum – für Prüfstände.
+  FragmentloserSpeicher(MapCachingProvider innen) : _bauen = (() => innen);
+
+  /// **Erst beim ersten Zugriff** den Speicher anlegen.
+  ///
+  /// Nicht der Ordnung halber, sondern weil es sonst bricht:
+  /// [BuiltInMapCachingProvider.getOrCreateInstance] fragt über
+  /// `path_provider` nach dem Zwischenspeicher-Verzeichnis, und das geht
+  /// über einen Plattformkanal. Wer ihn schon im Konstruktor von
+  /// [Nachfassanbieter] anlegt, verlangt damit eine fertige Bindung –
+  /// und ein Prüfstand, der bloss den Anbieter baut, fällt mit
+  /// „Binding has not yet been initialized" um. Genau so ist es beim
+  /// ersten Anlauf passiert.
+  FragmentloserSpeicher.spaet([MapCachingProvider Function()? bauen])
+      : _bauen = bauen ?? kartenKachelspeicher;
+
+  final MapCachingProvider Function() _bauen;
+  MapCachingProvider? _gebaut;
+  MapCachingProvider get _innen => _gebaut ??= _bauen();
+
+  /// Sichtbar fuer den Pruefstand: Was aus einer Adresse mit Anhang wird.
+  static String ohneAnhang(String adresse) {
+    final raute = adresse.indexOf('#');
+    return raute < 0 ? adresse : adresse.substring(0, raute);
+  }
+
+  @override
+  bool get isSupported => _innen.isSupported;
+
+  @override
+  Future<CachedMapTile?> getTile(String url) => _innen.getTile(ohneAnhang(url));
+
+  @override
+  Future<void> putTile({
+    required String url,
+    required CachedMapTileMetadata metadata,
+    Uint8List? bytes,
+  }) =>
+      _innen.putTile(
+          url: ohneAnhang(url), metadata: metadata, bytes: bytes);
+}
+
 class Nachfassanbieter extends NetworkTileProvider {
-  Nachfassanbieter({super.httpClient});
+  Nachfassanbieter({super.httpClient})
+      : super(cachingProvider: FragmentloserSpeicher.spaet());
 
   /// Kachel -> wie oft sie schon gescheitert ist. Nur Einträge für
   /// Kacheln, die tatsächlich fehlgeschlagen sind.
@@ -439,7 +753,13 @@ Client? _kachelNetz;
 /// Öffentlich, damit ein Prüfstand ihn gegen einen eigenen Server
 /// laufen lassen kann – die Deckelung ist sonst nirgends abzulesen.
 Client kachelNetzClient() => _kachelNetz ??= RetryClient(
-      MitschnittClient(IOClient(kachelHttpClient()), Kachelmitschnitt.instanz),
+      // Die Frist sitzt UNTER dem Mitschnitt und IM RetryClient: unter dem
+      // Mitschnitt, damit ein abgelaufener Abruf dort als Fehlschlag steht
+      // und nicht als Abruf, den es nie gab; im RetryClient, damit ein
+      // schweigender Server einen zweiten Anlauf bekommt, statt die Kachel
+      // gleich grau zu lassen.
+      MitschnittClient(ZeitgrenzeClient(IOClient(kachelHttpClient())),
+          Kachelmitschnitt.instanz),
       retries: kachelVersuche,
       when: (antwort) => kachelNochmalVersuchen(antwort.statusCode),
       whenError: (fehler, _) => kachelFehlerNochmalVersuchen(fehler),
@@ -460,6 +780,10 @@ Client kachelNetzClient() => _kachelNetz ??= RetryClient(
 @visibleForTesting
 HttpClient kachelHttpClient() => HttpClient()
   ..maxConnectionsPerHost = kachelVerbindungen
+  // Deckt nur das Verbinden ab, nicht das Warten auf die Antwort – dafür
+  // ist [ZeitgrenzeClient] da, und dort steht auch, warum diese Zeile
+  // allein nichts gerettet hätte.
+  ..connectionTimeout = const Duration(seconds: 10)
   ..connectionFactory = kachelVerbindung;
 
 /// Öffnet die Verbindung, die ein Kachelabruf braucht – und zählt sie.

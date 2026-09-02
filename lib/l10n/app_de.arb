@@ -147,23 +147,52 @@
   "staubSuchen": "Suchen",
   "staubFortschritt": "{erledigt} von {gesamt} Aufnahmen untersucht",
   "@staubFortschritt": {
-    "placeholders": { "erledigt": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "erledigt": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "staubNichtsGefunden": "{anzahl, plural, =1{Auf der untersuchten Aufnahme wurde kein Sensorstaub gefunden.} other{Auf {anzahl} untersuchten Aufnahmen wurde kein Sensorstaub gefunden.}}",
   "@staubNichtsGefunden": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "staubGefunden": "{anzahl, plural, =1{1 Stelle, die immer wieder auftaucht} other{{anzahl} Stellen, die immer wieder auftauchen}}",
   "@staubGefunden": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "staubAufWievielen": "auf {treffer} von {gesamt} untersuchten Aufnahmen",
   "@staubAufWievielen": {
-    "placeholders": { "treffer": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "treffer": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "staubUebersprungen": "{anzahl} von {gesamt} Aufnahmen liessen sich nicht lesen und wurden übersprungen.",
   "@staubUebersprungen": {
-    "placeholders": { "anzahl": { "type": "int" }, "gesamt": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      },
+      "gesamt": {
+        "type": "int"
+      }
+    }
   },
   "staubImEditorOeffnen": "Eine betroffene Aufnahme im Bildeditor öffnen",
   "allgKamera": "Kamera",
@@ -546,9 +575,21 @@
   "einstModellePruefenTitel": "Modelle nachrechnen",
   "einstModellePruefenText": "Rechnet die Prüfsumme jeder installierten Modelldatei neu und vergleicht sie mit dem Katalog. Dauert wenige Sekunden. Findet Dateien, die sich nach dem Herunterladen verändert haben – beim Herunterladen selbst wird ohnehin geprüft.",
   "einstModellePruefenLaeuft": "Rechnet nach: {datei}",
-  "@einstModellePruefenLaeuft": {"placeholders": {"datei": {"type": "String"}}},
+  "@einstModellePruefenLaeuft": {
+    "placeholders": {
+      "datei": {
+        "type": "String"
+      }
+    }
+  },
   "einstModellePruefenAlleGut": "{anzahl, plural, =1{Eine Modelldatei geprüft, sie stimmt.} other{{anzahl} Modelldateien geprüft, alle stimmen.}}",
-  "@einstModellePruefenAlleGut": {"placeholders": {"anzahl": {"type": "int"}}},
+  "@einstModellePruefenAlleGut": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "einstModellePruefenNichtsDa": "Es ist kein Modell installiert.",
   "einstModellePruefenBefundTitel": "Auffällige Modelldateien",
   "einstModellePruefenBefundText": "Diese Dateien sind nicht die, die der Katalog nennt. Lösche das betroffene Modell und lade es neu – erst danach ist verlässlich, was es liefert.",
@@ -1658,16 +1699,28 @@
   "stapelErklaerung": "Fotos, die sich ähneln UND innerhalb weniger Sekunden aufgenommen wurden, werden hier als Serie vorgeschlagen. \"Übernehmen\" fasst eine Gruppe zu einem Stapel zusammen – nur das Titelbild bleibt danach in der Übersicht sichtbar, nichts wird gelöscht.",
   "stapelAlleUebernehmen": "Alle {anzahl} übernehmen",
   "@stapelAlleUebernehmen": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "stapelAlleFrageTitel": "Alle Serien übernehmen?",
   "stapelAlleFrage": "{anzahl} Gruppen werden zu Stapeln zusammengefasst. Titelbild ist jeweils das schärfste Foto. Nichts geht dabei verloren – „Serie auflösen“ im Info-Blatt nimmt jede Gruppierung wieder zurück.",
   "@stapelAlleFrage": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "werkzStapelGefunden": "{anzahl, plural, =0{Keine Serien gefunden} =1{1 Serie wartet} other{{anzahl} Serien warten}}",
   "@werkzStapelGefunden": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "serienvergleichTitel": "Serie vergleichen",
   "serienvergleichErklaerung": "Dieselben Gesichter nebeneinander. Auf einem ganzen Foto sieht man nicht, wer blinzelt – auf den Ausschnitten sofort. Der Rahmen markiert die Aufnahme mit dem schärfsten Gesicht; das ist ein Vorschlag, keine Entscheidung.",
@@ -1675,11 +1728,19 @@
   "serienvergleichSchaerfstes": "Schärfstes Gesicht der Serie",
   "serienvergleichSchaerfe": "Schärfe {wert}",
   "@serienvergleichSchaerfe": {
-    "placeholders": { "wert": { "type": "int" } }
+    "placeholders": {
+      "wert": {
+        "type": "int"
+      }
+    }
   },
   "serienvergleichAugen": "Augen offen: {prozent} %",
   "@serienvergleichAugen": {
-    "placeholders": { "prozent": { "type": "int" } }
+    "placeholders": {
+      "prozent": {
+        "type": "int"
+      }
+    }
   },
   "serienvergleichOhneWert": "Schärfe noch nicht gemessen",
   "serienvergleichOeffnen": "Gesichter vergleichen",
@@ -1732,7 +1793,16 @@
     }
   },
   "papierkorbUmfang": "{anzahl, plural, =1{ein Foto} other{{anzahl} Fotos}} · {platz}",
-  "@papierkorbUmfang": {"placeholders": {"anzahl": {"type": "int"}, "platz": {"type": "String"}}},
+  "@papierkorbUmfang": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      },
+      "platz": {
+        "type": "String"
+      }
+    }
+  },
   "papierkorbLeer": "Der Papierkorb ist leer.",
   "videoNichtGeoeffnet": "Video konnte nicht geöffnet werden.",
   "videoZuschneidenFehler": "Zuschneiden fehlgeschlagen.",
@@ -1795,10 +1865,6 @@
       }
     }
   },
-  "infoErkannterText": "Erkannter Text",
-  "infoTextKopieren": "Text kopieren",
-  "infoTextKopiert": "Text in die Zwischenablage kopiert",
-  "infoTextStellen": "{anzahl, plural, =1{1 Textstelle im Bild} other{{anzahl} Textstellen im Bild}}",
   "infoBewertung": "Bewertung",
   "infoNiemandZugeordnet": "Noch niemand zugeordnet.",
   "infoDetails": "Details",
@@ -1832,7 +1898,11 @@
   },
   "backupUebernommen": "{anzahl} Einträge aus dem Datenbank-Schnappschuss übernommen (Personen, Stammbaum, Reisen, Aktivitäten …)",
   "@backupUebernommen": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "backupAusschnitteNeu": "Gesichtsausschnitte werden neu gezeichnet …",
   "einstBackupManuellHinweis": "Eine Sicherung mit Passphrase nimmt zusätzlich einen verschlüsselten Schnappschuss der Datenbank mit – Personen, Stammbaum, Reisen, Aktivitäten und gespeicherte Suchen kommen damit beim Wiederherstellen zurück. Ohne Passphrase enthält die Sicherung nur die Originale und die Beilagen daneben (Beschreibung, Sterne, Farbmarke, Ort, Schlagwörter, Alben); alles Übrige liesse sich danach nicht wiederherstellen.",
@@ -2603,7 +2673,11 @@
   "stammbaumFehlerVorhanden": "Diese Verwandtschaft ist schon eingetragen.",
   "stammbaumZuVieleHaushalte": "{anzahl, plural, =1{Ein weiterer Haushalt passt nicht ins Bild.} other{{anzahl} weitere Haushalte passen nicht ins Bild.}}",
   "@stammbaumZuVieleHaushalte": {
-    "placeholders": { "anzahl": { "type": "int" } }
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
   },
   "stammbaumLeer": "Für diese Person ist noch keine Verwandtschaft eingetragen. Oben rechts lassen sich Eltern, Partner und Kinder hinzufügen – entweder aus den bereits benannten Personen oder als neuer Name, auch ohne ein einziges Foto.",
   "stammbaumPersonFehlt": "Diese Person gibt es nicht mehr.",
@@ -2839,9 +2913,15 @@
   "@gradUeberWeg": {
     "description": "Für Verwandte, die kein eigenes Wort haben – „Mutter von Schwager Michael\". schritt ist die Beziehung zur Zwischenperson, bezug deren Beziehung zur Person in der Mitte.",
     "placeholders": {
-      "schritt": { "type": "String" },
-      "bezug": { "type": "String" },
-      "name": { "type": "String" }
+      "schritt": {
+        "type": "String"
+      },
+      "bezug": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
     }
   },
   "gradKeine": "nicht verwandt",
@@ -3855,21 +3935,54 @@
       }
     }
   },
-    "aufnahmenWahlTitelAktivitaet": "Fotos der Aktivit\u00e4t",
+  "aufnahmenWahlTitelAktivitaet": "Fotos der Aktivität",
   "aufnahmenWahlTitelReise": "Fotos der Reise",
-  "aufnahmenWahlZeitraum": "Zeitraum ({von} \u2013 {bis})",
-  "@aufnahmenWahlZeitraum": {"placeholders": {"von": {"type": "String"}, "bis": {"type": "String"}}},
+  "aufnahmenWahlZeitraum": "Zeitraum ({von} – {bis})",
+  "@aufnahmenWahlZeitraum": {
+    "placeholders": {
+      "von": {
+        "type": "String"
+      },
+      "bis": {
+        "type": "String"
+      }
+    }
+  },
   "aufnahmenWahlAlle": "Alle Fotos",
-  "aufnahmenWahlGewaehlt": "{anzahl, plural, =0{nichts gew\u00e4hlt} =1{1 Foto gew\u00e4hlt} other{{anzahl} Fotos gew\u00e4hlt}}",
-  "@aufnahmenWahlGewaehlt": {"placeholders": {"anzahl": {"type": "num", "format": "compact"}}},
+  "aufnahmenWahlGewaehlt": "{anzahl, plural, =0{nichts gewählt} =1{1 Foto gewählt} other{{anzahl} Fotos gewählt}}",
+  "@aufnahmenWahlGewaehlt": {
+    "placeholders": {
+      "anzahl": {
+        "type": "num",
+        "format": "compact"
+      }
+    }
+  },
   "aufnahmenWahlAusserhalb": "{anzahl, plural, =1{1 davon ausserhalb der Ansicht} other{{anzahl} davon ausserhalb der Ansicht}}",
-  "@aufnahmenWahlAusserhalb": {"placeholders": {"anzahl": {"type": "num", "format": "compact"}}},
-  "aufnahmenWahlLeer": "In diesem Zeitraum liegt kein Foto. \u00dcber \u201eAlle Fotos\u201c l\u00e4sst sich eines von ausserhalb dazunehmen.",
+  "@aufnahmenWahlAusserhalb": {
+    "placeholders": {
+      "anzahl": {
+        "type": "num",
+        "format": "compact"
+      }
+    }
+  },
+  "aufnahmenWahlLeer": "In diesem Zeitraum liegt kein Foto. Über „Alle Fotos“ lässt sich eines von ausserhalb dazunehmen.",
   "aufnahmenWahlGeaendert": "{dazu, plural, =0{} =1{1 Foto dazu} other{{dazu} Fotos dazu}}{weg, plural, =0{} =1{, 1 entfernt} other{, {weg} entfernt}}",
-  "@aufnahmenWahlGeaendert": {"placeholders": {"dazu": {"type": "num", "format": "compact"}, "weg": {"type": "num", "format": "compact"}}},
-  "aufnahmenWahlUnveraendert": "Nichts ge\u00e4ndert.",
-  "aufnahmenBearbeiten": "Fotos bearbeiten",
-  "aktivitaetenArtNeu": "Neue Art \u2026",
+  "@aufnahmenWahlGeaendert": {
+    "placeholders": {
+      "dazu": {
+        "type": "num",
+        "format": "compact"
+      },
+      "weg": {
+        "type": "num",
+        "format": "compact"
+      }
+    }
+  },
+  "aufnahmenWahlUnveraendert": "Nichts geändert.",
+  "aktivitaetenArtNeu": "Neue Art …",
   "aktivitaetenArtNeuFrage": "Wie soll die Art heissen?",
   "aktArtSpaziergang": "Spaziergang",
   "aktArtWanderung": "Wanderung",
@@ -3969,13 +4082,37 @@
   "flugOhneZeit": "Die Spur trägt keine Zeitstempel – ohne sie gibt es kein Tempo.",
   "flugProfilBeschreibung": "Höhenprofil der Spur mit der Stelle, an der der Flug gerade steht.",
   "flugMeterProfil": "{meter} m",
-  "@flugMeterProfil": {"placeholders": {"meter": {"type": "int"}}},
+  "@flugMeterProfil": {
+    "placeholders": {
+      "meter": {
+        "type": "int"
+      }
+    }
+  },
   "flugKmH": "{wert} km/h",
-  "@flugKmH": {"placeholders": {"wert": {"type": "String"}}},
+  "@flugKmH": {
+    "placeholders": {
+      "wert": {
+        "type": "String"
+      }
+    }
+  },
   "flugProzent": "{wert} %",
-  "@flugProzent": {"placeholders": {"wert": {"type": "String"}}},
+  "@flugProzent": {
+    "placeholders": {
+      "wert": {
+        "type": "String"
+      }
+    }
+  },
   "flugKm": "{wert} km",
-  "@flugKm": {"placeholders": {"wert": {"type": "String"}}},
+  "@flugKm": {
+    "placeholders": {
+      "wert": {
+        "type": "String"
+      }
+    }
+  },
   "gelaendeTitel": "Gelände",
   "gelaendeOeffnen": "Gelände ansehen",
   "gelaendeLaedt": "Holt Geländehöhen …",
@@ -4202,5 +4339,123 @@
   "viewerGesichtNachtragen": "Nachgetragenes Gesicht benennen",
   "viewerRahmenZuKlein": "Der Rahmen ist zu klein. Ziehe einen Kasten um das Gesicht.",
   "viewerRahmenNichtLesbar": "Das Foto liess sich nicht lesen – kein Gesicht angelegt.",
-  "viewerAufziehenHinweis": "Ziehe einen Rahmen um das fehlende Gesicht."
+  "viewerAufziehenHinweis": "Ziehe einen Rahmen um das fehlende Gesicht.",
+  "karteEigene": "Eigene Karte",
+  "einstEigeneKarteTitel": "Eigene Kartenquelle",
+  "einstEigeneKarteText": "Die mitgelieferten Karten hören früh auf: OpenStreetMap liefert echte Kacheln bis Stufe 19, OpenTopoMap bis 17. Wer Hausnummern, Gebäudeumrisse oder ein Luftbild braucht, trägt hier eine eigene Quelle ein. Sie erscheint danach als vierter Eintrag im Kartenmenü.",
+  "einstEigeneKarteAktiv": "{name} ist eingerichtet",
+  "@einstEigeneKarteAktiv": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteOhne": "Keine eigene Quelle eingerichtet",
+  "einstEigeneKarteVorlage": "Vorlage übernehmen",
+  "einstEigeneKarteVorlageGemessen": "bis Stufe {stufe}, nachgemessen",
+  "@einstEigeneKarteVorlageGemessen": {
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteVorlageLautAnbieter": "bis Stufe {stufe}, laut Anbieter",
+  "@einstEigeneKarteVorlageLautAnbieter": {
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteName": "Name",
+  "einstEigeneKarteAdresse": "Kacheladresse",
+  "einstEigeneKarteAdresseHinweis": "https://…/{muster}.png",
+  "einstEigeneKarteNennung": "Namensnennung",
+  "einstEigeneKarteNennungHinweis": "© Anbieter, © OpenStreetMap contributors",
+  "einstEigeneKarteStufe": "Höchste Zoomstufe",
+  "einstEigeneKarteSchluesselHinweis": "Der Schlüssel gehört mit in die Adresse – ersetze {marke} durch deinen eigenen.",
+  "@einstEigeneKarteSchluesselHinweis": {
+    "placeholders": {
+      "marke": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteWoher": "Schlüssel gibt es bei {quelle}",
+  "@einstEigeneKarteWoher": {
+    "placeholders": {
+      "quelle": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteSitzung": "Google-Sitzung holen",
+  "einstEigeneKarteSitzungText": "Google liefert Kacheln erst nach einer Sitzungskennung. Trage deinen Schlüssel in die Adresse ein und hole sie hier; sie hält rund zwei Wochen.",
+  "einstEigeneKarteSitzungOk": "Sitzung geholt und in die Adresse eingesetzt",
+  "einstEigeneKarteSitzungFehler": "Google gab keine Sitzung: {fehler}",
+  "@einstEigeneKarteSitzungFehler": {
+    "placeholders": {
+      "fehler": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteSitzungOhneSchluessel": "In der Adresse steht noch kein Schlüssel",
+  "einstEigeneKarteEntfernen": "Quelle entfernen",
+  "einstEigeneKarteGespeichert": "Eigene Kartenquelle gespeichert",
+  "einstEigeneKarteEntfernt": "Eigene Kartenquelle entfernt",
+  "einstEigeneKarteFehlerLeer": "Ohne Adresse geht es nicht",
+  "einstEigeneKarteFehlerHttp": "Die Adresse muss mit http:// oder https:// anfangen",
+  "einstEigeneKarteFehlerPlatzhalter": "In der Adresse fehlen {teile}",
+  "einstEigeneKarteFehlerUnbekannt": "Die Adresse enthält einen Platzhalter in geschweiften Klammern, den die Karte nicht kennt – erlaubt sind nur {teile}",
+  "einstEigeneKarteFehlerNennung": "Die Namensnennung ist eine Lizenzauflage und darf nicht leer bleiben",
+  "einstEigeneKarteWarnungTitel": "Bevor du eine fremde Kartenquelle einschaltest",
+  "einstEigeneKarteWarnungUebermittlung": "Jede Kachel ist ein Abruf bei diesem Anbieter. Er sieht daran, welchen Ausschnitt der Welt du dir gerade ansiehst, wie tief du hineinzoomst und wie lange du bleibst. Bei den mitgelieferten Karten steht am anderen Ende ein gespendeter Server ohne Konto – hier steht ein Schlüssel, der auf dich ausgestellt ist.",
+  "einstEigeneKarteWarnungOffline": "Angesehene Kacheln bleiben auf der Platte und stehen auch ohne Netz wieder zur Verfügung; das Vorladen ganzer Gebiete gilt ebenso für diese Quelle. Ohne Vorladen bleibt ohne Netz grau, was du noch nie angesehen hast.",
+  "einstEigeneKarteWarnungBedingungen": "Wie weit ein Anbieter das Zwischenspeichern erlaubt, steht in seinen Nutzungsregeln – manche gestatten es befristet, manche gar nicht, und Google untersagt die Offline-Nutzung ausdrücklich. Genau das tut diese App: Kacheln behalten und ohne Netz wieder zeigen. Ob das für deinen Anbieter zulässig ist, kann dir die App nicht abnehmen.",
+  "einstEigeneKarteWarnungAnnehmen": "Verstanden, einschalten",
+  "@einstEigeneKarteAdresseHinweis": {
+    "placeholders": {
+      "muster": {
+        "type": "String"
+      }
+    }
+  },
+  "@einstEigeneKarteFehlerPlatzhalter": {
+    "placeholders": {
+      "teile": {
+        "type": "String"
+      }
+    }
+  },
+  "@einstEigeneKarteFehlerUnbekannt": {
+    "placeholders": {
+      "teile": {
+        "type": "String"
+      }
+    }
+  },
+  "einstEigeneKarteFehlerSchluessel": "In der Adresse steht noch die Marke aus der Vorlage – setze dort deinen eigenen Schlüssel ein",
+  "aufnahmenHinzufuegen": "Fotos hinzufügen",
+  "aufnahmenAusAktivitaetEntfernen": "Aus der Aktivität entfernen",
+  "aufnahmenAusReiseEntfernen": "Aus der Reise entfernen",
+  "aufnahmenEntferntAktivitaet": "{anzahl} Foto(s) aus der Aktivität entfernt",
+  "@aufnahmenEntferntAktivitaet": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "aufnahmenEntferntReise": "{anzahl} Foto(s) aus der Reise entfernt",
+  "@aufnahmenEntferntReise": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "auswAuswaehlen": "Auswählen"
 }

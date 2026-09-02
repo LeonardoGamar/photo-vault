@@ -31,6 +31,7 @@ import 'background_tasks_screen.dart';
 import 'locked_folder_screen.dart';
 import 'trash_screen.dart';
 import '../services/kachelvorrat.dart';
+import '../widgets/eigene_karte_einstellung.dart';
 import '../widgets/mini_location_map.dart' show Kartenstil, setzeCartoSchluessel;
 import 'kachelmitschnitt_screen.dart';
 import 'map_screen.dart' show Kartenansicht;
@@ -1656,6 +1657,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await widget.library.db.kartenansicht())) {
       Kartenansicht.hell => Kartenstil.hell,
       Kartenansicht.topo => Kartenstil.topo,
+      // Ohne diese Zeile lüde der Vorrat für die eigene Quelle
+      // stillschweigend die dunkle Karte vor – und offline bliebe genau
+      // die Karte leer, für die jemand vorgeladen hat.
+      Kartenansicht.eigene => Kartenstil.eigene,
       _ => Kartenstil.dunkel,
     };
     await _vorratLauf?.cancel();
@@ -1796,6 +1801,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
+      const Divider(height: AppSpacing.xl),
+      // Die eigene Quelle steht zwischen CARTO und dem Vorrat, weil sie
+      // zu beidem gehört: Sie ist die zweite Stelle, an der ein fremder
+      // Schlüssel ins Spiel kommt, und sie ist das, was der Vorrat
+      // danach vorlädt.
+      Text(t.einstEigeneKarteTitel,
+          style: Theme.of(context).textTheme.titleSmall),
+      EigeneKarteEinstellung(library: widget.library),
       const Divider(height: AppSpacing.xl),
       // Der Vorrat. Er steht bei der Karte und nicht bei den Werkzeugen,
       // weil er zum Kartenbild gehört: Wer graue Löcher loswerden will,

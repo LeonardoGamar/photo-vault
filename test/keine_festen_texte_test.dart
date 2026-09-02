@@ -125,6 +125,10 @@ void main() {
       zeile.contains('ArgumentError(') ||
       zeile.contains('throw Exception(') ||
       zeile.contains('FormatException(') ||
+      // Wie die uebrigen Ausnahmen: Der Text landet im Kachelmitschnitt
+      // neben den Meldungen von dart:io, nicht in der Oberflaeche - und
+      // die sind ebenfalls englisch und unuebersetzt.
+      zeile.contains('ClientException(') ||
       zeile.contains('assert(');
 
   /// Stellen, an denen diese App sichtbaren Text übergibt.

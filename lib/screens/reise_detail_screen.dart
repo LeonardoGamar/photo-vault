@@ -7,6 +7,7 @@ import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../services/reiseroute.dart';
+import '../widgets/zuordnung_auswahlleiste.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/routenkarte.dart';
 import '../widgets/namens_dialog.dart';
@@ -160,6 +161,14 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.check_circle_outline),
+              title: Text(t.auswAuswaehlen),
+              onTap: () {
+                Navigator.pop(blatt);
+                _auswahlUmschalten(asset.id);
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.image_outlined),
               title: Text(t.reisenAlsTitelbild),
               onTap: () {
@@ -209,6 +218,34 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   /// Beim Anlegen kam alles aus dem Zeitraum mit (siehe
   /// `frageZeitraum`); dass eine Reise am Abflugtag noch drei Bilder aus
   /// der Küche enthält, war bis hierher nicht zu ändern.
+  /// Die gerade angetippten Fotos – siehe die gleiche Stelle in
+  /// `aktivitaet_detail_screen.dart`.
+  final Set<String> _auswahl = {};
+
+  void _auswahlUmschalten(String id) => setState(() {
+        if (!_auswahl.remove(id)) _auswahl.add(id);
+      });
+
+  /// Nimmt die ausgewaehlten Fotos aus der Reise heraus.
+  ///
+  /// Die Ausgangsmenge kommt aus der Datenbank und nicht aus `_aufnahmen`
+  /// – dort fehlt, was im Papierkorb liegt oder gesperrt ist, und beim
+  /// Neuschreiben waere es fuer immer weg. An der gewachsenen Bibliothek
+  /// standen 33 Zuordnungen genau so auf dem Spiel.
+  Future<void> _auswahlEntfernen() async {
+    final t = AppTexte.of(context);
+    final weg = {..._auswahl};
+    if (weg.isEmpty) return;
+    final vorher = await widget.library.db.zuordnungenDerReise(_reise.id);
+    if (!mounted) return;
+    await widget.library.db
+        .setzeAufnahmenDerReise(_reise.id, vorher.difference(weg));
+    if (!mounted) return;
+    setState(_auswahl.clear);
+    melde.erfolg(t.aufnahmenEntferntReise(weg.length));
+    await _laden();
+  }
+
   Future<void> _aufnahmenBearbeiten() async {
     final t = AppTexte.of(context);
     // **Aus der Datenbank, nicht aus der Liste im Bild.** `_aufnahmen`
@@ -301,13 +338,12 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
         // Solange geladen wird, keine Knoepfe - siehe die gleiche Stelle
         // in aktivitaet_detail_screen.dart.
         actions: _laedt ? const [] : [
+          // Siehe die gleiche Stelle in aktivitaet_detail_screen.dart:
+          // Das Herausnehmen hat jetzt einen eigenen Weg, also darf der
+          // Knopf ein Pluszeichen tragen und gefunden werden.
           IconButton(
-            tooltip: t.aufnahmenBearbeiten,
-            // `photo_library` und nicht `add_photo_alternate`: Der Knopf
-            // nimmt Fotos auch HERAUS, und ein Pluszeichen sagt das nicht.
-            // Er stand hier zwischen bis zu sechs weiteren Symbolen und
-            // wurde als „Fotos hinzufügen" gelesen, also gar nicht gesucht.
-            icon: const Icon(Icons.photo_library_outlined),
+            tooltip: t.aufnahmenHinzufuegen,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
             onPressed: _aufnahmenBearbeiten,
           ),
           IconButton(
@@ -329,7 +365,8 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
       ),
       body: _laedt
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
+          : Stack(children: [
+              CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -447,8 +484,15 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                           return AssetThumbnailTile(
                             asset: asset,
                             paths: widget.library.paths,
-                            onTap: () =>
-                                _oeffnen(_aufnahmen.indexOf(asset)),
+                            selected: _auswahl.contains(asset.id),
+                            onTap: () => _auswahl.isEmpty
+                                ? _oeffnen(_aufnahmen.indexOf(asset))
+                                : _auswahlUmschalten(asset.id),
+                            // Der lange Druck oeffnet hier das Bildmenue
+                            // (Titelbild setzen) – das gab es schon.
+                            // Deshalb steht das Auswaehlen dort als
+                            // erster Eintrag drin, statt die Geste zu
+                            // ueberschreiben.
                             onLongPress: () => _bildmenue(asset),
                           );
                         },
@@ -460,7 +504,15 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                 const SliverToBoxAdapter(
                     child: SizedBox(height: AppSpacing.xl)),
               ],
-            ),
+              ),
+              if (_auswahl.isNotEmpty)
+                ZuordnungAuswahlleiste(
+                  anzahl: _auswahl.length,
+                  beschriftungEntfernen: t.aufnahmenAusReiseEntfernen,
+                  beiAufheben: () => setState(_auswahl.clear),
+                  beiEntfernen: _auswahlEntfernen,
+                ),
+            ]),
     );
   }
 }

@@ -18,6 +18,8 @@ import 'package:photo_vault/theme/app_theme.dart';
 import 'package:photo_vault/widgets/meldungsfenster.dart';
 import 'package:photo_vault/widgets/hoehenprofil.dart';
 import 'package:photo_vault/widgets/routenkarte.dart';
+import 'package:photo_vault/widgets/asset_thumbnail_tile.dart';
+import 'package:photo_vault/widgets/zuordnung_auswahlleiste.dart';
 
 /// Eine einzelne Aktivität am Bildschirm.
 ///
@@ -321,6 +323,101 @@ void main() {
       await zeige(tester, await anlegen());
       expect(find.byIcon(Icons.route_outlined), findsOneWidget);
       expect(find.byIcon(Icons.wrong_location_outlined), findsNothing);
+    });
+  });
+
+  group('Fotos auswaehlen und herausnehmen', () {
+    testWidgets('ohne Auswahl gibt es keine Leiste', (tester) async {
+      await zeige(tester, await anlegen());
+      expect(find.byType(ZuordnungAuswahlleiste), findsNothing);
+    });
+
+    testWidgets('langer Druck waehlt aus und zeigt die Leiste',
+        (tester) async {
+      await zeige(tester, await anlegen());
+      await tester.longPress(find.byType(AssetThumbnailTile).first);
+      await tester.pumpAndSettle();
+      expect(find.byType(ZuordnungAuswahlleiste), findsOneWidget);
+      expect(find.text('1 ausgewählt'), findsOneWidget);
+      expect(find.text('Aus der Aktivität entfernen'), findsOneWidget);
+    });
+
+    testWidgets('bei laufender Auswahl waehlt ein Tipp weitere dazu',
+        (tester) async {
+      await zeige(tester, await anlegen());
+      await tester.longPress(find.byType(AssetThumbnailTile).at(0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AssetThumbnailTile).at(1));
+      await tester.pumpAndSettle();
+      expect(find.text('2 ausgewählt'), findsOneWidget);
+      // und wieder ab
+      await tester.tap(find.byType(AssetThumbnailTile).at(1));
+      await tester.pumpAndSettle();
+      expect(find.text('1 ausgewählt'), findsOneWidget);
+    });
+
+    testWidgets('der Knopf nimmt sie wirklich aus der Aktivitaet',
+        (tester) async {
+      final k = await anlegen();
+      await zeige(tester, k);
+      await tester.longPress(find.byType(AssetThumbnailTile).at(0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(AssetThumbnailTile).at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aus der Aktivität entfernen'));
+      await tester.pumpAndSettle();
+
+      final uebrig = await db.zuordnungenDerAktivitaet(k.id);
+      expect(uebrig, hasLength(3));
+      expect(uebrig, isNot(contains('w0')));
+      expect(uebrig, isNot(contains('w1')));
+      // Die Fotos selbst bleiben - herausnehmen ist kein Loeschen.
+      expect(await db.select(db.assets).get(), hasLength(5));
+      // Und die Kopfzeile rechnet sofort neu.
+      expect(find.textContaining('3 Fotos'), findsOneWidget);
+      expect(find.byType(ZuordnungAuswahlleiste), findsNothing);
+    });
+
+    testWidgets('eine gesperrte Zuordnung ueberlebt das Herausnehmen',
+        (tester) async {
+      // Der Fall, an dem der Fotowaehler schon einmal Zuordnungen
+      // gekostet hat: `_aufnahmen` zeigt Gesperrtes nicht, die
+      // Zuordnung besteht aber. Wer die Ausgangsmenge aus dem Bild
+      // naehme, loeschte sie beim Neuschreiben mit.
+      final k = await anlegen();
+      await (db.update(db.assets)..where((t) => t.id.equals('w4')))
+          .write(const AssetsCompanion(isLocked: Value(true)));
+      await zeige(tester, k);
+      expect(find.byType(AssetThumbnailTile), findsNWidgets(4));
+
+      await tester.longPress(find.byType(AssetThumbnailTile).at(0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aus der Aktivität entfernen'));
+      await tester.pumpAndSettle();
+
+      final uebrig = await db.zuordnungenDerAktivitaet(k.id);
+      expect(uebrig, contains('w4'),
+          reason: 'die gesperrte Zuordnung darf nicht mit verschwinden');
+      expect(uebrig, hasLength(4));
+    });
+
+    testWidgets('Auswahl aufheben laesst alles stehen', (tester) async {
+      final k = await anlegen();
+      await zeige(tester, k);
+      await tester.longPress(find.byType(AssetThumbnailTile).at(0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Auswahl aufheben'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ZuordnungAuswahlleiste), findsNothing);
+      expect(await db.zuordnungenDerAktivitaet(k.id), hasLength(5));
+    });
+
+    testWidgets('der Knopf zum Hinzufuegen heisst auch so', (tester) async {
+      // Bis hierher trug er ein Bibliothekssymbol zwischen sechs
+      // anderen und wurde nicht gefunden.
+      await zeige(tester, await anlegen());
+      expect(find.byTooltip('Fotos hinzufügen'), findsOneWidget);
+      expect(find.byIcon(Icons.add_photo_alternate_outlined), findsOneWidget);
     });
   });
 }

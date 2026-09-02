@@ -14,6 +14,7 @@ import '../services/meldungsdienst.dart';
 import '../services/reiseroute.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/zuordnung_auswahlleiste.dart';
 import '../widgets/aktivitaetsart_anzeige.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/hoehenprofil.dart';
@@ -280,6 +281,39 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
   /// dazu und das aus der Mittagspause manchmal nicht. Bis hierher liess
   /// sich daran nichts ändern; die Zuordnung entstand einmal beim
   /// Bestätigen und blieb dann, wie sie war.
+  /// Die gerade angetippten Fotos.
+  ///
+  /// Leer heisst „kein Auswahlmodus": Solange nichts ausgewaehlt ist,
+  /// oeffnet ein Tipp wie bisher den Betrachter. Sobald etwas drin
+  /// steht, waehlt ein Tipp aus und ab. Dasselbe Verhalten wie im
+  /// Albumbildschirm - wer es dort kennt, muss es hier nicht neu lernen.
+  final Set<String> _auswahl = {};
+
+  void _auswahlUmschalten(String id) => setState(() {
+        if (!_auswahl.remove(id)) _auswahl.add(id);
+      });
+
+  /// Nimmt die ausgewaehlten Fotos aus der Aktivitaet heraus.
+  ///
+  /// Die neue Menge wird aus der **Datenbank** gebildet und nicht aus der
+  /// Liste im Bild: `_aufnahmen` laesst weg, was im Papierkorb liegt oder
+  /// gesperrt ist. Wer sie als Ausgangsmenge naehme, wuerde beim
+  /// Neuschreiben genau diese Zuordnungen mit vernichten - derselbe
+  /// Fehler, der beim Fotowaehler schon einmal Zuordnungen gekostet hat.
+  Future<void> _auswahlEntfernen() async {
+    final t = AppTexte.of(context);
+    final weg = {..._auswahl};
+    if (weg.isEmpty) return;
+    final vorher = await widget.library.db.zuordnungenDerAktivitaet(_k.id);
+    if (!mounted) return;
+    await widget.library.db
+        .setzeAufnahmenDerAktivitaet(_k.id, vorher.difference(weg));
+    if (!mounted) return;
+    setState(_auswahl.clear);
+    melde.erfolg(t.aufnahmenEntferntAktivitaet(weg.length));
+    await _laden();
+  }
+
   Future<void> _aufnahmenBearbeiten() async {
     final t = AppTexte.of(context);
     // **Aus der Datenbank, nicht aus der Liste im Bild.** `_aufnahmen`
@@ -418,13 +452,17 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
               icon: const Icon(Icons.wrong_location_outlined),
               onPressed: _spurEntfernen,
             ),
+          // **Jetzt wirklich ein Pluszeichen.** Bis hierher stand hier ein
+          // Bibliothekssymbol, mit der Begründung, der Knopf nehme Fotos
+          // auch heraus – ein Pluszeichen sage das nicht. Das stimmte,
+          // und es hat den Knopf unauffindbar gemacht: Zwischen sechs
+          // weiteren Symbolen wurde er als „Fotos hinzufügen" gelesen und
+          // deshalb gar nicht erst gesucht. Das Herausnehmen hat
+          // inzwischen einen eigenen Weg (Fotos antippen, Leiste unten),
+          // also darf der Knopf heissen, was er tut.
           IconButton(
-            tooltip: t.aufnahmenBearbeiten,
-            // `photo_library` und nicht `add_photo_alternate`: Der Knopf
-            // nimmt Fotos auch HERAUS, und ein Pluszeichen sagt das nicht.
-            // Er stand hier zwischen bis zu sechs weiteren Symbolen und
-            // wurde als „Fotos hinzufügen" gelesen, also gar nicht gesucht.
-            icon: const Icon(Icons.photo_library_outlined),
+            tooltip: t.aufnahmenHinzufuegen,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
             onPressed: _aufnahmenBearbeiten,
           ),
           IconButton(
@@ -451,7 +489,8 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
       ),
       body: _laedt
           ? const Center(child: CircularProgressIndicator())
-          : CustomScrollView(
+          : Stack(children: [
+              CustomScrollView(
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -562,11 +601,21 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
                       crossAxisSpacing: 4,
                     ),
                     delegate: SliverChildBuilderDelegate(
-                      (context, index) => AssetThumbnailTile(
-                        asset: _aufnahmen[index],
-                        paths: widget.library.paths,
-                        onTap: () => _oeffnen(index),
-                      ),
+                      (context, index) {
+                        final a = _aufnahmen[index];
+                        final gewaehlt = _auswahl.contains(a.id);
+                        return AssetThumbnailTile(
+                          asset: a,
+                          paths: widget.library.paths,
+                          selected: gewaehlt,
+                          // Erst auswaehlen, dann tippen: Solange nichts
+                          // gewaehlt ist, oeffnet ein Tipp den Betrachter.
+                          onTap: () => _auswahl.isEmpty
+                              ? _oeffnen(index)
+                              : _auswahlUmschalten(a.id),
+                          onLongPress: () => _auswahlUmschalten(a.id),
+                        );
+                      },
                       childCount: _aufnahmen.length,
                     ),
                   ),
@@ -574,7 +623,15 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
                 const SliverToBoxAdapter(
                     child: SizedBox(height: AppSpacing.xl)),
               ],
-            ),
+              ),
+              if (_auswahl.isNotEmpty)
+                ZuordnungAuswahlleiste(
+                  anzahl: _auswahl.length,
+                  beschriftungEntfernen: t.aufnahmenAusAktivitaetEntfernen,
+                  beiAufheben: () => setState(_auswahl.clear),
+                  beiEntfernen: _auswahlEntfernen,
+                ),
+            ]),
     );
   }
 }
