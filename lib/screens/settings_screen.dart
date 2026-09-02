@@ -32,6 +32,7 @@ import 'locked_folder_screen.dart';
 import 'trash_screen.dart';
 import '../services/kachelvorrat.dart';
 import '../widgets/eigene_karte_einstellung.dart';
+import '../widgets/kartenquellen_uebersicht.dart';
 import '../widgets/mini_location_map.dart' show Kartenstil, setzeCartoSchluessel;
 import 'kachelmitschnitt_screen.dart';
 import 'map_screen.dart' show Kartenansicht;
@@ -1806,6 +1807,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // zu beidem gehört: Sie ist die zweite Stelle, an der ein fremder
       // Schlüssel ins Spiel kommt, und sie ist das, was der Vorrat
       // danach vorlädt.
+      // Erst die Auskunft, dann das Eingabefeld: Wer eine eigene Quelle
+      // eintraegt, will vorher wissen, was es ueberhaupt gibt und wie
+      // tief es traegt.
+      Text(t.einstKartenquellenTitel,
+          style: Theme.of(context).textTheme.titleSmall),
+      const KartenquellenUebersicht(),
+      const Divider(height: AppSpacing.xl),
       Text(t.einstEigeneKarteTitel,
           style: Theme.of(context).textTheme.titleSmall),
       EigeneKarteEinstellung(library: widget.library),

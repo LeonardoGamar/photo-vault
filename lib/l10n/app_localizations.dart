@@ -10936,6 +10936,66 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Auswählen'**
   String get auswAuswaehlen;
+
+  /// No description provided for @einstKartenquellenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Verfügbare Kartenquellen'**
+  String get einstKartenquellenTitel;
+
+  /// No description provided for @einstKartenquellenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Wie tief eine Karte trägt, entscheidet der Anbieter – darüber vergrössert die App nur noch. Die Angabe in Metern ist die Breite von hundert Bildpunkten auf mittlerer Breite; bei 300 m erkennt man Strassenzüge, bei 20 m einzelne Häuser.'**
+  String get einstKartenquellenText;
+
+  /// No description provided for @einstKartenquellenMitgeliefert.
+  ///
+  /// In de, this message translates to:
+  /// **'mitgeliefert'**
+  String get einstKartenquellenMitgeliefert;
+
+  /// No description provided for @einstKartenquellenVorlage.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorlage'**
+  String get einstKartenquellenVorlage;
+
+  /// No description provided for @einstKartenquellenTiefe.
+  ///
+  /// In de, this message translates to:
+  /// **'bis Stufe {stufe} · rund {meter}'**
+  String einstKartenquellenTiefe(String stufe, String meter);
+
+  /// No description provided for @einstKartenquellenGemessen.
+  ///
+  /// In de, this message translates to:
+  /// **'nachgemessen'**
+  String get einstKartenquellenGemessen;
+
+  /// No description provided for @einstKartenquellenLautAnbieter.
+  ///
+  /// In de, this message translates to:
+  /// **'laut Anbieter'**
+  String get einstKartenquellenLautAnbieter;
+
+  /// No description provided for @einstKartenquellenSchluessel.
+  ///
+  /// In de, this message translates to:
+  /// **'Schlüssel nötig'**
+  String get einstKartenquellenSchluessel;
+
+  /// No description provided for @einstKartenquellenHochaufloesend.
+  ///
+  /// In de, this message translates to:
+  /// **'liefert doppelte Auflösung'**
+  String get einstKartenquellenHochaufloesend;
+
+  /// No description provided for @einstKartenquellenSimuliert.
+  ///
+  /// In de, this message translates to:
+  /// **'doppelte Auflösung wird nachgebildet'**
+  String get einstKartenquellenSimuliert;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

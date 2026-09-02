@@ -3387,5 +3387,25 @@
       }
     }
   },
-  "auswAuswaehlen": "Select"
+  "auswAuswaehlen": "Select",
+  "einstKartenquellenTitel": "Available map sources",
+  "einstKartenquellenText": "How deep a map goes is up to the provider - beyond that the app only enlarges. The figure in metres is the width of a hundred screen points at mid latitudes; at 300 m you make out streets, at 20 m individual houses.",
+  "einstKartenquellenMitgeliefert": "bundled",
+  "einstKartenquellenVorlage": "template",
+  "einstKartenquellenTiefe": "to level {stufe} · about {meter}",
+  "@einstKartenquellenTiefe": {
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      },
+      "meter": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenGemessen": "measured",
+  "einstKartenquellenLautAnbieter": "per the provider",
+  "einstKartenquellenSchluessel": "key required",
+  "einstKartenquellenHochaufloesend": "serves double resolution",
+  "einstKartenquellenSimuliert": "double resolution is simulated"
 }

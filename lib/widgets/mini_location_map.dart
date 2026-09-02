@@ -864,6 +864,41 @@ TileLayer buildMapTileLayer(
     // 19 ist die Vorgabe von flutter_map; nur OpenTopoMap hoert
     // frueher auf.
     maxNativeZoom: gewaehlt.hoechsteEchteStufe ?? 19,
+    // **Auf einem Retina-Bildschirm sonst die halbe Auflösung.**
+    //
+    // Eine Kachel ist 256 Pixel breit und wird auf 256 Punkte gezeichnet.
+    // Auf einem Bildschirm mit doppelter Punktdichte sind das 512
+    // Gerätepunkte – jeder Kachelpixel deckt vier davon. Die Karte war
+    // damit auf jeder Stufe so grob wie eine Stufe darüber, und genau das
+    // sah aus wie „bis zur Straßenebene geht es nicht".
+    //
+    // Was flutter_map daraus macht, hängt an der Adresse. Steht `{r}`
+    // darin (CARTO, Mapbox, MapTiler), fragt es die doppelt aufgelösten
+    // Kacheln des Servers an – geschenkt. Sonst holt es vier Kacheln der
+    // nächsttieferen Stufe und setzt sie an die Stelle einer: dieselbe
+    // Fläche, viermal so viele Bildpunkte.
+    //
+    // An echten Kacheln über Hannover gemessen, mittlerer
+    // Nachbarunterschied bei Punktdichte 2:
+    //
+    // ```
+    //   Topo  z16   11,70  ->  44,27
+    //   OSM   z16    5,31  ->   9,57
+    // ```
+    //
+    // Der Blick auf die Bilder sagt mehr als die Zahl: Bei Topo z16
+    // erscheinen Hausnummern, Gebäudeumrisse und Ladennamen, die vorher
+    // schlicht nicht da waren. Bei OSM z18 sank die Kennzahl sogar
+    // (4,38 -> 3,37) und das Bild trug trotzdem **mehr** – die
+    // Beschriftung wird feiner gesetzt, und feine Schrift hat weniger
+    // Kontrast je Bildpunkt. Deshalb ist hier nach den Bildern
+    // entschieden worden und nicht nach der Kennzahl.
+    //
+    // Der Preis: kleinere Beschriftung (so sieht jede native Kartenapp
+    // aus), mehr Kachelabrufe, und offline reicht der Vorrat eine
+    // Anzeigestufe weniger tief – er liegt unter den Serveradressen z3
+    // bis z14, und die bedienen jetzt die Anzeigestufen 2 bis 13.
+    retinaMode: RetinaMode.isHighDensity(context),
     // OpenTopoMap bittet ausdrücklich um einen aussagekräftigen
     // User-Agent statt der Vorgabe der Bibliothek.
     userAgentPackageName: 'com.example.photoVault',

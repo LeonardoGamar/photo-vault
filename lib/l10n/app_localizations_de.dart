@@ -7120,4 +7120,38 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get auswAuswaehlen => 'Auswählen';
+
+  @override
+  String get einstKartenquellenTitel => 'Verfügbare Kartenquellen';
+
+  @override
+  String get einstKartenquellenText =>
+      'Wie tief eine Karte trägt, entscheidet der Anbieter – darüber vergrössert die App nur noch. Die Angabe in Metern ist die Breite von hundert Bildpunkten auf mittlerer Breite; bei 300 m erkennt man Strassenzüge, bei 20 m einzelne Häuser.';
+
+  @override
+  String get einstKartenquellenMitgeliefert => 'mitgeliefert';
+
+  @override
+  String get einstKartenquellenVorlage => 'Vorlage';
+
+  @override
+  String einstKartenquellenTiefe(String stufe, String meter) {
+    return 'bis Stufe $stufe · rund $meter';
+  }
+
+  @override
+  String get einstKartenquellenGemessen => 'nachgemessen';
+
+  @override
+  String get einstKartenquellenLautAnbieter => 'laut Anbieter';
+
+  @override
+  String get einstKartenquellenSchluessel => 'Schlüssel nötig';
+
+  @override
+  String get einstKartenquellenHochaufloesend => 'liefert doppelte Auflösung';
+
+  @override
+  String get einstKartenquellenSimuliert =>
+      'doppelte Auflösung wird nachgebildet';
 }

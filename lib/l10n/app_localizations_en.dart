@@ -7083,4 +7083,37 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get auswAuswaehlen => 'Select';
+
+  @override
+  String get einstKartenquellenTitel => 'Available map sources';
+
+  @override
+  String get einstKartenquellenText =>
+      'How deep a map goes is up to the provider - beyond that the app only enlarges. The figure in metres is the width of a hundred screen points at mid latitudes; at 300 m you make out streets, at 20 m individual houses.';
+
+  @override
+  String get einstKartenquellenMitgeliefert => 'bundled';
+
+  @override
+  String get einstKartenquellenVorlage => 'template';
+
+  @override
+  String einstKartenquellenTiefe(String stufe, String meter) {
+    return 'to level $stufe · about $meter';
+  }
+
+  @override
+  String get einstKartenquellenGemessen => 'measured';
+
+  @override
+  String get einstKartenquellenLautAnbieter => 'per the provider';
+
+  @override
+  String get einstKartenquellenSchluessel => 'key required';
+
+  @override
+  String get einstKartenquellenHochaufloesend => 'serves double resolution';
+
+  @override
+  String get einstKartenquellenSimuliert => 'double resolution is simulated';
 }

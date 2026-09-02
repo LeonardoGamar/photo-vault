@@ -657,6 +657,26 @@ class _MapScreenState extends State<MapScreen> {
         ),
         children: [
           Kachelschicht(stil: stil),
+          // **Der Massstab.** Bis hierher liess sich ueber Kartentiefe nur
+          // in Zoomstufen reden, und „Stufe 17" sagt niemandem etwas. Mit
+          // der Leiste steht die Antwort auf „wie nah komme ich heran"
+          // unmittelbar im Bild – und ein Bericht darueber, wo es klemmt,
+          // hat eine gemeinsame Sprache.
+          Scalebar(
+            alignment: Alignment.bottomLeft,
+            padding: const EdgeInsets.only(
+                left: AppSpacing.md, bottom: AppSpacing.xxl),
+            lineColor: Theme.of(context).colorScheme.onSurface,
+            textStyle: TextStyle(
+              fontSize: 11,
+              color: Theme.of(context).colorScheme.onSurface,
+              shadows: [
+                Shadow(
+                    blurRadius: 3,
+                    color: Theme.of(context).colorScheme.surface),
+              ],
+            ),
+          ),
           buildMapAttribution(context, stil: stil),
           // Unter den Fotomarken: Wo beides am selben Ort liegt, gehört
           // das Foto obenauf – es lässt sich öffnen, das Ereignis nicht.

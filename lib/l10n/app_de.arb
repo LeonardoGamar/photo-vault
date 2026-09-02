@@ -4457,5 +4457,25 @@
       }
     }
   },
-  "auswAuswaehlen": "Auswählen"
+  "auswAuswaehlen": "Auswählen",
+  "einstKartenquellenTitel": "Verfügbare Kartenquellen",
+  "einstKartenquellenText": "Wie tief eine Karte trägt, entscheidet der Anbieter – darüber vergrössert die App nur noch. Die Angabe in Metern ist die Breite von hundert Bildpunkten auf mittlerer Breite; bei 300 m erkennt man Strassenzüge, bei 20 m einzelne Häuser.",
+  "einstKartenquellenMitgeliefert": "mitgeliefert",
+  "einstKartenquellenVorlage": "Vorlage",
+  "einstKartenquellenTiefe": "bis Stufe {stufe} · rund {meter}",
+  "@einstKartenquellenTiefe": {
+    "placeholders": {
+      "stufe": {
+        "type": "String"
+      },
+      "meter": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenGemessen": "nachgemessen",
+  "einstKartenquellenLautAnbieter": "laut Anbieter",
+  "einstKartenquellenSchluessel": "Schlüssel nötig",
+  "einstKartenquellenHochaufloesend": "liefert doppelte Auflösung",
+  "einstKartenquellenSimuliert": "doppelte Auflösung wird nachgebildet"
 }

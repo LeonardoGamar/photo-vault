@@ -118,6 +118,16 @@ void main() {
       return gebaut;
     }
 
+    /// Die tiefste Stufe, die tatsächlich beim Server angefragt wird.
+    ///
+    /// **Nicht `maxNativeZoom` allein**, und das ist seit der doppelten
+    /// Auflösung der Punkt: Bei nachgebildetem Retina senkt flutter_map
+    /// `maxNativeZoom` um eins und rechnet dafür einen Zoomversatz auf
+    /// die Adresse. Die Zahl, auf die es ankommt – „fragen wir Kacheln
+    /// an, die es gar nicht gibt?" – ist die Summe.
+    int tiefsteServerstufe(TileLayer l) =>
+        l.maxNativeZoom + l.zoomOffset.round();
+
     testWidgets('ohne Schlüssel steht ein Umfärber davor', (tester) async {
       final l = await schicht(tester, Kartenstil.dunkel);
       // Genau der Umfärber von flutter_map und kein eigener: Die
@@ -127,8 +137,9 @@ void main() {
       expect(l.tileBuilder, same(darkModeTileBuilder));
       expect(l.urlTemplate, isNot(contains('cartocdn')));
       // Die Anzeigegrenze muss zur Quelle passen, sonst zoomt die Karte
-      // über die vorhandenen Kacheln hinaus.
-      expect(l.maxNativeZoom, 19);
+      // über die vorhandenen Kacheln hinaus. OpenStreetMap antwortet ab
+      // Stufe 20 mit 400 – nachgemessen.
+      expect(tiefsteServerstufe(l), 19);
     });
 
     testWidgets('mit Schlüssel nicht', (tester) async {
@@ -137,7 +148,9 @@ void main() {
       expect(l.tileBuilder, isNull);
       expect(l.urlTemplate, contains('cartocdn'));
       expect(l.subdomains, ['a', 'b', 'c', 'd']);
-      expect(l.maxNativeZoom, 20);
+      // CARTO traegt bis 20 – und weil seine Adresse `{r}` enthaelt,
+      // kommt die doppelte Auflösung vom Server und kostet keine Stufe.
+      expect(tiefsteServerstufe(l), 20);
     });
 
     testWidgets('der helle Stil bekommt nie einen Umfärber', (tester) async {

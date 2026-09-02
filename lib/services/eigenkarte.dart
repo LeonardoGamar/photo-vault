@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:http/http.dart';
 
@@ -261,6 +262,29 @@ const kartenvorlagen = <Kartenvorlage>[
     woher: 'console.cloud.google.com – Map Tiles API',
   ),
 ];
+
+/// Wie breit 100 Bildpunkte auf dieser Zoomstufe in der Landschaft sind.
+///
+/// **Damit über Kartentiefe in Metern gesprochen werden kann.** „Bis
+/// Stufe 19" sagt niemandem etwas; „bis etwa 18 m" schon. Die
+/// Umrechnung ist die des Web-Mercator-Gitters: Auf Stufe 0 deckt eine
+/// 256 Punkte breite Kachel den ganzen Erdumfang, und mit jeder Stufe
+/// halbiert sich das. Der Breitengrad geht mit ein, weil Mercator nach
+/// Norden streckt – 52 Grad ist Mitteleuropa.
+///
+/// ```
+/// z14 588 m   z15 294 m   z16 147 m   z17 74 m   z19 18 m   z20 9 m
+/// ```
+///
+/// Die Punktdichte des Bildschirms spielt **keine** Rolle: Retina gibt
+/// mehr Bildpunkte je Punkt, nicht mehr Landschaft je Punkt. Der
+/// Maßstab bleibt derselbe, das Bild wird nur schärfer.
+double massstabMeter(int stufe, {double breite = 52.0, int punkte = 100}) {
+  const umfang = 40075016.686;
+  final proPunkt =
+      umfang * math.cos(breite * math.pi / 180) / (256 * math.pow(2, stufe));
+  return proPunkt * punkte;
+}
 
 /// Die Adresse einer Vorlage mit eingesetztem Schlüssel.
 String vorlageMitSchluessel(Kartenvorlage v, String schluessel) =>
