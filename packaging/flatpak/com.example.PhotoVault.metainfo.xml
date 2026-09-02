@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="3.3.1" date="2026-09-02">
+      <description>
+        <p>A Windows follow-up, and a more necessary one than expected: the released 3.3.0 does not start at all on a clean Windows. macOS and Linux are unaffected and change only in the version number. No schema change - the database stays at 68.</p>
+        <p>Unpacking 3.3.0 on a fresh Windows and clicking photo_vault.exe gives no window but a system error: "The code execution cannot proceed because MSVCP140.dll was not found." The Visual C++ runtime was missing from the package. Eleven files need it, among them onnxruntime.dll - so every AI feature - and libraw.dll for RAW. The fault is in every Windows release so far. It was never noticed because there was never a clean test machine: the build machine has the runtime from Visual Studio, and so does the Windows test machine. Only the Windows Sandbox, a genuinely untouched system, revealed it. The four files now ship with the package, and the build reads the import tables of every executable in it, flagging whatever is required but absent.</p>
+        <p>The same check found zlib.dll - 203 kB from the ANGLE set that Flutter ships, and a debug build requiring vcruntime140d.dll and ucrtbased.dll, neither of which may be redistributed nor exists on any user machine. No file in the package imports it, and the app loaded 94 modules without it. It is gone.</p>
+        <p>New: an MSIX package for the Microsoft Store, built by tool\windows_msix.ps1 from the finished package folder. Store-delivered packages bypass Smart App Control entirely because Microsoft re-signs them - the only route that really resolves the block described in 3.3.0. Verified in the sandbox: installed in 6.4 seconds, full user interface, ONNX Runtime loaded, and the bundled tools run from the install folder - ffmpeg writes an image, heif-dec decodes a HEIC sample to 1200 by 800. The zip stays alongside it for direct downloads.</p>
+        <p>Anyone moving from the zip to the packaged build keeps their library. Windows reports a different data folder to a packaged app, so without a fallback the app would come up empty while the library sat unreachable beside it. Nothing is moved, though: measured in the sandbox, a packaged process may read and write the old location and both pass through to the real place - only what goes through SHGetKnownFolderPath is redirected. The packaged build therefore simply keeps using what is already there, at no cost and with no model re-downloaded. Only where nothing exists - a fresh Store install - does it use the package folder.</p>
+        <p xml:lang="de">Zum Aktualisieren: Archiv auspacken, die App an ihren Platz ziehen, starten. Dieselbe Kennung, dieselbe Bibliothek, kein Schemawechsel.</p>
+      </description>
+    </release>
     <release version="3.3.0" date="2026-09-02">
       <description>
         <p>The largest release since 3.0.0: twenty-seven items from two rounds of wishes, plus the 23rd audit. Database schema changes from 66 to 68 - the migration runs on first start and is not reversible.</p>

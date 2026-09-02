@@ -13,6 +13,10 @@ gekauftes Zertifikat muesste man erst ein selbst erzeugtes in den eigenen
 Stammspeicher aufnehmen - eine hoehere Huerde als die SmartScreen-Meldung,
 die ohnehin kommt. Ein Ordner zum Auspacken ist ehrlicher.
 
+Alles, was das Programm braucht, liegt in diesem Ordner - auch die
+Visual-C++-Laufzeit (msvcp140.dll und die drei anderen). Es ist also
+nichts nachzuinstallieren, kein "Microsoft Visual C++ Redistributable".
+
 Daraus folgt: WIRD DIESER ORDNER GELOESCHT, IST DAS PROGRAMM WEG. Es gibt
 keine zweite Kopie an anderer Stelle.
 

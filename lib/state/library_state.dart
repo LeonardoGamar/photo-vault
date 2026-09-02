@@ -9,7 +9,6 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
-import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
@@ -455,12 +454,19 @@ class LibraryState extends ChangeNotifier {
     backupService = BackupService(db, paths);
     restoreQueue = RestoreQueueService(db, paths);
 
-    final supportDir = await getApplicationSupportDirectory();
-    _modelsDir = p.join(supportDir.path, 'PhotoVault', 'models');
+    // Nicht mehr selbst aus dem App-Support-Ordner gebaut: Unter Windows
+    // liegt der Datenordner im MSIX-Paket woanders als in der
+    // ausgepackten Fassung, und diese Stelle hier hätte sonst weiter auf
+    // den Paketbehälter gezeigt, während die Bibliothek am alten Ort
+    // liegt - Modelle und Geodaten wären grundlos neu heruntergeladen
+    // worden. LibraryLocation.datenordner() entscheidet das an einer
+    // Stelle für alle.
+    final datenordner = await LibraryLocation.datenordner();
+    _modelsDir = p.join(datenordner.path, 'models');
     await Directory(_modelsDir!).create(recursive: true);
     modelDownloadService = ModelDownloadService(_modelsDir!);
 
-    final geoDataDir = p.join(supportDir.path, 'PhotoVault', 'geodata');
+    final geoDataDir = p.join(datenordner.path, 'geodata');
     await Directory(geoDataDir).create(recursive: true);
     geoDataDownloadService = GeoDataDownloadService(geoDataDir);
 

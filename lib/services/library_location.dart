@@ -98,17 +98,114 @@ class LibraryLocation {
 
   static Directory? _ankerFuerTests;
 
-  static Future<Directory> _anchorDir() async {
+  /// Der Ordner, in dem die App ihre eigenen Daten hält: `location.json`,
+  /// die Modelle, die Geodaten – und, solange keine Bibliothek gewählt
+  /// ist, die Bibliothek selbst.
+  ///
+  /// Normalerweise `<App-Support>/PhotoVault`. Unter Windows gibt es
+  /// einen zweiten Fall, seit es die App auch als MSIX-Paket gibt:
+  /// Windows meldet einem Paket einen anderen App-Support-Ordner. Aus
+  ///
+  ///     C:\Users\X\AppData\Roaming\com.example\photo_vault
+  ///
+  /// wird dann
+  ///
+  ///     C:\Users\X\AppData\Local\Packages\<Paket>\LocalCache\Roaming\com.example\photo_vault
+  ///
+  /// Wer bisher das Zip benutzt hat und auf die Paketfassung wechselt,
+  /// stünde sonst vor einer leeren App, während seine Bibliothek
+  /// unauffindbar daneben läge.
+  ///
+  /// Umgezogen wird trotzdem nichts. In der Windows-Sandbox gemessen: Ein
+  /// Prozess mit Paketidentität darf den alten Ort lesen **und**
+  /// schreiben, beides geht ungehindert an die echte Stelle durch –
+  /// umgeleitet wird allein, was über `SHGetKnownFolderPath` läuft. Das
+  /// Paket benutzt also einfach weiter, was schon da ist. Das kostet
+  /// keine Sekunde, kein Byte und lädt kein Modell erneut herunter.
+  ///
+  /// Nur wenn dort nichts liegt – also bei einer frischen Installation
+  /// aus dem Store – bleibt es beim Ordner des Pakets. Sonst legte jede
+  /// Neuinstallation Daten ausserhalb ihres Behälters an, wo niemand sie
+  /// vermutet.
+  static Future<Directory> datenordner() async {
     final vorgabe = _ankerFuerTests;
     if (vorgabe != null) {
       await vorgabe.create(recursive: true);
       return vorgabe;
     }
     final support = await getApplicationSupportDirectory();
-    final dir = Directory(p.join(support.path, 'PhotoVault'));
-    await dir.create(recursive: true);
-    return dir;
+    final alt = klassischerDatenordner(support.path);
+    return waehleDatenordner(
+      Directory(p.join(support.path, 'PhotoVault')),
+      alt == null ? null : Directory(p.join(alt, 'PhotoVault')),
+    );
   }
+
+  /// Die Entscheidung selbst, getrennt davon, *wo* die beiden Orte
+  /// liegen. Nur so lässt sie sich auch dort prüfen, wo es keine
+  /// Windows-Pfade gibt – und die Suite läuft nicht unter Windows.
+  ///
+  /// Der alte Ort gewinnt nur, solange das Paket noch gar keinen eigenen
+  /// Ordner hat. Sobald einer existiert, ist die Wahl gefallen und bleibt
+  /// es: Ein Wechsel mitten im Betrieb hiesse, dass die App je nach
+  /// Tageslage eine andere Bibliothek öffnet.
+  @visibleForTesting
+  static Future<Directory> waehleDatenordner(
+      Directory imPaket, Directory? klassisch) async {
+    if (klassisch != null &&
+        !await imPaket.exists() &&
+        await _siehtNachDatenAus(klassisch)) {
+      return klassisch;
+    }
+    await imPaket.create(recursive: true);
+    return imPaket;
+  }
+
+  /// Ob in [ordner] wirklich Daten dieser App liegen.
+  ///
+  /// Ein leerer Ordner reicht nicht: Er kann von einem abgebrochenen Lauf
+  /// stammen, und ihn zu übernehmen hiesse, eine frische Installation an
+  /// einen Ort zu binden, an dem nichts ist.
+  static Future<bool> _siehtNachDatenAus(Directory ordner) async {
+    if (!await ordner.exists()) return false;
+    for (final name in const ['location.json', 'library.sqlite']) {
+      if (await File(p.join(ordner.path, name)).exists()) return true;
+    }
+    return await Directory(p.join(ordner.path, 'models')).exists();
+  }
+
+  /// Der App-Support-Ordner der ausgepackten Fassung, von einem
+  /// MSIX-Paket aus gesehen – oder `null`, wenn [supportPfad] gar nicht
+  /// nach einem Paket aussieht.
+  ///
+  /// Reine Zeichenkettenarbeit, damit sie ohne Windows prüfbar ist. Die
+  /// beiden Marken stammen aus einer echten Messung, nicht aus der
+  /// Dokumentation.
+  @visibleForTesting
+  static String? klassischerDatenordner(String supportPfad) {
+    if (!Platform.isWindows && !_pfadPruefungErzwingen) return null;
+    const marke = r'\AppData\Local\Packages\';
+    const mitte = r'\LocalCache\Roaming\';
+    final klein = supportPfad.toLowerCase();
+    final i = klein.indexOf(marke.toLowerCase());
+    if (i < 0) return null;
+    final j = klein.indexOf(mitte.toLowerCase(), i);
+    if (j < 0) return null;
+    final benutzer = supportPfad.substring(0, i);
+    final rest = supportPfad.substring(j + mitte.length);
+    if (benutzer.isEmpty || rest.isEmpty) return null;
+    return '$benutzer\\AppData\\Roaming\\$rest';
+  }
+
+  static bool _pfadPruefungErzwingen = false;
+
+  /// Nur für den Test: Die Pfadableitung ist reine Rechnung, liesse sich
+  /// aber sonst allein unter Windows prüfen – und dort läuft die Suite
+  /// nicht.
+  @visibleForTesting
+  static set pfadPruefungErzwingen(bool an) => _pfadPruefungErzwingen = an;
+
+  static Future<Directory> _anchorDir() => datenordner();
 
   static Future<File> _configFile() async {
     final anchor = await _anchorDir();
