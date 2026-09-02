@@ -10996,6 +10996,84 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'doppelte Auflösung wird nachgebildet'**
   String get einstKartenquellenSimuliert;
+
+  /// No description provided for @einstKartenquellenKnoepfe.
+  ///
+  /// In de, this message translates to:
+  /// **'Der Knopf rechts macht eine Karte zur Standardansicht – bei einer Vorlage ohne Schlüssel schaltet er sie zugleich ein. Das Vorladen weiter unten füllt den Vorrat danach für genau diese Karte.'**
+  String get einstKartenquellenKnoepfe;
+
+  /// No description provided for @einstKartenquellenSeite.
+  ///
+  /// In de, this message translates to:
+  /// **'Seite des Anbieters öffnen'**
+  String get einstKartenquellenSeite;
+
+  /// No description provided for @einstKartenquellenSeiteFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Seite liess sich nicht öffnen: {adresse}'**
+  String einstKartenquellenSeiteFehler(String adresse);
+
+  /// No description provided for @einstKartenquellenStandard.
+  ///
+  /// In de, this message translates to:
+  /// **'Standard'**
+  String get einstKartenquellenStandard;
+
+  /// No description provided for @einstKartenquellenAlsStandard.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Standard'**
+  String get einstKartenquellenAlsStandard;
+
+  /// No description provided for @einstKartenquellenAlsStandardHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Karte zeigen, sobald die Kartenansicht das nächste Mal geöffnet wird'**
+  String get einstKartenquellenAlsStandardHinweis;
+
+  /// No description provided for @einstKartenquellenStandardGesetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'{name} ist ab dem nächsten Öffnen der Karte die Standardansicht.'**
+  String einstKartenquellenStandardGesetzt(String name);
+
+  /// No description provided for @einstKartenquellenUebernehmen.
+  ///
+  /// In de, this message translates to:
+  /// **'Übernehmen'**
+  String get einstKartenquellenUebernehmen;
+
+  /// No description provided for @einstKartenquellenUebernehmenHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Quelle als eigene Karte einschalten und als Standard merken'**
+  String get einstKartenquellenUebernehmenHinweis;
+
+  /// No description provided for @einstKartenquellenUebernommen.
+  ///
+  /// In de, this message translates to:
+  /// **'{name} ist eingeschaltet und ab dem nächsten Öffnen der Karte die Standardansicht.'**
+  String einstKartenquellenUebernommen(String name);
+
+  /// No description provided for @einstKartenquellenEintragen.
+  ///
+  /// In de, this message translates to:
+  /// **'Eintragen'**
+  String get einstKartenquellenEintragen;
+
+  /// No description provided for @einstKartenquellenEintragenHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Vorlage unten ins Formular schreiben – der Schlüssel fehlt dann noch'**
+  String get einstKartenquellenEintragenHinweis;
+
+  /// No description provided for @einstKartenquellenEingetragen.
+  ///
+  /// In de, this message translates to:
+  /// **'{name} steht unten im Formular. Trage deinen Schlüssel ein und speichere.'**
+  String einstKartenquellenEingetragen(String name);
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

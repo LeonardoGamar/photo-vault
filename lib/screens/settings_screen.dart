@@ -48,6 +48,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  /// Der Griff zum Formular für die eigene Kartenquelle. Über ihn
+  /// schreibt die Quellenübersicht darüber eine Vorlage hinein und
+  /// scrollt sie ins Bild.
+  final _eigeneKarte = GlobalKey<EigeneKarteEinstellungState>();
+
   /// Wechselt die Oberflächensprache und bietet dabei einmalig an, das
   /// Schlagwort-Vokabular mitzuziehen.
   ///
@@ -1812,11 +1817,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // tief es traegt.
       Text(t.einstKartenquellenTitel,
           style: Theme.of(context).textTheme.titleSmall),
-      const KartenquellenUebersicht(),
+      KartenquellenUebersicht(
+        library: widget.library,
+        // Eine Vorlage mit Schlüssel kann die Übersicht nicht selbst
+        // einschalten – sie reicht sie ins Formular durch und scrollt
+        // dorthin, damit der Sprung nicht ins Leere geht.
+        aufVorlage: (v) {
+          _eigeneKarte.currentState?.vorlageEinsetzen(v);
+          final ziel = _eigeneKarte.currentContext;
+          if (ziel != null) {
+            unawaited(Scrollable.ensureVisible(ziel,
+                duration: const Duration(milliseconds: 250),
+                alignment: 0.1));
+          }
+        },
+      ),
       const Divider(height: AppSpacing.xl),
       Text(t.einstEigeneKarteTitel,
           style: Theme.of(context).textTheme.titleSmall),
-      EigeneKarteEinstellung(library: widget.library),
+      EigeneKarteEinstellung(key: _eigeneKarte, library: widget.library),
       const Divider(height: AppSpacing.xl),
       // Der Vorrat. Er steht bei der Karte und nicht bei den Werkzeugen,
       // weil er zum Kartenbild gehört: Wer graue Löcher loswerden will,

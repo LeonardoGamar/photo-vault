@@ -74,6 +74,22 @@ class Eigenkarte {
     );
   }
 
+  /// Eine Quelle aus einer fertigen Vorlage.
+  ///
+  /// **Nur für Vorlagen ohne Schlüssel** (siehe
+  /// [Kartenvorlage.sofortNutzbar]): Bei den übrigen stünde die
+  /// [schluesselMarke] in der Adresse, und die Karte zeigte einen
+  /// Rechtefehler statt Kacheln. [zugestimmt] ist Sache des Aufrufers –
+  /// er muss die Warnung vorher gezeigt haben.
+  static Eigenkarte vonVorlage(Kartenvorlage v, {bool zugestimmt = true}) =>
+      Eigenkarte(
+        name: v.name,
+        url: v.url,
+        nennung: v.nennung,
+        stufe: v.stufe,
+        zugestimmt: zugestimmt,
+      );
+
   /// Platzhalter, die flutter_map in einer Adressvorlage kennt.
   ///
   /// `nachfassen` steht mit dabei, weil die Kachelschicht ihn als
@@ -139,6 +155,7 @@ class Kartenvorlage {
     required this.url,
     required this.nennung,
     required this.stufe,
+    required this.seite,
     this.brauchtSchluessel = false,
     this.sitzungNoetig = false,
     this.gemessen = false,
@@ -170,6 +187,23 @@ class Kartenvorlage {
 
   /// Wo es den Schlüssel gibt.
   final String? woher;
+
+  /// Die Seite des Anbieters – Nutzungsregeln, Preise, Anmeldung.
+  ///
+  /// **Warum sie zur Vorlage gehört und nicht in die Oberfläche.** Die
+  /// Warnung vor dem Einschalten sagt, dass die Nutzungsregeln des
+  /// Anbieters gelten und dass die App das niemandem abnehmen kann.
+  /// Dieser Satz ist nur dann ehrlich, wenn die Regeln auch erreichbar
+  /// sind – ohne den Namen erst abtippen zu müssen.
+  final String seite;
+
+  /// Ob sich diese Vorlage mit einem Klick einschalten lässt.
+  ///
+  /// Alles ohne Schlüssel: Adresse, Namensnennung und Zoomgrenze stehen
+  /// vollständig da. Bei den übrigen fehlt genau ein Stück, das nur der
+  /// Anwender beschaffen kann – die wandern deshalb ins Formular statt
+  /// direkt in die Einstellung.
+  bool get sofortNutzbar => !brauchtSchluessel && !sitzungNoetig;
 }
 
 /// Die mitgelieferten Vorlagen.
@@ -196,6 +230,7 @@ class Kartenvorlage {
 const kartenvorlagen = <Kartenvorlage>[
   Kartenvorlage(
     name: 'Esri Weltbild (Luftbild)',
+    seite: 'https://www.esri.com/en-us/legal/terms/full-master-agreement',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/'
         'World_Imagery/MapServer/tile/{z}/{y}/{x}',
     nennung: '© Esri, Maxar, Earthstar Geographics',
@@ -204,6 +239,7 @@ const kartenvorlagen = <Kartenvorlage>[
   ),
   Kartenvorlage(
     name: 'Esri Strassenkarte',
+    seite: 'https://www.esri.com/en-us/legal/terms/full-master-agreement',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/'
         'World_Street_Map/MapServer/tile/{z}/{y}/{x}',
     nennung: '© Esri, HERE, Garmin, © OpenStreetMap contributors',
@@ -212,6 +248,7 @@ const kartenvorlagen = <Kartenvorlage>[
   ),
   Kartenvorlage(
     name: 'OpenStreetMap Deutschland',
+    seite: 'https://www.openstreetmap.de/germanstyle.html',
     url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
     nennung: '© OpenStreetMap contributors',
     stufe: 20,
@@ -219,6 +256,7 @@ const kartenvorlagen = <Kartenvorlage>[
   ),
   Kartenvorlage(
     name: 'CyclOSM (Radwege)',
+    seite: 'https://www.cyclosm.org/',
     url: 'https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
     nennung: '© OpenStreetMap contributors, CyclOSM',
     stufe: 20,
@@ -226,6 +264,7 @@ const kartenvorlagen = <Kartenvorlage>[
   ),
   Kartenvorlage(
     name: 'Mapbox Streets',
+    seite: 'https://account.mapbox.com/auth/signup/',
     url: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/256/'
         '{z}/{x}/{y}?access_token=$schluesselMarke',
     nennung: '© Mapbox © OpenStreetMap contributors',
@@ -235,6 +274,7 @@ const kartenvorlagen = <Kartenvorlage>[
   ),
   Kartenvorlage(
     name: 'MapTiler Streets',
+    seite: 'https://cloud.maptiler.com/account/keys/',
     url: 'https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png'
         '?key=$schluesselMarke',
     nennung: '© MapTiler © OpenStreetMap contributors',
@@ -244,6 +284,7 @@ const kartenvorlagen = <Kartenvorlage>[
   ),
   Kartenvorlage(
     name: 'Thunderforest Outdoors',
+    seite: 'https://www.thunderforest.com/pricing/',
     url: 'https://tile.thunderforest.com/outdoors/{z}/{x}/{y}.png'
         '?apikey=$schluesselMarke',
     nennung: '© Thunderforest, © OpenStreetMap contributors',
@@ -253,6 +294,7 @@ const kartenvorlagen = <Kartenvorlage>[
   ),
   Kartenvorlage(
     name: 'Google Karten',
+    seite: 'https://developers.google.com/maps/documentation/tile/get-api-key',
     url: 'https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}'
         '?session=SITZUNG&key=$schluesselMarke',
     nennung: '© Google',

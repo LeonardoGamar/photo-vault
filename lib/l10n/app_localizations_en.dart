@@ -7116,4 +7116,55 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get einstKartenquellenSimuliert => 'double resolution is simulated';
+
+  @override
+  String get einstKartenquellenKnoepfe =>
+      'The button on the right makes a map the default view - for a template without a key it also switches it on. The preload further down then fills the cache for exactly that map.';
+
+  @override
+  String get einstKartenquellenSeite => 'Open the provider\'s page';
+
+  @override
+  String einstKartenquellenSeiteFehler(String adresse) {
+    return 'The page could not be opened: $adresse';
+  }
+
+  @override
+  String get einstKartenquellenStandard => 'default';
+
+  @override
+  String get einstKartenquellenAlsStandard => 'Make default';
+
+  @override
+  String get einstKartenquellenAlsStandardHinweis =>
+      'Show this map the next time the map view is opened';
+
+  @override
+  String einstKartenquellenStandardGesetzt(String name) {
+    return '$name will be the default view from the next time the map is opened.';
+  }
+
+  @override
+  String get einstKartenquellenUebernehmen => 'Use this';
+
+  @override
+  String get einstKartenquellenUebernehmenHinweis =>
+      'Turn this source on as your own map and make it the default';
+
+  @override
+  String einstKartenquellenUebernommen(String name) {
+    return '$name is switched on and will be the default view from the next time the map is opened.';
+  }
+
+  @override
+  String get einstKartenquellenEintragen => 'Fill in';
+
+  @override
+  String get einstKartenquellenEintragenHinweis =>
+      'Write this template into the form below - the key will still be missing';
+
+  @override
+  String einstKartenquellenEingetragen(String name) {
+    return '$name is in the form below. Enter your key and save.';
+  }
 }

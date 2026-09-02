@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/eigenkarte.dart';
 import '../services/meldungsdienst.dart';
+import '../services/platform/webseite_oeffnen.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
@@ -21,10 +22,10 @@ class EigeneKarteEinstellung extends StatefulWidget {
   final LibraryState library;
 
   @override
-  State<EigeneKarteEinstellung> createState() => _EigeneKarteEinstellungState();
+  State<EigeneKarteEinstellung> createState() => EigeneKarteEinstellungState();
 }
 
-class _EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
+class EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
   final _name = TextEditingController();
   final _adresse = TextEditingController();
   final _nennung = TextEditingController();
@@ -63,7 +64,13 @@ class _EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
     super.dispose();
   }
 
-  void _vorlageUebernehmen(Kartenvorlage v) {
+  /// Schreibt eine Vorlage in die Felder – gespeichert wird damit noch
+  /// nichts.
+  ///
+  /// **Öffentlich**, weil die Quellenübersicht darüber hierher
+  /// verweist: Vorlagen mit Schlüssel kann sie nicht selbst einschalten,
+  /// wohl aber alles ausfüllen ausser dem Schlüssel.
+  void vorlageEinsetzen(Kartenvorlage v) {
     setState(() {
       _vorlage = v;
       _name.text = v.name;
@@ -99,6 +106,13 @@ class _EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
     melde.erfolg(t.einstEigeneKarteSitzungOk);
   }
 
+  Future<void> _seiteOeffnen(String adresse) async {
+    final t = AppTexte.of(context);
+    if (!await oeffneWebseite(adresse)) {
+      melde.warnung(t.einstKartenquellenSeiteFehler(adresse));
+    }
+  }
+
   String? _adressfehlertext(AppTexte t) {
     final fehler = Eigenkarte.adressfehler(_adresse.text);
     return switch (fehler) {
@@ -126,7 +140,7 @@ class _EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
     }
     // Der Hinweis kommt vor dem Speichern und nicht danach: Wer ihn
     // abbricht, soll nichts eingeschaltet haben.
-    final ja = await _warnungZeigen(context);
+    final ja = await zeigeKartenwarnung(context);
     if (ja != true || !mounted) return;
 
     final karte = Eigenkarte(
@@ -160,44 +174,6 @@ class _EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
     melde.hinweis(t.einstEigeneKarteEntfernt);
   }
 
-  Future<bool?> _warnungZeigen(BuildContext context) {
-    final t = AppTexte.of(context);
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(t.einstEigeneKarteWarnungTitel),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _Warnzeile(
-                  symbol: Icons.cell_tower_outlined,
-                  text: t.einstEigeneKarteWarnungUebermittlung),
-              const SizedBox(height: AppSpacing.md),
-              _Warnzeile(
-                  symbol: Icons.cloud_off_outlined,
-                  text: t.einstEigeneKarteWarnungOffline),
-              const SizedBox(height: AppSpacing.md),
-              _Warnzeile(
-                  symbol: Icons.gavel_outlined,
-                  text: t.einstEigeneKarteWarnungBedingungen),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(t.allgAbbrechen),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(t.einstEigeneKarteWarnungAnnehmen),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +224,7 @@ class _EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 PopupMenuButton<Kartenvorlage>(
-                  onSelected: _vorlageUebernehmen,
+                  onSelected: vorlageEinsetzen,
                   itemBuilder: (context) => [
                     for (final v in kartenvorlagen)
                       PopupMenuItem(
@@ -273,13 +249,24 @@ class _EigeneKarteEinstellungState extends State<EigeneKarteEinstellung> {
                     label: Text(t.einstEigeneKarteVorlage),
                   ),
                 ),
-                if (_vorlage?.woher case final woher?)
+                // Anklickbar und nicht nur genannt: Wer hier steht,
+                // braucht als Naechstes genau diese Seite - und muesste
+                // den Namen sonst abtippen.
+                if (_vorlage case final v? when v.woher != null)
                   Padding(
                     padding: const EdgeInsets.only(top: AppSpacing.xs),
-                    child: Text(
-                      t.einstEigeneKarteWoher(woher),
-                      style:
-                          TextStyle(fontSize: 12, color: farben.onSurfaceVariant),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () => _seiteOeffnen(v.seite),
+                        icon: const Icon(Icons.open_in_new, size: 16),
+                        label: Text(t.einstEigeneKarteWoher(v.woher!)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.xs),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                      ),
                     ),
                   ),
                 if (_vorlage?.brauchtSchluessel ?? false)
@@ -396,4 +383,50 @@ class _Warnzeile extends StatelessWidget {
           Expanded(child: Text(text)),
         ],
       );
+}
+
+/// Der Hinweis, der vor dem Einschalten einer fremden Kartenquelle
+/// stehen muss: Datenübermittlung, Offline-Nutzung, Nutzungsregeln.
+///
+/// **Als Funktion und nicht als Methode**, seit die Quellenübersicht
+/// Vorlagen mit einem Klick einschalten kann. Beide Wege führen zu
+/// derselben Einstellung – und beide müssen deshalb dieselbe Warnung
+/// zeigen. Zwei Fassungen wären zwei Stände.
+Future<bool?> zeigeKartenwarnung(BuildContext context) {
+  final t = AppTexte.of(context);
+  return showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(t.einstEigeneKarteWarnungTitel),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Warnzeile(
+                symbol: Icons.cell_tower_outlined,
+                text: t.einstEigeneKarteWarnungUebermittlung),
+            const SizedBox(height: AppSpacing.md),
+            _Warnzeile(
+                symbol: Icons.cloud_off_outlined,
+                text: t.einstEigeneKarteWarnungOffline),
+            const SizedBox(height: AppSpacing.md),
+            _Warnzeile(
+                symbol: Icons.gavel_outlined,
+                text: t.einstEigeneKarteWarnungBedingungen),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(t.allgAbbrechen),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(t.einstEigeneKarteWarnungAnnehmen),
+        ),
+      ],
+    ),
+  );
 }

@@ -7154,4 +7154,55 @@ class AppTexteDe extends AppTexte {
   @override
   String get einstKartenquellenSimuliert =>
       'doppelte Auflösung wird nachgebildet';
+
+  @override
+  String get einstKartenquellenKnoepfe =>
+      'Der Knopf rechts macht eine Karte zur Standardansicht – bei einer Vorlage ohne Schlüssel schaltet er sie zugleich ein. Das Vorladen weiter unten füllt den Vorrat danach für genau diese Karte.';
+
+  @override
+  String get einstKartenquellenSeite => 'Seite des Anbieters öffnen';
+
+  @override
+  String einstKartenquellenSeiteFehler(String adresse) {
+    return 'Die Seite liess sich nicht öffnen: $adresse';
+  }
+
+  @override
+  String get einstKartenquellenStandard => 'Standard';
+
+  @override
+  String get einstKartenquellenAlsStandard => 'Als Standard';
+
+  @override
+  String get einstKartenquellenAlsStandardHinweis =>
+      'Diese Karte zeigen, sobald die Kartenansicht das nächste Mal geöffnet wird';
+
+  @override
+  String einstKartenquellenStandardGesetzt(String name) {
+    return '$name ist ab dem nächsten Öffnen der Karte die Standardansicht.';
+  }
+
+  @override
+  String get einstKartenquellenUebernehmen => 'Übernehmen';
+
+  @override
+  String get einstKartenquellenUebernehmenHinweis =>
+      'Diese Quelle als eigene Karte einschalten und als Standard merken';
+
+  @override
+  String einstKartenquellenUebernommen(String name) {
+    return '$name ist eingeschaltet und ab dem nächsten Öffnen der Karte die Standardansicht.';
+  }
+
+  @override
+  String get einstKartenquellenEintragen => 'Eintragen';
+
+  @override
+  String get einstKartenquellenEintragenHinweis =>
+      'Diese Vorlage unten ins Formular schreiben – der Schlüssel fehlt dann noch';
+
+  @override
+  String einstKartenquellenEingetragen(String name) {
+    return '$name steht unten im Formular. Trage deinen Schlüssel ein und speichere.';
+  }
 }

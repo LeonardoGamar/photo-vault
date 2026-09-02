@@ -68,6 +68,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="3.2.0" date="2026-09-01">
+      <description>
+        <p>The overview of map sources said which map goes deepest - and then left you to copy the address template out by hand. Every row now has its buttons. No database change - version 66 stays, updating is a plain program swap.</p>
+        <p>Three buttons, depending on the row. The bundled maps (light, dark, topography) can be made the default view. A template without a key can be switched on with one click: notice, on, default, in one go - that covers both Esri maps, OpenStreetMap Germany and CyclOSM, where address, attribution and zoom limit are all present and nothing is missing that anyone would have to obtain. Mapbox, MapTiler, Thunderforest and Google Maps stay with the form below, because their address carries the key marker; switched on with a single click the provider would answer with a permission error, and on screen that looks like a broken map. Whichever view is currently remembered carries a mark in its title and no longer has a button - having nothing to do is information too.</p>
+        <p>And a link to every provider, the three bundled ones included, where it points at openstreetmap.org/copyright, carto.com and opentopomap.org. That was the actual break: the notice before switching on a third-party source says that the provider's terms apply and that the app cannot take that off anyone's hands. That sentence is only honest if the terms can actually be reached without typing the name out first. In the form, "keys are available from ..." became a button for the same reason.</p>
+        <p>Only what begins with http or https and has a host is opened. The value ends up as the argument of a system command, and "open" on macOS starts programs too - a file: scheme or a path to an application bundle would be something other than opening a page. The addresses do come from a bundled list, but lists like that grow.</p>
+        <p>The chain is now complete: take it, make it the default, fill the store. The pre-load further down in the same settings has always followed the remembered view, the custom source included - so anyone who takes Esri World Imagery and then pre-loads fills the store with Esri tiles and not with the dark ones. What is new is only that a sentence above the buttons says so.</p>
+        <p xml:lang="de">Zum Aktualisieren: Archiv auspacken, die App an ihren Platz ziehen, starten. Dieselbe Kennung, dieselbe Bibliothek, kein Schemawechsel.</p>
+      </description>
+    </release>
     <release version="3.1.1" date="2026-09-01">
       <description>
         <p>A follow-up with a single cause: on a display with double pixel density the map only ever drew half the resolution. Anyone on a MacBook, a Retina display or a 4K screen will see the difference at once. No database change - version 66 stays, updating is a plain program swap.</p>

@@ -4477,5 +4477,46 @@
   "einstKartenquellenLautAnbieter": "laut Anbieter",
   "einstKartenquellenSchluessel": "Schlüssel nötig",
   "einstKartenquellenHochaufloesend": "liefert doppelte Auflösung",
-  "einstKartenquellenSimuliert": "doppelte Auflösung wird nachgebildet"
+  "einstKartenquellenSimuliert": "doppelte Auflösung wird nachgebildet",
+  "einstKartenquellenKnoepfe": "Der Knopf rechts macht eine Karte zur Standardansicht – bei einer Vorlage ohne Schlüssel schaltet er sie zugleich ein. Das Vorladen weiter unten füllt den Vorrat danach für genau diese Karte.",
+  "einstKartenquellenSeite": "Seite des Anbieters öffnen",
+  "einstKartenquellenSeiteFehler": "Die Seite liess sich nicht öffnen: {adresse}",
+  "@einstKartenquellenSeiteFehler": {
+    "placeholders": {
+      "adresse": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenStandard": "Standard",
+  "einstKartenquellenAlsStandard": "Als Standard",
+  "einstKartenquellenAlsStandardHinweis": "Diese Karte zeigen, sobald die Kartenansicht das nächste Mal geöffnet wird",
+  "einstKartenquellenStandardGesetzt": "{name} ist ab dem nächsten Öffnen der Karte die Standardansicht.",
+  "@einstKartenquellenStandardGesetzt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenUebernehmen": "Übernehmen",
+  "einstKartenquellenUebernehmenHinweis": "Diese Quelle als eigene Karte einschalten und als Standard merken",
+  "einstKartenquellenUebernommen": "{name} ist eingeschaltet und ab dem nächsten Öffnen der Karte die Standardansicht.",
+  "@einstKartenquellenUebernommen": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenEintragen": "Eintragen",
+  "einstKartenquellenEintragenHinweis": "Diese Vorlage unten ins Formular schreiben – der Schlüssel fehlt dann noch",
+  "einstKartenquellenEingetragen": "{name} steht unten im Formular. Trage deinen Schlüssel ein und speichere.",
+  "@einstKartenquellenEingetragen": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

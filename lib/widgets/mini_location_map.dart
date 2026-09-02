@@ -65,6 +65,7 @@ enum Kartenstil {
   hell(
     kachelUrl: _osmKacheln,
     namensnennung: _osmNennung,
+    seite: _osmSeite,
     // Ausdrücklich, nicht über die Vorgabe: Ab Stufe 20 antwortet der
     // Server mit 400, nachgemessen.
     hoechsteEchteStufe: 19,
@@ -103,6 +104,7 @@ enum Kartenstil {
   dunkel(
     kachelUrl: _osmKacheln,
     namensnennung: _osmNennung,
+    seite: _osmSeite,
     hoechsteEchteStufe: 19,
   ),
 
@@ -128,6 +130,7 @@ enum Kartenstil {
   topo(
     kachelUrl: 'https://tile.opentopomap.org/{z}/{x}/{y}.png',
     namensnennung: '© OpenStreetMap contributors, SRTM | © opentopomap.org (CC-BY-SA)',
+    seite: 'https://opentopomap.org/about',
     hoechsteEchteStufe: 17,
   ),
 
@@ -149,15 +152,18 @@ enum Kartenstil {
   const Kartenstil({
     required String kachelUrl,
     required String namensnennung,
+    String? seite,
     List<String> unterbereiche = const <String>[],
     int? hoechsteEchteStufe,
   })  : _kachelUrl = kachelUrl,
         _namensnennung = namensnennung,
+        _seite = seite,
         _unterbereiche = unterbereiche,
         _hoechsteEchteStufe = hoechsteEchteStufe;
 
   final String _kachelUrl;
   final String _namensnennung;
+  final String? _seite;
   final List<String> _unterbereiche;
   final int? _hoechsteEchteStufe;
 
@@ -183,6 +189,16 @@ enum Kartenstil {
   String get namensnennung {
     if (this == eigene && _eigeneKarte != null) return _eigeneKarte!.nennung;
     return _ueberCarto ? _cartoNennung : _namensnennung;
+  }
+
+  /// Die Seite des Anbieters – Lizenz und Bedingungen zu genau den
+  /// Kacheln, die gerade im Bild stehen.
+  ///
+  /// Bei der eigenen Quelle `null`: Was dort eingetragen ist, weiss die
+  /// App nicht, und eine geratene Adresse wäre schlimmer als keine.
+  String? get seite {
+    if (this == eigene) return null;
+    return _ueberCarto ? _cartoSeite : _seite;
   }
 
   List<String> get unterbereiche =>
@@ -235,6 +251,11 @@ const _cartoKacheln =
     'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=';
 const _cartoNennung = '© OpenStreetMap contributors © CARTO';
 const _cartoUnterbereiche = ['a', 'b', 'c', 'd'];
+
+/// Die Seite hinter der Namensnennung – dort stehen die Bedingungen, zu
+/// denen die Kacheln benutzt werden dürfen.
+const _osmSeite = 'https://www.openstreetmap.org/copyright';
+const _cartoSeite = 'https://carto.com/attributions';
 
 /// Wie lange eine einmal geholte Kachel als frisch gilt.
 ///

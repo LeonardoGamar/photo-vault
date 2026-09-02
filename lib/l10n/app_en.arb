@@ -3407,5 +3407,46 @@
   "einstKartenquellenLautAnbieter": "per the provider",
   "einstKartenquellenSchluessel": "key required",
   "einstKartenquellenHochaufloesend": "serves double resolution",
-  "einstKartenquellenSimuliert": "double resolution is simulated"
+  "einstKartenquellenSimuliert": "double resolution is simulated",
+  "einstKartenquellenKnoepfe": "The button on the right makes a map the default view - for a template without a key it also switches it on. The preload further down then fills the cache for exactly that map.",
+  "einstKartenquellenSeite": "Open the provider's page",
+  "einstKartenquellenSeiteFehler": "The page could not be opened: {adresse}",
+  "@einstKartenquellenSeiteFehler": {
+    "placeholders": {
+      "adresse": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenStandard": "default",
+  "einstKartenquellenAlsStandard": "Make default",
+  "einstKartenquellenAlsStandardHinweis": "Show this map the next time the map view is opened",
+  "einstKartenquellenStandardGesetzt": "{name} will be the default view from the next time the map is opened.",
+  "@einstKartenquellenStandardGesetzt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenUebernehmen": "Use this",
+  "einstKartenquellenUebernehmenHinweis": "Turn this source on as your own map and make it the default",
+  "einstKartenquellenUebernommen": "{name} is switched on and will be the default view from the next time the map is opened.",
+  "@einstKartenquellenUebernommen": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "einstKartenquellenEintragen": "Fill in",
+  "einstKartenquellenEintragenHinweis": "Write this template into the form below - the key will still be missing",
+  "einstKartenquellenEingetragen": "{name} is in the form below. Enter your key and save.",
+  "@einstKartenquellenEingetragen": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }
