@@ -298,6 +298,12 @@ class _SearchScreenState extends State<SearchScreen>
       }
       if (!mounted) return;
       setState(() => _results = results);
+    } on ModellUnbrauchbar catch (e) {
+      // Eigener Zweig, weil hier etwas zu TUN ist: Der Rohtext war eine
+      // C++-Zusicherung mit den Pfaden eines fremden Bauservers.
+      if (!mounted) return;
+      setState(
+          () => _error = AppTexte.of(context).sucheModellUnbrauchbar(e.datei));
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = AppTexte.of(context).sucheFehlgeschlagen('$e'));

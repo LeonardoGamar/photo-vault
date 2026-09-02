@@ -62,6 +62,14 @@ void main() {
     await pumpeBis(() => gesehen.isNotEmpty);
     expect(gesehen, [1]);
 
+    // **Die Ruhepause muss wirklich stattfinden.** Der Satz oben stand
+    // bis hierher nur im Kommentar: Der zweite Schreibvorgang folgte
+    // unmittelbar auf den ersten und lag damit selbst im Drosselfenster.
+    // Ob er wartete, entschied dann die Tagesform der Maschine – und
+    // unter Last fiel der Test (gemessen 400,7 ms gegen eine Grenze von
+    // 400).
+    await Future<void>.delayed(AppDatabase.drosselfenster);
+
     final uhr = Stopwatch()..start();
     await aufnahme('b', minute: 1);
     await pumpeBis(() => gesehen.length >= 2);

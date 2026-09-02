@@ -266,6 +266,11 @@ class AppTexteDe extends AppTexte {
   String get sucheModellLaedt => 'Modell für die Bildsuche wird geladen …';
 
   @override
+  String sucheModellUnbrauchbar(String datei) {
+    return 'Das Modell $datei liegt zwar auf der Platte, lässt sich aber nicht öffnen. Lade es unter Einstellungen → KI-Modelle neu – die Suche und die KI-Schlagwörter brauchen es.';
+  }
+
+  @override
   String sucheFehlgeschlagen(String fehler) {
     return 'Suche fehlgeschlagen: $fehler';
   }
@@ -625,9 +630,6 @@ class AppTexteDe extends AppTexte {
     );
     return '$_temp0';
   }
-
-  @override
-  String get erkundenKeinePersonen => 'Noch keine Personen benannt.';
 
   @override
   String get erkundenKeineOrte =>
@@ -2135,6 +2137,66 @@ class AppTexteDe extends AppTexte {
   String get entwTitel => 'Entwickeln';
 
   @override
+  String get entwVerlaufSitzung => 'Diese Sitzung';
+
+  @override
+  String get entwVerlaufGespeichert => 'Gespeichert';
+
+  @override
+  String get entwVerlaufAusgangsstand => 'Stand beim Öffnen';
+
+  @override
+  String get entwVerlaufOhneAenderung => 'Ohne Änderung';
+
+  @override
+  String get entwVerlaufJetzt => 'Aktueller Stand';
+
+  @override
+  String get entwWerkzBelichtung => 'Belichtung';
+
+  @override
+  String get entwWerkzWeissabgleich => 'Weissabgleich';
+
+  @override
+  String get entwWerkzTemperatur => 'Temperatur';
+
+  @override
+  String get entwWerkzTint => 'Farbstich';
+
+  @override
+  String get entwWerkzKontrast => 'Kontrast';
+
+  @override
+  String get entwWerkzLichter => 'Lichter';
+
+  @override
+  String get entwWerkzSchatten => 'Schatten';
+
+  @override
+  String get entwWerkzSchaerfe => 'Schärfe';
+
+  @override
+  String get entwWerkzRauschen => 'Rauschunterdrückung';
+
+  @override
+  String get entwWerkzKlarheit => 'Klarheit';
+
+  @override
+  String get entwWerkzVignettierung => 'Vignettierung';
+
+  @override
+  String get entwWerkzKurve => 'Tonwertkurve';
+
+  @override
+  String get entwWerkzFarbmischer => 'Farbmischer';
+
+  @override
+  String get entwWerkzFarbtabelle => 'Farbtabelle';
+
+  @override
+  String get entwWerkzObjektiv => 'Objektivkorrektur';
+
+  @override
   String get entwKeinVerlauf =>
       'Noch kein Verlauf vorhanden – ein Eintrag entsteht, sobald du nach einer ersten Anpassung erneut speicherst.';
 
@@ -2149,6 +2211,9 @@ class AppTexteDe extends AppTexte {
   @override
   String get entwSpeichernFehlgeschlagen =>
       'Speichern fehlgeschlagen: Bild konnte nicht gerendert werden.';
+
+  @override
+  String get entwRestaurierungLaeuft => 'KI-Restaurierung';
 
   @override
   String get entwRestaurierungEingereiht =>
@@ -2972,6 +3037,20 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get integInhaltGeaendert => 'Inhalt hat sich seit dem Import geändert';
+
+  @override
+  String get integAnsehen => 'Ansehen';
+
+  @override
+  String get integVorschauTitel => 'Vorschau';
+
+  @override
+  String get integKeineVorschau =>
+      'Für diese Datei lässt sich keine Vorschau zeigen.';
+
+  @override
+  String get integVorschauVerschluesselt =>
+      'Das Foto ist gesperrt – die Vorschau ist mitverschlüsselt.';
 
   @override
   String get integFotoOeffnen => 'Foto öffnen';
@@ -4465,6 +4544,51 @@ class AppTexteDe extends AppTexte {
   String get listeOhneKamera => 'Ohne Kameraangabe';
 
   @override
+  String get zeitleisteGroesser => 'Grössere Kacheln';
+
+  @override
+  String get zeitleisteKleiner => 'Kleinere Kacheln – mehr Monate auf einmal';
+
+  @override
+  String get listeSpalten => 'Spalten';
+
+  @override
+  String get listeSpalteDateiname => 'Dateiname';
+
+  @override
+  String get listeSpalteDatum => 'Aufgenommen';
+
+  @override
+  String get listeSpalteKamera => 'Kamera';
+
+  @override
+  String get listeSpalteObjektiv => 'Objektiv';
+
+  @override
+  String get listeSpalteBelichtung => 'Belichtung';
+
+  @override
+  String get listeSpalteBewertung => 'Bewertung';
+
+  @override
+  String get listeSpalteFarbe => 'Farbe';
+
+  @override
+  String get listeSpalteMasse => 'Masse';
+
+  @override
+  String get listeSpalteGroesse => 'Dateigrösse';
+
+  @override
+  String get listeSpalteArt => 'Art';
+
+  @override
+  String get listeSpalteOrt => 'Ort';
+
+  @override
+  String get listeSpalteBreiteAendern => 'Breite ändern';
+
+  @override
   String get ansichtRaster => 'Raster';
 
   @override
@@ -5325,6 +5449,28 @@ class AppTexteDe extends AppTexte {
   String get erkundenReisen => 'Reisen';
 
   @override
+  String get erkundenAktivitaeten => 'Aktivitäten';
+
+  @override
+  String get gelaendeKarte => 'Karte auf der Landschaft';
+
+  @override
+  String get kalenderGanzesJahr => 'Ganzes Jahr';
+
+  @override
+  String get einstKarteScharfTitel => 'Karte in doppelter Auflösung';
+
+  @override
+  String get einstKarteScharfText =>
+      'Auf einem Bildschirm mit doppelter Punktdichte holt die Karte vier Kacheln der nächsttieferen Stufe und setzt sie an die Stelle einer: viermal so viele Bildpunkte, Hausnummern und Ladennamen werden lesbar. Der Preis sind rund zweieinhalbmal so viele Kacheln je Bildschirm – auf einer langsameren Maschine ruckelt das Zoomen dadurch spürbar. Ausgeschaltet zeichnet die Karte wie zuvor.';
+
+  @override
+  String get routeVergroessern => 'Karte vergrössern';
+
+  @override
+  String get routeVerkleinern => 'Karte verkleinern';
+
+  @override
   String get reisenTitel => 'Reisen';
 
   @override
@@ -5339,9 +5485,6 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get reisenBestaetigte => 'Deine Reisen';
-
-  @override
-  String get reisenKeineVorschlaege => 'Keine neuen Vorschläge.';
 
   @override
   String get reisenIstEineReise => 'War eine Reise';
@@ -5570,6 +5713,15 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get laenderAlle => 'Alle';
+
+  @override
+  String get laenderLegende => 'Legende';
+
+  @override
+  String get laenderAusFotos => 'Durch Fotos belegt';
+
+  @override
+  String get laenderNurVonHand => 'Von Hand ausgewählt';
 
   @override
   String get laenderVollstaendig => 'Vollständig';
@@ -6348,9 +6500,6 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get aktivitaetenNotiz => 'Notiz';
-
-  @override
-  String get aktivitaetenArt => 'Art';
 
   @override
   String get aktivitaetenArtAendern => 'Art ändern';

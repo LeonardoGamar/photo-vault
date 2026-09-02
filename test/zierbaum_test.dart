@@ -118,6 +118,28 @@ void main() {
       expect(ast.nachY, schild(p, 'anna').unten);
     });
 
+    test('getrennt lebende Eltern ergeben zwei Aeste aus einem Schild', () {
+      // Der gemeldete Fehler: Im Bild stand der Vater ohne jede
+      // Verbindung, weil je Person nur ein Elternhaus gefuehrt wurde und
+      // die Mutter zuerst kam.
+      final p = zierbaumplan(geflechtUm(
+        Verwandtschaftsnetz([
+          kante('ich', 'vater', Verwandtschaft.elternteil),
+          kante('ich', 'mutter', Verwandtschaft.elternteil),
+        ]),
+        'ich',
+        const ['mutter', 'vater', 'ich'],
+      ));
+      final meine = p.aeste.where((a) => a.personId == 'ich').toList();
+      expect(meine, hasLength(2));
+      // Beide gehen an derselben Stelle los und laufen auseinander.
+      expect(meine[0].vonX, meine[1].vonX);
+      expect(meine[0].nachX, isNot(closeTo(meine[1].nachX, 1)));
+      // Und jeder trifft wirklich ein Elternteil, keiner die Leere.
+      final ziele = meine.map((a) => a.nachX).toSet();
+      expect(ziele, {schild(p, 'vater').mitteX, schild(p, 'mutter').mitteX});
+    });
+
     test('ohne Elternhaus im Bild kein Ast', () {
       // Ein Ast ins Leere wäre eine Behauptung über etwas, das man nicht
       // sieht.

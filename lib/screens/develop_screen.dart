@@ -17,9 +17,11 @@ import '../db/database.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/asset_display_path.dart';
+import '../services/bilddekodierung.dart';
 import '../services/cube_lut.dart';
 import '../services/develop_color.dart';
 import '../services/develop_render.dart';
+import '../services/entwicklungsverlauf.dart';
 import '../services/histogram.dart';
 import '../services/modell_halter.dart';
 import '../services/native_image_converter.dart';
@@ -27,8 +29,10 @@ import '../services/restore_queue_service.dart';
 import '../services/segmentation_service.dart';
 import '../services/storage_paths.dart';
 import '../services/vector_mask_service.dart';
+import 'restore_queue_screen.dart' show restaurLaufText;
 import '../state/library_state.dart' show decodeImageBytes;
 import '../theme/app_spacing.dart';
+import '../widgets/stromhalter.dart';
 import '../utils/debouncer.dart';
 import '../widgets/color_mixer_panel.dart';
 import '../widgets/develop_preview.dart';
@@ -149,10 +153,35 @@ class _DevelopScreenState extends State<DevelopScreen> {
   ui.Image? _shaderBasis;
   bool _dragging = false;
 
+  /// Der Strom der Restaurierungs-Auftraege, festgehalten ueber Neubauten
+  /// hinweg. Der Entwickeln-Bildschirm baut bei jedem Reglerzug neu auf;
+  /// ohne den Halter faenge die Abfrage jedes Mal von vorn an (siehe
+  /// [Stromhalter]).
+  final _restaurierungen = Stromhalter<List<RestoreJobData>>();
+
+  /// Der Verlauf **dieser Sitzung** – jeder Stand, der sich gesetzt hat.
+  ///
+  /// Bis hierher entstand ein Eintrag erst beim Speichern. Wer eine halbe
+  /// Stunde probierte und dabei zweimal einen Stand hatte, den er lieber
+  /// behalten hätte, kam nicht mehr zurück.
+  List<Verlaufsschritt> _sitzung = const [];
+
+  /// Ob der Ausgangsstand schon in der Reihe steht. Er ist der einzige
+  /// Weg ganz zurück und muss deshalb der erste Schritt sein – aber erst,
+  /// wenn er wirklich geladen ist (siehe [_load]).
+  bool _sitzungBegonnen = false;
+
   /// Ob der Shader die Vorschau überhaupt zeichnen KANN: Basis und
   /// Programm geladen – und ohne Masken, da die neutrale Basis keine
   /// Maskenwirkung enthält und sonst alle Masken verschwinden und danach
   /// wieder auftauchen würden.
+  /// Ob der Shader **genau** rechnet, was gespeichert wird.
+  ///
+  /// Wo er selbst der Renderweg ist (Linux, Windows), per Definition ja.
+  /// Unter macOS ist Core Image massgeblich, und dort weicht er bei sechs
+  /// Reglern ab (siehe [_slider]).
+  static bool get _shaderIstGenau => DevelopRender.istMassgeblich;
+
   bool get _shaderMoeglich => beschneidungBedienbar(
         maskenVorhanden: _masks.isNotEmpty,
         shaderGeladen: _shader != null,
@@ -389,6 +418,10 @@ class _DevelopScreenState extends State<DevelopScreen> {
       }
     }
     _masks = await widget.db.masksForAsset(widget.asset.id);
+    // Der Ausgangsstand ist der erste Schritt: der einzige Weg ganz
+    // zurueck.
+    _sitzungBegonnen = true;
+    _sitzung = mitSchritt(const [], _currentAdjustments());
     if (mounted) setState(() => _loading = false);
 
     // Nach dem Anzeigen, nicht davor: Der Bildschirm soll nicht auf eine
@@ -586,7 +619,65 @@ class _DevelopScreenState extends State<DevelopScreen> {
     if (bytes != null) unawaited(_recomputeHistogram());
   }
 
-  void _scheduleRerender() => _debouncer.run(_requestPreview);
+  /// Ob gerade ein nativer Render laeuft, und ob danach gleich noch
+  /// einer faellig ist.
+  bool _liveRendert = false;
+  bool _liveNochmal = false;
+
+  /// Rechnet **waehrend** des Ziehens nativ – fuer die Regler, die der
+  /// Shader nicht zeigen kann.
+  ///
+  /// **Warum das geht.** Ein Render der Vorschau kostet an einer
+  /// Aufnahme von 6000×4000 Punkten gemessen 42 ms (Kante 1600; 1200
+  /// bringt nichts, 2048 kostet 44). Das sind rund zwanzig Bilder je
+  /// Sekunde – genug, dass ein Regler sich anfuehlt wie einer.
+  ///
+  /// **Warum ohne feste Taktrate.** Ein RAW geht durch CIRAWFilter und
+  /// braucht ein Vielfaches; unter Linux und Windows rechnet an dieser
+  /// Stelle der Shader das ganze Bild samt Kodierung (siehe
+  /// [DevelopRender]), und auch das dauert laenger. Eine feste
+  /// Drosselung waere dort eine Warteschlange, die nie leer wird.
+  /// Stattdessen laeuft immer nur **ein** Render; was waehrenddessen an
+  /// Bewegung anfaellt, wird zu einem einzigen Nachzuegler
+  /// zusammengefasst. Schnelle Dateien bekommen dadurch viele Bilder,
+  /// langsame wenige – von selbst, ohne dass irgendwo eine Zahl steht.
+  Future<void> _liveNativ() async {
+    if (_liveRendert) {
+      _liveNochmal = true;
+      return;
+    }
+    _liveRendert = true;
+    try {
+      do {
+        _liveNochmal = false;
+        await _requestPreview();
+      } while (_liveNochmal && mounted);
+      // Erst wenn nichts mehr nachkommt: Der Verlauf soll einen Schritt
+      // je Zug bekommen, nicht einen je Zwischenbild. Ohne diese Zeile
+      // fehlten die Regler, die nicht ueber den Entpreller laufen, im
+      // Verlauf ganz.
+      _merkeSchritt();
+    } finally {
+      _liveRendert = false;
+    }
+  }
+
+  void _scheduleRerender() => _debouncer.run(() {
+        // **Hier und nicht im Regler**: Der Entprelle laesst genau einen
+        // Durchgang je gesetzter Aenderung durch. Am Regler selbst waere
+        // jeder Punkt Reglerweg ein Schritt, und der Verlauf haette nach
+        // einem Zug zweihundert Eintraege.
+        _merkeSchritt();
+        _requestPreview();
+      });
+
+  /// Haelt den aktuellen Stand als Schritt fest, wenn er neu ist.
+  void _merkeSchritt() {
+    if (!_sitzungBegonnen) return;
+    final vorher = _sitzung.length;
+    _sitzung = mitSchritt(_sitzung, _currentAdjustments());
+    if (_sitzung.length != vorher && mounted) setState(() {});
+  }
 
   /// Berechnet das Histogramm zur aktuellen Vorschau neu – ausgelagert über
   /// `compute()`, da Dekodieren + Auswerten des Vorschaubilds sonst bei
@@ -673,71 +764,152 @@ class _DevelopScreenState extends State<DevelopScreen> {
     );
   }
 
-  /// Übernimmt einen vergangenen, dauerhaft gespeicherten Entwickeln-Stand
-  /// zurück in die Regler und stößt eine neue Vorschau an – speichert dabei
-  /// noch NICHT, der Nutzer bestätigt wie gewohnt über "Speichern" (das den
-  /// gerade ersetzten Stand wiederum in die Historie schiebt, siehe
-  /// AppDatabase.saveDevelopResult). Betrifft nur die globalen Regler – die
-  /// Historie kennt keine Masken, siehe DevelopMasks-Doc-Kommentar.
-  void _loadHistoryEntry(DevelopHistoryData entry) {
+
+  /// Der Stand einer gespeicherten Zeile als [DevelopAdjustments] – damit
+  /// sich gespeicherte und Sitzungsschritte mit **derselben** Rechnung
+  /// vergleichen lassen.
+  ///
+  /// Die Farbtabelle fehlt darin: Die Verlaufszeile hält nur ihre Stärke
+  /// fest, nicht die Datei. Ein Unterschied allein in der Tabelle bliebe
+  /// deshalb unbenannt – lieber das, als eine erfundene Auskunft.
+  DevelopAdjustments _standAus(DevelopHistoryData e) => DevelopAdjustments(
+        exposure: e.exposure,
+        temperature: e.temperature,
+        tint: e.tint,
+        contrast: e.contrast,
+        shadows: e.shadows,
+        highlights: e.highlights,
+        sharpness: e.sharpness,
+        noiseReduction: e.noiseReduction,
+        clarity: e.clarity,
+        vignette: e.vignette,
+        lensCorrectionEnabled: e.lensCorrectionEnabled,
+        toneCurve: toneCurveAus(e.toneCurveJson),
+        colorMixer: colorMixerAus(e.colorMixerJson),
+        lutStrength: e.lutStrength,
+      );
+
+  /// Übernimmt einen Sitzungsschritt zurück in die Regler.
+  void _ladeSchritt(DevelopAdjustments stand) {
     setState(() {
-      _exposure = entry.exposure;
-      _contrast = entry.contrast;
-      _shadows = entry.shadows;
-      _highlights = entry.highlights;
-      _sharpness = entry.sharpness;
-      _noiseReduction = entry.noiseReduction;
-      _clarity = entry.clarity;
-      _vignette = entry.vignette;
-      _lutStaerke = entry.lutStrength;
-      _lensCorrectionEnabled = entry.lensCorrectionEnabled;
-      _toneCurve = toneCurveAus(entry.toneCurveJson);
-      _colorMixer = colorMixerAus(entry.colorMixerJson);
-      _autoWhiteBalance = entry.temperature == null;
-      _temperature = entry.temperature ?? _temperature;
-      _tint = entry.tint ?? 0;
+      _exposure = stand.exposure;
+      _contrast = stand.contrast;
+      _shadows = stand.shadows;
+      _highlights = stand.highlights;
+      _sharpness = stand.sharpness;
+      _noiseReduction = stand.noiseReduction;
+      _clarity = stand.clarity;
+      _vignette = stand.vignette;
+      _lutStaerke = stand.lutStrength;
+      _lensCorrectionEnabled = stand.lensCorrectionEnabled;
+      _toneCurve = stand.toneCurve;
+      _colorMixer = stand.colorMixer;
+      _autoWhiteBalance = stand.temperature == null;
+      _temperature = stand.temperature ?? _temperature;
+      _tint = stand.tint ?? 0;
     });
     _scheduleRerender();
   }
 
   Future<void> _showHistory() async {
+    final t = AppTexte.of(context);
     final history = await widget.db.developHistoryForAsset(widget.asset.id);
     if (!mounted) return;
-    final selected = await showModalBottomSheet<DevelopHistoryData>(
+    final sprache = Localizations.localeOf(context).toString();
+    String zeit(DateTime wann) =>
+        DateFormat.yMd(sprache).add_Hms().format(wann);
+
+    /// Was ein Schritt gegenüber seinem Vorgänger geändert hat.
+    String was(DevelopAdjustments? vorher, DevelopAdjustments nachher) {
+      if (vorher == null) return t.entwVerlaufAusgangsstand;
+      final werkzeuge = geaenderteWerkzeuge(vorher, nachher);
+      if (werkzeuge.isEmpty) return t.entwVerlaufOhneAenderung;
+      return [for (final w in werkzeuge) werkzeugName(t, w)].join(', ');
+    }
+
+    final gewaehlt = await showModalBottomSheet<DevelopAdjustments>(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true,
       builder: (context) {
-        if (history.isEmpty) {
+        final zeilen = <Widget>[];
+
+        // **Erst die Sitzung.** Sie ist das, was gerade auf dem Bildschirm
+        // passiert ist, und damit das, wonach man sucht. Die gespeicherte
+        // Reihe steht darunter.
+        if (_sitzung.length > 1) {
+          zeilen.add(_verlaufKopf(t.entwVerlaufSitzung));
+          for (var i = _sitzung.length - 1; i >= 0; i--) {
+            final schritt = _sitzung[i];
+            final vorher = i == 0 ? null : _sitzung[i - 1].stand;
+            zeilen.add(ListTile(
+              leading: Icon(
+                  i == _sitzung.length - 1 ? Icons.circle : Icons.history,
+                  size: i == _sitzung.length - 1 ? 12 : 20,
+                  color: Colors.white70),
+              title: Text(was(vorher, schritt.stand),
+                  style: const TextStyle(color: Colors.white)),
+              subtitle: Text(
+                i == _sitzung.length - 1
+                    ? '${zeit(schritt.wann)} · ${t.entwVerlaufJetzt}'
+                    : zeit(schritt.wann),
+                style: const TextStyle(
+                    color: DunkleFlaeche.hinweis, fontSize: 12),
+              ),
+              onTap: () => Navigator.pop(context, schritt.stand),
+            ));
+          }
+        }
+
+        if (history.isNotEmpty) {
+          zeilen.add(_verlaufKopf(t.entwVerlaufGespeichert));
+          for (var i = 0; i < history.length; i++) {
+            final eintrag = history[i];
+            // Die Reihe kommt neueste zuerst; der Vorgaenger eines
+            // Eintrags steht deshalb HINTER ihm.
+            final vorher = i + 1 < history.length
+                ? _standAus(history[i + 1])
+                : null;
+            zeilen.add(ListTile(
+              leading: const Icon(Icons.history, color: Colors.white70),
+              title: Text(was(vorher, _standAus(eintrag)),
+                  style: const TextStyle(color: Colors.white)),
+              subtitle: Text(zeit(eintrag.createdAt),
+                  style: const TextStyle(
+                      color: DunkleFlaeche.hinweis, fontSize: 12)),
+              onTap: () => Navigator.pop(context, _standAus(eintrag)),
+            ));
+          }
+        }
+
+        if (zeilen.isEmpty) {
           return Padding(
             padding: const EdgeInsets.all(AppSpacing.xxl),
-            child: Text(
-              AppTexte.of(context).entwKeinVerlauf,
-              style: const TextStyle(color: Colors.white70),
-            ),
+            child: Text(t.entwKeinVerlauf,
+                style: const TextStyle(color: Colors.white70)),
           );
         }
         return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              for (final entry in history)
-                ListTile(
-                  leading: const Icon(Icons.history, color: Colors.white70),
-                  title: Text(
-                    DateFormat.yMd(Localizations.localeOf(context).toString())
-                        .add_Hm()
-                        .format(entry.createdAt),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                  onTap: () => Navigator.pop(context, entry),
-                ),
-            ],
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.7),
+            child: ListView(shrinkWrap: true, children: zeilen),
           ),
         );
       },
     );
-    if (selected != null) _loadHistoryEntry(selected);
+    if (gewaehlt != null) _ladeSchritt(gewaehlt);
   }
+
+  Widget _verlaufKopf(String titel) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xs),
+        child: Text(titel,
+            style: const TextStyle(
+                color: DunkleFlaeche.hinweis,
+                fontSize: 12,
+                fontWeight: FontWeight.w600)),
+      );
 
   /// Legt den AKTUELLEN Reglerstand in die Zwischenablage – nicht den
   /// zuletzt gespeicherten. Andernfalls käme man nie zum Kopieren: Das
@@ -953,6 +1125,11 @@ class _DevelopScreenState extends State<DevelopScreen> {
     final targetFile = widget.paths.absolute(developedRelativePath);
     await targetFile.parent.create(recursive: true);
     await targetFile.writeAsBytes(bytes);
+
+    // Derselbe Pfad wie beim vorigen Entwickeln – Flutter merkt sich
+    // dekodierte Bilder danach. Ohne dieses Vergessen zeigt die
+    // Vollbildansicht das Ergebnis von vorhin.
+    vergissAlleBilder();
 
     await widget.db.saveDevelopResult(
       widget.asset.id,
@@ -1630,13 +1807,26 @@ class _DevelopScreenState extends State<DevelopScreen> {
     double max,
     ValueChanged<double> onChanged, {
     bool enabled = true,
-    // Für Temperatur/Tint bewusst aus: der Shader bildet den Weißabgleich
-    // nur genähert nach (real gemessen bis 6,1 % Abweichung vom nativen
-    // Render bei 3200 K, gegenüber 0,1 % bei Belichtung). Genau bei diesem
-    // Regler beurteilt man die Farbe – eine ungenaue Live-Vorschau würde
-    // zu falschen Einstellungen verleiten. Beim Ziehen dieser beiden
-    // Regler bleibt es deshalb beim nativen Render.
-    bool liveVorschau = true,
+    /// Ob der Shader diesen Regler **richtig** zeigt.
+    ///
+    /// Wo ja, laeuft die Live-Vorschau ueber ihn – das ist der Regelfall
+    /// und kostet nichts. Wo nein, wird waehrend des Ziehens nativ
+    /// gerechnet (siehe [_liveNativ]).
+    ///
+    /// **Nein gilt fuer sechs Regler, und zwar nur unter macOS**, wo Core
+    /// Image massgeblich ist: Schaerfe und Rauschunterdrueckung brauchen
+    /// Nachbarpixel, die ein Fragment-Shader nicht sieht; Klarheit und
+    /// Vignettierung sind reine Core-Image-Filter; Weissabgleich und
+    /// Farbstich bildet der Shader nur genaehert nach (gemessen bis
+    /// 6,1 % Abweichung bei 3200 K, gegenueber 0,1 % bei der Belichtung),
+    /// und ausgerechnet an diesem Regler beurteilt man die Farbe. Wo der
+    /// Shader selbst der Renderweg ist (Linux, Windows), ist er per
+    /// Definition genau, und es gibt nichts zu unterscheiden.
+    ///
+    /// Vorher stand hier `liveVorschau: false`, und das hiess: waehrend
+    /// des Ziehens passiert **gar nichts**. Der Regler bewegte sich, das
+    /// Bild nicht.
+    bool imShader = true,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -1646,7 +1836,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: TextStyle(color: enabled ? DunkleFlaeche.text : DunkleFlaeche.inaktiv, fontSize: 13)),
+              // Die Beschriftung nimmt, was uebrig ist, und kuerzt zur
+              // Not. Ohne das laeuft „Rauschunterdrueckung" in der 300
+              // Punkte breiten Spalte um 33 Punkte ueber ihren Rand –
+              // und die Zahl daneben wird abgeschnitten.
+              Expanded(
+                child: Text(label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        color: enabled
+                            ? DunkleFlaeche.text
+                            : DunkleFlaeche.inaktiv,
+                        fontSize: 13)),
+              ),
+              const SizedBox(width: AppSpacing.xs),
               Text(
                 value.toStringAsFixed(min.abs() >= 100 ? 0 : 2),
                 style: TextStyle(color: enabled ? DunkleFlaeche.zweitText : DunkleFlaeche.linie, fontSize: 12),
@@ -1660,7 +1864,7 @@ class _DevelopScreenState extends State<DevelopScreen> {
             // Während des Ziehens rechnet der Shader live; nach dem
             // Loslassen übernimmt wieder der native Render.
             onChangeStart:
-                (enabled && liveVorschau) ? (_) => setState(() => _dragging = true) : null,
+                (enabled && imShader) ? (_) => setState(() => _dragging = true) : null,
             // Bewusst NICHT hier _dragging zurücksetzen: der native Render
             // ist erst nach Debounce + Renderzeit da. Sofortiges Umschalten
             // würde für diese Zeitspanne den ALTEN Stand zeigen, das Bild
@@ -1670,7 +1874,14 @@ class _DevelopScreenState extends State<DevelopScreen> {
             onChanged: enabled
                 ? (v) {
                     onChanged(v);
-                    _scheduleRerender();
+                    // Was der Shader nicht zeigt, wird waehrend des
+                    // Ziehens nativ gerechnet - sonst bewegt sich der
+                    // Regler und das Bild nicht.
+                    if (imShader) {
+                      _scheduleRerender();
+                    } else {
+                      unawaited(_liveNativ());
+                    }
                   }
                 : null,
           ),
@@ -1931,14 +2142,103 @@ class _DevelopScreenState extends State<DevelopScreen> {
                                 ),
                     ),
                   ),
-                  Container(
-                    width: 300,
+                  // `Material` und nicht `Container(color:)`: Die
+                  // Reglerspalte enthaelt Listenzeilen, und die malen
+                  // ihren Grund und ihr Aufleuchten auf das naechste
+                  // Material darueber. Unter einer eingefaerbten Flaeche
+                  // sind beide unsichtbar - Flutter sagt das sogar
+                  // ausdruecklich, sobald man hinsieht.
+                  Material(
                     color: const Color(0xFF1A1A1A),
-                    child: _maskEditMode ? _buildMaskCreationPanel() : _buildAdjustmentsPanel(),
+                    child: SizedBox(
+                    width: 300,
+                    child: Column(
+                      children: [
+                        _restaurierungsfortschritt(),
+                        Expanded(
+                          child: _maskEditMode
+                              ? _buildMaskCreationPanel()
+                              : _buildAdjustmentsPanel(),
+                        ),
+                      ],
+                    ),
+                    ),
                   ),
                 ],
               ),
       ),
+    );
+  }
+
+  /// Wie weit die KI-Restaurierung dieses Fotos ist.
+  ///
+  /// **Warum das hierhin gehört.** Der Knopf sagte „eingereiht" und
+  /// danach nichts mehr. Ein Vorgang, der an einer echten Aufnahme rund
+  /// hundert Sekunden dauert (20 Kacheln zu je fünf), verschwand damit
+  /// aus dem Blick genau des Bildschirms, auf dem man ihn ausgelöst hat –
+  /// zu sehen war er nur, wer den Warteschlangen-Bildschirm kannte.
+  ///
+  /// Gezeigt wird nur der Auftrag **dieses** Fotos. Die Warteschlange
+  /// bleibt der Ort für alle.
+  Widget _restaurierungsfortschritt() {
+    return StreamBuilder<List<RestoreJobData>>(
+      stream: _restaurierungen.hole(
+          widget.asset.id, () => widget.db.watchRestoreJobs()),
+      builder: (context, schnappschuss) {
+        final auftrag = (schnappschuss.data ?? const <RestoreJobData>[])
+            .where((j) =>
+                j.assetId == widget.asset.id &&
+                (j.status == 'queued' || j.status == 'running'))
+            .firstOrNull;
+        if (auftrag == null) return const SizedBox.shrink();
+        final t = AppTexte.of(context);
+        final prozent = fortschrittProzent(auftrag);
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.md, AppSpacing.xs, AppSpacing.sm),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(t.entwRestaurierungLaeuft,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 13)),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    color: Colors.white70,
+                    tooltip: t.allgAbbrechen,
+                    onPressed: () => widget.restoreQueue?.cancel(auftrag.id),
+                  ),
+                ],
+              ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+                child: LinearProgressIndicator(
+                  // Solange die Kachelzahl nicht feststeht, laeuft der
+                  // Balken unbestimmt - eine Null waere die Behauptung,
+                  // es gehe nicht voran.
+                  value: auftrag.status == 'running' && prozent != null
+                      ? prozent / 100
+                      : null,
+                  minHeight: 5,
+                  backgroundColor: Colors.white24,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                auftrag.status == 'queued'
+                    ? t.restaurWartet
+                    : restaurLaufText(t, auftrag),
+                style: const TextStyle(
+                    color: DunkleFlaeche.hinweis, fontSize: 11),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -2524,10 +2824,12 @@ class _DevelopScreenState extends State<DevelopScreen> {
             _scheduleRerender();
           },
         ),
-        _slider(AppTexte.of(context).entwTemperatur, _temperature, 2000, 12000, (v) => setState(() => _temperature = v),
-            enabled: !_autoWhiteBalance, liveVorschau: false),
-        _slider(AppTexte.of(context).entwTint, _tint, -100, 100, (v) => setState(() => _tint = v),
-            enabled: !_autoWhiteBalance, liveVorschau: false),
+        _slider(AppTexte.of(context).entwTemperatur, _temperature, 2000, 12000,
+            (v) => setState(() => _temperature = v),
+            enabled: !_autoWhiteBalance, imShader: _shaderIstGenau),
+        _slider(AppTexte.of(context).entwTint, _tint, -100, 100,
+            (v) => setState(() => _tint = v),
+            enabled: !_autoWhiteBalance, imShader: _shaderIstGenau),
         const Divider(color: Colors.white24),
         _slider(AppTexte.of(context).entwKontrast, _contrast, -1, 1, (v) => setState(() => _contrast = v)),
         _slider(AppTexte.of(context).entwLichter, _highlights, -1, 1, (v) => setState(() => _highlights = v)),
@@ -2537,21 +2839,25 @@ class _DevelopScreenState extends State<DevelopScreen> {
         // lassen sie sich auch nicht bedienen, statt sich bewegen zu lassen
         // und wirkungslos zu bleiben. Der Hinweis darunter sagt, warum.
         //
-        // `liveVorschau: false` sorgt dafür, dass die Vorschau nicht
-        // während des Ziehens auf den Shader umschaltet und den Wert
-        // scheinbar zurücknimmt.
+        // `imShader: false` heisst: waehrend des Ziehens wird nativ
+        // gerechnet. Vorher wurde waehrenddessen gar nichts gerechnet –
+        // der Regler bewegte sich, das Bild nicht.
         _slider(AppTexte.of(context).entwSchaerfe, _sharpness, 0, 1,
             (v) => setState(() => _sharpness = v),
+            imShader: _shaderIstGenau,
             enabled: !DevelopRender.istMassgeblich),
         _slider(AppTexte.of(context).entwRauschunterdrueckung, _noiseReduction, 0, 1,
             (v) => setState(() => _noiseReduction = v),
+            imShader: _shaderIstGenau,
             enabled: !DevelopRender.istMassgeblich),
         _slider(AppTexte.of(context).entwKlarheit, _clarity, -1, 1,
             (v) => setState(() => _clarity = v),
-            liveVorschau: false, enabled: !DevelopRender.istMassgeblich),
+            imShader: _shaderIstGenau,
+            enabled: !DevelopRender.istMassgeblich),
         _slider(AppTexte.of(context).entwVignettierung, _vignette, -1, 1,
             (v) => setState(() => _vignette = v),
-            liveVorschau: false, enabled: !DevelopRender.istMassgeblich),
+            imShader: _shaderIstGenau,
+            enabled: !DevelopRender.istMassgeblich),
         if (DevelopRender.istMassgeblich)
           Padding(
             padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -2624,13 +2930,19 @@ class _DevelopScreenState extends State<DevelopScreen> {
         Objektivkorrekturstand.unbekannt => t.entwObjektivkorrekturHinweis,
       };
 
+  /// Die Regler einer Maske.
+  ///
+  /// Alle mit `imShader: false`: Sobald eine Maske im Spiel ist, zeigt
+  /// der Bildschirm nie die Shader-Vorschau (siehe [_shaderMoeglich]) –
+  /// dort waere „live" ein Wort ohne Deckung, und waehrend des Ziehens
+  /// passierte gar nichts.
   List<Widget> _buildMaskSliders() => [
         Text(
           AppTexte.of(context).entwMaskenHinweis,
           style: const TextStyle(color: DunkleFlaeche.hinweis, fontSize: 11),
         ),
         const SizedBox(height: 8),
-        _slider(AppTexte.of(context).entwBelichtung, _maskExposure, -3, 3, (v) => setState(() => _maskExposure = v)),
+        _slider(AppTexte.of(context).entwBelichtung, _maskExposure, -3, 3, (v) => setState(() => _maskExposure = v), imShader: false),
         const Divider(color: Colors.white24),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -2643,15 +2955,15 @@ class _DevelopScreenState extends State<DevelopScreen> {
           },
         ),
         _slider(AppTexte.of(context).entwTemperatur, _maskTemperature, 2000, 12000, (v) => setState(() => _maskTemperature = v),
-            enabled: !_maskAutoWhiteBalance),
-        _slider(AppTexte.of(context).entwTint, _maskTint, -100, 100, (v) => setState(() => _maskTint = v), enabled: !_maskAutoWhiteBalance),
+            enabled: !_maskAutoWhiteBalance, imShader: false),
+        _slider(AppTexte.of(context).entwTint, _maskTint, -100, 100, (v) => setState(() => _maskTint = v), enabled: !_maskAutoWhiteBalance, imShader: false),
         const Divider(color: Colors.white24),
-        _slider(AppTexte.of(context).entwKontrast, _maskContrast, -1, 1, (v) => setState(() => _maskContrast = v)),
+        _slider(AppTexte.of(context).entwKontrast, _maskContrast, -1, 1, (v) => setState(() => _maskContrast = v), imShader: false),
         _slider(AppTexte.of(context).entwLichter, _maskHighlights, -1, 1,
-            (v) => setState(() => _maskHighlights = v)),
-        _slider(AppTexte.of(context).entwSchatten, _maskShadows, -1, 1, (v) => setState(() => _maskShadows = v)),
-        _slider(AppTexte.of(context).entwSchaerfe, _maskSharpness, 0, 1, (v) => setState(() => _maskSharpness = v)),
-        _slider(AppTexte.of(context).entwRauschunterdrueckung, _maskNoiseReduction, 0, 1, (v) => setState(() => _maskNoiseReduction = v)),
+            (v) => setState(() => _maskHighlights = v), imShader: false),
+        _slider(AppTexte.of(context).entwSchatten, _maskShadows, -1, 1, (v) => setState(() => _maskShadows = v), imShader: false),
+        _slider(AppTexte.of(context).entwSchaerfe, _maskSharpness, 0, 1, (v) => setState(() => _maskSharpness = v), imShader: false),
+        _slider(AppTexte.of(context).entwRauschunterdrueckung, _maskNoiseReduction, 0, 1, (v) => setState(() => _maskNoiseReduction = v), imShader: false),
       ];
 }
 
@@ -2659,6 +2971,29 @@ class _DevelopScreenState extends State<DevelopScreen> {
 /// (Muster: _CropMaskPainter in image_editor_screen.dart) – reine
 /// Editier-Vorschau, NICHT die tatsächlich gespeicherte Maske (die entsteht
 /// erst bei "Fertig" per [rasterizeMaskShape] auf voller Auflösung).
+/// Wie ein Werkzeug in der Oberfläche heisst.
+///
+/// Hier und nicht in der Aufzählung: [Entwicklungswerkzeug] gehört zum
+/// Dienst und kennt keine Sprache – dieselbe Trennung wie beim
+/// Modellkatalog.
+String werkzeugName(AppTexte t, Entwicklungswerkzeug w) => switch (w) {
+      Entwicklungswerkzeug.belichtung => t.entwWerkzBelichtung,
+      Entwicklungswerkzeug.weissabgleich => t.entwWerkzWeissabgleich,
+      Entwicklungswerkzeug.temperatur => t.entwWerkzTemperatur,
+      Entwicklungswerkzeug.tint => t.entwWerkzTint,
+      Entwicklungswerkzeug.kontrast => t.entwWerkzKontrast,
+      Entwicklungswerkzeug.lichter => t.entwWerkzLichter,
+      Entwicklungswerkzeug.schatten => t.entwWerkzSchatten,
+      Entwicklungswerkzeug.schaerfe => t.entwWerkzSchaerfe,
+      Entwicklungswerkzeug.rauschunterdrueckung => t.entwWerkzRauschen,
+      Entwicklungswerkzeug.klarheit => t.entwWerkzKlarheit,
+      Entwicklungswerkzeug.vignettierung => t.entwWerkzVignettierung,
+      Entwicklungswerkzeug.tonwertkurve => t.entwWerkzKurve,
+      Entwicklungswerkzeug.farbmischer => t.entwWerkzFarbmischer,
+      Entwicklungswerkzeug.farbtabelle => t.entwWerkzFarbtabelle,
+      Entwicklungswerkzeug.objektivkorrektur => t.entwWerkzObjektiv,
+    };
+
 class _ShapeDraftPainter extends CustomPainter {
   final MaskShapeDefinition? shape;
   final Rect displayRect;

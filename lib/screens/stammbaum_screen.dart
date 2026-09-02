@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:io';
@@ -125,6 +126,13 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
   String? _fokusId;
   _Ansicht _ansicht = _Ansicht.baum;
 
+  /// Ob der gemerkte Stand schon eingelesen wurde.
+  ///
+  /// Das Lesen aus der Datenbank braucht einen Augenblick; wer in diesem
+  /// Augenblick schon auf eine andere Ansicht tippt, soll seine Wahl
+  /// behalten und nicht von der gemerkten überfahren werden.
+  bool _standGelesen = false;
+
   /// Ob die Sanduhr die Seitenlinie mitzeigt – Geschwister, deren Kinder
   /// und die angeheirateten daneben.
   bool _seitenlinien = true;
@@ -183,6 +191,7 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
         await widget.library.db.select(widget.library.db.people).get());
     final zeilen = await widget.library.db.alleBeziehungen();
     final ereignisse = await widget.library.db.alleEreignisse();
+    final zuletzt = await widget.library.db.stammbaumZuletzt();
     if (!mounted) return;
     final nachPerson = <String, List<LebensereignisseData>>{};
     for (final e in ereignisse) {
@@ -192,15 +201,47 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       for (final z in zeilen)
         if (artAusText(z.art) case final art?) kante(z.personId, z.andereId, art),
     ]);
+    final vorhanden = {for (final p in personen) p.id};
     setState(() {
       _personen = personen;
       _nachId = {for (final p in personen) p.id: p};
       _netz = netz;
       _ereignisse = nachPerson;
-      _fokusId ??= widget.startPersonId ?? _startperson(personen, netz);
+      if (!_standGelesen) {
+        _standGelesen = true;
+        // Eine Ansicht, die es nicht mehr gibt, und eine Person, die
+        // geloescht wurde, fallen still auf die bisherige Wahl zurueck.
+        final gemerkt = _ansichtAusText(zuletzt.ansicht);
+        if (gemerkt != null) _ansicht = gemerkt;
+        final person = zuletzt.person;
+        _fokusId ??= widget.startPersonId ??
+            (person != null && vorhanden.contains(person) ? person : null) ??
+            _startperson(personen, netz);
+      } else {
+        _fokusId ??= widget.startPersonId ?? _startperson(personen, netz);
+      }
       _laedt = false;
     });
     _rechneGrade();
+    _merken();
+  }
+
+  /// Haelt Ansicht und Person fest – aufgerufen bei jedem Wechsel.
+  ///
+  /// Ohne `await`: Wer durch den Baum klickt, soll nicht auf die Platte
+  /// warten. Faellt der Schreibvorgang aus, ist der Preis, dass der Baum
+  /// beim naechsten Mal eine Person zu frueh anfaengt.
+  void _merken() {
+    if (!_standGelesen) return;
+    unawaited(widget.library.db
+        .setzeStammbaumZuletzt(ansicht: _ansicht.name, person: _fokusId));
+  }
+
+  static _Ansicht? _ansichtAusText(String? text) {
+    for (final a in _Ansicht.values) {
+      if (a.name == text) return a;
+    }
+    return null;
   }
 
   /// Wen der Bildschirm zeigt, wenn er ohne Vorgabe geöffnet wird.
@@ -280,12 +321,14 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
       _fokusId = id;
     });
     _rechneGrade();
+    _merken();
   }
 
   bool _zurueck() {
     if (_pfad.isEmpty) return false;
     setState(() => _fokusId = _pfad.removeLast());
     _rechneGrade();
+    _merken();
     return true;
   }
 
@@ -1418,10 +1461,13 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
     return FamilienZeitleiste(
       zeilen: zeilen,
       fokusId: fokus.id,
-      onTippen: (id) => setState(() {
-        _fokusId = id;
-        _rechneGrade();
-      }),
+      onTippen: (id) {
+        setState(() {
+          _fokusId = id;
+          _rechneGrade();
+        });
+        _merken();
+      },
       beschriftung: (z) => [
         z.name,
         lebensspanne(z.geburt, z.tod,
@@ -1638,7 +1684,10 @@ class _StammbaumScreenState extends State<StammbaumScreen> {
                       ],
                       selected: {_ansicht},
                       showSelectedIcon: false,
-                      onSelectionChanged: (w) => setState(() => _ansicht = w.first),
+                      onSelectionChanged: (w) {
+                        setState(() => _ansicht = w.first);
+                        _merken();
+                      },
                     ),
                   ),
                 ),

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/theme/app_theme.dart';
+import 'package:photo_vault/services/listenspalten.dart';
 import 'package:photo_vault/widgets/asset_list_view.dart';
 import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/services/asset_grouping.dart';
@@ -190,6 +191,8 @@ void main() {
             selectedIds: const {},
             onTap: (_) {},
             onLongPress: (_) {},
+              spalten: Listenspaltenwahl.vorgabe,
+              onSpalten: (_) {},
           ),
         ),
       ));
@@ -203,13 +206,17 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('im schmalen Fenster fallen Spalten weg statt zu quetschen',
+    testWidgets('im schmalen Fenster verschwindet nichts, es rollt zur Seite',
         (tester) async {
-      // Alle Spalten immer zu zeigen hiesse, sie auf je zwanzig Punkte zu
-      // drücken; dann steht überall nur „…".
+      // **Die Regel hat sich geändert.** Vorher fielen Spalten still weg,
+      // sobald das Fenster unter 620, 860 bzw. 1040 Punkte kam – wer die
+      // Kamera brauchte, musste das Fenster breiter ziehen und wusste
+      // nicht, warum. Jetzt bleiben die Spalten, die man gewählt hat, und
+      // die Liste rollt waagerecht; was man nicht braucht, schaltet man
+      // ab.
       await zeige(tester, 500);
       expect(find.text('urlaub.jpg'), findsOneWidget);
-      expect(find.text('SONY ILCE-6300'), findsNothing);
+      expect(find.byType(SingleChildScrollView), findsWidgets);
       expect(tester.takeException(), isNull);
     });
 

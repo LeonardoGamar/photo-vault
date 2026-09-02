@@ -10,6 +10,7 @@ import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/gelaende_screen.dart';
 import 'package:photo_vault/theme/app_theme.dart';
 import 'package:photo_vault/widgets/gelaende.dart';
+import 'package:photo_vault/widgets/mini_location_map.dart' show Kartenstil;
 
 /// Die Geländeansicht am Bildschirm.
 ///
@@ -49,6 +50,7 @@ void main() {
   Future<void> zeige(
     WidgetTester tester, {
     required http.Client netz,
+    Kartenstil stil = Kartenstil.topo,
     List<Gelaendespurpunkt> spur = const [
       (breite: 50.61, laenge: 9.86, hoehe: 400.0, zeit: null),
       (breite: 50.62, laenge: 9.88, hoehe: 620.0, zeit: null),
@@ -63,7 +65,8 @@ void main() {
       localizationsDelegates: AppTexte.localizationsDelegates,
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
-      home: GelaendeScreen(spur: spur, titel: 'Brocken', netz: netz),
+      home: GelaendeScreen(
+          spur: spur, titel: 'Brocken', netz: netz, stil: stil),
     ));
     // Das Laden läuft über echte Futures – ohne runAsync kehrt es in der
     // gestellten Zeit eines Widget-Tests nie zurück.
@@ -146,5 +149,69 @@ void main() {
     // Lizenz.
     expect(find.textContaining('OpenTopoMap'), findsOneWidget);
     expect(find.textContaining('Tilezen'), findsOneWidget);
+  });
+
+  group('Die Karte auf der Landschaft laesst sich waehlen', () {
+    // Gewuenscht als „nutze eine 3D-Satellitenkarte fuer den Flug": Die
+    // Landschaft war immer mit OpenTopoMap texturiert, egal was auf dem
+    // Kartenbildschirm eingestellt war.
+
+    testWidgets('der uebergebene Stil bestimmt, welche Kacheln geholt werden',
+        (tester) async {
+      final adressen = <String>[];
+      await zeige(tester, stil: Kartenstil.hell,
+          netz: MockClient((anfrage) async {
+        adressen.add(anfrage.url.host);
+        return http.Response.bytes(kachel, 200);
+      }));
+      expect(find.byType(Gelaendeansicht), findsOneWidget);
+      // Die Hoehen kommen immer von derselben Quelle; die Karte nicht.
+      expect(adressen.any((h) => h.contains('openstreetmap')), isTrue);
+      expect(adressen.any((h) => h.contains('opentopomap')), isFalse,
+          reason: 'bei „hell" hat OpenTopoMap nichts zu suchen');
+    });
+
+    testWidgets('ohne Angabe bleibt es bei der Wanderkarte', (tester) async {
+      final adressen = <String>[];
+      await zeige(tester, netz: MockClient((anfrage) async {
+        adressen.add(anfrage.url.host);
+        return http.Response.bytes(kachel, 200);
+      }));
+      expect(adressen.any((h) => h.contains('opentopomap')), isTrue);
+    });
+
+    testWidgets('umschalten holt die Karte neu, aber nicht die Hoehen',
+        (tester) async {
+      // Das Hoehengitter haengt am Ausschnitt und nicht am Stil - es ein
+      // zweites Mal zu laden waeren Sekunden fuer nichts.
+      final hoehen = <String>[];
+      final karten = <String>[];
+      await zeige(tester, netz: MockClient((anfrage) async {
+        final h = anfrage.url.host;
+        (h.contains('terrarium') || h.contains('elevation') ||
+                anfrage.url.path.contains('terrarium')
+            ? hoehen
+            : karten)
+            .add(anfrage.url.toString());
+        return http.Response.bytes(kachel, 200);
+      }));
+      final hoehenVorher = hoehen.length;
+      final kartenVorher = karten.length;
+      expect(hoehenVorher, greaterThan(0));
+
+      await tester.tap(find.byIcon(Icons.layers_outlined));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hell'));
+      for (var i = 0; i < 20; i++) {
+        await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+        if (karten.length > kartenVorher) break;
+      }
+      expect(karten.length, greaterThan(kartenVorher),
+          reason: 'die Karte muss neu geholt werden');
+      expect(hoehen.length, hoehenVorher,
+          reason: 'die Hoehen aber nicht');
+    });
   });
 }

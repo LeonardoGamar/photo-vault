@@ -13,6 +13,7 @@ import '../services/gelaendekacheln.dart';
 import '../services/gelaendesicht.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/gelaende.dart';
+import '../widgets/mini_location_map.dart' show Kartenstil, eigeneKarte;
 
 /// Eine Spur in der Landschaft.
 ///
@@ -33,11 +34,21 @@ class GelaendeScreen extends StatefulWidget {
   /// damit ein Test nicht davon abhängt, was auf dieser Platte liegt.
   final http.Client? netz;
 
+  /// Womit die Landschaft texturiert wird.
+  ///
+  /// **Warum das von aussen kommt.** Wer eine Wanderung nachfliegt, will
+  /// meistens dieselbe Karte sehen, die er ohnehin benutzt – dieser
+  /// Bildschirm kennt die Bibliothek aber nicht und kann die gemerkte
+  /// Ansicht nicht selbst nachschlagen. Der Aufrufer reicht sie herein;
+  /// umschalten lässt sie sich hier trotzdem.
+  final Kartenstil stil;
+
   const GelaendeScreen({
     super.key,
     required this.spur,
     required this.titel,
     this.netz,
+    this.stil = Kartenstil.topo,
   });
 
   @override
@@ -50,11 +61,88 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
   List<Flugwert> _spurwerte = const [];
   ui.Image? _karte;
   bool _laedt = true;
+  late Kartenstil _stil = widget.stil;
+
+  /// Höhengitter und Ausschnitt bleiben gemerkt, damit ein Wechsel der
+  /// Textur nicht auch die Höhen noch einmal aus dem Netz holt.
+  Hoehengitter? _gitter;
+  ({double sued, double west, double nord, double ost})? _ausschnitt;
 
   @override
   void initState() {
     super.initState();
     _laden();
+  }
+
+  PopupMenuItem<Kartenstil> _stilEintrag(
+          Kartenstil stil, IconData symbol, String name) =>
+      PopupMenuItem(
+        value: stil,
+        child: Row(
+          children: [
+            Icon(symbol,
+                size: 18,
+                color: stil == _stil
+                    ? Theme.of(context).colorScheme.primary
+                    : null),
+            const SizedBox(width: AppSpacing.sm),
+            Text(name),
+          ],
+        ),
+      );
+
+  /// Wechselt die Textur, **ohne das Höhengitter neu zu holen**.
+  ///
+  /// Das Gitter hängt am Ausschnitt und nicht am Kartenstil – es ein
+  /// zweites Mal zu laden wären Sekunden für nichts, und bei einer
+  /// grossen Spur sind es sechzehn Kacheln. Neu geholt wird allein das
+  /// Kartenbild; das Netz wird aus dem gemerkten Gitter neu gebaut, weil
+  /// seine Grundfarbe davon abhängt, ob überhaupt eine Karte darauf
+  /// liegt (siehe [gelaendeGrundfarbe]).
+  Future<void> _stilWechseln(Kartenstil neu) async {
+    if (neu == _stil) return;
+    final gitter = _gitter;
+    final aus = _ausschnitt;
+    setState(() => _stil = neu);
+    // Ohne gemerktes Gitter gab es noch keinen erfolgreichen Lauf – dann
+    // ist der volle Weg der richtige.
+    if (gitter == null || aus == null) return _laden();
+
+    setState(() => _laedt = true);
+    final netz = widget.netz ?? http.Client();
+    final MapCachingProvider? speicher =
+        widget.netz == null ? null : const DisabledMapCachingProvider();
+    try {
+      final karte = await ladeKartenbild(
+          sued: aus.sued,
+          west: aus.west,
+          nord: aus.nord,
+          ost: aus.ost,
+          netz: netz,
+          stil: neu,
+          speicher: speicher);
+      if (!mounted) {
+        karte?.dispose();
+        return;
+      }
+      final gebaut = baueNetz(
+        gitter,
+        grundfarbe:
+            karte == null ? gelaendeGrundfarbe : const Color(0xFFFFFFFF),
+      );
+      final gerechnet = _spurInMeter(gitter, gebaut);
+      final alt = _karte;
+      setState(() {
+        _netz = gebaut;
+        _karte = karte;
+        _spurImRaum = gerechnet.linie;
+        _spurwerte = gerechnet.werte;
+        _laedt = false;
+      });
+      alt?.dispose();
+    } finally {
+      if (widget.netz == null) netz.close();
+    }
   }
 
   @override
@@ -120,6 +208,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
           nord: nord,
           ost: ost,
           netz: netz,
+          stil: _stil,
           speicher: speicher);
       if (!mounted) {
         karte?.dispose();
@@ -134,6 +223,8 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
       );
       final gerechnet = _spurInMeter(gitter, gebaut);
       setState(() {
+        _gitter = gitter;
+        _ausschnitt = (sued: sued, west: west, nord: nord, ost: ost);
         _netz = gebaut;
         _karte = karte;
         _spurImRaum = gerechnet.linie;
@@ -195,7 +286,32 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
     final t = AppTexte.of(context);
     final farben = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: Text('${t.gelaendeTitel} · ${widget.titel}')),
+      appBar: AppBar(
+        title: Text('${t.gelaendeTitel} · ${widget.titel}'),
+        actions: [
+          // Die Textur umschalten, ohne den Bildschirm zu verlassen.
+          // Ein Luftbild beantwortet eine andere Frage als eine
+          // Wanderkarte: „wie sah es dort aus" gegen „wie hiess der Weg".
+          PopupMenuButton<Kartenstil>(
+            tooltip: t.gelaendeKarte,
+            icon: const Icon(Icons.layers_outlined),
+            onSelected: _stilWechseln,
+            itemBuilder: (context) => [
+              _stilEintrag(Kartenstil.topo, Icons.terrain_outlined,
+                  t.karteTopografie),
+              _stilEintrag(
+                  Kartenstil.hell, Icons.light_mode_outlined, t.karteHell),
+              _stilEintrag(
+                  Kartenstil.dunkel, Icons.dark_mode_outlined, t.karteDunkel),
+              // Die eigene Quelle nur, wenn es eine gibt – ein Eintrag,
+              // der auf OpenStreetMap zurückfiele, wäre eine Lüge.
+              if (eigeneKarte != null)
+                _stilEintrag(Kartenstil.eigene, Icons.travel_explore_outlined,
+                    eigeneKarte!.name),
+            ],
+          ),
+        ],
+      ),
       body: _laedt
           ? Center(
               child: Column(
@@ -229,30 +345,22 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
                     ),
                   ),
                 )
-              : Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Gelaendeansicht(
-                        netz: _netz!,
-                        spur: _spurImRaum,
-                        spurwerte: _spurwerte,
-                        karte: _karte,
-                      ),
-                    ),
-                    Positioned(
-                      left: AppSpacing.md,
-                      bottom: AppSpacing.md,
-                      child: _Fussnote([
-                        t.gelaendeBedienung,
-                        t.gelaendeUeberhoeht(
-                            gelaendeUeberhoehung.toStringAsFixed(0)),
-                      ].join(' · ')),
-                    ),
-                    Positioned(
-                      right: AppSpacing.md,
-                      bottom: AppSpacing.md,
-                      child: _Fussnote(t.gelaendeNamensnennung),
-                    ),
+              // Die Fussnoten gehen MIT hinein und liegen nicht darüber:
+              // Die Flugleiste sitzt am unteren Rand der Ansicht, und ein
+              // zweiter Stapel mit `bottom:` landete genau auf ihrem
+              // Startknopf.
+              : Gelaendeansicht(
+                  netz: _netz!,
+                  spur: _spurImRaum,
+                  spurwerte: _spurwerte,
+                  karte: _karte,
+                  fussnoten: [
+                    _Fussnote([
+                      t.gelaendeBedienung,
+                      t.gelaendeUeberhoeht(
+                          gelaendeUeberhoehung.toStringAsFixed(0)),
+                    ].join(' · ')),
+                    _Fussnote(t.gelaendeNamensnennung),
                   ],
                 ),
     );

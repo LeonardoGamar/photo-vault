@@ -4,6 +4,7 @@ import 'package:image/image.dart' as img;
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import 'bilddekodierung.dart';
 import 'modell_halter.dart';
 import 'native_image_converter.dart';
 import 'restore_service.dart';
@@ -297,6 +298,10 @@ class RestoreQueueService {
       await outFile.parent.create(recursive: true);
       await outFile.writeAsBytes(img.encodeJpg(result, quality: 92));
 
+      // Der Pfad ist je Aufnahme derselbe (`restored/{id}.jpg`). Wer ein
+      // Ergebnis verwirft und neu rechnen laesst, bekaeme sonst das alte
+      // Bild aus dem Bildspeicher zu sehen - siehe [vergissAlleBilder].
+      vergissAlleBilder();
       await _db.completeRestoreJob(job.id, job.assetId, relativePath);
     } catch (e) {
       await _db.markRestoreJobStatus(job.id, 'failed', errorMessage: e.toString());

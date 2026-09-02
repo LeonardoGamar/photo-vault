@@ -102,7 +102,7 @@ Future<void> _zeige(WidgetTester tester, Locale locale, double breite) async {
 void _weitereTests() {
   group('Welche Jahre überhaupt geschrieben werden', () {
     test('was Platz hat, bleibt stehen', () {
-      final gewaehlt = sichtbareJahresbeschriftungen(
+      final gewaehlt = sichtbareBeschriftungen(
         [10, 60, 110, 160],
         von: 0,
         bis: 600,
@@ -114,7 +114,7 @@ void _weitereTests() {
       // Sieben Jahre auf 24 Pixel: Im Screenshot lagen dort 2014 bis 2020
       // als schwarzer Klumpen übereinander.
       final eng = [400.0, 404.0, 408.0, 412.0, 416.0, 420.0, 424.0];
-      final gewaehlt = sichtbareJahresbeschriftungen(eng, von: 0, bis: 600);
+      final gewaehlt = sichtbareBeschriftungen(eng, von: 0, bis: 600);
       expect(gewaehlt.length, lessThan(eng.length));
       // Und was übrig bleibt, hat wirklich Abstand.
       for (var i = 1; i < gewaehlt.length; i++) {
@@ -123,26 +123,26 @@ void _weitereTests() {
     });
 
     test('die erste Zahl bleibt immer', () {
-      expect(sichtbareJahresbeschriftungen([0, 2, 4], von: 0, bis: 600).first, 0);
+      expect(sichtbareBeschriftungen([0, 2, 4], von: 0, bis: 600).first, 0);
     });
 
     test('was ausserhalb der Leiste liegt, wird nicht gezeichnet', () {
-      expect(sichtbareJahresbeschriftungen([-40, 300, 900], von: 0, bis: 600), [1]);
+      expect(sichtbareBeschriftungen([-40, 300, 900], von: 0, bis: 600), [1]);
     });
 
     test('die aktive Beschriftung hat Vorrang', () {
       // Sie nennt Monat UND Jahr und ist damit die genauere Angabe – eine
       // Jahreszahl darunter wäre nur Matsch. Im Screenshot stand oben
       // „2024Aug." ineinander.
-      final ohne = sichtbareJahresbeschriftungen([100, 300], von: 0, bis: 600);
-      final mit = sichtbareJahresbeschriftungen([100, 300],
+      final ohne = sichtbareBeschriftungen([100, 300], von: 0, bis: 600);
+      final mit = sichtbareBeschriftungen([100, 300],
           von: 0, bis: 600, gesperrt: (oben: 92, unten: 114));
       expect(ohne, [0, 1]);
       expect(mit, [1], reason: 'die 100 liegt im gesperrten Band');
     });
 
     test('ohne Jahre kommt nichts zurück', () {
-      expect(sichtbareJahresbeschriftungen([], von: 0, bis: 600), isEmpty);
+      expect(sichtbareBeschriftungen([], von: 0, bis: 600), isEmpty);
     });
   });
 

@@ -163,50 +163,78 @@ class ModelCatalog {
 
   /// CLIP ViT-B/32 – Bildsuche, KI-Schlagwörter, Duplikate und Serien.
   ///
-  /// **Seit der 21. Prüfrunde in fp16 statt fp32.** CLIP war das einzige
-  /// unquantisierte Modell im Katalog – kein Beschluss, sondern das erste
-  /// Modell des Projekts, das danach nie wieder angefasst wurde. Von den
-  /// sieben Fassungen, die Xenova anbietet, wurden zwei gemessen (600
-  /// echte Fotos, `docs/clip_quantisierung.md`):
+  /// **In fp32, und das ist seit dem 02.09.2026 wieder eine Entscheidung
+  /// und kein Versehen.** In der 21. Prüfrunde wurden beide Encoder auf
+  /// fp16 umgestellt; gemessen wurde damals die *Qualität* (600 echte
+  /// Fotos, `docs/clip_quantisierung.md`: Kosinus 0,999999, Suche 60 von
+  /// 60, gespeicherte Einbettungen bleiben gültig). Nicht gemessen wurde,
+  /// ob die Dateien sich überhaupt **laden** lassen – und das tun sie
+  /// nicht:
   ///
-  /// * **uint8 spart 452 MB und ist es nicht wert.** Der Kosinus zwischen
-  ///   beiden Fassungen desselben Fotos liegt bei 0,9236 – auf einer
-  ///   Skala, auf der zwei *verschiedene* Fotos bei 0,477 liegen, ist das
-  ///   weit weg. Die Schwelle 0,92 fände 52 statt 103 Paare, und von den
-  ///   ersten sechs Suchtreffern stimmten nur 37 von 60 überein. Schneller
-  ///   ist es obendrein nicht (20,0 gegen 16,8 ms).
-  /// * **fp16 ändert nichts am Ergebnis.** Kosinus 0,999999 (Text
-  ///   1,000000), alle drei Schwellen liefern dieselbe Zahl, die Suche
-  ///   60 von 60. Entscheidend: **die gespeicherten Einbettungen bleiben
-  ///   gültig** – es muss nichts neu gerechnet werden.
+  /// ```
+  /// SESSION_CREATION_FAILED  graph_utils.cc:30  GetIndexFromName
+  ///   InsertedPrecisionFreeCast_/text_model/final_layer_norm/…
+  ///   for node: …/layer_norm1/Mul/SimplifiedLayerNormFusion/
+  /// ```
   ///
-  /// Der Preis ist Rechenzeit, weil die CPU fp16 nicht selbst rechnet und
-  /// ONNX Runtime vor jeder Stufe wandelt: Bild 16,8 → 27,0 ms je Foto,
-  /// Text 12,5 → 17,9 ms je Suche. Das Bild läuft einmal je Aufnahme in
-  /// der Hintergrundanalyse, der Text nur, wenn jemand tippt.
+  /// Beide Encoder, derselbe Fehler. Die mitgelieferte ONNX Runtime
+  /// (1.23.0) fügt bei fp16 auf der CPU Umwandlungsknoten ein und
+  /// verschluckt sich anschliessend an der eigenen LayerNorm-Verschmelzung.
+  /// ONNX Runtime 1.19 in Python lädt dieselben Dateien anstandslos – die
+  /// Fassung entscheidet, nicht die Datei.
   ///
-  /// **Die Grenzen bleiben `tensor(float)`** – nur die Gewichte sind
-  /// halbiert. Nachgesehen, nicht angenommen: Ein- und Ausgabe beider
-  /// Encoder sind unverändert float32, [ClipService] braucht keine Zeile.
+  /// **Warum es einen Monat lang niemandem auffiel**, und das ist die
+  /// eigentliche Lehre: Der Prüfstand liest die Modelle aus dem Container
+  /// des Testbaus, und dort lagen noch die fp32-Dateien vom 17.08. Jede
+  /// Sonde seit der Umstellung hat ein Modell geprüft, das die App gar
+  /// nicht ausliefert. Dagegen steht jetzt
+  /// `integration_test/clip_modelle_laden_test.dart`, das **beide**
+  /// Encoder wirklich öffnet.
+  ///
+  /// uint8 bleibt ebenfalls draussen, aus dem alten Grund: Der Kosinus
+  /// zwischen beiden Fassungen desselben Fotos liegt bei 0,9236 – auf
+  /// einer Skala, auf der zwei *verschiedene* Fotos bei 0,477 liegen, ist
+  /// das weit weg. Schneller ist es obendrein nicht (20,0 gegen 16,8 ms).
   ///
   /// CoreML wurde mitgemessen und bringt hier nichts (17,1 gegen 16,8 ms),
   /// anders als bei [neuralRestore] – ein Faltungsnetz auf grossen Kacheln
   /// und ein Aufmerksamkeitsnetz auf 224×224 sind verschiedene Lasten.
+  ///
+  /// **Warum die Ausfuhr von Xenova und nicht die von Immich.** Immich
+  /// liefert dasselbe Modell unter `immich-app/ViT-B-32__openai`, und die
+  /// Gewichte sind bitgleich – 116 der grossen Tensoren stimmen Byte für
+  /// Byte überein, der Rest unterscheidet sich nur in der Verpackung der
+  /// Aufmerksamkeit (drei Matrizen 768×768 gegen eine 768×2304).
+  /// Verschieden sind trotzdem die Einbettungen, Kosinus 0,952 bis 0,966:
+  ///
+  /// ```
+  /// unser    Sigmoid × 12   ->  QuickGELU,  x · sigma(1,702 x)
+  /// immich   Erf     × 12   ->  GELU (exakt)
+  /// ```
+  ///
+  /// **OpenAI hat CLIP mit QuickGELU trainiert.** OpenCLIP hat seine
+  /// Vorgabe später auf `nn.GELU` umgestellt und führt die passenden
+  /// Bauformen unter dem Zusatz `-quickgelu`; wer die OpenAI-Gewichte in
+  /// die Bauform ohne diesen Zusatz lädt, zahlt Genauigkeit. Tauscht man
+  /// in Immichs Graphen die zwölf GELU-Blöcke gegen QuickGELU, steigt der
+  /// Kosinus auf 0,99999988 – dieselbe Rechnung. Unsere Ausfuhr ist also
+  /// die, die zu den Gewichten passt. Siehe
+  /// `docs/immich_modellvergleich.md`.
   static const clip = ModelCatalogEntry(
     id: 'clip_vit_b32',
     sourceUrl: 'https://huggingface.co/Xenova/clip-vit-base-patch32',
     files: [
       ModelFile(
         'clip_image_encoder.onnx',
-        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model_fp16.onnx',
-        '35c4e0fb0aeee527dcde1693520b214a34424a786babd530f35366bad5844efd',
-        176080659,
+        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/vision_model.onnx',
+        'fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40',
+        351685709,
       ),
       ModelFile(
         'clip_text_encoder.onnx',
-        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/text_model_fp16.onnx',
-        'df587ffbf248bf20d44fa6e16adc5ebc27ead691860e5333dbdaab5fd6bf3f6e',
-        127339794,
+        'https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/main/onnx/text_model.onnx',
+        '3f6571f5bad13a97c469c1622e1cfc4d9aef78b79fdbfcff804ca357bfada8cc',
+        254058553,
       ),
       ModelFile(
         'vocab.json',

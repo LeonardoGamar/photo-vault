@@ -18,7 +18,11 @@ import 'theme/app_theme.dart';
 import 'theme/zierbaum_farben.dart' show zierschriftenLizenzenAnmelden;
 import 'services/eigenkarte.dart';
 import 'widgets/mini_location_map.dart'
-    show kartenSpeicherEinrichten, setzeCartoSchluessel, setzeEigeneKarte;
+    show
+        kartenSpeicherEinrichten,
+        setzeCartoSchluessel,
+        setzeEigeneKarte,
+        setzeKarteHochaufloesend;
 import 'widgets/beenden_dialog.dart';
 import 'widgets/meldungsfenster.dart';
 import 'widgets/stromhalter.dart';
@@ -110,6 +114,11 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
               // Rückwirkung auf den Aufbau - sie stösst keinen zweiten
               // Durchgang an.
               setzeCartoSchluessel(settingsSnapshot.data?.cartoSchluessel);
+              // Und die doppelte Auflösung, aus demselben Grund: Wer sie
+              // in den Einstellungen umlegt, soll die Karte danach sofort
+              // anders sehen und nicht erst nach einem Neustart.
+              setzeKarteHochaufloesend(
+                  settingsSnapshot.data?.karteHochaufloesend ?? true);
               // Dieselbe Stelle, derselbe Grund: Die eigene Kartenquelle
               // steht in derselben Zeile der Einstellungen.
               setzeEigeneKarte(Eigenkarte.aus(

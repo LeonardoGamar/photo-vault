@@ -188,7 +188,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           child: Text(
             AppTexte.of(context).zweitSchwelleHinweis,
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         const Divider(height: 16),
@@ -228,7 +228,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
               Text(
                 AppTexte.of(context).zweitAehnlichProzent((match.similarity * 100).toStringAsFixed(0)),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 4),
               Expanded(
@@ -254,7 +254,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
-                    const Icon(Icons.compare_arrows, color: Colors.grey),
+                    Icon(Icons.compare_arrows, color: Theme.of(context).colorScheme.onSurfaceVariant),
                     const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: Column(
@@ -285,7 +285,8 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
                           ),
-                          Text(AppTexte.of(context).zweitBibliothek, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          Text(AppTexte.of(context).zweitBibliothek,
+                              style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                         ],
                       ),
                     ),

@@ -85,21 +85,23 @@ void main() {
       // trotzdem verschiedene Eltern. Am Haushalt festgemacht wäre eine
       // der beiden Linien gelogen.
       final g = geflecht();
-      expect(g.elternhausVon['anna'], g.haushaltVon('vater')!.id);
-      expect(g.elternhausVon['schwager'], g.haushaltVon('schwagersVater')!.id);
-      expect(g.elternhausVon['anna'], isNot(g.elternhausVon['schwager']));
+      expect(g.elternhaeuserVon['anna'], [g.haushaltVon('vater')!.id]);
+      expect(g.elternhaeuserVon['schwager'],
+          [g.haushaltVon('schwagersVater')!.id]);
+      expect(g.elternhaeuserVon['anna'],
+          isNot(g.elternhaeuserVon['schwager']));
     });
 
     test('der Neffe hängt am Haushalt seiner Eltern', () {
       final g = geflecht();
-      expect(g.elternhausVon['neffe'], g.haushaltVon('anna')!.id);
+      expect(g.elternhaeuserVon['neffe'], [g.haushaltVon('anna')!.id]);
     });
 
     test('wessen Eltern nicht im Bild stehen, bekommt keine Kante', () {
       // Ein Ast ins Leere wäre eine Behauptung über etwas, das man nicht
       // sieht. Dafür gibt es das Mehrzeichen.
       final g = geflecht();
-      expect(g.elternhausVon.containsKey('opa'), isFalse);
+      expect(g.elternhaeuserVon.containsKey('opa'), isFalse);
       expect(g.weitereOben['opa'], isFalse, reason: 'Opa hat keine Eltern im Netz');
     });
   });
@@ -123,8 +125,52 @@ void main() {
       // Schwager, nicht zu mir.
       final g = geflecht();
       expect(g.band[g.haushaltVon('schwagersVater')!.id], -1);
-      expect(g.elternhausVon['schwager'], g.haushaltVon('schwagersVater')!.id);
-      expect(g.elternhausVon['ich'], g.haushaltVon('vater')!.id);
+      expect(g.elternhaeuserVon['schwager'],
+          [g.haushaltVon('schwagersVater')!.id]);
+      expect(g.elternhaeuserVon['ich'], [g.haushaltVon('vater')!.id]);
+    });
+  });
+
+  group('getrennt lebende Eltern', () {
+    /// Der gemeldete Fall: Vater und Mutter sind **keine** Partner. Bis
+    /// dahin führte das Geflecht je Person genau ein Elternhaus und
+    /// brach nach dem ersten ab – der Vater stand ohne jeden Ast im
+    /// Bild, als gehörte er nicht dazu.
+    Verwandtschaftsnetz getrennt() => Verwandtschaftsnetz([
+          kante('ich', 'vater', Verwandtschaft.elternteil),
+          kante('ich', 'mutter', Verwandtschaft.elternteil),
+          kante('schwester', 'vater', Verwandtschaft.elternteil),
+          kante('schwester', 'mutter', Verwandtschaft.elternteil),
+        ]);
+
+    // Die Mutter steht vorn - genau die Reihenfolge, in der der Vater
+    // vorher unter den Tisch fiel.
+    Stammbaumgeflecht g() => geflechtUm(
+        getrennt(), 'ich', const ['mutter', 'vater', 'ich', 'schwester']);
+
+    test('beide Eltern haben ein eigenes Haus', () {
+      final geflecht = g();
+      expect(geflecht.haushaltVon('vater')!.personen, ['vater']);
+      expect(geflecht.haushaltVon('mutter')!.personen, ['mutter']);
+    });
+
+    test('und beide bekommen einen Ast', () {
+      final geflecht = g();
+      expect(
+        geflecht.elternhaeuserVon['ich'],
+        containsAll([
+          geflecht.haushaltVon('vater')!.id,
+          geflecht.haushaltVon('mutter')!.id,
+        ]),
+      );
+      expect(geflecht.elternhaeuserVon['ich'], hasLength(2));
+    });
+
+    test('zusammen lebende Eltern bleiben ein einziger Ast', () {
+      // Die Gegenprobe: Sonst hinge an jedem Kind eine doppelte Linie
+      // zum selben Haushalt, und der Ast waere doppelt so dick gemalt.
+      final geflecht = geflechtUm(sippe(), 'ich', alle);
+      expect(geflecht.elternhaeuserVon['ich'], hasLength(1));
     });
   });
 
@@ -158,7 +204,7 @@ void main() {
     final b = geflecht();
     expect(a.haushalte, b.haushalte);
     expect(a.band, b.band);
-    expect(a.elternhausVon, b.elternhausVon);
+    expect(a.elternhaeuserVon, b.elternhaeuserVon);
   });
 
   group('nach unten so weit wie nach oben', () {

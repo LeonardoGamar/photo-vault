@@ -263,6 +263,11 @@ class AppTexteEn extends AppTexte {
   String get sucheModellLaedt => 'Loading the image search model …';
 
   @override
+  String sucheModellUnbrauchbar(String datei) {
+    return 'The model $datei is on disk but cannot be opened. Download it again under Settings - AI models; search and AI tags need it.';
+  }
+
+  @override
   String sucheFehlgeschlagen(String fehler) {
     return 'Search failed: $fehler';
   }
@@ -619,9 +624,6 @@ class AppTexteEn extends AppTexte {
     );
     return '$_temp0';
   }
-
-  @override
-  String get erkundenKeinePersonen => 'No one has been named yet.';
 
   @override
   String get erkundenKeineOrte =>
@@ -2119,6 +2121,66 @@ class AppTexteEn extends AppTexte {
   String get entwTitel => 'Develop';
 
   @override
+  String get entwVerlaufSitzung => 'This session';
+
+  @override
+  String get entwVerlaufGespeichert => 'Saved';
+
+  @override
+  String get entwVerlaufAusgangsstand => 'State when opened';
+
+  @override
+  String get entwVerlaufOhneAenderung => 'No change';
+
+  @override
+  String get entwVerlaufJetzt => 'Current state';
+
+  @override
+  String get entwWerkzBelichtung => 'Exposure';
+
+  @override
+  String get entwWerkzWeissabgleich => 'White balance';
+
+  @override
+  String get entwWerkzTemperatur => 'Temperature';
+
+  @override
+  String get entwWerkzTint => 'Tint';
+
+  @override
+  String get entwWerkzKontrast => 'Contrast';
+
+  @override
+  String get entwWerkzLichter => 'Highlights';
+
+  @override
+  String get entwWerkzSchatten => 'Shadows';
+
+  @override
+  String get entwWerkzSchaerfe => 'Sharpness';
+
+  @override
+  String get entwWerkzRauschen => 'Noise reduction';
+
+  @override
+  String get entwWerkzKlarheit => 'Clarity';
+
+  @override
+  String get entwWerkzVignettierung => 'Vignette';
+
+  @override
+  String get entwWerkzKurve => 'Tone curve';
+
+  @override
+  String get entwWerkzFarbmischer => 'Colour mixer';
+
+  @override
+  String get entwWerkzFarbtabelle => 'Colour table';
+
+  @override
+  String get entwWerkzObjektiv => 'Lens correction';
+
+  @override
   String get entwKeinVerlauf =>
       'No history yet – an entry appears once you save again after a first adjustment.';
 
@@ -2132,6 +2194,9 @@ class AppTexteEn extends AppTexte {
   @override
   String get entwSpeichernFehlgeschlagen =>
       'Saving failed: the image could not be rendered.';
+
+  @override
+  String get entwRestaurierungLaeuft => 'AI restoration';
 
   @override
   String get entwRestaurierungEingereiht =>
@@ -2949,6 +3014,19 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get integInhaltGeaendert => 'The contents have changed since import';
+
+  @override
+  String get integAnsehen => 'View';
+
+  @override
+  String get integVorschauTitel => 'Preview';
+
+  @override
+  String get integKeineVorschau => 'No preview can be shown for this file.';
+
+  @override
+  String get integVorschauVerschluesselt =>
+      'The photo is locked – its preview is encrypted along with it.';
 
   @override
   String get integFotoOeffnen => 'Open the photo';
@@ -4430,6 +4508,51 @@ class AppTexteEn extends AppTexte {
   String get listeOhneKamera => 'No camera information';
 
   @override
+  String get zeitleisteGroesser => 'Larger tiles';
+
+  @override
+  String get zeitleisteKleiner => 'Smaller tiles – more months at once';
+
+  @override
+  String get listeSpalten => 'Columns';
+
+  @override
+  String get listeSpalteDateiname => 'File name';
+
+  @override
+  String get listeSpalteDatum => 'Taken';
+
+  @override
+  String get listeSpalteKamera => 'Camera';
+
+  @override
+  String get listeSpalteObjektiv => 'Lens';
+
+  @override
+  String get listeSpalteBelichtung => 'Exposure';
+
+  @override
+  String get listeSpalteBewertung => 'Rating';
+
+  @override
+  String get listeSpalteFarbe => 'Colour';
+
+  @override
+  String get listeSpalteMasse => 'Dimensions';
+
+  @override
+  String get listeSpalteGroesse => 'File size';
+
+  @override
+  String get listeSpalteArt => 'Kind';
+
+  @override
+  String get listeSpalteOrt => 'Place';
+
+  @override
+  String get listeSpalteBreiteAendern => 'Change width';
+
+  @override
   String get ansichtRaster => 'Grid';
 
   @override
@@ -5293,6 +5416,28 @@ class AppTexteEn extends AppTexte {
   String get erkundenReisen => 'Trips';
 
   @override
+  String get erkundenAktivitaeten => 'Activities';
+
+  @override
+  String get gelaendeKarte => 'Map on the landscape';
+
+  @override
+  String get kalenderGanzesJahr => 'Whole year';
+
+  @override
+  String get einstKarteScharfTitel => 'Map at double resolution';
+
+  @override
+  String get einstKarteScharfText =>
+      'On a display with double pixel density the map fetches four tiles of the next deeper level and places them where one would go: four times the pixels, house numbers and shop names become legible. The price is about two and a half times as many tiles per screen - on a slower machine zooming stutters noticeably. Switched off, the map draws as it did before.';
+
+  @override
+  String get routeVergroessern => 'Enlarge the map';
+
+  @override
+  String get routeVerkleinern => 'Shrink the map';
+
+  @override
   String get reisenTitel => 'Trips';
 
   @override
@@ -5307,9 +5452,6 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get reisenBestaetigte => 'Your trips';
-
-  @override
-  String get reisenKeineVorschlaege => 'No new suggestions.';
 
   @override
   String get reisenIstEineReise => 'That was a trip';
@@ -5536,6 +5678,15 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get laenderAlle => 'All';
+
+  @override
+  String get laenderLegende => 'Key';
+
+  @override
+  String get laenderAusFotos => 'Backed by photos';
+
+  @override
+  String get laenderNurVonHand => 'Marked by hand';
 
   @override
   String get laenderVollstaendig => 'Complete';
@@ -6315,9 +6466,6 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get aktivitaetenNotiz => 'Note';
-
-  @override
-  String get aktivitaetenArt => 'Type';
 
   @override
   String get aktivitaetenArtAendern => 'Change type';

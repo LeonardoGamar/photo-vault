@@ -11075,6 +11075,42 @@ class $AppSettingsTable extends AppSettings
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("eigene_karte_zugestimmt" IN (0, 1))'),
           defaultValue: const Constant(false));
+  static const VerificationMeta _karteHochaufloesendMeta =
+      const VerificationMeta('karteHochaufloesend');
+  @override
+  late final GeneratedColumn<bool> karteHochaufloesend = GeneratedColumn<bool>(
+      'karte_hochaufloesend', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("karte_hochaufloesend" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _stammbaumAnsichtMeta =
+      const VerificationMeta('stammbaumAnsicht');
+  @override
+  late final GeneratedColumn<String> stammbaumAnsicht = GeneratedColumn<String>(
+      'stammbaum_ansicht', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _stammbaumPersonMeta =
+      const VerificationMeta('stammbaumPerson');
+  @override
+  late final GeneratedColumn<String> stammbaumPerson = GeneratedColumn<String>(
+      'stammbaum_person', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _zeitleisteKachelstufeMeta =
+      const VerificationMeta('zeitleisteKachelstufe');
+  @override
+  late final GeneratedColumn<int> zeitleisteKachelstufe = GeneratedColumn<int>(
+      'zeitleiste_kachelstufe', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(zeitleisteKachelstufeVorgabe));
+  static const VerificationMeta _listenspaltenMeta =
+      const VerificationMeta('listenspalten');
+  @override
+  late final GeneratedColumn<String> listenspalten = GeneratedColumn<String>(
+      'listenspalten', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _maxGleichzeitigMeta =
       const VerificationMeta('maxGleichzeitig');
   @override
@@ -11119,6 +11155,11 @@ class $AppSettingsTable extends AppSettings
         eigeneKarteNennung,
         eigeneKarteStufe,
         eigeneKarteZugestimmt,
+        karteHochaufloesend,
+        stammbaumAnsicht,
+        stammbaumPerson,
+        zeitleisteKachelstufe,
+        listenspalten,
         maxGleichzeitig,
         translateCaptions,
         translateSearchAndTags
@@ -11211,6 +11252,36 @@ class $AppSettingsTable extends AppSettings
           eigeneKarteZugestimmt.isAcceptableOrUnknown(
               data['eigene_karte_zugestimmt']!, _eigeneKarteZugestimmtMeta));
     }
+    if (data.containsKey('karte_hochaufloesend')) {
+      context.handle(
+          _karteHochaufloesendMeta,
+          karteHochaufloesend.isAcceptableOrUnknown(
+              data['karte_hochaufloesend']!, _karteHochaufloesendMeta));
+    }
+    if (data.containsKey('stammbaum_ansicht')) {
+      context.handle(
+          _stammbaumAnsichtMeta,
+          stammbaumAnsicht.isAcceptableOrUnknown(
+              data['stammbaum_ansicht']!, _stammbaumAnsichtMeta));
+    }
+    if (data.containsKey('stammbaum_person')) {
+      context.handle(
+          _stammbaumPersonMeta,
+          stammbaumPerson.isAcceptableOrUnknown(
+              data['stammbaum_person']!, _stammbaumPersonMeta));
+    }
+    if (data.containsKey('zeitleiste_kachelstufe')) {
+      context.handle(
+          _zeitleisteKachelstufeMeta,
+          zeitleisteKachelstufe.isAcceptableOrUnknown(
+              data['zeitleiste_kachelstufe']!, _zeitleisteKachelstufeMeta));
+    }
+    if (data.containsKey('listenspalten')) {
+      context.handle(
+          _listenspaltenMeta,
+          listenspalten.isAcceptableOrUnknown(
+              data['listenspalten']!, _listenspaltenMeta));
+    }
     if (data.containsKey('max_gleichzeitig')) {
       context.handle(
           _maxGleichzeitigMeta,
@@ -11269,6 +11340,16 @@ class $AppSettingsTable extends AppSettings
       eigeneKarteZugestimmt: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}eigene_karte_zugestimmt'])!,
+      karteHochaufloesend: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}karte_hochaufloesend'])!,
+      stammbaumAnsicht: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}stammbaum_ansicht']),
+      stammbaumPerson: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}stammbaum_person']),
+      zeitleisteKachelstufe: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}zeitleiste_kachelstufe'])!,
+      listenspalten: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}listenspalten']),
       maxGleichzeitig: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}max_gleichzeitig'])!,
       translateCaptions: attachedDatabase.typeMapping.read(
@@ -11406,6 +11487,54 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// gefragt werden.
   final bool eigeneKarteZugestimmt;
 
+  /// Ob die Karte auf einem Bildschirm mit doppelter Punktdichte auch in
+  /// doppelter Auflösung zeichnet.
+  ///
+  /// **Ein Handel, und beide Seiten sind gemessen.** Eine Kachel ist 256
+  /// Pixel breit und wird auf 256 Punkte gezeichnet – auf einem
+  /// Retina-Schirm also auf 512 Gerätepunkte, jeder Kachelpixel deckt
+  /// vier. Dagegen holt die Karte vier Kacheln der nächsttieferen Stufe
+  /// und setzt sie an die Stelle einer: viermal so viele Bildpunkte auf
+  /// derselben Fläche (Schärfe bei Topo z16 von 11,70 auf 44,27), aber
+  /// eben auch **2,6-mal so viele Kacheln je Bildschirm** – auf einem
+  /// 1440×900-Fenster 165 statt 63. Jede davon ist ein Griff auf die
+  /// Platte und ein Dekodiervorgang, und beim Zoomen fallen sie alle auf
+  /// einmal an.
+  ///
+  /// Vorgabe an: Schärfe ist der Regelfall. Wer eine langsamere Maschine
+  /// hat oder viel zoomt, schaltet sie ab und bekommt die Karte von
+  /// vorher.
+  final bool karteHochaufloesend;
+
+  /// Welche Ansicht des Stammbaums zuletzt offen war und wer darin in der
+  /// Mitte stand.
+  ///
+  /// Sechs Ansichten (Baum, Fächer, Sanduhr, Nachfahren, Verwandte,
+  /// Zeitleiste) und je nach Familie hunderte Personen: Wer den
+  /// Stammbaum schliesst und wieder aufschlägt, fing bis hierher jedes
+  /// Mal beim Baum und bei der Person mit den meisten Verwandten an.
+  ///
+  /// Als Text und nullbar, aus demselben Grund wie bei [kartenansicht]:
+  /// Eine Ansicht, die es nicht mehr gibt, oder eine Person, die
+  /// gelöscht wurde, fällt beim Lesen auf die bisherige Wahl zurück,
+  /// statt den Bildschirm zu verhindern.
+  final String? stammbaumAnsicht;
+  final String? stammbaumPerson;
+
+  /// Wie gross die Kacheln der Zeitleiste sind – als Stufe, siehe
+  /// [zeitleisteKachelstufen].
+  ///
+  /// Als Zahl und nicht als Breite in Punkten: Eine Breite aus einer
+  /// alten Fassung koennte eine sein, die es nicht mehr gibt, und jede
+  /// Zwischengroesse waere ein eigener Schluessel im Bildspeicher.
+  final int zeitleisteKachelstufe;
+
+  /// Welche Spalten die Listenansicht zeigt und wie breit sie sind –
+  /// als Text, siehe [Listenspaltenwahl.alsText].
+  ///
+  /// `null` heisst Vorgabe: genau die fuenf Angaben, die es vorher gab.
+  final String? listenspalten;
+
   /// Wie viele rechenintensive Aufgaben gleichzeitig laufen dürfen.
   ///
   /// **Warum das eine Einstellung ist und keine Konstante.** Bis hierher
@@ -11451,6 +11580,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       this.eigeneKarteNennung,
       this.eigeneKarteStufe,
       required this.eigeneKarteZugestimmt,
+      required this.karteHochaufloesend,
+      this.stammbaumAnsicht,
+      this.stammbaumPerson,
+      required this.zeitleisteKachelstufe,
+      this.listenspalten,
       required this.maxGleichzeitig,
       required this.translateCaptions,
       required this.translateSearchAndTags});
@@ -11486,6 +11620,17 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       map['eigene_karte_stufe'] = Variable<int>(eigeneKarteStufe);
     }
     map['eigene_karte_zugestimmt'] = Variable<bool>(eigeneKarteZugestimmt);
+    map['karte_hochaufloesend'] = Variable<bool>(karteHochaufloesend);
+    if (!nullToAbsent || stammbaumAnsicht != null) {
+      map['stammbaum_ansicht'] = Variable<String>(stammbaumAnsicht);
+    }
+    if (!nullToAbsent || stammbaumPerson != null) {
+      map['stammbaum_person'] = Variable<String>(stammbaumPerson);
+    }
+    map['zeitleiste_kachelstufe'] = Variable<int>(zeitleisteKachelstufe);
+    if (!nullToAbsent || listenspalten != null) {
+      map['listenspalten'] = Variable<String>(listenspalten);
+    }
     map['max_gleichzeitig'] = Variable<int>(maxGleichzeitig);
     map['translate_captions'] = Variable<bool>(translateCaptions);
     map['translate_search_and_tags'] = Variable<bool>(translateSearchAndTags);
@@ -11522,6 +11667,17 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ? const Value.absent()
           : Value(eigeneKarteStufe),
       eigeneKarteZugestimmt: Value(eigeneKarteZugestimmt),
+      karteHochaufloesend: Value(karteHochaufloesend),
+      stammbaumAnsicht: stammbaumAnsicht == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stammbaumAnsicht),
+      stammbaumPerson: stammbaumPerson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stammbaumPerson),
+      zeitleisteKachelstufe: Value(zeitleisteKachelstufe),
+      listenspalten: listenspalten == null && nullToAbsent
+          ? const Value.absent()
+          : Value(listenspalten),
       maxGleichzeitig: Value(maxGleichzeitig),
       translateCaptions: Value(translateCaptions),
       translateSearchAndTags: Value(translateSearchAndTags),
@@ -11552,6 +11708,13 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       eigeneKarteStufe: serializer.fromJson<int?>(json['eigeneKarteStufe']),
       eigeneKarteZugestimmt:
           serializer.fromJson<bool>(json['eigeneKarteZugestimmt']),
+      karteHochaufloesend:
+          serializer.fromJson<bool>(json['karteHochaufloesend']),
+      stammbaumAnsicht: serializer.fromJson<String?>(json['stammbaumAnsicht']),
+      stammbaumPerson: serializer.fromJson<String?>(json['stammbaumPerson']),
+      zeitleisteKachelstufe:
+          serializer.fromJson<int>(json['zeitleisteKachelstufe']),
+      listenspalten: serializer.fromJson<String?>(json['listenspalten']),
       maxGleichzeitig: serializer.fromJson<int>(json['maxGleichzeitig']),
       translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
       translateSearchAndTags:
@@ -11577,6 +11740,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       'eigeneKarteNennung': serializer.toJson<String?>(eigeneKarteNennung),
       'eigeneKarteStufe': serializer.toJson<int?>(eigeneKarteStufe),
       'eigeneKarteZugestimmt': serializer.toJson<bool>(eigeneKarteZugestimmt),
+      'karteHochaufloesend': serializer.toJson<bool>(karteHochaufloesend),
+      'stammbaumAnsicht': serializer.toJson<String?>(stammbaumAnsicht),
+      'stammbaumPerson': serializer.toJson<String?>(stammbaumPerson),
+      'zeitleisteKachelstufe': serializer.toJson<int>(zeitleisteKachelstufe),
+      'listenspalten': serializer.toJson<String?>(listenspalten),
       'maxGleichzeitig': serializer.toJson<int>(maxGleichzeitig),
       'translateCaptions': serializer.toJson<bool>(translateCaptions),
       'translateSearchAndTags': serializer.toJson<bool>(translateSearchAndTags),
@@ -11598,6 +11766,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           Value<String?> eigeneKarteNennung = const Value.absent(),
           Value<int?> eigeneKarteStufe = const Value.absent(),
           bool? eigeneKarteZugestimmt,
+          bool? karteHochaufloesend,
+          Value<String?> stammbaumAnsicht = const Value.absent(),
+          Value<String?> stammbaumPerson = const Value.absent(),
+          int? zeitleisteKachelstufe,
+          Value<String?> listenspalten = const Value.absent(),
           int? maxGleichzeitig,
           bool? translateCaptions,
           bool? translateSearchAndTags}) =>
@@ -11632,6 +11805,17 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
             : this.eigeneKarteStufe,
         eigeneKarteZugestimmt:
             eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
+        karteHochaufloesend: karteHochaufloesend ?? this.karteHochaufloesend,
+        stammbaumAnsicht: stammbaumAnsicht.present
+            ? stammbaumAnsicht.value
+            : this.stammbaumAnsicht,
+        stammbaumPerson: stammbaumPerson.present
+            ? stammbaumPerson.value
+            : this.stammbaumPerson,
+        zeitleisteKachelstufe:
+            zeitleisteKachelstufe ?? this.zeitleisteKachelstufe,
+        listenspalten:
+            listenspalten.present ? listenspalten.value : this.listenspalten,
         maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
         translateCaptions: translateCaptions ?? this.translateCaptions,
         translateSearchAndTags:
@@ -11675,6 +11859,21 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       eigeneKarteZugestimmt: data.eigeneKarteZugestimmt.present
           ? data.eigeneKarteZugestimmt.value
           : this.eigeneKarteZugestimmt,
+      karteHochaufloesend: data.karteHochaufloesend.present
+          ? data.karteHochaufloesend.value
+          : this.karteHochaufloesend,
+      stammbaumAnsicht: data.stammbaumAnsicht.present
+          ? data.stammbaumAnsicht.value
+          : this.stammbaumAnsicht,
+      stammbaumPerson: data.stammbaumPerson.present
+          ? data.stammbaumPerson.value
+          : this.stammbaumPerson,
+      zeitleisteKachelstufe: data.zeitleisteKachelstufe.present
+          ? data.zeitleisteKachelstufe.value
+          : this.zeitleisteKachelstufe,
+      listenspalten: data.listenspalten.present
+          ? data.listenspalten.value
+          : this.listenspalten,
       maxGleichzeitig: data.maxGleichzeitig.present
           ? data.maxGleichzeitig.value
           : this.maxGleichzeitig,
@@ -11704,6 +11903,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('eigeneKarteNennung: $eigeneKarteNennung, ')
           ..write('eigeneKarteStufe: $eigeneKarteStufe, ')
           ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
+          ..write('karteHochaufloesend: $karteHochaufloesend, ')
+          ..write('stammbaumAnsicht: $stammbaumAnsicht, ')
+          ..write('stammbaumPerson: $stammbaumPerson, ')
+          ..write('zeitleisteKachelstufe: $zeitleisteKachelstufe, ')
+          ..write('listenspalten: $listenspalten, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
@@ -11712,24 +11916,30 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   }
 
   @override
-  int get hashCode => Object.hash(
-      id,
-      themeMode,
-      sprache,
-      autoAnalyzeAfterImport,
-      watchedFolderPath,
-      watchedFolderToken,
-      faceSimilarityThreshold,
-      kartenansicht,
-      cartoSchluessel,
-      eigeneKarteName,
-      eigeneKarteUrl,
-      eigeneKarteNennung,
-      eigeneKarteStufe,
-      eigeneKarteZugestimmt,
-      maxGleichzeitig,
-      translateCaptions,
-      translateSearchAndTags);
+  int get hashCode => Object.hashAll([
+        id,
+        themeMode,
+        sprache,
+        autoAnalyzeAfterImport,
+        watchedFolderPath,
+        watchedFolderToken,
+        faceSimilarityThreshold,
+        kartenansicht,
+        cartoSchluessel,
+        eigeneKarteName,
+        eigeneKarteUrl,
+        eigeneKarteNennung,
+        eigeneKarteStufe,
+        eigeneKarteZugestimmt,
+        karteHochaufloesend,
+        stammbaumAnsicht,
+        stammbaumPerson,
+        zeitleisteKachelstufe,
+        listenspalten,
+        maxGleichzeitig,
+        translateCaptions,
+        translateSearchAndTags
+      ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -11748,6 +11958,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.eigeneKarteNennung == this.eigeneKarteNennung &&
           other.eigeneKarteStufe == this.eigeneKarteStufe &&
           other.eigeneKarteZugestimmt == this.eigeneKarteZugestimmt &&
+          other.karteHochaufloesend == this.karteHochaufloesend &&
+          other.stammbaumAnsicht == this.stammbaumAnsicht &&
+          other.stammbaumPerson == this.stammbaumPerson &&
+          other.zeitleisteKachelstufe == this.zeitleisteKachelstufe &&
+          other.listenspalten == this.listenspalten &&
           other.maxGleichzeitig == this.maxGleichzeitig &&
           other.translateCaptions == this.translateCaptions &&
           other.translateSearchAndTags == this.translateSearchAndTags);
@@ -11768,6 +11983,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<String?> eigeneKarteNennung;
   final Value<int?> eigeneKarteStufe;
   final Value<bool> eigeneKarteZugestimmt;
+  final Value<bool> karteHochaufloesend;
+  final Value<String?> stammbaumAnsicht;
+  final Value<String?> stammbaumPerson;
+  final Value<int> zeitleisteKachelstufe;
+  final Value<String?> listenspalten;
   final Value<int> maxGleichzeitig;
   final Value<bool> translateCaptions;
   final Value<bool> translateSearchAndTags;
@@ -11786,6 +12006,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.eigeneKarteNennung = const Value.absent(),
     this.eigeneKarteStufe = const Value.absent(),
     this.eigeneKarteZugestimmt = const Value.absent(),
+    this.karteHochaufloesend = const Value.absent(),
+    this.stammbaumAnsicht = const Value.absent(),
+    this.stammbaumPerson = const Value.absent(),
+    this.zeitleisteKachelstufe = const Value.absent(),
+    this.listenspalten = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
@@ -11805,6 +12030,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.eigeneKarteNennung = const Value.absent(),
     this.eigeneKarteStufe = const Value.absent(),
     this.eigeneKarteZugestimmt = const Value.absent(),
+    this.karteHochaufloesend = const Value.absent(),
+    this.stammbaumAnsicht = const Value.absent(),
+    this.stammbaumPerson = const Value.absent(),
+    this.zeitleisteKachelstufe = const Value.absent(),
+    this.listenspalten = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
     this.translateSearchAndTags = const Value.absent(),
@@ -11824,6 +12054,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<String>? eigeneKarteNennung,
     Expression<int>? eigeneKarteStufe,
     Expression<bool>? eigeneKarteZugestimmt,
+    Expression<bool>? karteHochaufloesend,
+    Expression<String>? stammbaumAnsicht,
+    Expression<String>? stammbaumPerson,
+    Expression<int>? zeitleisteKachelstufe,
+    Expression<String>? listenspalten,
     Expression<int>? maxGleichzeitig,
     Expression<bool>? translateCaptions,
     Expression<bool>? translateSearchAndTags,
@@ -11848,6 +12083,13 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       if (eigeneKarteStufe != null) 'eigene_karte_stufe': eigeneKarteStufe,
       if (eigeneKarteZugestimmt != null)
         'eigene_karte_zugestimmt': eigeneKarteZugestimmt,
+      if (karteHochaufloesend != null)
+        'karte_hochaufloesend': karteHochaufloesend,
+      if (stammbaumAnsicht != null) 'stammbaum_ansicht': stammbaumAnsicht,
+      if (stammbaumPerson != null) 'stammbaum_person': stammbaumPerson,
+      if (zeitleisteKachelstufe != null)
+        'zeitleiste_kachelstufe': zeitleisteKachelstufe,
+      if (listenspalten != null) 'listenspalten': listenspalten,
       if (maxGleichzeitig != null) 'max_gleichzeitig': maxGleichzeitig,
       if (translateCaptions != null) 'translate_captions': translateCaptions,
       if (translateSearchAndTags != null)
@@ -11870,6 +12112,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<String?>? eigeneKarteNennung,
       Value<int?>? eigeneKarteStufe,
       Value<bool>? eigeneKarteZugestimmt,
+      Value<bool>? karteHochaufloesend,
+      Value<String?>? stammbaumAnsicht,
+      Value<String?>? stammbaumPerson,
+      Value<int>? zeitleisteKachelstufe,
+      Value<String?>? listenspalten,
       Value<int>? maxGleichzeitig,
       Value<bool>? translateCaptions,
       Value<bool>? translateSearchAndTags}) {
@@ -11891,6 +12138,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       eigeneKarteStufe: eigeneKarteStufe ?? this.eigeneKarteStufe,
       eigeneKarteZugestimmt:
           eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
+      karteHochaufloesend: karteHochaufloesend ?? this.karteHochaufloesend,
+      stammbaumAnsicht: stammbaumAnsicht ?? this.stammbaumAnsicht,
+      stammbaumPerson: stammbaumPerson ?? this.stammbaumPerson,
+      zeitleisteKachelstufe:
+          zeitleisteKachelstufe ?? this.zeitleisteKachelstufe,
+      listenspalten: listenspalten ?? this.listenspalten,
       maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
       translateCaptions: translateCaptions ?? this.translateCaptions,
       translateSearchAndTags:
@@ -11946,6 +12199,22 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       map['eigene_karte_zugestimmt'] =
           Variable<bool>(eigeneKarteZugestimmt.value);
     }
+    if (karteHochaufloesend.present) {
+      map['karte_hochaufloesend'] = Variable<bool>(karteHochaufloesend.value);
+    }
+    if (stammbaumAnsicht.present) {
+      map['stammbaum_ansicht'] = Variable<String>(stammbaumAnsicht.value);
+    }
+    if (stammbaumPerson.present) {
+      map['stammbaum_person'] = Variable<String>(stammbaumPerson.value);
+    }
+    if (zeitleisteKachelstufe.present) {
+      map['zeitleiste_kachelstufe'] =
+          Variable<int>(zeitleisteKachelstufe.value);
+    }
+    if (listenspalten.present) {
+      map['listenspalten'] = Variable<String>(listenspalten.value);
+    }
     if (maxGleichzeitig.present) {
       map['max_gleichzeitig'] = Variable<int>(maxGleichzeitig.value);
     }
@@ -11976,6 +12245,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('eigeneKarteNennung: $eigeneKarteNennung, ')
           ..write('eigeneKarteStufe: $eigeneKarteStufe, ')
           ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
+          ..write('karteHochaufloesend: $karteHochaufloesend, ')
+          ..write('stammbaumAnsicht: $stammbaumAnsicht, ')
+          ..write('stammbaumPerson: $stammbaumPerson, ')
+          ..write('zeitleisteKachelstufe: $zeitleisteKachelstufe, ')
+          ..write('listenspalten: $listenspalten, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
           ..write('translateSearchAndTags: $translateSearchAndTags')
@@ -23312,6 +23586,11 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<String?> eigeneKarteNennung,
   Value<int?> eigeneKarteStufe,
   Value<bool> eigeneKarteZugestimmt,
+  Value<bool> karteHochaufloesend,
+  Value<String?> stammbaumAnsicht,
+  Value<String?> stammbaumPerson,
+  Value<int> zeitleisteKachelstufe,
+  Value<String?> listenspalten,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
@@ -23332,6 +23611,11 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<String?> eigeneKarteNennung,
   Value<int?> eigeneKarteStufe,
   Value<bool> eigeneKarteZugestimmt,
+  Value<bool> karteHochaufloesend,
+  Value<String?> stammbaumAnsicht,
+  Value<String?> stammbaumPerson,
+  Value<int> zeitleisteKachelstufe,
+  Value<String?> listenspalten,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
   Value<bool> translateSearchAndTags,
@@ -23397,6 +23681,25 @@ class $$AppSettingsTableFilterComposer
   ColumnFilters<bool> get eigeneKarteZugestimmt => $composableBuilder(
       column: $table.eigeneKarteZugestimmt,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get karteHochaufloesend => $composableBuilder(
+      column: $table.karteHochaufloesend,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stammbaumAnsicht => $composableBuilder(
+      column: $table.stammbaumAnsicht,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stammbaumPerson => $composableBuilder(
+      column: $table.stammbaumPerson,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get zeitleisteKachelstufe => $composableBuilder(
+      column: $table.zeitleisteKachelstufe,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get listenspalten => $composableBuilder(
+      column: $table.listenspalten, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get maxGleichzeitig => $composableBuilder(
       column: $table.maxGleichzeitig,
@@ -23473,6 +23776,26 @@ class $$AppSettingsTableOrderingComposer
       column: $table.eigeneKarteZugestimmt,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get karteHochaufloesend => $composableBuilder(
+      column: $table.karteHochaufloesend,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stammbaumAnsicht => $composableBuilder(
+      column: $table.stammbaumAnsicht,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stammbaumPerson => $composableBuilder(
+      column: $table.stammbaumPerson,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get zeitleisteKachelstufe => $composableBuilder(
+      column: $table.zeitleisteKachelstufe,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get listenspalten => $composableBuilder(
+      column: $table.listenspalten,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get maxGleichzeitig => $composableBuilder(
       column: $table.maxGleichzeitig,
       builder: (column) => ColumnOrderings(column));
@@ -23537,6 +23860,21 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<bool> get eigeneKarteZugestimmt => $composableBuilder(
       column: $table.eigeneKarteZugestimmt, builder: (column) => column);
 
+  GeneratedColumn<bool> get karteHochaufloesend => $composableBuilder(
+      column: $table.karteHochaufloesend, builder: (column) => column);
+
+  GeneratedColumn<String> get stammbaumAnsicht => $composableBuilder(
+      column: $table.stammbaumAnsicht, builder: (column) => column);
+
+  GeneratedColumn<String> get stammbaumPerson => $composableBuilder(
+      column: $table.stammbaumPerson, builder: (column) => column);
+
+  GeneratedColumn<int> get zeitleisteKachelstufe => $composableBuilder(
+      column: $table.zeitleisteKachelstufe, builder: (column) => column);
+
+  GeneratedColumn<String> get listenspalten => $composableBuilder(
+      column: $table.listenspalten, builder: (column) => column);
+
   GeneratedColumn<int> get maxGleichzeitig => $composableBuilder(
       column: $table.maxGleichzeitig, builder: (column) => column);
 
@@ -23587,6 +23925,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> eigeneKarteNennung = const Value.absent(),
             Value<int?> eigeneKarteStufe = const Value.absent(),
             Value<bool> eigeneKarteZugestimmt = const Value.absent(),
+            Value<bool> karteHochaufloesend = const Value.absent(),
+            Value<String?> stammbaumAnsicht = const Value.absent(),
+            Value<String?> stammbaumPerson = const Value.absent(),
+            Value<int> zeitleisteKachelstufe = const Value.absent(),
+            Value<String?> listenspalten = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
@@ -23606,6 +23949,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             eigeneKarteNennung: eigeneKarteNennung,
             eigeneKarteStufe: eigeneKarteStufe,
             eigeneKarteZugestimmt: eigeneKarteZugestimmt,
+            karteHochaufloesend: karteHochaufloesend,
+            stammbaumAnsicht: stammbaumAnsicht,
+            stammbaumPerson: stammbaumPerson,
+            zeitleisteKachelstufe: zeitleisteKachelstufe,
+            listenspalten: listenspalten,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,
@@ -23625,6 +23973,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> eigeneKarteNennung = const Value.absent(),
             Value<int?> eigeneKarteStufe = const Value.absent(),
             Value<bool> eigeneKarteZugestimmt = const Value.absent(),
+            Value<bool> karteHochaufloesend = const Value.absent(),
+            Value<String?> stammbaumAnsicht = const Value.absent(),
+            Value<String?> stammbaumPerson = const Value.absent(),
+            Value<int> zeitleisteKachelstufe = const Value.absent(),
+            Value<String?> listenspalten = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
             Value<bool> translateSearchAndTags = const Value.absent(),
@@ -23644,6 +23997,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             eigeneKarteNennung: eigeneKarteNennung,
             eigeneKarteStufe: eigeneKarteStufe,
             eigeneKarteZugestimmt: eigeneKarteZugestimmt,
+            karteHochaufloesend: karteHochaufloesend,
+            stammbaumAnsicht: stammbaumAnsicht,
+            stammbaumPerson: stammbaumPerson,
+            zeitleisteKachelstufe: zeitleisteKachelstufe,
+            listenspalten: listenspalten,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
             translateSearchAndTags: translateSearchAndTags,

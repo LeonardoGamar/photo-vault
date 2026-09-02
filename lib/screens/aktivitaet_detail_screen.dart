@@ -23,6 +23,8 @@ import '../widgets/routenkarte.dart';
 import 'asset_viewer_screen.dart';
 import 'aufnahmen_waehlen_screen.dart';
 import 'gelaende_screen.dart';
+import 'map_screen.dart' show Kartenansicht;
+import '../widgets/mini_location_map.dart' show Kartenstil, eigeneKarte;
 
 /// Eine einzelne Aktivität.
 ///
@@ -230,10 +232,25 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
     await _laden();
   }
 
-  void _gelaendeOeffnen() {
+  Future<void> _gelaendeOeffnen() async {
+    // Dieselbe Karte, die auf dem Kartenbildschirm eingestellt ist – wer
+    // dort ein Luftbild gewählt hat, will die Landschaft nicht plötzlich
+    // als Wanderkarte sehen. Nachgeschlagen wird sie hier, weil der
+    // Geländebildschirm die Bibliothek nicht kennt.
+    final gemerkt =
+        Kartenansicht.ausText(await widget.library.db.kartenansicht());
+    final stil = switch (gemerkt) {
+      Kartenansicht.hell => Kartenstil.hell,
+      Kartenansicht.dunkel => Kartenstil.dunkel,
+      Kartenansicht.eigene when eigeneKarte != null => Kartenstil.eigene,
+      // Globus und alles Unbekannte: die Wanderkarte, wie bisher.
+      _ => Kartenstil.topo,
+    };
+    if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => GelaendeScreen(
         titel: _k.name,
+        stil: stil,
         spur: [
           for (final p in _spurpunkte)
             (breite: p.breite, laenge: p.laenge, hoehe: p.hoehe, zeit: p.zeit),

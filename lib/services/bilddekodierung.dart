@@ -84,3 +84,62 @@ int dekodierbreite(double punkte, double pixelverhaeltnis) {
   final roh = punkte * pixelverhaeltnis;
   return (roh / dekodierstufe).ceil() * dekodierstufe;
 }
+
+/// Die Formate, die Flutter selbst dekodiert.
+///
+/// Gebraucht dort, wo eine **beliebige** Datei aus der Bibliothek
+/// angezeigt werden soll und nicht feststeht, ob es überhaupt ein Bild
+/// ist – die Integritätsprüfung etwa hält eine verwaiste Datei in den
+/// Händen und kennt nur ihren Pfad. HEIC und RAW sind nicht dabei: Dort
+/// bliebe ein leeres Feld stehen, und ein leeres Feld sagt weniger als
+/// kein Feld.
+const flutterDekodierbareEndungen = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.gif',
+  '.bmp',
+];
+
+/// Ob Flutter diese Datei nach ihrer Endung anzeigen kann.
+bool flutterKannAnzeigen(String pfad) {
+  final punkt = pfad.lastIndexOf('.');
+  if (punkt < 0) return false;
+  return flutterDekodierbareEndungen.contains(pfad.substring(punkt).toLowerCase());
+}
+
+/// Vergisst alle zwischengespeicherten Bilder.
+///
+/// **Wozu.** Flutter merkt sich dekodierte Bilder unter einem Schlüssel
+/// aus Datei und Zielgrösse. Wer ein Foto **an Ort und Stelle**
+/// überschreibt – Bearbeiten speichert ein gedrehtes JPEG unter genau
+/// demselben Pfad, und Vorschau und Vorschaubild werden ebenso ersetzt –,
+/// ändert die Datei, nicht den Schlüssel. Danach zeigen Vollbild,
+/// Zeitleiste und jede Kachel weiter das alte Bild, bis die App neu
+/// startet. Gemeldet als „Vorschau nach dem Speichern nicht aktualisiert".
+///
+/// **Warum alles und nicht gezielt.** Ein Bild liegt unter so vielen
+/// Schlüsseln im Speicher, wie es Kachelgrössen gibt, unter denen es
+/// gezeichnet wurde (siehe [dekodierbreite]) – und der Speicher lässt
+/// sich nicht danach durchsuchen. Alles zu verwerfen kostet einmal das
+/// erneute Dekodieren der sichtbaren Kacheln; einen Schlüssel zu
+/// übersehen kostet ein falsches Bild, das niemand als Fehler erkennt.
+///
+/// `clearLiveImages` gehört dazu: Bilder, die gerade gezeichnet werden,
+/// liegen in einer zweiten Liste, die `clear` nicht anfasst – ohne sie
+/// bliebe ausgerechnet das Bild stehen, auf das man sieht.
+///
+/// Ohne laufende Zeichenmaschine passiert nichts: Aufrufer sind seit der
+/// 23. Prüfrunde auch Wege ohne Oberfläche (Sperren, Aufräumen des
+/// Entschlüsselungs-Zwischenspeichers), und die laufen in reinen
+/// Sachtests ohne Bindung.
+void vergissAlleBilder() {
+  try {
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  } on FlutterError {
+    // Keine Zeichenmaschine, also auch kein Bildspeicher.
+  }
+}

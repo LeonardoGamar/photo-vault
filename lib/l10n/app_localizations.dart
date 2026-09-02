@@ -524,6 +524,12 @@ abstract class AppTexte {
   /// **'Modell für die Bildsuche wird geladen …'**
   String get sucheModellLaedt;
 
+  /// No description provided for @sucheModellUnbrauchbar.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Modell {datei} liegt zwar auf der Platte, lässt sich aber nicht öffnen. Lade es unter Einstellungen → KI-Modelle neu – die Suche und die KI-Schlagwörter brauchen es.'**
+  String sucheModellUnbrauchbar(String datei);
+
   /// No description provided for @sucheFehlgeschlagen.
   ///
   /// In de, this message translates to:
@@ -1075,12 +1081,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'{anzahl, plural, =1{Ein Begriff übersetzt.} other{{anzahl} Begriffe übersetzt.}}'**
   String spracheVokabularFertig(int anzahl);
-
-  /// No description provided for @erkundenKeinePersonen.
-  ///
-  /// In de, this message translates to:
-  /// **'Noch keine Personen benannt.'**
-  String get erkundenKeinePersonen;
 
   /// No description provided for @erkundenKeineOrte.
   ///
@@ -3681,6 +3681,126 @@ abstract class AppTexte {
   /// **'Entwickeln'**
   String get entwTitel;
 
+  /// No description provided for @entwVerlaufSitzung.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Sitzung'**
+  String get entwVerlaufSitzung;
+
+  /// No description provided for @entwVerlaufGespeichert.
+  ///
+  /// In de, this message translates to:
+  /// **'Gespeichert'**
+  String get entwVerlaufGespeichert;
+
+  /// No description provided for @entwVerlaufAusgangsstand.
+  ///
+  /// In de, this message translates to:
+  /// **'Stand beim Öffnen'**
+  String get entwVerlaufAusgangsstand;
+
+  /// No description provided for @entwVerlaufOhneAenderung.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne Änderung'**
+  String get entwVerlaufOhneAenderung;
+
+  /// No description provided for @entwVerlaufJetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktueller Stand'**
+  String get entwVerlaufJetzt;
+
+  /// No description provided for @entwWerkzBelichtung.
+  ///
+  /// In de, this message translates to:
+  /// **'Belichtung'**
+  String get entwWerkzBelichtung;
+
+  /// No description provided for @entwWerkzWeissabgleich.
+  ///
+  /// In de, this message translates to:
+  /// **'Weissabgleich'**
+  String get entwWerkzWeissabgleich;
+
+  /// No description provided for @entwWerkzTemperatur.
+  ///
+  /// In de, this message translates to:
+  /// **'Temperatur'**
+  String get entwWerkzTemperatur;
+
+  /// No description provided for @entwWerkzTint.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbstich'**
+  String get entwWerkzTint;
+
+  /// No description provided for @entwWerkzKontrast.
+  ///
+  /// In de, this message translates to:
+  /// **'Kontrast'**
+  String get entwWerkzKontrast;
+
+  /// No description provided for @entwWerkzLichter.
+  ///
+  /// In de, this message translates to:
+  /// **'Lichter'**
+  String get entwWerkzLichter;
+
+  /// No description provided for @entwWerkzSchatten.
+  ///
+  /// In de, this message translates to:
+  /// **'Schatten'**
+  String get entwWerkzSchatten;
+
+  /// No description provided for @entwWerkzSchaerfe.
+  ///
+  /// In de, this message translates to:
+  /// **'Schärfe'**
+  String get entwWerkzSchaerfe;
+
+  /// No description provided for @entwWerkzRauschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Rauschunterdrückung'**
+  String get entwWerkzRauschen;
+
+  /// No description provided for @entwWerkzKlarheit.
+  ///
+  /// In de, this message translates to:
+  /// **'Klarheit'**
+  String get entwWerkzKlarheit;
+
+  /// No description provided for @entwWerkzVignettierung.
+  ///
+  /// In de, this message translates to:
+  /// **'Vignettierung'**
+  String get entwWerkzVignettierung;
+
+  /// No description provided for @entwWerkzKurve.
+  ///
+  /// In de, this message translates to:
+  /// **'Tonwertkurve'**
+  String get entwWerkzKurve;
+
+  /// No description provided for @entwWerkzFarbmischer.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbmischer'**
+  String get entwWerkzFarbmischer;
+
+  /// No description provided for @entwWerkzFarbtabelle.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbtabelle'**
+  String get entwWerkzFarbtabelle;
+
+  /// No description provided for @entwWerkzObjektiv.
+  ///
+  /// In de, this message translates to:
+  /// **'Objektivkorrektur'**
+  String get entwWerkzObjektiv;
+
   /// No description provided for @entwKeinVerlauf.
   ///
   /// In de, this message translates to:
@@ -3704,6 +3824,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Speichern fehlgeschlagen: Bild konnte nicht gerendert werden.'**
   String get entwSpeichernFehlgeschlagen;
+
+  /// No description provided for @entwRestaurierungLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'KI-Restaurierung'**
+  String get entwRestaurierungLaeuft;
 
   /// No description provided for @entwRestaurierungEingereiht.
   ///
@@ -5126,6 +5252,30 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Inhalt hat sich seit dem Import geändert'**
   String get integInhaltGeaendert;
+
+  /// No description provided for @integAnsehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ansehen'**
+  String get integAnsehen;
+
+  /// No description provided for @integVorschauTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschau'**
+  String get integVorschauTitel;
+
+  /// No description provided for @integKeineVorschau.
+  ///
+  /// In de, this message translates to:
+  /// **'Für diese Datei lässt sich keine Vorschau zeigen.'**
+  String get integKeineVorschau;
+
+  /// No description provided for @integVorschauVerschluesselt.
+  ///
+  /// In de, this message translates to:
+  /// **'Das Foto ist gesperrt – die Vorschau ist mitverschlüsselt.'**
+  String get integVorschauVerschluesselt;
 
   /// No description provided for @integFotoOeffnen.
   ///
@@ -7349,6 +7499,96 @@ abstract class AppTexte {
   /// **'Ohne Kameraangabe'**
   String get listeOhneKamera;
 
+  /// No description provided for @zeitleisteGroesser.
+  ///
+  /// In de, this message translates to:
+  /// **'Grössere Kacheln'**
+  String get zeitleisteGroesser;
+
+  /// No description provided for @zeitleisteKleiner.
+  ///
+  /// In de, this message translates to:
+  /// **'Kleinere Kacheln – mehr Monate auf einmal'**
+  String get zeitleisteKleiner;
+
+  /// No description provided for @listeSpalten.
+  ///
+  /// In de, this message translates to:
+  /// **'Spalten'**
+  String get listeSpalten;
+
+  /// No description provided for @listeSpalteDateiname.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateiname'**
+  String get listeSpalteDateiname;
+
+  /// No description provided for @listeSpalteDatum.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufgenommen'**
+  String get listeSpalteDatum;
+
+  /// No description provided for @listeSpalteKamera.
+  ///
+  /// In de, this message translates to:
+  /// **'Kamera'**
+  String get listeSpalteKamera;
+
+  /// No description provided for @listeSpalteObjektiv.
+  ///
+  /// In de, this message translates to:
+  /// **'Objektiv'**
+  String get listeSpalteObjektiv;
+
+  /// No description provided for @listeSpalteBelichtung.
+  ///
+  /// In de, this message translates to:
+  /// **'Belichtung'**
+  String get listeSpalteBelichtung;
+
+  /// No description provided for @listeSpalteBewertung.
+  ///
+  /// In de, this message translates to:
+  /// **'Bewertung'**
+  String get listeSpalteBewertung;
+
+  /// No description provided for @listeSpalteFarbe.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbe'**
+  String get listeSpalteFarbe;
+
+  /// No description provided for @listeSpalteMasse.
+  ///
+  /// In de, this message translates to:
+  /// **'Masse'**
+  String get listeSpalteMasse;
+
+  /// No description provided for @listeSpalteGroesse.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateigrösse'**
+  String get listeSpalteGroesse;
+
+  /// No description provided for @listeSpalteArt.
+  ///
+  /// In de, this message translates to:
+  /// **'Art'**
+  String get listeSpalteArt;
+
+  /// No description provided for @listeSpalteOrt.
+  ///
+  /// In de, this message translates to:
+  /// **'Ort'**
+  String get listeSpalteOrt;
+
+  /// No description provided for @listeSpalteBreiteAendern.
+  ///
+  /// In de, this message translates to:
+  /// **'Breite ändern'**
+  String get listeSpalteBreiteAendern;
+
   /// No description provided for @ansichtRaster.
   ///
   /// In de, this message translates to:
@@ -8255,6 +8495,48 @@ abstract class AppTexte {
   /// **'Reisen'**
   String get erkundenReisen;
 
+  /// No description provided for @erkundenAktivitaeten.
+  ///
+  /// In de, this message translates to:
+  /// **'Aktivitäten'**
+  String get erkundenAktivitaeten;
+
+  /// No description provided for @gelaendeKarte.
+  ///
+  /// In de, this message translates to:
+  /// **'Karte auf der Landschaft'**
+  String get gelaendeKarte;
+
+  /// No description provided for @kalenderGanzesJahr.
+  ///
+  /// In de, this message translates to:
+  /// **'Ganzes Jahr'**
+  String get kalenderGanzesJahr;
+
+  /// No description provided for @einstKarteScharfTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Karte in doppelter Auflösung'**
+  String get einstKarteScharfTitel;
+
+  /// No description provided for @einstKarteScharfText.
+  ///
+  /// In de, this message translates to:
+  /// **'Auf einem Bildschirm mit doppelter Punktdichte holt die Karte vier Kacheln der nächsttieferen Stufe und setzt sie an die Stelle einer: viermal so viele Bildpunkte, Hausnummern und Ladennamen werden lesbar. Der Preis sind rund zweieinhalbmal so viele Kacheln je Bildschirm – auf einer langsameren Maschine ruckelt das Zoomen dadurch spürbar. Ausgeschaltet zeichnet die Karte wie zuvor.'**
+  String get einstKarteScharfText;
+
+  /// No description provided for @routeVergroessern.
+  ///
+  /// In de, this message translates to:
+  /// **'Karte vergrössern'**
+  String get routeVergroessern;
+
+  /// No description provided for @routeVerkleinern.
+  ///
+  /// In de, this message translates to:
+  /// **'Karte verkleinern'**
+  String get routeVerkleinern;
+
   /// No description provided for @reisenTitel.
   ///
   /// In de, this message translates to:
@@ -8284,12 +8566,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Deine Reisen'**
   String get reisenBestaetigte;
-
-  /// No description provided for @reisenKeineVorschlaege.
-  ///
-  /// In de, this message translates to:
-  /// **'Keine neuen Vorschläge.'**
-  String get reisenKeineVorschlaege;
 
   /// No description provided for @reisenIstEineReise.
   ///
@@ -8548,6 +8824,24 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Alle'**
   String get laenderAlle;
+
+  /// No description provided for @laenderLegende.
+  ///
+  /// In de, this message translates to:
+  /// **'Legende'**
+  String get laenderLegende;
+
+  /// No description provided for @laenderAusFotos.
+  ///
+  /// In de, this message translates to:
+  /// **'Durch Fotos belegt'**
+  String get laenderAusFotos;
+
+  /// No description provided for @laenderNurVonHand.
+  ///
+  /// In de, this message translates to:
+  /// **'Von Hand ausgewählt'**
+  String get laenderNurVonHand;
 
   /// No description provided for @laenderVollstaendig.
   ///
@@ -9766,12 +10060,6 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Notiz'**
   String get aktivitaetenNotiz;
-
-  /// No description provided for @aktivitaetenArt.
-  ///
-  /// In de, this message translates to:
-  /// **'Art'**
-  String get aktivitaetenArt;
 
   /// No description provided for @aktivitaetenArtAendern.
   ///

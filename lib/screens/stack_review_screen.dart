@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../services/suchfehler.dart';
 import '../services/serienvorschlag.dart';
 import 'serienvergleich_screen.dart';
 import '../state/library_state.dart';
@@ -29,7 +30,7 @@ class StackReviewScreen extends StatefulWidget {
 
 class _StackReviewScreenState extends State<StackReviewScreen> {
   bool _loading = true;
-  String? _error;
+  Suchfehlerstand? _error;
   List<List<AssetData>> _groups = [];
 
   /// Gewählter Titelbild-Index je Gruppe (Index in [_groups]) – defaultmäßig
@@ -51,14 +52,16 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
     try {
       if (!widget.library.clipAvailable) {
         setState(() {
-          _error = AppTexte.of(context).allgClipNoetigKurz;
+          _error = const Suchfehlerstand(Suchfehler.clipFehlt);
           _groups = [];
         });
         return;
       }
 
-      final groups = await serienvorschlaege(
-          widget.library.db, await widget.library.cachedEmbeddings());
+      // Eine eigene Liste: Der Vorrat gehoert dem LibraryState, und die
+      // Anzeige darf ihn nicht nebenbei umbauen. Was hier erledigt wird,
+      // wird ihm ausdruecklich gesagt (siehe serieErledigt).
+      final groups = [...await widget.library.serienvorschlaegeGecacht()];
 
       if (!mounted) return;
       setState(() {
@@ -70,7 +73,7 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = AppTexte.of(context).allgSucheFehlgeschlagen('$e'));
+      setState(() => _error = Suchfehlerstand(Suchfehler.gescheitert, '$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -100,22 +103,24 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
       group.map((a) => a.id).toList(),
       group[coverIndex].id,
     );
+    widget.library.serieErledigt(group);
     if (!mounted) return;
     setState(() {
       _groups.removeAt(groupIndex);
-      _reindexCovers();
+      _reindexCovers(groupIndex);
     });
   }
 
   Future<void> _discardGroup(int groupIndex) async {
     // Gemerkt, nicht nur weggeblendet: Wer einmal „nein" gesagt hat, will
     // nicht bei jedem Öffnen erneut gefragt werden.
-    await widget.library.db
-        .verwirfSerienvorschlag(serienschluessel(_groups[groupIndex]));
+    final gruppe = _groups[groupIndex];
+    await widget.library.db.verwirfSerienvorschlag(serienschluessel(gruppe));
+    widget.library.serieErledigt(gruppe);
     if (!mounted) return;
     setState(() {
       _groups.removeAt(groupIndex);
-      _reindexCovers();
+      _reindexCovers(groupIndex);
     });
   }
 
@@ -130,14 +135,21 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
   Future<void> _uebernimmAlle() async {
     setState(() => _uebernimmtAlle = true);
     try {
-      for (var i = _groups.length - 1; i >= 0; i--) {
-        final gruppe = _groups[i];
-        await widget.library.db.createStack(
-          const Uuid().v4(),
-          [for (final a in gruppe) a.id],
-          gruppe[_coverIndexByGroup[i] ?? 0].id,
-        );
-      }
+      // **In einem Zug und nicht 499 Mal einzeln.** Jede Buchung ist
+      // sonst ein eigener Vorgang samt Hin- und Rueckweg zum
+      // Datenbank-Isolate. An der gewachsenen Bibliothek gemessen:
+      // 249 Gruppen einzeln 155 ms, dieselbe Zahl in einem Zug 40 ms.
+      await widget.library.db.transaction(() async {
+        for (var i = _groups.length - 1; i >= 0; i--) {
+          final gruppe = _groups[i];
+          await widget.library.db.createStack(
+            const Uuid().v4(),
+            [for (final a in gruppe) a.id],
+            gruppe[_coverIndexByGroup[i] ?? 0].id,
+          );
+        }
+      });
+      widget.library.serienGeleert();
       if (!mounted) return;
       setState(() {
         _groups.clear();
@@ -148,14 +160,11 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
     }
   }
 
-  void _reindexCovers() {
-    final reindexed = <int, int>{};
-    for (var i = 0; i < _groups.length; i++) {
-      reindexed[i] = _coverIndexByGroup[i] ?? 0;
-    }
+  void _reindexCovers(int entfernt) {
+    final verschoben = verschobeneTitelwahl(_coverIndexByGroup, entfernt);
     _coverIndexByGroup
       ..clear()
-      ..addAll(reindexed);
+      ..addAll(verschoben);
   }
 
   Future<void> _frageAlle() async {
@@ -197,7 +206,7 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
             padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
             child: Text(
               AppTexte.of(context).stapelErklaerung,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
           const Divider(height: 16),
@@ -213,7 +222,8 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Text(_error!, textAlign: TextAlign.center),
+          child: Text(_error!.satz(AppTexte.of(context)),
+              textAlign: TextAlign.center),
         ),
       );
     }
@@ -322,4 +332,25 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
       },
     );
   }
+}
+
+/// Zieht die Titelbild-Wahl mit, wenn die Gruppe auf Platz [entfernt]
+/// aus der Liste faellt.
+///
+/// **Der Fehler, den das behebt.** Die Karte ist nach Listenplatz
+/// geordnet, die Liste aber schrumpft mit jeder uebernommenen Gruppe. Wer
+/// Gruppe 1 uebernahm, rueckte Gruppe 2 auf Platz 1 – und bekam dort die
+/// Sternwahl der uebernommenen. Der vorherige Rumpf schrieb jeden Platz
+/// auf sich selbst zurueck und verschob damit gar nichts.
+///
+/// Als eigene Funktion und nicht als Rumpf im Zustand: Sonst koennte ein
+/// Pruefstand sie nur nachrechnen, und ein Test, der die Rechnung
+/// nachbaut, faellt auch dann nicht, wenn die echte falsch ist.
+Map<int, int> verschobeneTitelwahl(Map<int, int> wahl, int entfernt) {
+  final verschoben = <int, int>{};
+  for (final e in wahl.entries) {
+    if (e.key == entfernt) continue;
+    verschoben[e.key > entfernt ? e.key - 1 : e.key] = e.value;
+  }
+  return verschoben;
 }

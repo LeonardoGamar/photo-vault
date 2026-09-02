@@ -1,9 +1,28 @@
 /// Die Route einer Reise oder einer Aktivität als kleine Karte.
 ///
-/// **Unbeweglich, und das mit Absicht.** Eine Karte, die sich schieben
-/// lässt, würde inmitten einer rollbaren Seite jeden zweiten Wisch
-/// verschlucken. Ein Tippen auf ein Bild kommt trotzdem an – die Marke
-/// ist ein gewöhnliches Widget.
+/// **Bedienbar, aber nicht über das Rad.** Die erste Fassung war
+/// vollständig unbeweglich, und der Grund dafür gilt weiter: Eine Karte,
+/// die das Mausrad annimmt, verschluckt inmitten einer rollbaren Seite
+/// jeden zweiten Wisch – man will die Seite scrollen und zoomt
+/// stattdessen die Karte. Deshalb bedient sie sich über **Knöpfe**:
+///
+/// * `+` und `−` zoomen,
+/// * ein Knopf passt den Ausschnitt wieder auf die Strecke ein,
+/// * ein vierter macht die Karte höher und wieder kleiner.
+///
+/// Ziehen mit der Maus verschiebt trotzdem – das ist die eine Geste, die
+/// sich mit dem Rollen der Seite nicht in die Quere kommt, und ohne sie
+/// wäre Hineinzoomen sinnlos: Man landete in einer Ecke, aus der man
+/// nicht herauskäme.
+///
+/// **Ausdrücklich ohne `WischZoom`** (siehe `kartenzoom_test.dart`). Die
+/// Regel dort verlangt für jede bedienbare Karte Knöpfe **und** Wischen,
+/// weil eine Magic Mouse kein Rad hat. Ihr Zweck ist erfüllt: Zoomen
+/// geht hier auf jedem Gerät, nämlich über die Knöpfe. Das Wischen
+/// hinzuzunehmen kehrte dagegen genau den Schaden zurück, den die
+/// unbewegliche Karte vermeiden sollte – auf einer Tastfläche ist der
+/// Zweifingerwisch die Geste zum Rollen der Seite.
+/// zoomregel: nur Knoepfe (Karte in einer rollbaren Seite)
 ///
 /// Herausgelöst aus `reise_detail_screen.dart`, weil eine Wanderung
 /// dieselbe Karte verdient wie eine Reise: dieselbe Strecke, dieselben
@@ -21,8 +40,9 @@ import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 import 'mini_location_map.dart'
     show Kachelschicht, buildMapAttribution, kartenHoechsteStufe;
+import 'zoomsteuerung.dart';
 
-class Routenkarte extends StatelessWidget {
+class Routenkarte extends StatefulWidget {
   final List<Routenpunkt> route;
   final List<Aufenthaltsort> orte;
   final Map<String, AssetData> nachId;
@@ -57,29 +77,88 @@ class Routenkarte extends StatelessWidget {
     this.stelle,
   });
 
+  /// Die Stufen, um die sich die Karte vergrössern lässt – Vielfache von
+  /// [hoehe].
+  ///
+  /// Drei und nicht stufenlos: Ein Regler für eine Höhe wäre Bedienung
+  /// für etwas, das man einmal einstellt. Der grösste Schritt ist so
+  /// gewählt, dass die Karte auf einem gewöhnlichen Fenster noch nicht
+  /// die ganze Seite verdrängt.
+  static const stufen = [1.0, 1.8, 2.8];
+
+  @override
+  State<Routenkarte> createState() => _RoutenkarteState();
+}
+
+class _RoutenkarteState extends State<Routenkarte> {
+  final _steuerung = MapController();
+
+  /// Welche der [Routenkarte.stufen] gerade gilt.
+  int _stufe = 0;
+
+  /// Der Ausschnitt, auf den „einpassen" zurückführt – derselbe, mit dem
+  /// die Karte aufgemacht hat.
+  CameraFit? _anfang;
+
+  @override
+  void dispose() {
+    _steuerung.dispose();
+    super.dispose();
+  }
+
+  void _zoom(double schritte) {
+    final kamera = _steuerung.camera;
+    final ziel = (kamera.zoom + schritte)
+        .clamp(kamera.minZoom ?? 1.0, kamera.maxZoom ?? 20.0);
+    _steuerung.move(kamera.center, ziel);
+  }
+
+  void _einpassen() {
+    if (_anfang case final fit?) _steuerung.fitCamera(fit);
+  }
+
+  void _groesse() {
+    setState(() => _stufe = (_stufe + 1) % Routenkarte.stufen.length);
+    // Der Ausschnitt bleibt, die Fläche wächst – die Karte zeigt dann
+    // mehr Umgebung, nicht einen anderen Ort.
+  }
+
   @override
   Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
     final farben = Theme.of(context).colorScheme;
+    final route = widget.route;
+    final orte = widget.orte;
+    final nachId = widget.nachId;
+    final paths = widget.paths;
+    final beiOrt = widget.beiOrt;
+    final spur = widget.spur;
+    final stelle = widget.stelle;
     final punkte = [for (final p in route) ll.LatLng(p.breite, p.laenge)];
     final spurpunkte = [for (final p in spur) ll.LatLng(p.breite, p.laenge)];
+    _anfang ??= CameraFit.coordinates(
+      coordinates: [...punkte, ...spurpunkte],
+      padding: const EdgeInsets.all(AppSpacing.xxl),
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadius.sm),
       child: SizedBox(
-        height: hoehe,
-        child: FlutterMap(
+        height: widget.hoehe * Routenkarte.stufen[_stufe],
+        child: Stack(children: [
+        FlutterMap(
+          mapController: _steuerung,
           options: MapOptions(
             // Der Ausschnitt wird auf die Strecke gelegt, nicht auf eine
             // geratene Mitte mit geratener Zoomstufe.
-            initialCameraFit: CameraFit.coordinates(
-              // Beides einpassen: Eine Spur, die weiter reicht als die
-              // Fotos, liefe sonst aus dem Bild.
-              coordinates: [...punkte, ...spurpunkte],
-              padding: const EdgeInsets.all(AppSpacing.xxl),
-            ),
+            // Beides einpassen: Eine Spur, die weiter reicht als die
+            // Fotos, liefe sonst aus dem Bild.
+            initialCameraFit: _anfang,
+            // Nur Ziehen. Kein Rad und kein Kneifen: Beides ist auf
+            // dieser Seite die Geste zum Rollen, und die Karte darf sie
+            // der Seite nicht wegnehmen.
             interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.none),
-            // Auch eine unbewegliche Karte braucht die Grenze: Das
-            // Einpassen auf die Strecke kann bei zwei dicht
+                flags: InteractiveFlag.drag),
+            // Das Einpassen auf die Strecke kann bei zwei dicht
             // beieinanderliegenden Punkten über die höchste Stufe hinaus
             // rechnen, für die es Kacheln gibt.
             maxZoom: kartenHoechsteStufe(context),
@@ -154,6 +233,54 @@ class Routenkarte extends StatelessWidget {
             buildMapAttribution(context),
           ],
         ),
+        Positioned(
+          right: AppSpacing.sm,
+          top: AppSpacing.sm,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Zoomsteuerung(
+                beiNaeher: () => _zoom(1),
+                beiWeiter: () => _zoom(-1),
+                beiEinpassen: _einpassen,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // Die Fläche der Karte ist keine Sache des Zooms, sondern
+              // des Platzes auf der Seite – deshalb ein eigener Knopf und
+              // nicht ein vierter in der Zoomleiste.
+              Material(
+                color: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                clipBehavior: Clip.antiAlias,
+                child: Tooltip(
+                  message: _stufe == Routenkarte.stufen.length - 1
+                      ? t.routeVerkleinern
+                      : t.routeVergroessern,
+                  child: InkResponse(
+                    onTap: _groesse,
+                    radius: 22,
+                    child: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Icon(
+                        _stufe == Routenkarte.stufen.length - 1
+                            ? Icons.close_fullscreen
+                            : Icons.open_in_full,
+                        size: 20,
+                        color: farben.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        ]),
       ),
     );
   }

@@ -587,7 +587,7 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 8,
             child: Text(
               AppTexte.of(context).karteTexturNachweis,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              style: TextStyle(fontSize: 10, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
         ],

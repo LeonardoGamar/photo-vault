@@ -75,12 +75,23 @@ class AlbumsScreen extends StatelessWidget {
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
+                  // Rand und eine Grenze für den Namen: Ohne beides stand
+                  // ein langer Albumname bis an die Kachelkante und lief
+                  // bei grosser Systemschrift unten heraus (gemessen 7,8
+                  // Punkte bei 1,6-facher Schrift).
+                  padding: const EdgeInsets.all(AppSpacing.sm),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.photo_album_outlined, size: 40),
                       const SizedBox(height: 8),
-                      Text(album.name, style: Theme.of(context).textTheme.titleSmall),
+                      Flexible(
+                        child: Text(album.name,
+                            maxLines: 2,
+                            textAlign: TextAlign.center,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall),
+                      ),
                     ],
                   ),
                 ),

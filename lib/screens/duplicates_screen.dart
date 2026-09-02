@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
+import '../services/suchfehler.dart';
 import '../services/embedding_similarity.dart';
 import '../services/duplicate_selection.dart';
 import '../state/library_state.dart';
@@ -30,7 +31,7 @@ class DuplicatesScreen extends StatefulWidget {
 class _DuplicatesScreenState extends State<DuplicatesScreen> {
   double _threshold = 0.92;
   bool _loading = true;
-  String? _error;
+  Suchfehlerstand? _error;
   List<List<AssetData>> _groups = [];
 
   /// Wie viele Paare der Nutzer von der Suche ausgenommen hat – für die
@@ -54,7 +55,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     try {
       if (!widget.library.clipAvailable) {
         setState(() {
-          _error = AppTexte.of(context).allgClipNoetigKurz;
+          _error = const Suchfehlerstand(Suchfehler.clipFehlt);
           _groups = [];
         });
         return;
@@ -94,7 +95,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = AppTexte.of(context).allgSucheFehlgeschlagen('$e'));
+      setState(() => _error = Suchfehlerstand(Suchfehler.gescheitert, '$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -277,7 +278,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: Text(
               AppTexte.of(context).duplSchwelleHinweis,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
           if (!_loading && _error == null)
@@ -317,7 +318,8 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Text(_error!, textAlign: TextAlign.center),
+          child: Text(_error!.satz(AppTexte.of(context)),
+              textAlign: TextAlign.center),
         ),
       );
     }

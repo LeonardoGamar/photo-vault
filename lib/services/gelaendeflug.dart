@@ -159,6 +159,106 @@ class Gelaendeflug {
     );
   }
 
+  /// Der Punkt, auf den die Kamera im Flug schaut – **geglättet**.
+  ///
+  /// **Warum nicht [punktBei].** Richtung, Tempo und Steigung wurden von
+  /// Anfang an über [glaettung] gemittelt, der Blickpunkt aber nicht: Die
+  /// Kamera sass auf dem rohen Stützpunkt. Zwei aufeinanderfolgende
+  /// GPX-Punkte liegen wenige Meter auseinander, und genau so gross ist
+  /// die Messungenauigkeit eines Geräts – die Kamera flog also jeden
+  /// Zacken der Aufzeichnung mit, während sie schon in die richtige
+  /// Richtung blickte. Am Bildschirm war das ein Zittern, das mit der
+  /// Landschaft nichts zu tun hatte.
+  ///
+  /// **Gemittelt wird als Integral, nicht als Stichprobe**, und das war
+  /// nicht die erste Fassung. Neun über das Fenster verteilte Proben zu
+  /// mitteln sah nach genug aus und war es nicht: Die Proben liegen dann
+  /// 30 Meter auseinander, und jede springt für sich von Stützpunkt zu
+  /// Stützpunkt, während das Fenster weiterrutscht. Gemessen brachte das
+  /// nur den Faktor 2,8 – sichtbar besser, aber immer noch unruhig.
+  ///
+  /// Der Mittelwert über ein Fenster lässt sich bei einem Streckenzug
+  /// **geschlossen** ausrechnen: Über jedes Teilstück ist der Verlauf
+  /// geradlinig, also ist sein Beitrag der Mittelpunkt mal die
+  /// überdeckte Länge. Das Ergebnis ist stetig differenzierbar – kein
+  /// Aliasing, keine Probenzahl zu wählen – und kostet so viel wie die
+  /// Zahl der Teilstücke im Fenster (bei 5-Meter-Punkten und 240 Meter
+  /// Fenster rund 48 Multiplikationen je Bild).
+  ///
+  /// Die **gezeichnete** Spur bleibt davon unberührt: Sie ist die
+  /// Aufzeichnung und soll aussehen wie die Aufzeichnung.
+  Raumpunkt blickpunktBei(double meter) {
+    if (spur.isEmpty) return Gelaendekamera.nullpunkt;
+    final f = _blickfenster(meter);
+    final breite = f.bis - f.von;
+    // Ein Fenster ohne Breite – an den beiden Enden – hat nichts zu
+    // mitteln und liefert genau den Punkt selbst.
+    if (breite <= 0) return punktBei(meter);
+
+    var x = 0.0, y = 0.0, z = 0.0;
+    final erst = _stelleBei(f.von).tief;
+    for (var i = erst; i < spur.length - 1; i++) {
+      final a = _bisHier[i];
+      final b = _bisHier[i + 1];
+      if (a >= f.bis) break;
+      final von = math.max(a, f.von);
+      final bis = math.min(b, f.bis);
+      final laenge = bis - von;
+      if (laenge <= 0) continue;
+      // Der Mittelpunkt des überdeckten Stücks – über eine Gerade ist er
+      // zugleich deren Mittelwert.
+      final pa = punktBei(von);
+      final pb = punktBei(bis);
+      x += (pa.x + pb.x) / 2 * laenge;
+      y += (pa.y + pb.y) / 2 * laenge;
+      z += (pa.z + pb.z) / 2 * laenge;
+    }
+    return (x: x / breite, y: y / breite, z: z / breite);
+  }
+
+  /// Das Fenster für den **Blickpunkt** – anders als [_fenster].
+  ///
+  /// **Es schrumpft an den Enden, statt nach innen zu rutschen**, und der
+  /// Unterschied ist der ganze Grund für zwei Fenster. Ein nach innen
+  /// gerutschtes Fenster liefert am Anfang den Mittelwert über die
+  /// ersten 240 Meter – die Kamera stünde beim Start also 120 Meter
+  /// hinter dem Anfang der Spur und flöge am Ende über das Ziel hinaus.
+  /// Für Richtung und Tempo ist das richtig (eine Richtung aus zwei
+  /// Punkten wäre dort Rauschen), für eine Position ist es schlicht die
+  /// falsche Stelle. Die Halbbreite läuft deshalb an beiden Enden auf
+  /// null zu: volle Glättung in der Mitte, exakte Enden am Rand.
+  ({double von, double bis}) _blickfenster(double meter) {
+    final m = meter.clamp(0.0, laengeMeter);
+    final halb = math.min(
+      math.min(glaettung, laengeMeter / 2),
+      math.min(m, laengeMeter - m),
+    );
+    return (von: m - halb, bis: m + halb);
+  }
+
+  /// Das Glättungsfenster um [meter] für Richtung, Tempo und Steigung.
+  ///
+  /// An den Enden rutscht es nach innen, statt zu schrumpfen – sonst
+  /// wären Richtung und Tempo ausgerechnet dort am unruhigsten, wo der
+  /// Flug beginnt.
+  ({double von, double bis}) _fenster(double meter) {
+    final halb = math.min(glaettung, laengeMeter / 2);
+    var von = meter - halb;
+    var bis = meter + halb;
+    if (von < 0) {
+      bis -= von;
+      von = 0;
+    }
+    if (bis > laengeMeter) {
+      von -= bis - laengeMeter;
+      bis = laengeMeter;
+    }
+    return (
+      von: math.max(0, von),
+      bis: math.min(laengeMeter, bis),
+    );
+  }
+
   /// Die echte Höhe bei [meter], `null` wo die Spur keine führt.
   ///
   /// **Ein Loch in den Höhen ist kein Loch im Weg** – dieselbe Regel wie
@@ -190,24 +290,12 @@ class Gelaendeflug {
   Flugstand bei(double fortschritt) {
     final t = fortschritt.clamp(0.0, 1.0);
     final meter = laengeMeter * t;
-    final hier = punktBei(meter);
+    // Der geglättete Punkt, nicht der rohe: siehe [blickpunktBei].
+    final hier = blickpunktBei(meter);
 
-    // Das Fenster um die aktuelle Stelle. An den Enden rutscht es nach
-    // innen, statt zu schrumpfen – sonst wären Richtung und Tempo
-    // ausgerechnet dort am unruhigsten, wo der Flug beginnt.
-    final halb = math.min(glaettung, laengeMeter / 2);
-    var von = meter - halb;
-    var bis = meter + halb;
-    if (von < 0) {
-      bis -= von;
-      von = 0;
-    }
-    if (bis > laengeMeter) {
-      von -= bis - laengeMeter;
-      bis = laengeMeter;
-    }
-    von = math.max(0, von);
-    bis = math.min(laengeMeter, bis);
+    final f = _fenster(meter);
+    final von = f.von;
+    final bis = f.bis;
 
     final a = punktBei(von);
     final b = punktBei(bis);

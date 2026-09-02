@@ -5,6 +5,7 @@ import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/asset_grouping.dart';
 import 'package:photo_vault/services/storage_paths.dart';
+import 'package:photo_vault/services/listenspalten.dart';
 import 'package:photo_vault/widgets/asset_list_view.dart';
 import 'package:photo_vault/widgets/month_grouped_asset_grid.dart';
 import 'dart:io';
@@ -97,10 +98,15 @@ void main() {
       gruppierung: ListenGruppierung.monat,
       selectedIds: const {},
       onTap: (_) {}, onLongPress: (_) {},
+              spalten: Listenspaltenwahl.vorgabe,
+              onSpalten: (_) {},
       nachObenSignal: signal,
     ));
 
-    final liste = find.byType(Scrollable).first;
+    // Die Liste liegt seit den Spalten in einer waagerechten Rolle - die
+    // senkrechte ist damit nicht mehr die erste, die der Sucher findet.
+    final liste = find.byWidgetPredicate(
+        (w) => w is Scrollable && w.axisDirection == AxisDirection.down);
     await tester.drag(liste, const Offset(0, -3000));
     await tester.pump();
     final position = tester.state<ScrollableState>(liste).position;

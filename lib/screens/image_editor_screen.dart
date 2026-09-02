@@ -13,6 +13,7 @@ import '../services/inpainting_service.dart';
 import 'package:path/path.dart' as p;
 
 import '../db/database.dart';
+import '../services/bilddekodierung.dart';
 import '../services/import_service.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
@@ -407,6 +408,11 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
         widthPx: thumbResult.width,
         heightPx: thumbResult.height,
       );
+
+      // Die Datei ist neu, ihr Pfad ist derselbe – und Flutter merkt
+      // sich dekodierte Bilder nach dem Pfad. Ohne dieses Vergessen zeigt
+      // die Vollbildansicht danach weiter das ungedrehte Bild.
+      vergissAlleBilder();
 
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {

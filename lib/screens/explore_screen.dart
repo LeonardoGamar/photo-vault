@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../services/rasterstufen.dart';
 import '../services/search_filters.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -11,6 +12,8 @@ import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/mini_location_map.dart'
     show Kachelschicht, Kartenstil, buildMapAttribution;
 import '../widgets/pin_dialogs.dart';
+import 'aktivitaet_detail_screen.dart';
+import 'aktivitaeten_screen.dart';
 import 'album_detail_screen.dart';
 import 'albums_screen.dart';
 import 'asset_viewer_screen.dart';
@@ -24,10 +27,17 @@ import 'trash_screen.dart';
 import '../widgets/profilbild.dart';
 import '../widgets/stromhalter.dart';
 import '../services/laendernamen.dart';
+import '../widgets/aktivitaetsart_anzeige.dart';
 
-const _previewPeopleCount = 10;
-const _previewAlbumCount = 8;
-const _previewPhotoCount = 12;
+/// Wie viele Kacheln ein Streifen höchstens zeigt.
+///
+/// Vorher waren das feste Zahlen (zehn Personen, acht Alben, zwölf
+/// Fotos) – jetzt sind es Obergrenzen, und wie viele davon wirklich
+/// stehen, rechnet [streifenAnzahl] aus der Fensterbreite. Ein Streifen
+/// bleibt eine Vorschau; für alles gibt es „Alle anzeigen".
+const _hoechstensPersonen = 24;
+const _hoechstensKacheln = 16;
+const _hoechstensFotos = 24;
 const _previewLocationMarkerCount = 60;
 const _previewLocationGroupCount = 12;
 
@@ -72,62 +82,93 @@ class ExploreScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _MemoriesSection(library: library),
-          const SizedBox(height: 28),
-          _SectionHeader(
-            title: AppTexte.of(context).erkundenPersonen,
-            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+          _Streifenabschnitt<PersonData>(
+            titel: AppTexte.of(context).erkundenPersonen,
+            onAlleAnzeigen: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => PeopleScreen(library: library),
             )),
+            hoehe: 96,
+            // 64 Punkte Profilbild, der Rest ist Abstand und Name.
+            textanteil: 32,
+            kachelbreite: 76,
+            hoechstens: _hoechstensPersonen,
+            strom: (_) => library.db.watchPeople(),
+            kachel: (context, gezeigt, index) =>
+                _Personenkachel(library: library, person: gezeigt[index]),
           ),
-          const SizedBox(height: 8),
-          _PeopleStrip(library: library),
-          const SizedBox(height: 28),
-          _SectionHeader(
-            title: AppTexte.of(context).erkundenOrte,
-            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => MapScreen(library: library),
-            )),
-          ),
-          const SizedBox(height: 8),
-          _LocationsPreview(library: library),
-          const SizedBox(height: 12),
-          _LocationGroupsStrip(library: library),
-          const SizedBox(height: 28),
+          _OrteAbschnitt(library: library),
           // Reisen stehen direkt unter den Orten: Sie sind dieselbe Frage,
           // eine Ebene größer – nicht „wo war dieses Bild", sondern „wo war
           // ich, und wie lange".
-          _SectionHeader(
-            title: AppTexte.of(context).erkundenReisen,
-            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+          _Streifenabschnitt<ReisenData>(
+            titel: AppTexte.of(context).erkundenReisen,
+            onAlleAnzeigen: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => ReisenScreen(library: library),
             )),
+            hoehe: 92,
+            // Rand, Symbol und Abstand sind fest; Name und Jahr sind Schrift.
+            textanteil: 36,
+            kachelbreite: 190,
+            hoechstens: _hoechstensKacheln,
+            strom: (_) => library.db.watchReisen(),
+            kachel: (context, gezeigt, index) =>
+                _Reisekachel(library: library, reise: gezeigt[index]),
           ),
-          const SizedBox(height: 8),
-          _ReisenStrip(library: library),
-          const SizedBox(height: 28),
-          _SectionHeader(
-            title: AppTexte.of(context).erkundenLetzteAlben,
-            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+          // Und die Aktivitäten direkt darunter, aus demselben Grund, aus
+          // dem die Reisen unter den Orten stehen: dieselbe Frage, eine
+          // Ebene kleiner. Eine Reise ist der Urlaub, eine Aktivität der
+          // Tag darin – wer das eine sucht, hat das andere im Sinn.
+          _Streifenabschnitt<AktivitaetenData>(
+            titel: AppTexte.of(context).erkundenAktivitaeten,
+            onAlleAnzeigen: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => AktivitaetenScreen(library: library),
+            )),
+            hoehe: 92,
+            // Rand, Symbol und Abstand sind fest; Name und Jahr sind Schrift.
+            textanteil: 36,
+            kachelbreite: 190,
+            hoechstens: _hoechstensKacheln,
+            strom: (_) => library.db.watchAktivitaeten(),
+            kachel: (context, gezeigt, index) => _Aktivitaetskachel(library: library, k: gezeigt[index]),
+          ),
+          _Streifenabschnitt<AlbumData>(
+            titel: AppTexte.of(context).erkundenLetzteAlben,
+            onAlleAnzeigen: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => AlbumsScreen(library: library),
             )),
+            hoehe: 150,
+            // Die Vorschau bekommt, was übrig bleibt; darunter steht der Name.
+            textanteil: 26,
+            kachelbreite: 120,
+            hoechstens: _hoechstensKacheln,
+            // Bereits nach createdAt absteigend sortiert -> die ersten N
+            // sind die zuletzt angelegten Alben.
+            strom: (_) => library.db.watchAlbums(),
+            kachel: (context, gezeigt, index) =>
+                _AlbumPreviewTile(library: library, album: gezeigt[index]),
           ),
-          const SizedBox(height: 8),
-          _RecentAlbumsStrip(library: library),
-          const SizedBox(height: 28),
-          _SectionHeader(
-            title: AppTexte.of(context).erkundenLetzteFotos,
-            onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+          // Der einzige Abschnitt, der auch leer stehen bleibt: Eine
+          // Bibliothek ganz ohne Fotos ist eine Auskunft, kein Zufall.
+          _Streifenabschnitt<AssetData>(
+            titel: AppTexte.of(context).erkundenLetzteFotos,
+            onAlleAnzeigen: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => TimelineScreen(library: library),
             )),
+            hoehe: 140,
+            // Reine Bildkacheln, keine Schrift.
+            textanteil: 0,
+            kachelbreite: 140,
+            abstand: 8,
+            hoechstens: _hoechstensFotos,
+            // Die einzige Abfrage, die die Zahl selbst begrenzen kann –
+            // und deshalb die einzige, die beim Ziehen am Fenster neu
+            // abonniert werden muss.
+            anzahlImStrom: true,
+            strom: (anzahl) => library.db.watchTimeline(limit: anzahl),
+            leerHinweis: AppTexte.of(context).erkundenKeineFotos,
+            kachel: (context, gezeigt, index) => _Fotokachel(
+                library: library, alle: gezeigt, asset: gezeigt[index]),
           ),
-          const SizedBox(height: 8),
-          _RecentPhotosStrip(library: library),
-          const SizedBox(height: 28),
-          // Der Papierkorb steht hier und nicht nur in den Einstellungen.
-          // Er ist kein Schalter, sondern ein Ort, an dem Fotos liegen –
-          // und wer eines sucht, sucht es beim Erkunden. Er steht zuletzt,
-          // weil er der einzige Eintrag ist, den man im Regelfall NICHT
-          // braucht.
           _Papierkorbzeile(library: library),
         ],
       ),
@@ -142,11 +183,27 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Beide beweglich: Bei grosser Systemschrift brauchten Überschrift und
+    // Knopf zusammen 193 Punkte mehr, als die Zeile breit war – „Zuletzt
+    // hinzugefügte Alben" und „Alle anzeigen" sind beide lang. Der Titel
+    // gibt zuerst nach, der Knopf erst danach; abgeschnitten wird keiner
+    // von beiden, sie kürzen mit Auslassungspunkten.
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        TextButton(onPressed: onShowAll, child: Text(AppTexte.of(context).allgAlleAnzeigen)),
+        Flexible(
+          child: Text(title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleMedium),
+        ),
+        Flexible(
+          child: TextButton(
+            onPressed: onShowAll,
+            child: Text(AppTexte.of(context).allgAlleAnzeigen,
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
       ],
     );
   }
@@ -166,75 +223,258 @@ class _EmptyHint extends StatelessWidget {
   }
 }
 
-/// Die Strom-Halter der Streifen: Seit die Abschnitte nicht mehr
-/// abgebaut werden (siehe [ExploreScreen.build]), bleiben sie stehen –
-/// und werden bei JEDER Meldung des Bibliothekszustands neu gebaut, in
-/// der Hintergrundanalyse also zehnmal je Sekunde. Ein `watch()` im
-/// `stream:` haette dabei jedes Mal ein neues Stream-Objekt geliefert
-/// und damit eine neue Abfrage. Siehe [Stromhalter].
-class _PeopleStrip extends StatefulWidget {
-  final LibraryState library;
-  const _PeopleStrip({required this.library});
+/// Ein Abschnitt der Übersicht: Überschrift, ein waagerechter Streifen,
+/// und der Abstand zum nächsten.
+///
+/// **Zwei Dinge, die er anders macht als die Streifen vorher.**
+///
+/// 1. **Leer heisst weg.** Ein Abschnitt ohne Inhalt zeigte einen Satz
+///    („Noch keine Alben vorhanden") unter einer Überschrift mit einem
+///    „Alle anzeigen"-Knopf, der in eine leere Liste führte. Fünf solche
+///    Abschnitte untereinander sind eine Seite, die von sich selbst
+///    handelt. Wer einen Satz braucht, bekommt ihn über [leerHinweis] –
+///    die letzten Fotos etwa, denn eine Bibliothek ganz ohne Fotos ist
+///    eine Auskunft und kein Zufall.
+/// 2. **So viele, wie hineinpassen.** Die Zahl der Kacheln stand fest –
+///    zehn Personen, acht Alben –, gleich ob das Fenster 900 oder 2000
+///    Punkte breit war. Jetzt rechnet [streifenAnzahl] sie aus.
+class _Streifenabschnitt<T> extends StatefulWidget {
+  final String titel;
+  final VoidCallback onAlleAnzeigen;
+
+  /// Die Höhe des Streifens und die Masse einer Kachel darin.
+  final double hoehe;
+
+  /// Wie viel von [hoehe] Schrift ist – dieser Teil, und nur dieser,
+  /// wächst mit der Systemschrift.
+  ///
+  /// **Warum nicht die ganze Höhe.** Die Bilder in den Kacheln haben
+  /// feste Kanten (ein Profilbild misst 64 Punkte, eine Albumvorschau
+  /// 120); sie mitzuskalieren gäbe nur Leerraum. Die Zeile darunter
+  /// dagegen wird bei 1,6-facher Schrift genau 1,6-mal so hoch, und
+  /// vorher lief sie über: gemessene 1,00 Punkte bei den Personen, weil
+  /// die 96 an einer Schriftgrösse festgemacht waren, die der Anwender
+  /// verstellen kann.
+  final double textanteil;
+  final double kachelbreite;
+  final double abstand;
+
+  /// Wie viele Kacheln höchstens – ein Streifen ist eine Vorschau.
+  final int hoechstens;
+
+  /// Der Datenstrom. Bekommt die Zahl, falls die Abfrage sie selbst
+  /// begrenzen kann (siehe [AppDatabase.watchTimeline]).
+  final Stream<List<T>> Function(int anzahl) strom;
+
+  /// Ob der Strom von der Zahl abhängt. Wenn nicht, wird beim Ziehen am
+  /// Fenster nicht neu abonniert – jedes Abo führt die Abfrage von vorn
+  /// aus (siehe [Stromhalter]).
+  final bool anzahlImStrom;
+
+  final Widget Function(BuildContext, List<T> gezeigt, int index) kachel;
+
+  /// Steht der Abschnitt auch leer da? Dann mit diesem Satz.
+  final String? leerHinweis;
+
+  const _Streifenabschnitt({
+    super.key,
+    required this.titel,
+    required this.onAlleAnzeigen,
+    required this.hoehe,
+    required this.textanteil,
+    required this.kachelbreite,
+    required this.strom,
+    required this.kachel,
+    required this.hoechstens,
+    this.abstand = 12,
+    this.anzahlImStrom = false,
+    this.leerHinweis,
+  });
 
   @override
-  State<_PeopleStrip> createState() => _PeopleStripState();
+  State<_Streifenabschnitt<T>> createState() => _StreifenabschnittState<T>();
 }
 
-class _PeopleStripState extends State<_PeopleStrip> {
-  final _strom = Stromhalter<List<PersonData>>();
+class _StreifenabschnittState<T> extends State<_Streifenabschnitt<T>> {
+  final _strom = Stromhalter<List<T>>();
 
   @override
   Widget build(BuildContext context) {
-    final library = widget.library;
-    return SizedBox(
-      height: 96,
-      child: StreamBuilder<List<PersonData>>(
-        stream: _strom.hole(true, () => library.db.watchPeople()),
-        builder: (context, snapshot) {
-          final people = snapshot.data ?? [];
-          if (people.isEmpty) {
-            return _EmptyHint(text: AppTexte.of(context).erkundenKeinePersonen, height: 96);
-          }
-          final shown = people.take(_previewPeopleCount).toList();
-          return ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: shown.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) {
-              final person = shown[index];
-              return InkWell(
-                borderRadius: BorderRadius.circular(32),
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => PersonDetailScreen(library: library, person: person),
-                )),
-                child: SizedBox(
-                  width: 76,
-                  child: Column(
-                    children: [
-                      Profilbild(
-                        datei: person.coverFaceCropPath == null
-                            ? null
-                            : library.paths
-                                .absolute(person.coverFaceCropPath!),
-                        radius: 32,
-                        hintergrund: Colors.grey.shade800,
-                        symbolgroesse: 28,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        person.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final hoehe = widget.hoehe -
+            widget.textanteil +
+            MediaQuery.textScalerOf(context).scale(widget.textanteil);
+        final anzahl = streifenAnzahl(
+          constraints.maxWidth,
+          kachelbreite: widget.kachelbreite,
+          abstand: widget.abstand,
+          hoechstens: widget.hoechstens,
+        );
+        return StreamBuilder<List<T>>(
+          stream: _strom.hole(widget.anzahlImStrom ? anzahl : true,
+              () => widget.strom(anzahl)),
+          builder: (context, schnappschuss) {
+            final alle = schnappschuss.data ?? const [];
+            if (alle.isEmpty && widget.leerHinweis == null) {
+              // Noch nichts geladen ist nicht dasselbe wie leer – aber der
+              // Unterschied dauert einen Wimpernschlag, und ein Abschnitt,
+              // der dabei kurz aufblitzt, waere unruhiger als einer, der
+              // gleich steht.
+              return const SizedBox.shrink();
+            }
+            final gezeigt = alle.take(anzahl).toList();
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SectionHeader(
+                    title: widget.titel, onShowAll: widget.onAlleAnzeigen),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: hoehe,
+                  child: gezeigt.isEmpty
+                      ? _EmptyHint(text: widget.leerHinweis!, height: hoehe)
+                      : ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: gezeigt.length,
+                          separatorBuilder: (_, __) =>
+                              SizedBox(width: widget.abstand),
+                          itemBuilder: (context, index) =>
+                              widget.kachel(context, gezeigt, index),
+                        ),
                 ),
-              );
-            },
-          );
-        },
+                const SizedBox(height: 28),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// Ein Gesicht mit Namen darunter.
+class _Personenkachel extends StatelessWidget {
+  final LibraryState library;
+  final PersonData person;
+  const _Personenkachel({required this.library, required this.person});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(32),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => PersonDetailScreen(library: library, person: person),
+      )),
+      child: SizedBox(
+        width: 76,
+        child: Column(
+          children: [
+            Profilbild(
+              datei: person.coverFaceCropPath == null
+                  ? null
+                  : library.paths.absolute(person.coverFaceCropPath!),
+              radius: 32,
+              hintergrund: Colors.grey.shade800,
+              symbolgroesse: 28,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              person.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Ein Vorschaubild, das ins Vollbild führt.
+class _Fotokachel extends StatelessWidget {
+  final LibraryState library;
+
+  /// Die ganze Reihe – im Vollbild blättert man durch sie weiter.
+  final List<AssetData> alle;
+  final AssetData asset;
+  const _Fotokachel(
+      {required this.library, required this.alle, required this.asset});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 140,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: AssetThumbnailTile(
+          asset: asset,
+          paths: library.paths,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => AssetViewerScreen(
+              assets: alle,
+              initialIndex: alle.indexOf(asset),
+              paths: library.paths,
+              db: library.db,
+              library: library,
+              onToggleFavorite: (a) =>
+                  library.db.setFavorite(a.id, !a.isFavorite),
+              onDelete: (a) => library.db.moveToTrash([a.id]),
+              onLock: (a) async {
+                if (await ensureVaultUnlocked(context, library)) {
+                  await library.lockAsset(a);
+                }
+              },
+            ),
+          )),
+        ),
+      ),
+    );
+  }
+}
+
+/// Der Abschnitt „Orte": die Karte und darunter die Orte als Kacheln.
+///
+/// Als eigener Abschnitt und nicht über [_Streifenabschnitt], weil er
+/// zwei Dinge zeigt und das erste davon kein Streifen ist. Die Regel ist
+/// dieselbe: Ohne eine einzige verortete Aufnahme steht hier nichts –
+/// eine leere Karte unter der Überschrift „Orte" ist keine Auskunft.
+class _OrteAbschnitt extends StatefulWidget {
+  final LibraryState library;
+  const _OrteAbschnitt({required this.library});
+
+  @override
+  State<_OrteAbschnitt> createState() => _OrteAbschnittState();
+}
+
+class _OrteAbschnittState extends State<_OrteAbschnitt> {
+  late final Future<bool> _hatOrte =
+      widget.library.db.countAssetsWithLocation().then((n) => n > 0);
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _hatOrte,
+      builder: (context, schnappschuss) {
+        if (schnappschuss.data != true) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _SectionHeader(
+              title: AppTexte.of(context).erkundenOrte,
+              onShowAll: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => MapScreen(library: widget.library),
+              )),
+            ),
+            const SizedBox(height: 8),
+            _LocationsPreview(library: widget.library),
+            const SizedBox(height: 12),
+            _LocationGroupsStrip(library: widget.library),
+            const SizedBox(height: 28),
+          ],
+        );
+      },
     );
   }
 }
@@ -480,51 +720,6 @@ class _LocationGroupTile extends StatelessWidget {
   }
 }
 
-/// Die zuletzt bestätigten Reisen.
-///
-/// Bewusst **nur die bestätigten**: Nach Vorschlägen zu suchen heißt, die
-/// ganze verortete Bibliothek durchzugehen. Das gehört in den
-/// Reisen-Bildschirm, den man dafür öffnet, und nicht in eine
-/// Übersichtsseite, die bei jedem Wechsel auf diesen Reiter neu aufgebaut
-/// wird.
-class _ReisenStrip extends StatefulWidget {
-  final LibraryState library;
-  const _ReisenStrip({required this.library});
-
-  @override
-  State<_ReisenStrip> createState() => _ReisenStripState();
-}
-
-class _ReisenStripState extends State<_ReisenStrip> {
-  final _strom = Stromhalter<List<ReisenData>>();
-
-  @override
-  Widget build(BuildContext context) {
-    final library = widget.library;
-    return SizedBox(
-      height: 92,
-      child: StreamBuilder<List<ReisenData>>(
-        stream: _strom.hole(true, () => library.db.watchReisen()),
-        builder: (context, snapshot) {
-          final reisen = snapshot.data ?? const <ReisenData>[];
-          if (reisen.isEmpty) {
-            return _EmptyHint(
-                text: AppTexte.of(context).reisenKeineVorschlaege, height: 92);
-          }
-          final gezeigt = reisen.take(_previewAlbumCount).toList();
-          return ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: gezeigt.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) =>
-                _Reisekachel(library: library, reise: gezeigt[index]),
-          );
-        },
-      ),
-    );
-  }
-}
-
 class _Reisekachel extends StatelessWidget {
   final LibraryState library;
   final ReisenData reise;
@@ -567,39 +762,46 @@ class _Reisekachel extends StatelessWidget {
   }
 }
 
-class _RecentAlbumsStrip extends StatefulWidget {
+class _Aktivitaetskachel extends StatelessWidget {
   final LibraryState library;
-  const _RecentAlbumsStrip({required this.library});
-
-  @override
-  State<_RecentAlbumsStrip> createState() => _RecentAlbumsStripState();
-}
-
-class _RecentAlbumsStripState extends State<_RecentAlbumsStrip> {
-  final _strom = Stromhalter<List<AlbumData>>();
+  final AktivitaetenData k;
+  const _Aktivitaetskachel({required this.library, required this.k});
 
   @override
   Widget build(BuildContext context) {
-    final library = widget.library;
-    return SizedBox(
-      height: 150,
-      child: StreamBuilder<List<AlbumData>>(
-        // Bereits nach createdAt absteigend sortiert -> die ersten N sind
-        // die zuletzt angelegten Alben.
-        stream: _strom.hole(true, () => library.db.watchAlbums()),
-        builder: (context, snapshot) {
-          final albums = snapshot.data ?? [];
-          if (albums.isEmpty) {
-            return _EmptyHint(text: AppTexte.of(context).albenLeer, height: 150);
-          }
-          final shown = albums.take(_previewAlbumCount).toList();
-          return ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: shown.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) => _AlbumPreviewTile(library: library, album: shown[index]),
-          );
-        },
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+    return InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => AktivitaetDetailScreen(library: library, aktivitaet: k),
+      )),
+      child: Container(
+        width: 190,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: farben.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Das Symbol der Art und nicht ein Sammelzeichen: Ob da eine
+            // Wanderung oder eine Radtour stand, ist das erste, was man
+            // wissen will.
+            Icon(symbolFuerKennung(k.art), color: farben.primary, size: 20),
+            const SizedBox(height: AppSpacing.xs),
+            Text(k.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(nameFuerKennung(t, k.art),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: farben.onSurfaceVariant)),
+          ],
+        ),
       ),
     );
   }
@@ -677,76 +879,6 @@ class _AlbumPreviewTileState extends State<_AlbumPreviewTile> {
   }
 }
 
-class _RecentPhotosStrip extends StatefulWidget {
-  final LibraryState library;
-  const _RecentPhotosStrip({required this.library});
-
-  @override
-  State<_RecentPhotosStrip> createState() => _RecentPhotosStripState();
-}
-
-class _RecentPhotosStripState extends State<_RecentPhotosStrip> {
-  final _strom = Stromhalter<List<AssetData>>();
-
-  @override
-  Widget build(BuildContext context) {
-    final library = widget.library;
-    return SizedBox(
-      height: 140,
-      child: StreamBuilder<List<AssetData>>(
-        stream: _strom.hole(_previewPhotoCount,
-            () => library.db.watchTimeline(limit: _previewPhotoCount)),
-        builder: (context, snapshot) {
-          final shown = snapshot.data ?? [];
-          if (shown.isEmpty) {
-            return _EmptyHint(text: AppTexte.of(context).erkundenKeineFotos, height: 140);
-          }
-          return ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: shown.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final asset = shown[index];
-              return SizedBox(
-                width: 140,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                  child: AssetThumbnailTile(
-                    asset: asset,
-                    paths: library.paths,
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                      builder: (_) => AssetViewerScreen(
-                        assets: shown,
-                        initialIndex: shown.indexOf(asset),
-                        paths: library.paths,
-                        db: library.db,
-                        library: library,
-                        onToggleFavorite: (a) => library.db.setFavorite(a.id, !a.isFavorite),
-                        onDelete: (a) => library.db.moveToTrash([a.id]),
-                        onLock: (a) async {
-                          if (await ensureVaultUnlocked(context, library)) {
-                            await library.lockAsset(a);
-                          }
-                        },
-                      ),
-                    )),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-/// "Erinnerungen": Fotos, die genau heute vor 1, 2, 3 … Jahren aufgenommen
-/// wurden – analog zu "Vor X Jahren" in Google Fotos/Apple Fotos. Zeigt sich
-/// nur, wenn es für den heutigen Tag tatsächlich etwas gibt; ein Tag ohne
-/// Treffer ist der Normalfall und verdient (anders als z.B. "Noch keine
-/// Alben vorhanden") keinen eigenen Leerzustand-Hinweis, deshalb hier
-/// bewusst `SizedBox.shrink()` statt einer `_EmptyHint`.
 class _MemoriesSection extends StatefulWidget {
   final LibraryState library;
   const _MemoriesSection({required this.library});

@@ -26,14 +26,43 @@ const gebietsrand = 0.1;
 /// wird daraus ein zweites.
 const gebietsabstandGrad = 2.0;
 
-/// Die Zoomstufen, die vorgeladen werden.
+/// Die **Anzeigestufen**, die vorgeladen werden.
 ///
-/// Nach oben offen wäre sinnlos: Stufe 15 zeigt einzelne Strassen, und
+/// Nach oben offen wäre sinnlos: Stufe 14 zeigt einzelne Strassen, und
 /// von dort an vervierfacht jede weitere Stufe die Zahl der Kacheln. Für
 /// „wo war ich" reicht das aus; wer weiter hineingeht, lädt die letzten
 /// Kacheln unterwegs nach.
+///
+/// **Anzeigestufen und nicht Serveradressen**, und dieser Unterschied
+/// hat gefehlt: Bei nachgebildeter doppelter Auflösung fragt die Karte
+/// für die Anzeigestufe z die Serverstufe z+1 an. Der Vorrat lud
+/// unverändert 3 bis 14 und bediente damit nur noch die Anzeigestufen 2
+/// bis 13 – wer auf 14 hineinzoomte, wartete trotz vollem Vorrat aufs
+/// Netz. Siehe [vorratStufen].
 const vorratKleinsteStufe = 3;
 const vorratGroessteStufe = 14;
+
+/// Welche **Serverstufen** für die gewünschten Anzeigestufen zu laden
+/// sind.
+///
+/// Die eine Stelle, an der aus Anzeige- Serveradressen werden – dieselbe
+/// Rechnung, die [buildMapTileLayer] anstellt, über [stufenversatz]
+/// geteilt statt zweimal geschrieben.
+({int von, int bis}) vorratStufen(
+  Kartenstil stil,
+  double punktdichte, {
+  int von = vorratKleinsteStufe,
+  int bis = vorratGroessteStufe,
+}) {
+  final versatz = stufenversatz(stil, punktdichte);
+  // Nach oben ist bei der letzten Stufe Schluss, für die es echte
+  // Kacheln gibt; darüber liefert der Server nichts Neues mehr.
+  final hoechste = stil.hoechsteEchteStufe ?? 19;
+  return (
+    von: math.min(von + versatz, hoechste),
+    bis: math.min(bis + versatz, hoechste),
+  );
+}
 
 /// Fasst verortete Aufnahmen zu Gebieten zusammen.
 ///

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/native_image_converter.dart';
-import '../services/serienvorschlag.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
@@ -63,8 +62,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
   Future<int> _zaehleSerien() async {
     if (!widget.library.clipAvailable) return 0;
     try {
-      final gruppen = await serienvorschlaege(
-          widget.library.db, await widget.library.cachedEmbeddings());
+      // Aus dem Vorrat, nicht neu gerechnet: Die Zahl hier und die
+      // Liste im Serienbildschirm sind dieselbe Auskunft, und sie
+      // kostete bis hierher zweimal 260 ms je Rundgang.
+      final gruppen = await widget.library.serienvorschlaegeGecacht();
       return gruppen.length;
     } catch (e) {
       debugPrint('Serienzahl nicht ermittelt: $e');
@@ -181,7 +182,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
                   child: Text(
                     t.werkzSchwelleErklaerung,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],

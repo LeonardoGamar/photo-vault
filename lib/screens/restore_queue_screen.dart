@@ -45,7 +45,7 @@ class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
     final t = AppTexte.of(context);
     return switch (job.status) {
       'queued' => t.restaurWartet,
-      'running' => _laufText(t, job),
+      'running' => restaurLaufText(t, job),
       'done' => t.allgFertig,
       'cancelled' => t.restaurAbgebrochen,
       'failed' => job.errorMessage == null
@@ -55,25 +55,6 @@ class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
     };
   }
 
-  /// Was die Zeile eines laufenden Auftrags sagt.
-  ///
-  /// **Nicht mehr „Kachel 12 von 20".** „Kachel" ist ein Wort aus dem
-  /// Maschinenraum – Real-ESRGAN zerlegt das Bild in Stücke, weil es
-  /// nicht auf einmal durch das Modell passt. Von aussen ist das keine
-  /// Auskunft, sondern eine Zumutung. Prozent und Restzeit beantworten
-  /// die Frage, die man wirklich stellt.
-  String _laufText(AppTexte t, RestoreJobData job) {
-    final prozent = fortschrittProzent(job);
-    if (prozent == null) return t.restaurWirdGestartet;
-    final rest = restzeitSchaetzung(job);
-    // Ohne Startzeit oder ohne eine einzige fertige Kachel gibt es keine
-    // Restzeit. Dann steht sie eben nicht da – eine geratene wäre
-    // schlimmer als keine.
-    if (rest == null || rest == Duration.zero) {
-      return t.restaurZeileLaeuft(prozent);
-    }
-    return t.restaurZeileMitRest(prozent, dauerText(t, rest));
-  }
 
   /// Der Dienst legt die Kennung des Grundes ab (siehe
   /// [RestaurierungsGrund]), bei einem Ladefehler gefolgt von der Ursache.
@@ -186,4 +167,29 @@ String dauerText(AppTexte t, Duration dauer) {
     return t.restaurDauerSekunden(sekunden < 1 ? 1 : sekunden);
   }
   return t.restaurDauerMinuten((dauer.inSeconds / 60).round().clamp(1, 1 << 30));
+}
+
+/// Was die Zeile eines laufenden Auftrags sagt.
+///
+/// **Nicht mehr „Kachel 12 von 20".** „Kachel" ist ein Wort aus dem
+/// Maschinenraum – Real-ESRGAN zerlegt das Bild in Stücke, weil es nicht
+/// auf einmal durch das Modell passt. Von aussen ist das keine Auskunft,
+/// sondern eine Zumutung. Prozent und Restzeit beantworten die Frage,
+/// die man wirklich stellt.
+///
+/// Als eigene Funktion und nicht als Rumpf des Bildschirms: Der
+/// Entwickeln-Bildschirm zeigt denselben Fortschritt an der Stelle, an
+/// der man ihn ausgelöst hat, und zwei Fassungen desselben Satzes wären
+/// zwei Fassungen, die auseinanderlaufen.
+String restaurLaufText(AppTexte t, RestoreJobData job) {
+  final prozent = fortschrittProzent(job);
+  if (prozent == null) return t.restaurWirdGestartet;
+  final rest = restzeitSchaetzung(job);
+  // Ohne Startzeit oder ohne eine einzige fertige Kachel gibt es keine
+  // Restzeit. Dann steht sie eben nicht da – eine geratene wäre
+  // schlimmer als keine.
+  if (rest == null || rest == Duration.zero) {
+    return t.restaurZeileLaeuft(prozent);
+  }
+  return t.restaurZeileMitRest(prozent, dauerText(t, rest));
 }

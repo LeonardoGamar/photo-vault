@@ -4,7 +4,7 @@
 /// Eltern, eine Zeile Geschwister. Hier wird sie nach **Abstammung**
 /// aufgestellt: Wer von wem abstammt, steht darunter, und die beiden
 /// Linien aus einem Geschwisterhaushalt gehen zu zwei verschiedenen
-/// Elternhäusern (siehe [Stammbaumgeflecht.elternhausVon]).
+/// Elternhäusern (siehe [Stammbaumgeflecht.elternhaeuserVon]).
 ///
 /// Ausgelagert aus demselben Grund wie [faechertafel.dart]: Ob sich zwei
 /// Schilder um ein Hundertstel überlappen oder ein Kind wirklich mittig
@@ -57,9 +57,6 @@ class Schild {
   double get unten => oben + hoehe;
   double get mitteX => links + breite / 2;
   double get mitteY => oben + hoehe / 2;
-
-  bool trifft(double x, double y) =>
-      x >= links && x <= rechts && y >= oben && y <= unten;
 
   /// Ob sich zwei Schilder ins Gehege kommen.
   bool ueberschneidet(Schild andere) =>
@@ -194,16 +191,6 @@ class Zierbaumplan {
   int get hashCode => Object.hash(breite, hoehe, stammX, schilder.length,
       aeste.length, baender.length);
 
-  /// Das Schild an dieser Stelle, oder `null`.
-  ///
-  /// Dasselbe wie `platzBei` im Fächer: Die Zeichnung soll nicht wissen
-  /// müssen, wie sie selbst zustande kam.
-  Schild? schildBei(double x, double y) {
-    for (final s in schilder) {
-      if (s.trifft(x, y)) return s;
-    }
-    return null;
-  }
 }
 
 /// Die Masse eines Schildes und der Abstände dazwischen.
@@ -416,13 +403,12 @@ Zierbaumplan zierbaumplan(
   double schwerpunkt(Haushalt h) {
     final werte = <double>[];
     for (final person in h.personen) {
-      final elternhaus = geflecht.elternhausVon[person];
-      if (elternhaus != null && mitte.containsKey(elternhaus)) {
-        werte.add(mitte[elternhaus]!);
+      for (final elternhaus in geflecht.elternhaeuserVon[person] ?? const []) {
+        if (mitte.containsKey(elternhaus)) werte.add(mitte[elternhaus]!);
       }
     }
-    for (final e in geflecht.elternhausVon.entries) {
-      if (e.value != h.id) continue;
+    for (final e in geflecht.elternhaeuserVon.entries) {
+      if (!e.value.contains(h.id)) continue;
       final kindHaus = geflecht.haushaltVon(e.key);
       if (kindHaus != null && mitte.containsKey(kindHaus.id)) {
         werte.add(mitte[kindHaus.id]!);
@@ -505,19 +491,25 @@ Zierbaumplan zierbaumplan(
     hausUnten[h.id] = eigene.first.unten;
   }
 
+  // Getrennt lebende Eltern sind zwei Häuser und damit zwei Äste aus
+  // demselben Schild. Sie gehen an derselben Stelle los und laufen nach
+  // oben auseinander - was genau die Aussage ist.
   final aeste = <Ast>[];
-  for (final e in geflecht.elternhausVon.entries) {
+  for (final e in geflecht.elternhaeuserVon.entries) {
     final schild = nachId[e.key];
-    final zielX = hausMitte[e.value];
-    final zielY = hausUnten[e.value];
-    if (schild == null || zielX == null || zielY == null) continue;
-    aeste.add(Ast(
-      personId: e.key,
-      vonX: schild.mitteX,
-      vonY: schild.oben,
-      nachX: zielX,
-      nachY: zielY,
-    ));
+    if (schild == null) continue;
+    for (final haus in e.value) {
+      final zielX = hausMitte[haus];
+      final zielY = hausUnten[haus];
+      if (zielX == null || zielY == null) continue;
+      aeste.add(Ast(
+        personId: e.key,
+        vonX: schild.mitteX,
+        vonY: schild.oben,
+        nachX: zielX,
+        nachY: zielY,
+      ));
+    }
   }
 
   // Alles in den sichtbaren Bereich schieben.

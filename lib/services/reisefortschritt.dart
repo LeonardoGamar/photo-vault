@@ -201,6 +201,17 @@ class Landstand {
       orte > 0 ||
       marke == Markenart.besucht;
 
+  /// Ob für diesen Besuch **kein Foto** spricht, sondern nur die eigene
+  /// Angabe.
+  ///
+  /// Die interessante Frage bei einer Länderliste: Worauf beruht der
+  /// Haken? [aufnahmen] ist der Beleg der Kamera; alles andere –
+  /// belegte Regionen, verzeichnete Orte, die Landmarke – kann von Hand
+  /// gesetzt sein. Ein Land ohne eine einzige verortete Aufnahme zählt
+  /// also, weil jemand es abgehakt hat, und das gehört sichtbar
+  /// unterschieden statt in derselben Farbe zu verschwinden.
+  bool get nurVonHand => besucht && aufnahmen == 0;
+
   Besuchsgrad get grad {
     if (!besucht) return Besuchsgrad.nicht;
     // Ein Land ohne verzeichnete Regionen ist mit dem ersten Beleg fertig

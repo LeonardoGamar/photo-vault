@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
@@ -47,11 +48,16 @@ class CalendarScreen extends StatelessWidget {
           itemBuilder: (context, index) {
             final year = years[index];
             return _YearCard(
-              year: year,
+              titel: '$year',
               assetCount: countByYear[year]!,
               library: library,
+              titelbild: () => library.db.newestAssetForYear(year),
+              // Erst der Monat, dann die Fotos: Ein Jahrgang von 1.400
+              // Aufnahmen ist als eine Liste keine Übersicht mehr, und ein
+              // bestimmter Monat war darin nur durch Scrollen zu finden.
               onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => YearDetailScreen(library: library, year: year),
+                builder: (_) =>
+                    MonatsuebersichtScreen(library: library, jahr: year),
               )),
             );
           },
@@ -67,16 +73,23 @@ class CalendarScreen extends StatelessWidget {
 /// laden, nicht mehr die komplette Bibliothek, nur um pro Jahr das neueste
 /// Foto herauszusuchen.
 class _YearCard extends StatefulWidget {
-  final int year;
+  /// Was gross auf der Kachel steht – eine Jahreszahl oder ein Monatsname.
+  final String titel;
   final int assetCount;
   final LibraryState library;
   final VoidCallback onTap;
 
+  /// Wie das Titelbild geholt wird. Als Rückruf und nicht als fertiges
+  /// Bild, damit die Übersicht darüber nur die günstige Zählung laden
+  /// muss und nicht die halbe Bibliothek.
+  final Future<AssetData?> Function() titelbild;
+
   const _YearCard({
-    required this.year,
+    required this.titel,
     required this.assetCount,
     required this.library,
     required this.onTap,
+    required this.titelbild,
   });
 
   @override
@@ -84,8 +97,7 @@ class _YearCard extends StatefulWidget {
 }
 
 class _YearCardState extends State<_YearCard> {
-  late final Future<AssetData?> _coverFuture =
-      widget.library.db.newestAssetForYear(widget.year);
+  late final Future<AssetData?> _coverFuture = widget.titelbild();
 
   @override
   Widget build(BuildContext context) {
@@ -132,7 +144,7 @@ class _YearCardState extends State<_YearCard> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '${widget.year}',
+                    widget.titel,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 34,
@@ -155,12 +167,108 @@ class _YearCardState extends State<_YearCard> {
   }
 }
 
-/// Alle Fotos/Videos eines einzelnen Jahres, gruppiert nach Monat – wie die
-/// Timeline, nur auf ein Jahr eingeschränkt (Einstieg über [CalendarScreen]).
+/// Die Monate eines Jahres – eine Kachel je Monat, mit Titelbild und
+/// Anzahl.
+///
+/// **Die Zwischenstufe zwischen Jahr und Foto.** Vorher führte ein Klick
+/// aufs Jahr unmittelbar in alle Aufnahmen des Jahres; an einem Jahrgang
+/// von 1.400 Bildern ist das keine Übersicht mehr, sondern eine lange
+/// Liste, in der ein bestimmter Monat nur durch Scrollen zu finden war.
+///
+/// Gezeigt werden **nur Monate mit Aufnahmen**. Zwölf Kacheln, von denen
+/// sieben leer sind, sagen weniger als fünf volle.
+class MonatsuebersichtScreen extends StatelessWidget {
+  final LibraryState library;
+  final int jahr;
+
+  const MonatsuebersichtScreen({
+    super.key,
+    required this.library,
+    required this.jahr,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final sprache = Localizations.localeOf(context).toString();
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('$jahr'),
+        actions: [
+          // Der alte Weg bleibt erreichbar: Wer das ganze Jahr am Stück
+          // sehen will, soll dafür nicht durch zwölf Monate gehen.
+          TextButton.icon(
+            icon: const Icon(Icons.photo_library_outlined, size: 18),
+            label: Text(t.kalenderGanzesJahr),
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => YearDetailScreen(library: library, year: jahr),
+            )),
+          ),
+        ],
+      ),
+      body: StreamBuilder<Map<int, int>>(
+        stream: library.db.watchAssetCountsByMonth(jahr),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final proMonat = snapshot.data!;
+          if (proMonat.isEmpty) {
+            return Center(child: Text(t.kalenderJahrLeer));
+          }
+          // Neueste zuerst – dieselbe Richtung wie die Jahre darüber und
+          // wie die Zeitleiste.
+          final monate = proMonat.keys.toList()..sort((a, b) => b.compareTo(a));
+          return GridView.builder(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 320,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 16,
+              childAspectRatio: 1.3,
+            ),
+            itemCount: monate.length,
+            itemBuilder: (context, i) {
+              final monat = monate[i];
+              return _YearCard(
+                titel: DateFormat.MMMM(sprache).format(DateTime(jahr, monat)),
+                assetCount: proMonat[monat]!,
+                library: library,
+                titelbild: () => library.db.newestAssetForMonth(jahr, monat),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => YearDetailScreen(
+                      library: library, year: jahr, monat: monat),
+                )),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Alle Fotos/Videos eines Jahres **oder eines Monats**, gruppiert – wie
+/// die Timeline, nur auf einen Zeitraum eingeschränkt (Einstieg über
+/// [CalendarScreen] und [MonatsuebersichtScreen]).
 class YearDetailScreen extends StatefulWidget {
   final LibraryState library;
   final int year;
-  const YearDetailScreen({super.key, required this.library, required this.year});
+
+  /// Auf diesen Monat eingeschränkt, oder `null` für das ganze Jahr.
+  ///
+  /// Der Unterschied ist nicht nur der Ausschnitt: Über ein Jahr wird
+  /// nach Monaten gegliedert, über einen Monat nach **Tagen**. Sonst
+  /// gäbe es dort genau eine Gruppe, und der Zeitstrahl daneben fiele
+  /// mangels zweiter Gruppe weg (siehe [rasterMitZeitstrahl]).
+  final int? monat;
+
+  const YearDetailScreen({
+    super.key,
+    required this.library,
+    required this.year,
+    this.monat,
+  });
 
   @override
   State<YearDetailScreen> createState() => _YearDetailScreenState();
@@ -193,9 +301,17 @@ class _YearDetailScreenState extends State<YearDetailScreen>
   @override
   int get rasterSpalten => _spalten;
 
+  /// Ob nach Tagen gegliedert wird – genau dann, wenn ein Monat gemeint
+  /// ist.
+  bool get _nachTag => widget.monat != null;
+
+  ({List<int> schluessel, Map<int, List<AssetData>> gruppen}) _gruppen(
+          List<AssetData> a) =>
+      _nachTag ? tagesgruppen(a) : monatsgruppen(a);
+
   @override
   List<List<String>> get rasterGruppen {
-    final m = monatsgruppen(_geladen);
+    final m = _gruppen(_geladen);
     return [for (final k in m.schluessel) [for (final a in m.gruppen[k]!) a.id]];
   }
 
@@ -238,6 +354,12 @@ class _YearDetailScreenState extends State<YearDetailScreen>
     ));
   }
 
+  String _titel(BuildContext context) {
+    if (widget.monat == null) return '${widget.year}';
+    return DateFormat.yMMMM(Localizations.localeOf(context).toString())
+        .format(DateTime(widget.year, widget.monat!));
+  }
+
   Future<void> _deleteSelected() async {
     final ids = _selected.toList();
     final confirmed = await confirmDialog(
@@ -253,10 +375,16 @@ class _YearDetailScreenState extends State<YearDetailScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('${widget.year}')),
+      appBar: AppBar(title: Text(_titel(context))),
       body: StreamBuilder<List<AssetData>>(
-        stream: _jahresstrom.hole(widget.year,
-            () => widget.library.db.watchTimelineForYear(widget.year)),
+        // Der Schlüssel muss den Monat mittragen, sonst lieferte der
+        // Halter beim Wechsel von Juli nach August weiter den Juli.
+        stream: _jahresstrom.hole(
+            widget.year * 100 + (widget.monat ?? 0),
+            () => widget.monat == null
+                ? widget.library.db.watchTimelineForYear(widget.year)
+                : widget.library.db
+                    .watchTimelineForMonth(widget.year, widget.monat!)),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final yearAssets = snapshot.data!;
@@ -270,10 +398,11 @@ class _YearDetailScreenState extends State<YearDetailScreen>
               LayoutBuilder(builder: (context, constraints) {
                 _spalten = rasterSpaltenzahl(
                   constraints.maxWidth,
-                  mitZeitstrahl:
-                      rasterMitZeitstrahl(monatsgruppen(yearAssets).schluessel.length),
+                  mitZeitstrahl: rasterMitZeitstrahl(
+                      _gruppen(yearAssets).schluessel.length),
                 );
                 return MonthGroupedAssetGrid(
+                  nachTag: _nachTag,
                   assets: yearAssets,
                   paths: widget.library.paths,
                   selectedIds: _selected,

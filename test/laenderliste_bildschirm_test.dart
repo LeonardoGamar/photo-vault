@@ -252,4 +252,89 @@ void main() {
       expect(marke.name, 'Germany');
     });
   });
+  group('Die Legende sagt, worauf ein Haken beruht', () {
+    /// **Die eigentliche Frage einer Laenderliste** – zaehlt dieses Land,
+    /// weil ich dort fotografiert habe, oder weil ich es abgehakt habe –
+    /// stand nirgends. Vier Zustaende als Kringel, Halbkreis, Haken und
+    /// Faehnchen hatten je einen Kurzhinweis, den nur sieht, wer mit dem
+    /// Zeiger daraufbleibt.
+    testWidgets('sie steht ueber der Liste', (tester) async {
+      await zeige(tester);
+      expect(find.text('Legende'), findsOneWidget);
+      expect(find.text('Durch Fotos belegt'), findsOneWidget);
+      expect(find.text('Von Hand ausgewählt'), findsOneWidget);
+    });
+
+    testWidgets('ein Land mit Aufnahmen traegt die Kamera', (tester) async {
+      await aufnahme('a1',
+          land: 'Deutschland', region: 'Berlin', ort: 'Berlin');
+      await zeige(tester);
+      final zeile = find.ancestor(
+          of: find.text('Deutschland'), matching: find.byType(ListTile));
+      expect(
+          find.descendant(
+              of: zeile, matching: find.byIcon(Icons.photo_camera_outlined)),
+          findsOneWidget);
+      expect(
+          find.descendant(
+              of: zeile, matching: find.byIcon(Icons.back_hand_outlined)),
+          findsNothing);
+    });
+
+    testWidgets('ein von Hand abgehaktes Land traegt die Hand',
+        (tester) async {
+      await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
+        art: 'land',
+        schluessel: 'IT',
+        name: 'Italy',
+        status: 'besucht',
+        angelegtAm: DateTime(2026),
+      ));
+      await zeige(tester);
+      final zeile = find.ancestor(
+          of: find.text('Italien'), matching: find.byType(ListTile));
+      expect(
+          find.descendant(
+              of: zeile, matching: find.byIcon(Icons.back_hand_outlined)),
+          findsOneWidget);
+      expect(find.descendant(of: zeile, matching: find.textContaining('von Hand')),
+          findsOneWidget);
+    });
+
+    testWidgets('ein Land ohne alles traegt keines von beiden',
+        (tester) async {
+      await zeige(tester);
+      final zeile = find.ancestor(
+          of: find.text('Italien'), matching: find.byType(ListTile));
+      expect(
+          find.descendant(
+              of: zeile, matching: find.byIcon(Icons.back_hand_outlined)),
+          findsNothing);
+      expect(
+          find.descendant(
+              of: zeile, matching: find.byIcon(Icons.photo_camera_outlined)),
+          findsNothing);
+    });
+
+    testWidgets('eine Marke an einem belegten Land sagt nicht mehr von Hand',
+        (tester) async {
+      // Vorher stand „von Hand" an jedem Land mit einer Marke – auch an
+      // denen, die laengst durch Aufnahmen belegt waren.
+      await aufnahme('a1',
+          land: 'Deutschland', region: 'Berlin', ort: 'Berlin');
+      await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
+        art: 'land',
+        schluessel: 'DE',
+        name: 'Germany',
+        status: 'besucht',
+        angelegtAm: DateTime(2026),
+      ));
+      await zeige(tester);
+      final zeile = find.ancestor(
+          of: find.text('Deutschland'), matching: find.byType(ListTile));
+      expect(find.descendant(of: zeile, matching: find.textContaining('von Hand')),
+          findsNothing);
+    });
+  });
+
 }

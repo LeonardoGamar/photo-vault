@@ -292,6 +292,8 @@ class _Kopfzeile extends StatelessWidget {
             t.fortschrittHinweis(stand.length),
             style: TextStyle(fontSize: 11, color: farben.onSurfaceVariant),
           ),
+          const SizedBox(height: AppSpacing.sm),
+          const _Legende(),
         ],
       ),
     );
@@ -413,7 +415,10 @@ class _Landzeile extends StatelessWidget {
       erdteilName(t, land.kontinent),
       if (land.hauptstadt case final h?) h,
       if (land.aufnahmen > 0) t.laenderAufnahmen(land.aufnahmen),
-      if (land.marke != null) t.laenderVonHand,
+      // Nur, wo für den Haken KEIN Foto spricht. Vorher stand „von Hand"
+      // an jedem Land mit einer Marke – auch an denen, die längst durch
+      // hunderte Aufnahmen belegt waren, und auch an bloss geplanten.
+      if (land.nurVonHand) t.laenderVonHand,
       // Monaco und der Vatikan haben keine Region im Datensatz. Das
       // gehört gesagt: Ein leerer Platz, wo bei allen anderen ein Balken
       // steht, sieht aus wie ein Fehler. In die Unterzeile und nicht in
@@ -506,9 +511,85 @@ class _Statuspunkt extends StatelessWidget {
               t.laenderNichtBesucht
             ),
     };
-    return Tooltip(
+    final punkt = Tooltip(
       message: text,
       child: Icon(symbol, size: 18, color: farbe),
+    );
+    // **Worauf der Haken beruht**, als eigenes Zeichen davor: die Kamera,
+    // wenn Aufnahmen dafür sprechen, sonst die Hand. Beides in derselben
+    // Farbe darzustellen waere eine Behauptung, die die Liste nicht
+    // halten kann – und die Legende darunter erklaert beide.
+    final (herkunft, hinweis) = land.aufnahmen > 0
+        ? (Icons.photo_camera_outlined, t.laenderAusFotos)
+        : land.nurVonHand
+            ? (Icons.back_hand_outlined, t.laenderNurVonHand)
+            : (null, '');
+    if (herkunft == null) return punkt;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: hinweis,
+          child: Icon(herkunft, size: 14, color: farben.onSurfaceVariant),
+        ),
+        const SizedBox(width: 4),
+        punkt,
+      ],
+    );
+  }
+}
+
+/// Was die Zeichen rechts in der Liste bedeuten.
+///
+/// **Warum es sie braucht.** Vier Zustände als Kringel, Halbkreis, Haken
+/// und Fähnchen, dazu ein Handzeichen davor – jedes davon hatte einen
+/// Kurzhinweis, den man nur sieht, wenn man mit dem Zeiger daraufbleibt.
+/// Auf einem Schirm ohne Zeiger sah man ihn nie. Und die eigentliche
+/// Frage der Liste – zählt dieses Land, weil ich dort fotografiert habe,
+/// oder weil ich es abgehakt habe – stand nirgends.
+class _Legende extends StatelessWidget {
+  const _Legende();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+    final stil = TextStyle(fontSize: 11, color: farben.onSurfaceVariant);
+
+    Widget eintrag(IconData symbol, Color farbe, String text) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(symbol, size: 14, color: farbe),
+            const SizedBox(width: 4),
+            Text(text, style: stil),
+          ],
+        );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(t.laenderLegende,
+            style: stil.copyWith(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        // Umbrechend und nicht in einer Reihe: Fuenf Eintraege passen in
+        // ein breites Fenster, in ein schmales nicht - und eine Reihe,
+        // die ueberlaeuft, ist schlimmer als eine, die umbricht.
+        Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: 4,
+          children: [
+            eintrag(Icons.check_circle, farben.primary, t.laenderVollstaendig),
+            eintrag(Icons.adjust, farben.tertiary, t.laenderTeilweise),
+            eintrag(Icons.flag_outlined, farben.secondary, t.laenderGeplant),
+            eintrag(
+                Icons.circle_outlined, farben.outline, t.laenderNichtBesucht),
+            eintrag(Icons.photo_camera_outlined, farben.onSurfaceVariant,
+                t.laenderAusFotos),
+            eintrag(Icons.back_hand_outlined, farben.onSurfaceVariant,
+                t.laenderNurVonHand),
+          ],
+        ),
+      ],
     );
   }
 }

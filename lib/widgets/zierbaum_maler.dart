@@ -308,8 +308,10 @@ class ZierbaumMaler extends CustomPainter {
   ///
   /// Sie sitzt bei zwei Dritteln der Kurve und dreht sich zu der Seite,
   /// die der Ast ohnehin nimmt. Ihre Grösse hängt an der Kennung der
-  /// Person: gleich bleibende Vielfalt, ohne einen Würfel, der beim
-  /// nächsten Aufbau anders fiele.
+  /// Person **und am Ziel des Astes**: gleich bleibende Vielfalt, ohne
+  /// einen Würfel, der beim nächsten Aufbau anders fiele – und ohne dass
+  /// die zwei Äste eines Kindes getrennt lebender Eltern zwei gleiche
+  /// Ranken bekommen.
   void _ranke(Canvas canvas, Ast ast) {
     final laenge = (ast.vonY - ast.nachY).abs();
     if (laenge < 40) return;
@@ -319,7 +321,11 @@ class ZierbaumMaler extends CustomPainter {
     final quer = Offset(-richtung.dy, richtung.dx);
     // Zur Aussenseite: dorthin, wohin der Ast sich neigt.
     final seite = ast.nachX >= ast.vonX ? -1.0 : 1.0;
-    final groesse = 14 + (ast.personId.hashCode.abs() % 10).toDouble();
+    // `Object.hash` waere hier falsch: Es ist ausdruecklich nicht ueber
+    // Programmlaeufe hinweg stabil, und genau das fing der
+    // Goldbildvergleich - dasselbe Bild sah beim zweiten Lauf anders aus.
+    final streu = ast.personId.hashCode + ast.nachX.round();
+    final groesse = 14 + (streu.abs() % 10).toDouble();
 
     final pfad = Path()..moveTo(ansatz.dx, ansatz.dy);
     var punkt = ansatz;

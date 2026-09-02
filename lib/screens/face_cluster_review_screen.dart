@@ -174,7 +174,7 @@ class _FaceClusterReviewScreenState extends State<FaceClusterReviewScreen> {
                               ),
                             if (cluster.faces.length > 6)
                               Text('+${cluster.faces.length - 6}',
-                                  style: const TextStyle(color: Colors.grey)),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                           ],
                         ),
                         const SizedBox(height: 8),

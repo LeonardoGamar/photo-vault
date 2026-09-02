@@ -52,6 +52,40 @@ Eigenkarte? get eigeneKarte => _eigeneKarte;
 /// jeden Zustand aufgerufen.
 void setzeEigeneKarte(Eigenkarte? karte) => _eigeneKarte = karte;
 
+/// Ob die Karte auf dichten Bildschirmen in doppelter Auflösung zeichnet.
+///
+/// Siehe `AppSettings.karteHochaufloesend` für den gemessenen Handel.
+/// Modulweit aus demselben Grund wie die beiden Angaben darüber.
+bool _karteHochaufloesend = true;
+
+bool get karteHochaufloesend => _karteHochaufloesend;
+
+void setzeKarteHochaufloesend(bool an) => _karteHochaufloesend = an;
+
+/// Ob für [stil] auf **diesem** Bildschirm die doppelte Auflösung
+/// nachgebildet wird – vier Kacheln der nächsttieferen Stufe an der
+/// Stelle einer.
+///
+/// **Die eine Stelle, an der diese Frage beantwortet wird**, und das ist
+/// der Zweck: Der Vorrat muss genau die Stufen laden, die die Karte
+/// anfordert. Solange beide dieselbe Rechnung eigenständig anstellten,
+/// liefen sie auseinander – der Vorrat lud die Serverstufen 3 bis 14 und
+/// die Karte fragte für die Anzeigestufe z die Serverstufe z+1 an. Am
+/// Bildschirm hiess das: eine vorgeladene Stufe, die niemand abrief, und
+/// eine abgerufene, die niemand vorgeladen hatte.
+///
+/// Bei einer Adresse mit `{r}` liefert der Server selbst doppelt
+/// aufgelöste Kacheln; dann verschiebt sich gar nichts.
+bool nachgebildeteRetina(Kartenstil stil, double punktdichte) =>
+    _karteHochaufloesend &&
+    punktdichte > 1.0 &&
+    !stil.kachelUrl.contains('{r}');
+
+/// Um wie viele Stufen die angeforderte Serverstufe über der
+/// Anzeigestufe liegt.
+int stufenversatz(Kartenstil stil, double punktdichte) =>
+    nachgebildeteRetina(stil, punktdichte) ? 1 : 0;
+
 /// Die verfügbaren Kartenstile.
 ///
 /// Ein Aufzählungstyp und kein `bool dark` mehr: Ein dritter Stil passt
@@ -919,7 +953,11 @@ TileLayer buildMapTileLayer(
     // aus), mehr Kachelabrufe, und offline reicht der Vorrat eine
     // Anzeigestufe weniger tief – er liegt unter den Serveradressen z3
     // bis z14, und die bedienen jetzt die Anzeigestufen 2 bis 13.
-    retinaMode: RetinaMode.isHighDensity(context),
+    // Abschaltbar, seit der Preis gemessen ist: 2,6-mal so viele Kacheln
+    // je Bildschirm (165 statt 63 auf 1440×900). Siehe
+    // `AppSettings.karteHochaufloesend`.
+    retinaMode:
+        _karteHochaufloesend && RetinaMode.isHighDensity(context),
     // OpenTopoMap bittet ausdrücklich um einen aussagekräftigen
     // User-Agent statt der Vorgabe der Bibliothek.
     userAgentPackageName: 'com.example.photoVault',

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/db/database.dart';
+import 'package:sqlite3/sqlite3.dart' show sqlite3;
 
 /// Die jüngste Migration an **Kopien echter Bibliotheken**.
 ///
@@ -35,6 +36,14 @@ void main() {
     }
     for (final name in vorhanden) {
       final datei = File('$ordner/$name');
+
+      // **Vor** der Migration nachsehen, von wo aus sie startet. Zwei
+      // Erwartungen unten gelten nur fuer eine Vorlage, die den
+      // jeweiligen Schritt wirklich noch vor sich hat – eine Kopie, die
+      // laengst darueber hinaus ist, wuerde daran scheitern, ohne dass
+      // etwas kaputt waere.
+      final startfassung = sqlite3.open(datei.path).select('PRAGMA user_version')
+          .first.values.first as int;
 
       final db = AppDatabase(NativeDatabase(datei));
       // Die erste Abfrage löst die Migration aus.
@@ -106,12 +115,19 @@ void main() {
       // ist Absicht – der erste Ortsnachtrag nach dem Umstieg geht noch
       // einmal über alles und findet dabei die Videos, an die er vorher
       // nie herankam. Erst danach ist er still.
-      final nochNieAngesehen = await db
-          .customSelect(
-              'SELECT count(*) AS n FROM assets WHERE gps_geprueft = 0')
-          .map((r) => r.read<int>('n'))
-          .getSingle();
-      expect(nochNieAngesehen, nachher, reason: '$name: alle unangesehen');
+      //
+      // Nur fuer eine Vorlage, die diesen Schritt noch vor sich hatte:
+      // In einer Bibliothek, die seither gelaufen ist, stehen die
+      // angesehenen Aufnahmen laengst auf `true`, und das ist der
+      // Normalfall und kein Fehler.
+      if (startfassung < 64) {
+        final nochNieAngesehen = await db
+            .customSelect(
+                'SELECT count(*) AS n FROM assets WHERE gps_geprueft = 0')
+            .map((r) => r.read<int>('n'))
+            .getSingle();
+        expect(nochNieAngesehen, nachher, reason: '$name: alle unangesehen');
+      }
       expect(await db.countLocationBackfill(),
           (await db.assetsForLocationBackfill()).length,
           reason: '$name: Zahl und Liste');

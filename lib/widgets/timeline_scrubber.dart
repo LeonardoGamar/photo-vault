@@ -66,9 +66,11 @@ double _naehegrad(double abstand) {
 /// dünnt aus.
 ///
 /// Als freie Funktion, weil genau hier die Rechnung sitzt, die man prüfen
-/// will, ohne einen Bildschirm aufzubauen.
+/// will, ohne einen Bildschirm aufzubauen. Sie kennt nur Positionen und
+/// keine Jahre – im Tagesbetrieb (siehe [TimelineScrubber.tageweise])
+/// dünnt sie ebenso die Tagesbeschriftungen aus.
 @visibleForTesting
-List<int> sichtbareJahresbeschriftungen(
+List<int> sichtbareBeschriftungen(
   List<double> obenNachUnten, {
   required double von,
   required double bis,
@@ -109,12 +111,28 @@ class TimelineScrubber extends StatefulWidget {
   /// viele Spalten das Grid hat und wie hoch eine Foto-Zeile ist.
   final double gridWidth;
 
+  /// Ob die Gruppen Tage sind statt Monate.
+  ///
+  /// Ändert zweierlei: die Beschriftung (Tag statt Monat) und **was
+  /// überhaupt beschriftet wird**. Über Monate sind es die Jahresanfänge –
+  /// in einem einzelnen Monat gibt es davon genau einen, und die Leiste
+  /// stünde ohne jede Orientierung da. Beschriftet werden deshalb alle
+  /// Tage, so viele davon, wie nebeneinander Platz haben.
+  final bool tageweise;
+
+  /// Die eingestellte Kachelbreite (siehe [zeitleisteKachelstufen]) – der
+  /// Sprung rechnet sonst mit einer anderen Zeilenhöhe als das Raster
+  /// zeichnet und landet neben dem Monat, den er anpeilt.
+  final double kachelbreite;
+
   const TimelineScrubber({
     super.key,
     required this.orderedKeys,
     required this.groups,
     required this.controller,
     required this.gridWidth,
+    this.tageweise = false,
+    this.kachelbreite = timelineGridMaxCrossAxisExtent,
   });
 
   @override
@@ -183,7 +201,8 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
   }
 
   double _monthHeight(int key) =>
-      timelineMonthGroupHeight(widget.groups[key]!.length, widget.gridWidth);
+      timelineMonthGroupHeight(widget.groups[key]!.length, widget.gridWidth,
+          kachelbreite: widget.kachelbreite);
 
   /// Kumulierte Pixel-Offsets für den Start jedes Monats (gleiche
   /// Reihenfolge wie [orderedKeys]), letzter Eintrag = geschätzte
@@ -212,9 +231,13 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
     setState(() => _dragFraction = fraction);
   }
 
-  String _labelFor(int key) =>
-      DateFormat.yMMM(Localizations.localeOf(context).toString())
-          .format(widget.groups[key]!.first.fileCreatedAt);
+  String _labelFor(int key) {
+    final sprache = Localizations.localeOf(context).toString();
+    final wann = widget.groups[key]!.first.fileCreatedAt;
+    return widget.tageweise
+        ? DateFormat.MMMd(sprache).format(wann)
+        : DateFormat.yMMM(sprache).format(wann);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,12 +261,13 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
         final aktivY =
             ((_dragFraction ?? _scrollFraction) * trackHeight).clamp(0.0, trackHeight);
 
-        // Erst die Jahresanfänge sammeln, dann auswählen, was hineinpasst.
+        // Erst die Anwärter sammeln, dann auswählen, was hineinpasst:
+        // über Monate die Jahresanfänge, über Tage jeder Tag.
         final jahresIndizes = [
           for (var i = 0; i < widget.orderedKeys.length; i++)
-            if (_istJahresbeginn(i)) i,
+            if (widget.tageweise || _istJahresbeginn(i)) i,
         ];
-        final beschriftet = sichtbareJahresbeschriftungen(
+        final beschriftet = sichtbareBeschriftungen(
           [for (final i in jahresIndizes) topFor(i)],
           von: 0,
           bis: trackHeight,

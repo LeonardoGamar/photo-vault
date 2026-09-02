@@ -33,7 +33,8 @@ import 'trash_screen.dart';
 import '../services/kachelvorrat.dart';
 import '../widgets/eigene_karte_einstellung.dart';
 import '../widgets/kartenquellen_uebersicht.dart';
-import '../widgets/mini_location_map.dart' show Kartenstil, setzeCartoSchluessel;
+import '../widgets/mini_location_map.dart'
+    show Kartenstil, setzeCartoSchluessel, setzeKarteHochaufloesend;
 import 'kachelmitschnitt_screen.dart';
 import 'map_screen.dart' show Kartenansicht;
 import '../services/meldungsdienst.dart';
@@ -1621,6 +1622,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// einmal vorlädt, ist davon frei – und schont die gespendeten
   /// Kachelserver, weil dieselbe Kachel nicht bei jedem Ansehen erneut
   /// über die Leitung geht.
+  /// Ob die Karte in doppelter Auflösung zeichnet. Beim Aufbau der
+  /// Kartengruppe aus der Einstellung geholt (siehe [_ladeKarteScharf]).
+  bool _karteScharf = true;
+  bool _karteScharfGeladen = false;
+
+  Future<void> _ladeKarteScharf() async {
+    if (_karteScharfGeladen) return;
+    _karteScharfGeladen = true;
+    final an = await widget.library.db.karteHochaufloesendWert();
+    if (!mounted) return;
+    setState(() => _karteScharf = an);
+  }
+
+  Future<void> _karteScharfSetzen(bool an) async {
+    setState(() => _karteScharf = an);
+    await widget.library.db.setzeKarteHochaufloesend(an);
+    // Sofort und nicht erst beim nächsten Start – dieselbe Handhabung wie
+    // beim CARTO-Schlüssel und bei der eigenen Quelle.
+    setzeKarteHochaufloesend(an);
+  }
+
   Future<void> _kartenVorladen() async {
     final t = AppTexte.of(context);
     final verortete = await widget.library.db.assetsWithLocation();
@@ -1633,7 +1655,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       melde.warnung(t.einstVorladenKeineOrte);
       return;
     }
-    final kacheln = kachelListe(gebiete);
+    // Erst der Stil, dann die Zahl: Wie viele Kacheln zu laden sind,
+    // haengt daran, ob die Karte die doppelte Aufloesung nachbildet -
+    // dann liegt jede Anzeigestufe eine Serverstufe hoeher, und die
+    // hoechste Stufe hat viermal so viele Kacheln. Vorher stand die Zahl
+    // im Dialog, bevor der Stil ueberhaupt feststand.
+    //
+    // Der gerade gewaehlte Stil, nicht ein fest verdrahteter: Der
+    // Speicher haengt an der Adresse, und eine fuer Topo geladene Kachel
+    // hilft der hellen Karte nicht.
+    final stil = switch (Kartenansicht.ausText(
+        await widget.library.db.kartenansicht())) {
+      Kartenansicht.hell => Kartenstil.hell,
+      Kartenansicht.topo => Kartenstil.topo,
+      // Ohne diese Zeile lüde der Vorrat für die eigene Quelle
+      // stillschweigend die dunkle Karte vor – und offline bliebe genau
+      // die Karte leer, für die jemand vorgeladen hat.
+      Kartenansicht.eigene => Kartenstil.eigene,
+      _ => Kartenstil.dunkel,
+    };
+    if (!mounted) return;
+    final stufen = vorratStufen(stil, MediaQuery.devicePixelRatioOf(context));
+    final kacheln = kachelListe(gebiete, von: stufen.von, bis: stufen.bis);
     final ja = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
@@ -1656,21 +1699,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (ja != true || !mounted) return;
 
-    // Der gerade gewählte Kartenstil, nicht ein fest verdrahteter: Der
-    // Speicher hängt an der Adresse, und eine für Topo geladene Kachel
-    // hilft der hellen Karte nicht.
-    final stil = switch (Kartenansicht.ausText(
-        await widget.library.db.kartenansicht())) {
-      Kartenansicht.hell => Kartenstil.hell,
-      Kartenansicht.topo => Kartenstil.topo,
-      // Ohne diese Zeile lüde der Vorrat für die eigene Quelle
-      // stillschweigend die dunkle Karte vor – und offline bliebe genau
-      // die Karte leer, für die jemand vorgeladen hat.
-      Kartenansicht.eigene => Kartenstil.eigene,
-      _ => Kartenstil.dunkel,
-    };
     await _vorratLauf?.cancel();
-    _vorratLauf = ladeVorrat(gebiete, stil).listen(
+    _vorratLauf =
+        ladeVorrat(gebiete, stil, von: stufen.von, bis: stufen.bis).listen(
       (stand) {
         if (mounted) setState(() => _vorrat = stand);
       },
@@ -1716,6 +1747,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // (siehe [_Gruppe.inhalt]). [_ladeCartoSchluessel] schützt sich
     // selbst gegen den zweiten Aufruf.
     unawaited(_ladeCartoSchluessel());
+    unawaited(_ladeKarteScharf());
     final t = AppTexte.of(context);
     final aktiv = _cartoSchluessel.text.trim().isNotEmpty;
     return [
@@ -1815,6 +1847,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // Erst die Auskunft, dann das Eingabefeld: Wer eine eigene Quelle
       // eintraegt, will vorher wissen, was es ueberhaupt gibt und wie
       // tief es traegt.
+      // Die doppelte Auflösung steht VOR den Quellen: Sie gilt für alle
+      // und ist die eine Stellschraube, die sich am Bildschirm sofort
+      // bemerkbar macht.
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        secondary: const Icon(Icons.hd_outlined),
+        title: Text(t.einstKarteScharfTitel),
+        subtitle: Text(t.einstKarteScharfText),
+        value: _karteScharf,
+        onChanged: _karteScharfSetzen,
+      ),
+      const Divider(height: AppSpacing.xl),
       Text(t.einstKartenquellenTitel,
           style: Theme.of(context).textTheme.titleSmall),
       KartenquellenUebersicht(

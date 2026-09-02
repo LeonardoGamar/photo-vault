@@ -53,7 +53,11 @@ void main() {
     return (linie: linie, werte: werte);
   }
 
-  Widget bildschirm({bool mitZeit = true, bool mitSpur = true}) {
+  Widget bildschirm({
+    bool mitZeit = true,
+    bool mitSpur = true,
+    List<Widget> fussnoten = const [],
+  }) {
     final s = spur(mitZeit: mitZeit);
     return MaterialApp(
       localizationsDelegates: AppTexte.localizationsDelegates,
@@ -63,6 +67,7 @@ void main() {
           netz: netz(),
           spur: mitSpur ? s.linie : const [],
           spurwerte: mitSpur ? s.werte : const [],
+          fussnoten: fussnoten,
         ),
       ),
     );
@@ -240,5 +245,57 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(milliseconds: 1));
+  });
+
+  group('Die Fussnoten liegen ueber der Flugleiste und nicht darauf', () {
+    // Gemeldet als „Erklaerung unten ueberlappt sich mit dem
+    // Flugzeugsymbol": Der Bildschirm legte seine Fussnoten in einem
+    // ZWEITEN Stapel mit `bottom:` ueber die Ansicht - und traf damit
+    // genau den Knopf, der den Flug startet.
+    const marke = Key('fussnote-links');
+    List<Widget> zettel() => const [
+          KeyedSubtree(key: marke, child: Text('Ziehen dreht')),
+          Text('Kartendaten'),
+        ];
+
+    testWidgets('die Fussnote endet oberhalb des Startknopfs',
+        (tester) async {
+      await tester.pumpWidget(bildschirm(fussnoten: zettel()));
+      await tester.pump();
+
+      final fuss = tester.getRect(find.byKey(marke));
+      final knopf = tester.getRect(find.byIcon(Icons.flight_takeoff));
+      expect(fuss.bottom, lessThanOrEqualTo(knopf.top),
+          reason: 'die Erklaerung darf den Startknopf nicht beruehren');
+      expect(fuss.overlaps(knopf), isFalse);
+    });
+
+    testWidgets('auch waehrend des Fluges, wenn die Leiste hoeher wird',
+        (tester) async {
+      // Im Flug wachsen Messwerte und Hoehenprofil in die Leiste hinein.
+      // Eine fest gewaehlte Hoehe waere hier wieder falsch.
+      await tester.pumpWidget(bildschirm(fussnoten: zettel()));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.flight_takeoff));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final fuss = tester.getRect(find.byKey(marke));
+      final leiste = tester.getRect(find.byType(Flugleiste));
+      expect(fuss.bottom, lessThanOrEqualTo(leiste.top));
+      expect(fuss.overlaps(leiste), isFalse);
+    });
+
+    testWidgets('ohne Spur stehen sie trotzdem am unteren Rand',
+        (tester) async {
+      await tester.pumpWidget(
+          bildschirm(mitSpur: false, fussnoten: zettel()));
+      await tester.pump();
+      final fuss = tester.getRect(find.byKey(marke));
+      final ganz = tester.getRect(find.byType(Gelaendeansicht));
+      expect(fuss.bottom, lessThanOrEqualTo(ganz.bottom));
+      expect(ganz.bottom - fuss.bottom, lessThan(40),
+          reason: 'ohne Flugleiste gehoeren sie nach unten');
+    });
   });
 }

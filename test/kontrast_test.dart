@@ -154,4 +154,35 @@ void main() {
               'sind die Farben dieser App:\n${treffer.join('\n')}');
     });
   });
+
+  /// **Und dasselbe fuer das feste Grau.**
+  ///
+  /// `Colors.grey` besteht auf dunklem Grund (6,90:1) und faellt im
+  /// hellen durch (2,55:1 auf der Grundflaeche, 2,07:1 auf einer Karte)
+  /// – gerechnet in kontrast_pruefung_test.dart. Es stand an zwoelf
+  /// Stellen als Farbe von Beschriftungen bei 10 bis 12 Punkten.
+  ///
+  /// `Colors.grey.shade###` bleibt erlaubt: Das sind Fuellfarben fuer
+  /// leere Kacheln und Platzhalter, kein Text.
+  test('Colors.grey steht nicht mehr als Textfarbe im Quelltext', () {
+    final verdaechtig = RegExp(r'Colors\.grey\s*[,)]');
+    final treffer = <String>[];
+    for (final datei in Directory('lib')
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.dart'))) {
+      if (datei.path.contains('/theme/')) continue;
+      final zeilen = datei.readAsLinesSync();
+      for (var i = 0; i < zeilen.length; i++) {
+        final z = zeilen[i].trimLeft();
+        if (z.startsWith('//') || z.startsWith('///')) continue;
+        if (verdaechtig.hasMatch(zeilen[i])) {
+          treffer.add('${datei.path}:${i + 1}: ${z.trim()}');
+        }
+      }
+    }
+    expect(treffer, isEmpty,
+        reason: 'colorScheme.onSurfaceVariant ist die Farbe des Themas '
+            'fuer zweitrangigen Text:\n${treffer.join('\n')}');
+  });
 }

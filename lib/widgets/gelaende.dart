@@ -388,12 +388,24 @@ class Gelaendeansicht extends StatefulWidget {
 
   final ui.Image? karte;
 
+  /// Was am unteren Rand über der Flugleiste stehen soll – Bedienung,
+  /// Namensnennung.
+  ///
+  /// **Warum das hier hereingereicht wird und nicht darüber gelegt.**
+  /// Die Flugleiste sitzt am unteren Rand dieser Ansicht, und wer
+  /// draussen einen zweiten Stapel mit `bottom:` darüberlegt, landet
+  /// genau darauf – die Erklärung stand über dem Flugzeugsymbol und
+  /// verdeckte den einzigen Knopf, der den Flug startet. Beides in einer
+  /// Spalte zu stapeln kann nur die Stelle, die beide kennt.
+  final List<Widget> fussnoten;
+
   const Gelaendeansicht({
     super.key,
     required this.netz,
     this.spur = const [],
     this.spurwerte = const [],
     this.karte,
+    this.fussnoten = const [],
   });
 
   @override
@@ -589,22 +601,46 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                 ),
               ),
             ),
-            if (_flug.moeglich)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Flugleiste(
-                  flug: _flug,
-                  stand: stand,
-                  fortschritt: _uhr.value,
-                  laeuft: _uhr.isAnimating,
-                  imFlug: _imFlug,
-                  beimSchalten: _flugSchalten,
-                  beimBeenden: _flugBeenden,
-                  beimSpulen: _spulen,
-                ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.fussnoten.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0,
+                          AppSpacing.md, AppSpacing.sm),
+                      // Beide biegsam: Die linke Fussnote erklärt die
+                      // Bedienung und ist lang, die rechte trägt die
+                      // Namensnennung. Auf einem schmalen Fenster passen
+                      // sie nicht nebeneinander, und ein starres `Row`
+                      // lief dort um 413 Punkte über.
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Flexible(child: widget.fussnoten.first),
+                          const SizedBox(width: AppSpacing.sm),
+                          if (widget.fussnoten.length > 1)
+                            Flexible(child: widget.fussnoten[1]),
+                        ],
+                      ),
+                    ),
+                  if (_flug.moeglich)
+                    Flugleiste(
+                      flug: _flug,
+                      stand: stand,
+                      fortschritt: _uhr.value,
+                      laeuft: _uhr.isAnimating,
+                      imFlug: _imFlug,
+                      beimSchalten: _flugSchalten,
+                      beimBeenden: _flugBeenden,
+                      beimSpulen: _spulen,
+                    ),
+                ],
               ),
+            ),
           ],
         );
       },

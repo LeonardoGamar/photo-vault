@@ -458,14 +458,20 @@ class Stammbaumgeflecht {
   /// Haushalt -> Generationsband. 0 ist die Mitte, negativ nach oben.
   final Map<String, int> band;
 
-  /// **Person** -> Haushalt ihrer Eltern.
+  /// **Person** -> die Haushalte ihrer Eltern, in der Reihenfolge des Baums.
   ///
   /// An der Person und nicht am Haushalt: In einem Geschwisterhaushalt
   /// leben zwei Menschen mit **verschiedenen** Eltern. Die Schwester
   /// stammt von meinen Eltern ab, ihr Mann von seinen. Genau diese beiden
   /// Linien nebeneinander sind das, was ein Ast zeigen soll – am Haushalt
   /// festgemacht wäre eine von beiden gelogen.
-  final Map<String, String> elternhausVon;
+  ///
+  /// **Und es ist eine Liste, kein einzelner Wert.** Wohnen Vater und
+  /// Mutter zusammen, ist es ein Haushalt und damit ein Ast. Leben sie
+  /// getrennt, sind es zwei – und wer hier nur den ersten führt, lässt
+  /// den zweiten Elternteil ohne Ast im Bild stehen. Genau so war es
+  /// gemeldet: Der Vater hing an nichts, weil die Mutter zuerst kam.
+  final Map<String, List<String>> elternhaeuserVon;
 
   /// Je Person: ob über bzw. unter ihr noch etwas steht, das dieses Bild
   /// nicht zeigt.
@@ -479,7 +485,7 @@ class Stammbaumgeflecht {
     required this.fokus,
     required this.haushalte,
     required this.band,
-    required this.elternhausVon,
+    required this.elternhaeuserVon,
     required this.weitereOben,
     required this.weitereUnten,
     this.verschwiegen = 0,
@@ -611,15 +617,17 @@ Stammbaumgeflecht geflechtUm(
     for (final h in haushalte)
       for (final person in h.personen) person: h.id,
   };
-  final elternhausVon = <String, String>{};
+  final elternhaeuserVon = <String, List<String>>{};
   for (final person in wohntIn.keys) {
+    final haeuser = <String>[];
     for (final e in sortiert(netz.eltern(person))) {
       final haus = wohntIn[e];
-      if (haus != null) {
-        elternhausVon[person] = haus;
-        break;
-      }
+      // Zusammenlebende Eltern sind ein Haushalt und bekommen einen Ast;
+      // getrennt lebende zwei. Der Zusatz filtert also nicht doppelte
+      // Eltern, sondern doppelte **Häuser**.
+      if (haus != null && !haeuser.contains(haus)) haeuser.add(haus);
     }
+    if (haeuser.isNotEmpty) elternhaeuserVon[person] = haeuser;
   }
 
   // Dieselbe Regel wie in [ausschnittUm]: Ein Mehrzeichen heisst „hier
@@ -641,7 +649,7 @@ Stammbaumgeflecht geflechtUm(
     fokus: fokus,
     haushalte: haushalte,
     band: band,
-    elternhausVon: elternhausVon,
+    elternhaeuserVon: elternhaeuserVon,
     weitereOben: weitereOben,
     weitereUnten: weitereUnten,
     verschwiegen: verschwiegen,

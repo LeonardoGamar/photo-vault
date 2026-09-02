@@ -11,6 +11,7 @@ import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/familienstatistik_screen.dart';
 import 'package:photo_vault/screens/stammbaum_screen.dart';
 import 'package:photo_vault/widgets/faecher_ansicht.dart';
+import 'package:photo_vault/widgets/familien_zeitleiste.dart';
 import 'package:photo_vault/services/backup_service.dart';
 import 'package:photo_vault/services/stammbaum.dart';
 import 'package:photo_vault/services/storage_paths.dart';
@@ -964,4 +965,65 @@ void main() {
               'gequetscht, braucht aber ${zeilenhoehe.toStringAsFixed(1)}');
     }
   });
+  group('der Baum merkt sich, wo man war', () {
+    /// Sechs Ansichten und je nach Familie hunderte Personen: Wer den
+    /// Stammbaum schliesst und wieder aufschlaegt, fing bis hierher
+    /// jedes Mal beim Baum an – und bei der Person mit den meisten
+    /// Verwandten, nicht bei der, die man zuletzt ansah.
+    Future<void> ohneVorgabe(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        key: UniqueKey(),
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
+        theme: buildDarkTheme(),
+        home: StammbaumScreen(library: library),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('die gewaehlte Ansicht steht beim naechsten Mal wieder da',
+        (tester) async {
+      // Breit genug, dass die Ansichtsleiste ganz hineinpasst - sie
+      // liegt sonst in einer waagerechten Rolle und ist nicht antippbar.
+      tester.view.physicalSize = const Size(1600, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await zeige(tester, 'kind');
+      await tester.tap(find.text('Zeitleiste'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FamilienZeitleiste), findsOneWidget);
+
+      await ohneVorgabe(tester);
+      expect(find.byType(FamilienZeitleiste), findsOneWidget,
+          reason: 'die Zeitleiste war zuletzt offen');
+    });
+
+    testWidgets('und die Person, die zuletzt in der Mitte stand',
+        (tester) async {
+      await zeige(tester, 'kind');
+      // Ueber ein Schild in eine andere Person ruecken.
+      await tester.tap(find.text('Schwester').first);
+      await tester.pumpAndSettle();
+      expect(await db.stammbaumZuletzt(),
+          (ansicht: 'baum', person: 'schwester'));
+
+      await ohneVorgabe(tester);
+      expect(find.text('Stammbaum: Schwester'), findsOneWidget);
+    });
+
+    testWidgets('eine geloeschte Person faellt still zurueck',
+        (tester) async {
+      await db.setzeStammbaumZuletzt(ansicht: 'baum', person: 'gibtsnicht');
+      await ohneVorgabe(tester);
+      // Kein leerer Bildschirm, sondern die Person mit den meisten
+      // Verwandten – genau das bisherige Verhalten.
+      expect(find.textContaining('Stammbaum: '), findsOneWidget);
+      expect(find.text('Stammbaum: '), findsNothing);
+    });
+  });
+
 }

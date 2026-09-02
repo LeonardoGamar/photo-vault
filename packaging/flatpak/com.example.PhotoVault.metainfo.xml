@@ -68,6 +68,19 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="3.3.0" date="2026-09-02">
+      <description>
+        <p>The largest release since 3.0.0: twenty-seven items from two rounds of wishes, plus the 23rd audit. Database schema changes from 66 to 68 - the migration runs on first start and is not reversible.</p>
+        <p>First, a repair that came from no wish list: the AI search had been dead for a month. Both CLIP encoders shipped in half precision since 30 August, and the bundled ONNX Runtime 1.23.0 simply cannot open them - a search returned nothing at all rather than few results. The uncomfortable part is why nobody noticed: the probe read the models from the test build's container, where the old files still sat, so every check since the switch had verified a model the app does not ship. There is now a test that really opens both encoders and makes them compute.</p>
+        <p>Developing: six sliders moved without changing the picture. Sharpening, noise reduction, clarity and vignetting cannot be done by the fast preview at all, and white balance only approximately, so they waited until you let go - as did every slider of a mask. The exact render now runs while you drag, 42 ms on a 24-megapixel photo, with no fixed rate: only one pass runs at a time and whatever accumulates is folded into a single follow-up. The history used to appear only on saving; every settled state is now recorded, and each entry says what was done, not just when. AI restoration reports its progress where you started it, with time remaining and a cancel button. And the preview really is new after saving - editing writes the rotated image to the same path, and Flutter remembers decoded images by path.</p>
+        <p>Timeline: five tile sizes instead of one, and the list view gets eleven selectable columns with names, draggable widths and check marks in the menu. Previously five fixed ones without headings, whose visibility depended solely on window width. In a narrow window nothing silently drops out any more; the list scrolls sideways.</p>
+        <p>Overview: empty sections are gone, the strips now fill the screen instead of showing a fixed number of tiles, and activities finally appear there at all.</p>
+        <p>Map: the tile store and the display no longer spoke the same language - since 3.1.1 the map requests server level z+1 for display level z, while the store still loaded 3 to 14. Zooming to level 14 meant waiting on the network despite a full store. A new switch turns the doubled resolution off, because the sharpness costs 2.6 times as many tiles per screen. The calendar gains a month level, the terrain takes the remembered map style instead of always OpenTopoMap, and the camera flight follows a smoothed look-at point (mean jerk 2.83 down to 0.08 m).</p>
+        <p>Family tree: separated parents are two households, but the mesh carried only one parent house per person and stopped after the first, so the father stood in the picture without any connection.</p>
+        <p>The 23rd audit: locking a photo left the plaintext in the image cache; the decryption cache had no upper bound; several labels overflowed at large system font sizes; and grey small text was unreadable in the light theme at 2.07:1 where 4.5:1 is required.</p>
+        <p xml:lang="de">Zum Aktualisieren: Archiv auspacken, die App an ihren Platz ziehen, starten. Dieselbe Kennung, dieselbe Bibliothek - aber diesmal mit Schemawechsel von 66 auf 68.</p>
+      </description>
+    </release>
     <release version="3.2.0" date="2026-09-01">
       <description>
         <p>The overview of map sources said which map goes deepest - and then left you to copy the address template out by hand. Every row now has its buttons. No database change - version 66 stays, updating is a plain program swap.</p>

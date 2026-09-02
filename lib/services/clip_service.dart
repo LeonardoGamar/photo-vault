@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
+import 'package:path/path.dart' as p;
 
 import 'clip_tokenizer.dart';
 
@@ -102,6 +103,23 @@ class ClipService {
 
   static bool isAvailable(String modelsDir) => _filesPresent(modelsDir);
 
+  /// Öffnet eine Sitzung und übersetzt ein Scheitern in [ModellUnbrauchbar].
+  ///
+  /// **Warum nicht einfach durchreichen.** Eine Datei kann vorhanden und
+  /// trotzdem unbrauchbar sein – etwa weil sie in einem Zahlenformat
+  /// vorliegt, das die mitgelieferte ONNX Runtime nicht laden kann (siehe
+  /// [ModelCatalog.clip]). Der Anwender bekam dann eine C++-Zusicherung
+  /// mit Dateipfaden eines fremden Bauservers zu lesen und keinen
+  /// Hinweis, was zu tun ist. [ClipService.isAvailable] kann das nicht
+  /// abfangen: Ob ein Modell lädt, weiss man erst, wenn man es lädt.
+  static Future<OrtSession> _sitzung(OnnxRuntime ort, String pfad) async {
+    try {
+      return await ort.createSession(pfad);
+    } catch (fehler) {
+      throw ModellUnbrauchbar(p.basename(pfad), fehler);
+    }
+  }
+
   /// Lädt nur die angeforderten Encoder. [bild] wird für [embedImage]
   /// gebraucht, [text] für [embedText]; der Tokenizer hängt am Textteil.
   /// Der jeweils nicht angeforderte Encoder bleibt ungeladen, und die
@@ -114,10 +132,12 @@ class ClipService {
   }) async {
     assert(bild || text, 'Ein ClipService ohne Encoder wäre nutzlos.');
     final ort = OnnxRuntime();
-    final imageSession =
-        bild ? await ort.createSession('$modelsDir/clip_image_encoder.onnx') : null;
-    final textSession =
-        text ? await ort.createSession('$modelsDir/clip_text_encoder.onnx') : null;
+    final imageSession = bild
+        ? await _sitzung(ort, '$modelsDir/clip_image_encoder.onnx')
+        : null;
+    final textSession = text
+        ? await _sitzung(ort, '$modelsDir/clip_text_encoder.onnx')
+        : null;
     final tokenizer = text
         ? await ClipTokenizer.loadFromFiles(
             vocabJsonPath: '$modelsDir/vocab.json',
@@ -237,4 +257,18 @@ class ClipService {
     await _imageSession?.close();
     await _textSession?.close();
   }
+}
+
+/// Ein Modell liegt zwar da, lässt sich aber nicht öffnen.
+///
+/// Trägt den Dateinamen, damit die Oberfläche sagen kann, welches Modell
+/// gemeint ist, und den ursprünglichen Fehler für das Protokoll.
+class ModellUnbrauchbar implements Exception {
+  ModellUnbrauchbar(this.datei, this.ursache);
+
+  final String datei;
+  final Object ursache;
+
+  @override
+  String toString() => 'ModellUnbrauchbar($datei): $ursache';
 }

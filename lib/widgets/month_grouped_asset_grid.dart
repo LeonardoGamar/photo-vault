@@ -38,8 +38,26 @@ const double _scrubberWidth = 64.0;
   return (schluessel: schluessel, gruppen: gruppen);
 }
 
-/// Ob neben dem Raster der Zeitstrahl steht – erst ab zwei Monatsgruppen.
-bool rasterMitZeitstrahl(int monatsgruppenAnzahl) => monatsgruppenAnzahl > 1;
+/// Aufnahmen nach **Tagen** gruppiert – für die Monatsansicht.
+///
+/// Innerhalb eines Monats gibt es nur eine Monatsgruppe; nach Monaten zu
+/// gliedern hiesse dort, gar nicht zu gliedern, und der Zeitstrahl fiele
+/// mangels zweiter Gruppe weg. Der Schlüssel ist wieder ein günstiger
+/// Integer (Jahr*10000 + Monat*100 + Tag), aus demselben Grund wie oben.
+({List<int> schluessel, Map<int, List<AssetData>> gruppen}) tagesgruppen(
+    List<AssetData> assets) {
+  final gruppen = <int, List<AssetData>>{};
+  for (final a in assets) {
+    final d = a.fileCreatedAt;
+    gruppen.putIfAbsent(d.year * 10000 + d.month * 100 + d.day, () => [])
+        .add(a);
+  }
+  final schluessel = gruppen.keys.toList()..sort((a, b) => b.compareTo(a));
+  return (schluessel: schluessel, gruppen: gruppen);
+}
+
+/// Ob neben dem Raster der Zeitstrahl steht – erst ab zwei Gruppen.
+bool rasterMitZeitstrahl(int gruppenAnzahl) => gruppenAnzahl > 1;
 
 /// Wie viele Spalten das Raster bei dieser Gesamtbreite verwendet.
 ///
@@ -47,8 +65,12 @@ bool rasterMitZeitstrahl(int monatsgruppenAnzahl) => monatsgruppenAnzahl > 1;
 /// selbst ab. Wer die Spaltenzahl von aussen braucht (Tastaturbedienung),
 /// kennt sonst die Breite des Zeitstrahls nicht und käme bei schmalen Fenstern
 /// auf eine Spalte zu viel.
-int rasterSpaltenzahl(double gesamtbreite, {required bool mitZeitstrahl}) =>
-    timelineColumnsForWidth(mitZeitstrahl ? gesamtbreite - _scrubberWidth : gesamtbreite);
+int rasterSpaltenzahl(double gesamtbreite,
+        {required bool mitZeitstrahl,
+        double kachelbreite = timelineGridMaxCrossAxisExtent}) =>
+    timelineColumnsForWidth(
+        mitZeitstrahl ? gesamtbreite - _scrubberWidth : gesamtbreite,
+        kachelbreite: kachelbreite);
 
 /// Rendert eine Liste von Assets gruppiert nach Monat (Überschrift + darunter
 /// ein Foto-Grid) – gemeinsame Darstellung für die Timeline und die
@@ -107,6 +129,14 @@ class MonthGroupedAssetGrid extends StatefulWidget {
   /// zweiten Mal nichts aus.
   final ValueListenable<int>? nachObenSignal;
 
+  /// Nach Tagen gliedern statt nach Monaten (siehe [tagesgruppen]).
+  final bool nachTag;
+
+  /// Wie breit eine Kachel höchstens wird – siehe
+  /// [zeitleisteKachelstufen]. Kleiner heisst mehr Fotos und damit mehr
+  /// Monate auf einmal im Bild.
+  final double kachelbreite;
+
   const MonthGroupedAssetGrid({
     super.key,
     required this.assets,
@@ -119,6 +149,8 @@ class MonthGroupedAssetGrid extends StatefulWidget {
     this.aktiveKachelId,
     this.onScrollNearEnd,
     this.nachObenSignal,
+    this.nachTag = false,
+    this.kachelbreite = timelineGridMaxCrossAxisExtent,
   });
 
   @override
@@ -207,7 +239,8 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     if (!mounted || !_scrollController.hasClients || gridWidth == null || groups == null || orderedKeys == null) {
       return;
     }
-    final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId);
+    final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId,
+        kachelbreite: widget.kachelbreite);
     if (offset == null) {
       melde.warnung(AppTexte.of(context).rasterFotoNichtGefunden);
       return;
@@ -233,10 +266,12 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     if (!mounted || !_scrollController.hasClients || gridWidth == null || groups == null || orderedKeys == null) {
       return;
     }
-    final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId);
+    final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId,
+        kachelbreite: widget.kachelbreite);
     if (offset == null) return;
     final position = _scrollController.position;
-    final zeilenhoehe = timelineRowHeightForWidth(gridWidth);
+    final zeilenhoehe =
+        timelineRowHeightForWidth(gridWidth, kachelbreite: widget.kachelbreite);
     final oben = position.pixels;
     final unten = oben + position.viewportDimension;
     // Etwas Luft, damit die Kachel nicht genau abgeschnitten am Rand klebt.
@@ -263,7 +298,9 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     // bei großen Bibliotheken sonst unnötig oft (kostspielig) neu läuft. Der
     // menschenlesbare Monatsname wird weiterhin nur einmal pro Gruppe für
     // die Überschrift formatiert, nicht pro Foto.
-    final geteilt = monatsgruppen(widget.assets);
+    final geteilt = widget.nachTag
+        ? tagesgruppen(widget.assets)
+        : monatsgruppen(widget.assets);
     final groups = geteilt.gruppen;
     final orderedKeys = geteilt.schluessel;
     final showScrubber = rasterMitZeitstrahl(orderedKeys.length);
@@ -298,8 +335,13 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                     for (final key in orderedKeys) ...[
                       SliverToBoxAdapter(
                         child: _MonthHeader(
-                          label: DateFormat.yMMMM(
-                                  Localizations.localeOf(context).toString())
+                          label: (widget.nachTag
+                                  ? DateFormat.yMMMMEEEEd(
+                                      Localizations.localeOf(context)
+                                          .toString())
+                                  : DateFormat.yMMMM(
+                                      Localizations.localeOf(context)
+                                          .toString()))
                               .format(groups[key]!.first.fileCreatedAt),
                           groupAssets: groups[key]!,
                           selectedIds: widget.selectedIds,
@@ -309,10 +351,15 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                       SliverPadding(
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                         sliver: SliverGrid(
-                          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 160,
-                            mainAxisSpacing: 4,
-                            crossAxisSpacing: 4,
+                          // Dieselbe Zahl wie in der Hoehenschaetzung
+                          // daneben: Standen hier 160 fest und dort die
+                          // eingestellte Breite, spraenge der Zeitstrahl
+                          // an eine andere Stelle als das Raster.
+                          gridDelegate:
+                              SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: widget.kachelbreite,
+                            mainAxisSpacing: timelineGridSpacing,
+                            crossAxisSpacing: timelineGridSpacing,
                           ),
                           delegate: SliverChildBuilderDelegate(
                             (context, index) {
@@ -351,6 +398,8 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                   groups: groups,
                   controller: _scrollController,
                   gridWidth: gridWidth,
+                  kachelbreite: widget.kachelbreite,
+                  tageweise: widget.nachTag,
                 ),
               ),
           ],
@@ -395,7 +444,9 @@ class _MonthHeader extends StatelessWidget {
               Icon(
                 allSelected ? Icons.check_circle : Icons.radio_button_unchecked,
                 size: 18,
-                color: allSelected ? Theme.of(context).colorScheme.primary : Colors.grey,
+                color: allSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 8),
             ],

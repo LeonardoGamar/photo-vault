@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 
+import '../services/bilddekodierung.dart';
 import '../services/integrity_check_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -29,6 +30,16 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   bool _verifyChecksums = false;
   String? _error;
   IntegrityCheckReport? _report;
+
+  /// Je Aufnahme das Vorschaubild und ob sie gesperrt ist.
+  ///
+  /// **Warum als Karte und nicht je Zeile nachgeschlagen.** Bei einem
+  /// fehlenden Original steht die Datenbankzeile noch da – und mit ihr
+  /// das Vorschaubild, an dem man erkennt, welches Foto man gleich
+  /// austraegt. Nachzuschlagen waere das eine Abfrage je Zeile mitten im
+  /// Aufbau; die Prüfung liest die Aufnahmen ohnehin schon einmal
+  /// vollstaendig ein (siehe [_load]).
+  Map<String, ({String? vorschau, bool gesperrt})> _zurAufnahme = const {};
 
   @override
   void initState() {
@@ -74,6 +85,13 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
       if (!mounted) return;
       setState(() {
         _report = report;
+        _zurAufnahme = {
+          for (final a in assets)
+            a.id: (
+              vorschau: a.thumbnailRelativePath ?? a.previewRelativePath,
+              gesperrt: a.isLocked,
+            ),
+        };
         _error = null;
       });
     } catch (e) {
@@ -84,10 +102,117 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
     }
   }
 
+  /// Welche Datei die Zeile zeigen kann – oder `null`.
+  ///
+  /// Zwei Faelle, und sie sind verschieden herum gelagert:
+  ///
+  /// * Bei einem **fehlenden** Original ist die Datei weg, die
+  ///   Datenbankzeile aber noch da. Zu sehen gibt es das Vorschaubild.
+  /// * Bei einer **verwaisten** Datei ist es umgekehrt: Die Zeile fehlt,
+  ///   die Datei liegt da. Zu sehen gibt es sie selbst.
+  ///
+  /// Bei einer gesperrten Aufnahme gibt es nichts zu sehen: Das
+  /// Vorschaubild ist mitverschluesselt (siehe TresorWaechter), und ein
+  /// Entschluesseln allein fuer eine Vorschau waere der falsche Preis.
+  ({String pfad, bool gesperrt})? _vorschauFuer(MissingFileIssue issue) {
+    if (issue.kind != MissingFileKind.original) return null;
+    final eintrag = _zurAufnahme[issue.ownerId];
+    final pfad = eintrag?.vorschau;
+    if (eintrag == null || pfad == null) return null;
+    return (pfad: pfad, gesperrt: eintrag.gesperrt);
+  }
+
+
+  /// Das kleine Bild in der Zeile. Faellt still auf das Zeichen zurueck.
+  Widget _zeilenbild(String? pfad, {required bool gesperrt, required IconData ersatz, required Color farbe}) {
+    if (pfad == null || gesperrt || !flutterKannAnzeigen(pfad)) {
+      return Icon(ersatz, color: farbe);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Image(
+        image: begrenztesBild(widget.library.paths.absolute(pfad), kante: 80),
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Icon(ersatz, color: farbe),
+      ),
+    );
+  }
+
+  /// Zeigt die Datei gross, bevor irgendetwas geloescht wird.
+  Future<void> _sichten(String? pfad, {required bool gesperrt}) async {
+    final t = AppTexte.of(context);
+    await showDialog<void>(
+      context: context,
+      builder: (dialogKontext) => AlertDialog(
+        title: Text(t.integVorschauTitel),
+        content: SizedBox(
+          width: 520,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (pfad == null || !flutterKannAnzeigen(pfad))
+                Text(t.integKeineVorschau)
+              else if (gesperrt)
+                Text(t.integVorschauVerschluesselt)
+              else
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 420),
+                  child: Image(
+                    image: begrenztesBild(
+                        widget.library.paths.absolute(pfad), kante: 840),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Text(t.integKeineVorschau),
+                  ),
+                ),
+              const SizedBox(height: AppSpacing.md),
+              Text(pfad ?? '',
+                  style: Theme.of(dialogKontext).textTheme.bodySmall),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogKontext).pop(),
+            child: Text(t.allgSchliessen),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Der Ansehen-Knopf, oder nichts, wenn es nichts zu sehen gibt.
+  Widget? _ansehenKnopf(String? pfad, {required bool gesperrt}) {
+    if (pfad == null || gesperrt || !flutterKannAnzeigen(pfad)) return null;
+    return TextButton(
+      onPressed: () => _sichten(pfad, gesperrt: gesperrt),
+      child: Text(AppTexte.of(context).integAnsehen),
+    );
+  }
+
+  /// Das Bild fuer die Rueckfrage – oder `null`, wenn es keines gibt.
+  Widget? _bestaetigungsbild(String? pfad, {required bool gesperrt}) {
+    if (pfad == null || gesperrt || !flutterKannAnzeigen(pfad)) return null;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Image(
+        image: begrenztesBild(widget.library.paths.absolute(pfad), kante: 440),
+        height: 220,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+      ),
+    );
+  }
+
   Future<void> _removeMissingFromDb(MissingFileIssue issue) async {
+    final sicht = _vorschauFuer(issue);
     final confirmed = await confirmDialog(
       context,
       AppTexte.of(context).integAusDbEntfernenTitel,
+      vorschau: _bestaetigungsbild(sicht?.pfad,
+          gesperrt: sicht?.gesperrt ?? false),
       switch (issue.kind) {
         MissingFileKind.original =>
           AppTexte.of(context).integOriginalFehlt,
@@ -126,6 +251,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
       context,
       AppTexte.of(context).integDateiLoeschenTitel,
       AppTexte.of(context).integDateiLoeschenText(issue.relativePath),
+      vorschau: _bestaetigungsbild(issue.relativePath, gesperrt: false),
     );
     if (!confirmed) return;
     await widget.library.paths.deletePermanently(issue.relativePath);
@@ -297,15 +423,31 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
             gesamt: report.missingFiles.length,
             children: [
               for (final issue in report.missingFiles.take(_maxZeilenJeAbschnitt))
-                ListTile(
-                  leading: Icon(Icons.error_outline, color: context.semantik.warnung),
-                  title: Text(issue.relativePath),
-                  subtitle: Text(_kindLabel(AppTexte.of(context), issue.kind)),
-                  trailing: TextButton(
-                    onPressed: () => _removeMissingFromDb(issue),
-                    child: Text(AppTexte.of(context).integAusDbEntfernen),
-                  ),
-                ),
+                Builder(builder: (context) {
+                  // Die Datei ist weg, die Zeile steht noch - zu sehen
+                  // gibt es das Vorschaubild der Aufnahme.
+                  final sicht = _vorschauFuer(issue);
+                  final knopf =
+                      _ansehenKnopf(sicht?.pfad, gesperrt: sicht?.gesperrt ?? false);
+                  return ListTile(
+                    leading: _zeilenbild(sicht?.pfad,
+                        gesperrt: sicht?.gesperrt ?? false,
+                        ersatz: Icons.error_outline,
+                        farbe: context.semantik.warnung),
+                    title: Text(issue.relativePath),
+                    subtitle: Text(_kindLabel(AppTexte.of(context), issue.kind)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (knopf != null) knopf,
+                        TextButton(
+                          onPressed: () => _removeMissingFromDb(issue),
+                          child: Text(AppTexte.of(context).integAusDbEntfernen),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
             ],
           ),
         if (report.orphanedFiles.isNotEmpty)
@@ -319,15 +461,30 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
             ),
             children: [
               for (final issue in report.orphanedFiles.take(_maxZeilenJeAbschnitt))
-                ListTile(
-                  leading: Icon(Icons.help_outline, color: context.semantik.warnung),
-                  title: Text(issue.relativePath),
-                  subtitle: Text('${(issue.sizeBytes / 1024).round()} KB'),
-                  trailing: TextButton(
-                    onPressed: () => _deleteOrphanedFile(issue),
-                    child: Text(AppTexte.of(context).integDateiLoeschen),
-                  ),
-                ),
+                Builder(builder: (context) {
+                  // Hier ist es umgekehrt: Die Zeile fehlt, die Datei
+                  // liegt da - zu sehen gibt es sie selbst.
+                  final knopf =
+                      _ansehenKnopf(issue.relativePath, gesperrt: false);
+                  return ListTile(
+                    leading: _zeilenbild(issue.relativePath,
+                        gesperrt: false,
+                        ersatz: Icons.help_outline,
+                        farbe: context.semantik.warnung),
+                    title: Text(issue.relativePath),
+                    subtitle: Text('${(issue.sizeBytes / 1024).round()} KB'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (knopf != null) knopf,
+                        TextButton(
+                          onPressed: () => _deleteOrphanedFile(issue),
+                          child: Text(AppTexte.of(context).integDateiLoeschen),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
             ],
           ),
         if (report.checksumMismatches.isNotEmpty)

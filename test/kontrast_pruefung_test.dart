@@ -49,14 +49,40 @@ void main() {
             'stehen');
   });
 
-  test('Colors.grey als Beschriftungsfarbe auf dunklem Grund', () {
-    // Genau die Kombination aus map_screen.dart:471 und
-    // second_library_compare_screen.dart:278, beide bei 10 Punkten.
-    final wert = kontrast(Colors.grey, dunkel.surface);
-    expect(wert, greaterThan(4.5),
-        reason: 'Colors.grey (#9E9E9E) auf ${dunkel.surface} '
-            'ergibt ${wert.toStringAsFixed(2)}:1 - '
-            'onSurfaceVariant waere die Farbe des Themas');
+  /// **Dieselbe Halbblindheit wie beim Umriss, eine Runde spaeter.**
+  ///
+  /// Die alte Pruefung stand allein gegen das dunkle Thema – dort
+  /// besteht `Colors.grey` mit 6,90:1, und damit war die Sache erledigt.
+  /// Im hellen Thema sind es 2,55:1 auf der Grundflaeche und 2,07:1 auf
+  /// einer Karte. Das ist weniger als die Haelfte des Verlangten, und es
+  /// betraf zwoelf Beschriftungen bei 10 bis 12 Punkten.
+  ///
+  /// Gefunden in der 23. Pruefrunde, mit demselben Rechenweg, den die
+  /// Gruppe darunter fuer `outline` gegangen ist.
+  group('Colors.grey ist keine Beschriftungsfarbe', () {
+    for (final (name, schema) in [
+      ('hell', buildLightTheme().colorScheme),
+      ('dunkel', buildDarkTheme().colorScheme),
+    ]) {
+      for (final (wo, grund) in [
+        ('Grundflaeche', schema.surface),
+        ('Karte', schema.surfaceContainerHighest),
+      ]) {
+        test('die Farbe des Themas traegt, $name, auf der $wo', () {
+          final wert = kontrast(schema.onSurfaceVariant, grund);
+          expect(wert, greaterThan(4.5),
+              reason: 'onSurfaceVariant ergibt hier '
+                  '${wert.toStringAsFixed(2)}:1');
+        });
+      }
+    }
+
+    test('und das feste Grau taugt im hellen Thema nachweislich nicht', () {
+      // Die Gegenprobe: Sie haelt fest, WARUM getauscht wurde.
+      final hell = buildLightTheme().colorScheme;
+      expect(kontrast(Colors.grey, hell.surface), lessThan(4.5));
+      expect(kontrast(Colors.grey, hell.surfaceContainerHighest), lessThan(4.5));
+    });
   });
 
   /// **Diese Pruefung gab es schon – und sie sah nur die Haelfte.**

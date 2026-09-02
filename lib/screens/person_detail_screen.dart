@@ -263,7 +263,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                       child: Text(
                         AppTexte.of(context).personDoppelklickHinweis,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     ),
                     Expanded(
@@ -389,13 +389,13 @@ class _ErkennungsStandState extends State<_ErkennungsStand> {
                 ? Icons.auto_awesome_outlined
                 : Icons.info_outline,
             size: 16,
-            color: Colors.grey,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               t.personWiedererkennung(erklaerung, bestaetigt, abgelehnt),
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
             ),
           ),
           TextButton(

@@ -459,4 +459,105 @@ void main() {
           reason: 'ein Versatz um eins verschöbe jede Zahl lautlos');
     });
   });
+
+  group('Der Blickpunkt wird geglaettet', () {
+    // Gemeldet als „der Flug scheint jeden Meter Abweichung zu fliegen,
+    // so dass es sehr unruhig scheint". Richtung, Tempo und Steigung
+    // waren von Anfang an geglaettet - der Blickpunkt nicht.
+
+    /// Eine gerade Wanderung von 2 km mit GPS-Rauschen von +/- 4 m, so
+    /// viel, wie ein Handy unter Baeumen danebenliegt. Fester Startwert,
+    /// damit die Zahlen unten wiederholbar sind.
+    Gelaendeflug rauschspur({double rauschen = 4.0}) {
+      final zufall = math.Random(42);
+      return Gelaendeflug([
+        for (var i = 0; i <= 400; i++)
+          (
+            x: i * 5.0 + (zufall.nextDouble() - 0.5) * 2 * rauschen,
+            y: (zufall.nextDouble() - 0.5) * 2 * rauschen,
+            z: 400 + (zufall.nextDouble() - 0.5) * 2 * rauschen,
+          ),
+      ]);
+    }
+
+    /// Der mittlere Ruck: Betrag der zweiten Differenz der Kameraposition
+    /// ueber einen Flug mit 600 Bildern. Genau das, was das Auge als
+    /// Zittern sieht - eine Position allein sieht niemand, ihre
+    /// Beschleunigung schon.
+    double ruck(Gelaendeflug flug, Raumpunkt Function(double) punkt) {
+      const bilder = 600;
+      final p = [
+        for (var i = 0; i <= bilder; i++) punkt(flug.laengeMeter * i / bilder)
+      ];
+      var summe = 0.0;
+      for (var i = 1; i < p.length - 1; i++) {
+        final dx = p[i + 1].x - 2 * p[i].x + p[i - 1].x;
+        final dy = p[i + 1].y - 2 * p[i].y + p[i - 1].y;
+        final dz = p[i + 1].z - 2 * p[i].z + p[i - 1].z;
+        summe += math.sqrt(dx * dx + dy * dy + dz * dz);
+      }
+      return summe / (p.length - 2);
+    }
+
+    test('das Zittern der Kamera sinkt deutlich', () {
+      final flug = rauschspur();
+      final roh = ruck(flug, flug.punktBei);
+      final glatt = ruck(flug, flug.blickpunktBei);
+      // Gemessen ueber die ganze Spur: roh 2,831 m, geglaettet 0,078 m -
+      // Faktor 36. Und gleichmaessig: Das Profil in Fuenfteln liegt roh
+      // bei 2,74/2,72/2,79/3,32/2,80 und geglaettet bei
+      // 0,20/0,05/0,05/0,06/0,16. Die etwas hoeheren Werte an den beiden
+      // Enden sind das auslaufende Fenster und gehoeren so.
+      //
+      // Die Schwelle steht bei 10 und nicht bei 30: Sie soll den Rueckbau
+      // auf eine Stichprobenmittelung fangen (die schaffte 2,8), nicht
+      // jede dritte Nachkommastelle einer kuenftigen Fassung.
+      expect(glatt, lessThan(roh / 10),
+          reason: 'roh $roh, geglaettet $glatt');
+    });
+
+    test('die gezeichnete Spur bleibt unberuehrt', () {
+      // Die Aufzeichnung soll aussehen wie die Aufzeichnung; geglaettet
+      // wird nur, wohin die Kamera schaut.
+      final flug = rauschspur();
+      for (final m in [0.0, 250.0, 1000.0, flug.laengeMeter]) {
+        final p = flug.punktBei(m);
+        final s = flug.spur;
+        expect(s.any((q) => (q.x - p.x).abs() < 6), isTrue,
+            reason: 'punktBei liegt weiter auf der rohen Spur');
+      }
+    });
+
+    test('ohne Rauschen verschiebt die Glaettung fast nichts', () {
+      // Gegenprobe: Auf einer geraden Spur duerfen beide Wege dasselbe
+      // liefern - sonst waere die Glaettung ein Versatz und keine
+      // Glaettung.
+      final gerade = Gelaendeflug([
+        for (var i = 0; i <= 400; i++) (x: i * 5.0, y: 0.0, z: 400.0),
+      ]);
+      for (final m in [200.0, 900.0, 1500.0]) {
+        final a = gerade.punktBei(m);
+        final b = gerade.blickpunktBei(m);
+        expect((a.x - b.x).abs(), lessThan(0.5));
+        expect((a.y - b.y).abs(), lessThan(0.001));
+        expect((a.z - b.z).abs(), lessThan(0.001));
+      }
+    });
+
+    test('an den Enden bleibt der Blickpunkt auf der Spur', () {
+      // Das Fenster rutscht an den Raendern nach innen; der gemittelte
+      // Punkt darf trotzdem nicht vor den Anfang oder hinter das Ende
+      // rutschen.
+      final flug = rauschspur();
+      final anfang = flug.blickpunktBei(0);
+      final ende = flug.blickpunktBei(flug.laengeMeter);
+      expect(anfang.x, greaterThan(flug.spur.first.x - 10));
+      expect(ende.x, lessThan(flug.spur.last.x + 10));
+    });
+
+    test('eine Spur ohne Ausdehnung wirft nicht', () {
+      final punkt = Gelaendeflug([(x: 5, y: 5, z: 5), (x: 5, y: 5, z: 5)]);
+      expect(punkt.blickpunktBei(0).x, 5);
+    });
+  });
 }

@@ -18,6 +18,8 @@ import '../services/exif_camera.dart';
 import '../services/face_threshold.dart';
 import '../services/library_location.dart';
 import '../services/library_stats.dart';
+import '../services/listenspalten.dart';
+import '../services/rasterstufen.dart' show zeitleisteKachelstufeVorgabe;
 import '../services/raw_formats.dart' show rawImageExtensions;
 import '../services/search_filters.dart';
 import '../services/stammbaum.dart';
@@ -1369,6 +1371,56 @@ class AppSettings extends Table {
   BoolColumn get eigeneKarteZugestimmt =>
       boolean().withDefault(const Constant(false))();
 
+  /// Ob die Karte auf einem Bildschirm mit doppelter Punktdichte auch in
+  /// doppelter Auflösung zeichnet.
+  ///
+  /// **Ein Handel, und beide Seiten sind gemessen.** Eine Kachel ist 256
+  /// Pixel breit und wird auf 256 Punkte gezeichnet – auf einem
+  /// Retina-Schirm also auf 512 Gerätepunkte, jeder Kachelpixel deckt
+  /// vier. Dagegen holt die Karte vier Kacheln der nächsttieferen Stufe
+  /// und setzt sie an die Stelle einer: viermal so viele Bildpunkte auf
+  /// derselben Fläche (Schärfe bei Topo z16 von 11,70 auf 44,27), aber
+  /// eben auch **2,6-mal so viele Kacheln je Bildschirm** – auf einem
+  /// 1440×900-Fenster 165 statt 63. Jede davon ist ein Griff auf die
+  /// Platte und ein Dekodiervorgang, und beim Zoomen fallen sie alle auf
+  /// einmal an.
+  ///
+  /// Vorgabe an: Schärfe ist der Regelfall. Wer eine langsamere Maschine
+  /// hat oder viel zoomt, schaltet sie ab und bekommt die Karte von
+  /// vorher.
+  BoolColumn get karteHochaufloesend =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Welche Ansicht des Stammbaums zuletzt offen war und wer darin in der
+  /// Mitte stand.
+  ///
+  /// Sechs Ansichten (Baum, Fächer, Sanduhr, Nachfahren, Verwandte,
+  /// Zeitleiste) und je nach Familie hunderte Personen: Wer den
+  /// Stammbaum schliesst und wieder aufschlägt, fing bis hierher jedes
+  /// Mal beim Baum und bei der Person mit den meisten Verwandten an.
+  ///
+  /// Als Text und nullbar, aus demselben Grund wie bei [kartenansicht]:
+  /// Eine Ansicht, die es nicht mehr gibt, oder eine Person, die
+  /// gelöscht wurde, fällt beim Lesen auf die bisherige Wahl zurück,
+  /// statt den Bildschirm zu verhindern.
+  TextColumn get stammbaumAnsicht => text().nullable()();
+  TextColumn get stammbaumPerson => text().nullable()();
+
+  /// Wie gross die Kacheln der Zeitleiste sind – als Stufe, siehe
+  /// [zeitleisteKachelstufen].
+  ///
+  /// Als Zahl und nicht als Breite in Punkten: Eine Breite aus einer
+  /// alten Fassung koennte eine sein, die es nicht mehr gibt, und jede
+  /// Zwischengroesse waere ein eigener Schluessel im Bildspeicher.
+  IntColumn get zeitleisteKachelstufe =>
+      integer().withDefault(const Constant(zeitleisteKachelstufeVorgabe))();
+
+  /// Welche Spalten die Listenansicht zeigt und wie breit sie sind –
+  /// als Text, siehe [Listenspaltenwahl.alsText].
+  ///
+  /// `null` heisst Vorgabe: genau die fuenf Angaben, die es vorher gab.
+  TextColumn get listenspalten => text().nullable()();
+
   /// Wie viele rechenintensive Aufgaben gleichzeitig laufen dürfen.
   ///
   /// **Warum das eine Einstellung ist und keine Konstante.** Bis hierher
@@ -1509,7 +1561,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 66;
+  int get schemaVersion => 68;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1906,6 +1958,29 @@ class AppDatabase extends _$AppDatabase {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
+          }
+          if (from < 68) {
+            // Beides leer = genau das bisherige Verhalten: Der Baum
+            // beginnt bei der Person mit den meisten Verwandten.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.stammbaumAnsicht, 'app_settings',
+                'stammbaum_ansicht');
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.stammbaumPerson, 'app_settings',
+                'stammbaum_person');
+            // Die mittlere Stufe ist genau die Groesse, die es vorher
+            // als einzige gab.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.zeitleisteKachelstufe, 'app_settings',
+                'zeitleiste_kachelstufe');
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.listenspalten, 'app_settings', 'listenspalten');
+          }
+          if (from < 67) {
+            // Vorgabe true = genau das bisherige Verhalten.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.karteHochaufloesend, 'app_settings',
+                'karte_hochaufloesend');
           }
           if (from < 66) {
             // Die eigene Kartenquelle (siehe die Spalten). Alles leer und
@@ -2553,6 +2628,67 @@ class AppDatabase extends _$AppDatabase {
           assets.fileCreatedAt.isBiggerThanValue(asset.fileCreatedAt));
     final row = await query.getSingle();
     return row.read<int>(countExpr) ?? 0;
+  }
+
+  /// Anzahl Fotos/Videos je Monat **eines Jahres** – für die
+  /// Monatsübersicht.
+  ///
+  /// Dieselbe Bauart wie [watchAssetCountsByYear], nur mit `%m` statt
+  /// `%Y` und einer Bereichsgrenze davor. Die Grenze steht als
+  /// gewöhnlicher Vergleich auf `file_created_at` und nicht als
+  /// `strftime`-Bedingung: So bleibt der Index nutzbar, während ein
+  /// `strftime('%Y', …) = '2026'` ihn verwürfe.
+  ///
+  /// Der Schlüssel ist die Monatszahl 1..12.
+  Stream<Map<int, int>> watchAssetCountsByMonth(int jahr) {
+    const monatExpr = CustomExpression<String>(
+        "strftime('%m', file_created_at, 'unixepoch')");
+    final start = DateTime(jahr);
+    final ende = DateTime(jahr + 1);
+    final query = selectOnly(assets)
+      ..addColumns([monatExpr, assets.id.count()])
+      ..where(assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          _isPrimaryGridEntry(assets) &
+          assets.fileCreatedAt.isBiggerOrEqualValue(start) &
+          assets.fileCreatedAt.isSmallerThanValue(ende))
+      ..groupBy([monatExpr]);
+    return query.watch().map((rows) => {
+          for (final row in rows)
+            int.parse(row.read(monatExpr)!): row.read(assets.id.count())!,
+        });
+  }
+
+  /// Alle Aufnahmen eines Monats, neueste zuerst – wie
+  /// [watchTimelineForYear], nur enger.
+  Stream<List<AssetData>> watchTimelineForMonth(int jahr, int monat) {
+    final start = DateTime(jahr, monat);
+    final ende = DateTime(jahr, monat + 1);
+    final abfrage = select(assets)
+      ..where((t) =>
+          t.isTrashed.equals(false) &
+          t.isLocked.equals(false) &
+          _isPrimaryGridEntry(t) &
+          t.fileCreatedAt.isBiggerOrEqualValue(start) &
+          t.fileCreatedAt.isSmallerThanValue(ende))
+      ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]);
+    return _gedrosselt(() => abfrage, TableUpdateQuery.onTable(assets));
+  }
+
+  /// Titelbild eines Monats – neuestes Foto/Video darin.
+  Future<AssetData?> newestAssetForMonth(int jahr, int monat) {
+    final start = DateTime(jahr, monat);
+    final ende = DateTime(jahr, monat + 1);
+    return (select(assets)
+          ..where((t) =>
+              t.isTrashed.equals(false) &
+              t.isLocked.equals(false) &
+              _isPrimaryGridEntry(t) &
+              t.fileCreatedAt.isBiggerOrEqualValue(start) &
+              t.fileCreatedAt.isSmallerThanValue(ende))
+          ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)])
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   /// Neuestes Foto/Video eines Jahres als Titelbild für die Jahresübersicht
@@ -3303,6 +3439,62 @@ class AppDatabase extends _$AppDatabase {
         translateCaptions: Value(an),
       ));
 
+  /// Ob die Karte in doppelter Auflösung zeichnet (siehe die Spalte).
+  Future<bool> karteHochaufloesendWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    // Ohne Zeile gilt die Vorgabe – und die ist an.
+    return row?.karteHochaufloesend ?? true;
+  }
+
+  Future<void> setzeKarteHochaufloesend(bool an) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        karteHochaufloesend: Value(an),
+      ));
+
+  /// Die gemerkte Spaltenwahl der Listenansicht (siehe die Spalte).
+  Future<Listenspaltenwahl> listenspaltenWahl() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return Listenspaltenwahl.ausText(row?.listenspalten);
+  }
+
+  Future<void> setzeListenspalten(Listenspaltenwahl wahl) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        listenspalten: Value(wahl.alsText()),
+      ));
+
+  /// Die gemerkte Kachelstufe der Zeitleiste (siehe die Spalte).
+  Future<int> zeitleisteKachelstufeWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return row?.zeitleisteKachelstufe ?? zeitleisteKachelstufeVorgabe;
+  }
+
+  Future<void> setzeZeitleisteKachelstufe(int stufe) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        zeitleisteKachelstufe: Value(stufe),
+      ));
+
+  /// Die gemerkte Stammbaum-Ansicht und die Person darin (siehe die
+  /// Spalten). Beide `null`, solange niemand den Baum geöffnet hat.
+  Future<({String? ansicht, String? person})> stammbaumZuletzt() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return (ansicht: row?.stammbaumAnsicht, person: row?.stammbaumPerson);
+  }
+
+  Future<void> setzeStammbaumZuletzt(
+          {required String ansicht, String? person}) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        stammbaumAnsicht: Value(ansicht),
+        stammbaumPerson: Value(person),
+      ));
+
   /// Die gemerkte Kartenansicht, als Text wie in der Spalte.
   Future<String?> kartenansicht() async {
     final row = await (select(appSettings)..where((t) => t.id.equals(0)))
@@ -3631,14 +3823,24 @@ class AppDatabase extends _$AppDatabase {
       .get();
 
   /// Alle nicht gelöschten Assets mit bekanntem Ort – für die Kartenansicht.
-  Future<List<AssetData>> assetsWithLocation() => (select(assets)
-        ..where((t) =>
-            t.isTrashed.equals(false) &
-            t.isLocked.equals(false) &
-            t.latitude.isNotNull() &
-            t.longitude.isNotNull() &
-            _isPrimaryGridEntry(t)))
-      .get();
+  Future<List<AssetData>> assetsWithLocation() =>
+      (select(assets)..where(_mitOrt)).get();
+
+  /// Zählvariante, siehe [countLocationBackfill].
+  ///
+  /// Gebraucht dort, wo nur die Frage „gibt es überhaupt einen Ort?"
+  /// ansteht – die Übersicht blendet den Abschnitt sonst ein und zeigt
+  /// eine leere Karte. Die Liste dafür zu laden hiesse, mehrere tausend
+  /// Zeilen zu holen, um `isNotEmpty` zu fragen, und zwar ein zweites
+  /// Mal neben der Karte, die sie ohnehin lädt.
+  Future<int> countAssetsWithLocation() => _countWhere(_mitOrt(assets));
+
+  Expression<bool> _mitOrt($AssetsTable t) =>
+      t.isTrashed.equals(false) &
+      t.isLocked.equals(false) &
+      t.latitude.isNotNull() &
+      t.longitude.isNotNull() &
+      _isPrimaryGridEntry(t);
 
   /// Der Schwerpunkt aller verorteten Aufnahmen – als eine Zeile.
   ///
@@ -5985,6 +6187,12 @@ class AppDatabase extends _$AppDatabase {
   Future<List<AktivitaetenData>> alleAktivitaeten() =>
       (select(aktivitaeten)..orderBy([(t) => OrderingTerm.desc(t.von)])).get();
 
+  /// Dasselbe als Strom – für Übersichten, die sich selbst nachführen
+  /// sollen (Erkunden). Gegenstück zu [watchReisen].
+  Stream<List<AktivitaetenData>> watchAktivitaeten() =>
+      (select(aktivitaeten)..orderBy([(t) => OrderingTerm.desc(t.von)]))
+          .watch();
+
   Future<AktivitaetenData?> aktivitaet(String id) =>
       (select(aktivitaeten)..where((t) => t.id.equals(id))).getSingleOrNull();
 
@@ -6496,16 +6704,6 @@ class AppDatabase extends _$AppDatabase {
         ),
       );
 
-  /// Wie viele Ereignisse eine Person hat – für den Hinweis am Menüpunkt.
-  Future<int> ereignisAnzahl(String personId) async {
-    final anzahl = lebensereignisse.id.count();
-    final row = await (selectOnly(lebensereignisse)
-          ..addColumns([anzahl])
-          ..where(lebensereignisse.personId.equals(personId)))
-        .getSingle();
-    return row.read(anzahl) ?? 0;
-  }
-
   /// Setzt das Geschlecht einer Person. `null` bedeutet „nicht angegeben".
   Future<void> setzeGeschlecht(String personId, Geschlecht? geschlecht) =>
       (update(people)..where((t) => t.id.equals(personId))).write(
@@ -6715,12 +6913,6 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
     _embeddingsGeneration++;
-  }
-
-  Future<bool> hasEmbedding(String assetId) async {
-    final row = await (select(imageEmbeddings)..where((t) => t.assetId.equals(assetId)))
-        .getSingleOrNull();
-    return row != null;
   }
 
   /// Einzelnes gespeichertes CLIP-Embedding (falls vorhanden) – für das

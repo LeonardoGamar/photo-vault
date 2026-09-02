@@ -1196,6 +1196,13 @@ class BackgroundTasksScreen extends StatelessWidget {
 /// 800 Punkte. Darunter bleibt das Symbol, und der Text steht im
 /// Kurzhinweis – verloren geht er also nicht, auch nicht für die
 /// Sprachausgabe.
+///
+/// **Die Schwelle wächst mit der Systemschrift.** Sie war an einer
+/// Fensterbreite festgemacht, der Platzbedarf hängt aber an der
+/// Schriftgrösse: Bei 1,6-facher Systemschrift und 1100 Punkten Fenster
+/// zeigte die Kopfzeile beide Beschriftungen — und lief um 180 Punkte
+/// über, weil sie rund 1280 gebraucht hätten. Genau der Überlauf, den
+/// der Kommentar oben für erledigt erklärte, nur eine Ebene tiefer.
 class _Kopfknopf extends StatelessWidget {
   const _Kopfknopf({
     required this.symbol,
@@ -1211,7 +1218,10 @@ class _Kopfknopf extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.sizeOf(context).width < schwelle) {
+    // Nicht die rohe Schwelle, sondern die mit der Systemschrift
+    // skalierte: Doppelt so grosse Schrift braucht doppelt so viel Platz.
+    final noetig = MediaQuery.textScalerOf(context).scale(schwelle);
+    if (MediaQuery.sizeOf(context).width < noetig) {
       return IconButton(
         icon: Icon(symbol),
         tooltip: beschriftung,

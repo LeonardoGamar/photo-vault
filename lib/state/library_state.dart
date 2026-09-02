@@ -17,6 +17,7 @@ import '../l10n/app_localizations.dart';
 import '../services/ai_tagging_service.dart';
 import '../services/backup_service.dart';
 import '../services/bibliothekssperre.dart';
+import '../services/bilddekodierung.dart';
 import '../services/blur_detection.dart';
 import '../services/florence_captioning_service.dart';
 import '../services/clip_service.dart';
@@ -36,6 +37,7 @@ import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
 import '../services/ocr_service.dart';
 import '../services/personenvorschlag.dart';
+import '../services/serienvorschlag.dart';
 import '../services/textstellen.dart';
 import '../services/modell_halter.dart';
 import '../services/platform/folder_access.dart';
@@ -44,7 +46,7 @@ import '../services/restore_queue_service.dart';
 import '../services/restore_service.dart';
 import '../services/reverse_geocoder.dart';
 import '../widgets/mini_location_map.dart'
-    show setzeCartoSchluessel, setzeEigeneKarte;
+    show setzeCartoSchluessel, setzeEigeneKarte, setzeKarteHochaufloesend;
 import '../services/segmentation_service.dart';
 import '../services/storage_paths.dart';
 import '../services/vault_crypto.dart';
@@ -266,6 +268,51 @@ class LibraryState extends ChangeNotifier {
     _embeddingsCacheGeneration = db.embeddingsGeneration;
     return result;
   }
+
+  /// Die Serienvorschläge – einmal gerechnet, nicht bei jedem Blick.
+  ///
+  /// **Warum das einen Zwischenspeicher braucht.** Die Rechnung kostet an
+  /// der gewachsenen Bibliothek 260 ms (7441 Einbettungen, 499 Gruppen),
+  /// und der grössere Teil davon ist das Kopieren der Einbettungen über
+  /// die Isolate-Grenze, das [compute] für jeden Aufruf erneut macht.
+  /// Gelaufen ist sie bis hierher **zweimal je Rundgang**: einmal beim
+  /// Öffnen des Serienbildschirms und noch einmal, wenn die Werkzeugliste
+  /// nach der Rückkehr ihre Zahl auffrischte. Wer mehrere Serien
+  /// nacheinander übernahm, zahlte das jedes Mal.
+  ///
+  /// Gültig bleibt der Vorrat, solange sich an den Einbettungen nichts
+  /// ändert (Import, Papierkorb, Sperren – siehe
+  /// [AppDatabase.embeddingsGeneration]). Was der Anwender selbst
+  /// erledigt, nimmt [serieErledigt] heraus; ein Neuaufbau ist dafür
+  /// nicht nötig, denn eine übernommene Gruppe ist genau das, was die
+  /// nächste Rechnung ohnehin weglassen würde.
+  List<List<AssetData>>? _serienCache;
+  int? _serienCacheGeneration;
+
+  Future<List<List<AssetData>>> serienvorschlaegeGecacht() async {
+    if (_serienCache != null &&
+        _serienCacheGeneration == db.embeddingsGeneration) {
+      return _serienCache!;
+    }
+    final gruppen = await serienvorschlaege(db, await cachedEmbeddings());
+    _serienCache = gruppen;
+    _serienCacheGeneration = db.embeddingsGeneration;
+    return gruppen;
+  }
+
+  /// Diese Gruppe ist übernommen oder verworfen – aus dem Vorrat damit.
+  void serieErledigt(List<AssetData> gruppe) {
+    _serienCache?.removeWhere((g) => identical(g, gruppe));
+    notifyListeners();
+  }
+
+  /// Alle auf einmal erledigt.
+  void serienGeleert() {
+    _serienCache = const [];
+    _serienCacheGeneration = db.embeddingsGeneration;
+    notifyListeners();
+  }
+
   Timer? _autoBackupTimer;
   bool _autoBackupRunning = false;
   Timer? _trashPurgeTimer;
@@ -438,6 +485,7 @@ class LibraryState extends ChangeNotifier {
     // schlüssellose Fassung und lüde ihre Kacheln zweimal.
     setzeCartoSchluessel(await db.cartoSchluesselWert());
     setzeEigeneKarte(await db.eigeneKarteWert());
+    setzeKarteHochaufloesend(await db.karteHochaufloesendWert());
     _maxGleichzeitig = await db.maxGleichzeitigeAufgaben();
     await _loadModelsIfPresent();
     // Ohne `await`: siehe [geoBereit]. Das Lesen des GeoNames-Datensatzes
@@ -1074,12 +1122,6 @@ class LibraryState extends ChangeNotifier {
   int _maxGleichzeitig = 1;
 
   int get maxGleichzeitig => _maxGleichzeitig;
-
-  Future<void> ladeMaxGleichzeitig() async {
-    _maxGleichzeitig = await db.maxGleichzeitigeAufgaben();
-    notifyListeners();
-    _versucheStarten();
-  }
 
   /// Setzt die Obergrenze und lässt sofort nachrücken, was dadurch darf.
   Future<void> setzeMaxGleichzeitig(int anzahl) async {
@@ -3104,6 +3146,15 @@ class LibraryState extends ChangeNotifier {
         await db.verlegeProfilbilderVon([partner.id]);
       }
     }
+    // **Auf der Platte steht jetzt Chiffrat – im Bildspeicher der
+    // Klartext.** Flutter merkt sich dekodierte Bilder nach Pfad und
+    // Zielgrösse, nicht nach Inhalt (siehe [vergissAlleBilder]). Die
+    // Vorschau, die der Anwender eine Sekunde vor dem Sperren noch
+    // angesehen hat, liegt also unverändert im Arbeitsspeicher und würde
+    // von dort weiter ausgeliefert, ohne dass je wieder eine Datei
+    // gelesen oder ein Schlüssel gebraucht würde. Das Versprechen des
+    // gesperrten Ordners ist aber, dass der Inhalt ohne PIN weg ist.
+    vergissAlleBilder();
   }
 
   /// Kehrt [lockAsset] um: entschlüsselt die Dateien wieder in Klartext und
@@ -3127,6 +3178,51 @@ class LibraryState extends ChangeNotifier {
   /// Ordner) – die Originaldatei auf der Platte bleibt verschlüsselt.
   Directory get _decryptCacheDir => Directory(p.join(Directory.systemTemp.path, 'photovault_decrypt'));
 
+  /// Wie viel Klartext im Zwischenspeicher liegen darf, bevor die
+  /// ältesten Stücke weichen.
+  ///
+  /// **Vorher gab es gar keine Grenze.** Wer durch einen gesperrten
+  /// Ordner blättert, entschlüsselt jedes angesehene Original in voller
+  /// Grösse hierher; geräumt wurde erst beim Verlassen. Bei
+  /// Fünf-Megabyte-Aufnahmen sind hundertfünfzig Bilder schon
+  /// dreiviertel Gigabyte – und unter Flatpak ist `/tmp` ein tmpfs, also
+  /// Arbeitsspeicher. Eine halbe Milliarde Byte reicht für mehr Bilder,
+  /// als jemand am Stück ansieht, und lässt sich nicht vollblättern.
+  static const int hoechstensImZwischenspeicher = 512 * 1024 * 1024;
+
+  /// Wirft die ältesten Stücke weg, bis der Zwischenspeicher wieder unter
+  /// [hoechstensImZwischenspeicher] liegt.
+  ///
+  /// Nach der Zugriffszeit, nicht nach der Schreibzeit: Ein Bild, das
+  /// beim Blättern mehrfach gebraucht wird, soll nicht deshalb weichen,
+  /// weil es früh entschlüsselt wurde. Ein weggeworfenes Stück ist kein
+  /// Verlust – der nächste Zugriff entschlüsselt es erneut.
+  Future<void> _kuerzeZwischenspeicher(Directory cacheDir) async {
+    final stuecke = <(File, DateTime, int)>[];
+    var summe = 0;
+    await for (final e in cacheDir.list(followLinks: false)) {
+      if (e is! File) continue;
+      try {
+        final st = await e.stat();
+        stuecke.add((e, st.accessed, st.size));
+        summe += st.size;
+      } on FileSystemException {
+        // Ein anderer Durchgang war schneller – dann zählt es nicht mehr.
+      }
+    }
+    if (summe <= hoechstensImZwischenspeicher) return;
+    stuecke.sort((a, b) => a.$2.compareTo(b.$2));
+    for (final (datei, _, groesse) in stuecke) {
+      if (summe <= hoechstensImZwischenspeicher) break;
+      try {
+        await datei.delete();
+        summe -= groesse;
+      } on FileSystemException {
+        // Schon weg oder gerade in Benutzung – dann eben das nächste.
+      }
+    }
+  }
+
   /// Entschlüsselt eine gesperrte Datei in den temporären Zwischenspeicher
   /// (nur beim ersten Zugriff, danach aus dem Cache) und gibt sie zurück.
   /// Setzt einen bereits entsperrten gesperrten Ordner voraus.
@@ -3134,7 +3230,9 @@ class LibraryState extends ChangeNotifier {
     final key = _vaultKey;
     if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
     final cacheDir = _decryptCacheDir;
+    final frisch = !await cacheDir.exists();
     await cacheDir.create(recursive: true);
+    if (frisch) await _nurFuerMich(cacheDir);
     // Über den Hash des Pfades, nicht über ersetzte Trennzeichen: „a/b.jpg"
     // und „a_b.jpg" wurden sonst auf denselben Namen abgebildet und konnten
     // sich gegenseitig anzeigen.
@@ -3162,8 +3260,29 @@ class LibraryState extends ChangeNotifier {
       } finally {
         if (await teil.exists()) await teil.delete();
       }
+      // Nur nach einem echten Zulauf, nicht bei jedem Treffer: Das
+      // Durchzählen kostet einen Systemaufruf je Stück, und ein Treffer
+      // soll billig bleiben.
+      await _kuerzeZwischenspeicher(cacheDir);
     }
     return target;
+  }
+
+  /// Entzieht allen ausser dem eigenen Benutzer den Zugriff auf [ordner].
+  ///
+  /// Dart legt Verzeichnisse mit 0755 und Dateien mit 0644 an (gemessen).
+  /// Auf allen drei ausgelieferten Verpackungen liegt `Directory.systemTemp`
+  /// zwar ohnehin schon geschützt – macOS im Sandkasten-Container, Windows
+  /// im Benutzerprofil, Linux im privaten tmpfs des Flatpaks –, aber das
+  /// ist eine Eigenschaft der Verpackung, keine der App. Ein Klartextfoto
+  /// aus dem gesperrten Ordner soll nicht davon abhängen.
+  Future<void> _nurFuerMich(Directory ordner) async {
+    if (Platform.isWindows) return; // Dort regeln es die Zugriffslisten.
+    try {
+      await Process.run('chmod', ['700', ordner.path]);
+    } on ProcessException {
+      // Kein chmod vorhanden – dann bleibt es beim Schutz der Verpackung.
+    }
   }
 
   /// Leert den Entschlüsselungs-Zwischenspeicher – beim App-Start (Reste
@@ -3175,6 +3294,11 @@ class LibraryState extends ChangeNotifier {
     if (await dir.exists()) {
       await dir.delete(recursive: true);
     }
+    // Aus demselben Grund wie beim Sperren: Die Dateien sind weg, die
+    // daraus dekodierten Bilder lägen sonst weiter im Arbeitsspeicher.
+    // Der Bildspeicher fasst 100 MiB – so viel Klartext bliebe nach dem
+    // Verlassen des gesperrten Ordners stehen.
+    vergissAlleBilder();
   }
 
   // -----------------------------------------------------------------------

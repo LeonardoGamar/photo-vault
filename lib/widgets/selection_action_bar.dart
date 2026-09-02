@@ -129,12 +129,28 @@ class SelectionActionBar extends StatelessWidget {
 
 /// Einfacher Ja/Nein-Bestätigungsdialog für Sammelaktionen, die sich nicht
 /// (leicht) rückgängig machen lassen.
-Future<bool> confirmDialog(BuildContext context, String title, String message) async {
+/// [vorschau] steht ueber dem Text, wenn es etwas zu sehen gibt.
+///
+/// Bei der Integritaetspruefung geht es um Dateien, die unwiderruflich
+/// von der Platte verschwinden – und deren Pfad allein nicht verraet, was
+/// darin steckt. Wer sehen kann, was er loescht, entscheidet anders.
+Future<bool> confirmDialog(BuildContext context, String title, String message,
+    {Widget? vorschau}) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(title),
-      content: Text(message),
+      content: vorschau == null
+          ? Text(message)
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                vorschau,
+                const SizedBox(height: 16),
+                Text(message),
+              ],
+            ),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, false),

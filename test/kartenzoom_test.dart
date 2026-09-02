@@ -30,16 +30,28 @@ void main() {
     for (final datei in quelldateien()) {
       final quelle = datei.readAsStringSync();
       if (!quelle.contains('FlutterMap(')) continue;
-      // Zwei Karten sind ausdrücklich unbedienbar: die Streckenvorschau
-      // (`InteractiveFlag.none`) und die Kartenvorschau der Übersicht,
-      // die als Ganzes ein Knopf ist (`IgnorePointer`). Dort wäre ein
+      // Zwei Karten sind ausdrücklich unbedienbar: die Kartenvorschau
+      // der Übersicht, die als Ganzes ein Knopf ist (`IgnorePointer`),
+      // und alles, was `InteractiveFlag.none` setzt. Dort wäre ein
       // Zoomknopf eine Behauptung, man könne etwas tun.
       if (quelle.contains('InteractiveFlag.none') ||
           quelle.contains('IgnorePointer(')) {
         continue;
       }
+      // Eine Karte MITTEN IN EINER ROLLBAREN SEITE ist der dritte Fall,
+      // und er kam mit der Übersichtskarte der Reisen dazu. Dort ist der
+      // Zweifingerwisch die Geste zum Rollen der Seite; nähme die Karte
+      // sie an, verschluckte sie jeden zweiten Wisch – genau der Schaden,
+      // um dessentwillen sie vorher gar nicht bedienbar war.
+      //
+      // Der Zweck der Regel bleibt gewahrt, denn er ist nicht „Wischen",
+      // sondern „auf JEDEM Gerät zoomen": Die Knöpfe leisten das. Die
+      // Ausnahme muss deshalb im Quelltext ausgesprochen werden – sie
+      // gilt nur, wo jemand sie hingeschrieben hat, und die Knöpfe
+      // werden trotzdem verlangt.
+      final nurKnoepfe = quelle.contains('zoomregel: nur Knoepfe');
       final fehlt = [
-        if (!quelle.contains('WischZoom(')) 'WischZoom',
+        if (!nurKnoepfe && !quelle.contains('WischZoom(')) 'WischZoom',
         // Entweder die gemeinsame Leiste oder eigene Knöpfe – die kleine
         // Ortskarte hat aus Platzgründen ihre eigenen.
         if (!quelle.contains('Zoomsteuerung(') &&
@@ -99,5 +111,23 @@ void main() {
       expect(find.byIcon(Icons.add), findsOneWidget);
       expect(find.byIcon(Icons.remove), findsOneWidget);
     });
+  });
+
+  test('die Ausnahme „nur Knoepfe" gilt nur, wo sie begruendet ist', () {
+    // Sonst waere sie ein Freibrief: Ein hingeschriebener Kommentar
+    // schaltet eine Regel ab. Wer sie zieht, muss (a) die Zoomknoepfe
+    // trotzdem haben und (b) die Karte wirklich in eine rollbare Seite
+    // stellen - erkennbar daran, dass sie nur das Ziehen annimmt.
+    for (final datei in quelldateien()) {
+      final quelle = datei.readAsStringSync();
+      if (!quelle.contains('zoomregel: nur Knoepfe')) continue;
+      expect(quelle.contains('Zoomsteuerung('), isTrue,
+          reason: '${datei.path}: ohne Wischen sind die Knoepfe der '
+              'einzige Weg zu zoomen - sie muessen da sein');
+      expect(quelle.contains('InteractiveFlag.drag'), isTrue,
+          reason: '${datei.path}: die Ausnahme ist fuer Karten, die nur '
+              'das Ziehen annehmen; wer Rad und Kneifen nimmt, hat das '
+              'Rollproblem nicht und braucht die Ausnahme nicht');
+    }
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -10,6 +11,8 @@ import '../theme/app_spacing.dart';
 import '../state/library_state.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/asset_list_view.dart';
+import '../services/listenspalten.dart';
+import '../services/rasterstufen.dart';
 import '../widgets/month_grouped_asset_grid.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/rasterbedienung.dart';
@@ -103,11 +106,52 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   bool _alsListe = false;
   ListenGruppierung _gruppierung = ListenGruppierung.monat;
 
+  /// Wie gross die Kacheln sind – siehe [zeitleisteKachelstufen].
+  ///
+  /// Anders als Raster/Liste **wird das gemerkt**: Es ist keine Wahl, die
+  /// man im Lauf einer Sichtung mehrfach umlegt, sondern wie man seine
+  /// Bibliothek ansieht.
+  int _kachelstufe = zeitleisteKachelstufeVorgabe;
+
+  double get _kachelbreite => zeitleisteKachelbreite(_kachelstufe);
+
+  /// Welche Spalten die Listenansicht zeigt und wie breit sie sind.
+  /// Ebenfalls gemerkt: Wer sich seine Spalten einrichtet, richtet sie
+  /// einmal ein.
+  Listenspaltenwahl _listenspalten = Listenspaltenwahl.vorgabe;
+
   @override
   void initState() {
     super.initState();
+    _ladeKachelstufe();
     final id = widget.highlightAssetId;
     if (id != null) _resolveHighlight(id);
+  }
+
+  Future<void> _ladeKachelstufe() async {
+    final stufe = await widget.library.db.zeitleisteKachelstufeWert();
+    final spalten = await widget.library.db.listenspaltenWahl();
+    if (mounted) {
+      setState(() {
+        _kachelstufe = stufe;
+        _listenspalten = spalten;
+      });
+    }
+  }
+
+  void _setzeSpalten(Listenspaltenwahl wahl) {
+    setState(() => _listenspalten = wahl);
+    unawaited(widget.library.db.setzeListenspalten(wahl));
+  }
+
+  void _zoome({required bool groesser}) {
+    final neue = naechsteKachelstufe(_kachelstufe, groesser: groesser);
+    if (neue == _kachelstufe) return;
+    setState(() => _kachelstufe = neue);
+    // Ohne `await`: Wer an der Groesse dreht, soll nicht auf die Platte
+    // warten. Faellt das Schreiben aus, ist der Preis eine Stufe, die
+    // beim naechsten Start wieder auf der alten steht.
+    unawaited(widget.library.db.setzeZeitleisteKachelstufe(neue));
   }
 
   @override
@@ -252,6 +296,27 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
             ),
           ],
           const Spacer(),
+          // Kleiner heisst mehr Fotos und damit mehr Monate auf einmal.
+          // Nur im Raster: In der Liste steht ohnehin alles
+          // untereinander, und ein Knopf, der nichts bewirkt, waere
+          // irrefuehrend - dieselbe Regel wie bei der Gliederung.
+          if (!_alsListe) ...[
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: t.zeitleisteKleiner,
+              icon: const Icon(Icons.zoom_out, size: 20),
+              onPressed:
+                  _kachelstufe == 0 ? null : () => _zoome(groesser: false),
+            ),
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: t.zeitleisteGroesser,
+              icon: const Icon(Icons.zoom_in, size: 20),
+              onPressed: _kachelstufe == zeitleisteKachelstufen.length - 1
+                  ? null
+                  : () => _zoome(groesser: true),
+            ),
+          ],
         ],
       ),
     );
@@ -292,6 +357,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                             constraints.maxWidth,
                             mitZeitstrahl:
                                 rasterMitZeitstrahl(monatsgruppen(assets).schluessel.length),
+                            kachelbreite: _kachelbreite,
                           );
                     return _alsListe
                         ? AssetListView(
@@ -301,6 +367,8 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                             selectedIds: _selected,
                             highlightAssetId: widget.highlightAssetId,
                             nachObenSignal: widget.nachObenSignal,
+                            spalten: _listenspalten,
+                            onSpalten: _setzeSpalten,
                             onLongPress: (asset) => _toggle(asset.id),
                             onTap: rasterKlick,
                           )
@@ -314,6 +382,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                             onLongPress: (asset) => _toggle(asset.id),
                             onHeaderTap: _toggleGroup,
                             onTap: rasterKlick,
+                            kachelbreite: _kachelbreite,
                             onScrollNearEnd: () => _maybeGrowWindow(assets.length),
                           );
                   }),

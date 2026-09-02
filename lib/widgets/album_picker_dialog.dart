@@ -67,7 +67,8 @@ class _AlbumPickerDialogState extends State<_AlbumPickerDialog> {
               onChanged: (a) => setState(() => _selectedExisting = a),
             ),
             const SizedBox(height: 12),
-            Text(AppTexte.of(context).allgOder, style: const TextStyle(color: Colors.grey)),
+            Text(AppTexte.of(context).allgOder,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
             const SizedBox(height: 12),
           ],
           TextField(

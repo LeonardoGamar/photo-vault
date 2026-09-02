@@ -284,16 +284,6 @@ const laendernamenDe = <String, String>{
   'ZW': 'Simbabwe',
 };
 
-/// Der Ländername in der Sprache der Oberfläche.
-///
-/// [englisch] ist der Name aus dem Katalog und bleibt die Antwort, wenn
-/// die Sprache nicht Deutsch ist oder der Code unbekannt – ein englischer
-/// Name ist immer noch besser als ein leeres Feld oder ein blosses Kürzel.
-String landesname(String iso, String englisch, String sprache) {
-  if (!sprache.startsWith('de')) return englisch;
-  return laendernamenDe[iso.toUpperCase()] ?? englisch;
-}
-
 
 /// Dieselben Namen, aber nachgeschlagen über den **englischen** Namen.
 ///
