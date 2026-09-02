@@ -9,14 +9,26 @@
 // **Testbaus**, und dort lagen noch die alten fp32-Dateien. Geprüft
 // wurde also durchweg ein Modell, das die App nicht ausliefert.
 //
-// Dagegen hilft nur eines: die Dateien aus demselben Ordner nehmen, den
-// die richtige App benutzt, und sie wirklich öffnen. Eine Prüfung auf
-// Vorhandensein genügt nicht – ob ein Modell lädt, weiss man erst, wenn
-// man es lädt.
+// Dagegen hilft nur eines: dieselben Bytes wirklich öffnen. Eine
+// Prüfung auf Vorhandensein genügt nicht – ob ein Modell lädt, weiss man
+// erst, wenn man es lädt.
 //
-//   PV_MODELLE="$HOME/Library/Containers/com.example.photoVault/Data/\
-//   Library/Application Support/com.example.photoVault/PhotoVault/models" \
+//   PV_MODELLE="$HOME/Library/Containers/com.example.photoVault.test/Data/\
+//   Library/Application Support/com.example.photoVault.test/PhotoVault/models" \
 //   flutter test integration_test/clip_modelle_laden_test.dart -d macos
+//
+// **Auf den Container der ausgelieferten App zeigen geht nicht**, so
+// verlockend es wäre: Der Testbau trägt eine eigene Kennung
+// (`com.example.photoVault.test`) und damit einen eigenen Sandkasten. Er
+// bekommt von dort `system error number 1` – EPERM –, und das sähe
+// genauso aus wie ein Modell, das nicht lädt. Am 02.09.2026 beim
+// Einspielen von 3.3.0 gemessen, die Anweisung darüber stand vorher
+// falsch hier.
+//
+// Die Kette schliesst sich stattdessen über die Prüfsumme: Erst
+// `shasum -a 256` auf beide Ordner – sind die Dateien gleich, ist das
+// hier Geöffnete dasselbe, was die App öffnet –, dann dieser Test im
+// eigenen Container. Beides zusammen ist der Beleg, keines allein.
 //
 // Ohne PV_MODELLE nimmt der Test den Ordner des Testbaus – dann prüft er
 // genau das, was oben schiefging, und sagt es auch.
