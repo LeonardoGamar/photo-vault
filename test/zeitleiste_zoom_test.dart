@@ -20,6 +20,33 @@ import 'package:photo_vault/widgets/timeline_grid_layout.dart';
 /// Konstante an zwei Stellen, und an einer davon (dem Raster selbst) noch
 /// einmal als blanke 160 daneben. Wer mehr Monate auf einmal sehen
 /// wollte, hatte keinen Weg dorthin.
+/// Eine Aufnahme, wie sie die Hoehenrechnung braucht - mehr als Masse und
+/// Datum sieht sie nicht an.
+AssetData _quadratfoto(String id) => AssetData(
+      id: id,
+      relativePath: 'originals/$id.jpg',
+      originalFileName: '$id.jpg',
+      type: 'IMAGE',
+      fileSizeBytes: 1000,
+      checksum: id,
+      fileCreatedAt: DateTime(2026, 1, 1),
+      importedAt: DateTime(2026, 1, 1),
+      isFavorite: false,
+      isTrashed: false,
+      isLocked: false,
+      faceScanExcluded: false,
+      gpsGeprueft: false,
+      backedUp: false,
+      autoBackedUp: false,
+      facesScanned: false,
+      ocrScanned: false,
+      aiCaptionScanned: false,
+      aiCaptionEdited: false,
+      aiTagsScanned: false,
+      isStackCover: false,
+      rating: 0,
+    );
+
 void main() {
   late Directory wurzel;
   late AppDatabase db;
@@ -115,9 +142,10 @@ void main() {
     test('und ein Monat wird niedriger', () {
       // Der eigentliche Punkt: Mehr Monate passen ins Bild, weil jeder
       // weniger Platz braucht.
-      final gross = timelineMonthGroupHeight(40, 1200,
+      final gruppe = [for (var i = 0; i < 40; i++) _quadratfoto('f$i')];
+      final gross = timelineMonthGroupHeight(gruppe, 1200,
           kachelbreite: zeitleisteKachelstufen.last);
-      final klein = timelineMonthGroupHeight(40, 1200,
+      final klein = timelineMonthGroupHeight(gruppe, 1200,
           kachelbreite: zeitleisteKachelstufen.first);
       expect(klein, lessThan(gross));
     });

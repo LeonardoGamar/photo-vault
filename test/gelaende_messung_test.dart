@@ -60,7 +60,6 @@ void main() {
         kamera: kamera,
         spur: const [],
         spurfarbe: const Color(0xFFFF0000),
-        himmel: const Color(0xFF102030),
       );
 
       // Ein Aufwärmlauf, dann zehn gemessene: Der erste zahlt für alles,

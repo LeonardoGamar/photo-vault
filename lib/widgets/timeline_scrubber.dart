@@ -125,6 +125,12 @@ class TimelineScrubber extends StatefulWidget {
   /// zeichnet und landet neben dem Monat, den er anpeilt.
   final double kachelbreite;
 
+  /// Wie das Raster daneben anordnet. Aus demselben Grund wie
+  /// [kachelbreite]: Bei bündigen Reihen ist eine Monatsgruppe anders hoch
+  /// als bei Quadraten, und die Leiste zeigte sonst auf eine Stelle, an
+  /// der der Monat gar nicht steht.
+  final Zeitleistenform form;
+
   const TimelineScrubber({
     super.key,
     required this.orderedKeys,
@@ -133,6 +139,7 @@ class TimelineScrubber extends StatefulWidget {
     required this.gridWidth,
     this.tageweise = false,
     this.kachelbreite = timelineGridMaxCrossAxisExtent,
+    this.form = zeitleisteFormVorgabe,
   });
 
   @override
@@ -201,8 +208,8 @@ class _TimelineScrubberState extends State<TimelineScrubber> {
   }
 
   double _monthHeight(int key) =>
-      timelineMonthGroupHeight(widget.groups[key]!.length, widget.gridWidth,
-          kachelbreite: widget.kachelbreite);
+      timelineMonthGroupHeight(widget.groups[key]!, widget.gridWidth,
+          kachelbreite: widget.kachelbreite, form: widget.form);
 
   /// Kumulierte Pixel-Offsets für den Start jedes Monats (gleiche
   /// Reihenfolge wie [orderedKeys]), letzter Eintrag = geschätzte

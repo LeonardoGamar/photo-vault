@@ -68,6 +68,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="3.4.0" date="2026-09-02">
+      <description>
+        <p>Three wishes and one fault found while checking them. Database schema changes from 68 to 71 - the migration runs on first start and is not reversible; verified against three grown libraries, one of them at version 27.</p>
+        <p>The timeline can now show photos in their own aspect ratio instead of cropped squares, every row filled exactly to the full width. Rows and not a column wall: in a timeline sorted by date the second photo belongs beside the first, not below it. A button in the header switches between the two forms and the choice is remembered. A side effect is a more accurate scrubber - with squares the height of a month group was an estimate, with rows it is calculated. The image cache was the stated risk and was measured rather than assumed: 17.8 against 16.5 MB per screenful at the default step, and at the largest step rows are actually cheaper.</p>
+        <p>Videos and live photos start playing when the mouse rests on them for a moment - muted, looping, until the pointer moves on. The delay matters: without it a pointer sweeping across the wall would drag a trail of starting videos behind it. Only one ever plays, because each playback is its own mpv process. Locked items stay still: playing them would mean decrypting them in passing. It can be switched off under Settings, Appearance.</p>
+        <p>The terrain flight gets a sky gradient instead of the theme background, aerial haze into the distance, a soft edge where the loaded data ends, the track drawn in three passes (offset shadow, soft glow, sharp core), and a time of day - morning, midday, evening, blue hour - switchable in the header and remembered. Midday keeps exactly the previous lighting. The sun stays in the north-west at every time of day: a surface lit from the lower right reads as a hollow, so lighting a morning from the east would turn every valley into a hill. What moves is the sun's height, and with it the length of the shadows.</p>
+        <p>And the fault: migration steps were ordered descending from number 48 onwards. For a library at version 54 or later this never showed, because the affected steps no longer run there. An older one could not be opened at all - step 65 writes into a table that step 54 creates, so the migration aborted with "no such table" and the app with it. Found because the migration test took on a library at version 27 that happened to be lying around. Fixed by reordering; a test now holds the order in place.</p>
+      </description>
+    </release>
     <release version="3.3.1" date="2026-09-02">
       <description>
         <p>A Windows follow-up, and a more necessary one than expected: the released 3.3.0 does not start at all on a clean Windows. macOS and Linux are unaffected and change only in the version number. No schema change - the database stays at 68.</p>

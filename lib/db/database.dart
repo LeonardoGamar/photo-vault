@@ -18,8 +18,14 @@ import '../services/exif_camera.dart';
 import '../services/face_threshold.dart';
 import '../services/library_location.dart';
 import '../services/library_stats.dart';
+import '../services/lichtstimmung.dart';
 import '../services/listenspalten.dart';
-import '../services/rasterstufen.dart' show zeitleisteKachelstufeVorgabe;
+import '../services/rasterstufen.dart'
+    show
+        zeitleisteKachelstufeVorgabe,
+        zeitleisteFormVorgabe,
+        zeitleisteForm,
+        Zeitleistenform;
 import '../services/raw_formats.dart' show rawImageExtensions;
 import '../services/search_filters.dart';
 import '../services/stammbaum.dart';
@@ -1391,6 +1397,29 @@ class AppSettings extends Table {
   BoolColumn get karteHochaufloesend =>
       boolean().withDefault(const Constant(true))();
 
+  /// Welche Tageszeit über der Geländeansicht steht – als Nummer aus
+  /// [Tageszeit].
+  ///
+  /// Als Zahl und nicht als Name, aus demselben Grund wie beim
+  /// Kartenstil: Ein Name aus einer aelteren Fassung koennte einer sein,
+  /// den es nicht mehr gibt. Eine Nummer ausserhalb der Reihe faellt
+  /// ueber [tageszeit] auf die Vorgabe zurueck.
+  IntColumn get gelaendeStimmungNr =>
+      integer().withDefault(Constant(lichtstimmungVorgabe.index))();
+
+  /// Ob ein Video oder ein Live Photo von selbst anlaeuft, wenn die Maus
+  /// einen Augenblick darauf stehen bleibt.
+  ///
+  /// Vorgabe an: Es ist der Grund, warum es die Einstellung gibt. Wer die
+  /// Bewegung im Raster nicht mag oder auf einer langsamen Maschine
+  /// sitzt, schaltet sie ab und bekommt die stillen Kacheln von vorher.
+  ///
+  /// Der Ton bleibt in jedem Fall aus – siehe
+  /// [Schwebevorschau.starte]. Eine Wand aus Kacheln, die beim
+  /// Ueberstreichen zu toenen anfaengt, waere niemandem eine Hilfe.
+  BoolColumn get schwebeVorschau =>
+      boolean().withDefault(const Constant(true))();
+
   /// Welche Ansicht des Stammbaums zuletzt offen war und wer darin in der
   /// Mitte stand.
   ///
@@ -1414,6 +1443,17 @@ class AppSettings extends Table {
   /// Zwischengroesse waere ein eigener Schluessel im Bildspeicher.
   IntColumn get zeitleisteKachelstufe =>
       integer().withDefault(const Constant(zeitleisteKachelstufeVorgabe))();
+
+  /// Ob die Zeitleiste Quadrate zeigt oder buendige Reihen – als Nummer
+  /// aus [Zeitleistenform].
+  ///
+  /// Als Zahl und nicht als Name: Ein Name aus einer aelteren Fassung
+  /// koennte einer sein, den es nicht mehr gibt. Eine Nummer ausserhalb
+  /// der Reihe faellt ueber [zeitleisteForm] auf die Vorgabe zurueck,
+  /// statt den Bildschirm zu verhindern – dieselbe Regel wie beim
+  /// Kartenstil.
+  IntColumn get zeitleisteFormNr =>
+      integer().withDefault(Constant(zeitleisteFormVorgabe.index))();
 
   /// Welche Spalten die Listenansicht zeigt und wie breit sie sind –
   /// als Text, siehe [Listenspaltenwahl.alsText].
@@ -1561,7 +1601,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 68;
+  int get schemaVersion => 71;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -1671,6 +1711,24 @@ class AppDatabase extends _$AppDatabase {
           await _createIndicesV55(m);
           await _seedAiTagVocabulary();
         },
+        // **Die Schritte stehen aufsteigend, und das ist eine Zusage.**
+        //
+        // Ein Schritt darf voraussetzen, was die niedrigeren angelegt
+        // haben – Schritt 65 biegt Zuordnungen in `aktivitaet_aufnahmen`
+        // um, und diese Tabelle entsteht in Schritt 54.
+        //
+        // Ab Schritt 48 standen sie einmal absteigend: 71, 70, 69 … 48.
+        // Fuer eine Bibliothek ab Fassung 54 fiel das nie auf, weil die
+        // betroffenen Schritte dort gar nicht mehr laufen. Eine aeltere
+        // liess sich dagegen **gar nicht mehr oeffnen** – Schritt 65
+        // schrieb in eine Tabelle, die Schritt 54 erst spaeter anlegte,
+        // und die Migration brach mit „no such table" ab. Gefunden an
+        // einer Bibliothek der Fassung 27 (30.08. angelegt, nie wieder
+        // geoeffnet), nicht durch Codelesen.
+        //
+        // `pruefstand_migration_reihenfolge_test.dart` haelt die
+        // Reihenfolge fest, damit ein neuer Schritt nicht wieder oben
+        // einsortiert wird.
         onUpgrade: (m, from, to) async {
           if (from < 2) {
             await m.addColumn(assets, assets.facesScanned);
@@ -1959,44 +2017,127 @@ class AppDatabase extends _$AppDatabase {
             // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(developPresets);
           }
-          if (from < 68) {
-            // Beides leer = genau das bisherige Verhalten: Der Baum
-            // beginnt bei der Person mit den meisten Verwandten.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.stammbaumAnsicht, 'app_settings',
-                'stammbaum_ansicht');
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.stammbaumPerson, 'app_settings',
-                'stammbaum_person');
-            // Die mittlere Stufe ist genau die Groesse, die es vorher
-            // als einzige gab.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.zeitleisteKachelstufe, 'app_settings',
-                'zeitleiste_kachelstufe');
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.listenspalten, 'app_settings', 'listenspalten');
+          if (from < 48) {
+            // Dateiformat als eigene, indexierte Spalte – Suche nach
+            // „nur DNG" ohne Tabellen-Scan.
+            await _addColumnIfMissing(
+                m, assets, assets.dateiformat, 'assets', 'dateiformat');
+            await _trageDateiformateNach();
+            await _createIndicesV48(m);
           }
-          if (from < 67) {
-            // Vorgabe true = genau das bisherige Verhalten.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.karteHochaufloesend, 'app_settings',
-                'karte_hochaufloesend');
+          if (from < 49) {
+            // Die zuletzt gewählte Kartenansicht überdauert jetzt das
+            // Schliessen des Bildschirms.
+            await _addColumnIfMissing(m, appSettings, appSettings.kartenansicht,
+                'app_settings', 'kartenansicht');
           }
-          if (from < 66) {
-            // Die eigene Kartenquelle (siehe die Spalten). Alles leer und
-            // nicht zugestimmt = genau das bisherige Verhalten: Der
-            // Eintrag taucht im Kartenmenue erst auf, wenn er ausgefuellt
-            // ist.
-            for (final spalte in [
-              appSettings.eigeneKarteName,
-              appSettings.eigeneKarteUrl,
-              appSettings.eigeneKarteNennung,
-              appSettings.eigeneKarteStufe,
-              appSettings.eigeneKarteZugestimmt,
-            ]) {
-              await _addColumnIfMissing(
-                  m, appSettings, spalte, 'app_settings', spalte.name);
-            }
+          if (from < 50) {
+            // Lebensereignisse bekommen eine Koordinate zum Ortsnamen.
+            // Beide Spalten leer: Das Nachtragen läuft nicht hier,
+            // sondern beim ersten Start mit geladenem GeoNames-Auszug
+            // (siehe LibraryState.trageEreignisorteNach) – ohne den
+            // Datensatz gäbe es nichts einzutragen, und eine Migration,
+            // die auf einen optionalen Download wartet, wäre eine
+            // Migration, die manchmal nicht fertig wird.
+            await _addColumnIfMissing(m, lebensereignisse,
+                lebensereignisse.ortBreite, 'lebensereignisse', 'ort_breite');
+            await _addColumnIfMissing(m, lebensereignisse,
+                lebensereignisse.ortLaenge, 'lebensereignisse', 'ort_laenge');
+          }
+          if (from < 51) {
+            // Reisen. Drei neue, anfangs leere Tabellen – ohne einen
+            // einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(reisen);
+            await m.createTable(reiseAufnahmen);
+            await m.createTable(verworfeneReisen);
+            await _createIndicesV51(m);
+          }
+          if (from < 52) {
+            // Selbst gesetzte Ortsmarken. Neue, anfangs leere Tabelle –
+            // solange niemand einen Haken setzt, zählt die Weltkarte
+            // genau wie vorher nur die Fotos.
+            await m.createTable(ortsmarken);
+          }
+          if (from < 53) {
+            // Die Startzeit der KI-Restaurierung. Ohne sie liess sich
+            // keine ehrliche Restzeit rechnen; laufende Auftraege gibt
+            // es beim Start ohnehin keine (siehe
+            // resetStuckRunningRestoreJobs), die Spalte darf also leer
+            // beginnen.
+            await _addColumnIfMissing(m, restoreJobs, restoreJobs.startedAt,
+                'restore_jobs', 'started_at');
+          }
+          if (from < 54) {
+            // Aktivitäten. Drei neue, anfangs leere Tabellen – ohne
+            // einen einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(aktivitaeten);
+            await m.createTable(aktivitaetAufnahmen);
+            await m.createTable(verworfeneAktivitaeten);
+            await _createIndicesV54(m);
+          }
+          if (from < 55) {
+            // Aufgezeichnete Spuren. Zwei neue, anfangs leere Tabellen –
+            // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
+            await m.createTable(spuren);
+            await m.createTable(spurpunkte);
+            await _createIndicesV55(m);
+          }
+          if (from < 56) {
+            // Woher ein Schlagwort stammt (siehe [Tagquelle]).
+            await _addColumnIfMissing(
+                m, assetTags, assetTags.quelle, 'asset_tags', 'quelle');
+            await _bestimmeTagquelleNachtraeglich();
+          }
+          if (from < 57) {
+            // Von der Gesichtssuche ausgenommen (siehe die Spalte).
+            await _addColumnIfMissing(m, assets, assets.faceScanExcluded,
+                'assets', 'face_scan_excluded');
+          }
+          if (from < 58) {
+            // Der eigene CARTO-Schlüssel (siehe die Spalte). Null heisst
+            // „keiner" und damit invertierte OSM-Kacheln – die dunkle
+            // Karte funktioniert also ohne jedes Zutun weiter, nur ohne
+            // das Wasserzeichen.
+            await _addColumnIfMissing(m, appSettings, appSettings.cartoSchluessel,
+                'app_settings', 'carto_schluessel');
+          }
+          if (from < 59) {
+            // Wie viele schwere Aufgaben nebeneinander laufen dürfen
+            // (siehe die Spalte). Vorgabe eins = das bisherige Verhalten.
+            await _addColumnIfMissing(m, appSettings, appSettings.maxGleichzeitig,
+                'app_settings', 'max_gleichzeitig');
+          }
+          if (from < 60) {
+            // Wo der erkannte Text im Bild steht (siehe die Spalte). Leer
+            // fuer alles Bisherige; die Texterkennung holt es nach.
+            await _addColumnIfMissing(m, assets, assets.ocrBoxen, 'assets', 'ocr_boxen');
+          }
+          if (from < 61) {
+            // Schaerfe des Gesichtsausschnitts (siehe die Spalte). Leer
+            // fuer alles Bisherige; der Nachlauf holt es aus den bereits
+            // gespeicherten Ausschnitten, ohne ein Foto neu zu dekodieren.
+            await _addColumnIfMissing(m, faces, faces.schaerfe, 'faces', 'schaerfe');
+          }
+          if (from < 62) {
+            // Abgelehnte Serienvorschlaege – bis hierher verschwand ein
+            // „nein" mit dem Schliessen des Bildschirms.
+            await m.createTable(verworfeneSerien);
+          }
+          if (from < 63) {
+            // Die alten Augenwerte entstanden mit falscher Normierung und
+            // sagten „geschlossen" zu offenen Augen. `null` heisst laut
+            // Spaltendoku „noch nicht berechnet" – das ist die ehrliche
+            // Auskunft, bis ein Gesichtsdurchlauf sie neu ermittelt.
+            await m.database
+                .customStatement('UPDATE faces SET eye_open_score = NULL');
+          }
+          if (from < 64) {
+            // „Schon nachgesehen" beim Ortsnachtrag (siehe die Spalte).
+            // `false` fuer alles Bestehende ist Absicht: Der erste Lauf
+            // nach dem Umstieg geht noch einmal ueber alles – und findet
+            // dabei die Videos, an die er vorher nie herankam.
+            await _addColumnIfMissing(
+                m, assets, assets.gpsGeprueft, 'assets', 'gps_geprueft');
           }
           if (from < 65) {
             // Zuordnungen, die auf die VIDEOHÄLFTE eines Live Photos
@@ -2037,127 +2178,66 @@ class AppDatabase extends _$AppDatabase {
               ''');
             }
           }
-          if (from < 64) {
-            // „Schon nachgesehen" beim Ortsnachtrag (siehe die Spalte).
-            // `false` fuer alles Bestehende ist Absicht: Der erste Lauf
-            // nach dem Umstieg geht noch einmal ueber alles – und findet
-            // dabei die Videos, an die er vorher nie herankam.
-            await _addColumnIfMissing(
-                m, assets, assets.gpsGeprueft, 'assets', 'gps_geprueft');
+          if (from < 66) {
+            // Die eigene Kartenquelle (siehe die Spalten). Alles leer und
+            // nicht zugestimmt = genau das bisherige Verhalten: Der
+            // Eintrag taucht im Kartenmenue erst auf, wenn er ausgefuellt
+            // ist.
+            for (final spalte in [
+              appSettings.eigeneKarteName,
+              appSettings.eigeneKarteUrl,
+              appSettings.eigeneKarteNennung,
+              appSettings.eigeneKarteStufe,
+              appSettings.eigeneKarteZugestimmt,
+            ]) {
+              await _addColumnIfMissing(
+                  m, appSettings, spalte, 'app_settings', spalte.name);
+            }
           }
-          if (from < 63) {
-            // Die alten Augenwerte entstanden mit falscher Normierung und
-            // sagten „geschlossen" zu offenen Augen. `null` heisst laut
-            // Spaltendoku „noch nicht berechnet" – das ist die ehrliche
-            // Auskunft, bis ein Gesichtsdurchlauf sie neu ermittelt.
-            await m.database
-                .customStatement('UPDATE faces SET eye_open_score = NULL');
+          if (from < 67) {
+            // Vorgabe true = genau das bisherige Verhalten.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.karteHochaufloesend, 'app_settings',
+                'karte_hochaufloesend');
           }
-          if (from < 62) {
-            // Abgelehnte Serienvorschlaege – bis hierher verschwand ein
-            // „nein" mit dem Schliessen des Bildschirms.
-            await m.createTable(verworfeneSerien);
+          if (from < 68) {
+            // Beides leer = genau das bisherige Verhalten: Der Baum
+            // beginnt bei der Person mit den meisten Verwandten.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.stammbaumAnsicht, 'app_settings',
+                'stammbaum_ansicht');
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.stammbaumPerson, 'app_settings',
+                'stammbaum_person');
+            // Die mittlere Stufe ist genau die Groesse, die es vorher
+            // als einzige gab.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.zeitleisteKachelstufe, 'app_settings',
+                'zeitleiste_kachelstufe');
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.listenspalten, 'app_settings', 'listenspalten');
           }
-          if (from < 61) {
-            // Schaerfe des Gesichtsausschnitts (siehe die Spalte). Leer
-            // fuer alles Bisherige; der Nachlauf holt es aus den bereits
-            // gespeicherten Ausschnitten, ohne ein Foto neu zu dekodieren.
-            await _addColumnIfMissing(m, faces, faces.schaerfe, 'faces', 'schaerfe');
+          if (from < 69) {
+            // Vorgabe = Quadrate, also genau das bisherige Bild. Wer
+            // nichts umstellt, merkt von der zweiten Form nichts.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.zeitleisteFormNr, 'app_settings',
+                'zeitleiste_form_nr');
           }
-          if (from < 60) {
-            // Wo der erkannte Text im Bild steht (siehe die Spalte). Leer
-            // fuer alles Bisherige; die Texterkennung holt es nach.
-            await _addColumnIfMissing(m, assets, assets.ocrBoxen, 'assets', 'ocr_boxen');
+          if (from < 70) {
+            // Vorgabe an. Die Spalte ist neu, also hat noch niemand eine
+            // Wahl getroffen - und wer die Bewegung nicht will, findet
+            // den Schalter in den Einstellungen.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.schwebeVorschau, 'app_settings',
+                'schwebe_vorschau');
           }
-          if (from < 59) {
-            // Wie viele schwere Aufgaben nebeneinander laufen dürfen
-            // (siehe die Spalte). Vorgabe eins = das bisherige Verhalten.
-            await _addColumnIfMissing(m, appSettings, appSettings.maxGleichzeitig,
-                'app_settings', 'max_gleichzeitig');
-          }
-          if (from < 58) {
-            // Der eigene CARTO-Schlüssel (siehe die Spalte). Null heisst
-            // „keiner" und damit invertierte OSM-Kacheln – die dunkle
-            // Karte funktioniert also ohne jedes Zutun weiter, nur ohne
-            // das Wasserzeichen.
-            await _addColumnIfMissing(m, appSettings, appSettings.cartoSchluessel,
-                'app_settings', 'carto_schluessel');
-          }
-          if (from < 57) {
-            // Von der Gesichtssuche ausgenommen (siehe die Spalte).
-            await _addColumnIfMissing(m, assets, assets.faceScanExcluded,
-                'assets', 'face_scan_excluded');
-          }
-          if (from < 56) {
-            // Woher ein Schlagwort stammt (siehe [Tagquelle]).
-            await _addColumnIfMissing(
-                m, assetTags, assetTags.quelle, 'asset_tags', 'quelle');
-            await _bestimmeTagquelleNachtraeglich();
-          }
-          if (from < 55) {
-            // Aufgezeichnete Spuren. Zwei neue, anfangs leere Tabellen –
-            // ohne einen einzigen Eintrag verhält sich alles wie zuvor.
-            await m.createTable(spuren);
-            await m.createTable(spurpunkte);
-            await _createIndicesV55(m);
-          }
-          if (from < 54) {
-            // Aktivitäten. Drei neue, anfangs leere Tabellen – ohne
-            // einen einzigen Eintrag verhält sich alles wie zuvor.
-            await m.createTable(aktivitaeten);
-            await m.createTable(aktivitaetAufnahmen);
-            await m.createTable(verworfeneAktivitaeten);
-            await _createIndicesV54(m);
-          }
-          if (from < 53) {
-            // Die Startzeit der KI-Restaurierung. Ohne sie liess sich
-            // keine ehrliche Restzeit rechnen; laufende Auftraege gibt
-            // es beim Start ohnehin keine (siehe
-            // resetStuckRunningRestoreJobs), die Spalte darf also leer
-            // beginnen.
-            await _addColumnIfMissing(m, restoreJobs, restoreJobs.startedAt,
-                'restore_jobs', 'started_at');
-          }
-          if (from < 52) {
-            // Selbst gesetzte Ortsmarken. Neue, anfangs leere Tabelle –
-            // solange niemand einen Haken setzt, zählt die Weltkarte
-            // genau wie vorher nur die Fotos.
-            await m.createTable(ortsmarken);
-          }
-          if (from < 51) {
-            // Reisen. Drei neue, anfangs leere Tabellen – ohne einen
-            // einzigen Eintrag verhält sich alles wie zuvor.
-            await m.createTable(reisen);
-            await m.createTable(reiseAufnahmen);
-            await m.createTable(verworfeneReisen);
-            await _createIndicesV51(m);
-          }
-          if (from < 50) {
-            // Lebensereignisse bekommen eine Koordinate zum Ortsnamen.
-            // Beide Spalten leer: Das Nachtragen läuft nicht hier,
-            // sondern beim ersten Start mit geladenem GeoNames-Auszug
-            // (siehe LibraryState.trageEreignisorteNach) – ohne den
-            // Datensatz gäbe es nichts einzutragen, und eine Migration,
-            // die auf einen optionalen Download wartet, wäre eine
-            // Migration, die manchmal nicht fertig wird.
-            await _addColumnIfMissing(m, lebensereignisse,
-                lebensereignisse.ortBreite, 'lebensereignisse', 'ort_breite');
-            await _addColumnIfMissing(m, lebensereignisse,
-                lebensereignisse.ortLaenge, 'lebensereignisse', 'ort_laenge');
-          }
-          if (from < 49) {
-            // Die zuletzt gewählte Kartenansicht überdauert jetzt das
-            // Schliessen des Bildschirms.
-            await _addColumnIfMissing(m, appSettings, appSettings.kartenansicht,
-                'app_settings', 'kartenansicht');
-          }
-          if (from < 48) {
-            // Dateiformat als eigene, indexierte Spalte – Suche nach
-            // „nur DNG" ohne Tabellen-Scan.
-            await _addColumnIfMissing(
-                m, assets, assets.dateiformat, 'assets', 'dateiformat');
-            await _trageDateiformateNach();
-            await _createIndicesV48(m);
+          if (from < 71) {
+            // Vorgabe Mittag - genau die Beleuchtung, die es vorher als
+            // einzige gab.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.gelaendeStimmungNr, 'app_settings',
+                'gelaende_stimmung_nr');
           }
         },
       );
@@ -3453,6 +3533,32 @@ class AppDatabase extends _$AppDatabase {
         karteHochaufloesend: Value(an),
       ));
 
+  /// Die gemerkte Tageszeit der Geländeansicht.
+  Future<Tageszeit> gelaendeStimmungWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return tageszeit(row?.gelaendeStimmungNr ?? lichtstimmungVorgabe.index);
+  }
+
+  Future<void> setzeGelaendeStimmung(Tageszeit zeit) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        gelaendeStimmungNr: Value(zeit.index),
+      ));
+
+  /// Ob Videos und Live Photos beim Schweben von selbst anlaufen.
+  Future<bool> schwebeVorschauWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return row?.schwebeVorschau ?? true;
+  }
+
+  Future<void> setzeSchwebeVorschau(bool an) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        schwebeVorschau: Value(an),
+      ));
+
   /// Die gemerkte Spaltenwahl der Listenansicht (siehe die Spalte).
   Future<Listenspaltenwahl> listenspaltenWahl() async {
     final row = await (select(appSettings)..where((t) => t.id.equals(0)))
@@ -3477,6 +3583,19 @@ class AppDatabase extends _$AppDatabase {
       into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
         id: const Value(0),
         zeitleisteKachelstufe: Value(stufe),
+      ));
+
+  /// Quadrate oder buendige Reihen – siehe [Zeitleistenform].
+  Future<Zeitleistenform> zeitleisteFormWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return zeitleisteForm(row?.zeitleisteFormNr ?? zeitleisteFormVorgabe.index);
+  }
+
+  Future<void> setzeZeitleisteForm(Zeitleistenform form) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        zeitleisteFormNr: Value(form.index),
       ));
 
   /// Die gemerkte Stammbaum-Ansicht und die Person darin (siehe die

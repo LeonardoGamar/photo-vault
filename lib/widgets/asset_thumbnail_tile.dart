@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,13 +10,24 @@ import '../l10n/app_localizations.dart';
 import '../db/database.dart';
 import '../services/asset_format.dart';
 import '../services/bilddekodierung.dart';
+import '../services/schwebevorschau.dart';
 import '../services/storage_paths.dart';
+import 'schwebevorschau.dart';
 import '../theme/app_spacing.dart';
 
 /// Kantenlaenge eines Gesichts-Ausschnitts in [LocalImageTile].
 const double _ausschnittKante = 160;
 
-class AssetThumbnailTile extends StatelessWidget {
+/// Eine Kachel im Raster.
+///
+/// **Warum zustandsbehaftet.** Traegt die Aufnahme ein Video – ein
+/// eigenstaendiges oder die zweite Haelfte eines Live Photos –, laeuft es
+/// an, wenn die Maus einen Augenblick darauf stehen bleibt. Dafuer
+/// braucht die Kachel eine Uhr, die sie beim Verlassen wieder anhaelt
+/// (siehe [schwebeVerzoegerung]). Alle anderen Kacheln verhalten sich
+/// wie zuvor: ohne Bereich darueber, ohne Video im Datensatz gibt es
+/// weder [MouseRegion] noch Uhr.
+class AssetThumbnailTile extends StatefulWidget {
   final AssetData asset;
   final StoragePaths paths;
   final VoidCallback onTap;
@@ -37,6 +49,56 @@ class AssetThumbnailTile extends StatelessWidget {
     this.selected = false,
   });
 
+  @override
+  State<AssetThumbnailTile> createState() => _AssetThumbnailTileState();
+}
+
+class _AssetThumbnailTileState extends State<AssetThumbnailTile> {
+  /// Laeuft, sobald der Zeiger die Kachel betritt; loest die Wiedergabe
+  /// aus, wenn er lange genug bleibt.
+  Timer? _uhr;
+  Schwebevorschau? _vorschau;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _vorschau = Schwebevorschau.maybeOf(context);
+  }
+
+  @override
+  void didUpdateWidget(covariant AssetThumbnailTile alt) {
+    super.didUpdateWidget(alt);
+    // Beim Scrollen wird dieselbe Kachel mit einer anderen Aufnahme
+    // weiterverwendet. Was fuer die alte lief, gilt fuer die neue nicht.
+    if (alt.asset.id != widget.asset.id) {
+      _uhr?.cancel();
+      _vorschau?.beende(alt.asset.id);
+    }
+  }
+
+  @override
+  void dispose() {
+    _uhr?.cancel();
+    // Aus dem Bild gescrollt heisst: nicht mehr angesehen. Sieht der
+    // Bereich inzwischen eine andere Kachel, tut das hier nichts.
+    _vorschau?.beende(widget.asset.id);
+    super.dispose();
+  }
+
+  void _zeigerEin() {
+    _uhr?.cancel();
+    _uhr = Timer(schwebeVerzoegerung, () {
+      if (!mounted) return;
+      unawaited(_vorschau?.starte(widget.asset) ?? Future.value());
+    });
+  }
+
+  void _zeigerAus() {
+    _uhr?.cancel();
+    _uhr = null;
+    _vorschau?.beende(widget.asset.id);
+  }
+
   /// Sprechendes Label für VoiceOver, da die Kachel sonst nur als
   /// unbeschriftetes Bild-Icon vorgelesen würde – Favorit-/Bewertungsstatus
   /// fließen mit ein, damit sie auch ohne den Info-Bereich hörbar sind.
@@ -45,31 +107,39 @@ class AssetThumbnailTile extends StatelessWidget {
     final sprache = Localizations.localeOf(context).toString();
     final parts = <String>[
       t.kachelBeschreibung(
-        asset.type == 'VIDEO' ? t.allgVideo : t.allgFoto,
-        asset.originalFileName,
-        DateFormat.yMMMMd(sprache).format(asset.fileCreatedAt),
+        widget.asset.type == 'VIDEO' ? t.allgVideo : t.allgFoto,
+        widget.asset.originalFileName,
+        DateFormat.yMMMMd(sprache).format(widget.asset.fileCreatedAt),
       ),
     ];
-    if (asset.type == 'VIDEO' && asset.durationSeconds != null) {
-      parts.add(_formatDuration(asset.durationSeconds!));
+    if (widget.asset.type == 'VIDEO' && widget.asset.durationSeconds != null) {
+      parts.add(_formatDuration(widget.asset.durationSeconds!));
     }
-    if (asset.isFavorite) parts.add(t.kachelFavorisiert);
-    if (asset.rating > 0) parts.add(t.sterneBewertungAnzeige(asset.rating));
+    if (widget.asset.isFavorite) parts.add(t.kachelFavorisiert);
+    if (widget.asset.rating > 0) parts.add(t.sterneBewertungAnzeige(widget.asset.rating));
     return parts.join(', ');
   }
 
   @override
   Widget build(BuildContext context) {
-    final thumbPath = asset.thumbnailRelativePath;
+    final thumbPath = widget.asset.thumbnailRelativePath;
+    // Nur Kacheln, hinter denen ueberhaupt ein Video steckt, bekommen eine
+    // Maus-Region und einen Zuhoerer. In einer Bibliothek aus 8098
+    // Aufnahmen sind das 440 - alle anderen bleiben so leichtgewichtig
+    // wie zuvor.
+    final schwebt = _vorschau != null && schwebeVideoId(widget.asset) != null;
     return Semantics(
       label: _semanticLabel(context),
       button: true,
-      selected: selected,
+      selected: widget.selected,
       child: ExcludeSemantics(
+        child: MouseRegion(
+        onEnter: schwebt ? (_) => _zeigerEin() : null,
+        onExit: schwebt ? (_) => _zeigerAus() : null,
         child: GestureDetector(
-          onTap: onTap,
-          onDoubleTap: onDoubleTap,
-          onLongPress: onLongPress,
+          onTap: widget.onTap,
+          onDoubleTap: widget.onDoubleTap,
+          onLongPress: widget.onLongPress,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -90,7 +160,7 @@ class AssetThumbnailTile extends StatelessWidget {
               builder: (context, constraints) {
                 final dpr = MediaQuery.of(context).devicePixelRatio;
                 return Image.file(
-                  paths.absolute(thumbPath),
+                  widget.paths.absolute(thumbPath),
                   fit: BoxFit.cover,
                   cacheWidth: constraints.maxWidth.isFinite
                       ? dekodierbreite(constraints.maxWidth, dpr)
@@ -104,16 +174,24 @@ class AssetThumbnailTile extends StatelessWidget {
             )
           else
             _placeholder(),
-          if (asset.type == 'VIDEO')
+          // Ueber dem Standbild, unter den Abzeichen: Waehrend das Video
+          // laeuft, sollen Favoritenherz und Ortsnadel nicht verschwinden.
+          if (schwebt)
+            ListenableBuilder(
+              listenable: _vorschau!,
+              builder: (context, _) =>
+                  _vorschau!.bildFuer(widget.asset.id) ?? const SizedBox(),
+            ),
+          if (widget.asset.type == 'VIDEO')
             Positioned(
               right: 4,
               bottom: 4,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (asset.durationSeconds != null) ...[
+                  if (widget.asset.durationSeconds != null) ...[
                     Text(
-                      _formatDuration(asset.durationSeconds!),
+                      _formatDuration(widget.asset.durationSeconds!),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -127,19 +205,19 @@ class AssetThumbnailTile extends StatelessWidget {
                 ],
               ),
             ),
-          if (asset.type == 'IMAGE' && asset.linkedAssetId != null)
+          if (widget.asset.type == 'IMAGE' && widget.asset.linkedAssetId != null)
             const Positioned(
               right: 4,
               bottom: 4,
               child: Icon(Icons.motion_photos_on, color: Colors.white, size: 18),
             ),
-          if (asset.isFavorite)
+          if (widget.asset.isFavorite)
             const Positioned(
               left: 4,
               top: 4,
               child: Icon(Icons.favorite, color: Colors.redAccent, size: 16),
             ),
-          if (assetHasLocation(asset))
+          if (assetHasLocation(widget.asset))
             const Positioned(
               left: 4,
               bottom: 4,
@@ -153,7 +231,7 @@ class AssetThumbnailTile extends StatelessWidget {
           // Stapel-Abzeichen hat Vorrang vor dem Format-Kürzel in derselben
           // Ecke – bei einem Serien-Titelbild ist "wie viele Fotos stecken
           // dahinter" wichtiger für die Kachel-Ansicht als das Dateiformat.
-          if (asset.isStackCover && asset.stackSize != null)
+          if (widget.asset.isStackCover && widget.asset.stackSize != null)
             Positioned(
               right: 4,
               top: 4,
@@ -166,14 +244,14 @@ class AssetThumbnailTile extends StatelessWidget {
                     const Icon(Icons.filter_none, color: Colors.white, size: 11),
                     const SizedBox(width: 3),
                     Text(
-                      '${asset.stackSize}',
+                      '${widget.asset.stackSize}',
                       style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
               ),
             )
-          else if (assetFormatLabel(asset).isNotEmpty)
+          else if (assetFormatLabel(widget.asset).isNotEmpty)
             Positioned(
               right: 4,
               top: 4,
@@ -181,18 +259,19 @@ class AssetThumbnailTile extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 1),
                 decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(3)),
                 child: Text(
-                  assetFormatLabel(asset),
+                  assetFormatLabel(widget.asset),
                   style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
-          if (selected)
+          if (widget.selected)
             Container(
               color: Colors.black45,
               child: const Icon(Icons.check_circle, color: Colors.white),
             ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -213,7 +292,7 @@ class AssetThumbnailTile extends StatelessWidget {
   Widget _placeholder() => Container(
         color: Colors.grey.shade900,
         child: Icon(
-          asset.type == 'VIDEO' ? Icons.videocam_outlined : Icons.image_outlined,
+          widget.asset.type == 'VIDEO' ? Icons.videocam_outlined : Icons.image_outlined,
           color: Colors.white24,
         ),
       );

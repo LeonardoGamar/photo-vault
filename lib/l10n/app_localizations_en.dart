@@ -4514,6 +4514,13 @@ class AppTexteEn extends AppTexte {
   String get zeitleisteKleiner => 'Smaller tiles – more months at once';
 
   @override
+  String get zeitleisteFormReihen =>
+      'Justified rows – every photo in its own shape';
+
+  @override
+  String get zeitleisteFormQuadrate => 'Square grid';
+
+  @override
   String get listeSpalten => 'Columns';
 
   @override
@@ -5423,6 +5430,28 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get kalenderGanzesJahr => 'Whole year';
+
+  @override
+  String get einstSchwebeVorschauTitel => 'Play videos on hover';
+
+  @override
+  String get einstSchwebeVorschauText =>
+      'When the mouse rests on a video or a live photo for a moment, it starts playing right in the tile - muted and looping, until the pointer moves on. Only ever one at a time. Locked items stay still: playing them would mean decrypting them in passing. Switched off, the tiles remain stills.';
+
+  @override
+  String get gelaendeStimmung => 'Time of day';
+
+  @override
+  String get stimmungMorgen => 'Morning';
+
+  @override
+  String get stimmungMittag => 'Midday';
+
+  @override
+  String get stimmungAbend => 'Evening';
+
+  @override
+  String get stimmungBlaueStunde => 'Blue hour';
 
   @override
   String get einstKarteScharfTitel => 'Map at double resolution';

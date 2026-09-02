@@ -4550,6 +4550,13 @@ class AppTexteDe extends AppTexte {
   String get zeitleisteKleiner => 'Kleinere Kacheln – mehr Monate auf einmal';
 
   @override
+  String get zeitleisteFormReihen =>
+      'Bündige Reihen – jedes Foto in seinem Format';
+
+  @override
+  String get zeitleisteFormQuadrate => 'Quadratisches Raster';
+
+  @override
   String get listeSpalten => 'Spalten';
 
   @override
@@ -5456,6 +5463,28 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get kalenderGanzesJahr => 'Ganzes Jahr';
+
+  @override
+  String get einstSchwebeVorschauTitel => 'Videos beim Schweben abspielen';
+
+  @override
+  String get einstSchwebeVorschauText =>
+      'Bleibt die Maus einen Augenblick über einem Video oder einem Live Photo stehen, läuft es in der Kachel an – ohne Ton und in Dauerschleife, bis der Zeiger weiterwandert. Es läuft immer nur eines. Gesperrte Aufnahmen bleiben still: Sie abzuspielen hiesse, sie nebenbei zu entschlüsseln. Ausgeschaltet bleiben die Kacheln Standbilder.';
+
+  @override
+  String get gelaendeStimmung => 'Tageszeit';
+
+  @override
+  String get stimmungMorgen => 'Morgen';
+
+  @override
+  String get stimmungMittag => 'Mittag';
+
+  @override
+  String get stimmungAbend => 'Abend';
+
+  @override
+  String get stimmungBlaueStunde => 'Blaue Stunde';
 
   @override
   String get einstKarteScharfTitel => 'Karte in doppelter Auflösung';

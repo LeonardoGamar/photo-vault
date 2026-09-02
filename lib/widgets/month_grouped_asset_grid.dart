@@ -72,6 +72,14 @@ int rasterSpaltenzahl(double gesamtbreite,
         mitZeitstrahl ? gesamtbreite - _scrubberWidth : gesamtbreite,
         kachelbreite: kachelbreite);
 
+/// Die Breite, die dem Foto-Raster wirklich bleibt.
+///
+/// Dieselbe Rechnung wie im Raster selbst – für alle, die sie von aussen
+/// brauchen. Ohne sie rechnete die Tastaturbedienung mit der vollen
+/// Fensterbreite und käme auf andere Reihen als die, die zu sehen sind.
+double rasterGridbreite(double gesamtbreite, {required bool mitZeitstrahl}) =>
+    mitZeitstrahl ? gesamtbreite - _scrubberWidth : gesamtbreite;
+
 /// Rendert eine Liste von Assets gruppiert nach Monat (Überschrift + darunter
 /// ein Foto-Grid) – gemeinsame Darstellung für die Timeline und die
 /// Jahres-Detailansicht (Kalender). Gruppierung passiert client-seitig auf
@@ -135,7 +143,14 @@ class MonthGroupedAssetGrid extends StatefulWidget {
   /// Wie breit eine Kachel höchstens wird – siehe
   /// [zeitleisteKachelstufen]. Kleiner heisst mehr Fotos und damit mehr
   /// Monate auf einmal im Bild.
+  ///
+  /// Bei [Zeitleistenform.reihen] ist dieselbe Zahl die **Zielhöhe** der
+  /// Reihen: Der vorhandene Zoom soll in beiden Formen wirken, statt dass
+  /// die zweite einen eigenen Regler bekommt.
   final double kachelbreite;
+
+  /// Quadrate oder bündige Reihen.
+  final Zeitleistenform form;
 
   const MonthGroupedAssetGrid({
     super.key,
@@ -151,6 +166,7 @@ class MonthGroupedAssetGrid extends StatefulWidget {
     this.nachObenSignal,
     this.nachTag = false,
     this.kachelbreite = timelineGridMaxCrossAxisExtent,
+    this.form = zeitleisteFormVorgabe,
   });
 
   @override
@@ -240,7 +256,7 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
       return;
     }
     final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId,
-        kachelbreite: widget.kachelbreite);
+        kachelbreite: widget.kachelbreite, form: widget.form);
     if (offset == null) {
       melde.warnung(AppTexte.of(context).rasterFotoNichtGefunden);
       return;
@@ -267,11 +283,15 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
       return;
     }
     final offset = timelineOffsetForAsset(orderedKeys, groups, gridWidth, assetId,
-        kachelbreite: widget.kachelbreite);
+        kachelbreite: widget.kachelbreite, form: widget.form);
     if (offset == null) return;
     final position = _scrollController.position;
-    final zeilenhoehe =
-        timelineRowHeightForWidth(gridWidth, kachelbreite: widget.kachelbreite);
+    // Bei Reihen ist die Zeilenhöhe nicht fest; die eingestellte Stufe ist
+    // ihre Obergrenze und damit das richtige Mass für den Sicherheitsrand.
+    final zeilenhoehe = widget.form == Zeitleistenform.reihen
+        ? widget.kachelbreite + timelineGridSpacing
+        : timelineRowHeightForWidth(gridWidth,
+            kachelbreite: widget.kachelbreite);
     final oben = position.pixels;
     final unten = oben + position.viewportDimension;
     // Etwas Luft, damit die Kachel nicht genau abgeschnitten am Rand klebt.
@@ -288,6 +308,72 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
         curve: Curves.easeOut,
       );
     }
+  }
+
+  /// Eine Kachel samt der beiden Hüllen, die es in beiden Rasterformen
+  /// gibt: das kurze Aufblitzen nach einem Sprung und der Rahmen um die
+  /// Kachel, die gerade mit den Pfeiltasten angesteuert ist.
+  ///
+  /// Herausgezogen, weil beide Formen sie brauchen – zweimal geschrieben
+  /// wäre sie die Stelle, an der eine Form den Rahmen bekommt und die
+  /// andere nicht.
+  Widget _kachel(AssetData asset) {
+    final tile = AssetThumbnailTile(
+      asset: asset,
+      paths: widget.paths,
+      selected: widget.selectedIds?.contains(asset.id) ?? false,
+      onTap: () => widget.onTap(asset),
+      onLongPress:
+          widget.onLongPress == null ? null : () => widget.onLongPress!(asset),
+    );
+    final Widget kachel =
+        asset.id == _flashingAssetId ? _FlashHighlight(child: tile) : tile;
+    return asset.id == widget.aktiveKachelId
+        ? AktiveKachelRahmen(child: kachel)
+        : kachel;
+  }
+
+  /// Eine Monatsgruppe als bündige Reihen.
+  ///
+  /// **`SliverList` und nicht ein `Stack` in einem `SliverToBoxAdapter`.**
+  /// Die grösste Monatsgruppe der echten Bibliothek hat 2690 Aufnahmen; ein
+  /// Stack baute sie alle auf einmal auf. So bleibt jede Reihe ein eigenes
+  /// Kind, das erst entsteht, wenn es gebraucht wird – und weil die Höhen
+  /// aus der Rechnung kommen, muss die Liste sie nicht schätzen.
+  Widget _reihenSliver(List<AssetData> gruppe, double gridWidth) {
+    final reihen =
+        zeitleisteReihen(gruppe, gridWidth, kachelbreite: widget.kachelbreite);
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final reihe = reihen[index];
+            return Padding(
+              // Zwischen den Reihen derselbe Abstand wie zwischen den
+              // Bildern einer Reihe; hinter der letzten keiner, sonst
+              // klaffte unter jedem Monat eine Lücke zu viel.
+              padding: EdgeInsets.only(
+                  bottom:
+                      index == reihen.length - 1 ? 0 : timelineGridSpacing),
+              child: Row(
+                children: [
+                  for (var i = 0; i < reihe.plaetze.length; i++) ...[
+                    if (i > 0) const SizedBox(width: timelineGridSpacing),
+                    SizedBox(
+                      width: reihe.plaetze[i].breite,
+                      height: reihe.hoehe,
+                      child: _kachel(gruppe[reihe.plaetze[i].index]),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+          childCount: reihen.length,
+        ),
+      ),
+    );
   }
 
   @override
@@ -348,39 +434,29 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                           onTap: widget.onHeaderTap,
                         ),
                       ),
-                      SliverPadding(
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                        sliver: SliverGrid(
-                          // Dieselbe Zahl wie in der Hoehenschaetzung
-                          // daneben: Standen hier 160 fest und dort die
-                          // eingestellte Breite, spraenge der Zeitstrahl
-                          // an eine andere Stelle als das Raster.
-                          gridDelegate:
-                              SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: widget.kachelbreite,
-                            mainAxisSpacing: timelineGridSpacing,
-                            crossAxisSpacing: timelineGridSpacing,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final asset = groups[key]![index];
-                              final tile = AssetThumbnailTile(
-                                asset: asset,
-                                paths: widget.paths,
-                                selected: widget.selectedIds?.contains(asset.id) ?? false,
-                                onTap: () => widget.onTap(asset),
-                                onLongPress: widget.onLongPress == null ? null : () => widget.onLongPress!(asset),
-                              );
-                              final Widget kachel =
-                                  asset.id == _flashingAssetId ? _FlashHighlight(child: tile) : tile;
-                              return asset.id == widget.aktiveKachelId
-                                  ? AktiveKachelRahmen(child: kachel)
-                                  : kachel;
-                            },
-                            childCount: groups[key]!.length,
+                      if (widget.form == Zeitleistenform.reihen)
+                        _reihenSliver(groups[key]!, gridWidth)
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md),
+                          sliver: SliverGrid(
+                            // Dieselbe Zahl wie in der Hoehenschaetzung
+                            // daneben: Standen hier 160 fest und dort die
+                            // eingestellte Breite, spraenge der Zeitstrahl
+                            // an eine andere Stelle als das Raster.
+                            gridDelegate:
+                                SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: widget.kachelbreite,
+                              mainAxisSpacing: timelineGridSpacing,
+                              crossAxisSpacing: timelineGridSpacing,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _kachel(groups[key]![index]),
+                              childCount: groups[key]!.length,
+                            ),
                           ),
                         ),
-                      ),
                     ],
                     const SliverToBoxAdapter(child: SizedBox(height: 40)),
                   ],
@@ -399,6 +475,7 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                   controller: _scrollController,
                   gridWidth: gridWidth,
                   kachelbreite: widget.kachelbreite,
+                  form: widget.form,
                   tageweise: widget.nachTag,
                 ),
               ),

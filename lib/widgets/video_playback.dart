@@ -119,6 +119,13 @@ class VideoPlaybackController {
   Future<void> seek(Duration to) => _disposed ? Future.value() : _player.seek(to);
   Future<void> seekToStart() => seek(Duration.zero);
 
+  /// Lautstärke in Prozent (0 = still, 100 = wie aufgenommen).
+  ///
+  /// Für die Schwebe-Vorschau: Eine Kachelwand, die beim Überstreichen
+  /// zu tönen anfängt, wäre niemandem eine Hilfe.
+  Future<void> setVolume(double prozent) =>
+      _disposed ? Future.value() : _player.setVolume(prozent);
+
   Future<void> setLooping(bool loop) => _disposed
       ? Future.value()
       : _player.setPlaylistMode(loop ? PlaylistMode.loop : PlaylistMode.none);

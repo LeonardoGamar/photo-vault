@@ -1170,6 +1170,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
         ),
+        // Die Schwebe-Vorschau steht beim Erscheinungsbild und nicht bei
+        // den Videos: Sie aendert nicht, wie ein Video abgespielt wird,
+        // sondern wie sich die Kachelwand anfuehlt.
+        Card(
+          child: StreamBuilder<AppSettingsData?>(
+            stream: widget.library.db.watchAppSettings(),
+            builder: (context, snapshot) {
+              final t = AppTexte.of(context);
+              return SwitchListTile(
+                secondary: const Icon(Icons.slow_motion_video_outlined),
+                title: Text(t.einstSchwebeVorschauTitel),
+                subtitle: Text(t.einstSchwebeVorschauText),
+                value: snapshot.data?.schwebeVorschau ?? true,
+                onChanged: (an) => widget.library.db.setzeSchwebeVorschau(an),
+              );
+            },
+          ),
+        ),
       ];
 
   List<Widget> _gruppeSprache() => [

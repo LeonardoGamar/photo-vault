@@ -17,6 +17,7 @@ import 'state/library_state.dart';
 import 'theme/app_theme.dart';
 import 'theme/zierbaum_farben.dart' show zierschriftenLizenzenAnmelden;
 import 'services/eigenkarte.dart';
+import 'services/schwebevorschau.dart';
 import 'widgets/mini_location_map.dart'
     show
         kartenSpeicherEinrichten,
@@ -25,6 +26,7 @@ import 'widgets/mini_location_map.dart'
         setzeKarteHochaufloesend;
 import 'widgets/beenden_dialog.dart';
 import 'widgets/meldungsfenster.dart';
+import 'widgets/schwebevorschau.dart';
 import 'widgets/stromhalter.dart';
 
 Future<void> main() async {
@@ -119,6 +121,11 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
               // anders sehen und nicht erst nach einem Neustart.
               setzeKarteHochaufloesend(
                   settingsSnapshot.data?.karteHochaufloesend ?? true);
+              // Und die Schwebe-Vorschau, aus demselben Grund: Wer sie in
+              // den Einstellungen abschaltet, soll die Kachelwand danach
+              // sofort still haben.
+              setzeSchwebevorschau(
+                  settingsSnapshot.data?.schwebeVorschau ?? true);
               // Dieselbe Stelle, derselbe Grund: Die eigene Kartenquelle
               // steht in derselben Zeile der Einstellungen.
               setzeEigeneKarte(Eigenkarte.aus(
@@ -159,7 +166,15 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
                     : !library.isReady
                         ? const Scaffold(
                             body: Center(child: CircularProgressIndicator()))
-                        : HomeShell(library: library),
+                        // Der Bereich fuer die Schwebe-Vorschau liegt
+                        // ueber allem, was Kacheln zeigt - und es gibt
+                        // genau einen davon, weil es genau einen
+                        // Abspieler geben soll.
+                        : SchwebevorschauBereich(
+                            db: library.db,
+                            paths: library.paths,
+                            child: HomeShell(library: library),
+                          ),
               );
             },
           );

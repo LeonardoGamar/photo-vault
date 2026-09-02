@@ -33,6 +33,15 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
   /// Bildschirms. Bestimmt, wie weit „Pfeil nach unten" springt.
   int get rasterSpalten;
 
+  /// Je Gruppe die Länge jeder Reihe – nur für Raster **ohne** feste
+  /// Spaltenzahl.
+  ///
+  /// `null` heisst: Es gibt eine, [rasterSpalten] genügt. Die Zeitleiste
+  /// liefert hier ihre bündigen Reihen; ohne das spränge „nach unten"
+  /// irgendwohin, weil dort mal drei und mal dreizehn Fotos nebeneinander
+  /// stehen.
+  List<List<int>>? get rasterReihenlaengen => null;
+
   /// Öffnet die Vollbildansicht bei diesem Foto (einfacher Klick ohne
   /// bestehende Auswahl, oder Eingabetaste).
   void rasterOeffne(AssetData asset);
@@ -241,6 +250,7 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
       von: start,
       richtung: richtung,
       spalten: rasterSpalten,
+      reihenlaengen: rasterReihenlaengen,
     );
     if (ziel == null) return;
     setState(() {

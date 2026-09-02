@@ -13,6 +13,8 @@ library;
 import 'dart:math' as math;
 import 'dart:ui' show Offset;
 
+import 'lichtstimmung.dart';
+
 /// Wie stark die Höhe gegenüber der Fläche übertrieben wird.
 ///
 /// **Dreifach, und das ist eine Entscheidung, keine Messung.** Massstäblich
@@ -145,29 +147,32 @@ const double meterJeGradBreite = 110540;
 /// Die Schattierung einer Dreiecksfläche: 0 (im Schatten) bis 1 (voll
 /// beleuchtet).
 ///
-/// Ein einfaches Lambert-Modell mit fester Sonne aus Nordwesten, wie es
-/// auf jeder Reliefkarte üblich ist. **Aus Nordwesten und nicht aus
-/// Südosten**, obwohl die Sonne dort nie steht: Das Auge liest eine von
-/// links oben beleuchtete Fläche als erhaben und eine von rechts unten
-/// beleuchtete als vertieft. Wer physikalisch richtig beleuchtet, dreht
-/// jedes Tal zum Berg.
-double schattierung(Raumpunkt normale) {
-  // Sonne aus Nordwesten, 45° hoch.
-  const lx = -0.5;
-  const ly = 0.5;
-  const lz = 0.707;
+/// Ein einfaches Lambert-Modell mit der Sonne aus [stimmung]. **Aus
+/// Nordwesten und nicht aus Südosten**, obwohl die Sonne dort nie steht:
+/// Das Auge liest eine von links oben beleuchtete Fläche als erhaben und
+/// eine von rechts unten beleuchtete als vertieft. Wer physikalisch
+/// richtig beleuchtet, dreht jedes Tal zum Berg. Deshalb bleibt die
+/// Himmelsrichtung über alle Tageszeiten gleich, und nur die Höhe der
+/// Sonne wandert (siehe [Lichtstimmung]).
+///
+/// Ohne Angabe gilt [stimmungMittag] – genau die Zahlen, die hier
+/// vorher fest standen.
+double schattierung(Raumpunkt normale,
+    [Lichtstimmung stimmung = stimmungMittag]) {
+  final l = stimmung.sonne;
   final laenge = math.sqrt(normale.x * normale.x +
       normale.y * normale.y +
       normale.z * normale.z);
   if (laenge == 0) return 1;
   final punktprodukt =
-      (normale.x * lx + normale.y * ly + normale.z * lz) / laenge;
+      (normale.x * l.x + normale.y * l.y + normale.z * l.z) / laenge;
   // **Viel Grundhelligkeit, wenig Richtungslicht.** Liegt eine Karte
   // darauf, multipliziert die Schattierung sie: Bei 0,45 Grundhelligkeit
   // war die halbe Karte am Bildschirm nicht mehr zu lesen. Und nicht bis
   // auf null abdunkeln – eine schwarze Nordflanke sieht aus wie ein Loch
-  // im Gitter.
-  return (0.72 + 0.28 * punktprodukt).clamp(0.5, 1.0);
+  // im Gitter. Wie weit beides geht, entscheidet die Stimmung.
+  return (stimmung.grundlicht + stimmung.richtungslicht * punktprodukt)
+      .clamp(stimmung.untergrenze, 1.0);
 }
 
 /// Die Flächennormale eines Dreiecks.

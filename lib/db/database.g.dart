@@ -11085,6 +11085,24 @@ class $AppSettingsTable extends AppSettings
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("karte_hochaufloesend" IN (0, 1))'),
       defaultValue: const Constant(true));
+  static const VerificationMeta _gelaendeStimmungNrMeta =
+      const VerificationMeta('gelaendeStimmungNr');
+  @override
+  late final GeneratedColumn<int> gelaendeStimmungNr = GeneratedColumn<int>(
+      'gelaende_stimmung_nr', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: Constant(lichtstimmungVorgabe.index));
+  static const VerificationMeta _schwebeVorschauMeta =
+      const VerificationMeta('schwebeVorschau');
+  @override
+  late final GeneratedColumn<bool> schwebeVorschau = GeneratedColumn<bool>(
+      'schwebe_vorschau', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("schwebe_vorschau" IN (0, 1))'),
+      defaultValue: const Constant(true));
   static const VerificationMeta _stammbaumAnsichtMeta =
       const VerificationMeta('stammbaumAnsicht');
   @override
@@ -11105,6 +11123,14 @@ class $AppSettingsTable extends AppSettings
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(zeitleisteKachelstufeVorgabe));
+  static const VerificationMeta _zeitleisteFormNrMeta =
+      const VerificationMeta('zeitleisteFormNr');
+  @override
+  late final GeneratedColumn<int> zeitleisteFormNr = GeneratedColumn<int>(
+      'zeitleiste_form_nr', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: Constant(zeitleisteFormVorgabe.index));
   static const VerificationMeta _listenspaltenMeta =
       const VerificationMeta('listenspalten');
   @override
@@ -11156,9 +11182,12 @@ class $AppSettingsTable extends AppSettings
         eigeneKarteStufe,
         eigeneKarteZugestimmt,
         karteHochaufloesend,
+        gelaendeStimmungNr,
+        schwebeVorschau,
         stammbaumAnsicht,
         stammbaumPerson,
         zeitleisteKachelstufe,
+        zeitleisteFormNr,
         listenspalten,
         maxGleichzeitig,
         translateCaptions,
@@ -11258,6 +11287,18 @@ class $AppSettingsTable extends AppSettings
           karteHochaufloesend.isAcceptableOrUnknown(
               data['karte_hochaufloesend']!, _karteHochaufloesendMeta));
     }
+    if (data.containsKey('gelaende_stimmung_nr')) {
+      context.handle(
+          _gelaendeStimmungNrMeta,
+          gelaendeStimmungNr.isAcceptableOrUnknown(
+              data['gelaende_stimmung_nr']!, _gelaendeStimmungNrMeta));
+    }
+    if (data.containsKey('schwebe_vorschau')) {
+      context.handle(
+          _schwebeVorschauMeta,
+          schwebeVorschau.isAcceptableOrUnknown(
+              data['schwebe_vorschau']!, _schwebeVorschauMeta));
+    }
     if (data.containsKey('stammbaum_ansicht')) {
       context.handle(
           _stammbaumAnsichtMeta,
@@ -11275,6 +11316,12 @@ class $AppSettingsTable extends AppSettings
           _zeitleisteKachelstufeMeta,
           zeitleisteKachelstufe.isAcceptableOrUnknown(
               data['zeitleiste_kachelstufe']!, _zeitleisteKachelstufeMeta));
+    }
+    if (data.containsKey('zeitleiste_form_nr')) {
+      context.handle(
+          _zeitleisteFormNrMeta,
+          zeitleisteFormNr.isAcceptableOrUnknown(
+              data['zeitleiste_form_nr']!, _zeitleisteFormNrMeta));
     }
     if (data.containsKey('listenspalten')) {
       context.handle(
@@ -11342,12 +11389,18 @@ class $AppSettingsTable extends AppSettings
           data['${effectivePrefix}eigene_karte_zugestimmt'])!,
       karteHochaufloesend: attachedDatabase.typeMapping.read(
           DriftSqlType.bool, data['${effectivePrefix}karte_hochaufloesend'])!,
+      gelaendeStimmungNr: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}gelaende_stimmung_nr'])!,
+      schwebeVorschau: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}schwebe_vorschau'])!,
       stammbaumAnsicht: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}stammbaum_ansicht']),
       stammbaumPerson: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}stammbaum_person']),
       zeitleisteKachelstufe: attachedDatabase.typeMapping.read(
           DriftSqlType.int, data['${effectivePrefix}zeitleiste_kachelstufe'])!,
+      zeitleisteFormNr: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}zeitleiste_form_nr'])!,
       listenspalten: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}listenspalten']),
       maxGleichzeitig: attachedDatabase.typeMapping
@@ -11506,6 +11559,27 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// vorher.
   final bool karteHochaufloesend;
 
+  /// Welche Tageszeit über der Geländeansicht steht – als Nummer aus
+  /// [Tageszeit].
+  ///
+  /// Als Zahl und nicht als Name, aus demselben Grund wie beim
+  /// Kartenstil: Ein Name aus einer aelteren Fassung koennte einer sein,
+  /// den es nicht mehr gibt. Eine Nummer ausserhalb der Reihe faellt
+  /// ueber [tageszeit] auf die Vorgabe zurueck.
+  final int gelaendeStimmungNr;
+
+  /// Ob ein Video oder ein Live Photo von selbst anlaeuft, wenn die Maus
+  /// einen Augenblick darauf stehen bleibt.
+  ///
+  /// Vorgabe an: Es ist der Grund, warum es die Einstellung gibt. Wer die
+  /// Bewegung im Raster nicht mag oder auf einer langsamen Maschine
+  /// sitzt, schaltet sie ab und bekommt die stillen Kacheln von vorher.
+  ///
+  /// Der Ton bleibt in jedem Fall aus – siehe
+  /// [Schwebevorschau.starte]. Eine Wand aus Kacheln, die beim
+  /// Ueberstreichen zu toenen anfaengt, waere niemandem eine Hilfe.
+  final bool schwebeVorschau;
+
   /// Welche Ansicht des Stammbaums zuletzt offen war und wer darin in der
   /// Mitte stand.
   ///
@@ -11528,6 +11602,16 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// alten Fassung koennte eine sein, die es nicht mehr gibt, und jede
   /// Zwischengroesse waere ein eigener Schluessel im Bildspeicher.
   final int zeitleisteKachelstufe;
+
+  /// Ob die Zeitleiste Quadrate zeigt oder buendige Reihen – als Nummer
+  /// aus [Zeitleistenform].
+  ///
+  /// Als Zahl und nicht als Name: Ein Name aus einer aelteren Fassung
+  /// koennte einer sein, den es nicht mehr gibt. Eine Nummer ausserhalb
+  /// der Reihe faellt ueber [zeitleisteForm] auf die Vorgabe zurueck,
+  /// statt den Bildschirm zu verhindern – dieselbe Regel wie beim
+  /// Kartenstil.
+  final int zeitleisteFormNr;
 
   /// Welche Spalten die Listenansicht zeigt und wie breit sie sind –
   /// als Text, siehe [Listenspaltenwahl.alsText].
@@ -11581,9 +11665,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       this.eigeneKarteStufe,
       required this.eigeneKarteZugestimmt,
       required this.karteHochaufloesend,
+      required this.gelaendeStimmungNr,
+      required this.schwebeVorschau,
       this.stammbaumAnsicht,
       this.stammbaumPerson,
       required this.zeitleisteKachelstufe,
+      required this.zeitleisteFormNr,
       this.listenspalten,
       required this.maxGleichzeitig,
       required this.translateCaptions,
@@ -11621,6 +11708,8 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     }
     map['eigene_karte_zugestimmt'] = Variable<bool>(eigeneKarteZugestimmt);
     map['karte_hochaufloesend'] = Variable<bool>(karteHochaufloesend);
+    map['gelaende_stimmung_nr'] = Variable<int>(gelaendeStimmungNr);
+    map['schwebe_vorschau'] = Variable<bool>(schwebeVorschau);
     if (!nullToAbsent || stammbaumAnsicht != null) {
       map['stammbaum_ansicht'] = Variable<String>(stammbaumAnsicht);
     }
@@ -11628,6 +11717,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       map['stammbaum_person'] = Variable<String>(stammbaumPerson);
     }
     map['zeitleiste_kachelstufe'] = Variable<int>(zeitleisteKachelstufe);
+    map['zeitleiste_form_nr'] = Variable<int>(zeitleisteFormNr);
     if (!nullToAbsent || listenspalten != null) {
       map['listenspalten'] = Variable<String>(listenspalten);
     }
@@ -11668,6 +11758,8 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           : Value(eigeneKarteStufe),
       eigeneKarteZugestimmt: Value(eigeneKarteZugestimmt),
       karteHochaufloesend: Value(karteHochaufloesend),
+      gelaendeStimmungNr: Value(gelaendeStimmungNr),
+      schwebeVorschau: Value(schwebeVorschau),
       stammbaumAnsicht: stammbaumAnsicht == null && nullToAbsent
           ? const Value.absent()
           : Value(stammbaumAnsicht),
@@ -11675,6 +11767,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ? const Value.absent()
           : Value(stammbaumPerson),
       zeitleisteKachelstufe: Value(zeitleisteKachelstufe),
+      zeitleisteFormNr: Value(zeitleisteFormNr),
       listenspalten: listenspalten == null && nullToAbsent
           ? const Value.absent()
           : Value(listenspalten),
@@ -11710,10 +11803,13 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           serializer.fromJson<bool>(json['eigeneKarteZugestimmt']),
       karteHochaufloesend:
           serializer.fromJson<bool>(json['karteHochaufloesend']),
+      gelaendeStimmungNr: serializer.fromJson<int>(json['gelaendeStimmungNr']),
+      schwebeVorschau: serializer.fromJson<bool>(json['schwebeVorschau']),
       stammbaumAnsicht: serializer.fromJson<String?>(json['stammbaumAnsicht']),
       stammbaumPerson: serializer.fromJson<String?>(json['stammbaumPerson']),
       zeitleisteKachelstufe:
           serializer.fromJson<int>(json['zeitleisteKachelstufe']),
+      zeitleisteFormNr: serializer.fromJson<int>(json['zeitleisteFormNr']),
       listenspalten: serializer.fromJson<String?>(json['listenspalten']),
       maxGleichzeitig: serializer.fromJson<int>(json['maxGleichzeitig']),
       translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
@@ -11741,9 +11837,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       'eigeneKarteStufe': serializer.toJson<int?>(eigeneKarteStufe),
       'eigeneKarteZugestimmt': serializer.toJson<bool>(eigeneKarteZugestimmt),
       'karteHochaufloesend': serializer.toJson<bool>(karteHochaufloesend),
+      'gelaendeStimmungNr': serializer.toJson<int>(gelaendeStimmungNr),
+      'schwebeVorschau': serializer.toJson<bool>(schwebeVorschau),
       'stammbaumAnsicht': serializer.toJson<String?>(stammbaumAnsicht),
       'stammbaumPerson': serializer.toJson<String?>(stammbaumPerson),
       'zeitleisteKachelstufe': serializer.toJson<int>(zeitleisteKachelstufe),
+      'zeitleisteFormNr': serializer.toJson<int>(zeitleisteFormNr),
       'listenspalten': serializer.toJson<String?>(listenspalten),
       'maxGleichzeitig': serializer.toJson<int>(maxGleichzeitig),
       'translateCaptions': serializer.toJson<bool>(translateCaptions),
@@ -11767,9 +11866,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           Value<int?> eigeneKarteStufe = const Value.absent(),
           bool? eigeneKarteZugestimmt,
           bool? karteHochaufloesend,
+          int? gelaendeStimmungNr,
+          bool? schwebeVorschau,
           Value<String?> stammbaumAnsicht = const Value.absent(),
           Value<String?> stammbaumPerson = const Value.absent(),
           int? zeitleisteKachelstufe,
+          int? zeitleisteFormNr,
           Value<String?> listenspalten = const Value.absent(),
           int? maxGleichzeitig,
           bool? translateCaptions,
@@ -11806,6 +11908,8 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         eigeneKarteZugestimmt:
             eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
         karteHochaufloesend: karteHochaufloesend ?? this.karteHochaufloesend,
+        gelaendeStimmungNr: gelaendeStimmungNr ?? this.gelaendeStimmungNr,
+        schwebeVorschau: schwebeVorschau ?? this.schwebeVorschau,
         stammbaumAnsicht: stammbaumAnsicht.present
             ? stammbaumAnsicht.value
             : this.stammbaumAnsicht,
@@ -11814,6 +11918,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
             : this.stammbaumPerson,
         zeitleisteKachelstufe:
             zeitleisteKachelstufe ?? this.zeitleisteKachelstufe,
+        zeitleisteFormNr: zeitleisteFormNr ?? this.zeitleisteFormNr,
         listenspalten:
             listenspalten.present ? listenspalten.value : this.listenspalten,
         maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
@@ -11862,6 +11967,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       karteHochaufloesend: data.karteHochaufloesend.present
           ? data.karteHochaufloesend.value
           : this.karteHochaufloesend,
+      gelaendeStimmungNr: data.gelaendeStimmungNr.present
+          ? data.gelaendeStimmungNr.value
+          : this.gelaendeStimmungNr,
+      schwebeVorschau: data.schwebeVorschau.present
+          ? data.schwebeVorschau.value
+          : this.schwebeVorschau,
       stammbaumAnsicht: data.stammbaumAnsicht.present
           ? data.stammbaumAnsicht.value
           : this.stammbaumAnsicht,
@@ -11871,6 +11982,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       zeitleisteKachelstufe: data.zeitleisteKachelstufe.present
           ? data.zeitleisteKachelstufe.value
           : this.zeitleisteKachelstufe,
+      zeitleisteFormNr: data.zeitleisteFormNr.present
+          ? data.zeitleisteFormNr.value
+          : this.zeitleisteFormNr,
       listenspalten: data.listenspalten.present
           ? data.listenspalten.value
           : this.listenspalten,
@@ -11904,9 +12018,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('eigeneKarteStufe: $eigeneKarteStufe, ')
           ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
           ..write('karteHochaufloesend: $karteHochaufloesend, ')
+          ..write('gelaendeStimmungNr: $gelaendeStimmungNr, ')
+          ..write('schwebeVorschau: $schwebeVorschau, ')
           ..write('stammbaumAnsicht: $stammbaumAnsicht, ')
           ..write('stammbaumPerson: $stammbaumPerson, ')
           ..write('zeitleisteKachelstufe: $zeitleisteKachelstufe, ')
+          ..write('zeitleisteFormNr: $zeitleisteFormNr, ')
           ..write('listenspalten: $listenspalten, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
@@ -11932,9 +12049,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         eigeneKarteStufe,
         eigeneKarteZugestimmt,
         karteHochaufloesend,
+        gelaendeStimmungNr,
+        schwebeVorschau,
         stammbaumAnsicht,
         stammbaumPerson,
         zeitleisteKachelstufe,
+        zeitleisteFormNr,
         listenspalten,
         maxGleichzeitig,
         translateCaptions,
@@ -11959,9 +12079,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.eigeneKarteStufe == this.eigeneKarteStufe &&
           other.eigeneKarteZugestimmt == this.eigeneKarteZugestimmt &&
           other.karteHochaufloesend == this.karteHochaufloesend &&
+          other.gelaendeStimmungNr == this.gelaendeStimmungNr &&
+          other.schwebeVorschau == this.schwebeVorschau &&
           other.stammbaumAnsicht == this.stammbaumAnsicht &&
           other.stammbaumPerson == this.stammbaumPerson &&
           other.zeitleisteKachelstufe == this.zeitleisteKachelstufe &&
+          other.zeitleisteFormNr == this.zeitleisteFormNr &&
           other.listenspalten == this.listenspalten &&
           other.maxGleichzeitig == this.maxGleichzeitig &&
           other.translateCaptions == this.translateCaptions &&
@@ -11984,9 +12107,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<int?> eigeneKarteStufe;
   final Value<bool> eigeneKarteZugestimmt;
   final Value<bool> karteHochaufloesend;
+  final Value<int> gelaendeStimmungNr;
+  final Value<bool> schwebeVorschau;
   final Value<String?> stammbaumAnsicht;
   final Value<String?> stammbaumPerson;
   final Value<int> zeitleisteKachelstufe;
+  final Value<int> zeitleisteFormNr;
   final Value<String?> listenspalten;
   final Value<int> maxGleichzeitig;
   final Value<bool> translateCaptions;
@@ -12007,9 +12133,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.eigeneKarteStufe = const Value.absent(),
     this.eigeneKarteZugestimmt = const Value.absent(),
     this.karteHochaufloesend = const Value.absent(),
+    this.gelaendeStimmungNr = const Value.absent(),
+    this.schwebeVorschau = const Value.absent(),
     this.stammbaumAnsicht = const Value.absent(),
     this.stammbaumPerson = const Value.absent(),
     this.zeitleisteKachelstufe = const Value.absent(),
+    this.zeitleisteFormNr = const Value.absent(),
     this.listenspalten = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
@@ -12031,9 +12160,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.eigeneKarteStufe = const Value.absent(),
     this.eigeneKarteZugestimmt = const Value.absent(),
     this.karteHochaufloesend = const Value.absent(),
+    this.gelaendeStimmungNr = const Value.absent(),
+    this.schwebeVorschau = const Value.absent(),
     this.stammbaumAnsicht = const Value.absent(),
     this.stammbaumPerson = const Value.absent(),
     this.zeitleisteKachelstufe = const Value.absent(),
+    this.zeitleisteFormNr = const Value.absent(),
     this.listenspalten = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
@@ -12055,9 +12187,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<int>? eigeneKarteStufe,
     Expression<bool>? eigeneKarteZugestimmt,
     Expression<bool>? karteHochaufloesend,
+    Expression<int>? gelaendeStimmungNr,
+    Expression<bool>? schwebeVorschau,
     Expression<String>? stammbaumAnsicht,
     Expression<String>? stammbaumPerson,
     Expression<int>? zeitleisteKachelstufe,
+    Expression<int>? zeitleisteFormNr,
     Expression<String>? listenspalten,
     Expression<int>? maxGleichzeitig,
     Expression<bool>? translateCaptions,
@@ -12085,10 +12220,14 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
         'eigene_karte_zugestimmt': eigeneKarteZugestimmt,
       if (karteHochaufloesend != null)
         'karte_hochaufloesend': karteHochaufloesend,
+      if (gelaendeStimmungNr != null)
+        'gelaende_stimmung_nr': gelaendeStimmungNr,
+      if (schwebeVorschau != null) 'schwebe_vorschau': schwebeVorschau,
       if (stammbaumAnsicht != null) 'stammbaum_ansicht': stammbaumAnsicht,
       if (stammbaumPerson != null) 'stammbaum_person': stammbaumPerson,
       if (zeitleisteKachelstufe != null)
         'zeitleiste_kachelstufe': zeitleisteKachelstufe,
+      if (zeitleisteFormNr != null) 'zeitleiste_form_nr': zeitleisteFormNr,
       if (listenspalten != null) 'listenspalten': listenspalten,
       if (maxGleichzeitig != null) 'max_gleichzeitig': maxGleichzeitig,
       if (translateCaptions != null) 'translate_captions': translateCaptions,
@@ -12113,9 +12252,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<int?>? eigeneKarteStufe,
       Value<bool>? eigeneKarteZugestimmt,
       Value<bool>? karteHochaufloesend,
+      Value<int>? gelaendeStimmungNr,
+      Value<bool>? schwebeVorschau,
       Value<String?>? stammbaumAnsicht,
       Value<String?>? stammbaumPerson,
       Value<int>? zeitleisteKachelstufe,
+      Value<int>? zeitleisteFormNr,
       Value<String?>? listenspalten,
       Value<int>? maxGleichzeitig,
       Value<bool>? translateCaptions,
@@ -12139,10 +12281,13 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       eigeneKarteZugestimmt:
           eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
       karteHochaufloesend: karteHochaufloesend ?? this.karteHochaufloesend,
+      gelaendeStimmungNr: gelaendeStimmungNr ?? this.gelaendeStimmungNr,
+      schwebeVorschau: schwebeVorschau ?? this.schwebeVorschau,
       stammbaumAnsicht: stammbaumAnsicht ?? this.stammbaumAnsicht,
       stammbaumPerson: stammbaumPerson ?? this.stammbaumPerson,
       zeitleisteKachelstufe:
           zeitleisteKachelstufe ?? this.zeitleisteKachelstufe,
+      zeitleisteFormNr: zeitleisteFormNr ?? this.zeitleisteFormNr,
       listenspalten: listenspalten ?? this.listenspalten,
       maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
       translateCaptions: translateCaptions ?? this.translateCaptions,
@@ -12202,6 +12347,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (karteHochaufloesend.present) {
       map['karte_hochaufloesend'] = Variable<bool>(karteHochaufloesend.value);
     }
+    if (gelaendeStimmungNr.present) {
+      map['gelaende_stimmung_nr'] = Variable<int>(gelaendeStimmungNr.value);
+    }
+    if (schwebeVorschau.present) {
+      map['schwebe_vorschau'] = Variable<bool>(schwebeVorschau.value);
+    }
     if (stammbaumAnsicht.present) {
       map['stammbaum_ansicht'] = Variable<String>(stammbaumAnsicht.value);
     }
@@ -12211,6 +12362,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (zeitleisteKachelstufe.present) {
       map['zeitleiste_kachelstufe'] =
           Variable<int>(zeitleisteKachelstufe.value);
+    }
+    if (zeitleisteFormNr.present) {
+      map['zeitleiste_form_nr'] = Variable<int>(zeitleisteFormNr.value);
     }
     if (listenspalten.present) {
       map['listenspalten'] = Variable<String>(listenspalten.value);
@@ -12246,9 +12400,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('eigeneKarteStufe: $eigeneKarteStufe, ')
           ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
           ..write('karteHochaufloesend: $karteHochaufloesend, ')
+          ..write('gelaendeStimmungNr: $gelaendeStimmungNr, ')
+          ..write('schwebeVorschau: $schwebeVorschau, ')
           ..write('stammbaumAnsicht: $stammbaumAnsicht, ')
           ..write('stammbaumPerson: $stammbaumPerson, ')
           ..write('zeitleisteKachelstufe: $zeitleisteKachelstufe, ')
+          ..write('zeitleisteFormNr: $zeitleisteFormNr, ')
           ..write('listenspalten: $listenspalten, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
@@ -23587,9 +23744,12 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<int?> eigeneKarteStufe,
   Value<bool> eigeneKarteZugestimmt,
   Value<bool> karteHochaufloesend,
+  Value<int> gelaendeStimmungNr,
+  Value<bool> schwebeVorschau,
   Value<String?> stammbaumAnsicht,
   Value<String?> stammbaumPerson,
   Value<int> zeitleisteKachelstufe,
+  Value<int> zeitleisteFormNr,
   Value<String?> listenspalten,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
@@ -23612,9 +23772,12 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<int?> eigeneKarteStufe,
   Value<bool> eigeneKarteZugestimmt,
   Value<bool> karteHochaufloesend,
+  Value<int> gelaendeStimmungNr,
+  Value<bool> schwebeVorschau,
   Value<String?> stammbaumAnsicht,
   Value<String?> stammbaumPerson,
   Value<int> zeitleisteKachelstufe,
+  Value<int> zeitleisteFormNr,
   Value<String?> listenspalten,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
@@ -23686,6 +23849,14 @@ class $$AppSettingsTableFilterComposer
       column: $table.karteHochaufloesend,
       builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<int> get gelaendeStimmungNr => $composableBuilder(
+      column: $table.gelaendeStimmungNr,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get schwebeVorschau => $composableBuilder(
+      column: $table.schwebeVorschau,
+      builder: (column) => ColumnFilters(column));
+
   ColumnFilters<String> get stammbaumAnsicht => $composableBuilder(
       column: $table.stammbaumAnsicht,
       builder: (column) => ColumnFilters(column));
@@ -23696,6 +23867,10 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<int> get zeitleisteKachelstufe => $composableBuilder(
       column: $table.zeitleisteKachelstufe,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get zeitleisteFormNr => $composableBuilder(
+      column: $table.zeitleisteFormNr,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get listenspalten => $composableBuilder(
@@ -23780,6 +23955,14 @@ class $$AppSettingsTableOrderingComposer
       column: $table.karteHochaufloesend,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get gelaendeStimmungNr => $composableBuilder(
+      column: $table.gelaendeStimmungNr,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get schwebeVorschau => $composableBuilder(
+      column: $table.schwebeVorschau,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get stammbaumAnsicht => $composableBuilder(
       column: $table.stammbaumAnsicht,
       builder: (column) => ColumnOrderings(column));
@@ -23790,6 +23973,10 @@ class $$AppSettingsTableOrderingComposer
 
   ColumnOrderings<int> get zeitleisteKachelstufe => $composableBuilder(
       column: $table.zeitleisteKachelstufe,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get zeitleisteFormNr => $composableBuilder(
+      column: $table.zeitleisteFormNr,
       builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get listenspalten => $composableBuilder(
@@ -23863,6 +24050,12 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<bool> get karteHochaufloesend => $composableBuilder(
       column: $table.karteHochaufloesend, builder: (column) => column);
 
+  GeneratedColumn<int> get gelaendeStimmungNr => $composableBuilder(
+      column: $table.gelaendeStimmungNr, builder: (column) => column);
+
+  GeneratedColumn<bool> get schwebeVorschau => $composableBuilder(
+      column: $table.schwebeVorschau, builder: (column) => column);
+
   GeneratedColumn<String> get stammbaumAnsicht => $composableBuilder(
       column: $table.stammbaumAnsicht, builder: (column) => column);
 
@@ -23871,6 +24064,9 @@ class $$AppSettingsTableAnnotationComposer
 
   GeneratedColumn<int> get zeitleisteKachelstufe => $composableBuilder(
       column: $table.zeitleisteKachelstufe, builder: (column) => column);
+
+  GeneratedColumn<int> get zeitleisteFormNr => $composableBuilder(
+      column: $table.zeitleisteFormNr, builder: (column) => column);
 
   GeneratedColumn<String> get listenspalten => $composableBuilder(
       column: $table.listenspalten, builder: (column) => column);
@@ -23926,9 +24122,12 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<int?> eigeneKarteStufe = const Value.absent(),
             Value<bool> eigeneKarteZugestimmt = const Value.absent(),
             Value<bool> karteHochaufloesend = const Value.absent(),
+            Value<int> gelaendeStimmungNr = const Value.absent(),
+            Value<bool> schwebeVorschau = const Value.absent(),
             Value<String?> stammbaumAnsicht = const Value.absent(),
             Value<String?> stammbaumPerson = const Value.absent(),
             Value<int> zeitleisteKachelstufe = const Value.absent(),
+            Value<int> zeitleisteFormNr = const Value.absent(),
             Value<String?> listenspalten = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
@@ -23950,9 +24149,12 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             eigeneKarteStufe: eigeneKarteStufe,
             eigeneKarteZugestimmt: eigeneKarteZugestimmt,
             karteHochaufloesend: karteHochaufloesend,
+            gelaendeStimmungNr: gelaendeStimmungNr,
+            schwebeVorschau: schwebeVorschau,
             stammbaumAnsicht: stammbaumAnsicht,
             stammbaumPerson: stammbaumPerson,
             zeitleisteKachelstufe: zeitleisteKachelstufe,
+            zeitleisteFormNr: zeitleisteFormNr,
             listenspalten: listenspalten,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
@@ -23974,9 +24176,12 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<int?> eigeneKarteStufe = const Value.absent(),
             Value<bool> eigeneKarteZugestimmt = const Value.absent(),
             Value<bool> karteHochaufloesend = const Value.absent(),
+            Value<int> gelaendeStimmungNr = const Value.absent(),
+            Value<bool> schwebeVorschau = const Value.absent(),
             Value<String?> stammbaumAnsicht = const Value.absent(),
             Value<String?> stammbaumPerson = const Value.absent(),
             Value<int> zeitleisteKachelstufe = const Value.absent(),
+            Value<int> zeitleisteFormNr = const Value.absent(),
             Value<String?> listenspalten = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
@@ -23998,9 +24203,12 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             eigeneKarteStufe: eigeneKarteStufe,
             eigeneKarteZugestimmt: eigeneKarteZugestimmt,
             karteHochaufloesend: karteHochaufloesend,
+            gelaendeStimmungNr: gelaendeStimmungNr,
+            schwebeVorschau: schwebeVorschau,
             stammbaumAnsicht: stammbaumAnsicht,
             stammbaumPerson: stammbaumPerson,
             zeitleisteKachelstufe: zeitleisteKachelstufe,
+            zeitleisteFormNr: zeitleisteFormNr,
             listenspalten: listenspalten,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,

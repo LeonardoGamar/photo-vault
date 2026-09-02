@@ -105,11 +105,19 @@ enum Rasterrichtung { links, rechts, hoch, runter }
 /// nicht besetzt (die letzte Zeile eines Monats ist selten voll), rückt er
 /// auf die letzte belegte Kachel. Ohne diese Regel bliebe der Zeiger am
 /// unteren Rand eines kurzen Monats hängen.
+///
+/// **[reihenlaengen] für ein Raster ohne feste Spaltenzahl.** Bei bündigen
+/// Reihen stehen mal drei und mal dreizehn Fotos nebeneinander; mit
+/// [spalten] allein spränge „nach unten" irgendwohin. Gegeben, beschreibt
+/// es je Gruppe die Länge jeder Reihe, und der Sprung geht in die Reihe
+/// darunter an die entsprechende Stelle. Fehlt es, gilt unverändert
+/// [spalten] – das feste Raster rechnet weiter wie bisher.
 String? nachbarkachel({
   required List<List<String>> gruppen,
   required String von,
   required Rasterrichtung richtung,
   required int spalten,
+  List<List<int>>? reihenlaengen,
 }) {
   if (spalten < 1) return null;
   var gruppenIndex = -1;
@@ -133,21 +141,66 @@ String? nachbarkachel({
       return ziel < 0 || ziel >= flach.length ? null : flach[ziel];
 
     case Rasterrichtung.runter:
-      final gruppe = gruppen[gruppenIndex];
-      final ziel = index + spalten;
-      if (ziel < gruppe.length) return gruppe[ziel];
-      return _inNachbargruppe(
-          gruppen, gruppenIndex + 1, index % spalten, spalten,
-          ersteZeile: true);
-
     case Rasterrichtung.hoch:
-      final gruppe = gruppen[gruppenIndex];
-      final ziel = index - spalten;
-      if (ziel >= 0) return gruppe[ziel];
-      return _inNachbargruppe(
-          gruppen, gruppenIndex - 1, index % spalten, spalten,
-          ersteZeile: false);
+      final runter = richtung == Rasterrichtung.runter;
+      // Ohne Reihenlängen bleibt es bei der Rechnung des festen Rasters -
+      // Zeichen für Zeichen die alte. Sie hat eine Eigenheit, die hier
+      // absichtlich erhalten bleibt: Ist die letzte Zeile eines Monats
+      // angebrochen und die eigene Spalte dort nicht besetzt, springt der
+      // Zeiger in den Folgemonat, statt auf die letzte Kachel zu rücken.
+      // Das zu ändern wäre eine Änderung am Quadratraster, und das steht
+      // hier nicht zur Debatte.
+      if (reihenlaengen == null) {
+        final gruppe = gruppen[gruppenIndex];
+        final ziel = runter ? index + spalten : index - spalten;
+        if (runter ? ziel < gruppe.length : ziel >= 0) return gruppe[ziel];
+        return _inNachbargruppe(gruppen, gruppenIndex + (runter ? 1 : -1),
+            index % spalten, spalten, null,
+            ersteZeile: runter);
+      }
+      final laengen = _laengenFuer(reihenlaengen, gruppenIndex, spalten,
+          gruppen[gruppenIndex].length);
+      final (reihe, stelle) = _reiheUndStelle(laengen, index);
+      final nachbarreihe = reihe + (runter ? 1 : -1);
+      if (nachbarreihe >= 0 && nachbarreihe < laengen.length) {
+        var anfang = 0;
+        for (var r = 0; r < nachbarreihe; r++) {
+          anfang += laengen[r];
+        }
+        final versatz =
+            stelle < laengen[nachbarreihe] ? stelle : laengen[nachbarreihe] - 1;
+        return gruppen[gruppenIndex][anfang + versatz];
+      }
+      return _inNachbargruppe(gruppen, gruppenIndex + (runter ? 1 : -1),
+          stelle, spalten, reihenlaengen,
+          ersteZeile: runter);
   }
+}
+
+/// Die Reihenlängen einer Gruppe – gegebene, oder die des festen Rasters.
+List<int> _laengenFuer(List<List<int>>? reihenlaengen, int gruppenIndex,
+    int spalten, int anzahl) {
+  if (reihenlaengen != null &&
+      gruppenIndex < reihenlaengen.length &&
+      reihenlaengen[gruppenIndex].isNotEmpty) {
+    return reihenlaengen[gruppenIndex];
+  }
+  final volle = anzahl ~/ spalten;
+  final rest = anzahl % spalten;
+  return [
+    for (var i = 0; i < volle; i++) spalten,
+    if (rest > 0) rest,
+  ];
+}
+
+/// In welcher Reihe [index] steht und an welcher Stelle darin.
+(int, int) _reiheUndStelle(List<int> laengen, int index) {
+  var gezaehlt = 0;
+  for (var r = 0; r < laengen.length; r++) {
+    if (index < gezaehlt + laengen[r]) return (r, index - gezaehlt);
+    gezaehlt += laengen[r];
+  }
+  return (laengen.length - 1, 0);
 }
 
 /// Die Kachel in Spalte [spalte] der ersten bzw. letzten Zeile von Gruppe
@@ -157,15 +210,21 @@ String? _inNachbargruppe(
   List<List<String>> gruppen,
   int gruppenIndex,
   int spalte,
-  int spalten, {
+  int spalten,
+  List<List<int>>? reihenlaengen, {
   required bool ersteZeile,
 }) {
   final schritt = ersteZeile ? 1 : -1;
   for (var g = gruppenIndex; g >= 0 && g < gruppen.length; g += schritt) {
     final gruppe = gruppen[g];
     if (gruppe.isEmpty) continue;
-    final zeilenanfang =
-        ersteZeile ? 0 : ((gruppe.length - 1) ~/ spalten) * spalten;
+    final laengen = _laengenFuer(reihenlaengen, g, spalten, gruppe.length);
+    var zeilenanfang = 0;
+    if (!ersteZeile) {
+      for (var r = 0; r < laengen.length - 1; r++) {
+        zeilenanfang += laengen[r];
+      }
+    }
     final ziel = zeilenanfang + spalte;
     return gruppe[ziel < gruppe.length ? ziel : gruppe.length - 1];
   }

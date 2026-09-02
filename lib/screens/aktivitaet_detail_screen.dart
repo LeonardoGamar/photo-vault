@@ -246,11 +246,15 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
       // Globus und alles Unbekannte: die Wanderkarte, wie bisher.
       _ => Kartenstil.topo,
     };
+    // Und die Tageszeit, aus demselben Grund an derselben Stelle.
+    final stimmung = await widget.library.db.gelaendeStimmungWert();
     if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => GelaendeScreen(
         titel: _k.name,
         stil: stil,
+        stimmung: stimmung,
+        beimStimmungswechsel: widget.library.db.setzeGelaendeStimmung,
         spur: [
           for (final p in _spurpunkte)
             (breite: p.breite, laenge: p.laenge, hoehe: p.hoehe, zeit: p.zeit),

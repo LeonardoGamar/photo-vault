@@ -32,19 +32,47 @@ import 'package:photo_vault/services/gelaende_laden.dart';
 import 'package:photo_vault/services/gelaendeflug.dart';
 import 'package:photo_vault/services/gelaendekacheln.dart';
 import 'package:photo_vault/services/gelaendesicht.dart';
+import 'package:photo_vault/services/lichtstimmung.dart';
 import 'package:photo_vault/widgets/gelaende.dart';
 
+/// Zwei Landschaften, und beide werden gebraucht.
+///
+/// **Grindelwald** ist der Grenzfall nach oben: 3500 Höhenmeter auf zehn
+/// Kilometer, bei dreifacher Überhöhung also Wände von zehn Kilometern.
+/// Im Flug steht die Kamera darin wie in einer Schlucht – dort ist nie
+/// Himmel zu sehen, und das ist keine Einstellungssache: Bei 0,95, 0,70,
+/// 0,50 und 0,35 Neigung durchgemessen, alle vier zeigen eine Wand.
+///
+/// **Der Harz** ist der Regelfall: eine Tageswanderung mit dreihundert
+/// Höhenmetern. Genau die Landschaft aus dem Bild, das den Anlass gab –
+/// und die, an der sich entscheidet, ob Himmel und Dunst etwas bringen.
+const _landschaften = [
+  (
+    name: 'harz',
+    sued: 51.78,
+    nord: 51.89,
+    west: 10.58,
+    ost: 10.72,
+  ),
+  (
+    name: 'grindelwald',
+    sued: 46.60,
+    nord: 46.68,
+    west: 7.95,
+    ost: 8.12,
+  ),
+];
+
 void main() {
-  testWidgets('Flug über echtes Gelände', (tester) async {
+  for (final ort in _landschaften) {
+    testWidgets('Flug über echtes Gelände: ${ort.name}', (tester) async {
     final ziel = Directory(Platform.environment['PV_BILDER']!)
       ..createSync(recursive: true);
     tester.view.physicalSize = const Size(1200, 820);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
-    // Das Tal von Grindelwald: starkes Relief, gut bekannt, und die
-    // Kacheln sind öffentlich.
-    const sued = 46.60, nord = 46.68, west = 7.95, ost = 8.12;
+    final sued = ort.sued, nord = ort.nord, west = ort.west, ost = ort.ost;
 
     Hoehengitter? gitter;
     ui.Image? karte;
@@ -68,7 +96,7 @@ void main() {
       return;
     }
     final g = gitter!;
-    stdout.writeln('Gitter ${g.spalten}x${g.zeilen}, '
+    stdout.writeln('${ort.name}: Gitter ${g.spalten}x${g.zeilen}, '
         'Höhen ${g.spanne.tief.round()}..${g.spanne.hoch.round()} m, '
         'Karte: ${karte != null}');
 
@@ -134,7 +162,7 @@ void main() {
             as RenderRepaintBoundary;
         final bild = await grenze.toImage(pixelRatio: 1.0);
         final daten = await bild.toByteData(format: ui.ImageByteFormat.png);
-        File('${ziel.path}/$name.png')
+        File('${ziel.path}/${ort.name}-$name.png')
             .writeAsBytesSync(daten!.buffer.asUint8List());
         bild.dispose();
       });
@@ -149,7 +177,46 @@ void main() {
       await tester.pump();
       await schiessen('e$n-bei-${(stelle * 100).round()}');
     }
+    // Und dieselbe Stelle im Flug unter allen vier Tageszeiten. Hier
+    // entscheidet sich, was keine Zahl entscheidet: ob die
+    // Kartenbeschriftung noch lesbar ist, wenn das Relief stärker wird.
+    for (final stimmung in lichtstimmungen) {
+      final gefaerbt = baueNetz(g,
+          grundfarbe:
+              karte == null ? gelaendeGrundfarbe : const Color(0xFFFFFFFF),
+          stimmung: stimmung);
+      await tester.pumpWidget(MaterialApp(
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
+        locale: const Locale('de'),
+        home: Scaffold(
+          body: RepaintBoundary(
+            key: schluessel,
+            child: Gelaendeansicht(
+                // Eigener Schlüssel je Stimmung: Ohne ihn behält die
+                // Ansicht ihren Zustand, ist also schon im Flug – und
+                // der Startknopf, den wir gleich drücken wollen, ist
+                // dann gar nicht mehr da.
+                key: ValueKey(stimmung.zeit),
+                netz: gefaerbt,
+                spur: linie,
+                spurwerte: werte,
+                karte: karte,
+                stimmung: stimmung),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.tap(find.byIcon(Icons.flight_takeoff));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(0.35);
+      await tester.pump();
+      await schiessen('s-${stimmung.zeit.name}');
+    }
+
     karte?.dispose();
     stdout.writeln('Bilder in ${ziel.path}');
-  }, timeout: const Timeout(Duration(minutes: 5)));
+    }, timeout: const Timeout(Duration(minutes: 5)));
+  }
 }

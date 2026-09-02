@@ -7511,6 +7511,18 @@ abstract class AppTexte {
   /// **'Kleinere Kacheln – mehr Monate auf einmal'**
   String get zeitleisteKleiner;
 
+  /// No description provided for @zeitleisteFormReihen.
+  ///
+  /// In de, this message translates to:
+  /// **'Bündige Reihen – jedes Foto in seinem Format'**
+  String get zeitleisteFormReihen;
+
+  /// No description provided for @zeitleisteFormQuadrate.
+  ///
+  /// In de, this message translates to:
+  /// **'Quadratisches Raster'**
+  String get zeitleisteFormQuadrate;
+
   /// No description provided for @listeSpalten.
   ///
   /// In de, this message translates to:
@@ -8512,6 +8524,48 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Ganzes Jahr'**
   String get kalenderGanzesJahr;
+
+  /// No description provided for @einstSchwebeVorschauTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Videos beim Schweben abspielen'**
+  String get einstSchwebeVorschauTitel;
+
+  /// No description provided for @einstSchwebeVorschauText.
+  ///
+  /// In de, this message translates to:
+  /// **'Bleibt die Maus einen Augenblick über einem Video oder einem Live Photo stehen, läuft es in der Kachel an – ohne Ton und in Dauerschleife, bis der Zeiger weiterwandert. Es läuft immer nur eines. Gesperrte Aufnahmen bleiben still: Sie abzuspielen hiesse, sie nebenbei zu entschlüsseln. Ausgeschaltet bleiben die Kacheln Standbilder.'**
+  String get einstSchwebeVorschauText;
+
+  /// No description provided for @gelaendeStimmung.
+  ///
+  /// In de, this message translates to:
+  /// **'Tageszeit'**
+  String get gelaendeStimmung;
+
+  /// No description provided for @stimmungMorgen.
+  ///
+  /// In de, this message translates to:
+  /// **'Morgen'**
+  String get stimmungMorgen;
+
+  /// No description provided for @stimmungMittag.
+  ///
+  /// In de, this message translates to:
+  /// **'Mittag'**
+  String get stimmungMittag;
+
+  /// No description provided for @stimmungAbend.
+  ///
+  /// In de, this message translates to:
+  /// **'Abend'**
+  String get stimmungAbend;
+
+  /// No description provided for @stimmungBlaueStunde.
+  ///
+  /// In de, this message translates to:
+  /// **'Blaue Stunde'**
+  String get stimmungBlaueStunde;
 
   /// No description provided for @einstKarteScharfTitel.
   ///

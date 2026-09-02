@@ -1,5 +1,9 @@
 import '../db/database.dart';
+import '../services/bildreihen.dart';
+import '../services/rasterstufen.dart';
 
+export '../services/bildreihen.dart'
+    show Bildreihe, Bildplatz, reihenGesamthoehe, seitenverhaeltnisVorgabe;
 export '../services/rasterstufen.dart';
 
 /// Geschätzte Maße des von [MonthGroupedAssetGrid] erzeugten Scroll-Inhalts
@@ -11,6 +15,11 @@ export '../services/rasterstufen.dart';
 /// sein (das Ziel wird nach dem Scrollen ohnehin sichtbar), soll aber grob
 /// genug stimmen, damit sich Scrubber und Sprung-Funktion nicht "falsch
 /// anfühlen".
+///
+/// **Bei den bündigen Reihen ist es keine Schätzung mehr.** Dort steht die
+/// Anordnung als Rechnung in `bildreihen.dart`, und dieselbe Rechnung
+/// liefert dem Zeitstrahl die Höhe. Was das Raster zeichnet und was der
+/// Zeitstrahl annimmt, kann dann gar nicht mehr auseinanderlaufen.
 const double timelineHeaderHeight = 64.0;
 const double timelineTrailingHeight = 40.0;
 const double timelineGridMaxCrossAxisExtent = 160.0;
@@ -33,10 +42,50 @@ double timelineRowHeightForWidth(double gridWidth,
   return tileExtent + timelineGridSpacing;
 }
 
-double timelineMonthGroupHeight(int itemCount, double gridWidth,
+/// Das Seitenverhältnis (Breite ÷ Höhe) einer Aufnahme.
+///
+/// Die Masse liegen in der Datenbank und sind bereits nach der
+/// EXIF-Ausrichtung gedreht – an der echten Bibliothek gegengeprüft: 27 %
+/// Hochformat, was ohne Drehung nicht herauskäme. Fehlen sie (2 von 8098),
+/// gilt das Kleinbildformat.
+double seitenverhaeltnisVon(AssetData a) {
+  final b = a.widthPx;
+  final h = a.heightPx;
+  if (b == null || h == null || b <= 0 || h <= 0) {
+    return seitenverhaeltnisVorgabe;
+  }
+  return b / h;
+}
+
+/// Die bündigen Reihen einer Monatsgruppe.
+///
+/// [kachelbreite] – die eingestellte Kachelstufe – wirkt hier als
+/// **Zielhöhe** der Reihen. So bleibt der vorhandene Zoom sinnvoll, statt
+/// dass die neue Form einen zweiten Regler braucht.
+List<Bildreihe> zeitleisteReihen(List<AssetData> gruppe, double gridWidth,
     {double kachelbreite = timelineGridMaxCrossAxisExtent}) {
+  return bildreihen(
+    seitenverhaeltnisse: [for (final a in gruppe) seitenverhaeltnisVon(a)],
+    breite: gridWidth - timelineGridHorizontalPadding,
+    zielhoehe: kachelbreite,
+    abstand: timelineGridSpacing,
+  );
+}
+
+double timelineMonthGroupHeight(
+  List<AssetData> gruppe,
+  double gridWidth, {
+  double kachelbreite = timelineGridMaxCrossAxisExtent,
+  Zeitleistenform form = zeitleisteFormVorgabe,
+}) {
+  if (form == Zeitleistenform.reihen) {
+    final reihen =
+        zeitleisteReihen(gruppe, gridWidth, kachelbreite: kachelbreite);
+    return timelineHeaderHeight +
+        reihenGesamthoehe(reihen, timelineGridSpacing);
+  }
   final columns = timelineColumnsForWidth(gridWidth, kachelbreite: kachelbreite);
-  final rows = (itemCount / columns).ceil();
+  final rows = (gruppe.length / columns).ceil();
   return timelineHeaderHeight +
       rows * timelineRowHeightForWidth(gridWidth, kachelbreite: kachelbreite);
 }
@@ -50,20 +99,39 @@ double? timelineOffsetForAsset(
   double gridWidth,
   String assetId, {
   double kachelbreite = timelineGridMaxCrossAxisExtent,
+  Zeitleistenform form = zeitleisteFormVorgabe,
 }) {
   var offset = 0.0;
-  final columns = timelineColumnsForWidth(gridWidth, kachelbreite: kachelbreite);
-  final rowHeight =
-      timelineRowHeightForWidth(gridWidth, kachelbreite: kachelbreite);
   for (final key in orderedKeys) {
     final group = groups[key]!;
     final indexInGroup = group.indexWhere((a) => a.id == assetId);
     if (indexInGroup != -1) {
-      final row = indexInGroup ~/ columns;
-      return offset + timelineHeaderHeight + row * rowHeight;
+      return offset +
+          timelineHeaderHeight +
+          _abstandBisZeile(group, indexInGroup, gridWidth, kachelbreite, form);
     }
-    offset += timelineMonthGroupHeight(group.length, gridWidth,
-        kachelbreite: kachelbreite);
+    offset += timelineMonthGroupHeight(group, gridWidth,
+        kachelbreite: kachelbreite, form: form);
   }
   return null;
+}
+
+/// Wie weit die Zeile, in der [indexInGroup] steht, unterhalb der
+/// Monatsüberschrift beginnt.
+double _abstandBisZeile(List<AssetData> gruppe, int indexInGroup,
+    double gridWidth, double kachelbreite, Zeitleistenform form) {
+  if (form == Zeitleistenform.reihen) {
+    final reihen =
+        zeitleisteReihen(gruppe, gridWidth, kachelbreite: kachelbreite);
+    var oben = 0.0;
+    for (final r in reihen) {
+      if (indexInGroup <= r.letzterIndex) return oben;
+      oben += r.hoehe + timelineGridSpacing;
+    }
+    return oben;
+  }
+  final columns = timelineColumnsForWidth(gridWidth, kachelbreite: kachelbreite);
+  final zeile = indexInGroup ~/ columns;
+  return zeile *
+      timelineRowHeightForWidth(gridWidth, kachelbreite: kachelbreite);
 }

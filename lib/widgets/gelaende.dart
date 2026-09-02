@@ -25,6 +25,24 @@ import '../theme/app_spacing.dart';
 
 import '../services/gelaendekacheln.dart';
 import '../services/gelaendesicht.dart';
+import '../services/lichtstimmung.dart';
+
+/// Wie dicht der Dunst in der Ferne höchstens wird.
+///
+/// Nicht 1: Auch der fernste Grat soll noch als Grat erkennbar sein und
+/// nicht als Nebelbank. Am gerenderten Bild entschieden – 0,72 wusch die
+/// Gipfelkette am oberen Rand weiss.
+const double _dunstStaerke = 0.55;
+
+/// Wie schnell der Dunst mit der Tiefe zunimmt.
+///
+/// **Warum eine Exponentialkurve und keine Potenz.** Der erste Versuch
+/// nahm `t³`. In der Übersicht sah das gut aus, im Flug war der Dunst
+/// unsichtbar: Dort liegt der fernste Eckpunkt des ganzen Gitters
+/// fünfzehn Kilometer weit weg, der obere Bildrand aber nur fünf – und
+/// `0,33³` sind drei Prozent. Eine Atmosphäre schluckt exponentiell, und
+/// genau die Kurve gibt auch nahen Unterschieden Gewicht.
+const double _dunstDichte = 2.2;
 
 /// Höchstens so viele Gitterpunkte je Seite.
 ///
@@ -87,19 +105,36 @@ class Gelaendenetz {
   /// Je Eckpunkt eine Farbe – die Schattierung.
   final Int32List farben;
 
+  /// Je Eckpunkt: wie weit im Inneren des Gitters er liegt. 0 am Rand,
+  /// 1 in der Mitte.
+  ///
+  /// Damit die Landschaft am Rand in den Dunst übergeht, statt gegen den
+  /// Himmel zu schneiden. Ohne das sieht ein Ausschnitt aus wie eine
+  /// abgerissene Karte – im Bild vom 02.09. genau so zu sehen.
+  final Float32List randnaehe;
+
   /// Die Ausdehnung in Metern – für den Anfangsabstand der Kamera.
   final double breiteMeter;
   final double hoeheMeter;
 
   int get dreiecke => ecken.length ~/ 9;
 
-  const Gelaendenetz({
+  Gelaendenetz({
     required this.ecken,
     required this.texturstellen,
     required this.farben,
+    required this.randnaehe,
     required this.breiteMeter,
     required this.hoeheMeter,
   });
+
+  /// Kratzpapier für den Maler: die Dunstfarben je Eckpunkt.
+  ///
+  /// Sie hängen von der Kamera ab und entstehen deshalb in **jedem**
+  /// Bild neu. Am Netz und nicht am Maler, weil der Maler je Bild neu
+  /// gebaut wird – ein Feld dort wäre 220 KB Abfall je Bild.
+  late final Int32List dunstfarben = Int32List(ecken.length ~/ 3);
+  late final Float32List tiefen = Float32List(ecken.length ~/ 3);
 }
 
 /// Baut die Dreiecke eines Gitters.
@@ -111,6 +146,7 @@ Gelaendenetz baueNetz(
   double ueberhoehung = gelaendeUeberhoehung,
   int kante = gelaendeGitterkante,
   Color grundfarbe = gelaendeGrundfarbe,
+  Lichtstimmung stimmung = stimmungMittag,
 }) {
   final g = gitter.verkleinert(kante);
   final mitteBreite = (g.nord + g.sued) / 2;
@@ -134,8 +170,23 @@ Gelaendenetz baueNetz(
   final ecken = Float32List(felder * 2 * 3 * 3);
   final texturstellen = Float32List(felder * 2 * 3 * 2);
   final farben = Int32List(felder * 2 * 3);
+  final randnaehe = Float32List(felder * 2 * 3);
   final texturBreite = (g.spalten - 1).toDouble();
   final texturHoehe = (g.zeilen - 1).toDouble();
+
+  /// Wie weit im Inneren ein Gitterpunkt liegt: 0 auf der äussersten
+  /// Masche, 1 ab [saum] Maschen Abstand.
+  ///
+  /// Ein Zwanzigstel der Kante. Ein Zehntel war zu breit: In der
+  /// Übersicht lag ein handbreiter weisser Streifen über der
+  /// Gipfelkette, und der Saum fiel mehr auf als die harte Kante, die er
+  /// ersetzen sollte.
+  final saum = math.max(2, kante ~/ 20);
+  double innen(int x, int y) {
+    final d = math.min(math.min(x, g.spalten - 1 - x),
+        math.min(y, g.zeilen - 1 - y));
+    return (d / saum).clamp(0.0, 1.0);
+  }
 
   var e = 0;
   var tz = 0;
@@ -146,7 +197,19 @@ Gelaendenetz baueNetz(
     ecken[e++] = p.z;
     texturstellen[tz++] = x / texturBreite;
     texturstellen[tz++] = y / texturHoehe;
-    farben[f++] = farbe;
+    final rand = innen(x, y);
+    randnaehe[f] = rand;
+    // Die Deckkraft steckt in der Eckpunktfarbe: Am Gitterrand wird das
+    // Gelände durchsichtig, und der Himmel scheint durch.
+    //
+    // **Nicht als Dunst darüber, sondern als Durchsichtigkeit.** Der
+    // erste Versuch legte den Saum in die Dunstschicht. Das ergab ein
+    // weisses Band quer über die Gipfelkette: Der nördliche Gitterrand
+    // liegt weit hinten und ragt zwischen den Bergen hervor, und dort
+    // war er nicht durchsichtig, sondern weiss angestrichen. Sichtbar
+    // wurde es nur am gerenderten Bild.
+    farben[f++] = (farbe & 0x00FFFFFF) |
+        ((rand * 255).round().clamp(0, 255) << 24);
   }
 
   for (var y = 0; y < g.zeilen - 1; y++) {
@@ -158,11 +221,13 @@ Gelaendenetz baueNetz(
       // Zwei Dreiecke je Feld, jedes mit seiner eigenen Schattierung.
       // Eine Schattierung je Eckpunkt sähe weicher aus und verwischte
       // genau die Kanten, die ein Gelände lesbar machen.
-      final f1 = _farbe(grundfarbe, schattierung(normale(a, b, c)));
+      final f1 = _farbe(
+          grundfarbe, schattierung(normale(a, b, c), stimmung), stimmung);
       lege(a, x, y, f1);
       lege(b, x + 1, y, f1);
       lege(c, x, y + 1, f1);
-      final f2 = _farbe(grundfarbe, schattierung(normale(b, d, c)));
+      final f2 = _farbe(
+          grundfarbe, schattierung(normale(b, d, c), stimmung), stimmung);
       lege(b, x + 1, y, f2);
       lege(d, x + 1, y + 1, f2);
       lege(c, x, y + 1, f2);
@@ -173,17 +238,27 @@ Gelaendenetz baueNetz(
     ecken: ecken,
     texturstellen: texturstellen,
     farben: farben,
+    randnaehe: randnaehe,
     breiteMeter: breiteMeter,
     hoeheMeter: hoeheMeter,
   );
 }
 
-int _farbe(Color grund, double licht) {
-  int kanal(double v) => (v * licht * 255).round().clamp(0, 255);
+/// Grundfarbe mal Helligkeit mal Lichtfarbe.
+///
+/// Die Lichtfarbe kommt seit den Tageszeiten dazu: Morgenlicht ist warm,
+/// die blaue Stunde kalt. Sie multipliziert wie die Helligkeit, faerbt
+/// also auch die Karte mit – deshalb steht sie in [Lichtstimmung]
+/// zurueckhaltend.
+int _farbe(Color grund, double licht,
+    [Lichtstimmung stimmung = stimmungMittag]) {
+  final l = stimmung.lichtfarbe;
+  int kanal(double v, double ton) =>
+      (v * licht * ton * 255).round().clamp(0, 255);
   return (0xFF << 24) |
-      (kanal(grund.r) << 16) |
-      (kanal(grund.g) << 8) |
-      kanal(grund.b);
+      (kanal(grund.r, l.r) << 16) |
+      (kanal(grund.g, l.g) << 8) |
+      kanal(grund.b, l.b);
 }
 
 /// Zeichnet ein Netz mit einer Kamera.
@@ -197,7 +272,9 @@ class Gelaendemaler extends CustomPainter {
   /// Die Spur, in denselben Metern wie das Netz.
   final List<Raumpunkt> spur;
   final Color spurfarbe;
-  final Color himmel;
+
+  /// Tageszeit: Himmelsfarben, Dunst und – über das Netz – das Relief.
+  final Lichtstimmung stimmung;
 
   /// Bis wohin die Spur zurückgelegt ist, in Metern – `null` ausserhalb
   /// des Fluges.
@@ -216,20 +293,41 @@ class Gelaendemaler extends CustomPainter {
     required this.kamera,
     required this.spur,
     required this.spurfarbe,
-    required this.himmel,
+    this.stimmung = stimmungMittag,
     this.karte,
     this.gefahrenBis,
     this.streckeJePunkt,
   });
 
+  /// Die Grösse des letzten Bildes – die Dunstschicht braucht sie für
+  /// ihren Ausschnitt.
+  Size _flaeche = Size.zero;
+
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = himmel);
+    _flaeche = size;
+    // **Der Himmel zuerst, und als Verlauf.** Vorher stand hier eine
+    // Flaeche in der Hintergrundfarbe des Themas – im dunklen Thema eine
+    // schwarze Leere, in die die Landschaft hineinragte. Ein Verlauf
+    // kostet nichts weiter: `drawRect` mit einem Shader ist Flutter
+    // selbst, kein Paket.
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(size.width / 2, 0),
+          Offset(size.width / 2, size.height),
+          [stimmung.himmelOben, stimmung.himmelUnten],
+        ),
+    );
 
     final anzahl = netz.ecken.length ~/ 3;
     final flach = Float32List(anzahl * 2);
+    final tiefen = netz.tiefen;
     // Merkposten je Eckpunkt: Liegt er hinter der Kamera?
     final hinten = List<bool>.filled(anzahl, false);
+    var nahste = double.infinity;
+    var fernste = 0.0;
     for (var i = 0; i < anzahl; i++) {
       final p = kamera.projiziere((
         x: netz.ecken[i * 3],
@@ -238,7 +336,12 @@ class Gelaendemaler extends CustomPainter {
       ));
       flach[i * 2] = p.stelle.dx;
       flach[i * 2 + 1] = p.stelle.dy;
+      tiefen[i] = p.tiefe;
       hinten[i] = p.tiefe <= 1;
+      if (!hinten[i]) {
+        if (p.tiefe < nahste) nahste = p.tiefe;
+        if (p.tiefe > fernste) fernste = p.tiefe;
+      }
     }
 
     // **Dreiecke hinter der Kamera fallen weg.**
@@ -292,6 +395,8 @@ class Gelaendemaler extends CustomPainter {
     }
     ecken.dispose();
 
+    _dunstDarueber(canvas, flach, hinten, nahste, fernste);
+
     if (spur.length > 1) {
       // Zwei Pfade statt eines: der zurückgelegte Teil und der, der noch
       // kommt. Getrennt gezeichnet und nicht als ein Pfad mit
@@ -330,26 +435,121 @@ class Gelaendemaler extends CustomPainter {
           offenNoch = true;
         }
       }
-      if (teilen) {
-        canvas.drawPath(
-          kommtNoch,
-          Paint()
-            ..color = spurfarbe.withValues(alpha: 0.35)
-            ..strokeWidth = 3
-            ..style = PaintingStyle.stroke
-            ..strokeJoin = StrokeJoin.round,
-        );
-      }
-      canvas.drawPath(
-        pfad,
-        Paint()
-          ..color = spurfarbe
-          ..strokeWidth = 3
-          ..style = PaintingStyle.stroke
-          ..strokeJoin = StrokeJoin.round
-          ..strokeCap = StrokeCap.round,
-      );
+      // Erst der Teil, der noch kommt, dann der zurückgelegte: So liegt
+      // der volle Strich obenauf, wo beide sich an der Nahtstelle
+      // berühren.
+      if (teilen) _spurZug(canvas, kommtNoch, spurfarbe, 0.4);
+      _spurZug(canvas, pfad, spurfarbe, 1);
     }
+  }
+
+  /// **Der Dunst in der Ferne – und die weiche Kante.**
+  ///
+  /// Dieselben Dreiecke ein zweites Mal, diesmal in der Dunstfarbe mit
+  /// einer Deckkraft je Eckpunkt. Ein zweiter Zug und keine Rechnung an
+  /// den Eckpunktfarben, weil `modulate` multipliziert: Damit lässt sich
+  /// nur abdunkeln, und Dunst hellt auf. Er muss also darübergelegt
+  /// werden.
+  ///
+  /// Was weiter weg ist, verblasst – der älteste Tiefenhinweis der
+  /// Malerei und der einzige, den eine Ansicht ohne Schattenwurf hat.
+  /// Die Skala kommt aus der Szene selbst (nächster und fernster
+  /// Eckpunkt), damit sie in der Übersicht wie im Flug passt.
+  ///
+  /// Die weiche Kante steckt dagegen in der Deckkraft des Geländes
+  /// selbst (siehe [baueNetz]) – hier wird sie nur ausgespart.
+  void _dunstDarueber(Canvas canvas, Float32List flach, List<bool> hinten,
+      double nahste, double fernste) {
+    if (_flaeche.isEmpty) return;
+    final anzahl = flach.length ~/ 2;
+    if (anzahl == 0 || fernste <= nahste) return;
+    final farben = netz.dunstfarben;
+    final tiefen = netz.tiefen;
+    final spanne = fernste - nahste;
+    final rot = (stimmung.dunst.r * 255).round().clamp(0, 255);
+    final gruen = (stimmung.dunst.g * 255).round().clamp(0, 255);
+    final blau = (stimmung.dunst.b * 255).round().clamp(0, 255);
+    final grundton = (rot << 16) | (gruen << 8) | blau;
+
+    for (var i = 0; i < anzahl; i++) {
+      if (hinten[i]) {
+        farben[i] = 0;
+        continue;
+      }
+      final t = ((tiefen[i] - nahste) / spanne).clamp(0.0, 1.0);
+      final deckung = _dunstStaerke * (1 - math.exp(-_dunstDichte * t))
+          // Wo das Gelände selbst schon durchsichtig ist, darf der Dunst
+          // es nicht wieder zumalen.
+          * netz.randnaehe[i];
+      farben[i] = ((deckung * 255).round().clamp(0, 255) << 24) | grundton;
+    }
+
+    final schleier = ui.Vertices.raw(ui.VertexMode.triangles, flach,
+        colors: farben);
+    // **Auf eine eigene Schicht, und dort ersetzend statt überlagernd.**
+    //
+    // `drawVertices` kennt keinen Tiefenpuffer; die Dreiecke liegen in
+    // der Reihenfolge des Gitters, und die läuft von Norden nach Süden,
+    // also von hinten nach vorn. Für das Gelände geht das auf: Das Nahe
+    // deckt das Ferne zu.
+    //
+    // Für den Dunst geht es nicht auf, und das war am Bild zu sehen:
+    // Hinter einem Grat liegt ferne Landschaft, deren Dunst zuerst
+    // gemalt wird – und das nahe Dreieck darüber trägt fast keinen
+    // Dunst, deckt also nichts zu. Übrig blieb ein weisses Band quer
+    // über die Gipfelkette. Erst die Gegenprobe mit ausgeschaltetem
+    // Saum zeigte, dass es nicht der Rand war.
+    //
+    // Auf einer eigenen Schicht mit `src` **ersetzt** jedes Dreieck, was
+    // dort steht. Weil sie von hinten nach vorn kommen, gewinnt das
+    // nächste – genau das, was ein Tiefenpuffer täte. Die fertige
+    // Schicht kommt dann in einem Zug über das Gelände.
+    canvas.saveLayer(Offset.zero & _flaeche, Paint());
+    canvas.drawVertices(
+        schleier, BlendMode.dst, Paint()..blendMode = BlendMode.src);
+    canvas.restore();
+    schleier.dispose();
+  }
+
+  /// **Die Spur in drei Zügen.**
+  ///
+  /// Ein einzelner Strich verschwindet auf einer bunten Karte – im Bild
+  /// vom 02.09. war er über der Wiese kaum zu finden. Deshalb:
+  /// 1. ein versetzter dunkler Schatten, der ihn vom Hang abhebt,
+  /// 2. ein breiter weicher Schein darunter,
+  /// 3. der scharfe Kern darüber.
+  ///
+  /// In dieser Reihenfolge, sonst läge der Schatten über dem Kern.
+  void _spurZug(Canvas canvas, Path pfad, Color farbe, double deckkraft) {
+    if (deckkraft <= 0) return;
+    canvas.drawPath(
+      pfad.shift(const Offset(1.5, 2.5)),
+      Paint()
+        ..color = const Color(0xFF000000).withValues(alpha: 0.35 * deckkraft)
+        ..strokeWidth = 4
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      pfad,
+      Paint()
+        ..color = farbe.withValues(alpha: 0.45 * deckkraft)
+        ..strokeWidth = 9
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const ui.MaskFilter.blur(BlurStyle.normal, 3.5),
+    );
+    canvas.drawPath(
+      pfad,
+      Paint()
+        ..color = farbe.withValues(alpha: deckkraft)
+        ..strokeWidth = 2.5
+        ..style = PaintingStyle.stroke
+        ..strokeJoin = StrokeJoin.round
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   /// Die Texturstellen liegen als Anteil vor; `ImageShader` erwartet
@@ -368,6 +568,7 @@ class Gelaendemaler extends CustomPainter {
   bool shouldRepaint(Gelaendemaler alt) =>
       alt.netz != netz ||
       alt.kamera != kamera ||
+      alt.stimmung != stimmung ||
       alt.karte != karte ||
       alt.spur != spur ||
       // Ohne diese Zeile stünde der Schnitt zwischen zurückgelegt und
@@ -388,6 +589,12 @@ class Gelaendeansicht extends StatefulWidget {
 
   final ui.Image? karte;
 
+  /// Die Tageszeit. Muss zu dem Netz passen, das hereingereicht wird:
+  /// Das Relief steckt in den Eckpunktfarben und entsteht beim Bauen,
+  /// Himmel und Dunst entstehen beim Zeichnen. Wer nur eines von beiden
+  /// umstellt, bekommt einen Morgenhimmel über einer Mittagslandschaft.
+  final Lichtstimmung stimmung;
+
   /// Was am unteren Rand über der Flugleiste stehen soll – Bedienung,
   /// Namensnennung.
   ///
@@ -405,6 +612,7 @@ class Gelaendeansicht extends StatefulWidget {
     this.spur = const [],
     this.spurwerte = const [],
     this.karte,
+    this.stimmung = stimmungMittag,
     this.fussnoten = const [],
   });
 
@@ -588,7 +796,7 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                       spur: widget.spur,
                       karte: widget.karte,
                       spurfarbe: farben.error,
-                      himmel: farben.surfaceContainerLowest,
+                      stimmung: widget.stimmung,
                       // Beim Flug endet die volle Farbe dort, wo man
                       // gerade ist: Was hinter einem liegt, ist
                       // zurückgelegt, was davor liegt, kommt noch. Ohne

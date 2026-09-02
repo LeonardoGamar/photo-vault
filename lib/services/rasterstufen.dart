@@ -58,3 +58,33 @@ int streifenAnzahl(
   final passt = ((breite + abstand) / (kachelbreite + abstand)).floor();
   return passt.clamp(mindestens, hoechstens);
 }
+
+/// Wie die Zeitleiste ihre Fotos anordnet.
+///
+/// **Zwei Formen und nicht eine.** Die Quadrate zeigen von jedem Foto
+/// denselben Ausschnitt und lassen die Augen in Spalten laufen – gut, um
+/// etwas Bestimmtes zu suchen. Die Reihen zeigen jedes Foto so, wie es
+/// aufgenommen wurde, und ein Hochformat sieht auch aus wie eines – gut,
+/// um zu schauen. Welche gerade richtig ist, hängt daran, was man vorhat,
+/// und das weiss nur der Betrachter.
+enum Zeitleistenform {
+  /// Festes Raster, alle Kacheln quadratisch und beschnitten.
+  quadrate,
+
+  /// Bündige Reihen, jedes Foto in seinem eigenen Seitenverhältnis.
+  reihen,
+}
+
+/// Welche Form gilt, wenn niemand etwas eingestellt hat.
+///
+/// Die Quadrate – wer nichts umstellt, sieht genau das Bisherige.
+const Zeitleistenform zeitleisteFormVorgabe = Zeitleistenform.quadrate;
+
+/// Die Form zu einer gespeicherten Zahl.
+///
+/// Eine Zahl ausserhalb der Reihe fällt auf die Vorgabe zurück, statt den
+/// Bildschirm zu verhindern – dieselbe Regel wie bei der Kachelstufe.
+Zeitleistenform zeitleisteForm(int wert) =>
+    wert >= 0 && wert < Zeitleistenform.values.length
+        ? Zeitleistenform.values[wert]
+        : zeitleisteFormVorgabe;

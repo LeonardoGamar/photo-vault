@@ -11,6 +11,7 @@ import '../services/gelaende_laden.dart';
 import '../services/gelaendeflug.dart';
 import '../services/gelaendekacheln.dart';
 import '../services/gelaendesicht.dart';
+import '../services/lichtstimmung.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/gelaende.dart';
 import '../widgets/mini_location_map.dart' show Kartenstil, eigeneKarte;
@@ -43,12 +44,25 @@ class GelaendeScreen extends StatefulWidget {
   /// umschalten lässt sie sich hier trotzdem.
   final Kartenstil stil;
 
+  /// Die Tageszeit über der Landschaft.
+  ///
+  /// Kommt von aussen wie [stil] und aus demselben Grund: Dieser
+  /// Bildschirm kennt die Bibliothek nicht und kann die gemerkte Wahl
+  /// nicht selbst nachschlagen.
+  final Tageszeit stimmung;
+
+  /// Wird gerufen, wenn hier eine andere Tageszeit gewählt wird – damit
+  /// der Aufrufer sie merken kann.
+  final ValueChanged<Tageszeit>? beimStimmungswechsel;
+
   const GelaendeScreen({
     super.key,
     required this.spur,
     required this.titel,
     this.netz,
     this.stil = Kartenstil.topo,
+    this.stimmung = lichtstimmungVorgabe,
+    this.beimStimmungswechsel,
   });
 
   @override
@@ -62,6 +76,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
   ui.Image? _karte;
   bool _laedt = true;
   late Kartenstil _stil = widget.stil;
+  late Tageszeit _stimmung = widget.stimmung;
 
   /// Höhengitter und Ausschnitt bleiben gemerkt, damit ein Wechsel der
   /// Textur nicht auch die Höhen noch einmal aus dem Netz holt.
@@ -90,6 +105,49 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
           ],
         ),
       );
+
+  PopupMenuItem<Tageszeit> _stimmungEintrag(
+          Tageszeit zeit, IconData symbol, String name) =>
+      PopupMenuItem(
+        value: zeit,
+        child: Row(
+          children: [
+            Icon(symbol,
+                size: 18,
+                color: zeit == _stimmung
+                    ? Theme.of(context).colorScheme.primary
+                    : null),
+            const SizedBox(width: AppSpacing.sm),
+            Text(name),
+          ],
+        ),
+      );
+
+  /// Wechselt die Tageszeit – **ohne irgendetwas nachzuladen**.
+  ///
+  /// Das Relief steckt in den Eckpunktfarben und entsteht beim Bauen des
+  /// Netzes; Himmel und Dunst entstehen beim Zeichnen. Beides braucht
+  /// weder Höhen- noch Kartenkacheln, also wird nur das Netz aus dem
+  /// gemerkten Gitter neu gerechnet. Ohne dieses Neubauen bekäme man
+  /// einen Morgenhimmel über einer Mittagslandschaft.
+  void _stimmungWechseln(Tageszeit neu) {
+    if (neu == _stimmung) return;
+    final gitter = _gitter;
+    setState(() => _stimmung = neu);
+    widget.beimStimmungswechsel?.call(neu);
+    if (gitter == null) return;
+    final gebaut = baueNetz(
+      gitter,
+      grundfarbe: _karte == null ? gelaendeGrundfarbe : const Color(0xFFFFFFFF),
+      stimmung: stimmungFuer(neu),
+    );
+    final gerechnet = _spurInMeter(gitter, gebaut);
+    setState(() {
+      _netz = gebaut;
+      _spurImRaum = gerechnet.linie;
+      _spurwerte = gerechnet.werte;
+    });
+  }
 
   /// Wechselt die Textur, **ohne das Höhengitter neu zu holen**.
   ///
@@ -129,6 +187,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
         gitter,
         grundfarbe:
             karte == null ? gelaendeGrundfarbe : const Color(0xFFFFFFFF),
+        stimmung: stimmungFuer(_stimmung),
       );
       final gerechnet = _spurInMeter(gitter, gebaut);
       final alt = _karte;
@@ -220,6 +279,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
       final gebaut = baueNetz(
         gitter,
         grundfarbe: karte == null ? gelaendeGrundfarbe : const Color(0xFFFFFFFF),
+        stimmung: stimmungFuer(_stimmung),
       );
       final gerechnet = _spurInMeter(gitter, gebaut);
       setState(() {
@@ -310,6 +370,26 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
                     eigeneKarte!.name),
             ],
           ),
+          // Die Tageszeit daneben, gleiche Machart. Sie beantwortet eine
+          // dritte Frage: nicht „was liegt dort" und nicht „wie sah es
+          // aus", sondern wie stark das Gelände hervortreten soll. Eine
+          // flache Sonne zeigt jede Mulde, eine hohe lässt die Karte
+          // lesbar.
+          PopupMenuButton<Tageszeit>(
+            tooltip: t.gelaendeStimmung,
+            icon: const Icon(Icons.wb_twilight_outlined),
+            onSelected: _stimmungWechseln,
+            itemBuilder: (context) => [
+              _stimmungEintrag(Tageszeit.morgen, Icons.wb_twilight_outlined,
+                  t.stimmungMorgen),
+              _stimmungEintrag(
+                  Tageszeit.mittag, Icons.wb_sunny_outlined, t.stimmungMittag),
+              _stimmungEintrag(Tageszeit.abend, Icons.wb_incandescent_outlined,
+                  t.stimmungAbend),
+              _stimmungEintrag(Tageszeit.blaueStunde,
+                  Icons.nights_stay_outlined, t.stimmungBlaueStunde),
+            ],
+          ),
         ],
       ),
       body: _laedt
@@ -354,6 +434,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
                   spur: _spurImRaum,
                   spurwerte: _spurwerte,
                   karte: _karte,
+                  stimmung: stimmungFuer(_stimmung),
                   fussnoten: [
                     _Fussnote([
                       t.gelaendeBedienung,

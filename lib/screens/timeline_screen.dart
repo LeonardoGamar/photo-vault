@@ -12,8 +12,8 @@ import '../state/library_state.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/asset_list_view.dart';
 import '../services/listenspalten.dart';
-import '../services/rasterstufen.dart';
 import '../widgets/month_grouped_asset_grid.dart';
+import '../widgets/timeline_grid_layout.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
@@ -95,6 +95,31 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
     return [for (final k in m.schluessel) [for (final a in m.gruppen[k]!) a.id]];
   }
 
+  /// Bei bündigen Reihen stehen mal drei und mal dreizehn Fotos
+  /// nebeneinander – dann genügt eine Spaltenzahl nicht, um zu wissen, wo
+  /// „nach unten" hinführt.
+  @override
+  List<List<int>>? get rasterReihenlaengen {
+    if (_alsListe ||
+        _form != Zeitleistenform.reihen ||
+        _rasterbreite <= 0) {
+      return null;
+    }
+    final m = monatsgruppen(_geladen);
+    return [
+      for (final k in m.schluessel)
+        [
+          for (final r in zeitleisteReihen(m.gruppen[k]!, _rasterbreite,
+              kachelbreite: _kachelbreite))
+            r.plaetze.length
+        ]
+    ];
+  }
+
+  /// Die Breite, die dem Raster bleibt – vom `LayoutBuilder` gesetzt, weil
+  /// die Reihen ohne sie nicht zu rechnen sind.
+  double _rasterbreite = 0;
+
   @override
   void rasterOeffne(AssetData asset) => _openViewer(_geladen, asset);
 
@@ -115,6 +140,11 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
 
   double get _kachelbreite => zeitleisteKachelbreite(_kachelstufe);
 
+  /// Quadrate oder buendige Reihen. Aus demselben Grund gemerkt wie die
+  /// Kachelgroesse: Es ist keine Wahl, die man im Lauf einer Sichtung
+  /// mehrfach umlegt, sondern wie man seine Bibliothek ansieht.
+  Zeitleistenform _form = zeitleisteFormVorgabe;
+
   /// Welche Spalten die Listenansicht zeigt und wie breit sie sind.
   /// Ebenfalls gemerkt: Wer sich seine Spalten einrichtet, richtet sie
   /// einmal ein.
@@ -131,12 +161,24 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   Future<void> _ladeKachelstufe() async {
     final stufe = await widget.library.db.zeitleisteKachelstufeWert();
     final spalten = await widget.library.db.listenspaltenWahl();
+    final form = await widget.library.db.zeitleisteFormWert();
     if (mounted) {
       setState(() {
         _kachelstufe = stufe;
         _listenspalten = spalten;
+        _form = form;
       });
     }
+  }
+
+  void _wechsleForm() {
+    final neue = _form == Zeitleistenform.quadrate
+        ? Zeitleistenform.reihen
+        : Zeitleistenform.quadrate;
+    setState(() => _form = neue);
+    // Ohne `await`, aus demselben Grund wie bei der Kachelgroesse: Wer
+    // umschaltet, soll nicht auf die Platte warten.
+    unawaited(widget.library.db.setzeZeitleisteForm(neue));
   }
 
   void _setzeSpalten(Listenspaltenwahl wahl) {
@@ -301,6 +343,21 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
           // untereinander, und ein Knopf, der nichts bewirkt, waere
           // irrefuehrend - dieselbe Regel wie bei der Gliederung.
           if (!_alsListe) ...[
+            // Die Form vor der Groesse: Sie entscheidet, was die beiden
+            // Zoomknoepfe daneben ueberhaupt bedeuten - Kachelbreite bei
+            // Quadraten, Reihenhoehe bei Reihen.
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: _form == Zeitleistenform.quadrate
+                  ? t.zeitleisteFormReihen
+                  : t.zeitleisteFormQuadrate,
+              icon: Icon(
+                  _form == Zeitleistenform.quadrate
+                      ? Icons.view_stream_outlined
+                      : Icons.grid_view_outlined,
+                  size: 20),
+              onPressed: _wechsleForm,
+            ),
             IconButton(
               visualDensity: VisualDensity.compact,
               tooltip: t.zeitleisteKleiner,
@@ -351,12 +408,15 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                   // Die Spaltenzahl steht nur hier fest, wird aber beim
                   // Tastendruck gebraucht – dort gibt es keine Constraints.
                   child: LayoutBuilder(builder: (context, constraints) {
+                    final mitZeitstrahl = rasterMitZeitstrahl(
+                        monatsgruppen(assets).schluessel.length);
+                    _rasterbreite = rasterGridbreite(constraints.maxWidth,
+                        mitZeitstrahl: mitZeitstrahl);
                     _spalten = _alsListe
                         ? 1
                         : rasterSpaltenzahl(
                             constraints.maxWidth,
-                            mitZeitstrahl:
-                                rasterMitZeitstrahl(monatsgruppen(assets).schluessel.length),
+                            mitZeitstrahl: mitZeitstrahl,
                             kachelbreite: _kachelbreite,
                           );
                     return _alsListe
@@ -383,6 +443,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                             onHeaderTap: _toggleGroup,
                             onTap: rasterKlick,
                             kachelbreite: _kachelbreite,
+                            form: _form,
                             onScrollNearEnd: () => _maybeGrowWindow(assets.length),
                           );
                   }),
