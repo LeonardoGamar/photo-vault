@@ -50,7 +50,14 @@ class _Gast extends StatefulWidget {
   State<_Gast> createState() => _GastState();
 }
 
-class _GastState extends State<_Gast> with Rasterbedienung<_Gast> {
+class _GastState extends State<_Gast> with Rasterbedienung<_Gast, AssetData> {
+  @override
+  String rasterKennung(AssetData zeile) => zeile.id;
+
+  @override
+  ({bool favorit, String? farbe}) rasterMerkmale(AssetData zeile) =>
+      (favorit: zeile.isFavorite, farbe: zeile.colorLabel);
+
   final Set<String> gewaehlt = {};
   final List<String> geoeffnet = [];
   late List<AssetData> _stand = widget.assets;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/blur_detection.dart';
 import '../services/serienvergleich.dart';
@@ -160,7 +161,7 @@ class _Spalte extends StatelessWidget {
           SizedBox(
             height: 130,
             child: AssetThumbnailTile(
-              asset: spalte.asset,
+              asset: Rasterzeile.aus(spalte.asset),
               paths: library.paths,
               onTap: () {},
             ),

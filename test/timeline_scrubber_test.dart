@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/widgets/timeline_scrubber.dart';
 
@@ -10,7 +11,7 @@ import 'goldbilder.dart';
 /// in einem [Stack] mit festen Abständen, und seine Beschriftungen sind in
 /// beiden Sprachen unterschiedlich lang. Diese Prüfungen halten fest, dass
 /// er in eine schmale Leiste passt, ohne überzulaufen.
-AssetData _foto(String id, DateTime wann) => AssetData(
+Rasterzeile _foto(String id, DateTime wann) => Rasterzeile.aus(AssetData(
       id: id,
       relativePath: 'originals/$id.jpg',
       originalFileName: '$id.jpg',
@@ -33,13 +34,13 @@ AssetData _foto(String id, DateTime wann) => AssetData(
       aiTagsScanned: false,
       isStackCover: false,
       rating: 0,
-    );
+    ));
 
 /// Vier Jahre à zwölf Monate, absteigend – so viel, dass Jahreszahlen und
 /// Monatspunkte dicht beieinander liegen.
-({List<int> keys, Map<int, List<AssetData>> groups}) _bibliothek() {
+({List<int> keys, Map<int, List<Rasterzeile>> groups}) _bibliothek() {
   final keys = <int>[];
-  final groups = <int, List<AssetData>>{};
+  final groups = <int, List<Rasterzeile>>{};
   for (var jahr = 2026; jahr >= 2023; jahr--) {
     for (var monat = 12; monat >= 1; monat--) {
       final key = jahr * 100 + monat;
@@ -83,9 +84,9 @@ Future<void> _zeige(WidgetTester tester, Locale locale, double breite) async {
 /// Eine Bibliothek wie die im Fehlerbericht: Der Schwerpunkt liegt in den
 /// letzten Jahren, die alten haben je ein paar Fotos. Genau dadurch drängen
 /// sich 2006 bis 2014 auf wenige Pixel.
-({List<int> keys, Map<int, List<AssetData>> groups}) _schieflastig() {
+({List<int> keys, Map<int, List<Rasterzeile>> groups}) _schieflastig() {
   final keys = <int>[];
-  final groups = <int, List<AssetData>>{};
+  final groups = <int, List<Rasterzeile>>{};
   for (var jahr = 2026; jahr >= 2006; jahr--) {
     final proMonat = jahr >= 2015 ? 60 : 1;
     for (var monat = 12; monat >= 1; monat--) {

@@ -68,6 +68,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="3.4.1" date="2026-09-03">
+      <description>
+        <p>A follow-up without new features. It started with one open question - whether Flutter's default image cache is large enough - and three faults fell out of measuring it. All three sit in the timeline, the most used screen. No schema change: the database stays at 71.</p>
+        <p>Square tiles showed their photos squashed. A tile limits the size a thumbnail is decoded to, and both edges were given - but that does not mean "at most this large" to Flutter, it means "exactly this size", and the aspect ratio is not preserved. A 225x400 portrait became a 225x320 bitmap. The crop notices nothing: it receives an image whose ratio is already wrong and dutifully fills the tile, so faces came out wider and flatter without anything looking like an error. It only became visible in a test image containing circles, which came out as ellipses. Affected were the timeline, the photo markers on the map and the filmstrip under the viewer. Exactly one edge is given now.</p>
+        <p>Every month decoded a photo nobody saw. The timeline lays out each month as its own section, and a section always builds its first element - even one entirely below the window, because its height has to be known. That first element was a photo, so opening the timeline decoded the first photo of every single month down to the oldest: 581 images for a screen showing 69. The month heading is now that first element instead, and it costs no image. The timeline appears in less than half the time.</p>
+        <p>The scrubber jumped too far down. The calculation behind the scrubber and "jump to this photo" assumed a month heading of 64 points where 52 are drawn, plus a gap after the last row of a square grid that does not exist. Twelve points per month add up: in the middle of a library with 82 months the jump landed 668 points too low, two thirds of a window height. It is exact now.</p>
+        <p>And the image cache itself: Flutter's default of 100 MB holds barely three screenfuls of the timeline on a high resolution display, so scrolling back showed empty tiles refilling. It is 200 MB now, measured to cover seven to ten screens. 300 MB was rejected - the first extra hundred megabytes buy four screens, the second hundred also only four.</p>
+      </description>
+    </release>
     <release version="3.4.0" date="2026-09-02">
       <description>
         <p>Three wishes and one fault found while checking them. Database schema changes from 68 to 71 - the migration runs on first start and is not reversible; verified against three grown libraries, one of them at version 27.</p>

@@ -4,6 +4,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/services/import_service.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/widgets/timeline_grid_layout.dart';
@@ -44,9 +45,9 @@ void main() {
     final june = await importPhotoAt('a.jpg', DateTime(2026, 6, 15));
     final may = await importPhotoAt('b.jpg', DateTime(2026, 5, 15));
 
-    final groups = <int, List<AssetData>>{
-      202606: [june],
-      202605: [may],
+    final groups = <int, List<Rasterzeile>>{
+      202606: [Rasterzeile.aus(june)],
+      202605: [Rasterzeile.aus(may)],
     };
     const orderedKeys = [202606, 202605]; // absteigend, wie in MonthGroupedAssetGrid
 
@@ -59,8 +60,8 @@ void main() {
 
   test('gibt null zurück, wenn das Foto in keiner Gruppe vorkommt', () async {
     final asset = await importPhotoAt('a.jpg', DateTime(2026, 6, 15));
-    final groups = <int, List<AssetData>>{
-      202606: [asset]
+    final groups = <int, List<Rasterzeile>>{
+      202606: [Rasterzeile.aus(asset)]
     };
     expect(timelineOffsetForAsset(const [202606], groups, 800, 'unbekannte-id'), isNull);
   });
@@ -72,7 +73,7 @@ void main() {
     for (var i = 0; i < columns; i++) {
       assets.add(await importPhotoAt('p$i.jpg', DateTime(2026, 6, 15)));
     }
-    final groups = <int, List<AssetData>>{202606: assets};
+    final groups = <int, List<Rasterzeile>>{202606: [for (final a in assets) Rasterzeile.aus(a)]};
     final firstOffset = timelineOffsetForAsset(const [202606], groups, 800, assets.first.id);
     final lastOffset = timelineOffsetForAsset(const [202606], groups, 800, assets.last.id);
     expect(firstOffset, lastOffset);

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/aktivitaeten.dart';
 import '../services/meldungsdienst.dart';
@@ -520,7 +521,7 @@ class _Vorschaureihe extends StatelessWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                         child: AssetThumbnailTile(
-                          asset: a,
+                          asset: Rasterzeile.aus(a),
                           paths: library.paths,
                           onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
@@ -676,7 +677,7 @@ class _AktivitaetszeileState extends State<Aktivitaetszeile> {
               return ClipRRect(
                 borderRadius: BorderRadius.circular(AppRadius.xs),
                 child: AssetThumbnailTile(
-                  asset: asset,
+                  asset: Rasterzeile.aus(asset),
                   paths: widget.library.paths,
                   onTap: widget.onTippen,
                 ),

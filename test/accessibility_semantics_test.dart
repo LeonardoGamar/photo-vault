@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/widgets/asset_thumbnail_tile.dart';
@@ -75,7 +76,7 @@ void main() {
         localizationsDelegates: AppTexte.localizationsDelegates,
         supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(
-          body: AssetThumbnailTile(asset: buildAsset(type: 'IMAGE'), paths: paths, onTap: () {}),
+          body: AssetThumbnailTile(asset: Rasterzeile.aus(buildAsset(type: 'IMAGE')), paths: paths, onTap: () {}),
         ),
       ));
 
@@ -92,7 +93,7 @@ void main() {
         supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(
           body: AssetThumbnailTile(
-            asset: buildAsset(type: 'IMAGE', isFavorite: true, rating: 4),
+            asset: Rasterzeile.aus(buildAsset(type: 'IMAGE', isFavorite: true, rating: 4)),
             paths: paths,
             onTap: () {},
           ),
@@ -117,7 +118,7 @@ void main() {
         supportedLocales: AppTexte.supportedLocales,
         home: Scaffold(
           body: AssetThumbnailTile(
-            asset: buildAsset(type: 'VIDEO', durationSeconds: 95),
+            asset: Rasterzeile.aus(buildAsset(type: 'VIDEO', durationSeconds: 95)),
             paths: paths,
             onTap: () {},
           ),

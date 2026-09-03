@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
 import '../l10n/app_localizations.dart';
+import '../services/bilddekodierung.dart';
 import '../services/map_clustering.dart';
 import '../services/native_image_converter.dart';
 import '../services/lebenslauf.dart';
@@ -856,6 +857,13 @@ class _MapThumbMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final thumbPath = asset.thumbnailRelativePath;
     final dpr = MediaQuery.of(context).devicePixelRatio;
+    final masse = deckendeDekodiermasse(
+      kachelBreite: 40,
+      kachelHoehe: 40,
+      bildBreite: asset.widthPx,
+      bildHoehe: asset.heightPx,
+      pixelverhaeltnis: dpr,
+    );
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -875,9 +883,11 @@ class _MapThumbMarker extends StatelessWidget {
                     // Auf Markergröße dekodieren statt auf die volle
                     // Vorschaugröße – derselbe Grund wie bei
                     // [AssetThumbnailTile]: Der Kreis ist 40 Punkte groß,
-                    // die Datei auf der Platte 400 Pixel breit.
-                    cacheWidth: (40 * dpr).round(),
-                    cacheHeight: (40 * dpr).round(),
+                    // die Datei auf der Platte 400 Pixel breit. Und aus
+                    // demselben Grund nur eine Kante: Beide zusammen
+                    // stauchten das Bild, siehe [deckendeDekodiermasse].
+                    cacheWidth: masse.breite,
+                    cacheHeight: masse.hoehe,
                     errorBuilder: (_, __, ___) => _fallbackIcon(),
                   )
                 : _fallbackIcon(),

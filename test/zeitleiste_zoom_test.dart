@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/timeline_screen.dart';
 import 'package:photo_vault/services/storage_paths.dart';
@@ -22,7 +23,7 @@ import 'package:photo_vault/widgets/timeline_grid_layout.dart';
 /// wollte, hatte keinen Weg dorthin.
 /// Eine Aufnahme, wie sie die Hoehenrechnung braucht - mehr als Masse und
 /// Datum sieht sie nicht an.
-AssetData _quadratfoto(String id) => AssetData(
+Rasterzeile _quadratfoto(String id) => Rasterzeile.aus(AssetData(
       id: id,
       relativePath: 'originals/$id.jpg',
       originalFileName: '$id.jpg',
@@ -45,7 +46,7 @@ AssetData _quadratfoto(String id) => AssetData(
       aiTagsScanned: false,
       isStackCover: false,
       rating: 0,
-    );
+    ));
 
 void main() {
   late Directory wurzel;

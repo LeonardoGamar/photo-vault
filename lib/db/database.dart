@@ -20,6 +20,7 @@ import '../services/library_location.dart';
 import '../services/library_stats.dart';
 import '../services/lichtstimmung.dart';
 import '../services/listenspalten.dart';
+import 'rasterzeile.dart';
 import '../services/rasterstufen.dart'
     show
         zeitleisteKachelstufeVorgabe,
@@ -2527,6 +2528,29 @@ class AppDatabase extends _$AppDatabase {
       query.limit(limit);
     }
     return _gedrosselt(() => query, TableUpdateQuery.onTable(assets));
+  }
+
+  /// Dieselbe Auswahl wie [watchTimeline], aber **nur die Spalten, die
+  /// ein Raster anfasst** – siehe [Rasterzeile] für die Messung.
+  ///
+  /// Als rohes SQL und nicht über den Abfragebauer: Der liefert immer
+  /// die ganze Zeile samt Abbildung auf `AssetData`, und genau die
+  /// beiden Posten sollen hier wegfallen. `readsFrom` sorgt dafür, dass
+  /// der Strom trotzdem meldet, wenn sich an `assets` etwas ändert.
+  Stream<List<Rasterzeile>> watchRasterzeilen(
+      {bool favoritesOnly = false, int? limit}) {
+    final wo = StringBuffer('is_trashed = 0 AND is_locked = 0 '
+        "AND (type = 'IMAGE' OR linked_asset_id IS NULL)");
+    if (favoritesOnly) wo.write(' AND is_favorite = 1');
+    final grenze = limit == null ? '' : ' LIMIT $limit';
+    return _gedrosselt(
+      () => customSelect(
+        'SELECT $rasterSpalten FROM assets WHERE $wo '
+        'ORDER BY file_created_at DESC$grenze',
+        readsFrom: {assets},
+      ).map(Rasterzeile.ausZeile),
+      TableUpdateQuery.onTable(assets),
+    );
   }
 
   /// Dieselbe Liste wie [watchTimeline], aber einmalig statt als Strom.

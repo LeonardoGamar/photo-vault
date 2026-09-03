@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/schwebevorschau.dart';
 import '../services/storage_paths.dart';
 import 'video_playback.dart';
@@ -34,7 +35,7 @@ abstract class Schwebevorschau extends ChangeNotifier {
 
   /// Lässt das Video zu [asset] anlaufen und beendet ein etwaiges
   /// vorheriges. Tut nichts, wenn [asset] gar keines trägt.
-  Future<void> starte(AssetData asset);
+  Future<void> starte(Rasterzeile asset);
 
   /// Beendet die Wiedergabe, sofern gerade [assetId] läuft. Die Kennung
   /// ist Absicht: Ist die Maus inzwischen weitergewandert, darf das
@@ -129,7 +130,7 @@ class _Videovorschau extends Schwebevorschau {
   }
 
   @override
-  Future<void> starte(AssetData asset) async {
+  Future<void> starte(Rasterzeile asset) async {
     if (_weg || !schwebevorschauAn) return;
     final videoId = schwebeVideoId(asset);
     if (videoId == null) return;

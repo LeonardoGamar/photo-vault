@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
-import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
 import 'asset_thumbnail_tile.dart';
@@ -28,8 +28,8 @@ const double _scrubberWidth = 64.0;
 /// formatierten Datums-Strings – bei jeder DB-Änderung liefert
 /// `watchTimeline()` die komplette Liste neu, wodurch diese Gruppierung bei
 /// großen Bibliotheken sonst unnötig oft (kostspielig) neu läuft.
-({List<int> schluessel, Map<int, List<AssetData>> gruppen}) monatsgruppen(List<AssetData> assets) {
-  final gruppen = <int, List<AssetData>>{};
+({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen}) monatsgruppen(List<Rasterzeile> assets) {
+  final gruppen = <int, List<Rasterzeile>>{};
   for (final a in assets) {
     final key = a.fileCreatedAt.year * 100 + a.fileCreatedAt.month;
     gruppen.putIfAbsent(key, () => []).add(a);
@@ -44,9 +44,9 @@ const double _scrubberWidth = 64.0;
 /// gliedern hiesse dort, gar nicht zu gliedern, und der Zeitstrahl fiele
 /// mangels zweiter Gruppe weg. Der Schlüssel ist wieder ein günstiger
 /// Integer (Jahr*10000 + Monat*100 + Tag), aus demselben Grund wie oben.
-({List<int> schluessel, Map<int, List<AssetData>> gruppen}) tagesgruppen(
-    List<AssetData> assets) {
-  final gruppen = <int, List<AssetData>>{};
+({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen}) tagesgruppen(
+    List<Rasterzeile> assets) {
+  final gruppen = <int, List<Rasterzeile>>{};
   for (final a in assets) {
     final d = a.fileCreatedAt;
     gruppen.putIfAbsent(d.year * 10000 + d.month * 100 + d.day, () => [])
@@ -88,20 +88,20 @@ double rasterGridbreite(double gesamtbreite, {required bool mitZeitstrahl}) =>
 /// Rechts eingeblendet: ein [TimelineScrubber] zum schnellen Springen zu
 /// einem Jahr/Monat (nur wenn es mindestens 2 Monatsgruppen gibt).
 class MonthGroupedAssetGrid extends StatefulWidget {
-  final List<AssetData> assets;
+  final List<Rasterzeile> assets;
   final StoragePaths paths;
-  final void Function(AssetData asset) onTap;
+  final void Function(Rasterzeile asset) onTap;
 
   /// Startet/erweitert die Mehrfachauswahl per langem Druck (siehe
   /// SelectionActionBar). Ohne diesen Callback verhält sich das Grid wie
   /// zuvor (keine Auswahl möglich).
-  final void Function(AssetData asset)? onLongPress;
+  final void Function(Rasterzeile asset)? onLongPress;
 
   /// Wird aufgerufen, wenn auf die Monatsüberschrift getippt wird – der
   /// Aufrufer entscheidet (siehe [_MonthGroupedAssetGridState]'s Nutzer),
   /// ob das die komplette Monatsgruppe zur Auswahl hinzufügt oder wieder
   /// entfernt. Ohne diesen Callback ist die Überschrift nicht antippbar.
-  final void Function(List<AssetData> groupAssets)? onHeaderTap;
+  final void Function(List<Rasterzeile> groupAssets)? onHeaderTap;
 
   /// IDs der aktuell ausgewählten Fotos – rendert das Auswahl-Overlay auf
   /// den entsprechenden Kacheln (siehe [AssetThumbnailTile.selected]) sowie
@@ -185,7 +185,7 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
   // spürbar teuer) ein zweites Mal aus der kompletten Asset-Liste
   // herzuleiten.
   double? _lastGridWidth;
-  Map<int, List<AssetData>>? _lastGroups;
+  Map<int, List<Rasterzeile>>? _lastGroups;
   List<int>? _lastOrderedKeys;
 
   @override
@@ -317,7 +317,7 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
   /// Herausgezogen, weil beide Formen sie brauchen – zweimal geschrieben
   /// wäre sie die Stelle, an der eine Form den Rahmen bekommt und die
   /// andere nicht.
-  Widget _kachel(AssetData asset) {
+  Widget _kachel(Rasterzeile asset) {
     final tile = AssetThumbnailTile(
       asset: asset,
       paths: widget.paths,
@@ -333,47 +333,185 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
         : kachel;
   }
 
-  /// Eine Monatsgruppe als bündige Reihen.
+  /// Die Überschrift einer Gruppe – für beide Rasterformen dieselbe.
+  Widget _ueberschrift(BuildContext context, List<Rasterzeile> gruppe) =>
+      _MonthHeader(
+        label: (widget.nachTag
+                ? DateFormat.yMMMMEEEEd(
+                    Localizations.localeOf(context).toString())
+                : DateFormat.yMMMM(Localizations.localeOf(context).toString()))
+            .format(gruppe.first.fileCreatedAt),
+        groupAssets: gruppe,
+        selectedIds: widget.selectedIds,
+        onTap: widget.onHeaderTap,
+      );
+
+  /// Eine Monatsgruppe als ein einziger Sliver – **Überschrift, dann
+  /// Reihe für Reihe**, in beiden Rasterformen.
   ///
-  /// **`SliverList` und nicht ein `Stack` in einem `SliverToBoxAdapter`.**
-  /// Die grösste Monatsgruppe der echten Bibliothek hat 2690 Aufnahmen; ein
-  /// Stack baute sie alle auf einmal auf. So bleibt jede Reihe ein eigenes
-  /// Kind, das erst entsteht, wenn es gebraucht wird – und weil die Höhen
-  /// aus der Rechnung kommen, muss die Liste sie nicht schätzen.
-  Widget _reihenSliver(List<AssetData> gruppe, double gridWidth) {
-    final reihen =
-        zeitleisteReihen(gruppe, gridWidth, kachelbreite: widget.kachelbreite);
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final reihe = reihen[index];
-            return Padding(
-              // Zwischen den Reihen derselbe Abstand wie zwischen den
-              // Bildern einer Reihe; hinter der letzten keiner, sonst
-              // klaffte unter jedem Monat eine Lücke zu viel.
-              padding: EdgeInsets.only(
-                  bottom:
-                      index == reihen.length - 1 ? 0 : timelineGridSpacing),
-              child: Row(
-                children: [
-                  for (var i = 0; i < reihe.plaetze.length; i++) ...[
-                    if (i > 0) const SizedBox(width: timelineGridSpacing),
-                    SizedBox(
-                      width: reihe.plaetze[i].breite,
-                      height: reihe.hoehe,
-                      child: _kachel(gruppe[reihe.plaetze[i].index]),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
-          childCount: reihen.length,
-        ),
+  /// **Warum die Überschrift hineingehört und nicht danebensteht.** Ein
+  /// Sliver baut immer sein erstes Kind – auch einer, der vollständig
+  /// unterhalb des Sichtfensters liegt; der Viewport legt jeden Sliver
+  /// aus, um zu wissen, wie hoch er ist. Die Zeitleiste hat **je Monat
+  /// einen eigenen Sliver**, und dieses erste Kind war ein Foto (Raster)
+  /// beziehungsweise eine ganze Fotoreihe (bündige Reihen). Gemessen an
+  /// der echten Bibliothek – 82 Monate, 7307 Aufnahmen, ein Fenster von
+  /// 1600 × 1000 Punkten bei doppelter Pixeldichte:
+  ///
+  /// ```
+  ///                       Bilder dekodiert   Speicher   erster Bildschirm
+  /// Reihen, vorher               581           99,7 MB       184 ms
+  /// Reihen, nachher               79           27,3 MB        57 ms
+  /// Raster, vorher               161           68,4 MB        65 ms
+  /// Raster, nachher               80           34,4 MB        54 ms
+  /// ```
+  ///
+  /// Sichtbar sind davon immer neunundsechzig beziehungsweise siebzig.
+  /// Alles darüber wurde dekodiert, damit einundachtzig Monate sagen
+  /// konnten, wie hoch sie sind. Als Kind 0 ist die Überschrift genau das
+  /// billige erste Kind, das jeder Sliver ohnehin baut – und sie kostet
+  /// kein Bild.
+  ///
+  /// **Belegt, nicht geschlossen.** Diese Kinder entstehen und vergehen
+  /// während des ersten Auslegens; im Widget-Baum steht hinterher nur,
+  /// was zu sehen ist, und ein Test, der Kacheln zählt, sieht deshalb
+  /// keinen Unterschied. Ablesbar ist es am Bildspeicher: Vorher lag das
+  /// **Erstfoto aller 82 Monate** darin, auch das des ältesten;
+  /// hinterher eines. `zeitleiste_gruppensliver_test.dart` prüft genau
+  /// das.
+  ///
+  /// **Ein `SliverList` und kein `SliverGrid`**, auch für die Quadrate:
+  /// Ein `SliverGrid` kann kein fremdes erstes Kind aufnehmen. Die
+  /// Spaltenzahl und die Kachelkante kommen jetzt aus
+  /// [timelineColumnsForWidth] und [timelineRowHeightForWidth] – aus
+  /// derselben Rechnung also, aus der auch der Zeitstrahl seine Höhen
+  /// nimmt. Vorher stand die Anordnung im `SliverGridDelegate` und die
+  /// Höhe daneben in der Rechnung; zwei Regeln für dieselbe Sache sind
+  /// zwei Regeln, die auseinanderlaufen können.
+  ///
+  /// **Die Überschrift behält ihre natürliche Höhe** – deshalb
+  /// `SliverList` und nicht `SliverVariedExtentList`, das jedem Kind eine
+  /// feste Höhe aufzwänge. Bei grösserer Systemschrift wächst sie, und ein
+  /// Deckel darauf wäre genau der Fehler, den die 18. Prüfrunde gefunden
+  /// hat.
+  ///
+  /// **Und deshalb muss die Gesamthöhe von aussen kommen.** Ein
+  /// `SliverList` schätzt seine Höhe aus dem Mittel der gebauten Kinder –
+  /// und gebaut ist bei einem Monat ausserhalb des Sichtfensters nur noch
+  /// die Überschrift. Ohne [_ReihenDelegate] sank die geschätzte
+  /// Gesamthöhe der Zeitleiste von 148.523 auf 55.029 Punkte, und der
+  /// Zeitstrahl hätte beim Sprung in einen späten Monat weit vor dem Ziel
+  /// angehalten. Mit ihr steht sie bei 153.232 – der **gerechneten** Höhe,
+  /// mit der der Zeitstrahl ohnehin arbeitet.
+  Widget _gruppenSliver(
+      List<Rasterzeile> gruppe, double gridWidth, Widget ueberschrift) {
+    final buendig = widget.form == Zeitleistenform.reihen;
+    final reihen = buendig
+        ? zeitleisteReihen(gruppe, gridWidth, kachelbreite: widget.kachelbreite)
+        : const <Bildreihe>[];
+    final spalten = buendig
+        ? 0
+        : timelineColumnsForWidth(gridWidth, kachelbreite: widget.kachelbreite);
+    // Die Rechnung liefert die Zeilenhöhe MIT dem Abstand darunter; die
+    // Kachel selbst ist um diesen Abstand kleiner und quadratisch.
+    final kante = buendig
+        ? 0.0
+        : timelineRowHeightForWidth(gridWidth,
+                kachelbreite: widget.kachelbreite) -
+            timelineGridSpacing;
+    final anzahl =
+        buendig ? reihen.length : (gruppe.length / spalten).ceil();
+
+    Widget reiheBauen(int r) {
+      final kinder = <Widget>[];
+      if (buendig) {
+        final reihe = reihen[r];
+        for (var i = 0; i < reihe.plaetze.length; i++) {
+          if (i > 0) kinder.add(const SizedBox(width: timelineGridSpacing));
+          kinder.add(SizedBox(
+            width: reihe.plaetze[i].breite,
+            height: reihe.hoehe,
+            child: _kachel(gruppe[reihe.plaetze[i].index]),
+          ));
+        }
+      } else {
+        for (var i = 0; i < spalten; i++) {
+          final index = r * spalten + i;
+          if (i > 0) kinder.add(const SizedBox(width: timelineGridSpacing));
+          // Die letzte Zeile ist selten voll. Die leeren Plätze bleiben
+          // als Kästen stehen, damit die vorhandenen dort sitzen, wo sie
+          // im Raster sässen - und nicht mittig verteilt werden.
+          kinder.add(SizedBox(
+            width: kante,
+            height: kante,
+            child: index < gruppe.length ? _kachel(gruppe[index]) : null,
+          ));
+        }
+      }
+      return Padding(
+        // Seitlich derselbe Rand wie zuvor am Sliver - dort läge jetzt
+        // auch die Überschrift darin, die ihren eigenen mitbringt.
+        //
+        // Zwischen den Reihen derselbe Abstand wie zwischen den Bildern
+        // einer Reihe; hinter der letzten keiner, sonst klaffte unter
+        // jedem Monat eine Lücke zu viel.
+        padding: EdgeInsets.only(
+            left: AppSpacing.md,
+            right: AppSpacing.md,
+            bottom: r == anzahl - 1 ? 0 : timelineGridSpacing),
+        child: Row(children: kinder),
+      );
+    }
+
+    return SliverList(
+      delegate: _ReihenDelegate(
+        gesamthoehe: timelineMonthGroupHeight(gruppe, gridWidth,
+            kachelbreite: widget.kachelbreite, form: widget.form),
+        anzahl: anzahl + 1,
+        bauen: (context, index) =>
+            index == 0 ? ueberschrift : reiheBauen(index - 1),
       ),
     );
+  }
+
+  /// Die letzte Gruppierung samt der Liste, aus der sie entstand.
+  ({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen})? _gruppenCache;
+  List<Rasterzeile>? _gruppenFuer;
+  bool? _gruppenNachTag;
+
+  /// Gruppiert – aber nur, wenn sich etwas geändert hat.
+  ///
+  /// **Warum gemerkt.** Das Aufteilen lief bei JEDEM Neuaufbau, und
+  /// Neuaufbauten löst hier schon jeder Pfeiltastendruck aus (siehe
+  /// [Rasterbedienung]) und jeder Klick in der Mehrfachauswahl. An der
+  /// gewachsenen Bibliothek gemessen: 0,30 ms beim Startfenster von 600
+  /// Aufnahmen, 0,94 ms sobald das Fenster auf die ganze Bibliothek
+  /// gewachsen ist – dazu rund achtzig frische Listen je Tastendruck.
+  ///
+  /// Verglichen wird auf **Gleichheit der Liste selbst**, nicht auf
+  /// ihren Inhalt: Der Strom liefert bei jeder Änderung eine neue Liste,
+  /// und dieselbe Liste heisst zuverlässig „nichts hat sich geändert".
+  /// Sie Eintrag für Eintrag zu vergleichen wäre teurer als das
+  /// Gruppieren selbst.
+  /// Nur für den Prüfstand: die zuletzt errechnete Gruppierung **als
+  /// Objekt**. Damit lässt sich zeigen, dass sie bei einem Neuaufbau
+  /// nicht noch einmal entstanden ist – eine gleiche Gruppierung wäre
+  /// kein Beleg, eine identische ist einer.
+  @visibleForTesting
+  Object? get lastGroupsFuerTest => _gruppenCache?.gruppen;
+
+  ({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen}) _gruppierung() {
+    final cache = _gruppenCache;
+    if (cache != null &&
+        identical(_gruppenFuer, widget.assets) &&
+        _gruppenNachTag == widget.nachTag) {
+      return cache;
+    }
+    _gruppenFuer = widget.assets;
+    _gruppenNachTag = widget.nachTag;
+    return _gruppenCache = widget.nachTag
+        ? tagesgruppen(widget.assets)
+        : monatsgruppen(widget.assets);
   }
 
   @override
@@ -384,9 +522,7 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     // bei großen Bibliotheken sonst unnötig oft (kostspielig) neu läuft. Der
     // menschenlesbare Monatsname wird weiterhin nur einmal pro Gruppe für
     // die Überschrift formatiert, nicht pro Foto.
-    final geteilt = widget.nachTag
-        ? tagesgruppen(widget.assets)
-        : monatsgruppen(widget.assets);
+    final geteilt = _gruppierung();
     final groups = geteilt.gruppen;
     final orderedKeys = geteilt.schluessel;
     final showScrubber = rasterMitZeitstrahl(orderedKeys.length);
@@ -419,44 +555,8 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                   controller: _scrollController,
                   slivers: [
                     for (final key in orderedKeys) ...[
-                      SliverToBoxAdapter(
-                        child: _MonthHeader(
-                          label: (widget.nachTag
-                                  ? DateFormat.yMMMMEEEEd(
-                                      Localizations.localeOf(context)
-                                          .toString())
-                                  : DateFormat.yMMMM(
-                                      Localizations.localeOf(context)
-                                          .toString()))
-                              .format(groups[key]!.first.fileCreatedAt),
-                          groupAssets: groups[key]!,
-                          selectedIds: widget.selectedIds,
-                          onTap: widget.onHeaderTap,
-                        ),
-                      ),
-                      if (widget.form == Zeitleistenform.reihen)
-                        _reihenSliver(groups[key]!, gridWidth)
-                      else
-                        SliverPadding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md),
-                          sliver: SliverGrid(
-                            // Dieselbe Zahl wie in der Hoehenschaetzung
-                            // daneben: Standen hier 160 fest und dort die
-                            // eingestellte Breite, spraenge der Zeitstrahl
-                            // an eine andere Stelle als das Raster.
-                            gridDelegate:
-                                SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: widget.kachelbreite,
-                              mainAxisSpacing: timelineGridSpacing,
-                              crossAxisSpacing: timelineGridSpacing,
-                            ),
-                            delegate: SliverChildBuilderDelegate(
-                              (context, index) => _kachel(groups[key]![index]),
-                              childCount: groups[key]!.length,
-                            ),
-                          ),
-                        ),
+                      _gruppenSliver(groups[key]!, gridWidth,
+                          _ueberschrift(context, groups[key]!)),
                     ],
                     const SliverToBoxAdapter(child: SizedBox(height: 40)),
                   ],
@@ -492,11 +592,32 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
 /// ausgewählt sind ("Auswahl umschalten" statt reinem "immer hinzufügen" –
 /// so lässt sich ein versehentlich ausgewählter Monat genauso einfach per
 /// erneutem Antippen wieder abwählen).
+/// Ein `SliverChildBuilderDelegate`, der seine Gesamthöhe **weiss**.
+///
+/// Ohne ihn schätzt `RenderSliverList` sie aus dem Mittel der gebauten
+/// Kinder hoch – und ausserhalb des Sichtfensters ist das nur die
+/// Überschrift. Siehe [MonthGroupedAssetGridState._reihenSliver].
+class _ReihenDelegate extends SliverChildBuilderDelegate {
+  _ReihenDelegate({
+    required NullableIndexedWidgetBuilder bauen,
+    required int anzahl,
+    required this.gesamthoehe,
+  }) : super(bauen, childCount: anzahl);
+
+  /// Überschrift plus alle Reihen samt Abständen.
+  final double gesamthoehe;
+
+  @override
+  double? estimateMaxScrollOffset(int firstIndex, int lastIndex,
+          double leadingScrollOffset, double trailingScrollOffset) =>
+      gesamthoehe;
+}
+
 class _MonthHeader extends StatelessWidget {
   final String label;
-  final List<AssetData> groupAssets;
+  final List<Rasterzeile> groupAssets;
   final Set<String>? selectedIds;
-  final void Function(List<AssetData> groupAssets)? onTap;
+  final void Function(List<Rasterzeile> groupAssets)? onTap;
 
   const _MonthHeader({
     required this.label,

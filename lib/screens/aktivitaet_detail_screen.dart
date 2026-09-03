@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/aktivitaeten.dart';
 import '../services/gpx.dart';
@@ -626,7 +627,7 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
                         final a = _aufnahmen[index];
                         final gewaehlt = _auswahl.contains(a.id);
                         return AssetThumbnailTile(
-                          asset: a,
+                          asset: Rasterzeile.aus(a),
                           paths: widget.library.paths,
                           selected: gewaehlt,
                           // Erst auswaehlen, dann tippen: Solange nichts

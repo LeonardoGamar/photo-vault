@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/clip_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -108,7 +109,7 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
             itemBuilder: (context, index) {
               final asset = results[index];
               return AssetThumbnailTile(
-                asset: asset,
+                asset: Rasterzeile.aus(asset),
                 paths: widget.library.paths,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => AssetViewerScreen(

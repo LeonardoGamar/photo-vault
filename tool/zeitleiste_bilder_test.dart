@@ -26,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/theme/app_theme.dart';
@@ -142,7 +143,7 @@ void main() {
         home: Scaffold(
           body: RepaintBoundary(
             child: MonthGroupedAssetGrid(
-              assets: assets,
+              assets: [for (final x in assets) Rasterzeile.aus(x)],
               paths: paths,
               onTap: (_) {},
               form: form,

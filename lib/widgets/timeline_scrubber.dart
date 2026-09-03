@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import 'package:intl/intl.dart';
 
-import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../theme/app_theme.dart';
 import 'timeline_grid_layout.dart';
 
@@ -103,7 +103,7 @@ class TimelineScrubber extends StatefulWidget {
   /// Jahr*100+Monat-Schlüssel, absteigend sortiert (neueste zuerst) – exakt
   /// wie in [MonthGroupedAssetGrid] verwendet.
   final List<int> orderedKeys;
-  final Map<int, List<AssetData>> groups;
+  final Map<int, List<Rasterzeile>> groups;
   final ScrollController controller;
 
   /// Breite, die der eigentlichen Foto-Grid-Spalte zur Verfügung steht

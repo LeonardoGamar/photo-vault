@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -177,7 +178,7 @@ class _AufnahmenWaehlenScreenState extends State<AufnahmenWaehlenScreen> {
                         ),
                         itemCount: _gezeigt.length,
                         itemBuilder: (context, i) => AssetThumbnailTile(
-                          asset: _gezeigt[i],
+                          asset: Rasterzeile.aus(_gezeigt[i]),
                           paths: widget.library.paths,
                           selected: _gewaehlt.contains(_gezeigt[i].id),
                           onTap: () => _tippen(_gezeigt[i]),

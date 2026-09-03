@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/suchfehler.dart';
 import '../services/embedding_similarity.dart';
 import '../services/duplicate_selection.dart';
@@ -373,7 +374,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(AppRadius.sm),
                             child: AssetThumbnailTile(
-                              asset: asset,
+                              asset: Rasterzeile.aus(asset),
                               paths: widget.library.paths,
                               onTap: () => Navigator.of(context).push(MaterialPageRoute(
                                 builder: (_) => AssetViewerScreen(

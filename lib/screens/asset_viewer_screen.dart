@@ -1071,18 +1071,26 @@ class _FilmstripState extends State<_Filmstrip> {
               ),
               clipBehavior: Clip.antiAlias,
               child: thumbPath != null
-                  ? Image.file(
-                      widget.paths.absolute(thumbPath),
-                      fit: BoxFit.cover,
-                      cacheWidth:
-                          (_itemWidth * MediaQuery.of(context).devicePixelRatio)
-                              .round(),
-                      cacheHeight:
-                          (_itemWidth * MediaQuery.of(context).devicePixelRatio)
-                              .round(),
-                      errorBuilder: (_, __, ___) =>
-                          Container(color: Colors.grey.shade900),
-                    )
+                  ? Builder(builder: (context) {
+                      // Nur eine Kante begrenzen, sonst wird das Bild
+                      // gestaucht - siehe [deckendeDekodiermasse].
+                      final masse = deckendeDekodiermasse(
+                        kachelBreite: _itemWidth,
+                        kachelHoehe: _itemWidth,
+                        bildBreite: asset.widthPx,
+                        bildHoehe: asset.heightPx,
+                        pixelverhaeltnis:
+                            MediaQuery.of(context).devicePixelRatio,
+                      );
+                      return Image.file(
+                        widget.paths.absolute(thumbPath),
+                        fit: BoxFit.cover,
+                        cacheWidth: masse.breite,
+                        cacheHeight: masse.hoehe,
+                        errorBuilder: (_, __, ___) =>
+                            Container(color: Colors.grey.shade900),
+                      );
+                    })
                   : Container(color: Colors.grey.shade900),
             ),
           );

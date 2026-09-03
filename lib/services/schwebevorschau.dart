@@ -13,16 +13,58 @@
 /// [bildreihen] und dem Zeitstrahl.
 library;
 
-import '../db/database.dart';
+import '../db/rasterzeile.dart';
 
 /// Wie lange die Maus stehen bleiben muss, bevor das Video anläuft.
 ///
-/// Kurz genug, dass es sich nach „hinsehen" anfühlt und nicht nach
-/// warten; lang genug, dass ein Zeiger, der quer über die Wand fährt,
-/// keine Spur von anlaufenden Videos hinter sich herzieht. Bei 40
-/// Kacheln in der Breite wären das sonst 40 Startvorgänge in einer
-/// Sekunde.
-const Duration schwebeVerzoegerung = Duration(milliseconds: 450);
+/// Lang genug, dass ein Zeiger, der quer über die Wand fährt, keine Spur
+/// von anlaufenden Videos hinter sich herzieht – bei 40 Kacheln in der
+/// Breite wären das sonst 40 Startvorgänge in einer Sekunde.
+///
+/// **Und so kurz wie möglich, denn danach kommt noch etwas.** An echtem
+/// Gerät gemessen (Linux, `integration_test/schwebevorschau_echt_test`):
+///
+/// ```
+/// Abspieler erzeugen        15-30 ms
+/// Datei öffnen bis Bild    300-490 ms   <- das ist libmpv
+/// ```
+///
+/// Die Wartezeit hier und das Öffnen laufen nacheinander. Bei 450 ms
+/// sah man das Video also erst nach reichlich achthundert Millisekunden
+/// – da ist die Maus oft schon weiter. Bei 300 sind es rund siebenhundert.
+///
+/// **Drei Wege, das Öffnen zu verkürzen, wurden gemessen und verworfen:**
+///
+/// * Denselben Abspieler wiederverwenden, statt ihn je Vorschau neu
+///   aufzubauen: 480–510 ms – nicht schneller, eher langsamer.
+/// * `play: true` beim Öffnen, damit libmpv sofort dekodiert: kein
+///   Unterschied.
+/// * Die mpv-Stellschrauben `demuxer-lavf-probesize` (32 kB) und
+///   `demuxer-lavf-analyzeduration` (0,1 s), einzeln und zusammen:
+///
+///   ```
+///   ohne              356, 298, 482 ms
+///   kleine Probe      482, 493, 462 ms
+///   kurze Analyse     516, 548, 290 ms
+///   beides            647, 290, 712 ms
+///   ```
+///
+///   Keine Verbesserung, und die Streuung ist grösser als jeder
+///   Unterschied. Die Zeit geht nicht in die Analyse der Datei, sondern
+///   in das Dekodieren des ersten Bildes.
+///
+/// **Und eine Falle, die zwei Anläufe gekostet hat:**
+/// `NativePlayer.setProperty` wartet standardmässig darauf, dass der
+/// Abspieler fertig eingerichtet ist – der wird es aber erst beim ersten
+/// `open()`. Vorher gerufen kehrt der Aufruf nie zurück, und der
+/// Prüfstand hing wortlos. Der Ausweg heisst
+/// `waitForInitialization: false`; erst damit kamen die Werte überhaupt
+/// an, und erst damit war die Frage zu beantworten.
+///
+/// Gewartet wird auf die Bildmasse, und die kommen erst mit dem ersten
+/// dekodierten Bild; die Dauer läge deutlich früher vor, nützt aber
+/// nichts.
+const Duration schwebeVerzoegerung = Duration(milliseconds: 300);
 
 /// Welcher Datensatz das Video zu [asset] trägt – oder `null`, wenn es
 /// keines gibt.
@@ -37,7 +79,7 @@ const Duration schwebeVerzoegerung = Duration(milliseconds: 450);
 /// abzulegen – und das ausgerechnet nebenbei, weil ein Zeiger
 /// vorbeikam. Wer ein gesperrtes Video sehen will, öffnet es (siehe
 /// `LibraryState.decryptForViewing`).
-String? schwebeVideoId(AssetData asset) {
+String? schwebeVideoId(Rasterzeile asset) {
   if (asset.isLocked) return null;
   if (asset.type == 'VIDEO') return asset.id;
   if (asset.type == 'IMAGE' && asset.linkedAssetId != null) {

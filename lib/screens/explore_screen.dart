@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/rasterstufen.dart';
 import '../services/search_filters.dart';
@@ -409,7 +410,7 @@ class _Fotokachel extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.sm),
         child: AssetThumbnailTile(
-          asset: asset,
+          asset: Rasterzeile.aus(asset),
           paths: library.paths,
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => AssetViewerScreen(
@@ -960,7 +961,7 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                         child: AssetThumbnailTile(
-                          asset: asset,
+                          asset: Rasterzeile.aus(asset),
                           paths: widget.library.paths,
                           onTap: () => _openMemory(context, group, asset),
                         ),

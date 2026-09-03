@@ -85,6 +85,70 @@ int dekodierbreite(double punkte, double pixelverhaeltnis) {
   return (roh / dekodierstufe).ceil() * dekodierstufe;
 }
 
+/// Die Dekodiergrösse für ein Bild, das mit [BoxFit.cover] in eine
+/// Fläche gezeichnet wird – **genau eine** der beiden Kanten.
+///
+/// **Warum nicht beide.** `cacheWidth` und `cacheHeight` zusammen heissen
+/// für Flutter: dekodiere auf genau diese Masse. Das Seitenverhältnis
+/// bleibt dabei nicht erhalten – es wird gestaucht. Gemessen an echten
+/// Vorschaubildern, Kachel 160 Punkte bei doppelter Pixeldichte:
+///
+/// ```
+/// Quelle     Ziel      dekodiert   Verhältnis
+/// 400x300    320x320   320x300     1,33 -> 1,07
+/// 225x400    320x320   225x320     0,56 -> 0,70
+/// ```
+///
+/// Ein Kreis im Foto wird so zur Ellipse, und `BoxFit.cover` merkt davon
+/// nichts: Es bekommt ein Bild, dessen Verhältnis schon falsch ist, und
+/// füllt damit brav die Kachel. **Alle quadratischen Kacheln der App
+/// haben ihre Fotos gestaucht gezeigt** – Zeitleiste, Kartenmarker,
+/// Filmstreifen im Betrachter.
+///
+/// **Welche Kante bindet.** Bei `cover` bestimmt die Kante, an der das
+/// Bild relativ am knappsten ist: Ist `kachelBreite/bildBreite` grösser
+/// als `kachelHöhe/bildHöhe`, muss die Breite passen und die Höhe fällt
+/// von selbst gross genug aus – sonst umgekehrt. Die andere Kante bleibt
+/// offen, und damit bleibt das Verhältnis erhalten.
+///
+/// Sind die Masse unbekannt (2 von 8098 Aufnahmen), wird **gar nichts**
+/// begrenzt. Ohne das Verhältnis lässt sich die bindende Kante nicht
+/// bestimmen, und eine geratene wäre entweder unscharf oder wieder
+/// verzerrt. Der Preis ist ein Vorschaubild in voller Grösse – bei 400
+/// Punkten Kantenlänge höchstens 640 kB.
+///
+/// **Richtig ist teurer.** Eine quadratische Kachel dekodiert das
+/// Vorschaubild jetzt in voller Höhe statt gestaucht; eine
+/// Bildschirmfüllung der Zeitleiste stieg dadurch von 54,8 auf 68,4 MB
+/// (doppelte Pixeldichte, gemessen an der echten Bibliothek). Das ist
+/// keine Verschwendung, sondern das, was ein unverzerrtes Bild kostet.
+({int? breite, int? hoehe}) deckendeDekodiermasse({
+  required double kachelBreite,
+  required double kachelHoehe,
+  required int? bildBreite,
+  required int? bildHoehe,
+  required double pixelverhaeltnis,
+}) {
+  if (bildBreite == null || bildHoehe == null ||
+      bildBreite <= 0 || bildHoehe <= 0) {
+    return (breite: null, hoehe: null);
+  }
+  final breiteEndlich = kachelBreite.isFinite && kachelBreite > 0;
+  final hoeheEndlich = kachelHoehe.isFinite && kachelHoehe > 0;
+  if (!breiteEndlich && !hoeheEndlich) return (breite: null, hoehe: null);
+  // Nur eine Kante begrenzt: Dann ist sie die bindende, ob sie es
+  // rechnerisch waere oder nicht - die andere ist gar nicht bekannt.
+  if (!hoeheEndlich) {
+    return (breite: dekodierbreite(kachelBreite, pixelverhaeltnis), hoehe: null);
+  }
+  if (!breiteEndlich) {
+    return (breite: null, hoehe: dekodierbreite(kachelHoehe, pixelverhaeltnis));
+  }
+  return kachelBreite / bildBreite >= kachelHoehe / bildHoehe
+      ? (breite: dekodierbreite(kachelBreite, pixelverhaeltnis), hoehe: null)
+      : (breite: null, hoehe: dekodierbreite(kachelHoehe, pixelverhaeltnis));
+}
+
 /// Die Formate, die Flutter selbst dekodiert.
 ///
 /// Gebraucht dort, wo eine **beliebige** Datei aus der Bibliothek
@@ -107,6 +171,48 @@ bool flutterKannAnzeigen(String pfad) {
   final punkt = pfad.lastIndexOf('.');
   if (punkt < 0) return false;
   return flutterDekodierbareEndungen.contains(pfad.substring(punkt).toLowerCase());
+}
+
+/// Stellt den Bildspeicher auf eine Bibliothek in Bildschirmgrösse ein.
+///
+/// **Flutters Vorgabe war nie angefasst worden:** 1000 Bilder und 100 MB.
+/// Für eine Kachelwand auf einem Bildschirm mit doppelter Pixeldichte ist
+/// das ungefähr eine Bildschirmfüllung – ein 160-Punkt-Quadrat braucht
+/// dort 320 Bildpunkte, und weil ein Vorschaubild nur 400 misst, wird es
+/// fast in voller Grösse dekodiert. Gemessen an der echten Bibliothek
+/// (7307 Aufnahmen, Fenster 1600 × 1000, doppelte Pixeldichte):
+///
+/// ```
+/// Grenze    erstes Bild verdrängt ab Bildschirm    Arbeitsspeicher
+///           Quadrate        Reihen
+/// 100 MB       3               4                      544 MB
+/// 200 MB       7              10                      653 MB
+/// 300 MB      11              nie                     733 MB
+/// ```
+///
+/// Drei Bildschirme sind zu wenig: So weit scrollt man in einer
+/// Zeitleiste beiläufig, und der Weg zurück kostet dann eine neue
+/// Dekodierung von siebzig Bildern – gemessen **210 bis 260 ms**, in
+/// denen die Kacheln leer stehen.
+///
+/// **200 MB und nicht 300.** Die ersten hundert Megabyte kaufen vier
+/// zusätzliche Bildschirme, die zweiten nur noch vier weitere – und
+/// kosten dieselben hundert Megabyte. Mehr Speicher ist kein Selbstzweck.
+///
+/// **Warum die Bilderzahl mitwächst.** Bei einfacher Pixeldichte ist ein
+/// Eintrag klein (gemessen 140 kB), und dann war die Zahl 1000 die
+/// bindende Grenze – bei 144 MB, also lange vor dem Deckel. Damit
+/// entschied die Zahl der Bilder statt ihrer Grösse. Jetzt entscheiden
+/// die Megabyte.
+///
+/// **Kein Rückweg über Speicherdruck.** Auf den drei Plattformen dieser
+/// App schickt die Maschine keine `didHaveMemoryPressure`-Meldung; was
+/// hier steht, ist also eine feste Obergrenze und keine, die im Notfall
+/// nachgibt. Deshalb eine gemessene Zahl und keine grosszügige.
+void bildspeicherEinrichten() {
+  PaintingBinding.instance.imageCache
+    ..maximumSizeBytes = 200 * 1024 * 1024
+    ..maximumSize = 3000;
 }
 
 /// Vergisst alle zwischengespeicherten Bilder.

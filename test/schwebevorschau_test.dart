@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/schwebevorschau.dart';
 import 'package:photo_vault/services/storage_paths.dart';
@@ -64,7 +65,7 @@ class _Mitschrift extends Schwebevorschau {
   String? get aktivesAsset => _aktiv;
 
   @override
-  Future<void> starte(AssetData asset) async {
+  Future<void> starte(Rasterzeile asset) async {
     if (schwebeVideoId(asset) == null) return;
     gestartet.add(asset.id);
     _aktiv = asset.id;
@@ -89,24 +90,24 @@ void main() {
 
   group('Welche Kachel überhaupt ein Video trägt', () {
     test('ein Video: es selbst', () {
-      expect(schwebeVideoId(_asset(id: 'v1', type: 'VIDEO')), 'v1');
+      expect(schwebeVideoId(Rasterzeile.aus(_asset(id: 'v1', type: 'VIDEO'))), 'v1');
     });
 
     test('ein Live Photo: die verknüpfte Hälfte', () {
-      expect(schwebeVideoId(_asset(id: 'p1', linkedAssetId: 'v9')), 'v9');
+      expect(schwebeVideoId(Rasterzeile.aus(_asset(id: 'p1', linkedAssetId: 'v9'))), 'v9');
     });
 
     test('ein gewöhnliches Foto: nichts', () {
-      expect(schwebeVideoId(_asset()), isNull);
+      expect(schwebeVideoId(Rasterzeile.aus(_asset())), isNull);
     });
 
     test('eine gesperrte Aufnahme bleibt still', () {
       // Sie abzuspielen hiesse, sie nebenbei zu entschlüsseln – und der
       // Klartext bliebe liegen, weil niemand ihn angefordert hat.
-      expect(schwebeVideoId(_asset(id: 'v1', type: 'VIDEO', isLocked: true)),
+      expect(schwebeVideoId(Rasterzeile.aus(_asset(id: 'v1', type: 'VIDEO', isLocked: true))),
           isNull);
       expect(
-          schwebeVideoId(_asset(id: 'p1', linkedAssetId: 'v9', isLocked: true)),
+          schwebeVideoId(Rasterzeile.aus(_asset(id: 'p1', linkedAssetId: 'v9', isLocked: true))),
           isNull);
     });
   });
@@ -138,7 +139,7 @@ void main() {
                 width: 200,
                 height: 200,
                 child: AssetThumbnailTile(
-                    asset: asset, paths: paths, onTap: () {}),
+                    asset: Rasterzeile.aus(asset), paths: paths, onTap: () {}),
               ),
             ),
           ),
@@ -242,7 +243,7 @@ void main() {
             width: 200,
             height: 200,
             child: AssetThumbnailTile(
-                asset: _asset(id: 'v1', type: 'VIDEO'),
+                asset: Rasterzeile.aus(_asset(id: 'v1', type: 'VIDEO')),
                 paths: paths,
                 onTap: () {}),
           ),

@@ -4,6 +4,7 @@ import '../l10n/app_localizations.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/suchfehler.dart';
 import '../services/serienvorschlag.dart';
 import 'serienvergleich_screen.dart';
@@ -298,7 +299,7 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
                                     : null,
                               ),
                               child: AssetThumbnailTile(
-                                asset: asset,
+                                asset: Rasterzeile.aus(asset),
                                 paths: widget.library.paths,
                                 onTap: () => setState(() => _coverIndexByGroup[groupIndex] = index),
                               ),

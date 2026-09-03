@@ -128,13 +128,47 @@ class Gelaendenetz {
     required this.hoeheMeter,
   });
 
-  /// Kratzpapier für den Maler: die Dunstfarben je Eckpunkt.
+  /// Kratzpapier für den Maler.
   ///
-  /// Sie hängen von der Kamera ab und entstehen deshalb in **jedem**
-  /// Bild neu. Am Netz und nicht am Maler, weil der Maler je Bild neu
-  /// gebaut wird – ein Feld dort wäre 220 KB Abfall je Bild.
+  /// Alles hier hängt von der Kamera ab und entsteht in **jedem** Bild
+  /// neu – aber es entsteht in denselben Puffern. Am Netz und nicht am
+  /// Maler, weil der Maler je Bild neu gebaut wird.
+  ///
+  /// **Gemessen, warum das nicht egal ist.** Vorher legte der Maler je
+  /// Bild eine neue `Float32List` für die Bildstellen (440 KB), eine
+  /// Liste von Wahrheitswerten (55 KB) und noch einmal 440 KB für die
+  /// Texturstellen an. Bei sechzig Bildern in der Sekunde – und der Flug
+  /// ist eine Bewegung – sind das rund sechzig Megabyte Abfall je
+  /// Sekunde, den der Aufräumer wieder einsammeln muss.
   late final Int32List dunstfarben = Int32List(ecken.length ~/ 3);
   late final Float32List tiefen = Float32List(ecken.length ~/ 3);
+  late final Float32List bildstellen = Float32List((ecken.length ~/ 3) * 2);
+  late final Uint8List hinterDerKamera = Uint8List(ecken.length ~/ 3);
+
+  /// Die Texturstellen in Bildpunkten – für [ui.ImageShader].
+  ///
+  /// **Einmal je Karte und nicht je Bild.** Sie hängen allein von der
+  /// Kartengrösse ab, nicht von der Kamera; sie in jedem Bild aus den
+  /// Anteilen neu auszurechnen war Arbeit für nichts.
+  Float32List? _texturCache;
+  int _texturFuerBreite = -1;
+  int _texturFuerHoehe = -1;
+
+  Float32List texturInBildpunkten(ui.Image bild) {
+    if (_texturCache != null &&
+        _texturFuerBreite == bild.width &&
+        _texturFuerHoehe == bild.height) {
+      return _texturCache!;
+    }
+    final aus = Float32List(texturstellen.length);
+    for (var i = 0; i < aus.length; i += 2) {
+      aus[i] = texturstellen[i] * bild.width;
+      aus[i + 1] = texturstellen[i + 1] * bild.height;
+    }
+    _texturFuerBreite = bild.width;
+    _texturFuerHoehe = bild.height;
+    return _texturCache = aus;
+  }
 }
 
 /// Baut die Dreiecke eines Gitters.
@@ -322,10 +356,12 @@ class Gelaendemaler extends CustomPainter {
     );
 
     final anzahl = netz.ecken.length ~/ 3;
-    final flach = Float32List(anzahl * 2);
+    final flach = netz.bildstellen;
     final tiefen = netz.tiefen;
-    // Merkposten je Eckpunkt: Liegt er hinter der Kamera?
-    final hinten = List<bool>.filled(anzahl, false);
+    // Merkposten je Eckpunkt: Liegt er hinter der Kamera? Als Bytes und
+    // nicht als `List<bool>`: Dart legt die als Zeiger auf zwei Objekte
+    // ab, acht Byte je Eintrag statt einem.
+    final hinten = netz.hinterDerKamera;
     var nahste = double.infinity;
     var fernste = 0.0;
     for (var i = 0; i < anzahl; i++) {
@@ -337,8 +373,8 @@ class Gelaendemaler extends CustomPainter {
       flach[i * 2] = p.stelle.dx;
       flach[i * 2 + 1] = p.stelle.dy;
       tiefen[i] = p.tiefe;
-      hinten[i] = p.tiefe <= 1;
-      if (!hinten[i]) {
+      hinten[i] = p.tiefe <= 1 ? 1 : 0;
+      if (hinten[i] == 0) {
         if (p.tiefe < nahste) nahste = p.tiefe;
         if (p.tiefe > fernste) fernste = p.tiefe;
       }
@@ -364,7 +400,7 @@ class Gelaendemaler extends CustomPainter {
     // und neue Eckpunkte erzeugen – Aufwand für einen Rand, den man
     // ohnehin nicht ansieht, weil er hinter einem liegt.
     for (var d = 0; d < anzahl; d += 3) {
-      if (hinten[d] || hinten[d + 1] || hinten[d + 2]) {
+      if (hinten[d] != 0 || hinten[d + 1] != 0 || hinten[d + 2] != 0) {
         for (var k = 1; k < 3; k++) {
           flach[(d + k) * 2] = flach[d * 2];
           flach[(d + k) * 2 + 1] = flach[d * 2 + 1];
@@ -376,7 +412,8 @@ class Gelaendemaler extends CustomPainter {
       ui.VertexMode.triangles,
       flach,
       colors: netz.farben,
-      textureCoordinates: karte == null ? null : _texturInBildpunkten(),
+      textureCoordinates:
+          karte == null ? null : netz.texturInBildpunkten(karte!),
     );
     if (karte == null) {
       canvas.drawVertices(ecken, BlendMode.dst, Paint());
@@ -458,7 +495,7 @@ class Gelaendemaler extends CustomPainter {
   ///
   /// Die weiche Kante steckt dagegen in der Deckkraft des Geländes
   /// selbst (siehe [baueNetz]) – hier wird sie nur ausgespart.
-  void _dunstDarueber(Canvas canvas, Float32List flach, List<bool> hinten,
+  void _dunstDarueber(Canvas canvas, Float32List flach, Uint8List hinten,
       double nahste, double fernste) {
     if (_flaeche.isEmpty) return;
     final anzahl = flach.length ~/ 2;
@@ -472,7 +509,7 @@ class Gelaendemaler extends CustomPainter {
     final grundton = (rot << 16) | (gruen << 8) | blau;
 
     for (var i = 0; i < anzahl; i++) {
-      if (hinten[i]) {
+      if (hinten[i] != 0) {
         farben[i] = 0;
         continue;
       }
@@ -550,18 +587,6 @@ class Gelaendemaler extends CustomPainter {
         ..strokeJoin = StrokeJoin.round
         ..strokeCap = StrokeCap.round,
     );
-  }
-
-  /// Die Texturstellen liegen als Anteil vor; `ImageShader` erwartet
-  /// Bildpunkte.
-  Float32List _texturInBildpunkten() {
-    final bild = karte!;
-    final aus = Float32List(netz.texturstellen.length);
-    for (var i = 0; i < aus.length; i += 2) {
-      aus[i] = netz.texturstellen[i] * bild.width;
-      aus[i + 1] = netz.texturstellen[i + 1] * bild.height;
-    }
-    return aus;
   }
 
   @override

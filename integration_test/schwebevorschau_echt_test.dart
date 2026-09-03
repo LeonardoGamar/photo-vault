@@ -31,6 +31,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/schwebevorschau.dart';
 import 'package:photo_vault/services/storage_paths.dart';
@@ -85,7 +86,7 @@ void main() {
               width: 320,
               height: 240,
               child: AssetThumbnailTile(
-                  asset: asset, paths: paths, onTap: () {}),
+                  asset: Rasterzeile.aus(asset), paths: paths, onTap: () {}),
             ),
           ),
         ),
@@ -102,11 +103,17 @@ void main() {
     // Erst die Wartezeit abwarten, dann echte Zeit vergehen lassen:
     // Öffnen und Abspielen kommen aus libmpv, nicht aus Flutters Uhr.
     await tester.pump(schwebeVerzoegerung);
+    // Wie lange es vom Ablauf der Wartezeit bis zum Bild dauert. Die Zahl
+    // gehört zum Gefühl der Sache: Kommt das Bild erst nach einer
+    // Sekunde, ist die Maus meistens schon weiter.
+    final uhr = Stopwatch()..start();
     for (var i = 0; i < 40 && find.byType(VideoSurface).evaluate().isEmpty; i++) {
       await tester.runAsync(
-          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+          () => Future<void>.delayed(const Duration(milliseconds: 25)));
       await tester.pump();
     }
+    uhr.stop();
+    print('vom Ablauf der Wartezeit bis zum Bild: ${uhr.elapsedMilliseconds} ms');
 
     expect(find.byType(VideoSurface), findsOneWidget,
         reason: 'die Maus stand, aber es kam kein Bild – genau der Zustand, '

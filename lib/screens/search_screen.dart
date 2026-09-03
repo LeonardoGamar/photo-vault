@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/clip_service.dart';
@@ -27,7 +28,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen>
-    with Rasterbedienung<SearchScreen> {
+    with Rasterbedienung<SearchScreen, AssetData> {
   final _queryCtrl = TextEditingController();
   SearchFilters _filters = const SearchFilters();
   bool _loading = false;
@@ -65,6 +66,13 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   List<AssetData> get rasterAssets => _results;
+
+  @override
+  String rasterKennung(AssetData zeile) => zeile.id;
+
+  @override
+  ({bool favorit, String? farbe}) rasterMerkmale(AssetData zeile) =>
+      (favorit: zeile.isFavorite, farbe: zeile.colorLabel);
 
   @override
   int get rasterSpalten => _spalten;
@@ -430,7 +438,7 @@ class _SearchScreenState extends State<SearchScreen>
                             itemBuilder: (context, index) {
                               final asset = _results[index];
                               final kachel = AssetThumbnailTile(
-                                asset: asset,
+                                asset: Rasterzeile.aus(asset),
                                 paths: widget.library.paths,
                                 selected: _selected.contains(asset.id),
                                 onLongPress: () => _toggleSelected(asset.id),

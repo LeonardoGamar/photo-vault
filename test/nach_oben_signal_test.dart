@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/services/asset_grouping.dart';
 import 'package:photo_vault/services/storage_paths.dart';
@@ -75,7 +76,7 @@ void main() {
     final signal = ValueNotifier<int>(0);
     addTearDown(signal.dispose);
     await zeige(tester, MonthGroupedAssetGrid(
-      assets: fotos(400), paths: paths, onTap: (_) {}, nachObenSignal: signal,
+      assets: [for (final x in fotos(400)) Rasterzeile.aus(x)], paths: paths, onTap: (_) {}, nachObenSignal: signal,
     ));
 
     final liste = find.byType(Scrollable).first;
@@ -120,7 +121,7 @@ void main() {
 
   testWidgets('ohne Signal passiert nichts', (tester) async {
     await zeige(tester, MonthGroupedAssetGrid(
-      assets: fotos(400), paths: paths, onTap: (_) {},
+      assets: [for (final x in fotos(400)) Rasterzeile.aus(x)], paths: paths, onTap: (_) {},
     ));
     final liste = find.byType(Scrollable).first;
     await tester.drag(liste, const Offset(0, -3000));

@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/timeline_screen.dart';
 import 'package:photo_vault/screens/trash_screen.dart';
@@ -83,9 +84,13 @@ void main() {
       );
 
   /// Alle Ströme, die gerade im Baum an einem StreamBuilder hängen.
-  List<Stream<List<AssetData>>> stroeme(WidgetTester tester) => tester
-      .widgetList<StreamBuilder<List<AssetData>>>(
-          find.byType(StreamBuilder<List<AssetData>>))
+  ///
+  /// Die Zeitleiste holt seit dem schmalen Zeilentyp [Rasterzeile] statt
+  /// `AssetData` – die Frage bleibt dieselbe: Ist es bei einem Neuaufbau
+  /// noch derselbe Strom?
+  List<Stream<List<T>>> stroeme<T>(WidgetTester tester) => tester
+      .widgetList<StreamBuilder<List<T>>>(
+          find.byType(StreamBuilder<List<T>>))
       .map((w) => w.stream!)
       .toList();
 
@@ -97,7 +102,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    final vorher = stroeme(tester);
+    final vorher = stroeme<Rasterzeile>(tester);
     expect(vorher, hasLength(1));
 
     // Der Neubau, um den es geht: ein Pfeiltastendruck. [Rasterbedienung]
@@ -107,7 +112,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pump();
 
-    expect(identical(stroeme(tester).single, vorher.single), isTrue,
+    expect(identical(stroeme<Rasterzeile>(tester).single, vorher.single), isTrue,
         reason: 'sonst fragt jeder Tastendruck die Datenbank erneut');
     await abbauen(tester);
   });
@@ -135,7 +140,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    final vorher = stroeme(tester).single;
+    final vorher = stroeme<Rasterzeile>(tester).single;
     // Ans Ende des geladenen Ausschnitts – genau das, was das Fenster
     // wachsen lässt (siehe onScrollNearEnd).
     final lage = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
@@ -143,7 +148,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(identical(stroeme(tester).single, vorher), isFalse,
+    expect(identical(stroeme<Rasterzeile>(tester).single, vorher), isFalse,
         reason: 'ein groesseres Fenster ist eine andere Abfrage');
     await abbauen(tester);
   });
@@ -158,7 +163,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    final gefunden = stroeme(tester);
+    final gefunden = stroeme<AssetData>(tester);
     expect(gefunden.length, greaterThanOrEqualTo(2),
         reason: 'Liste und Belegungszahl lesen beide');
     expect(gefunden.toSet(), hasLength(1),

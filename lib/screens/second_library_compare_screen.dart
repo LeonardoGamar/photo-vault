@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 
 import '../services/platform/folder_access.dart';
@@ -238,7 +239,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                         child: AssetThumbnailTile(
-                          asset: match.ownAsset,
+                          asset: Rasterzeile.aus(match.ownAsset),
                           paths: widget.library.paths,
                           onTap: () => Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => AssetViewerScreen(

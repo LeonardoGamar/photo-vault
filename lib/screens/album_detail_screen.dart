@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/export_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -32,7 +33,7 @@ class AlbumDetailScreen extends StatefulWidget {
 }
 
 class _AlbumDetailScreenState extends State<AlbumDetailScreen>
-    with Rasterbedienung<AlbumDetailScreen> {
+    with Rasterbedienung<AlbumDetailScreen, AssetData> {
   final Set<String> _selected = {};
 
   /// Siehe [Stromhalter]: sonst eine frische Abfrage bei jedem Neubau, und
@@ -53,6 +54,13 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen>
 
   @override
   List<AssetData> get rasterAssets => _geladen;
+
+  @override
+  String rasterKennung(AssetData zeile) => zeile.id;
+
+  @override
+  ({bool favorit, String? farbe}) rasterMerkmale(AssetData zeile) =>
+      (favorit: zeile.isFavorite, farbe: zeile.colorLabel);
 
   @override
   int get rasterSpalten => _spalten;
@@ -191,7 +199,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen>
                         itemBuilder: (context, index) {
                           final asset = assets[index];
                           final kachel = AssetThumbnailTile(
-                            asset: asset,
+                            asset: Rasterzeile.aus(asset),
                             paths: widget.library.paths,
                             selected: _selected.contains(asset.id),
                             onLongPress: () => _toggle(asset.id),

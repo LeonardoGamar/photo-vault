@@ -16,18 +16,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/timeline_screen.dart';
 import 'package:photo_vault/services/rasterauswahl.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
+import 'package:photo_vault/widgets/asset_thumbnail_tile.dart';
 import 'package:photo_vault/widgets/month_grouped_asset_grid.dart';
 import 'package:photo_vault/widgets/timeline_grid_layout.dart';
 
 /// Eine Aufnahme mit Massen - mehr sieht die Anordnung nicht an.
-AssetData _foto(String id, DateTime wann, {int? breite, int? hoehe}) =>
-    AssetData(
+Rasterzeile _foto(String id, DateTime wann, {int? breite, int? hoehe}) =>
+    Rasterzeile.aus(AssetData(
       id: id,
       relativePath: 'originals/$id.jpg',
       originalFileName: '$id.jpg',
@@ -52,7 +54,7 @@ AssetData _foto(String id, DateTime wann, {int? breite, int? hoehe}) =>
       aiTagsScanned: false,
       isStackCover: false,
       rating: 0,
-    );
+    ));
 
 void main() {
   group('Das Seitenverhältnis kommt aus der Datenbank', () {
@@ -129,7 +131,14 @@ void main() {
       final zeilen = (gruppe.length / spalten).ceil();
       expect(
         timelineMonthGroupHeight(gruppe, 1200),
-        closeTo(timelineHeaderHeight + zeilen * timelineRowHeightForWidth(1200),
+        // Die Zeilenhöhe trägt den Abstand unter sich; hinter der letzten
+        // Zeile gibt es keinen. Vorher stand hier die Summe ohne diesen
+        // Abzug – vier Punkte je Monatsgruppe, die sich über die
+        // Bibliothek auf 164 summierten.
+        closeTo(
+            timelineHeaderHeight +
+                zeilen * timelineRowHeightForWidth(1200) -
+                timelineGridSpacing,
             0.0001),
       );
     });
@@ -248,7 +257,18 @@ void main() {
       // Wer nichts umstellt, sieht genau das Bisherige.
       await zeige(tester);
       expect(form(tester), Zeitleistenform.quadrate);
-      expect(find.byType(SliverGrid), findsWidgets);
+      // Die Kacheln stehen quadratisch und in Spalten - geprüft an dem,
+      // was zu sehen ist, und nicht mehr am Namen des Slivers. Beide
+      // Formen sind heute eine `SliverList`, weil ein `SliverGrid` die
+      // Monatsüberschrift nicht als erstes Kind aufnehmen kann (siehe
+      // MonthGroupedAssetGrid).
+      final kacheln = tester
+          .widgetList<AssetThumbnailTile>(find.byType(AssetThumbnailTile))
+          .toList();
+      expect(kacheln, isNotEmpty);
+      final erste = tester.getRect(find.byType(AssetThumbnailTile).first);
+      expect(erste.width, closeTo(erste.height, 0.01),
+          reason: 'im Quadratraster ist jede Kachel quadratisch');
       await abbauen(tester);
     });
 
@@ -257,8 +277,14 @@ void main() {
       await tester.tap(find.byIcon(Icons.view_stream_outlined));
       await tester.pump(const Duration(milliseconds: 100));
       expect(form(tester), Zeitleistenform.reihen);
-      // Kein SliverGrid mehr - die Reihen sind eine SliverList.
-      expect(find.byType(SliverGrid), findsNothing);
+      // In den Reihen trägt jedes Foto sein eigenes Verhältnis; wären
+      // hier wieder Quadrate, stimmte die Form nur dem Namen nach.
+      final masse = [
+        for (final r in tester
+            .widgetList<AssetThumbnailTile>(find.byType(AssetThumbnailTile)))
+          tester.getRect(find.byWidget(r))
+      ];
+      expect(masse.any((r) => (r.width - r.height).abs() > 1), isTrue);
 
       await tester.tap(find.byIcon(Icons.grid_view_outlined));
       await tester.pump(const Duration(milliseconds: 100));

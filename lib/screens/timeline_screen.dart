@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/asset_grouping.dart';
 import '../theme/app_spacing.dart';
@@ -42,9 +43,9 @@ class TimelineScreen extends StatefulWidget {
   State<TimelineScreen> createState() => _TimelineScreenState();
 }
 
-class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<TimelineScreen> {
+class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<TimelineScreen, Rasterzeile> {
   // Wachsendes Ladefenster statt auf einen Schlag die komplette Bibliothek zu
-  // laden: `watchTimeline(limit: _windowSize)` bleibt dank
+  // laden: `watchRasterzeilen(limit: _windowSize)` bleibt dank
   // `idx_assets_trashed_locked_created` auch für ein großes Fenster ein
   // günstiger Index-Walk statt eines vollen Tabellen-Scans (SQLite kann die
   // ersten N Zeilen in Sortierreihenfolge direkt aus dem Index lesen). Wird
@@ -66,12 +67,18 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   /// der Mehrfachauswahl. An der gewachsenen Bibliothek waren das 5,1 ms je
   /// Tastendruck beim Startfenster und 35,9 ms, sobald es auf die ganze
   /// Bibliothek gewachsen war. Siehe [Stromhalter].
-  final _zeitleiste = Stromhalter<List<AssetData>>();
+  final _zeitleiste = Stromhalter<List<Rasterzeile>>();
+
+  /// **Die Listenansicht braucht mehr.** Sie zeigt Blende, Belichtung,
+  /// Brennweite, ISO, Objektiv, Dateigrösse und den Ort – acht Spalten,
+  /// die eine [Rasterzeile] nicht trägt und auch nicht tragen soll. Wer
+  /// sie sehen will, bezahlt die volle Zeile; wer im Raster bleibt, nicht.
+  final _liste = Stromhalter<List<AssetData>>();
 
   /// Was der Datenstrom zuletzt geliefert hat, plus die Spaltenzahl, die das
   /// Raster daraus gemacht hat – beides braucht [Rasterbedienung] beim
   /// Tastendruck, also ausserhalb von `build`.
-  List<AssetData> _geladen = const [];
+  List<Rasterzeile> _geladen = const [];
   int _spalten = 1;
 
   @override
@@ -81,7 +88,14 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   AppDatabase get rasterDb => widget.library.db;
 
   @override
-  List<AssetData> get rasterAssets => _geladen;
+  List<Rasterzeile> get rasterAssets => _geladen;
+
+  @override
+  String rasterKennung(Rasterzeile zeile) => zeile.id;
+
+  @override
+  ({bool favorit, String? farbe}) rasterMerkmale(Rasterzeile zeile) =>
+      (favorit: zeile.isFavorite, farbe: zeile.colorLabel);
 
   @override
   int get rasterSpalten => _spalten;
@@ -121,7 +135,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   double _rasterbreite = 0;
 
   @override
-  void rasterOeffne(AssetData asset) => _openViewer(_geladen, asset);
+  void rasterOeffne(Rasterzeile asset) => _openViewer(_geladen, asset);
 
   /// Raster oder Liste, und wonach die Liste gegliedert wird.
   ///
@@ -233,7 +247,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
 
   /// Auf die Monatsüberschrift getippt: alle Fotos/Videos des Monats
   /// auswählen – oder, falls bereits alle ausgewählt sind, wieder abwählen.
-  void _toggleGroup(List<AssetData> groupAssets) => setState(() {
+  void _toggleGroup(List<Rasterzeile> groupAssets) => setState(() {
         final allSelected = groupAssets.every((a) => _selected.contains(a.id));
         for (final a in groupAssets) {
           if (allSelected) {
@@ -248,12 +262,22 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   /// Stapel-Mitglieder geöffnet statt der vollen Timeline-Liste – sonst
   /// ließe sich eine gestapelte Serie nie durchblättern, da alle anderen
   /// Mitglieder ja absichtlich aus der Rasteransicht ausgeblendet sind.
-  Future<void> _openViewer(List<AssetData> assets, AssetData asset) async {
-    final viewerAssets = (asset.isStackCover && asset.stackId != null)
-        ? await widget.library.db.assetsInStack(asset.stackId!)
-        : assets;
+  ///
+  /// **Hier werden die vollen Zeilen nachgeholt.** Das Raster arbeitet mit
+  /// der schmalen [Rasterzeile]; der Betrachter braucht alles – Blende,
+  /// Brennweite, Beschriftung, Entwicklungsstand. Nachgeholt wird beim
+  /// Antippen und nicht vorgehalten: An der gewachsenen Bibliothek kostet
+  /// das rund achtzig Millisekunden, und die liegen hinter der
+  /// Übergangsanimation des Bildschirmwechsels. Vorgehalten kosteten sie
+  /// dasselbe – nur bei **jeder** Änderung an der Tabelle statt einmal
+  /// beim Öffnen.
+  Future<void> _openViewer(List<Rasterzeile> zeilen, Rasterzeile zeile) async {
+    final viewerAssets = (zeile.isStackCover && zeile.stackId != null)
+        ? await widget.library.db.assetsInStack(zeile.stackId!)
+        : await widget.library.db
+            .assetsByIds([for (final z in zeilen) z.id]);
     if (!mounted) return;
-    final initialIndex = viewerAssets.indexOf(asset);
+    final initialIndex = viewerAssets.indexWhere((a) => a.id == zeile.id);
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: viewerAssets,
@@ -382,12 +406,49 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   @override
   Widget build(BuildContext context) {
     if (_resolvingHighlight) return const Center(child: CircularProgressIndicator());
-    return StreamBuilder<List<AssetData>>(
+    return _alsListe ? _mitVollenZeilen() : _mitSchmalenZeilen();
+  }
+
+  /// Der Regelfall: das Raster, mit den zwanzig Spalten, die es anfasst.
+  Widget _mitSchmalenZeilen() {
+    return StreamBuilder<List<Rasterzeile>>(
       stream: _zeitleiste.hole(
+          _windowSize, () => widget.library.db.watchRasterzeilen(limit: _windowSize)),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        return _inhalt(context, snapshot.data!, null);
+      },
+    );
+  }
+
+  /// Die Listenansicht, mit allem.
+  ///
+  /// Die schmalen Zeilen entstehen hier aus den vollen – einmal je
+  /// Meldung des Stroms und nicht bei jedem Neuaufbau, damit die
+  /// Tastensteuerung dieselbe Liste sieht wie das Raster.
+  Widget _mitVollenZeilen() {
+    return StreamBuilder<List<AssetData>>(
+      stream: _liste.hole(
           _windowSize, () => widget.library.db.watchTimeline(limit: _windowSize)),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final assets = snapshot.data!;
+        final voll = snapshot.data!;
+        if (!identical(voll, _volleQuelle)) {
+          _volleQuelle = voll;
+          _volleZeilen = [for (final a in voll) Rasterzeile.aus(a)];
+        }
+        return _inhalt(context, _volleZeilen, voll);
+      },
+    );
+  }
+
+  List<AssetData>? _volleQuelle;
+  List<Rasterzeile> _volleZeilen = const [];
+
+  Widget _inhalt(
+      BuildContext context, List<Rasterzeile> assets, List<AssetData>? voll) {
+    {
+      {
         _geladen = assets;
         if (assets.isEmpty) {
           return EmptyState(
@@ -421,7 +482,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                           );
                     return _alsListe
                         ? AssetListView(
-                            assets: assets,
+                            assets: voll ?? const [],
                             paths: widget.library.paths,
                             gruppierung: _gruppierung,
                             selectedIds: _selected,
@@ -430,7 +491,11 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                             spalten: _listenspalten,
                             onSpalten: _setzeSpalten,
                             onLongPress: (asset) => _toggle(asset.id),
-                            onTap: rasterKlick,
+                            // Die Liste haelt volle Zeilen, die Auswahl
+                            // arbeitet mit schmalen - umgesetzt wird ueber
+                            // die Kennung, nicht ueber das Objekt.
+                            onTap: (asset) => rasterKlick(
+                                Rasterzeile.aus(asset)),
                           )
                         : MonthGroupedAssetGrid(
                             assets: assets,
@@ -491,7 +556,11 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                   if (mounted) setState(_selected.clear);
                 },
                 onExport: () async {
-                  final selectedAssets = assets.where((a) => _selected.contains(a.id)).toList();
+                  // Die Ausfuhr schreibt Beipackzettel und braucht dafuer
+                  // die ganze Zeile - hier nachgeholt statt vorgehalten.
+                  final selectedAssets = await widget.library.db
+                      .assetsByIds(_selected.toList());
+                  if (!context.mounted) return;
                   await runBatchExport(context, widget.library, selectedAssets);
                   if (mounted) setState(_selected.clear);
                 },
@@ -499,7 +568,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
               ),
           ],
         ));
-      },
-    );
+      }
+    }
   }
 }

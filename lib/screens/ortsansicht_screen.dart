@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/laenderkatalog.dart';
 import '../services/ortsuebersicht.dart';
@@ -246,7 +247,7 @@ class _OrtsansichtScreenState extends State<OrtsansichtScreen> {
                       ),
                       itemCount: _fotos.length,
                       itemBuilder: (_, i) => AssetThumbnailTile(
-                        asset: _fotos[i],
+                        asset: Rasterzeile.aus(_fotos[i]),
                         paths: widget.library.paths,
                         onTap: () => _fotoOeffnen(_fotos[i]),
                       ),

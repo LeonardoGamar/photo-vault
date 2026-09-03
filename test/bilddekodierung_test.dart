@@ -173,13 +173,51 @@ void main() {
         () {
       // Gegenprobe: Alle anderen Stellen rechnen mit festen Kantenlängen
       // und haben das Problem nicht. Diese zwei hängen am Fenster.
+      //
+      // Die Kachel geht seit der Verzerrungskorrektur über
+      // `deckendeDekodiermasse`, und das rundet seinerseits über
+      // [dekodierbreite] – beides zählt also.
       for (final pfad in [
         'lib/widgets/asset_thumbnail_tile.dart',
         'lib/screens/face_review_screen.dart',
       ]) {
-        expect(File(pfad).readAsStringSync(), contains('dekodierbreite('),
+        final quelle = File(pfad).readAsStringSync();
+        expect(
+            quelle.contains('dekodierbreite(') ||
+                quelle.contains('deckendeDekodiermasse('),
+            isTrue,
             reason: '$pfad rechnet seine Zielbreite aus dem Layout');
       }
+    });
+  });
+
+  group('Der Bildspeicher', () {
+    // Ohne Bindung gibt es keinen Bildspeicher - dieselbe Stelle, an der
+    // auch [vergissAlleBilder] den Fall abfaengt.
+    setUpAll(TestWidgetsFlutterBinding.ensureInitialized);
+
+    test('steht auf gemessenen Grenzen', () {
+      final vorherBytes = PaintingBinding.instance.imageCache.maximumSizeBytes;
+      final vorherN = PaintingBinding.instance.imageCache.maximumSize;
+      addTearDown(() => PaintingBinding.instance.imageCache
+        ..maximumSizeBytes = vorherBytes
+        ..maximumSize = vorherN);
+      bildspeicherEinrichten();
+      expect(PaintingBinding.instance.imageCache.maximumSizeBytes,
+          200 * 1024 * 1024);
+      // Die Zahl der Bilder muss so gross sein, dass die Megabyte
+      // entscheiden - sonst greift wieder sie zuerst, wie mit Flutters
+      // Vorgabe von 1000 bei einfacher Pixeldichte.
+      expect(PaintingBinding.instance.imageCache.maximumSize,
+          greaterThan(200 * 1024 * 1024 ~/ (140 * 1024)));
+    });
+
+    test('und der Start ruft es auf', () {
+      // Eine Einstellung, die niemand vornimmt, ist keine. Genau so ist
+      // in 1.9.6 ein Knopf ausgeliefert worden, den niemand druecken
+      // konnte.
+      expect(File('lib/main.dart').readAsStringSync(),
+          contains('bildspeicherEinrichten()'));
     });
   });
 }

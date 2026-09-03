@@ -7,8 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
 
-import '../db/database.dart';
-import '../services/asset_format.dart';
+import '../db/rasterzeile.dart';
 import '../services/bilddekodierung.dart';
 import '../services/schwebevorschau.dart';
 import '../services/storage_paths.dart';
@@ -28,7 +27,7 @@ const double _ausschnittKante = 160;
 /// wie zuvor: ohne Bereich darueber, ohne Video im Datensatz gibt es
 /// weder [MouseRegion] noch Uhr.
 class AssetThumbnailTile extends StatefulWidget {
-  final AssetData asset;
+  final Rasterzeile asset;
   final StoragePaths paths;
   final VoidCallback onTap;
   final VoidCallback? onDoubleTap;
@@ -144,10 +143,10 @@ class _AssetThumbnailTileState extends State<AssetThumbnailTile> {
             fit: StackFit.expand,
             children: [
           if (thumbPath != null)
-            // cacheWidth/-Height begrenzen die dekodierte Bitmap-Größe auf die
-            // tatsächliche Kachelgröße (× Pixelverhältnis) statt immer die
-            // volle, auf der Platte hinterlegte 400px-Vorschau zu dekodieren
-            // und zu cachen – in dichten Rasteransichten (Timeline, Kalender,
+            // Die dekodierte Bitmap wird auf die tatsächliche Kachelgröße
+            // (× Pixelverhältnis) begrenzt, statt immer die volle, auf der
+            // Platte hinterlegte 400px-Vorschau zu dekodieren und zu
+            // cachen – in dichten Rasteransichten (Timeline, Kalender,
             // Alben) sind Kacheln oft deutlich kleiner als 400px.
             //
             // **In Stufen und nicht auf den Punkt** – siehe
@@ -156,18 +155,24 @@ class _AssetThumbnailTileState extends State<AssetThumbnailTile> {
             // Zwischenschritt eines Ziehens am Fenster einen eigenen
             // Schlüssel im Bildspeicher, und jede sichtbare Kachel würde
             // dabei neu dekodiert.
+            //
+            // **Und nur eine der beiden Kanten** – siehe
+            // [deckendeDekodiermasse]. Beide zusammen stauchen das Bild.
             LayoutBuilder(
               builder: (context, constraints) {
-                final dpr = MediaQuery.of(context).devicePixelRatio;
+                final masse = deckendeDekodiermasse(
+                  kachelBreite: constraints.maxWidth,
+                  kachelHoehe: constraints.maxHeight,
+                  bildBreite: widget.asset.widthPx,
+                  bildHoehe: widget.asset.heightPx,
+                  pixelverhaeltnis:
+                      MediaQuery.of(context).devicePixelRatio,
+                );
                 return Image.file(
                   widget.paths.absolute(thumbPath),
                   fit: BoxFit.cover,
-                  cacheWidth: constraints.maxWidth.isFinite
-                      ? dekodierbreite(constraints.maxWidth, dpr)
-                      : null,
-                  cacheHeight: constraints.maxHeight.isFinite
-                      ? dekodierbreite(constraints.maxHeight, dpr)
-                      : null,
+                  cacheWidth: masse.breite,
+                  cacheHeight: masse.hoehe,
                   errorBuilder: (_, __, ___) => _placeholder(),
                 );
               },
@@ -217,7 +222,7 @@ class _AssetThumbnailTileState extends State<AssetThumbnailTile> {
               top: 4,
               child: Icon(Icons.favorite, color: Colors.redAccent, size: 16),
             ),
-          if (assetHasLocation(widget.asset))
+          if (widget.asset.verortet)
             const Positioned(
               left: 4,
               bottom: 4,
@@ -251,7 +256,7 @@ class _AssetThumbnailTileState extends State<AssetThumbnailTile> {
                 ),
               ),
             )
-          else if (assetFormatLabel(widget.asset).isNotEmpty)
+          else if (widget.asset.kuerzel.isNotEmpty)
             Positioned(
               right: 4,
               top: 4,
@@ -259,7 +264,7 @@ class _AssetThumbnailTileState extends State<AssetThumbnailTile> {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 1),
                 decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(3)),
                 child: Text(
-                  assetFormatLabel(widget.asset),
+                  widget.asset.kuerzel,
                   style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
                 ),
               ),

@@ -1,4 +1,4 @@
-import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/bildreihen.dart';
 import '../services/rasterstufen.dart';
 
@@ -20,7 +20,19 @@ export '../services/rasterstufen.dart';
 /// Anordnung als Rechnung in `bildreihen.dart`, und dieselbe Rechnung
 /// liefert dem Zeitstrahl die Höhe. Was das Raster zeichnet und was der
 /// Zeitstrahl annimmt, kann dann gar nicht mehr auseinanderlaufen.
-const double timelineHeaderHeight = 64.0;
+/// Die Höhe einer Monatsüberschrift.
+///
+/// **Gemessen, nicht gesetzt.** Hier stand 64, und die Überschrift misst
+/// 52 – `AppSpacing.xl` oben, die Zeile selbst, `AppSpacing.sm` unten.
+/// Der Unterschied fällt auf keinem Bildschirm auf, summiert sich in
+/// [timelineOffsetForAsset] aber über jede Monatsgruppe auf: Beim Sprung
+/// in die Mitte der echten Bibliothek (Gruppe 41 von 82) landete die
+/// Zeitleiste **504 Punkte zu tief** – eine halbe Bildschirmhöhe, und in
+/// den ältesten Monaten wäre es eine ganze.
+///
+/// `zeitleiste_ueberschrift_test.dart` hält die Zahl an der wirklich
+/// gezeichneten Überschrift fest; wächst sie, fällt der Test.
+const double timelineHeaderHeight = 52.0;
 const double timelineTrailingHeight = 40.0;
 const double timelineGridMaxCrossAxisExtent = 160.0;
 const double timelineGridSpacing = 4.0;
@@ -48,7 +60,7 @@ double timelineRowHeightForWidth(double gridWidth,
 /// EXIF-Ausrichtung gedreht – an der echten Bibliothek gegengeprüft: 27 %
 /// Hochformat, was ohne Drehung nicht herauskäme. Fehlen sie (2 von 8098),
 /// gilt das Kleinbildformat.
-double seitenverhaeltnisVon(AssetData a) {
+double seitenverhaeltnisVon(Rasterzeile a) {
   final b = a.widthPx;
   final h = a.heightPx;
   if (b == null || h == null || b <= 0 || h <= 0) {
@@ -62,7 +74,7 @@ double seitenverhaeltnisVon(AssetData a) {
 /// [kachelbreite] – die eingestellte Kachelstufe – wirkt hier als
 /// **Zielhöhe** der Reihen. So bleibt der vorhandene Zoom sinnvoll, statt
 /// dass die neue Form einen zweiten Regler braucht.
-List<Bildreihe> zeitleisteReihen(List<AssetData> gruppe, double gridWidth,
+List<Bildreihe> zeitleisteReihen(List<Rasterzeile> gruppe, double gridWidth,
     {double kachelbreite = timelineGridMaxCrossAxisExtent}) {
   return bildreihen(
     seitenverhaeltnisse: [for (final a in gruppe) seitenverhaeltnisVon(a)],
@@ -73,7 +85,7 @@ List<Bildreihe> zeitleisteReihen(List<AssetData> gruppe, double gridWidth,
 }
 
 double timelineMonthGroupHeight(
-  List<AssetData> gruppe,
+  List<Rasterzeile> gruppe,
   double gridWidth, {
   double kachelbreite = timelineGridMaxCrossAxisExtent,
   Zeitleistenform form = zeitleisteFormVorgabe,
@@ -86,8 +98,12 @@ double timelineMonthGroupHeight(
   }
   final columns = timelineColumnsForWidth(gridWidth, kachelbreite: kachelbreite);
   final rows = (gruppe.length / columns).ceil();
+  // Die Zeilenhöhe trägt den Abstand UNTER sich. Hinter der letzten Zeile
+  // gibt es keinen – sonst zählte jede Monatsgruppe vier Punkte zu viel,
+  // und über die ganze Bibliothek wurden daraus 164.
   return timelineHeaderHeight +
-      rows * timelineRowHeightForWidth(gridWidth, kachelbreite: kachelbreite);
+      rows * timelineRowHeightForWidth(gridWidth, kachelbreite: kachelbreite) -
+      (rows > 0 ? timelineGridSpacing : 0);
 }
 
 /// Geschätzter Scroll-Offset, um [assetId] an den oberen Rand der Ansicht zu
@@ -95,7 +111,7 @@ double timelineMonthGroupHeight(
 /// keiner der übergebenen Gruppen vorkommt.
 double? timelineOffsetForAsset(
   List<int> orderedKeys,
-  Map<int, List<AssetData>> groups,
+  Map<int, List<Rasterzeile>> groups,
   double gridWidth,
   String assetId, {
   double kachelbreite = timelineGridMaxCrossAxisExtent,
@@ -118,7 +134,7 @@ double? timelineOffsetForAsset(
 
 /// Wie weit die Zeile, in der [indexInGroup] steht, unterhalb der
 /// Monatsüberschrift beginnt.
-double _abstandBisZeile(List<AssetData> gruppe, int indexInGroup,
+double _abstandBisZeile(List<Rasterzeile> gruppe, int indexInGroup,
     double gridWidth, double kachelbreite, Zeitleistenform form) {
   if (form == Zeitleistenform.reihen) {
     final reihen =

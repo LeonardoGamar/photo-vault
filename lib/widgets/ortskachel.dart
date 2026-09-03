@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/storage_paths.dart';
 import '../theme/app_spacing.dart';
@@ -178,7 +179,7 @@ class Ortskachel extends StatelessWidget {
                 children: [
                   if (bild case final b?)
                     AssetThumbnailTile(
-                        asset: b, paths: paths, onTap: onTippen)
+                        asset: Rasterzeile.aus(b), paths: paths, onTap: onTippen)
                   else
                     ColoredBox(
                       color: farben.surfaceContainerHighest,

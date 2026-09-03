@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
+import 'package:photo_vault/db/rasterzeile.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/calendar_screen.dart';
 import 'package:photo_vault/services/storage_paths.dart';
@@ -195,7 +196,7 @@ void main() {
       await aufnahme('3', DateTime(2026, 3, 5, 0, 1));
       final alle = await db.watchTimelineForMonth(2026, 3).first;
 
-      final g = tagesgruppen(alle);
+      final g = tagesgruppen([for (final x in alle) Rasterzeile.aus(x)]);
       expect(g.schluessel, [20260309, 20260305]);
       expect(g.gruppen[20260305], hasLength(2));
       expect(g.gruppen[20260309], hasLength(1));
@@ -207,7 +208,7 @@ void main() {
       await aufnahme('spaet', DateTime(2026, 3, 5, 23, 50));
       await aufnahme('frueh', DateTime(2026, 3, 6, 0, 10));
       final alle = await db.watchTimelineForMonth(2026, 3).first;
-      expect(tagesgruppen(alle).schluessel, hasLength(2));
+      expect(tagesgruppen([for (final x in alle) Rasterzeile.aus(x)]).schluessel, hasLength(2));
     });
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../services/face_threshold.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -278,7 +279,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                         itemBuilder: (context, index) {
                           final asset = assets[index];
                           return AssetThumbnailTile(
-                            asset: asset,
+                            asset: Rasterzeile.aus(asset),
                             paths: library.paths,
                             onTap: () => Navigator.of(context).push(MaterialPageRoute(
                               builder: (_) => AssetViewerScreen(

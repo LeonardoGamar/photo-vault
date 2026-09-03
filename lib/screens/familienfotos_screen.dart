@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
@@ -39,7 +40,7 @@ class FamilienfotosScreen extends StatelessWidget {
         ),
         itemCount: assets.length,
         itemBuilder: (context, index) => AssetThumbnailTile(
-          asset: assets[index],
+          asset: Rasterzeile.aus(assets[index]),
           paths: library.paths,
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
             builder: (_) => AssetViewerScreen(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../db/database.dart';
+import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -275,7 +276,7 @@ class YearDetailScreen extends StatefulWidget {
 }
 
 class _YearDetailScreenState extends State<YearDetailScreen>
-    with Rasterbedienung<YearDetailScreen> {
+    with Rasterbedienung<YearDetailScreen, AssetData> {
   final Set<String> _selected = {};
 
   /// Siehe [Stromhalter]: Direkt im `stream:` erzeugt, fragte dieser Strom
@@ -299,19 +300,53 @@ class _YearDetailScreenState extends State<YearDetailScreen>
   List<AssetData> get rasterAssets => _geladen;
 
   @override
+  String rasterKennung(AssetData zeile) => zeile.id;
+
+  @override
+  ({bool favorit, String? farbe}) rasterMerkmale(AssetData zeile) =>
+      (favorit: zeile.isFavorite, farbe: zeile.colorLabel);
+
+  @override
   int get rasterSpalten => _spalten;
 
   /// Ob nach Tagen gegliedert wird – genau dann, wenn ein Monat gemeint
   /// ist.
   bool get _nachTag => widget.monat != null;
 
-  ({List<int> schluessel, Map<int, List<AssetData>> gruppen}) _gruppen(
-          List<AssetData> a) =>
+  ({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen}) _gruppen(
+          List<Rasterzeile> a) =>
       _nachTag ? tagesgruppen(a) : monatsgruppen(a);
+
+  /// Die schmalen Zeilen fürs Raster, aus den vollen abgeleitet.
+  ///
+  /// **Warum der Kalender die vollen behält.** Ein Jahr sind ein paar
+  /// hundert bis zweitausend Aufnahmen – da lohnt die eigene Abfrage
+  /// nicht, und der Betrachter, den ein Klick öffnet, bräuchte sie
+  /// ohnehin. Umgewandelt wird deshalb einmal je Meldung des Stroms und
+  /// nicht bei jedem Neuaufbau.
+  List<AssetData>? _zeilenQuelle;
+  List<Rasterzeile> _zeilen = const [];
+
+  List<Rasterzeile> _zeilenFuer(List<AssetData> voll) {
+    if (!identical(voll, _zeilenQuelle)) {
+      _zeilenQuelle = voll;
+      _zeilen = [for (final a in voll) Rasterzeile.aus(a)];
+    }
+    return _zeilen;
+  }
+
+  /// Die volle Zeile zu einer schmalen – für alles, was hinter dem
+  /// Raster liegt.
+  AssetData? _vollZu(Rasterzeile z) {
+    for (final a in _geladen) {
+      if (a.id == z.id) return a;
+    }
+    return null;
+  }
 
   @override
   List<List<String>> get rasterGruppen {
-    final m = _gruppen(_geladen);
+    final m = _gruppen(_zeilenFuer(_geladen));
     return [for (final k in m.schluessel) [for (final a in m.gruppen[k]!) a.id]];
   }
 
@@ -324,13 +359,13 @@ class _YearDetailScreenState extends State<YearDetailScreen>
 
   /// Auf die Monatsüberschrift getippt: alle Fotos/Videos des Monats
   /// auswählen – oder, falls bereits alle ausgewählt sind, wieder abwählen.
-  void _toggleGroup(List<AssetData> groupAssets) => setState(() {
-        final allSelected = groupAssets.every((a) => _selected.contains(a.id));
-        for (final a in groupAssets) {
+  void _toggleGruppe(List<String> kennungen) => setState(() {
+        final allSelected = kennungen.every(_selected.contains);
+        for (final id in kennungen) {
           if (allSelected) {
-            _selected.remove(a.id);
+            _selected.remove(id);
           } else {
-            _selected.add(a.id);
+            _selected.add(id);
           }
         }
       });
@@ -396,20 +431,25 @@ class _YearDetailScreenState extends State<YearDetailScreen>
               kind: Stack(
             children: [
               LayoutBuilder(builder: (context, constraints) {
+                final zeilen = _zeilenFuer(yearAssets);
                 _spalten = rasterSpaltenzahl(
                   constraints.maxWidth,
                   mitZeitstrahl: rasterMitZeitstrahl(
-                      _gruppen(yearAssets).schluessel.length),
+                      _gruppen(zeilen).schluessel.length),
                 );
                 return MonthGroupedAssetGrid(
                   nachTag: _nachTag,
-                  assets: yearAssets,
+                  assets: zeilen,
                   paths: widget.library.paths,
                   selectedIds: _selected,
                   aktiveKachelId: aktiveKachel,
                   onLongPress: (asset) => _toggle(asset.id),
-                  onHeaderTap: _toggleGroup,
-                  onTap: rasterKlick,
+                  onHeaderTap: (gruppe) => _toggleGruppe(
+                      [for (final z in gruppe) z.id]),
+                  onTap: (z) {
+                    final voll = _vollZu(z);
+                    if (voll != null) rasterKlick(voll);
+                  },
                 );
               }),
               if (_selected.isNotEmpty)

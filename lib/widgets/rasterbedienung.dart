@@ -18,7 +18,16 @@ import '../theme/app_spacing.dart';
 /// Der Mixin verwaltet die Auswahlmenge **nicht** selbst – die Bildschirme
 /// haben sie längst und reichen sie über [auswahl] herein. So kommt kein
 /// zweiter Ort dazu, an dem steht, was ausgewählt ist.
-mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
+/// [Z] ist der Zeilentyp des jeweiligen Bildschirms.
+///
+/// **Warum nicht fest auf einen Typ.** Die Tastensteuerung fasst von einer
+/// Zeile nur die Kennung an und reicht sie sonst unbesehen an
+/// [rasterOeffne] weiter. Die Zeitleiste arbeitet inzwischen mit der
+/// schmalen [Rasterzeile], Alben und Suche mit der vollen `AssetData` –
+/// beide auf einen Typ zu zwingen hiesse, an einer der beiden Stellen bei
+/// jedem Tastendruck eine Liste umzuwandeln.
+mixin Rasterbedienung<T extends StatefulWidget, Z extends Object>
+    on State<T> {
   // ---- vom Bildschirm zu liefern ----
 
   /// Die Auswahlmenge des Bildschirms. Wird von hier aus verändert.
@@ -27,7 +36,7 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
   AppDatabase get rasterDb;
 
   /// Die Fotos in Anzeigereihenfolge. Leer, solange nichts geladen ist.
-  List<AssetData> get rasterAssets;
+  List<Z> get rasterAssets;
 
   /// Wie viele Spalten das Raster gerade zeigt – aus dem `LayoutBuilder` des
   /// Bildschirms. Bestimmt, wie weit „Pfeil nach unten" springt.
@@ -44,14 +53,23 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
 
   /// Öffnet die Vollbildansicht bei diesem Foto (einfacher Klick ohne
   /// bestehende Auswahl, oder Eingabetaste).
-  void rasterOeffne(AssetData asset);
+  void rasterOeffne(Z asset);
+
+  /// Die Kennung einer Zeile. Getrennt von [rasterMerkmale], weil sie in
+  /// Schleifen über die ganze Liste gebraucht wird und dort nichts
+  /// entstehen soll.
+  String rasterKennung(Z zeile);
+
+  /// Was die Tasten `F` und `1`–`6` von einer Zeile wissen müssen.
+  /// Einmal je Tastendruck, nicht je Zeile.
+  ({bool favorit, String? farbe}) rasterMerkmale(Z zeile);
 
   /// Die Gruppen, in denen das Raster die Fotos zeigt. Vorgabe ist eine
   /// einzige Gruppe – richtig für jedes flache `GridView`. Die Zeitleiste und
   /// das Kalenderjahr überschreiben das mit ihren Monatsgruppen, sonst spränge
   /// der Zeiger über eine Monatsüberschrift hinweg an die falsche Stelle.
   List<List<String>> get rasterGruppen => [
-        [for (final a in rasterAssets) a.id],
+        [for (final a in rasterAssets) rasterKennung(a)],
       ];
 
   // ---- Zustand ----
@@ -75,23 +93,23 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
   /// schaltet der Klick diese Kachel um; gibt es keine, öffnet er das Foto.
   /// Das ist die Bedienung, die es immer gab, und sie funktioniert weiterhin
   /// mit dem Finger.
-  void rasterKlick(AssetData asset) {
+  void rasterKlick(Z asset) {
     final art = klickartAus(HardwareKeyboard.instance.logicalKeysPressed);
     final ankerVorher = anker;
 
     switch (art) {
       case Klickart.bereich:
         setState(() {
-          aktiveKachel = asset.id;
+          aktiveKachel = rasterKennung(asset);
           if (ankerVorher == null) {
-            auswahl.add(asset.id);
-            anker = asset.id;
+            auswahl.add(rasterKennung(asset));
+            anker = rasterKennung(asset);
           } else {
             final erweitert = auswahlMitBereich(
-              [for (final a in rasterAssets) a.id],
+              [for (final a in rasterAssets) rasterKennung(a)],
               auswahl,
               ankerVorher,
-              asset.id,
+              rasterKennung(asset),
             );
             auswahl
               ..clear()
@@ -101,22 +119,22 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
 
       case Klickart.einzeln:
         setState(() {
-          if (!auswahl.remove(asset.id)) auswahl.add(asset.id);
-          anker = asset.id;
-          aktiveKachel = asset.id;
+          if (!auswahl.remove(rasterKennung(asset))) auswahl.add(rasterKennung(asset));
+          anker = rasterKennung(asset);
+          aktiveKachel = rasterKennung(asset);
         });
 
       case Klickart.einfach:
         if (auswahl.isNotEmpty) {
           setState(() {
-            if (!auswahl.remove(asset.id)) auswahl.add(asset.id);
-            anker = asset.id;
-            aktiveKachel = asset.id;
+            if (!auswahl.remove(rasterKennung(asset))) auswahl.add(rasterKennung(asset));
+            anker = rasterKennung(asset);
+            aktiveKachel = rasterKennung(asset);
           });
         } else {
           setState(() {
-            anker = asset.id;
-            aktiveKachel = asset.id;
+            anker = rasterKennung(asset);
+            aktiveKachel = rasterKennung(asset);
           });
           rasterOeffne(asset);
         }
@@ -187,7 +205,7 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
         taste == LogicalKeyboardKey.numpadEnter) {
       final id = aktiveKachel;
       if (id == null) return KeyEventResult.ignored;
-      final treffer = rasterAssets.where((a) => a.id == id);
+      final treffer = rasterAssets.where((a) => rasterKennung(a) == id);
       if (treffer.isEmpty) return KeyEventResult.ignored;
       rasterOeffne(treffer.first);
       return KeyEventResult.handled;
@@ -208,15 +226,19 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
       // zweiter Klick auf denselben Kreis in der Palette. Massgeblich ist
       // dabei die aktive Kachel bzw. das erste Foto der Auswahl; bei
       // gemischten Marken setzt die Taste also erst einmal alle gleich.
-      final erstes = rasterAssets.where((a) => a.id == ziele.first);
-      final schonSo = erstes.isNotEmpty && erstes.first.colorLabel == farbe;
+      final erstes =
+          rasterAssets.where((a) => rasterKennung(a) == ziele.first);
+      final schonSo =
+          erstes.isNotEmpty && rasterMerkmale(erstes.first).farbe == farbe;
       _fuehreAus(rasterDb.setColorLabelBulk(ziele, schonSo ? null : farbe));
       return KeyEventResult.handled;
     }
 
     if (taste == LogicalKeyboardKey.keyF) {
-      final erstes = rasterAssets.where((a) => a.id == ziele.first);
-      final schonSo = erstes.isNotEmpty && erstes.first.isFavorite;
+      final erstes =
+          rasterAssets.where((a) => rasterKennung(a) == ziele.first);
+      final schonSo =
+          erstes.isNotEmpty && rasterMerkmale(erstes.first).favorit;
       _fuehreAus(rasterDb.setFavoriteBulk(ziele, !schonSo));
       return KeyEventResult.handled;
     }
@@ -240,7 +262,7 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
       // Erster Tastendruck ohne Zeiger: beim ersten Foto anfangen, statt
       // wortlos nichts zu tun.
       setState(() {
-        aktiveKachel = rasterAssets.first.id;
+        aktiveKachel = rasterKennung(rasterAssets.first);
         anker ??= aktiveKachel;
       });
       return;
@@ -259,7 +281,7 @@ mixin Rasterbedienung<T extends StatefulWidget> on State<T> {
         final ab = anker ?? start;
         anker = ab;
         final erweitert = auswahlMitBereich(
-          [for (final a in rasterAssets) a.id],
+          [for (final a in rasterAssets) rasterKennung(a)],
           auswahl,
           ab,
           ziel,

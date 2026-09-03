@@ -10,9 +10,16 @@ import '../db/database.dart';
 /// RAW-Formate (siehe raw_formats.dart) genügt die Dateiendung selbst als
 /// Antwort auf "welches RAW-Format" – der generische Fallback unten deckt
 /// sie automatisch ab, ohne dass hier ein eigener `case` nötig wäre.
-String assetFormatLabel(AssetData asset) {
-  if (asset.type != 'IMAGE') return '';
-  final ext = p.extension(asset.relativePath).toLowerCase();
+String assetFormatLabel(AssetData asset) =>
+    formatKuerzel(asset.type, asset.relativePath);
+
+/// Dasselbe aus den beiden Angaben, die es wirklich braucht.
+///
+/// Getrennt, seit es neben `AssetData` auch die schmale [Rasterzeile]
+/// gibt: Die Rechnung soll einmal dastehen und nicht zweimal.
+String formatKuerzel(String type, String relativePath) {
+  if (type != 'IMAGE') return '';
+  final ext = p.extension(relativePath).toLowerCase();
   switch (ext) {
     case '.jpg':
     case '.jpeg':
@@ -41,7 +48,12 @@ String assetFormatLabel(AssetData asset) {
   }
 }
 
-bool assetHasLocation(AssetData asset) => asset.latitude != null && asset.longitude != null;
+bool assetHasLocation(AssetData asset) =>
+    hatOrt(asset.latitude, asset.longitude);
+
+/// Siehe [formatKuerzel] fuer den Grund der Trennung.
+bool hatOrt(double? breite, double? laenge) =>
+    breite != null && laenge != null;
 
 /// Ob [asset] ein Panoramafoto ist (sehr breites Seitenverhältnis) – für die
 /// Vollbildansicht, die solche Fotos pan-/zoombar statt mit großen
@@ -49,9 +61,11 @@ bool assetHasLocation(AssetData asset) => asset.latitude != null && asset.longit
 /// bereits beim Import gespeicherten Originalmaße statt eines eigenen
 /// Dekodierens; alte Assets ohne gespeicherte Maße gelten bewusst nicht als
 /// Panorama statt eine Annahme zu raten.
-bool isPanorama(AssetData asset) {
-  final width = asset.widthPx;
-  final height = asset.heightPx;
+bool isPanorama(AssetData asset) =>
+    istPanoramaMasse(asset.widthPx, asset.heightPx);
+
+/// Siehe [formatKuerzel] fuer den Grund der Trennung.
+bool istPanoramaMasse(int? width, int? height) {
   if (width == null || height == null || height == 0) return false;
   return width / height >= 2.5;
 }
