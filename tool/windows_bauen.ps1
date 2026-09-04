@@ -2,6 +2,15 @@
 #
 #   tool\windows_bauen.ps1 [-Pruefen] [-Zip]
 #
+#
+#   FUER EINE AUSLIEFERUNG IMMER -Pruefen MIT ANGEBEN.
+#   Am 03.09.2026 ist ein Paket entstanden, in dem heif-dec.exe drei DLLs
+#   fehlten und mit 0xC0000135 gar nicht startete - HEIC und AVIF waeren
+#   unlesbar gewesen. Die Pruefung unten haette genau das gemeldet
+#   ("keine Ausgabe, Rueckgabewert"); sie lief nur nicht, weil der Bau
+#   mit -Zip allein gestartet wurde. Aufgefallen ist es erst beim
+#   Vergleich der Dateiliste mit der Vorgaengerfassung.
+#
 #     -Pruefen  Nach dem Bau nachsehen, ob die mitgelieferten Werkzeuge
 #               wirklich da sind und koennen, was sie sollen - und zwar
 #               OHNE den PATH dieses Rechners.

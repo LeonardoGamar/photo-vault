@@ -691,6 +691,20 @@ int bloeckeAnzahlImBild(
 }
 
 /// Zeichnet ein Netz mit einer Kamera.
+/// Ein Messwert, wie er im Videobild steht.
+///
+/// [breitester] ist die **breiteste Fassung, die dieser Wert im ganzen
+/// Flug annimmt** – „12,3 km/h", wenn irgendwo unterwegs zweistellig
+/// gefahren wird. Der Maler richtet das Fach danach aus und malt darin
+/// den jeweiligen [wert].
+///
+/// **Warum nicht einfach der Wert.** Ein Fach, das mit seinem Inhalt
+/// wächst, verschiebt bei jedem Bild alles rechts davon – dreissigmal in
+/// der Sekunde, sobald das Tempo von 9,9 auf 10,1 geht. Gleich breite
+/// Ziffern allein reichen dafür nicht; es ist die **Zahl** der Ziffern,
+/// die wechselt.
+typedef Flugmesswert = ({String name, String wert, String breitester, Color? farbe});
+
 class Gelaendemaler extends CustomPainter {
   final Gelaendenetz netz;
   final Gelaendekamera kamera;
@@ -754,6 +768,13 @@ class Gelaendemaler extends CustomPainter {
   /// Der Abspann – die Zahlen der Tour, ebenfalls nur für das Video.
   final ({List<String> zeilen, double deckkraft})? abspann;
 
+  /// Höhe, Steigung und Tempo im Bild – **nur für den Videoexport**.
+  ///
+  /// Am Bildschirm stehen sie als Widgetzeile **unter** der Ansicht
+  /// (siehe `_Messwerte`); ein Video hat kein Darunter. Was aus der App
+  /// herausgeht, trägt seine Zahlen im Bild oder gar nicht.
+  final ({List<Flugmesswert> werte, double deckkraft})? messwerte;
+
   /// Die Schrift der Schilder – nur für Bildwerkzeuge nötig.
   ///
   /// `flutter test` setzt sonst „Ahem", und die malt jedes Zeichen als
@@ -779,6 +800,7 @@ class Gelaendemaler extends CustomPainter {
     this.flugbild,
     this.namensnennung,
     this.abspann,
+    this.messwerte,
   });
 
   /// Die Grösse des letzten Bildes – die Dunstschicht braucht sie für
@@ -899,6 +921,10 @@ class Gelaendemaler extends CustomPainter {
         hoeheBei: hoeheBei, stimmung: stimmung, schriftart: schriftart);
 
     _flugbildMalen(canvas, size);
+    // Die Messwerte **vor** dem Abspann: Der legt sich als helle Tafel
+    // über die Mitte, und die Zahlen des Fluges gehören dann darunter –
+    // sie verabschieden sich, während er kommt.
+    _messwerteMalen(canvas, size);
     _abspannMalen(canvas, size);
     _nennungMalen(canvas, size);
   }
@@ -910,6 +936,7 @@ class Gelaendemaler extends CustomPainter {
       {Color farbe = const Color(0xFF1B1B1B),
       FontWeight gewicht = FontWeight.w500,
       TextAlign ausrichtung = TextAlign.left,
+      bool festeZifferbreite = false,
       double breite = 1200}) {
     final bauer = ui.ParagraphBuilder(ui.ParagraphStyle(
       fontFamily: schriftart,
@@ -917,7 +944,12 @@ class Gelaendemaler extends CustomPainter {
       fontWeight: gewicht,
       textAlign: ausrichtung,
     ))
-      ..pushStyle(ui.TextStyle(color: farbe))
+      ..pushStyle(ui.TextStyle(
+        color: farbe,
+        fontFeatures: festeZifferbreite
+            ? const [ui.FontFeature.tabularFigures()]
+            : null,
+      ))
       ..addText(text);
     return bauer.build()..layout(ui.ParagraphConstraints(width: breite));
   }
@@ -1012,12 +1044,95 @@ class Gelaendemaler extends CustomPainter {
     }
   }
 
-  void _nennungMalen(Canvas canvas, Size size) {
+  /// Höhe, Steigung und Tempo – unten links, über der Namensnennung.
+  ///
+  /// **Warum unten links.** Oben rechts steht das Foto zur Stelle, unten
+  /// links die Namensnennung; die Zahlen setzen sich darüber und lassen
+  /// die Bildmitte frei, in der die Landschaft vorbeizieht. Es ist auch
+  /// die Ecke, in der jeder sie erwartet, der einmal einen Flyover
+  /// gesehen hat.
+  void _messwerteMalen(Canvas canvas, Size size) {
+    final m = messwerte;
+    if (m == null || m.werte.isEmpty || m.deckkraft <= 0.01) return;
+    final deck = m.deckkraft.clamp(0.0, 1.0);
+
+    // Alles am Bild bemessen und nichts in festen Punkten: Dieselbe
+    // Ausgabe entsteht in 1280 x 720 wie in 3840 x 2160, und eine feste
+    // Schriftgrösse wäre dort einmal plakativ und einmal unleserlich.
+    final namensgroesse = size.height * 0.019;
+    final wertgroesse = size.height * 0.042;
+    final rand = size.width * 0.012;
+    final luft = size.height * 0.014;
+    final spalt = size.width * 0.028;
+
+    final fach = <({ui.Paragraph name, ui.Paragraph wert, double breite})>[];
+    for (final w in m.werte) {
+      final name = _absatz(w.name, namensgroesse,
+          farbe: const Color(0xFFFFFFFF).withValues(alpha: 0.75 * deck),
+          gewicht: FontWeight.w500);
+      final wert = _absatz(w.wert, wertgroesse,
+          farbe: (w.farbe ?? const Color(0xFFFFFFFF))
+              .withValues(alpha: deck),
+          gewicht: FontWeight.w600,
+          festeZifferbreite: true);
+      // Gemessen wird an der breitesten Fassung, gemalt die jetzige.
+      final vorlage = _absatz(w.breitester, wertgroesse,
+          gewicht: FontWeight.w600, festeZifferbreite: true);
+      fach.add((
+        name: name,
+        wert: wert,
+        breite: math.max(name.maxIntrinsicWidth, vorlage.maxIntrinsicWidth),
+      ));
+    }
+
+    var breite = 0.0;
+    for (final f in fach) {
+      breite += f.breite;
+    }
+    breite += spalt * (fach.length - 1);
+    final hoehe = namensgroesse * 1.35 + wertgroesse * 1.25;
+
+    final nennung = _nennungsabsatz(size);
+    final belegt = nennung == null ? 0.0 : nennung.height + 4 + luft;
+    final tafel = Rect.fromLTWH(
+      rand,
+      size.height - rand - belegt - hoehe - luft * 2,
+      breite + luft * 2,
+      hoehe + luft * 2,
+    );
+
+    // Dieselbe Sorge wie bei der Namensnennung, nur ernster: Diese
+    // Zahlen ziehen über Himmel, Fels und Wald hinweg, und über hellem
+    // Kalk ist Weiss auf Weiss nicht zu lesen. Ein deutlicherer Grund
+    // als dort (0x99 statt 0x66) – die Zahlen sind grösser und tragen
+    // mehr Gewicht als eine Fussnote.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(tafel, Radius.circular(size.height * 0.012)),
+      Paint()..color = const Color(0xFF000000).withValues(alpha: 0.6 * deck),
+    );
+
+    var x = tafel.left + luft;
+    for (final f in fach) {
+      canvas.drawParagraph(f.name, Offset(x, tafel.top + luft));
+      canvas.drawParagraph(
+          f.wert, Offset(x, tafel.top + luft + namensgroesse * 1.35));
+      x += f.breite + spalt;
+    }
+  }
+
+  /// Die Namensnennung als fertiger Absatz – oder `null`, wenn keine da
+  /// ist. Auch die Messwerte fragen danach: Sie sitzen darüber und
+  /// müssen wissen, wie viel unten schon belegt ist.
+  ui.Paragraph? _nennungsabsatz(Size size) {
     final n = namensnennung;
-    if (n == null || n.isEmpty) return;
-    final groesse = size.height * 0.018;
-    final absatz = _absatz(n, groesse,
+    if (n == null || n.isEmpty) return null;
+    return _absatz(n, size.height * 0.018,
         farbe: const Color(0xFFFFFFFF), breite: size.width * 0.9);
+  }
+
+  void _nennungMalen(Canvas canvas, Size size) {
+    final absatz = _nennungsabsatz(size);
+    if (absatz == null) return;
     final rand = size.width * 0.012;
     final wo = Offset(rand, size.height - absatz.height - rand);
     // Ein dunkler Grund darunter: Über hellem Himmel wäre weisse Schrift
@@ -1360,6 +1475,7 @@ class Gelaendemaler extends CustomPainter {
       alt.schilder != schilder ||
       alt.flugbild != flugbild ||
       alt.abspann != abspann ||
+      alt.messwerte != messwerte ||
       alt.spur != spur ||
       // Ohne diese Zeile stünde der Schnitt zwischen zurückgelegt und
       // kommend still, sobald die Kamera einmal gleich bleibt – etwa
@@ -1671,6 +1787,10 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
   /// Wann die Ausgabe begann – für die Restzeit.
   DateTime? _videoBegann;
 
+  /// Die breitesten Fassungen der Messwerte dieses Fluges – einmal vor
+  /// dem Lauf gerechnet, siehe [_breitesteMesswerte].
+  ({String hoehe, String tempo, String steigung})? _videoBreiteste;
+
   /// Wie lange die Ausgabe noch braucht – aus dem bisherigen Tempo.
   ///
   /// `null`, solange sich nichts rechnen lässt. **Eine geratene Restzeit
@@ -1728,6 +1848,7 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       _videoFortschritt = 0;
       _videoauftrag = auftrag;
       _videoBegann = DateTime.now();
+      _videoBreiteste = _breitesteMesswerte();
     });
     try {
       final ergebnis = await schreibeFlugvideo(
@@ -1771,6 +1892,7 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
           _videoAbbruch = false;
           _videoauftrag = null;
           _videoBegann = null;
+          _videoBreiteste = null;
         });
       }
     }
@@ -1887,6 +2009,14 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
               unterschrift: foto!.unterschrift
             ),
       namensnennung: widget.namensnennung,
+      // Sie kommen mit dem Einflug und gehen mit dem Abspann: Was der
+      // Flug gerade misst, hat neben den Zahlen der ganzen Tour nichts
+      // mehr zu suchen.
+      messwerte: (
+        werte: _videomesswerte(stand),
+        deckkraft: Curves.easeOut.transform(abschnitt.einflug) *
+            (1 - Curves.easeIn.transform(abschnitt.abspann)),
+      ),
       abspann: abschnitt.abspann <= 0
           ? null
           : (
@@ -1906,6 +2036,89 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       flug: ((t - a) / (b - a)).clamp(0.0, 1.0),
       abspann: t <= b ? 0.0 : ((t - b) / (1 - b)).clamp(0.0, 1.0),
     );
+  }
+
+  /// Bergauf und bergab im Video – feste Farben, anders als am
+  /// Bildschirm.
+  ///
+  /// Dort nimmt die Zeile `error` und `primary` aus dem Thema, und die
+  /// sind für dessen Grund gemacht. Im Video liegen die Zahlen auf einer
+  /// dunklen Tafel über wechselnder Landschaft; das dunkle Blau des
+  /// hellen Themas wäre darauf nicht zu lesen. Die Farbe bleibt Beiwerk
+  /// – das Vorzeichen sagt dasselbe (18. Prüfrunde).
+  static const _videoBergauf = Color(0xFFFFAB91);
+  static const _videoBergab = Color(0xFF80DEEA);
+
+  /// Höhe, Tempo und Steigung für ein Videobild – in derselben
+  /// Reihenfolge wie in der Zeile unter der Ansicht.
+  List<Flugmesswert> _videomesswerte(Flugstand stand) {
+    final breiteste = _videoBreiteste;
+    if (breiteste == null) return const [];
+    final t = AppTexte.of(context);
+    final eine = NumberFormat.decimalPatternDigits(
+        locale: Localizations.localeOf(context).toString(), decimalDigits: 1);
+    return [
+      if (stand.hoeheMeter case final h?)
+        (
+          name: t.flugHoehe,
+          wert: t.flugMeterProfil(h.round()),
+          breitester: breiteste.hoehe,
+          farbe: null
+        ),
+      if (stand.tempoMeterJeSekunde case final v?)
+        (
+          name: t.flugTempo,
+          wert: t.flugKmH(eine.format(v * 3.6)),
+          breitester: breiteste.tempo,
+          farbe: null
+        ),
+      if (stand.steigungProzent case final st?)
+        (
+          name: t.flugSteigung,
+          wert: t.flugProzent(eine.format(st)),
+          breitester: breiteste.steigung,
+          farbe: st.abs() < 1
+              ? null
+              : (st > 0 ? _videoBergauf : _videoBergab),
+        ),
+    ];
+  }
+
+  /// Die breiteste Fassung, die jeder Messwert im Lauf dieses Fluges
+  /// annimmt.
+  ///
+  /// **Der Vergleich nach Zeichenzahl ist hier genau und nicht
+  /// ungefähr**: Innerhalb einer Spalte steht immer dasselbe Muster –
+  /// dieselbe Einheit, eine Nachkommastelle – und die Ziffern sind im
+  /// Bild gleich breit. Länger heisst dann breiter. Über Spalten hinweg
+  /// gälte das nicht, und über sie hinweg wird auch nicht verglichen.
+  ///
+  /// Zweihundert Stellen und nicht jedes Bild: Der Flug ist stetig,
+  /// zweihundert Stichproben treffen den Höchstwert auf die
+  /// Nachkommastelle, und gerechnet wird das **einmal** vor dem Lauf
+  /// statt neunhundertmal darin.
+  ({String hoehe, String tempo, String steigung}) _breitesteMesswerte() {
+    final t = AppTexte.of(context);
+    final eine = NumberFormat.decimalPatternDigits(
+        locale: Localizations.localeOf(context).toString(), decimalDigits: 1);
+    String laenger(String bisher, String neu) =>
+        neu.length > bisher.length ? neu : bisher;
+    var hoehe = '';
+    var tempo = '';
+    var steigung = '';
+    for (var i = 0; i <= 200; i++) {
+      final stand = _flug.bei(i / 200);
+      if (stand.hoeheMeter case final h?) {
+        hoehe = laenger(hoehe, t.flugMeterProfil(h.round()));
+      }
+      if (stand.tempoMeterJeSekunde case final v?) {
+        tempo = laenger(tempo, t.flugKmH(eine.format(v * 3.6)));
+      }
+      if (stand.steigungProzent case final st?) {
+        steigung = laenger(steigung, t.flugProzent(eine.format(st)));
+      }
+    }
+    return (hoehe: hoehe, tempo: tempo, steigung: steigung);
   }
 
   List<String> _abspannzeilen() {

@@ -61,9 +61,51 @@ cp "$ARBEIT/fertig/bin/heif-dec.exe" "$ZIEL/"
 # Die DLL-Hülle ausrechnen statt aufzuzählen. Eine Liste von Hand veraltet
 # beim ersten Fassungswechsel, und was fehlt, merkt man erst auf einem
 # fremden Rechner – dort startet das Programm dann gar nicht.
-cd "$ARBEIT/fertig/bin"
-ldd heif-dec.exe | grep -iE '/mingw64/|/fertig/' | sed 's/.*=> //; s/ (0x.*//' |
-  sort -u | while read -r dll; do cp "$dll" "$ZIEL/"; done
+#
+# **Warum in Runden und mit einer Schlusspruefung.** `ldd` bricht seine
+# Kette beim ERSTEN nicht auffindbaren Glied ab. Fehlt libheif.dll, sagt
+# es dazu „not found" – und alles, was NUR ueber libheif haengt
+# (libde265, libdav1d), taucht dann gar nicht erst auf. Genau das ist am
+# 03.09.2026 passiert: Der Werkzeugordner sah mit 16 Dateien vollstaendig
+# aus, es fehlten drei, und `heif-dec.exe` startete auf keinem Rechner
+# mehr (0xC0000135). Bemerkt wurde es nur, weil die Dateiliste des
+# Archivs mit der Vorgaengerfassung verglichen wurde.
+#
+# Also: kopieren, im ZIEL erneut nachsehen, fehlende Glieder aus den
+# bekannten Quellen nachlegen – und am Ende BELEGEN, dass nichts mehr
+# fehlt. Ein Werkzeug, das nicht startet, darf nicht still ausgeliefert
+# werden.
+suchorte="$ARBEIT/fertig/bin /mingw64/bin"
+
+huelle_ziehen() {
+  cd "$ZIEL"
+  ldd heif-dec.exe 2>/dev/null | grep -iE '/mingw64/|/fertig/' |
+    sed 's/.*=> //; s/ (0x.*//' | sort -u |
+    while read -r dll; do [ -f "$dll" ] && cp -f "$dll" "$ZIEL/"; done
+  # Was `ldd` nicht aufloesen konnte, aus den bekannten Quellen holen.
+  ldd heif-dec.exe 2>/dev/null | grep -i 'not found' |
+    sed 's/[[:space:]]*//; s/ =>.*//' | sort -u |
+    while read -r name; do
+      for ort in $suchorte; do
+        if [ -f "$ort/$name" ]; then cp -f "$ort/$name" "$ZIEL/"; break; fi
+      done
+    done
+}
+
+cp "$ARBEIT/fertig/bin/"*.dll "$ZIEL/" 2>/dev/null || true
+for _ in 1 2 3 4 5; do
+  vorher=$(ls "$ZIEL" | wc -l)
+  huelle_ziehen
+  [ "$(ls "$ZIEL" | wc -l)" = "$vorher" ] && break
+done
+
+echo "== Huelle pruefen =="
+cd "$ZIEL"
+if ldd heif-dec.exe 2>/dev/null | grep -i 'not found'; then
+  echo "FEHLER: heif-dec.exe fehlen DLLs (siehe oben)." >&2
+  exit 1
+fi
+echo "vollstaendig"
 
 echo "== Ergebnis =="
 du -sh "$ZIEL"

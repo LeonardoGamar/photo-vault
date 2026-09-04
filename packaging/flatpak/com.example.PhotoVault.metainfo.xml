@@ -68,6 +68,17 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="3.7.0" date="2026-09-04">
+      <description>
+        <p>This release changes no data and no schema. It closes a gap at the one place where the app hands something out of the window: the video you pass on.</p>
+        <p>Altitude, speed and gradient have been under the terrain view since the flyover was built - as a row of widgets, below the picture. On screen that is the right place. A video has no "below": what leaves the app is the canvas and nothing else. Whoever shared a hike shared a pretty landscape with a camera flying along it, and not a single number. The numbers were there all along, one screen edge too far down - and they are exactly the reason anyone watches a flyover at all.</p>
+        <p>They now sit inside the picture, bottom left: above the attribution, below the middle, out of the way of the photo in the opposite corner. They fade in with the approach and out with the credits - what the flight is measuring right now has no business next to the numbers of the whole tour. Every measure scales with the picture height, so 1280x720 and 3840x2160 produce the same image.</p>
+        <p>Each slot is as wide as the widest form its value takes anywhere in this flight, computed once beforehand from two hundred samples along the route. A slot that grows with its content shifts everything to its right thirty times a second as soon as the speed goes from 9.9 to 10.1 km/h - and equal-width digits alone do not help, because it is the number of digits that changes, not their width. Uphill and downhill get fixed colours instead of the theme's: the theme's colours are made for the theme's background, while these numbers sit on a dark plate over changing landscape. The colour stays decoration - the sign says the same thing.</p>
+        <p>Cost per frame at 1920x1080: 18.94 ms instead of 18.51 ms, an extra 0.43 ms or 2.3 per cent.</p>
+        <p>Checked at the pixels, twice: on the painter alone, and on the actually exported video, whose raw pixels a stand-in ffmpeg catches. A value that is computed and passed along is not thereby drawn - the progress bar of the video export was computed, handed to the flight bar and painted nowhere for four weeks.</p>
+        <p>Also: the Windows build script now collects companion libraries in rounds and aborts if one is missing, instead of quietly shipping a package in which a tool does not start.</p>
+      </description>
+    </release>
     <release version="3.6.0" date="2026-09-03">
       <description>
         <p>This release builds no new feature. It makes the existing data more accurate - starting with the app no longer asserting something that is not true. Schema 73 to 78; the migration runs at first start and is not reversible, nothing is lost.</p>

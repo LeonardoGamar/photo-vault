@@ -248,10 +248,10 @@ void main() {
 
     await schreibe('b-bloecke', lader!.bilder);
 
-    // Und ein Bild, wie es ins Video geht: mit Foto, Namensnennung und
-    // Abspann. Die drei entstehen nur beim Videoexport und sind sonst
-    // nirgends zu sehen - ohne dieses Standbild wuesste niemand, ob sie
-    // sitzen.
+    // Und ein Bild, wie es ins Video geht: mit Foto, Messwerten,
+    // Namensnennung und Abspann. Die vier entstehen nur beim
+    // Videoexport und sind sonst nirgends zu sehen - ohne dieses
+    // Standbild wuesste niemand, ob sie sitzen.
     await tester.runAsync(() async {
       final foto = await _probefoto();
       final sammler = ui.PictureRecorder();
@@ -269,6 +269,28 @@ void main() {
         namensnennung: 'Hoehen: Tilezen / AWS Open Data · '
             'Esri, Maxar, Earthstar Geographics · '
             '© waymarkedtrails.org (CC-BY-SA)',
+        // Die drei Zahlen des Fluges - hier alle drei zugleich sichtbar,
+        // im Video blenden sie zum Abspann hin weg. Die Werte sind
+        // schmaler als ihre breiteste Fassung: Genau so soll das Fach
+        // aussehen, wenn gerade eine Ziffer fehlt.
+        messwerte: (
+          werte: const [
+            (name: 'Höhe', wert: '812 m', breitester: '1.204 m', farbe: null),
+            (
+              name: 'Tempo',
+              wert: '4,3 km/h',
+              breitester: '12,7 km/h',
+              farbe: null
+            ),
+            (
+              name: 'Steigung',
+              wert: '6,1 %',
+              breitester: '−12,4 %',
+              farbe: Color(0xFFFFAB91)
+            ),
+          ],
+          deckkraft: 1.0
+        ),
         abspann: (
           zeilen: ['16,1 km', '742 m Aufstieg   ·   4:35 h unterwegs'],
           deckkraft: 1.0
