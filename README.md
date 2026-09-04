@@ -15,9 +15,12 @@ der App herunterlädst. Ausgeliefert wird kein einziges Modell mit.
 Keine Cloud · Keine Telemetrie · Keine Registrierung · Alles offline
 ```
 
-Die App macht genau zwei Arten von Netzwerkaufrufen: den Download der
-KI-Modelle bzw. Geodaten, den du selbst anstößt, und das Laden der
-Kartenkacheln in der Kartenansicht. Sonst nichts.
+Die App macht genau drei Arten von Netzwerkaufrufen: den Download der
+KI-Modelle bzw. Geodaten, den du selbst anstößt; das Laden der
+Kartenkacheln in der Karten- und der Geländeansicht; und – nur wenn du
+den Überflug über eine Aktivität öffnest – eine Abfrage nach Gipfeln,
+Hütten und Quellen im gezeigten Ausschnitt. Nichts davon trägt ein Foto,
+ein Konto oder eine Kennung mit.
 
 ## Bildschirmfotos
 
@@ -199,6 +202,32 @@ echter Hardware.
   einzeln oder als Stapelaktion auf eine Auswahl
 - **Tags & Volltextsuche** über Dateiname, Beschreibung, Tags, erkannten
   Text im Foto (OCR) sowie KI-Bildbeschreibung
+- **Suche in ganzen Sätzen** – „unscharfe Fotos vom letzten Sommer ohne
+  Ort" wird in die passenden Filter übersetzt, **ohne Sprachmodell**: Was
+  verstanden wurde, steht als Marke unter dem Feld, und was nicht
+  verstanden wurde, bleibt Volltext. Erreicht werden Zeitraum, Personen,
+  Orte, Kamera, Bewertung, Farbmarkierung, Medienart, Schärfe, ISO und die
+  Herkunft des Datums. Blende und Brennweite bleiben bewusst aussen vor:
+  Bei „Blende 2,8" ist nicht entschieden, ob genau 2,8 oder „mindestens so
+  offen" gemeint ist, und ein halbverstandener Wert liefert etwas anderes,
+  ohne dass man es der Trefferliste ansieht
+- **Ein geratenes Aufnahmedatum sagt, dass es geraten ist.** Trägt eine
+  Datei kein Aufnahmedatum, fällt der Import auf den Zeitstempel der Datei
+  zurück – der letzte Ausweg, und nach jedem Kopieren und Zurückholen der
+  Zeitpunkt eben dieses Vorgangs. Bisher landete der geratene Wert in
+  derselben Spalte wie ein gemessener, und ab da konnte kein Bildschirm
+  die beiden unterscheiden: Die Zeitleiste stellte eine halbe Kindheit auf
+  einen Abend, und die Serienerkennung fand eine „Serie" mit
+  neunhundert Mitgliedern. Ein geschätztes Datum steht jetzt als solches
+  im Infoblatt und in der Liste, bleibt aus Erinnerungen und Serien
+  heraus und lässt sich gezielt suchen. **Die Marke wird nicht geraten** –
+  statt einer SQL-Regel über alles, was auf einer vollen Stunde liegt,
+  sieht ein Durchgang in jeder Datei nach
+- **Zeitzone aus der Datei** – der Aufnahmezeitpunkt bleibt die Ortszeit
+  der Kamera, denn das ist die Zeit, an die man sich erinnert; der Versatz
+  sagt nur dazu, in welcher Zone sie galt. Ein geschriebenes `+00:00`
+  wird nicht geglaubt, wenn das Foto in einer Zone liegt, die nie UTC+0
+  ist – das ist die Werkseinstellung einer nie gestellten Kamera
 - **Familienstammbaum** (eigener Menüpunkt, ⌘0) – wer zu wem gehört, als
   eigene Angabe neben den erkannten Gesichtern: Eltern, Kinder und Partner,
   dazu Geburts- und Sterbedatum sowie – nur für die Bezeichnungen –
@@ -284,6 +313,14 @@ echter Hardware.
   von anderen Leuten. Gibt es den Namen mehrfach, nennt die Antwort die
   Zahl der übrigen: „Springfield" existiert in den USA über zwanzig Mal,
   und eine Koordinate ohne diesen Hinweis sähe aus wie eine Tatsache.
+- **Ort von den Nachbarn erben** – wer die Kamera ohne Empfänger dabei
+  hatte, bekommt einen Vorschlag aus den Aufnahmen davor und danach. Der
+  Wert liegt nicht im Finden, sondern im **Schweigen**: Gezählt wird, ob
+  *alle* Nachbarn im Zeitfenster am selben Ort waren. Wer am selben
+  Nachmittag in Hannover und in Hamburg fotografiert hat, bekäme sonst für
+  alles dazwischen den Ort, der zeitlich zufällig näher lag. Als Vorschlag
+  mit seiner Begründung, nie als stille Eintragung; ein übernommener Ort
+  bleibt als geerbt gekennzeichnet
 - **Ortsansicht** – ein Bildschirm für Land, Region und Ort, dreimal
   derselbe: Flagge und Zahlen im Kopf, darunter die nächste Ebene zum
   Weiterklicken, darunter die Fotos. Die Liste führt **auch das
@@ -318,16 +355,36 @@ echter Hardware.
   Schwelle von fünf Metern; die Schwelle allein reicht nicht, weil sie
   gegen den Abstand zweier Messungen wirkt und der beim Rauschen doppelt
   so gross ist wie dessen Ausschlag.
-- **Kameraflug** – statt selbst zu drehen lässt sich die Kamera die Spur
-  entlang fliegen: Sie folgt dem Weg in Blickrichtung, Höhe und Uhrzeit
-  laufen daneben mit. Anhalten, Tempo ändern und an jede Stelle springen
-  geht während des Flugs
-- **Gelände in drei Dimensionen** – zu einer Spur die Landschaft, die
-  topografische Karte als Textur darauf, die Spur darüber. Sie zeigt
-  etwas, das weder Karte noch Profil zeigt: *wo im Gelände* der Weg
-  verläuft. Ohne neue Abhängigkeit gebaut – gezeichnet wird mit
-  `Canvas.drawVertices`, und die Höhen kommen als freie terrarium-Kacheln
+- **Gelände in drei Dimensionen** – zu einer Spur die Landschaft, ein
+  **Luftbild** darauf, die Spur darüber. Sie zeigt etwas, das weder Karte
+  noch Profil zeigt: *wo im Gelände* der Weg verläuft. Die Fläche zerfällt
+  in Blöcke, und jeder holt seine Textur in der Stufe, die zu seiner
+  Entfernung passt – nah 0,4 m je Bildpunkt statt der 5,9 m, die eine
+  einzige Textur über den ganzen Ausschnitt hergäbe. Darüber lassen sich
+  Wanderwege, Strassen und Ortsnamen einzeln zuschalten; **Höhenlinien
+  rechnet die App selbst** aus dem Höhengitter (Marching Squares), was
+  keinen einzigen Kachelabruf kostet und auf jeder Stufe scharf bleibt.
+  Gipfel, Hütten und Quellen stehen als Schilder im Gelände, mit einer
+  Sichtprüfung entlang der Blickachse – sonst schwebte ein Gipfelname
+  durch den Berg davor. Ohne neue Abhängigkeit gebaut: gezeichnet wird
+  mit `Canvas.drawVertices`, die Höhen kommen als freie terrarium-Kacheln
   von AWS Open Data.
+- **Kameraflug mit Dramaturgie** – statt selbst zu drehen lässt sich die
+  Kamera die Spur entlang fliegen: Sie folgt dem Weg in Blickrichtung,
+  Höhe, Tempo und Steigung laufen mit. Der Flug beginnt mit einem Einflug
+  aus der Übersicht und endet mit den Zahlen der Tour; unterwegs tauchen
+  **die eigenen Fotos an der Stelle auf, an der sie entstanden sind**, und
+  blenden wieder weg. Anhalten, Tempo ändern und an jede Stelle springen
+  geht während des Flugs.
+- **Der Überflug als Video** – zum Weitergeben an Leute, die die App nicht
+  haben. Auflösung und Länge werden gefragt, nicht vorgegeben. Höhe, Tempo
+  und Steigung stehen dabei **im Bild** und nicht darunter: Was aus der
+  App herausgeht, ist die Leinwand und sonst nichts. Jedes Fach ist so
+  breit wie die breiteste Fassung, die sein Wert im Lauf dieses Fluges
+  annimmt – ein Fach, das mit seinem Inhalt wächst, verschöbe dreissigmal
+  in der Sekunde alles rechts davon. Geschrieben wird über AVFoundation
+  (macOS) bzw. das mitgelieferte ffmpeg (Linux, Windows), und zwar als
+  rohe Bildpunkte durch `stdin` statt über tausend Einzeldateien.
 - **Familienstammbaum** – fünf Ansichten (Baum, Fächer, Sanduhr,
   Nachfahren, Liste) plus **Zeitleiste** und **Familienstatistik**.
   Adoptiv- und Pflegekanten sind eigene Arten, es gibt eine Kreisprüfung
@@ -436,7 +493,15 @@ echter Hardware.
   jede Auswertungsstufe auf die Vorschau schaut, bekommen Videos damit
   Bildbeschreibung, Schlagwörter, Gesichter, Texterkennung und
   KI-Bildsuche – ohne dass eine einzige Stufe etwas von Videos wissen
-  muss. Ihr Ort kommt aus dem `moov`-Kasten der Datei
+  muss. Ihr Ort kommt aus dem `moov`-Kasten der Datei.
+  **Ab zehn Sekunden Laufzeit reicht ein Standbild nicht** – dann werden
+  bis zu fünf über die Länge verteilte Bilder ausgewertet. Bei einem
+  Live-Photo-Fetzen von zwei Sekunden ist das eine Bild das ganze Video;
+  bei neun Minuten wäre es eine Stichprobe von 0,2 Promille, und wer den
+  Hund im Video sucht, fände ihn nur, wenn er zufällig in der ersten
+  Sekunde ins Bild lief. Die Bilder werden nicht aufgehoben, und in der
+  Suche zählt das **beste** – ein Mittelwert über verschiedene Szenen
+  wäre ein Vektor, der zu nichts mehr recht passt
 - **Farbraum bleibt erhalten** – Vorschau, Miniatur und Export tragen ihr
   Profil bei sich, **Display P3** dort, wo die Aufnahme mehr als sRGB
   hergibt. Was davon noch offen ist, steht unter
@@ -588,7 +653,7 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 65: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 78: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
@@ -598,7 +663,10 @@ Ortsmarken für Länder und Regionen, Reisen und Reisetagebuch,
 Ereignisorte im Stammbaum, Aktivitäten, GPX-Spuren, Herkunft der
 Schlagwörter, von der Gesichtssuche ausgenommene Fotos, eigener
 CARTO-Schlüssel für die dunkle Karte, Hintergrundaufgaben,
-Bewertungen, geprüfte Video-Orte, …). Drift
+Bewertungen, geprüfte Video-Orte, Reihen und Serienvergleich,
+Kartenstil und Ebenen der Geländeansicht, Wanderobjekte, geschätzte und
+geprüfte Aufnahmedaten, geerbte Orte samt verworfenen Vorschlägen,
+Video-Einbettungen mehrerer Standbilder, Zeitzonenversatz, …). Drift
 migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
@@ -608,10 +676,12 @@ komplett über ONNX Runtime (statt über Apples Vision-Framework).
 
 ### macOS-Entitlements (Datei-/Ordnerzugriff)
 
-Die App macht nur zwei Arten von Netzwerkaufrufen: den einmaligen
-Modell-/GeoNames-Download (Einstellungen) und sonst nichts – alles andere
-ist rein lokal. Damit die (sandboxte) macOS-App Ordner importieren und
-Backups an frei gewählte Orte schreiben darf, müssen in
+Die Netzwerkaufrufe der App sind die drei oben genannten – der
+Modell-/GeoNames-Download, Kartenkacheln und die Abfrage der
+Wanderobjekte für den Überflug. Alles andere ist rein lokal.
+
+Damit die (sandboxte) macOS-App Ordner importieren und Backups an frei
+gewählte Orte schreiben darf, müssen in
 `macos/Runner/DebugProfile.entitlements` und `Release.entitlements`
 folgende Einträge vorhanden sein (bei `flutter create` meist schon per
 Default gesetzt):
@@ -1000,11 +1070,13 @@ OpenStreetMap – stehen in [NOTICE.md](NOTICE.md).
   für die Gegenrichtung die **Nachfahrengliederung** gibt. Der Fächer
   bildet außerdem höchstens zwei Elternteile je Person ab; er ist auf
   Verdopplung gebaut. Die anderen Sichten zeigen alle.
-- Der GEDCOM-Export schreibt nur, was die App auch führt: Namen,
-  Geschlecht, Lebensdaten und Verwandtschaft. Lebensereignisse gehen dort
-  nicht mit, und einen **Import** gibt es nicht – das Format ist alt und
-  uneinheitlich umgesetzt, und importierte Personen hätten hier keine
-  Fotos.
+- Der GEDCOM-Austausch geht in **beide Richtungen**, führt aber nur, was
+  die App auch kennt: Namen, Geschlecht, Lebensdaten, Verwandtschaft und
+  Ereignisorte. Beim Einlesen wird **nichts zusammengeführt** – jede
+  Person wird neu angelegt, und mögliche Doppelte kommen als Liste zum
+  Nachsehen. Ein Programm, das selbst entscheidet, welche zwei
+  Grossmütter dieselbe sind, liegt irgendwann falsch, und eine falsch
+  verschmolzene Person ist nicht mehr zu trennen.
 - Die Sanduhr zeigt je drei Generationen und höchstens zwei Elternteile je
   Person; sie ist wie die Ahnentafel auf Verdopplung gebaut. Wer weiter
   hinauf will, nimmt den Fächer.
