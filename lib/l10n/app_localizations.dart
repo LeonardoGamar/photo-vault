@@ -10460,7 +10460,7 @@ abstract class AppTexte {
   /// No description provided for @flugVideoKeinWerkzeug.
   ///
   /// In de, this message translates to:
-  /// **'Für die Videoausgabe fehlt ffmpeg. Unter macOS wird es nicht mitgeliefert – nach der Installation (etwa über Homebrew) findet PhotoVault es von selbst.'**
+  /// **'Für die Videoausgabe fehlt der Videoschreiber. Unter macOS gehört er zum System, unter Linux und Windows liegt er im Paket – erscheint diese Meldung, ist die Installation unvollständig.'**
   String get flugVideoKeinWerkzeug;
 
   /// No description provided for @flugVideoFehler.

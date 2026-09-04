@@ -1665,12 +1665,15 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       return;
     }
     final t = AppTexte.of(context);
-    final werkzeug = await ffmpegPfad();
-    if (!mounted) return;
-    if (werkzeug == null) {
+    // **Nicht mehr „gibt es ffmpeg".** Unter macOS schreibt AVFoundation
+    // das Video, unter Linux und Windows das mitgelieferte ffmpeg – die
+    // Frage lautet also, ob hier irgendein Weg offen ist.
+    if (!await videoausgabeMoeglich()) {
+      if (!mounted) return;
       melde.warnung(t.flugVideoKeinWerkzeug);
       return;
     }
+    if (!mounted) return;
     final ziel = await widget.beimVideoZiel?.call();
     if (ziel == null || !mounted) return;
 
@@ -1701,7 +1704,6 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
         breite: _videoBreite,
         hoehe: _videoHoehe,
         dauer: _uhr.duration ?? const Duration(seconds: 20),
-        ffmpeg: werkzeug,
         abbruch: () => _videoAbbruch || !mounted,
         // Der Fortschritt steht als Balken über der Flugleiste und nicht
         // als Meldung: Eine Meldung, die neunhundertmal aktualisiert

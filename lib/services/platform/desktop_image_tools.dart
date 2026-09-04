@@ -142,6 +142,17 @@ class DesktopImageTools {
   /// jemand ein Werkzeug nachinstalliert, ohne die App neu zu starten.
   static void vergissWerkzeuge() => _gefunden = null;
 
+  /// Setzt das Suchergebnis von aussen – **nur für Tests**.
+  ///
+  /// Nötig, weil die echte Suche den `PATH` der Maschine liest, auf der
+  /// der Test läuft. Ein Test, der behauptet „hier gibt es kein ffmpeg",
+  /// prüfte auf einem Entwicklerrechner mit Homebrew genau nichts – er
+  /// ginge durch, egal was der Quelltext tut. Genau daran ist mir die
+  /// erste Fassung der Videoprüfung vorbeigelaufen.
+  @visibleForTesting
+  static void stelleWerkzeuge(Map<String, String?> werte) =>
+      _gefunden = Map.of(werte);
+
   /// Sucht einmalig jedes Werkzeug und merkt sich, **wo** es liegt.
   ///
   /// Nicht nur ob: Ein Werkzeug im Programmordner steht nicht im `PATH`,

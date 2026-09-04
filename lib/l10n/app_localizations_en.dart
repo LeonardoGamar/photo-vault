@@ -6759,7 +6759,7 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get flugVideoKeinWerkzeug =>
-      'Video export needs ffmpeg. It is not bundled on macOS – once installed (for example via Homebrew) PhotoVault finds it automatically.';
+      'Video export is unavailable – the video encoder is missing. macOS provides it, Linux and Windows ship it in the package; if you see this, the installation is incomplete.';
 
   @override
   String flugVideoFehler(String grund) {

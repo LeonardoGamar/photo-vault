@@ -3077,7 +3077,7 @@
   "flugVideoFertig": "Video saved: {datei}",
   "@flugVideoFertig": {"placeholders": {"datei": {"type": "String"}}},
   "flugVideoAbgebrochen": "Export cancelled",
-  "flugVideoKeinWerkzeug": "Video export needs ffmpeg. It is not bundled on macOS – once installed (for example via Homebrew) PhotoVault finds it automatically.",
+  "flugVideoKeinWerkzeug": "Video export is unavailable – the video encoder is missing. macOS provides it, Linux and Windows ship it in the package; if you see this, the installation is incomplete.",
   "flugVideoFehler": "Video export failed: {grund}",
   "@flugVideoFehler": {"placeholders": {"grund": {"type": "String"}}},
   "flugAufstieg": "Ascent",

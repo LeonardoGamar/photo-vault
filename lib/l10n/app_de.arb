@@ -4147,7 +4147,7 @@
   "flugVideoFertig": "Video gespeichert: {datei}",
   "@flugVideoFertig": {"placeholders": {"datei": {"type": "String"}}},
   "flugVideoAbgebrochen": "Ausgabe abgebrochen",
-  "flugVideoKeinWerkzeug": "Für die Videoausgabe fehlt ffmpeg. Unter macOS wird es nicht mitgeliefert – nach der Installation (etwa über Homebrew) findet PhotoVault es von selbst.",
+  "flugVideoKeinWerkzeug": "Für die Videoausgabe fehlt der Videoschreiber. Unter macOS gehört er zum System, unter Linux und Windows liegt er im Paket – erscheint diese Meldung, ist die Installation unvollständig.",
   "flugVideoFehler": "Die Videoausgabe ist fehlgeschlagen: {grund}",
   "@flugVideoFehler": {"placeholders": {"grund": {"type": "String"}}},
   "flugAufstieg": "Aufstieg",
