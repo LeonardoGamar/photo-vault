@@ -53,6 +53,28 @@ int kachelY(double breite, int zoom) {
   return y.floor().clamp(0, n - 1);
 }
 
+/// Die Kachelspalte zu einer Länge – **mit Nachkommastellen**.
+///
+/// Dasselbe wie [kachelX], nur ungerundet: Der Nachkommaanteil ist die
+/// Stelle innerhalb der Kachel, von 0 am Westrand bis 1 am Ostrand. Genau
+/// das braucht eine Textur, die auf einem Block sitzt.
+double kachelXGenau(double laenge, int zoom) =>
+    (laenge + 180) / 360 * (1 << zoom);
+
+/// Die Kachelzeile zu einer Breite – **mit Nachkommastellen**.
+///
+/// Das Gegenstück zu [kachelXGenau], und der einzige Weg, eine Breite
+/// mercatorgerecht auf eine Textur zu legen: Die Kacheln sind in
+/// Mercator gleich hoch, in Grad nicht. Über einen Block von 380 Metern
+/// ist der Unterschied winzig – über einen Ausschnitt von vier
+/// Kilometern ist er es nicht mehr.
+double kachelYGenau(double breite, int zoom) {
+  final rad = breite * math.pi / 180;
+  return (1 - math.log(math.tan(rad) + 1 / math.cos(rad)) / math.pi) /
+      2 *
+      (1 << zoom);
+}
+
 /// Die westliche Kante einer Kachelspalte, in Grad.
 double kachelWesten(int x, int zoom) => x / (1 << zoom) * 360 - 180;
 

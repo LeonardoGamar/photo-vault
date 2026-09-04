@@ -99,6 +99,30 @@ class Gelaendekamera {
         blickpunkt: blickpunkt ?? this.blickpunkt,
       );
 
+  /// Wo die Kamera selbst steht – in denselben Metern wie das Netz.
+  ///
+  /// [projiziere] setzt die Kamera in den Ursprung und schiebt die Welt
+  /// um [entfernung] von ihr weg; hier ist derselbe Weg rückwärts
+  /// gegangen. Gebraucht wird das an zwei Stellen, an denen die
+  /// Bildstelle nicht reicht: für die **Reihenfolge der Blöcke** (was
+  /// weiter weg ist, wird zuerst gemalt) und für die **Wahl der
+  /// Kachelstufe** (was näher ist, wird schärfer geladen). Beide
+  /// brauchen einen Abstand in Metern, nicht eine Tiefe im Bild.
+  Raumpunkt get standort {
+    final cn = math.cos(neigung);
+    final sn = math.sin(neigung);
+    final y1 = -entfernung * cn;
+    final z = entfernung * sn;
+    final cd = math.cos(drehung);
+    final sd = math.sin(drehung);
+    // Die Umkehrung der Drehung in [projiziere]: dort x1 = x·cos − y·sin.
+    return (
+      x: blickpunkt.x + y1 * sd,
+      y: blickpunkt.y + y1 * cd,
+      z: blickpunkt.z + z,
+    );
+  }
+
   /// Rechnet einen Raumpunkt auf den Bildschirm.
   ///
   /// Erst um die Hochachse drehen, dann kippen, dann die Kamera nach

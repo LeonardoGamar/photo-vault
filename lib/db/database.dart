@@ -16,6 +16,7 @@ import '../services/embedding_codec.dart';
 import '../services/embedding_similarity.dart' show duplikatPaarSchluessel;
 import '../services/exif_camera.dart';
 import '../services/face_threshold.dart';
+import '../services/gelaendeebenen.dart';
 import '../services/library_location.dart';
 import '../services/library_stats.dart';
 import '../services/lichtstimmung.dart';
@@ -995,6 +996,53 @@ class Spurpunkte extends Table {
   Set<Column> get primaryKey => {spurId, nummer};
 }
 
+/// Was beim Wandern zählt, aus OpenStreetMap – Gipfel, Hütten, Quellen.
+///
+/// **Warum das in der Bibliothek liegt und nicht nur im Arbeitsspeicher.**
+/// Overpass wird ehrenamtlich betrieben und drosselt bei zu vielen
+/// Anfragen. Eine Tour, die schon einmal angesehen wurde, soll niemanden
+/// mehr fragen – auch nicht nach einem Neustart, und auch nicht ohne
+/// Netz.
+class Wanderpunkte extends Table {
+  /// Die Kennung aus OpenStreetMap – damit derselbe Punkt aus zwei
+  /// überlappenden Abfragen nicht zweimal im Bild steht.
+  IntColumn get osmId => integer()();
+
+  /// Die Art als Nummer aus `Wanderart`. Als Zahl und nicht als Name,
+  /// wie überall hier: Ein Name aus einer älteren Fassung könnte einer
+  /// sein, den es nicht mehr gibt.
+  IntColumn get artNr => integer()();
+
+  RealColumn get breite => real()();
+  RealColumn get laenge => real()();
+  TextColumn get name => text().nullable()();
+
+  /// Die Höhe, wie sie in OpenStreetMap steht – **nicht** die aus dem
+  /// Höhengitter. Eine eingetragene Gipfelhöhe ist vermessen; das Gitter
+  /// kommt aus Kacheln und liegt bei einer Spitze regelmässig zu tief.
+  RealColumn get hoehe => real().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {osmId};
+}
+
+/// Welche Ausschnitte schon bei Overpass erfragt wurden.
+///
+/// **Getrennt von den Punkten, und das ist der Kern.** Ohne diese
+/// Tabelle liesse sich „hier gibt es nichts" nicht von „hier wurde noch
+/// nie gefragt" unterscheiden – ein Ausschnitt ohne einen einzigen
+/// Gipfel würde bei jedem Öffnen neu erfragt.
+class Wanderabfragen extends Table {
+  /// Der Ausschnitt, gerundet auf drei Nachkommastellen – siehe
+  /// `AppDatabase.wanderpunkteFuer`.
+  TextColumn get kasten => text()();
+
+  DateTimeColumn get gefragtAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {kasten};
+}
+
 /// Ein selbst gesetzter Haken auf der Weltkarte – ein Land, eine Region
 /// oder ein Ort, den du besucht hast oder besuchen willst.
 ///
@@ -1408,6 +1456,49 @@ class AppSettings extends Table {
   IntColumn get gelaendeStimmungNr =>
       integer().withDefault(Constant(lichtstimmungVorgabe.index))();
 
+  /// Was unter der Landschaft liegt – als Nummer aus [Gelaendegrund].
+  ///
+  /// **Vorgabe Luftbild und nicht die Wanderkarte, die es bisher als
+  /// einzige gab.** Das ist eine sichtbare Aenderung fuer alle, und sie
+  /// ist Absicht: Eine Wanderkarte in Schraeglage beantwortet „wie hiess
+  /// der Weg"; ein Luftbild beantwortet „wie sah es dort aus", und das
+  /// ist die Frage, wegen der jemand einen Ueberflug ansieht. Zurueck
+  /// geht es mit einem Griff ins Kartenmenue.
+  IntColumn get gelaendeGrundNr =>
+      integer().withDefault(Constant(Gelaendegrund.luftbild.index))();
+
+  /// Ob die Wanderwege ueber der Landschaft liegen.
+  ///
+  /// **Vorgabe an, und der Grund steht in einer Kachel.** An der echten
+  /// Kachel des Ilsetals nachgesehen (51,8433 N / 10,6553 O, Stufe 17):
+  /// Das Luftbild zeigt dichten Wald – der Weg, auf dem die Wanderung
+  /// verlief, ist darauf NICHT zu sehen. Ohne diese Ebene waere das
+  /// Luftbild als Wanderkarte unbrauchbar.
+  BoolColumn get gelaendeWege => boolean().withDefault(const Constant(true))();
+
+  /// Ob Strassen, Grenzen und Ortsnamen darueber liegen.
+  BoolColumn get gelaendeBeschriftung =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Ob Hoehenlinien eingezeichnet werden.
+  ///
+  /// Sie werden nicht geladen, sondern aus demselben Hoehengitter
+  /// gerechnet, aus dem die Landschaft gebaut ist (siehe
+  /// `hoehenlinien.dart`) – sie kosten also keinen einzigen Abruf und
+  /// koennen gar nicht neben dem Hang liegen, den sie beschreiben.
+  BoolColumn get gelaendeHoehenlinien =>
+      boolean().withDefault(const Constant(true))();
+
+  /// Ob Gipfel, Huetten und Quellen als Schilder ueber der Landschaft
+  /// stehen.
+  ///
+  /// **Eigener Schalter und nicht an [gelaendeBeschriftung] gehaengt.**
+  /// Die anderen Ebenen sind Kacheln von einem Auslieferungsnetz; diese
+  /// hier kostet eine Abfrage bei Overpass, einem oeffentlichen Dienst
+  /// mit Grenzen. Wer sie nicht braucht, soll ihn nicht fragen muessen.
+  BoolColumn get gelaendeWanderobjekte =>
+      boolean().withDefault(const Constant(true))();
+
   /// Ob ein Video oder ein Live Photo von selbst anlaeuft, wenn die Maus
   /// einen Augenblick darauf stehen bleibt.
   ///
@@ -1588,6 +1679,8 @@ class DuplikatAusnahmen extends Table {
   Spuren,
   Spurpunkte,
   VerworfeneSerien,
+  Wanderpunkte,
+  Wanderabfragen,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
@@ -1602,7 +1695,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 71;
+  int get schemaVersion => 73;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -2239,6 +2332,33 @@ class AppDatabase extends _$AppDatabase {
             await _addColumnIfMissing(m, appSettings,
                 appSettings.gelaendeStimmungNr, 'app_settings',
                 'gelaende_stimmung_nr');
+          }
+          if (from < 72) {
+            // Die Wanderobjekte aus OpenStreetMap und die Liste der
+            // schon erfragten Ausschnitte.
+            await m.createTable(wanderpunkte);
+            await m.createTable(wanderabfragen);
+            // Die vier Spalten der Geländeauflage. Die Vorgaben stehen
+            // bei den Spalten selbst; sie aendern das Bild sichtbar, und
+            // das ist Absicht (siehe [AppSettings.gelaendeGrundNr]).
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.gelaendeGrundNr, 'app_settings',
+                'gelaende_grund_nr');
+            await _addColumnIfMissing(m, appSettings, appSettings.gelaendeWege,
+                'app_settings', 'gelaende_wege');
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.gelaendeBeschriftung, 'app_settings',
+                'gelaende_beschriftung');
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.gelaendeHoehenlinien, 'app_settings',
+                'gelaende_hoehenlinien');
+          }
+          if (from < 73) {
+            // Der Schalter fuer die Schilder. Vorgabe an - sie sind der
+            // Grund, warum die Landschaft mehr sagt als eine Karte.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.gelaendeWanderobjekte, 'app_settings',
+                'gelaende_wanderobjekte');
           }
         },
       );
@@ -3568,6 +3688,95 @@ class AppDatabase extends _$AppDatabase {
       into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
         id: const Value(0),
         gelaendeStimmungNr: Value(zeit.index),
+      ));
+
+  /// Die Wanderobjekte eines Ausschnitts – aus der Bibliothek, sonst aus
+  /// dem Netz.
+  ///
+  /// **Der Ausschnitt wird auf drei Nachkommastellen gerundet**, bevor er
+  /// zum Schlüssel wird. Ohne diese Rundung wäre jede Abfrage neu: Der
+  /// Ausschnitt einer Wanderung hängt an ihren Spurpunkten, und die
+  /// gerundeten Grade unterscheiden sich in der zwölften Stelle, sobald
+  /// jemand einen Punkt löscht. Drei Stellen sind rund hundert Meter –
+  /// darunter lohnt kein zweiter Abruf.
+  ///
+  /// [holen] wird nur gerufen, wenn zu diesem Ausschnitt noch nie
+  /// gefragt wurde. Liefert es `null` (kein Netz, Overpass gedrosselt),
+  /// wird **nichts gemerkt**: Der Ausschnitt bleibt offen, und beim
+  /// nächsten Öffnen wird es noch einmal versucht.
+  Future<List<WanderpunkteData>> wanderpunkteFuer({
+    required double sued,
+    required double west,
+    required double nord,
+    required double ost,
+    required Future<List<({int osmId, int artNr, double breite, double laenge,
+            String? name, double? hoehe})>?>
+        Function() holen,
+  }) async {
+    String r(double w) => w.toStringAsFixed(3);
+    final schluessel = '${r(sued)},${r(west)},${r(nord)},${r(ost)}';
+
+    Future<List<WanderpunkteData>> ausDerBibliothek() =>
+        (select(wanderpunkte)
+              ..where((t) =>
+                  t.breite.isBiggerOrEqualValue(sued) &
+                  t.breite.isSmallerOrEqualValue(nord) &
+                  t.laenge.isBiggerOrEqualValue(west) &
+                  t.laenge.isSmallerOrEqualValue(ost)))
+            .get();
+
+    final schonGefragt = await (select(wanderabfragen)
+          ..where((t) => t.kasten.equals(schluessel)))
+        .getSingleOrNull();
+    if (schonGefragt != null) return ausDerBibliothek();
+
+    final frisch = await holen();
+    if (frisch == null) return ausDerBibliothek();
+
+    await batch((b) {
+      b.insertAllOnConflictUpdate(wanderpunkte, [
+        for (final p in frisch)
+          WanderpunkteCompanion.insert(
+            osmId: Value(p.osmId),
+            artNr: p.artNr,
+            breite: p.breite,
+            laenge: p.laenge,
+            name: Value(p.name),
+            hoehe: Value(p.hoehe),
+          ),
+      ]);
+      b.insertAllOnConflictUpdate(wanderabfragen, [
+        WanderabfragenCompanion.insert(
+            kasten: schluessel, gefragtAm: DateTime.now()),
+      ]);
+    });
+    return ausDerBibliothek();
+  }
+
+  /// Die gemerkte Auflage der Geländeansicht – Grund und Ebenen.
+  Future<Gelaendekarte> gelaendeKarteWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    // Ohne Zeile gelten die Vorgaben, und die stehen genau einmal – an
+    // den Spalten selbst.
+    if (row == null) return const Gelaendekarte();
+    return Gelaendekarte(
+      grund: gelaendegrundAus(row.gelaendeGrundNr),
+      wege: row.gelaendeWege,
+      beschriftung: row.gelaendeBeschriftung,
+      hoehenlinien: row.gelaendeHoehenlinien,
+      wanderobjekte: row.gelaendeWanderobjekte,
+    );
+  }
+
+  Future<void> setzeGelaendeKarte(Gelaendekarte karte) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        gelaendeGrundNr: Value(karte.grund.index),
+        gelaendeWege: Value(karte.wege),
+        gelaendeBeschriftung: Value(karte.beschriftung),
+        gelaendeHoehenlinien: Value(karte.hoehenlinien),
+        gelaendeWanderobjekte: Value(karte.wanderobjekte),
       ));
 
   /// Ob Videos und Live Photos beim Schweben von selbst anlaufen.

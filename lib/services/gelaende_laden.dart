@@ -19,12 +19,10 @@ import 'package:flutter_map/flutter_map.dart'
 import 'package:http/http.dart' as http;
 
 import '../widgets/mini_location_map.dart'
-    show
-        Kartenstil,
-        kachelNochmalVersuchen,
-        kartenKachelFrische,
-        kartenKachelspeicher;
+    show kachelNochmalVersuchen, kartenKachelFrische, kartenKachelspeicher;
+import 'gelaendeebenen.dart';
 import 'gelaendekacheln.dart';
+import 'hoehenlinien.dart';
 
 /// Wie lange auf eine einzelne Kachel gewartet wird.
 ///
@@ -54,13 +52,13 @@ const Duration gelaendeZeitgrenze = Duration(seconds: 8);
 ///
 /// Angelegt wird er weiterhin an genau einer Stelle – in
 /// `mini_location_map.dart`; hier wird er nur geholt.
-MapCachingProvider _gemeinsamerSpeicher() => kartenKachelspeicher();
+MapCachingProvider gemeinsamerKachelspeicher() => kartenKachelspeicher();
 
 /// Holt eine Kachel – erst aus dem Speicher, dann aus dem Netz.
 ///
 /// Drei Dinge, die der frühere Weg nicht tat:
 ///
-/// 1. **Aus dem Speicher lesen.** Siehe [_gemeinsamerSpeicher].
+/// 1. **Aus dem Speicher lesen.** Siehe [gemeinsamerKachelspeicher].
 /// 2. **Bei 404 noch einmal fragen.** OpenTopoMap rendert Kacheln bei
 ///    Bedarf und antwortet auf eine noch nicht fertige nicht mit „warte",
 ///    sondern mit 404 – ausführlich begründet bei
@@ -70,7 +68,7 @@ MapCachingProvider _gemeinsamerSpeicher() => kartenKachelspeicher();
 /// 3. **Eine abgelaufene Kachel ist besser als keine.** Wer ohne Netz
 ///    unterwegs ist, bekam bisher „konnte nicht geladen werden", obwohl
 ///    die Kacheln auf der Platte lagen.
-Future<Uint8List?> _holeRoh(
+Future<Uint8List?> holeKachelRoh(
   http.Client netz,
   MapCachingProvider speicher,
   String url, {
@@ -147,7 +145,7 @@ Future<Hoehengitter?> ladeHoehengitter({
     hoechsteStufe: hoechsteStufe,
   );
   final adressen = kacheladressen(bereich);
-  final sp = speicher ?? _gemeinsamerSpeicher();
+  final sp = speicher ?? gemeinsamerKachelspeicher();
 
   final bilder = await Future.wait([
     for (final a in adressen) _holeKachel(netz, sp, a.z, a.x, a.y),
@@ -171,7 +169,7 @@ Future<Hoehengitter?> ladeHoehengitter({
 Future<Kachelbild?> _holeKachel(
     http.Client netz, MapCachingProvider speicher, int z, int x, int y) async {
   try {
-    final roh = await _holeRoh(netz, speicher, kacheladresse(z, x, y));
+    final roh = await holeKachelRoh(netz, speicher, kacheladresse(z, x, y));
     if (roh == null) return null;
     final rgba = await _nachRgba(roh);
     return rgba == null ? null : (x: x, y: y, rgba: rgba);
@@ -198,10 +196,17 @@ Future<Uint8List?> _nachRgba(Uint8List png) async {
   }
 }
 
-/// Holt dieselben Kacheln als Kartenbild – die Textur für das Gelände.
+/// Holt dieselben Kacheln als Kartenbild – die **Übersicht** über der
+/// ganzen Landschaft.
 ///
 /// Genau derselbe Ausschnitt und dieselbe Stufe wie beim Höhengitter,
 /// sonst läge die Karte verschoben auf der Landschaft.
+///
+/// **Seit die Blöcke ihre eigenen Texturen holen, ist das hier der
+/// Rückfall** – das Bild, das steht, solange ein Block noch lädt oder
+/// zu weit weg ist, um einen eigenen Abruf zu lohnen. Es trägt trotzdem
+/// alle gewählten Ebenen: Wer die Wegeebene eingeschaltet hat und in die
+/// Ferne sieht, soll dort nicht plötzlich eine Karte ohne Wege sehen.
 Future<ui.Image?> ladeKartenbild({
   required double sued,
   required double west,
@@ -209,7 +214,8 @@ Future<ui.Image?> ladeKartenbild({
   required double ost,
   required http.Client netz,
   MapCachingProvider? speicher,
-  Kartenstil stil = Kartenstil.topo,
+  Gelaendekarte karte = const Gelaendekarte(),
+  Hoehengitter? hoehen,
   int hoechstensKacheln = 16,
   int hoechsteStufe = gelaendeHoechsteStufe,
 }) async {
@@ -226,50 +232,83 @@ Future<ui.Image?> ladeKartenbild({
     hoechsteStufe: hoechsteStufe,
   );
   final adressen = kacheladressen(bereich);
-  final sp = speicher ?? _gemeinsamerSpeicher();
-
-  final bilder = await Future.wait([
-    for (final a in adressen) _holeKartenkachel(netz, sp, stil, a.z, a.x, a.y),
-  ]);
-  if (bilder.every((b) => b == null)) return null;
+  final sp = speicher ?? gemeinsamerKachelspeicher();
+  final spalten = bereich.x1 - bereich.x0 + 1;
+  final zeilen = bereich.y1 - bereich.y0 + 1;
 
   final sammler = ui.PictureRecorder();
   final leinwand = ui.Canvas(sammler);
-  final spalten = bereich.x1 - bereich.x0 + 1;
-  final zeilen = bereich.y1 - bereich.y0 + 1;
-  for (var i = 0; i < adressen.length; i++) {
-    final bild = bilder[i];
-    if (bild == null) continue;
-    final sx = (adressen[i].x - bereich.x0) * kachelKante.toDouble();
-    final sy = (adressen[i].y - bereich.y0) * kachelKante.toDouble();
-    leinwand.drawImageRect(
-      bild,
-      ui.Rect.fromLTWH(
-          0, 0, bild.width.toDouble(), bild.height.toDouble()),
-      ui.Rect.fromLTWH(
-          sx, sy, kachelKante.toDouble(), kachelKante.toDouble()),
-      ui.Paint(),
-    );
-    bild.dispose();
+  var grundDa = false;
+
+  // **Die Liste einmal holen und mit dem Zaehler arbeiten.** `ebenen`
+  // baut bei jedem Zugriff eine neue Liste mit neuen Objekten, und
+  // `Kartenebene` hat kein eigenes Gleichheitszeichen: `ebene ==
+  // karte.ebenen.first` war deshalb NIE wahr, und das Uebersichtsbild kam
+  // gar nicht mehr zustande.
+  final ebenen = karte.ebenen;
+  for (var nr = 0; nr < ebenen.length; nr++) {
+    final ebene = ebenen[nr];
+    final bilder = await Future.wait([
+      for (final a in adressen)
+        _holeKartenkachel(netz, sp, ebene, a.z, a.x, a.y),
+    ]);
+    if (bilder.every((b) => b == null)) continue;
+    if (nr == 0) grundDa = true;
+    for (var i = 0; i < adressen.length; i++) {
+      final bild = bilder[i];
+      if (bild == null) continue;
+      final sx = (adressen[i].x - bereich.x0) * kachelKante.toDouble();
+      final sy = (adressen[i].y - bereich.y0) * kachelKante.toDouble();
+      leinwand.drawImageRect(
+        bild,
+        ui.Rect.fromLTWH(0, 0, bild.width.toDouble(), bild.height.toDouble()),
+        ui.Rect.fromLTWH(
+            sx, sy, kachelKante.toDouble(), kachelKante.toDouble()),
+        ui.Paint(),
+      );
+      bild.dispose();
+    }
   }
-  final bild = await sammler
-      .endRecording()
-      .toImage(spalten * kachelKante, zeilen * kachelKante);
+
+  // Die Höhenlinien auch hier – sonst tauchten sie auf, sobald ein Block
+  // seine eigene Textur bekommt, und verschwänden wieder, sobald er
+  // verdrängt wird.
+  if (grundDa && karte.hoehenlinien && hoehen != null) {
+    final spanne = hoehen.spanne;
+    zeichneHoehenlinien(
+      leinwand,
+      hoehenlinien(
+        hoehen,
+        west: kachelWesten(bereich.x0, bereich.zoom),
+        ost: kachelWesten(bereich.x1 + 1, bereich.zoom),
+        nord: kachelNorden(bereich.y0, bereich.zoom),
+        sued: kachelNorden(bereich.y1 + 1, bereich.zoom),
+        abstand: hoehenlinienAbstand(spanne.hoch - spanne.tief),
+        maschen: 128,
+        grundstufe: bereich.zoom,
+      ),
+      (spalten * kachelKante).toDouble(),
+      (zeilen * kachelKante).toDouble(),
+    );
+  }
+
+  final bild = grundDa
+      ? await sammler
+          .endRecording()
+          .toImage(spalten * kachelKante, zeilen * kachelKante)
+      : null;
+  if (!grundDa) sammler.endRecording().dispose();
   return bild;
 }
 
 Future<ui.Image?> _holeKartenkachel(http.Client netz,
-    MapCachingProvider speicher, Kartenstil stil, int z, int x, int y) async {
-  final vorlage = stil.kachelUrl
-      .replaceAll('{s}',
-          stil.unterbereiche.isEmpty ? '' : stil.unterbereiche.first)
-      .replaceAll('{r}', '');
+    MapCachingProvider speicher, Kartenebene ebene, int z, int x, int y) async {
   try {
-    final roh = await _holeRoh(
+    final roh = await holeKachelRoh(
       netz,
       speicher,
-      kacheladresse(z, x, y, vorlage: vorlage),
-      // OpenTopoMap bittet ausdrücklich um eine aussagekräftige Kennung
+      kacheladresse(z, x, y, vorlage: ebene.urlVorlage),
+      // Die Anbieter bitten ausdrücklich um eine aussagekräftige Kennung
       // statt der Vorgabe der Bibliothek.
       kopf: const {'User-Agent': 'com.example.photoVault'},
     );

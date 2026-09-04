@@ -10433,6 +10433,48 @@ abstract class AppTexte {
   /// **'Steigung'**
   String get flugSteigung;
 
+  /// No description provided for @flugVideo.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Video ausgeben'**
+  String get flugVideo;
+
+  /// No description provided for @flugVideoAbbrechen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausgabe abbrechen'**
+  String get flugVideoAbbrechen;
+
+  /// No description provided for @flugVideoFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'Video gespeichert: {datei}'**
+  String flugVideoFertig(String datei);
+
+  /// No description provided for @flugVideoAbgebrochen.
+  ///
+  /// In de, this message translates to:
+  /// **'Ausgabe abgebrochen'**
+  String get flugVideoAbgebrochen;
+
+  /// No description provided for @flugVideoKeinWerkzeug.
+  ///
+  /// In de, this message translates to:
+  /// **'Für die Videoausgabe fehlt ffmpeg. Unter macOS wird es nicht mitgeliefert – nach der Installation (etwa über Homebrew) findet PhotoVault es von selbst.'**
+  String get flugVideoKeinWerkzeug;
+
+  /// No description provided for @flugVideoFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Videoausgabe ist fehlgeschlagen: {grund}'**
+  String flugVideoFehler(String grund);
+
+  /// No description provided for @flugAufstieg.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufstieg'**
+  String get flugAufstieg;
+
   /// No description provided for @flugUnterwegs.
   ///
   /// In de, this message translates to:
@@ -10514,8 +10556,38 @@ abstract class AppTexte {
   /// No description provided for @gelaendeNamensnennung.
   ///
   /// In de, this message translates to:
-  /// **'Höhen: Tilezen / AWS Open Data · Karte: OpenTopoMap (CC-BY-SA)'**
+  /// **'Höhen: Tilezen / AWS Open Data'**
   String get gelaendeNamensnennung;
+
+  /// No description provided for @karteLuftbild.
+  ///
+  /// In de, this message translates to:
+  /// **'Luftbild'**
+  String get karteLuftbild;
+
+  /// No description provided for @gelaendeEbeneWege.
+  ///
+  /// In de, this message translates to:
+  /// **'Wanderwege'**
+  String get gelaendeEbeneWege;
+
+  /// No description provided for @gelaendeEbeneBeschriftung.
+  ///
+  /// In de, this message translates to:
+  /// **'Strassen und Ortsnamen'**
+  String get gelaendeEbeneBeschriftung;
+
+  /// No description provided for @gelaendeEbeneHoehenlinien.
+  ///
+  /// In de, this message translates to:
+  /// **'Höhenlinien'**
+  String get gelaendeEbeneHoehenlinien;
+
+  /// No description provided for @gelaendeEbeneWanderobjekte.
+  ///
+  /// In de, this message translates to:
+  /// **'Gipfel, Hütten, Quellen'**
+  String get gelaendeEbeneWanderobjekte;
 
   /// No description provided for @gelaendeErneut.
   ///

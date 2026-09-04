@@ -84,9 +84,13 @@ void main() {
     }
 
     // Keine Zusicherung über Millisekunden – die hinge an der Maschine.
-    // Was hier zugesichert wird, ist die Zahl der Dreiecke: Sie ist
-    // vorhersagbar und der Grund für die gewählte Kante.
+    // Was hier zugesichert wird, ist die Grössenordnung der Dreiecke:
+    // Sie ist der Grund für die gewählte Kante. Genau
+    // `(kante-1)² · 2` sind es nicht mehr, seit die Landschaft in Blöcke
+    // zerfällt – jeder Block rundet seine Maschenzahl für sich.
     final netz = baueNetz(gitter(256), kante: gelaendeGitterkante);
-    expect(netz.dreiecke, (gelaendeGitterkante - 1) * (gelaendeGitterkante - 1) * 2);
+    const erwartet = gelaendeGitterkante * gelaendeGitterkante * 2;
+    expect(netz.dreiecke, greaterThan(erwartet ~/ 2));
+    expect(netz.dreiecke, lessThan(erwartet * 2));
   });
 }

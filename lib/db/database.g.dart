@@ -11093,6 +11093,54 @@ class $AppSettingsTable extends AppSettings
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: Constant(lichtstimmungVorgabe.index));
+  static const VerificationMeta _gelaendeGrundNrMeta =
+      const VerificationMeta('gelaendeGrundNr');
+  @override
+  late final GeneratedColumn<int> gelaendeGrundNr = GeneratedColumn<int>(
+      'gelaende_grund_nr', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: Constant(Gelaendegrund.luftbild.index));
+  static const VerificationMeta _gelaendeWegeMeta =
+      const VerificationMeta('gelaendeWege');
+  @override
+  late final GeneratedColumn<bool> gelaendeWege = GeneratedColumn<bool>(
+      'gelaende_wege', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("gelaende_wege" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _gelaendeBeschriftungMeta =
+      const VerificationMeta('gelaendeBeschriftung');
+  @override
+  late final GeneratedColumn<bool> gelaendeBeschriftung = GeneratedColumn<bool>(
+      'gelaende_beschriftung', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("gelaende_beschriftung" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _gelaendeHoehenlinienMeta =
+      const VerificationMeta('gelaendeHoehenlinien');
+  @override
+  late final GeneratedColumn<bool> gelaendeHoehenlinien = GeneratedColumn<bool>(
+      'gelaende_hoehenlinien', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("gelaende_hoehenlinien" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _gelaendeWanderobjekteMeta =
+      const VerificationMeta('gelaendeWanderobjekte');
+  @override
+  late final GeneratedColumn<bool> gelaendeWanderobjekte =
+      GeneratedColumn<bool>('gelaende_wanderobjekte', aliasedName, false,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintIsAlways(
+              'CHECK ("gelaende_wanderobjekte" IN (0, 1))'),
+          defaultValue: const Constant(true));
   static const VerificationMeta _schwebeVorschauMeta =
       const VerificationMeta('schwebeVorschau');
   @override
@@ -11183,6 +11231,11 @@ class $AppSettingsTable extends AppSettings
         eigeneKarteZugestimmt,
         karteHochaufloesend,
         gelaendeStimmungNr,
+        gelaendeGrundNr,
+        gelaendeWege,
+        gelaendeBeschriftung,
+        gelaendeHoehenlinien,
+        gelaendeWanderobjekte,
         schwebeVorschau,
         stammbaumAnsicht,
         stammbaumPerson,
@@ -11293,6 +11346,36 @@ class $AppSettingsTable extends AppSettings
           gelaendeStimmungNr.isAcceptableOrUnknown(
               data['gelaende_stimmung_nr']!, _gelaendeStimmungNrMeta));
     }
+    if (data.containsKey('gelaende_grund_nr')) {
+      context.handle(
+          _gelaendeGrundNrMeta,
+          gelaendeGrundNr.isAcceptableOrUnknown(
+              data['gelaende_grund_nr']!, _gelaendeGrundNrMeta));
+    }
+    if (data.containsKey('gelaende_wege')) {
+      context.handle(
+          _gelaendeWegeMeta,
+          gelaendeWege.isAcceptableOrUnknown(
+              data['gelaende_wege']!, _gelaendeWegeMeta));
+    }
+    if (data.containsKey('gelaende_beschriftung')) {
+      context.handle(
+          _gelaendeBeschriftungMeta,
+          gelaendeBeschriftung.isAcceptableOrUnknown(
+              data['gelaende_beschriftung']!, _gelaendeBeschriftungMeta));
+    }
+    if (data.containsKey('gelaende_hoehenlinien')) {
+      context.handle(
+          _gelaendeHoehenlinienMeta,
+          gelaendeHoehenlinien.isAcceptableOrUnknown(
+              data['gelaende_hoehenlinien']!, _gelaendeHoehenlinienMeta));
+    }
+    if (data.containsKey('gelaende_wanderobjekte')) {
+      context.handle(
+          _gelaendeWanderobjekteMeta,
+          gelaendeWanderobjekte.isAcceptableOrUnknown(
+              data['gelaende_wanderobjekte']!, _gelaendeWanderobjekteMeta));
+    }
     if (data.containsKey('schwebe_vorschau')) {
       context.handle(
           _schwebeVorschauMeta,
@@ -11391,6 +11474,16 @@ class $AppSettingsTable extends AppSettings
           DriftSqlType.bool, data['${effectivePrefix}karte_hochaufloesend'])!,
       gelaendeStimmungNr: attachedDatabase.typeMapping.read(
           DriftSqlType.int, data['${effectivePrefix}gelaende_stimmung_nr'])!,
+      gelaendeGrundNr: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}gelaende_grund_nr'])!,
+      gelaendeWege: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}gelaende_wege'])!,
+      gelaendeBeschriftung: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}gelaende_beschriftung'])!,
+      gelaendeHoehenlinien: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}gelaende_hoehenlinien'])!,
+      gelaendeWanderobjekte: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}gelaende_wanderobjekte'])!,
       schwebeVorschau: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}schwebe_vorschau'])!,
       stammbaumAnsicht: attachedDatabase.typeMapping.read(
@@ -11568,6 +11661,45 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// ueber [tageszeit] auf die Vorgabe zurueck.
   final int gelaendeStimmungNr;
 
+  /// Was unter der Landschaft liegt – als Nummer aus [Gelaendegrund].
+  ///
+  /// **Vorgabe Luftbild und nicht die Wanderkarte, die es bisher als
+  /// einzige gab.** Das ist eine sichtbare Aenderung fuer alle, und sie
+  /// ist Absicht: Eine Wanderkarte in Schraeglage beantwortet „wie hiess
+  /// der Weg"; ein Luftbild beantwortet „wie sah es dort aus", und das
+  /// ist die Frage, wegen der jemand einen Ueberflug ansieht. Zurueck
+  /// geht es mit einem Griff ins Kartenmenue.
+  final int gelaendeGrundNr;
+
+  /// Ob die Wanderwege ueber der Landschaft liegen.
+  ///
+  /// **Vorgabe an, und der Grund steht in einer Kachel.** An der echten
+  /// Kachel des Ilsetals nachgesehen (51,8433 N / 10,6553 O, Stufe 17):
+  /// Das Luftbild zeigt dichten Wald – der Weg, auf dem die Wanderung
+  /// verlief, ist darauf NICHT zu sehen. Ohne diese Ebene waere das
+  /// Luftbild als Wanderkarte unbrauchbar.
+  final bool gelaendeWege;
+
+  /// Ob Strassen, Grenzen und Ortsnamen darueber liegen.
+  final bool gelaendeBeschriftung;
+
+  /// Ob Hoehenlinien eingezeichnet werden.
+  ///
+  /// Sie werden nicht geladen, sondern aus demselben Hoehengitter
+  /// gerechnet, aus dem die Landschaft gebaut ist (siehe
+  /// `hoehenlinien.dart`) – sie kosten also keinen einzigen Abruf und
+  /// koennen gar nicht neben dem Hang liegen, den sie beschreiben.
+  final bool gelaendeHoehenlinien;
+
+  /// Ob Gipfel, Huetten und Quellen als Schilder ueber der Landschaft
+  /// stehen.
+  ///
+  /// **Eigener Schalter und nicht an [gelaendeBeschriftung] gehaengt.**
+  /// Die anderen Ebenen sind Kacheln von einem Auslieferungsnetz; diese
+  /// hier kostet eine Abfrage bei Overpass, einem oeffentlichen Dienst
+  /// mit Grenzen. Wer sie nicht braucht, soll ihn nicht fragen muessen.
+  final bool gelaendeWanderobjekte;
+
   /// Ob ein Video oder ein Live Photo von selbst anlaeuft, wenn die Maus
   /// einen Augenblick darauf stehen bleibt.
   ///
@@ -11666,6 +11798,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       required this.eigeneKarteZugestimmt,
       required this.karteHochaufloesend,
       required this.gelaendeStimmungNr,
+      required this.gelaendeGrundNr,
+      required this.gelaendeWege,
+      required this.gelaendeBeschriftung,
+      required this.gelaendeHoehenlinien,
+      required this.gelaendeWanderobjekte,
       required this.schwebeVorschau,
       this.stammbaumAnsicht,
       this.stammbaumPerson,
@@ -11709,6 +11846,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     map['eigene_karte_zugestimmt'] = Variable<bool>(eigeneKarteZugestimmt);
     map['karte_hochaufloesend'] = Variable<bool>(karteHochaufloesend);
     map['gelaende_stimmung_nr'] = Variable<int>(gelaendeStimmungNr);
+    map['gelaende_grund_nr'] = Variable<int>(gelaendeGrundNr);
+    map['gelaende_wege'] = Variable<bool>(gelaendeWege);
+    map['gelaende_beschriftung'] = Variable<bool>(gelaendeBeschriftung);
+    map['gelaende_hoehenlinien'] = Variable<bool>(gelaendeHoehenlinien);
+    map['gelaende_wanderobjekte'] = Variable<bool>(gelaendeWanderobjekte);
     map['schwebe_vorschau'] = Variable<bool>(schwebeVorschau);
     if (!nullToAbsent || stammbaumAnsicht != null) {
       map['stammbaum_ansicht'] = Variable<String>(stammbaumAnsicht);
@@ -11759,6 +11901,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       eigeneKarteZugestimmt: Value(eigeneKarteZugestimmt),
       karteHochaufloesend: Value(karteHochaufloesend),
       gelaendeStimmungNr: Value(gelaendeStimmungNr),
+      gelaendeGrundNr: Value(gelaendeGrundNr),
+      gelaendeWege: Value(gelaendeWege),
+      gelaendeBeschriftung: Value(gelaendeBeschriftung),
+      gelaendeHoehenlinien: Value(gelaendeHoehenlinien),
+      gelaendeWanderobjekte: Value(gelaendeWanderobjekte),
       schwebeVorschau: Value(schwebeVorschau),
       stammbaumAnsicht: stammbaumAnsicht == null && nullToAbsent
           ? const Value.absent()
@@ -11804,6 +11951,14 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       karteHochaufloesend:
           serializer.fromJson<bool>(json['karteHochaufloesend']),
       gelaendeStimmungNr: serializer.fromJson<int>(json['gelaendeStimmungNr']),
+      gelaendeGrundNr: serializer.fromJson<int>(json['gelaendeGrundNr']),
+      gelaendeWege: serializer.fromJson<bool>(json['gelaendeWege']),
+      gelaendeBeschriftung:
+          serializer.fromJson<bool>(json['gelaendeBeschriftung']),
+      gelaendeHoehenlinien:
+          serializer.fromJson<bool>(json['gelaendeHoehenlinien']),
+      gelaendeWanderobjekte:
+          serializer.fromJson<bool>(json['gelaendeWanderobjekte']),
       schwebeVorschau: serializer.fromJson<bool>(json['schwebeVorschau']),
       stammbaumAnsicht: serializer.fromJson<String?>(json['stammbaumAnsicht']),
       stammbaumPerson: serializer.fromJson<String?>(json['stammbaumPerson']),
@@ -11838,6 +11993,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       'eigeneKarteZugestimmt': serializer.toJson<bool>(eigeneKarteZugestimmt),
       'karteHochaufloesend': serializer.toJson<bool>(karteHochaufloesend),
       'gelaendeStimmungNr': serializer.toJson<int>(gelaendeStimmungNr),
+      'gelaendeGrundNr': serializer.toJson<int>(gelaendeGrundNr),
+      'gelaendeWege': serializer.toJson<bool>(gelaendeWege),
+      'gelaendeBeschriftung': serializer.toJson<bool>(gelaendeBeschriftung),
+      'gelaendeHoehenlinien': serializer.toJson<bool>(gelaendeHoehenlinien),
+      'gelaendeWanderobjekte': serializer.toJson<bool>(gelaendeWanderobjekte),
       'schwebeVorschau': serializer.toJson<bool>(schwebeVorschau),
       'stammbaumAnsicht': serializer.toJson<String?>(stammbaumAnsicht),
       'stammbaumPerson': serializer.toJson<String?>(stammbaumPerson),
@@ -11867,6 +12027,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           bool? eigeneKarteZugestimmt,
           bool? karteHochaufloesend,
           int? gelaendeStimmungNr,
+          int? gelaendeGrundNr,
+          bool? gelaendeWege,
+          bool? gelaendeBeschriftung,
+          bool? gelaendeHoehenlinien,
+          bool? gelaendeWanderobjekte,
           bool? schwebeVorschau,
           Value<String?> stammbaumAnsicht = const Value.absent(),
           Value<String?> stammbaumPerson = const Value.absent(),
@@ -11909,6 +12074,12 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
             eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
         karteHochaufloesend: karteHochaufloesend ?? this.karteHochaufloesend,
         gelaendeStimmungNr: gelaendeStimmungNr ?? this.gelaendeStimmungNr,
+        gelaendeGrundNr: gelaendeGrundNr ?? this.gelaendeGrundNr,
+        gelaendeWege: gelaendeWege ?? this.gelaendeWege,
+        gelaendeBeschriftung: gelaendeBeschriftung ?? this.gelaendeBeschriftung,
+        gelaendeHoehenlinien: gelaendeHoehenlinien ?? this.gelaendeHoehenlinien,
+        gelaendeWanderobjekte:
+            gelaendeWanderobjekte ?? this.gelaendeWanderobjekte,
         schwebeVorschau: schwebeVorschau ?? this.schwebeVorschau,
         stammbaumAnsicht: stammbaumAnsicht.present
             ? stammbaumAnsicht.value
@@ -11970,6 +12141,21 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       gelaendeStimmungNr: data.gelaendeStimmungNr.present
           ? data.gelaendeStimmungNr.value
           : this.gelaendeStimmungNr,
+      gelaendeGrundNr: data.gelaendeGrundNr.present
+          ? data.gelaendeGrundNr.value
+          : this.gelaendeGrundNr,
+      gelaendeWege: data.gelaendeWege.present
+          ? data.gelaendeWege.value
+          : this.gelaendeWege,
+      gelaendeBeschriftung: data.gelaendeBeschriftung.present
+          ? data.gelaendeBeschriftung.value
+          : this.gelaendeBeschriftung,
+      gelaendeHoehenlinien: data.gelaendeHoehenlinien.present
+          ? data.gelaendeHoehenlinien.value
+          : this.gelaendeHoehenlinien,
+      gelaendeWanderobjekte: data.gelaendeWanderobjekte.present
+          ? data.gelaendeWanderobjekte.value
+          : this.gelaendeWanderobjekte,
       schwebeVorschau: data.schwebeVorschau.present
           ? data.schwebeVorschau.value
           : this.schwebeVorschau,
@@ -12019,6 +12205,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
           ..write('karteHochaufloesend: $karteHochaufloesend, ')
           ..write('gelaendeStimmungNr: $gelaendeStimmungNr, ')
+          ..write('gelaendeGrundNr: $gelaendeGrundNr, ')
+          ..write('gelaendeWege: $gelaendeWege, ')
+          ..write('gelaendeBeschriftung: $gelaendeBeschriftung, ')
+          ..write('gelaendeHoehenlinien: $gelaendeHoehenlinien, ')
+          ..write('gelaendeWanderobjekte: $gelaendeWanderobjekte, ')
           ..write('schwebeVorschau: $schwebeVorschau, ')
           ..write('stammbaumAnsicht: $stammbaumAnsicht, ')
           ..write('stammbaumPerson: $stammbaumPerson, ')
@@ -12050,6 +12241,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         eigeneKarteZugestimmt,
         karteHochaufloesend,
         gelaendeStimmungNr,
+        gelaendeGrundNr,
+        gelaendeWege,
+        gelaendeBeschriftung,
+        gelaendeHoehenlinien,
+        gelaendeWanderobjekte,
         schwebeVorschau,
         stammbaumAnsicht,
         stammbaumPerson,
@@ -12080,6 +12276,11 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.eigeneKarteZugestimmt == this.eigeneKarteZugestimmt &&
           other.karteHochaufloesend == this.karteHochaufloesend &&
           other.gelaendeStimmungNr == this.gelaendeStimmungNr &&
+          other.gelaendeGrundNr == this.gelaendeGrundNr &&
+          other.gelaendeWege == this.gelaendeWege &&
+          other.gelaendeBeschriftung == this.gelaendeBeschriftung &&
+          other.gelaendeHoehenlinien == this.gelaendeHoehenlinien &&
+          other.gelaendeWanderobjekte == this.gelaendeWanderobjekte &&
           other.schwebeVorschau == this.schwebeVorschau &&
           other.stammbaumAnsicht == this.stammbaumAnsicht &&
           other.stammbaumPerson == this.stammbaumPerson &&
@@ -12108,6 +12309,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<bool> eigeneKarteZugestimmt;
   final Value<bool> karteHochaufloesend;
   final Value<int> gelaendeStimmungNr;
+  final Value<int> gelaendeGrundNr;
+  final Value<bool> gelaendeWege;
+  final Value<bool> gelaendeBeschriftung;
+  final Value<bool> gelaendeHoehenlinien;
+  final Value<bool> gelaendeWanderobjekte;
   final Value<bool> schwebeVorschau;
   final Value<String?> stammbaumAnsicht;
   final Value<String?> stammbaumPerson;
@@ -12134,6 +12340,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.eigeneKarteZugestimmt = const Value.absent(),
     this.karteHochaufloesend = const Value.absent(),
     this.gelaendeStimmungNr = const Value.absent(),
+    this.gelaendeGrundNr = const Value.absent(),
+    this.gelaendeWege = const Value.absent(),
+    this.gelaendeBeschriftung = const Value.absent(),
+    this.gelaendeHoehenlinien = const Value.absent(),
+    this.gelaendeWanderobjekte = const Value.absent(),
     this.schwebeVorschau = const Value.absent(),
     this.stammbaumAnsicht = const Value.absent(),
     this.stammbaumPerson = const Value.absent(),
@@ -12161,6 +12372,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.eigeneKarteZugestimmt = const Value.absent(),
     this.karteHochaufloesend = const Value.absent(),
     this.gelaendeStimmungNr = const Value.absent(),
+    this.gelaendeGrundNr = const Value.absent(),
+    this.gelaendeWege = const Value.absent(),
+    this.gelaendeBeschriftung = const Value.absent(),
+    this.gelaendeHoehenlinien = const Value.absent(),
+    this.gelaendeWanderobjekte = const Value.absent(),
     this.schwebeVorschau = const Value.absent(),
     this.stammbaumAnsicht = const Value.absent(),
     this.stammbaumPerson = const Value.absent(),
@@ -12188,6 +12404,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<bool>? eigeneKarteZugestimmt,
     Expression<bool>? karteHochaufloesend,
     Expression<int>? gelaendeStimmungNr,
+    Expression<int>? gelaendeGrundNr,
+    Expression<bool>? gelaendeWege,
+    Expression<bool>? gelaendeBeschriftung,
+    Expression<bool>? gelaendeHoehenlinien,
+    Expression<bool>? gelaendeWanderobjekte,
     Expression<bool>? schwebeVorschau,
     Expression<String>? stammbaumAnsicht,
     Expression<String>? stammbaumPerson,
@@ -12222,6 +12443,14 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
         'karte_hochaufloesend': karteHochaufloesend,
       if (gelaendeStimmungNr != null)
         'gelaende_stimmung_nr': gelaendeStimmungNr,
+      if (gelaendeGrundNr != null) 'gelaende_grund_nr': gelaendeGrundNr,
+      if (gelaendeWege != null) 'gelaende_wege': gelaendeWege,
+      if (gelaendeBeschriftung != null)
+        'gelaende_beschriftung': gelaendeBeschriftung,
+      if (gelaendeHoehenlinien != null)
+        'gelaende_hoehenlinien': gelaendeHoehenlinien,
+      if (gelaendeWanderobjekte != null)
+        'gelaende_wanderobjekte': gelaendeWanderobjekte,
       if (schwebeVorschau != null) 'schwebe_vorschau': schwebeVorschau,
       if (stammbaumAnsicht != null) 'stammbaum_ansicht': stammbaumAnsicht,
       if (stammbaumPerson != null) 'stammbaum_person': stammbaumPerson,
@@ -12253,6 +12482,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<bool>? eigeneKarteZugestimmt,
       Value<bool>? karteHochaufloesend,
       Value<int>? gelaendeStimmungNr,
+      Value<int>? gelaendeGrundNr,
+      Value<bool>? gelaendeWege,
+      Value<bool>? gelaendeBeschriftung,
+      Value<bool>? gelaendeHoehenlinien,
+      Value<bool>? gelaendeWanderobjekte,
       Value<bool>? schwebeVorschau,
       Value<String?>? stammbaumAnsicht,
       Value<String?>? stammbaumPerson,
@@ -12282,6 +12516,12 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           eigeneKarteZugestimmt ?? this.eigeneKarteZugestimmt,
       karteHochaufloesend: karteHochaufloesend ?? this.karteHochaufloesend,
       gelaendeStimmungNr: gelaendeStimmungNr ?? this.gelaendeStimmungNr,
+      gelaendeGrundNr: gelaendeGrundNr ?? this.gelaendeGrundNr,
+      gelaendeWege: gelaendeWege ?? this.gelaendeWege,
+      gelaendeBeschriftung: gelaendeBeschriftung ?? this.gelaendeBeschriftung,
+      gelaendeHoehenlinien: gelaendeHoehenlinien ?? this.gelaendeHoehenlinien,
+      gelaendeWanderobjekte:
+          gelaendeWanderobjekte ?? this.gelaendeWanderobjekte,
       schwebeVorschau: schwebeVorschau ?? this.schwebeVorschau,
       stammbaumAnsicht: stammbaumAnsicht ?? this.stammbaumAnsicht,
       stammbaumPerson: stammbaumPerson ?? this.stammbaumPerson,
@@ -12350,6 +12590,22 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (gelaendeStimmungNr.present) {
       map['gelaende_stimmung_nr'] = Variable<int>(gelaendeStimmungNr.value);
     }
+    if (gelaendeGrundNr.present) {
+      map['gelaende_grund_nr'] = Variable<int>(gelaendeGrundNr.value);
+    }
+    if (gelaendeWege.present) {
+      map['gelaende_wege'] = Variable<bool>(gelaendeWege.value);
+    }
+    if (gelaendeBeschriftung.present) {
+      map['gelaende_beschriftung'] = Variable<bool>(gelaendeBeschriftung.value);
+    }
+    if (gelaendeHoehenlinien.present) {
+      map['gelaende_hoehenlinien'] = Variable<bool>(gelaendeHoehenlinien.value);
+    }
+    if (gelaendeWanderobjekte.present) {
+      map['gelaende_wanderobjekte'] =
+          Variable<bool>(gelaendeWanderobjekte.value);
+    }
     if (schwebeVorschau.present) {
       map['schwebe_vorschau'] = Variable<bool>(schwebeVorschau.value);
     }
@@ -12401,6 +12657,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('eigeneKarteZugestimmt: $eigeneKarteZugestimmt, ')
           ..write('karteHochaufloesend: $karteHochaufloesend, ')
           ..write('gelaendeStimmungNr: $gelaendeStimmungNr, ')
+          ..write('gelaendeGrundNr: $gelaendeGrundNr, ')
+          ..write('gelaendeWege: $gelaendeWege, ')
+          ..write('gelaendeBeschriftung: $gelaendeBeschriftung, ')
+          ..write('gelaendeHoehenlinien: $gelaendeHoehenlinien, ')
+          ..write('gelaendeWanderobjekte: $gelaendeWanderobjekte, ')
           ..write('schwebeVorschau: $schwebeVorschau, ')
           ..write('stammbaumAnsicht: $stammbaumAnsicht, ')
           ..write('stammbaumPerson: $stammbaumPerson, ')
@@ -18521,6 +18782,539 @@ class VerworfeneSerienCompanion extends UpdateCompanion<VerworfeneSerienData> {
   }
 }
 
+class $WanderpunkteTable extends Wanderpunkte
+    with TableInfo<$WanderpunkteTable, WanderpunkteData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WanderpunkteTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _osmIdMeta = const VerificationMeta('osmId');
+  @override
+  late final GeneratedColumn<int> osmId = GeneratedColumn<int>(
+      'osm_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _artNrMeta = const VerificationMeta('artNr');
+  @override
+  late final GeneratedColumn<int> artNr = GeneratedColumn<int>(
+      'art_nr', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _breiteMeta = const VerificationMeta('breite');
+  @override
+  late final GeneratedColumn<double> breite = GeneratedColumn<double>(
+      'breite', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _laengeMeta = const VerificationMeta('laenge');
+  @override
+  late final GeneratedColumn<double> laenge = GeneratedColumn<double>(
+      'laenge', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+      'name', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _hoeheMeta = const VerificationMeta('hoehe');
+  @override
+  late final GeneratedColumn<double> hoehe = GeneratedColumn<double>(
+      'hoehe', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [osmId, artNr, breite, laenge, name, hoehe];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'wanderpunkte';
+  @override
+  VerificationContext validateIntegrity(Insertable<WanderpunkteData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('osm_id')) {
+      context.handle(
+          _osmIdMeta, osmId.isAcceptableOrUnknown(data['osm_id']!, _osmIdMeta));
+    }
+    if (data.containsKey('art_nr')) {
+      context.handle(
+          _artNrMeta, artNr.isAcceptableOrUnknown(data['art_nr']!, _artNrMeta));
+    } else if (isInserting) {
+      context.missing(_artNrMeta);
+    }
+    if (data.containsKey('breite')) {
+      context.handle(_breiteMeta,
+          breite.isAcceptableOrUnknown(data['breite']!, _breiteMeta));
+    } else if (isInserting) {
+      context.missing(_breiteMeta);
+    }
+    if (data.containsKey('laenge')) {
+      context.handle(_laengeMeta,
+          laenge.isAcceptableOrUnknown(data['laenge']!, _laengeMeta));
+    } else if (isInserting) {
+      context.missing(_laengeMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    }
+    if (data.containsKey('hoehe')) {
+      context.handle(
+          _hoeheMeta, hoehe.isAcceptableOrUnknown(data['hoehe']!, _hoeheMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {osmId};
+  @override
+  WanderpunkteData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WanderpunkteData(
+      osmId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}osm_id'])!,
+      artNr: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}art_nr'])!,
+      breite: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}breite'])!,
+      laenge: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}laenge'])!,
+      name: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}name']),
+      hoehe: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}hoehe']),
+    );
+  }
+
+  @override
+  $WanderpunkteTable createAlias(String alias) {
+    return $WanderpunkteTable(attachedDatabase, alias);
+  }
+}
+
+class WanderpunkteData extends DataClass
+    implements Insertable<WanderpunkteData> {
+  /// Die Kennung aus OpenStreetMap – damit derselbe Punkt aus zwei
+  /// überlappenden Abfragen nicht zweimal im Bild steht.
+  final int osmId;
+
+  /// Die Art als Nummer aus `Wanderart`. Als Zahl und nicht als Name,
+  /// wie überall hier: Ein Name aus einer älteren Fassung könnte einer
+  /// sein, den es nicht mehr gibt.
+  final int artNr;
+  final double breite;
+  final double laenge;
+  final String? name;
+
+  /// Die Höhe, wie sie in OpenStreetMap steht – **nicht** die aus dem
+  /// Höhengitter. Eine eingetragene Gipfelhöhe ist vermessen; das Gitter
+  /// kommt aus Kacheln und liegt bei einer Spitze regelmässig zu tief.
+  final double? hoehe;
+  const WanderpunkteData(
+      {required this.osmId,
+      required this.artNr,
+      required this.breite,
+      required this.laenge,
+      this.name,
+      this.hoehe});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['osm_id'] = Variable<int>(osmId);
+    map['art_nr'] = Variable<int>(artNr);
+    map['breite'] = Variable<double>(breite);
+    map['laenge'] = Variable<double>(laenge);
+    if (!nullToAbsent || name != null) {
+      map['name'] = Variable<String>(name);
+    }
+    if (!nullToAbsent || hoehe != null) {
+      map['hoehe'] = Variable<double>(hoehe);
+    }
+    return map;
+  }
+
+  WanderpunkteCompanion toCompanion(bool nullToAbsent) {
+    return WanderpunkteCompanion(
+      osmId: Value(osmId),
+      artNr: Value(artNr),
+      breite: Value(breite),
+      laenge: Value(laenge),
+      name: name == null && nullToAbsent ? const Value.absent() : Value(name),
+      hoehe:
+          hoehe == null && nullToAbsent ? const Value.absent() : Value(hoehe),
+    );
+  }
+
+  factory WanderpunkteData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WanderpunkteData(
+      osmId: serializer.fromJson<int>(json['osmId']),
+      artNr: serializer.fromJson<int>(json['artNr']),
+      breite: serializer.fromJson<double>(json['breite']),
+      laenge: serializer.fromJson<double>(json['laenge']),
+      name: serializer.fromJson<String?>(json['name']),
+      hoehe: serializer.fromJson<double?>(json['hoehe']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'osmId': serializer.toJson<int>(osmId),
+      'artNr': serializer.toJson<int>(artNr),
+      'breite': serializer.toJson<double>(breite),
+      'laenge': serializer.toJson<double>(laenge),
+      'name': serializer.toJson<String?>(name),
+      'hoehe': serializer.toJson<double?>(hoehe),
+    };
+  }
+
+  WanderpunkteData copyWith(
+          {int? osmId,
+          int? artNr,
+          double? breite,
+          double? laenge,
+          Value<String?> name = const Value.absent(),
+          Value<double?> hoehe = const Value.absent()}) =>
+      WanderpunkteData(
+        osmId: osmId ?? this.osmId,
+        artNr: artNr ?? this.artNr,
+        breite: breite ?? this.breite,
+        laenge: laenge ?? this.laenge,
+        name: name.present ? name.value : this.name,
+        hoehe: hoehe.present ? hoehe.value : this.hoehe,
+      );
+  WanderpunkteData copyWithCompanion(WanderpunkteCompanion data) {
+    return WanderpunkteData(
+      osmId: data.osmId.present ? data.osmId.value : this.osmId,
+      artNr: data.artNr.present ? data.artNr.value : this.artNr,
+      breite: data.breite.present ? data.breite.value : this.breite,
+      laenge: data.laenge.present ? data.laenge.value : this.laenge,
+      name: data.name.present ? data.name.value : this.name,
+      hoehe: data.hoehe.present ? data.hoehe.value : this.hoehe,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WanderpunkteData(')
+          ..write('osmId: $osmId, ')
+          ..write('artNr: $artNr, ')
+          ..write('breite: $breite, ')
+          ..write('laenge: $laenge, ')
+          ..write('name: $name, ')
+          ..write('hoehe: $hoehe')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(osmId, artNr, breite, laenge, name, hoehe);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WanderpunkteData &&
+          other.osmId == this.osmId &&
+          other.artNr == this.artNr &&
+          other.breite == this.breite &&
+          other.laenge == this.laenge &&
+          other.name == this.name &&
+          other.hoehe == this.hoehe);
+}
+
+class WanderpunkteCompanion extends UpdateCompanion<WanderpunkteData> {
+  final Value<int> osmId;
+  final Value<int> artNr;
+  final Value<double> breite;
+  final Value<double> laenge;
+  final Value<String?> name;
+  final Value<double?> hoehe;
+  const WanderpunkteCompanion({
+    this.osmId = const Value.absent(),
+    this.artNr = const Value.absent(),
+    this.breite = const Value.absent(),
+    this.laenge = const Value.absent(),
+    this.name = const Value.absent(),
+    this.hoehe = const Value.absent(),
+  });
+  WanderpunkteCompanion.insert({
+    this.osmId = const Value.absent(),
+    required int artNr,
+    required double breite,
+    required double laenge,
+    this.name = const Value.absent(),
+    this.hoehe = const Value.absent(),
+  })  : artNr = Value(artNr),
+        breite = Value(breite),
+        laenge = Value(laenge);
+  static Insertable<WanderpunkteData> custom({
+    Expression<int>? osmId,
+    Expression<int>? artNr,
+    Expression<double>? breite,
+    Expression<double>? laenge,
+    Expression<String>? name,
+    Expression<double>? hoehe,
+  }) {
+    return RawValuesInsertable({
+      if (osmId != null) 'osm_id': osmId,
+      if (artNr != null) 'art_nr': artNr,
+      if (breite != null) 'breite': breite,
+      if (laenge != null) 'laenge': laenge,
+      if (name != null) 'name': name,
+      if (hoehe != null) 'hoehe': hoehe,
+    });
+  }
+
+  WanderpunkteCompanion copyWith(
+      {Value<int>? osmId,
+      Value<int>? artNr,
+      Value<double>? breite,
+      Value<double>? laenge,
+      Value<String?>? name,
+      Value<double?>? hoehe}) {
+    return WanderpunkteCompanion(
+      osmId: osmId ?? this.osmId,
+      artNr: artNr ?? this.artNr,
+      breite: breite ?? this.breite,
+      laenge: laenge ?? this.laenge,
+      name: name ?? this.name,
+      hoehe: hoehe ?? this.hoehe,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (osmId.present) {
+      map['osm_id'] = Variable<int>(osmId.value);
+    }
+    if (artNr.present) {
+      map['art_nr'] = Variable<int>(artNr.value);
+    }
+    if (breite.present) {
+      map['breite'] = Variable<double>(breite.value);
+    }
+    if (laenge.present) {
+      map['laenge'] = Variable<double>(laenge.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (hoehe.present) {
+      map['hoehe'] = Variable<double>(hoehe.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WanderpunkteCompanion(')
+          ..write('osmId: $osmId, ')
+          ..write('artNr: $artNr, ')
+          ..write('breite: $breite, ')
+          ..write('laenge: $laenge, ')
+          ..write('name: $name, ')
+          ..write('hoehe: $hoehe')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WanderabfragenTable extends Wanderabfragen
+    with TableInfo<$WanderabfragenTable, WanderabfragenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WanderabfragenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _kastenMeta = const VerificationMeta('kasten');
+  @override
+  late final GeneratedColumn<String> kasten = GeneratedColumn<String>(
+      'kasten', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _gefragtAmMeta =
+      const VerificationMeta('gefragtAm');
+  @override
+  late final GeneratedColumn<DateTime> gefragtAm = GeneratedColumn<DateTime>(
+      'gefragt_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [kasten, gefragtAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'wanderabfragen';
+  @override
+  VerificationContext validateIntegrity(Insertable<WanderabfragenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('kasten')) {
+      context.handle(_kastenMeta,
+          kasten.isAcceptableOrUnknown(data['kasten']!, _kastenMeta));
+    } else if (isInserting) {
+      context.missing(_kastenMeta);
+    }
+    if (data.containsKey('gefragt_am')) {
+      context.handle(_gefragtAmMeta,
+          gefragtAm.isAcceptableOrUnknown(data['gefragt_am']!, _gefragtAmMeta));
+    } else if (isInserting) {
+      context.missing(_gefragtAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {kasten};
+  @override
+  WanderabfragenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WanderabfragenData(
+      kasten: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}kasten'])!,
+      gefragtAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}gefragt_am'])!,
+    );
+  }
+
+  @override
+  $WanderabfragenTable createAlias(String alias) {
+    return $WanderabfragenTable(attachedDatabase, alias);
+  }
+}
+
+class WanderabfragenData extends DataClass
+    implements Insertable<WanderabfragenData> {
+  /// Der Ausschnitt, gerundet auf drei Nachkommastellen – siehe
+  /// `AppDatabase.wanderpunkteFuer`.
+  final String kasten;
+  final DateTime gefragtAm;
+  const WanderabfragenData({required this.kasten, required this.gefragtAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['kasten'] = Variable<String>(kasten);
+    map['gefragt_am'] = Variable<DateTime>(gefragtAm);
+    return map;
+  }
+
+  WanderabfragenCompanion toCompanion(bool nullToAbsent) {
+    return WanderabfragenCompanion(
+      kasten: Value(kasten),
+      gefragtAm: Value(gefragtAm),
+    );
+  }
+
+  factory WanderabfragenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WanderabfragenData(
+      kasten: serializer.fromJson<String>(json['kasten']),
+      gefragtAm: serializer.fromJson<DateTime>(json['gefragtAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'kasten': serializer.toJson<String>(kasten),
+      'gefragtAm': serializer.toJson<DateTime>(gefragtAm),
+    };
+  }
+
+  WanderabfragenData copyWith({String? kasten, DateTime? gefragtAm}) =>
+      WanderabfragenData(
+        kasten: kasten ?? this.kasten,
+        gefragtAm: gefragtAm ?? this.gefragtAm,
+      );
+  WanderabfragenData copyWithCompanion(WanderabfragenCompanion data) {
+    return WanderabfragenData(
+      kasten: data.kasten.present ? data.kasten.value : this.kasten,
+      gefragtAm: data.gefragtAm.present ? data.gefragtAm.value : this.gefragtAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WanderabfragenData(')
+          ..write('kasten: $kasten, ')
+          ..write('gefragtAm: $gefragtAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(kasten, gefragtAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WanderabfragenData &&
+          other.kasten == this.kasten &&
+          other.gefragtAm == this.gefragtAm);
+}
+
+class WanderabfragenCompanion extends UpdateCompanion<WanderabfragenData> {
+  final Value<String> kasten;
+  final Value<DateTime> gefragtAm;
+  final Value<int> rowid;
+  const WanderabfragenCompanion({
+    this.kasten = const Value.absent(),
+    this.gefragtAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WanderabfragenCompanion.insert({
+    required String kasten,
+    required DateTime gefragtAm,
+    this.rowid = const Value.absent(),
+  })  : kasten = Value(kasten),
+        gefragtAm = Value(gefragtAm);
+  static Insertable<WanderabfragenData> custom({
+    Expression<String>? kasten,
+    Expression<DateTime>? gefragtAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (kasten != null) 'kasten': kasten,
+      if (gefragtAm != null) 'gefragt_am': gefragtAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WanderabfragenCompanion copyWith(
+      {Value<String>? kasten, Value<DateTime>? gefragtAm, Value<int>? rowid}) {
+    return WanderabfragenCompanion(
+      kasten: kasten ?? this.kasten,
+      gefragtAm: gefragtAm ?? this.gefragtAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (kasten.present) {
+      map['kasten'] = Variable<String>(kasten.value);
+    }
+    if (gefragtAm.present) {
+      map['gefragt_am'] = Variable<DateTime>(gefragtAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WanderabfragenCompanion(')
+          ..write('kasten: $kasten, ')
+          ..write('gefragtAm: $gefragtAm, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -18579,6 +19373,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SpurpunkteTable spurpunkte = $SpurpunkteTable(this);
   late final $VerworfeneSerienTable verworfeneSerien =
       $VerworfeneSerienTable(this);
+  late final $WanderpunkteTable wanderpunkte = $WanderpunkteTable(this);
+  late final $WanderabfragenTable wanderabfragen = $WanderabfragenTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -18623,7 +19419,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         verworfeneAktivitaeten,
         spuren,
         spurpunkte,
-        verworfeneSerien
+        verworfeneSerien,
+        wanderpunkte,
+        wanderabfragen
       ];
 }
 
@@ -23745,6 +24543,11 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<bool> eigeneKarteZugestimmt,
   Value<bool> karteHochaufloesend,
   Value<int> gelaendeStimmungNr,
+  Value<int> gelaendeGrundNr,
+  Value<bool> gelaendeWege,
+  Value<bool> gelaendeBeschriftung,
+  Value<bool> gelaendeHoehenlinien,
+  Value<bool> gelaendeWanderobjekte,
   Value<bool> schwebeVorschau,
   Value<String?> stammbaumAnsicht,
   Value<String?> stammbaumPerson,
@@ -23773,6 +24576,11 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<bool> eigeneKarteZugestimmt,
   Value<bool> karteHochaufloesend,
   Value<int> gelaendeStimmungNr,
+  Value<int> gelaendeGrundNr,
+  Value<bool> gelaendeWege,
+  Value<bool> gelaendeBeschriftung,
+  Value<bool> gelaendeHoehenlinien,
+  Value<bool> gelaendeWanderobjekte,
   Value<bool> schwebeVorschau,
   Value<String?> stammbaumAnsicht,
   Value<String?> stammbaumPerson,
@@ -23851,6 +24659,25 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<int> get gelaendeStimmungNr => $composableBuilder(
       column: $table.gelaendeStimmungNr,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get gelaendeGrundNr => $composableBuilder(
+      column: $table.gelaendeGrundNr,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get gelaendeWege => $composableBuilder(
+      column: $table.gelaendeWege, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get gelaendeBeschriftung => $composableBuilder(
+      column: $table.gelaendeBeschriftung,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get gelaendeHoehenlinien => $composableBuilder(
+      column: $table.gelaendeHoehenlinien,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get gelaendeWanderobjekte => $composableBuilder(
+      column: $table.gelaendeWanderobjekte,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get schwebeVorschau => $composableBuilder(
@@ -23959,6 +24786,26 @@ class $$AppSettingsTableOrderingComposer
       column: $table.gelaendeStimmungNr,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get gelaendeGrundNr => $composableBuilder(
+      column: $table.gelaendeGrundNr,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get gelaendeWege => $composableBuilder(
+      column: $table.gelaendeWege,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get gelaendeBeschriftung => $composableBuilder(
+      column: $table.gelaendeBeschriftung,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get gelaendeHoehenlinien => $composableBuilder(
+      column: $table.gelaendeHoehenlinien,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get gelaendeWanderobjekte => $composableBuilder(
+      column: $table.gelaendeWanderobjekte,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get schwebeVorschau => $composableBuilder(
       column: $table.schwebeVorschau,
       builder: (column) => ColumnOrderings(column));
@@ -24053,6 +24900,21 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<int> get gelaendeStimmungNr => $composableBuilder(
       column: $table.gelaendeStimmungNr, builder: (column) => column);
 
+  GeneratedColumn<int> get gelaendeGrundNr => $composableBuilder(
+      column: $table.gelaendeGrundNr, builder: (column) => column);
+
+  GeneratedColumn<bool> get gelaendeWege => $composableBuilder(
+      column: $table.gelaendeWege, builder: (column) => column);
+
+  GeneratedColumn<bool> get gelaendeBeschriftung => $composableBuilder(
+      column: $table.gelaendeBeschriftung, builder: (column) => column);
+
+  GeneratedColumn<bool> get gelaendeHoehenlinien => $composableBuilder(
+      column: $table.gelaendeHoehenlinien, builder: (column) => column);
+
+  GeneratedColumn<bool> get gelaendeWanderobjekte => $composableBuilder(
+      column: $table.gelaendeWanderobjekte, builder: (column) => column);
+
   GeneratedColumn<bool> get schwebeVorschau => $composableBuilder(
       column: $table.schwebeVorschau, builder: (column) => column);
 
@@ -24123,6 +24985,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<bool> eigeneKarteZugestimmt = const Value.absent(),
             Value<bool> karteHochaufloesend = const Value.absent(),
             Value<int> gelaendeStimmungNr = const Value.absent(),
+            Value<int> gelaendeGrundNr = const Value.absent(),
+            Value<bool> gelaendeWege = const Value.absent(),
+            Value<bool> gelaendeBeschriftung = const Value.absent(),
+            Value<bool> gelaendeHoehenlinien = const Value.absent(),
+            Value<bool> gelaendeWanderobjekte = const Value.absent(),
             Value<bool> schwebeVorschau = const Value.absent(),
             Value<String?> stammbaumAnsicht = const Value.absent(),
             Value<String?> stammbaumPerson = const Value.absent(),
@@ -24150,6 +25017,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             eigeneKarteZugestimmt: eigeneKarteZugestimmt,
             karteHochaufloesend: karteHochaufloesend,
             gelaendeStimmungNr: gelaendeStimmungNr,
+            gelaendeGrundNr: gelaendeGrundNr,
+            gelaendeWege: gelaendeWege,
+            gelaendeBeschriftung: gelaendeBeschriftung,
+            gelaendeHoehenlinien: gelaendeHoehenlinien,
+            gelaendeWanderobjekte: gelaendeWanderobjekte,
             schwebeVorschau: schwebeVorschau,
             stammbaumAnsicht: stammbaumAnsicht,
             stammbaumPerson: stammbaumPerson,
@@ -24177,6 +25049,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<bool> eigeneKarteZugestimmt = const Value.absent(),
             Value<bool> karteHochaufloesend = const Value.absent(),
             Value<int> gelaendeStimmungNr = const Value.absent(),
+            Value<int> gelaendeGrundNr = const Value.absent(),
+            Value<bool> gelaendeWege = const Value.absent(),
+            Value<bool> gelaendeBeschriftung = const Value.absent(),
+            Value<bool> gelaendeHoehenlinien = const Value.absent(),
+            Value<bool> gelaendeWanderobjekte = const Value.absent(),
             Value<bool> schwebeVorschau = const Value.absent(),
             Value<String?> stammbaumAnsicht = const Value.absent(),
             Value<String?> stammbaumPerson = const Value.absent(),
@@ -24204,6 +25081,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             eigeneKarteZugestimmt: eigeneKarteZugestimmt,
             karteHochaufloesend: karteHochaufloesend,
             gelaendeStimmungNr: gelaendeStimmungNr,
+            gelaendeGrundNr: gelaendeGrundNr,
+            gelaendeWege: gelaendeWege,
+            gelaendeBeschriftung: gelaendeBeschriftung,
+            gelaendeHoehenlinien: gelaendeHoehenlinien,
+            gelaendeWanderobjekte: gelaendeWanderobjekte,
             schwebeVorschau: schwebeVorschau,
             stammbaumAnsicht: stammbaumAnsicht,
             stammbaumPerson: stammbaumPerson,
@@ -27445,6 +28327,317 @@ typedef $$VerworfeneSerienTableProcessedTableManager = ProcessedTableManager<
     ),
     VerworfeneSerienData,
     PrefetchHooks Function()>;
+typedef $$WanderpunkteTableCreateCompanionBuilder = WanderpunkteCompanion
+    Function({
+  Value<int> osmId,
+  required int artNr,
+  required double breite,
+  required double laenge,
+  Value<String?> name,
+  Value<double?> hoehe,
+});
+typedef $$WanderpunkteTableUpdateCompanionBuilder = WanderpunkteCompanion
+    Function({
+  Value<int> osmId,
+  Value<int> artNr,
+  Value<double> breite,
+  Value<double> laenge,
+  Value<String?> name,
+  Value<double?> hoehe,
+});
+
+class $$WanderpunkteTableFilterComposer
+    extends Composer<_$AppDatabase, $WanderpunkteTable> {
+  $$WanderpunkteTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get osmId => $composableBuilder(
+      column: $table.osmId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get artNr => $composableBuilder(
+      column: $table.artNr, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get breite => $composableBuilder(
+      column: $table.breite, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get laenge => $composableBuilder(
+      column: $table.laenge, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get hoehe => $composableBuilder(
+      column: $table.hoehe, builder: (column) => ColumnFilters(column));
+}
+
+class $$WanderpunkteTableOrderingComposer
+    extends Composer<_$AppDatabase, $WanderpunkteTable> {
+  $$WanderpunkteTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get osmId => $composableBuilder(
+      column: $table.osmId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get artNr => $composableBuilder(
+      column: $table.artNr, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get breite => $composableBuilder(
+      column: $table.breite, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get laenge => $composableBuilder(
+      column: $table.laenge, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name => $composableBuilder(
+      column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get hoehe => $composableBuilder(
+      column: $table.hoehe, builder: (column) => ColumnOrderings(column));
+}
+
+class $$WanderpunkteTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WanderpunkteTable> {
+  $$WanderpunkteTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get osmId =>
+      $composableBuilder(column: $table.osmId, builder: (column) => column);
+
+  GeneratedColumn<int> get artNr =>
+      $composableBuilder(column: $table.artNr, builder: (column) => column);
+
+  GeneratedColumn<double> get breite =>
+      $composableBuilder(column: $table.breite, builder: (column) => column);
+
+  GeneratedColumn<double> get laenge =>
+      $composableBuilder(column: $table.laenge, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<double> get hoehe =>
+      $composableBuilder(column: $table.hoehe, builder: (column) => column);
+}
+
+class $$WanderpunkteTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $WanderpunkteTable,
+    WanderpunkteData,
+    $$WanderpunkteTableFilterComposer,
+    $$WanderpunkteTableOrderingComposer,
+    $$WanderpunkteTableAnnotationComposer,
+    $$WanderpunkteTableCreateCompanionBuilder,
+    $$WanderpunkteTableUpdateCompanionBuilder,
+    (
+      WanderpunkteData,
+      BaseReferences<_$AppDatabase, $WanderpunkteTable, WanderpunkteData>
+    ),
+    WanderpunkteData,
+    PrefetchHooks Function()> {
+  $$WanderpunkteTableTableManager(_$AppDatabase db, $WanderpunkteTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WanderpunkteTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WanderpunkteTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WanderpunkteTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> osmId = const Value.absent(),
+            Value<int> artNr = const Value.absent(),
+            Value<double> breite = const Value.absent(),
+            Value<double> laenge = const Value.absent(),
+            Value<String?> name = const Value.absent(),
+            Value<double?> hoehe = const Value.absent(),
+          }) =>
+              WanderpunkteCompanion(
+            osmId: osmId,
+            artNr: artNr,
+            breite: breite,
+            laenge: laenge,
+            name: name,
+            hoehe: hoehe,
+          ),
+          createCompanionCallback: ({
+            Value<int> osmId = const Value.absent(),
+            required int artNr,
+            required double breite,
+            required double laenge,
+            Value<String?> name = const Value.absent(),
+            Value<double?> hoehe = const Value.absent(),
+          }) =>
+              WanderpunkteCompanion.insert(
+            osmId: osmId,
+            artNr: artNr,
+            breite: breite,
+            laenge: laenge,
+            name: name,
+            hoehe: hoehe,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$WanderpunkteTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $WanderpunkteTable,
+    WanderpunkteData,
+    $$WanderpunkteTableFilterComposer,
+    $$WanderpunkteTableOrderingComposer,
+    $$WanderpunkteTableAnnotationComposer,
+    $$WanderpunkteTableCreateCompanionBuilder,
+    $$WanderpunkteTableUpdateCompanionBuilder,
+    (
+      WanderpunkteData,
+      BaseReferences<_$AppDatabase, $WanderpunkteTable, WanderpunkteData>
+    ),
+    WanderpunkteData,
+    PrefetchHooks Function()>;
+typedef $$WanderabfragenTableCreateCompanionBuilder = WanderabfragenCompanion
+    Function({
+  required String kasten,
+  required DateTime gefragtAm,
+  Value<int> rowid,
+});
+typedef $$WanderabfragenTableUpdateCompanionBuilder = WanderabfragenCompanion
+    Function({
+  Value<String> kasten,
+  Value<DateTime> gefragtAm,
+  Value<int> rowid,
+});
+
+class $$WanderabfragenTableFilterComposer
+    extends Composer<_$AppDatabase, $WanderabfragenTable> {
+  $$WanderabfragenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get kasten => $composableBuilder(
+      column: $table.kasten, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get gefragtAm => $composableBuilder(
+      column: $table.gefragtAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$WanderabfragenTableOrderingComposer
+    extends Composer<_$AppDatabase, $WanderabfragenTable> {
+  $$WanderabfragenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get kasten => $composableBuilder(
+      column: $table.kasten, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get gefragtAm => $composableBuilder(
+      column: $table.gefragtAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$WanderabfragenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WanderabfragenTable> {
+  $$WanderabfragenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get kasten =>
+      $composableBuilder(column: $table.kasten, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get gefragtAm =>
+      $composableBuilder(column: $table.gefragtAm, builder: (column) => column);
+}
+
+class $$WanderabfragenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $WanderabfragenTable,
+    WanderabfragenData,
+    $$WanderabfragenTableFilterComposer,
+    $$WanderabfragenTableOrderingComposer,
+    $$WanderabfragenTableAnnotationComposer,
+    $$WanderabfragenTableCreateCompanionBuilder,
+    $$WanderabfragenTableUpdateCompanionBuilder,
+    (
+      WanderabfragenData,
+      BaseReferences<_$AppDatabase, $WanderabfragenTable, WanderabfragenData>
+    ),
+    WanderabfragenData,
+    PrefetchHooks Function()> {
+  $$WanderabfragenTableTableManager(
+      _$AppDatabase db, $WanderabfragenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WanderabfragenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WanderabfragenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WanderabfragenTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> kasten = const Value.absent(),
+            Value<DateTime> gefragtAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              WanderabfragenCompanion(
+            kasten: kasten,
+            gefragtAm: gefragtAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String kasten,
+            required DateTime gefragtAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              WanderabfragenCompanion.insert(
+            kasten: kasten,
+            gefragtAm: gefragtAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$WanderabfragenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $WanderabfragenTable,
+    WanderabfragenData,
+    $$WanderabfragenTableFilterComposer,
+    $$WanderabfragenTableOrderingComposer,
+    $$WanderabfragenTableAnnotationComposer,
+    $$WanderabfragenTableCreateCompanionBuilder,
+    $$WanderabfragenTableUpdateCompanionBuilder,
+    (
+      WanderabfragenData,
+      BaseReferences<_$AppDatabase, $WanderabfragenTable, WanderabfragenData>
+    ),
+    WanderabfragenData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -27529,4 +28722,8 @@ class $AppDatabaseManager {
       $$SpurpunkteTableTableManager(_db, _db.spurpunkte);
   $$VerworfeneSerienTableTableManager get verworfeneSerien =>
       $$VerworfeneSerienTableTableManager(_db, _db.verworfeneSerien);
+  $$WanderpunkteTableTableManager get wanderpunkte =>
+      $$WanderpunkteTableTableManager(_db, _db.wanderpunkte);
+  $$WanderabfragenTableTableManager get wanderabfragen =>
+      $$WanderabfragenTableTableManager(_db, _db.wanderabfragen);
 }

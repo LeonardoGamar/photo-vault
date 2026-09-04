@@ -110,6 +110,9 @@ void main() {
     // mit derselben Kennung einander ueberschrieben. Steht nirgends auf
     // dem Bildschirm.
     r'ereignis-${e.ereignis.id}',
+    // Der Abspann des Ueberfluges. Ein Test muss seine Zahlen von denen
+    // der Flugleiste unterscheiden koennen - beide zeigen "unterwegs".
+    'gelaende-abspann',
   };
 
   /// Zeilen, deren Text nie ein Nutzer sieht.

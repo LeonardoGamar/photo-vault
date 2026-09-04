@@ -121,9 +121,8 @@ void main() {
     }
 
     // Wie im Bildschirm: Linie und Werte in einem Zug.
-    final kleiner = g.verkleinert(gelaendeGitterkante);
-    final spanne = kleiner.spanne;
-    final mittel = (spanne.tief + spanne.hoch) / 2;
+    final kleiner = g;
+    final mittel = netzDreiecke.mittlereHoehe;
     final linie = <Raumpunkt>[];
     final werte = <Flugwert>[];
     for (final p in spur) {

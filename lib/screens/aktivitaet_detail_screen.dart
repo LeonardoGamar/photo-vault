@@ -3,12 +3,15 @@ import 'dart:io';
 import 'package:drift/drift.dart' show Value;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
+import '../services/bilddekodierung.dart';
+import '../services/wanderobjekte.dart';
 import '../services/aktivitaeten.dart';
 import '../services/gpx.dart';
 import '../services/meldungsdienst.dart';
@@ -24,8 +27,6 @@ import '../widgets/routenkarte.dart';
 import 'asset_viewer_screen.dart';
 import 'aufnahmen_waehlen_screen.dart';
 import 'gelaende_screen.dart';
-import 'map_screen.dart' show Kartenansicht;
-import '../widgets/mini_location_map.dart' show Kartenstil, eigeneKarte;
 
 /// Eine einzelne Aktivität.
 ///
@@ -234,34 +235,121 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
   }
 
   Future<void> _gelaendeOeffnen() async {
-    // Dieselbe Karte, die auf dem Kartenbildschirm eingestellt ist – wer
-    // dort ein Luftbild gewählt hat, will die Landschaft nicht plötzlich
-    // als Wanderkarte sehen. Nachgeschlagen wird sie hier, weil der
+    // Die gemerkte Auflage der Geländeansicht – Grund, Ebenen,
+    // Höhenlinien. Nachgeschlagen wird sie hier, weil der
     // Geländebildschirm die Bibliothek nicht kennt.
-    final gemerkt =
-        Kartenansicht.ausText(await widget.library.db.kartenansicht());
-    final stil = switch (gemerkt) {
-      Kartenansicht.hell => Kartenstil.hell,
-      Kartenansicht.dunkel => Kartenstil.dunkel,
-      Kartenansicht.eigene when eigeneKarte != null => Kartenstil.eigene,
-      // Globus und alles Unbekannte: die Wanderkarte, wie bisher.
-      _ => Kartenstil.topo,
-    };
+    //
+    // **Nicht mehr die Karte des Kartenbildschirms.** Bis Version 3.4.1
+    // erbte die Landschaft dessen Stil, in der Annahme, wer dort ein
+    // Luftbild gewählt habe, wolle es auch hier. Seit die Landschaft
+    // eigene Ebenen kennt – Wanderwege, Beschriftung, Höhenlinien –
+    // trägt sie eine eigene Wahl, und die abzuleiten hiesse, drei
+    // Schalter zu erraten.
+    final auflage = await widget.library.db.gelaendeKarteWert();
     // Und die Tageszeit, aus demselben Grund an derselben Stelle.
     final stimmung = await widget.library.db.gelaendeStimmungWert();
     if (!mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => GelaendeScreen(
         titel: _k.name,
-        stil: stil,
+        auflage: auflage,
         stimmung: stimmung,
         beimStimmungswechsel: widget.library.db.setzeGelaendeStimmung,
+        beimKartenwechsel: widget.library.db.setzeGelaendeKarte,
+        wanderobjekte: _wanderobjekte,
+        fotos: _flugfotos(),
         spur: [
           for (final p in _spurpunkte)
             (breite: p.breite, laenge: p.laenge, hoehe: p.hoehe, zeit: p.zeit),
         ],
       ),
     ));
+  }
+
+  /// Die verorteten Fotos der Aktivität – für den Ueberflug.
+  ///
+  /// **Nur die mit Koordinate.** Ein Foto ohne Ort hat keine Stelle auf
+  /// der Spur; es beim Start einzublenden waere geraten. Die Vorschau
+  /// kommt aus dem Vorschauordner der Bibliothek und nicht aus der
+  /// Originaldatei: Ein RAW von fuenfzig Megabyte waehrend eines Fluges
+  /// zu dekodieren ruckelt, und die Vorschau reicht fuer 240 Punkte
+  /// zehnmal.
+  List<Gelaendefoto> _flugfotos() {
+    final uhrzeit = DateFormat.Hm(
+        Localizations.localeOf(context).toLanguageTag());
+    return [
+      for (final a in _aufnahmen)
+        if (a.latitude != null &&
+            a.longitude != null &&
+            a.thumbnailRelativePath != null)
+          (
+            breite: a.latitude!,
+            laenge: a.longitude!,
+            // Gedeckelt und nicht roh: Ein Vorschaubild ist zwar klein,
+            // aber die Regel gilt fuer jede Datei (siehe
+            // `bilddekodierung_test.dart`), und 240 Punkte reichen dem
+            // Flugbild.
+            bild: begrenztesBild(
+                widget.library.paths.absolute(a.thumbnailRelativePath!),
+                kante: 480),
+            unterschrift: uhrzeit.format(a.fileCreatedAt.toLocal()),
+          ),
+    ];
+  }
+
+  /// Gipfel, Hütten und Quellen zum Ausschnitt – aus der Bibliothek,
+  /// sonst von Overpass.
+  ///
+  /// **Die Bibliothek zuerst**, und das ist keine Bequemlichkeit:
+  /// Overpass wird ehrenamtlich betrieben und drosselt bei zu vielen
+  /// Anfragen. Eine Tour, die schon einmal angesehen wurde, fragt
+  /// niemanden mehr – auch nicht nach einem Neustart und auch nicht ohne
+  /// Netz.
+  Future<List<Wanderobjekt>> _wanderobjekte({
+    required double sued,
+    required double west,
+    required double nord,
+    required double ost,
+  }) async {
+    final zeilen = await widget.library.db.wanderpunkteFuer(
+      sued: sued,
+      west: west,
+      nord: nord,
+      ost: ost,
+      holen: () async {
+        final klient = http.Client();
+        try {
+          final frisch = await holeWanderobjekte(
+              sued: sued, west: west, nord: nord, ost: ost, netz: klient);
+          if (frisch == null) return null;
+          return [
+            for (final o in frisch)
+              (
+                osmId: o.osmId,
+                artNr: o.art.index,
+                breite: o.breite,
+                laenge: o.laenge,
+                name: o.name,
+                hoehe: o.hoehe
+              ),
+          ];
+        } finally {
+          klient.close();
+        }
+      },
+    );
+    return [
+      for (final z in zeilen)
+        if (z.artNr >= 0 && z.artNr < Wanderart.values.length)
+          Wanderobjekt(
+            osmId: z.osmId,
+            art: Wanderart.values[z.artNr],
+            breite: z.breite,
+            laenge: z.laenge,
+            name: z.name,
+            hoehe: z.hoehe,
+          ),
+    ];
   }
 
   Future<void> _spurEntfernen() async {

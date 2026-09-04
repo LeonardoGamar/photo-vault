@@ -11,12 +11,16 @@
 /// Frage.
 library;
 
+import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart' show DisabledMapCachingProvider;
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
@@ -24,8 +28,14 @@ import '../services/gelaendeflug.dart';
 import '../theme/app_spacing.dart';
 
 import '../services/gelaendekacheln.dart';
+import '../services/blocktexturen.dart';
+import '../services/gelaendetextur.dart';
 import '../services/gelaendesicht.dart';
 import '../services/lichtstimmung.dart';
+import '../services/flugvideo.dart';
+import '../services/gelaendeebenen.dart';
+import '../services/meldungsdienst.dart';
+import 'gelaendeschilder.dart';
 
 /// Wie dicht der Dunst in der Ferne höchstens wird.
 ///
@@ -89,44 +99,86 @@ typedef Gelaendespurpunkt = ({
   DateTime? zeit,
 });
 
-/// Die fertig gerechneten Dreiecke – einmal je Gitter, nicht je Bild.
+/// Ein Stück der Landschaft mit **eigener Textur**.
 ///
-/// Getrennt vom Zeichnen, weil sich beim Drehen nur die Kamera ändert
-/// und nicht das Gelände: Das Gitter in jedem Bild neu abzutasten wäre
-/// der teuerste Teil, und er ist unnötig.
-class Gelaendenetz {
+/// **Warum die Landschaft überhaupt zerfällt.** Bis hierher trug sie ein
+/// einziges Bild, und dessen Stufe war an die des Höhengitters gekettet:
+/// bei der Wanderung durch das Ilsetal Stufe 14, also 5,90 Meter je
+/// Bildpunkt. Daher der Brei. Eine einzige Textur der Stufe 18 wären
+/// 270 MB in einer Bildfläche – nicht zu halten und nicht anzulegen.
+///
+/// Also viele kleine. Jeder Block deckt genau **eine Kachel der
+/// Grundstufe** ab (siehe [Texturblock]) und wählt seine eigene Stufe
+/// nach der Entfernung zur Kamera: nah scharf, fern grob. Geladen wird
+/// nur, was zu sehen ist.
+///
+/// **Jeder Block hat seine eigenen Puffer**, und das ist keine
+/// Bequemlichkeit. `ui.Vertices.raw` kopiert die übergebenen Felder nach
+/// nativ; ein gemeinsames Feld für alle Blöcke würde bei hundert
+/// Zeichenzügen hundertmal vollständig kopiert. Ausserdem verweist
+/// Flutter auf Eckpunkte nur mit sechzehn Bit – über 65.536 Eckpunkte
+/// hinaus gäbe es keine Zeichenreihenfolge mehr, und je Block sind es
+/// wenige hundert.
+class Blocknetz {
+  /// Welches Kachelrechteck – die Adresse, unter der die Textur liegt.
+  final Texturblock block;
+
   /// Je Eckpunkt drei Zahlen: Ost, Nord, Höhe – alles in Metern,
-  /// bezogen auf die Mitte des Ausschnitts.
+  /// bezogen auf die Mitte des **ganzen** Ausschnitts.
   final Float32List ecken;
 
-  /// Je Eckpunkt zwei Zahlen: die Stelle auf der Textur, in Bildpunkten.
+  /// Je Eckpunkt zwei Zahlen: die Stelle auf der Textur **dieses
+  /// Blocks**, von 0 bis 1.
+  ///
+  /// Blocklokal und nicht über den ganzen Ausschnitt: Jeder Block trägt
+  /// sein eigenes Bild, und dessen Kanten sind seine Kachelkanten.
   final Float32List texturstellen;
 
   /// Je Eckpunkt eine Farbe – die Schattierung.
   final Int32List farben;
 
-  /// Je Eckpunkt: wie weit im Inneren des Gitters er liegt. 0 am Rand,
-  /// 1 in der Mitte.
+  /// Je Eckpunkt: wie weit im Inneren des **Ausschnitts** er liegt. 0 am
+  /// Rand, 1 innen.
   ///
-  /// Damit die Landschaft am Rand in den Dunst übergeht, statt gegen den
-  /// Himmel zu schneiden. Ohne das sieht ein Ausschnitt aus wie eine
-  /// abgerissene Karte – im Bild vom 02.09. genau so zu sehen.
+  /// Gegen den Ausschnitt gerechnet und nicht gegen den Block, sonst
+  /// bekäme jeder Block seinen eigenen weichen Saum und die Landschaft
+  /// sähe aus wie ein Fliesenspiegel.
   final Float32List randnaehe;
 
-  /// Die Ausdehnung in Metern – für den Anfangsabstand der Kamera.
-  final double breiteMeter;
-  final double hoeheMeter;
+  /// Die Mitte des Blocks in Netzmetern – für die Reihenfolge.
+  final double mitteX;
+  final double mitteY;
 
-  int get dreiecke => ecken.length ~/ 9;
+  /// Der Kasten, in dem dieser Block ganz enthalten ist – in Netzmetern.
+  ///
+  /// Acht Ecken statt hunderter Eckpunkte: Damit lässt sich in einem
+  /// Bruchteil der Zeit entscheiden, ob ein Block überhaupt ins Bild
+  /// ragt. Siehe [Gelaendemaler.imBild].
+  final double westM;
+  final double ostM;
+  final double suedM;
+  final double nordM;
+  final double tiefM;
+  final double hochM;
 
-  Gelaendenetz({
+  Blocknetz({
+    required this.block,
     required this.ecken,
     required this.texturstellen,
     required this.farben,
     required this.randnaehe,
-    required this.breiteMeter,
-    required this.hoeheMeter,
+    required this.mitteX,
+    required this.mitteY,
+    required this.westM,
+    required this.ostM,
+    required this.suedM,
+    required this.nordM,
+    required this.tiefM,
+    required this.hochM,
   });
+
+  int get eckenzahl => ecken.length ~/ 3;
+  int get dreiecke => ecken.length ~/ 9;
 
   /// Kratzpapier für den Maler.
   ///
@@ -140,143 +192,363 @@ class Gelaendenetz {
   /// Texturstellen an. Bei sechzig Bildern in der Sekunde – und der Flug
   /// ist eine Bewegung – sind das rund sechzig Megabyte Abfall je
   /// Sekunde, den der Aufräumer wieder einsammeln muss.
-  late final Int32List dunstfarben = Int32List(ecken.length ~/ 3);
-  late final Float32List tiefen = Float32List(ecken.length ~/ 3);
-  late final Float32List bildstellen = Float32List((ecken.length ~/ 3) * 2);
-  late final Uint8List hinterDerKamera = Uint8List(ecken.length ~/ 3);
+  late final Int32List dunstfarben = Int32List(eckenzahl);
+  late final Float32List tiefen = Float32List(eckenzahl);
+  late final Float32List bildstellen = Float32List(eckenzahl * 2);
+  late final Uint8List hinterDerKamera = Uint8List(eckenzahl);
 
-  /// Die Texturstellen in Bildpunkten – für [ui.ImageShader].
+  /// Die Zeichenreihenfolge der Eckpunkte – von hinten nach vorn.
+  late final Uint16List reihenfolge = Uint16List(eckenzahl);
+
+  /// Zähler für die Eimersortierung, einer je Tiefenstufe plus einer.
+  late final Int32List eimer = Int32List(tiefenstufen + 1);
+
+  /// In wie viele Tiefenstufen einsortiert wird.
   ///
-  /// **Einmal je Karte und nicht je Bild.** Sie hängen allein von der
-  /// Kartengrösse ab, nicht von der Kamera; sie in jedem Bild aus den
-  /// Anteilen neu auszurechnen war Arbeit für nichts.
-  Float32List? _texturCache;
-  int _texturFuerBreite = -1;
-  int _texturFuerHoehe = -1;
+  /// Zweitausend bei einer Landschaft von zehn Kilometern sind fünf Meter
+  /// je Stufe – feiner, als zwei Dreiecke desselben Gitterfeldes
+  /// auseinanderliegen. Innerhalb einer Stufe bleibt die Gitterreihenfolge
+  /// erhalten, weil die Zählsortierung sie nicht antastet.
+  static const int tiefenstufen = 2048;
 
-  Float32List texturInBildpunkten(ui.Image bild) {
-    if (_texturCache != null &&
-        _texturFuerBreite == bild.width &&
-        _texturFuerHoehe == bild.height) {
-      return _texturCache!;
+  /// Die kleinste und grösste Tiefe der letzten Projektion – der Maler
+  /// braucht beide über **alle** Blöcke, damit der Dunst über die ganze
+  /// Landschaft dieselbe Skala hat.
+  double nahste = double.infinity;
+  double fernste = 0;
+}
+
+/// Ein Foto, das beim Vorbeifliegen auftaucht.
+///
+/// Die Stelle steht als **Weg in Metern** und nicht als Koordinate: Wo
+/// auf der Spur ein Foto liegt, weiss der Aufrufer besser – er kennt
+/// beide. Hier zählt nur, wann es dran ist.
+typedef Flugfoto = ({
+  /// Wie weit auf der Spur, in Metern von deren Anfang.
+  double meter,
+
+  /// Das Bild – als Anbieter und nicht als Datei, damit die Landschaft
+  /// nicht wissen muss, wie eine Bibliothek ihre Vorschauen ablegt.
+  ImageProvider bild,
+
+  /// Was darunter steht – Uhrzeit oder nichts.
+  String? unterschrift,
+});
+
+/// Die fertig gerechneten Dreiecke – einmal je Gitter, nicht je Bild.
+///
+/// Getrennt vom Zeichnen, weil sich beim Drehen nur die Kamera ändert
+/// und nicht das Gelände: Das Gitter in jedem Bild neu abzutasten wäre
+/// der teuerste Teil, und er ist unnötig.
+class Gelaendenetz {
+  /// Die Blöcke, zeilenweise von Nordwesten nach Südosten.
+  final List<Blocknetz> bloecke;
+
+  /// Die Ausdehnung in Metern – für den Anfangsabstand der Kamera.
+  final double breiteMeter;
+  final double hoeheMeter;
+
+  /// Der Ausschnitt in Grad – gebraucht, um eine Übersichtskarte auf die
+  /// einzelnen Blöcke abzubilden und um Kacheln nachzuladen.
+  final double sued;
+  final double west;
+  final double nord;
+  final double ost;
+
+  /// Auf welcher Kachelstufe die Blöcke abgesteckt sind.
+  final int grundstufe;
+
+  /// Die Höhe, die als Null gilt – die Mitte zwischen tiefstem und
+  /// höchstem Punkt.
+  ///
+  /// **Steht hier und wird nicht zweimal gerechnet.** Die Spur wird
+  /// getrennt vom Netz in Meter umgerechnet und muss denselben Nullpunkt
+  /// benutzen; rechnete sie ihn selbst aus einem anders beschnittenen
+  /// Gitter, läge der Weg um die Differenz über oder unter dem Boden.
+  final double mittlereHoehe;
+
+  Gelaendenetz({
+    required this.bloecke,
+    required this.mittlereHoehe,
+    required this.breiteMeter,
+    required this.hoeheMeter,
+    required this.sued,
+    required this.west,
+    required this.nord,
+    required this.ost,
+    required this.grundstufe,
+  });
+
+  int get dreiecke {
+    var n = 0;
+    for (final b in bloecke) {
+      n += b.dreiecke;
     }
-    final aus = Float32List(texturstellen.length);
-    for (var i = 0; i < aus.length; i += 2) {
-      aus[i] = texturstellen[i] * bild.width;
-      aus[i + 1] = texturstellen[i + 1] * bild.height;
-    }
-    _texturFuerBreite = bild.width;
-    _texturFuerHoehe = bild.height;
-    return _texturCache = aus;
+    return n;
   }
 }
 
-/// Baut die Dreiecke eines Gitters.
+/// Wie viele Blöcke die Landschaft höchstens bekommt.
+///
+/// Jeder Block ist ein eigener Zeichenzug mit eigenem Shader; die lassen
+/// sich nicht zusammenfassen. Hundertvierundvierzig ist die Zahl, bis zu
+/// der `tool/messe_gelaendemaler_test.dart` keinen Ausschlag zeigt.
+/// Darüber wird die Grundstufe gröber – eine Zwölf-Kilometer-Tour hätte
+/// auf Stufe 16 über tausend Blöcke, und die sieht ohnehin niemand aus
+/// der Nähe.
+const int gelaendeHoechstensBloecke = 144;
+
+/// Die feinste Grundstufe, deren Blockzahl für diesen Ausschnitt noch
+/// unter [gelaendeHoechstensBloecke] bleibt.
+int passendeGrundstufe({
+  required double sued,
+  required double west,
+  required double nord,
+  required double ost,
+  int feinste = texturGrundstufe,
+}) {
+  for (var z = feinste; z > 0; z--) {
+    final n = texturbloecke(
+            sued: sued, west: west, nord: nord, ost: ost, grundstufe: z)
+        .length;
+    if (n <= gelaendeHoechstensBloecke) return z;
+  }
+  return 1;
+}
+
+/// Baut die Dreiecke eines Gitters – einen Satz je Block.
 ///
 /// [ueberhoehung] übertreibt die Höhe; siehe [gelaendeUeberhoehung] für
 /// den Grund.
+///
+/// **Das Gitter wird an den Blockgrenzen ausgerichtet und nicht
+/// gleichmässig über den Ausschnitt gelegt.** Läge es gleichmässig, ginge
+/// eine Masche irgendwo quer über eine Blockgrenze; ihre Texturstellen
+/// zeigten dann über den Rand des Blockbildes hinaus, und `TileMode.clamp`
+/// zöge dort den letzten Bildpunkt in die Länge – ein Schmierstreifen
+/// entlang jeder Blockkante. Deshalb bekommt jeder Block sein eigenes
+/// Untergitter, das genau an seinen Kanten anfängt und aufhört.
+///
+/// **Und deshalb klaffen die Blöcke trotzdem nicht auseinander.** Zwei
+/// Nachbarn teilen sich eine Kante; beide tasten das Höhengitter an
+/// **denselben** Grad-Koordinaten ab und bekommen damit dieselben Höhen.
+/// Innerhalb einer Blockzeile ist auch die Unterteilung dieselbe, weil
+/// alle Blöcke der Zeile denselben Breitenbereich haben.
 Gelaendenetz baueNetz(
   Hoehengitter gitter, {
   double ueberhoehung = gelaendeUeberhoehung,
   int kante = gelaendeGitterkante,
   Color grundfarbe = gelaendeGrundfarbe,
   Lichtstimmung stimmung = stimmungMittag,
+  int? grundstufe,
+  double reliefstaerke = 1.0,
 }) {
-  final g = gitter.verkleinert(kante);
-  final mitteBreite = (g.nord + g.sued) / 2;
+  final mitteBreite = (gitter.nord + gitter.sued) / 2;
   final mLaenge = meterJeGradLaenge(mitteBreite);
-  final breiteMeter = (g.ost - g.west) * mLaenge;
-  final hoeheMeter = (g.nord - g.sued) * meterJeGradBreite;
-  final spanne = g.spanne;
+  final breiteMeter = (gitter.ost - gitter.west) * mLaenge;
+  final hoeheMeter = (gitter.nord - gitter.sued) * meterJeGradBreite;
+  final spanne = gitter.spanne;
   final mittlereHoehe = (spanne.tief + spanne.hoch) / 2;
 
-  Raumpunkt punkt(int x, int y) {
-    final h = g.bei(x, y);
-    return (
-      x: (x / (g.spalten - 1) - 0.5) * breiteMeter,
-      // Zeile 0 liegt im Norden, und Norden ist +y.
-      y: (0.5 - y / (g.zeilen - 1)) * hoeheMeter,
-      z: ((h.isNaN ? mittlereHoehe : h) - mittlereHoehe) * ueberhoehung,
-    );
-  }
+  final stufe = grundstufe ??
+      passendeGrundstufe(
+          sued: gitter.sued,
+          west: gitter.west,
+          nord: gitter.nord,
+          ost: gitter.ost);
+  final bloecke = texturbloecke(
+      sued: gitter.sued,
+      west: gitter.west,
+      nord: gitter.nord,
+      ost: gitter.ost,
+      grundstufe: stufe);
 
-  final felder = (g.spalten - 1) * (g.zeilen - 1);
-  final ecken = Float32List(felder * 2 * 3 * 3);
-  final texturstellen = Float32List(felder * 2 * 3 * 2);
-  final farben = Int32List(felder * 2 * 3);
-  final randnaehe = Float32List(felder * 2 * 3);
-  final texturBreite = (g.spalten - 1).toDouble();
-  final texturHoehe = (g.zeilen - 1).toDouble();
+  // So viele Maschen je Block, dass die Landschaft insgesamt etwa so fein
+  // bleibt wie bisher: [kante] Punkte über die längere Seite des
+  // Ausschnitts, verteilt auf die Blöcke dieser Seite.
+  final spaltenBloecke =
+      kachelX(gitter.ost, stufe) - kachelX(gitter.west, stufe) + 1;
+  final zeilenBloecke =
+      kachelY(gitter.sued, stufe) - kachelY(gitter.nord, stufe) + 1;
+  final maschen = math
+      .max(2, (kante / math.max(spaltenBloecke, zeilenBloecke)).round())
+      .clamp(2, 64);
 
-  /// Wie weit im Inneren ein Gitterpunkt liegt: 0 auf der äussersten
-  /// Masche, 1 ab [saum] Maschen Abstand.
+  /// Wie weit im Inneren des **Ausschnitts** ein Punkt liegt: 0 auf der
+  /// Kante, 1 ab einem Zwanzigstel Abstand.
   ///
-  /// Ein Zwanzigstel der Kante. Ein Zehntel war zu breit: In der
-  /// Übersicht lag ein handbreiter weisser Streifen über der
-  /// Gipfelkette, und der Saum fiel mehr auf als die harte Kante, die er
-  /// ersetzen sollte.
-  final saum = math.max(2, kante ~/ 20);
-  double innen(int x, int y) {
-    final d = math.min(math.min(x, g.spalten - 1 - x),
-        math.min(y, g.zeilen - 1 - y));
-    return (d / saum).clamp(0.0, 1.0);
+  /// Ein Zwanzigstel. Ein Zehntel war zu breit: In der Übersicht lag ein
+  /// handbreiter weisser Streifen über der Gipfelkette, und der Saum fiel
+  /// mehr auf als die harte Kante, die er ersetzen sollte.
+  const saumanteil = 1 / 20;
+  final saumL = (gitter.ost - gitter.west) * saumanteil;
+  final saumB = (gitter.nord - gitter.sued) * saumanteil;
+  double innen(double breite, double laenge) {
+    final dl = math.min(laenge - gitter.west, gitter.ost - laenge) / saumL;
+    final db = math.min(breite - gitter.sued, gitter.nord - breite) / saumB;
+    return math.min(dl, db).clamp(0.0, 1.0);
   }
 
-  var e = 0;
-  var tz = 0;
-  var f = 0;
-  void lege(Raumpunkt p, int x, int y, int farbe) {
-    ecken[e++] = p.x;
-    ecken[e++] = p.y;
-    ecken[e++] = p.z;
-    texturstellen[tz++] = x / texturBreite;
-    texturstellen[tz++] = y / texturHoehe;
-    final rand = innen(x, y);
-    randnaehe[f] = rand;
-    // Die Deckkraft steckt in der Eckpunktfarbe: Am Gitterrand wird das
-    // Gelände durchsichtig, und der Himmel scheint durch.
-    //
-    // **Nicht als Dunst darüber, sondern als Durchsichtigkeit.** Der
-    // erste Versuch legte den Saum in die Dunstschicht. Das ergab ein
-    // weisses Band quer über die Gipfelkette: Der nördliche Gitterrand
-    // liegt weit hinten und ragt zwischen den Bergen hervor, und dort
-    // war er nicht durchsichtig, sondern weiss angestrichen. Sichtbar
-    // wurde es nur am gerenderten Bild.
-    farben[f++] = (farbe & 0x00FFFFFF) |
-        ((rand * 255).round().clamp(0, 255) << 24);
-  }
+  final netze = <Blocknetz>[];
+  for (final b in bloecke) {
+    // Der Block, beschnitten auf den Ausschnitt. Ein Block ragt in der
+    // Regel darüber hinaus – die Geometrie hört am Ausschnitt auf, die
+    // Textur behält ihre vollen Kachelkanten.
+    final west = math.max(b.west, gitter.west);
+    final ost = math.min(b.ost, gitter.ost);
+    final nord = math.min(b.nord, gitter.nord);
+    final sued = math.max(b.sued, gitter.sued);
+    if (!(ost > west) || !(nord > sued)) continue;
 
-  for (var y = 0; y < g.zeilen - 1; y++) {
-    for (var x = 0; x < g.spalten - 1; x++) {
-      final a = punkt(x, y);
-      final b = punkt(x + 1, y);
-      final c = punkt(x, y + 1);
-      final d = punkt(x + 1, y + 1);
-      // Zwei Dreiecke je Feld, jedes mit seiner eigenen Schattierung.
-      // Eine Schattierung je Eckpunkt sähe weicher aus und verwischte
-      // genau die Kanten, die ein Gelände lesbar machen.
-      final f1 = _farbe(
-          grundfarbe, schattierung(normale(a, b, c), stimmung), stimmung);
-      lege(a, x, y, f1);
-      lege(b, x + 1, y, f1);
-      lege(c, x, y + 1, f1);
-      final f2 = _farbe(
-          grundfarbe, schattierung(normale(b, d, c), stimmung), stimmung);
-      lege(b, x + 1, y, f2);
-      lege(d, x + 1, y + 1, f2);
-      lege(c, x, y + 1, f2);
+    Raumpunkt punkt(double breite, double laenge) {
+      final h = gitter.anOrt(breite, laenge) ?? mittlereHoehe;
+      return (
+        x: ((laenge - gitter.west) / (gitter.ost - gitter.west) - 0.5) *
+            breiteMeter,
+        y: (0.5 - (gitter.nord - breite) / (gitter.nord - gitter.sued)) *
+            hoeheMeter,
+        z: (h - mittlereHoehe) * ueberhoehung,
+      );
     }
+
+    // Die Texturstelle: der Nachkommaanteil der Kachelkoordinate auf der
+    // Grundstufe. In Mercator gerechnet, weil die Kachel es ist.
+    double u(double laenge) => kachelXGenau(laenge, stufe) - b.spalte;
+    double v(double breite) => kachelYGenau(breite, stufe) - b.zeile;
+
+    // **Ein beschnittener Block bekommt weniger Maschen.** Der äusserste
+    // Block einer Reihe ragt in der Regel über den Ausschnitt hinaus und
+    // behält davon manchmal nur ein Zehntel. Bekäme er trotzdem die volle
+    // Zahl, lägen seine Maschen zehnmal so dicht wie überall sonst –
+    // Dreiecke, die niemand sieht, und ein Saum, der aus lauter winzigen
+    // Maschen besteht.
+    //
+    // Dass die Nachbarn trotzdem zusammenpassen, liegt an der Herkunft
+    // der Zahl: Sie hängt allein an der Breite der **Spalte** und der
+    // Höhe der **Zeile**, und die sind für alle Blöcke einer Spalte
+    // beziehungsweise Zeile dieselben.
+    final maschenX =
+        math.max(1, (maschen * (ost - west) / (b.ost - b.west)).round());
+    final maschenY =
+        math.max(1, (maschen * (nord - sued) / (b.nord - b.sued)).round());
+    final felder = maschenX * maschenY;
+    final ecken = Float32List(felder * 2 * 3 * 3);
+    final texturstellen = Float32List(felder * 2 * 3 * 2);
+    final farben = Int32List(felder * 2 * 3);
+    final randnaehe = Float32List(felder * 2 * 3);
+
+    var e = 0;
+    var tz = 0;
+    var f = 0;
+    void lege(Raumpunkt p, double breite, double laenge, int farbe) {
+      ecken[e++] = p.x;
+      ecken[e++] = p.y;
+      ecken[e++] = p.z;
+      texturstellen[tz++] = u(laenge);
+      texturstellen[tz++] = v(breite);
+      final rand = innen(breite, laenge);
+      randnaehe[f] = rand;
+      // Die Deckkraft steckt in der Eckpunktfarbe: Am Rand des
+      // Ausschnitts wird das Gelände durchsichtig, und der Himmel scheint
+      // durch.
+      //
+      // **Nicht als Dunst darüber, sondern als Durchsichtigkeit.** Der
+      // erste Versuch legte den Saum in die Dunstschicht. Das ergab ein
+      // weisses Band quer über die Gipfelkette: Der nördliche Rand liegt
+      // weit hinten und ragt zwischen den Bergen hervor, und dort war er
+      // nicht durchsichtig, sondern weiss angestrichen. Sichtbar wurde es
+      // nur am gerenderten Bild.
+      farben[f++] =
+          (farbe & 0x00FFFFFF) | ((rand * 255).round().clamp(0, 255) << 24);
+    }
+
+    double laengeBei(int i) => west + (ost - west) * i / maschenX;
+    double breiteBei(int j) => nord - (nord - sued) * j / maschenY;
+
+    for (var j = 0; j < maschenY; j++) {
+      final b0 = breiteBei(j);
+      final b1 = breiteBei(j + 1);
+      for (var i = 0; i < maschenX; i++) {
+        final l0 = laengeBei(i);
+        final l1 = laengeBei(i + 1);
+        final a = punkt(b0, l0);
+        final bb = punkt(b0, l1);
+        final c = punkt(b1, l0);
+        final d = punkt(b1, l1);
+        // Zwei Dreiecke je Feld, jedes mit seiner eigenen Schattierung.
+        // Eine Schattierung je Eckpunkt sähe weicher aus und verwischte
+        // genau die Kanten, die ein Gelände lesbar machen.
+        final f1 = _farbe(grundfarbe,
+            _gedaempft(schattierung(normale(a, bb, c), stimmung), reliefstaerke),
+            stimmung);
+        lege(a, b0, l0, f1);
+        lege(bb, b0, l1, f1);
+        lege(c, b1, l0, f1);
+        final f2 = _farbe(grundfarbe,
+            _gedaempft(schattierung(normale(bb, d, c), stimmung), reliefstaerke),
+            stimmung);
+        lege(bb, b0, l1, f2);
+        lege(d, b1, l1, f2);
+        lege(c, b1, l0, f2);
+      }
+    }
+
+    final mitte = punkt((nord + sued) / 2, (west + ost) / 2);
+    var tiefM = double.infinity;
+    var hochM = double.negativeInfinity;
+    for (var i = 2; i < ecken.length; i += 3) {
+      if (ecken[i] < tiefM) tiefM = ecken[i];
+      if (ecken[i] > hochM) hochM = ecken[i];
+    }
+    final nw = punkt(nord, west);
+    final so = punkt(sued, ost);
+    netze.add(Blocknetz(
+      block: b,
+      ecken: ecken,
+      texturstellen: texturstellen,
+      farben: farben,
+      randnaehe: randnaehe,
+      mitteX: mitte.x,
+      mitteY: mitte.y,
+      westM: nw.x,
+      ostM: so.x,
+      suedM: so.y,
+      nordM: nw.y,
+      tiefM: tiefM,
+      hochM: hochM,
+    ));
   }
 
   return Gelaendenetz(
-    ecken: ecken,
-    texturstellen: texturstellen,
-    farben: farben,
-    randnaehe: randnaehe,
+    bloecke: netze,
+    mittlereHoehe: mittlereHoehe,
     breiteMeter: breiteMeter,
     hoeheMeter: hoeheMeter,
+    sued: gitter.sued,
+    west: gitter.west,
+    nord: gitter.nord,
+    ost: gitter.ost,
+    grundstufe: stufe,
   );
 }
+
+/// Zieht die Schattierung in Richtung „unbeleuchtet" – 1 lässt sie, 0
+/// nimmt sie ganz weg.
+///
+/// **Warum es das gibt.** Die Schattierung ist eine gerechnete Sonne, und
+/// `modulate` multipliziert sie auf die Textur. Bei einer Karte ist das
+/// genau richtig: Eine Karte ist flach gezeichnet und bekommt hier ihr
+/// Relief.
+///
+/// Ein **Luftbild bringt sein eigenes Licht schon mit** – als es
+/// aufgenommen wurde, stand eine echte Sonne am Himmel, und ihre Schatten
+/// stecken in den Bildpunkten. Unsere Sonne kommt dann obendrauf, und am
+/// gerenderten Bild des Ilsetals war das Ergebnis eine fast schwarze
+/// Waldflanke. Also weniger, aber nicht nichts: Ganz ohne Schattierung
+/// verliert die Landschaft ihre Form, weil ein senkrecht aufgenommenes
+/// Luftbild von der Steilheit eines Hangs kaum etwas verrät.
+double _gedaempft(double licht, double staerke) =>
+    staerke >= 1 ? licht : 1 - (1 - licht) * staerke.clamp(0.0, 1.0);
 
 /// Grundfarbe mal Helligkeit mal Lichtfarbe.
 ///
@@ -295,13 +567,130 @@ int _farbe(Color grund, double licht,
       kanal(grund.b, l.b);
 }
 
+/// Ob ein Block überhaupt ins Bild ragt.
+///
+/// **Gemessen, warum es das gibt.** Jeder Block ist ein eigener
+/// Zeichenzug mit eigenem Shader, und die lassen sich nicht
+/// zusammenfassen. Bei gleicher Dreieckszahl (rund 18.000) kostete das
+/// Aufzeichnen eines Bildes auf einem Mac:
+///
+/// ```
+///   6 Blöcke   1,27 ms
+///  20 Blöcke   1,63 ms
+///  64 Blöcke   2,39 ms
+/// 240 Blöcke   3,29 ms
+/// 900 Blöcke   7,02 ms
+/// ```
+///
+/// Im Flug steht die Kamera aber mitten in der Landschaft und sieht
+/// nach vorn: Der grösste Teil der Blöcke liegt hinter ihr oder neben
+/// dem Bildausschnitt. Geprüft werden die **acht Ecken des Kastens**,
+/// in dem der Block liegt – acht Projektionen statt mehrerer hundert.
+///
+/// Grosszügig geprüft: Ragt auch nur eine Ecke hinter die Kamera, gilt
+/// der Block als sichtbar. Ein Block, der die Kamera umschliesst, hat
+/// keine brauchbare Bildfläche – ihn wegzulassen risse ein Loch in den
+/// Vordergrund.
+bool blockImBild(Blocknetz b, Gelaendekamera kamera, Size size) {
+  var links = double.infinity;
+  var rechts = double.negativeInfinity;
+  var oben = double.infinity;
+  var unten = double.negativeInfinity;
+  var davor = 0;
+  for (var i = 0; i < 8; i++) {
+    final p = kamera.projiziere((
+      x: (i & 1) == 0 ? b.westM : b.ostM,
+      y: (i & 2) == 0 ? b.suedM : b.nordM,
+      z: (i & 4) == 0 ? b.tiefM : b.hochM,
+    ));
+    if (p.tiefe <= 1) return true;
+    davor++;
+    if (p.stelle.dx < links) links = p.stelle.dx;
+    if (p.stelle.dx > rechts) rechts = p.stelle.dx;
+    if (p.stelle.dy < oben) oben = p.stelle.dy;
+    if (p.stelle.dy > unten) unten = p.stelle.dy;
+  }
+  if (davor == 0) return false;
+  return rechts >= 0 && links <= size.width && unten >= 0 && oben <= size.height;
+}
+
+/// Welche Blöcke im Bild stehen, wie weit sie weg sind und wie fein
+/// sie sein müssten.
+///
+/// **Die Regel ist gerechnet und nicht geraten** (siehe [blockstufe]):
+/// Ein Bildpunkt deckt in der Entfernung *d* genau `d / brennweite`
+/// Meter ab. Gesucht ist die gröbste Kachelstufe, die noch feiner ist.
+///
+/// [schaerfe] ist das Pixelverhältnis des Bildschirms – auf einem
+/// Gerät mit doppelter Punktdichte ist die Karte sonst auf halbem Weg
+/// zur Unschärfe.
+///
+/// [uebersichtAufloesung] ist, was die Übersichtskarte an dieser Stelle
+/// hergibt, in Metern je Bildpunkt. Blöcke, die nicht schärfer würden
+/// als sie, kommen gar nicht erst auf die Liste: Für sie wäre ein
+/// eigener Abruf ein Bild, das genauso aussieht.
+List<Blockwunsch> bloeckeImBild(
+Gelaendenetz netz,
+Gelaendekamera kamera,
+Size size, {
+  double schaerfe = 1.0,
+  double? uebersichtAufloesung,
+}) {
+  final wo = kamera.standort;
+  final aus = <Blockwunsch>[];
+  for (final b in netz.bloecke) {
+    if (!blockImBild(b, kamera, size)) continue;
+    final dx = b.mitteX - wo.x;
+    final dy = b.mitteY - wo.y;
+    final dz = (b.tiefM + b.hochM) / 2 - wo.z;
+    final d = math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (uebersichtAufloesung != null &&
+        d / (kamera.brennweite * schaerfe) >= uebersichtAufloesung) {
+      continue;
+    }
+    aus.add((
+      block: b.block,
+      stufe: blockstufe(
+        entfernungMeter: d,
+        brennweite: kamera.brennweite,
+        breite: b.block.mitteBreite,
+        schaerfe: schaerfe,
+      ),
+      entfernung: d,
+    ));
+  }
+  return aus;
+}
+
+/// Wie viele Blöcke bei dieser Kameraeinstellung ins Bild ragen.
+///
+/// Nur zum Messen und Prüfen – das Zeichnen fragt [blockImBild] selbst.
+int bloeckeAnzahlImBild(
+    Gelaendenetz netz, Gelaendekamera kamera, Size size) {
+  var n = 0;
+  for (final b in netz.bloecke) {
+    if (blockImBild(b, kamera, size)) n++;
+  }
+  return n;
+}
+
 /// Zeichnet ein Netz mit einer Kamera.
 class Gelaendemaler extends CustomPainter {
   final Gelaendenetz netz;
   final Gelaendekamera kamera;
 
-  /// Die Karte als Textur – `null` heisst: nur schattiertes Gelände.
+  /// Die Übersichtskarte über dem ganzen Ausschnitt – `null` heisst:
+  /// nur schattiertes Gelände.
+  ///
+  /// Sie ist der **Rückfall**: Solange ein Block seine eigene, feinere
+  /// Textur noch nicht hat, schneidet er sich sein Stück hier heraus.
+  /// Ohne diesen Rückfall wäre die Landschaft während des Ladens
+  /// stellenweise leer, und Löcher fallen mehr auf als Unschärfe.
   final ui.Image? karte;
+
+  /// Die eigene Textur je Block – schärfer als [karte], und nur da, wo
+  /// sie schon geladen ist.
+  final Map<Texturblock, ui.Image>? blocktexturen;
 
   /// Die Spur, in denselben Metern wie das Netz.
   final List<Raumpunkt> spur;
@@ -322,6 +711,42 @@ class Gelaendemaler extends CustomPainter {
   /// [gefahrenBis] gehören und genauso lang sein wie [spur].
   final List<double>? streckeJePunkt;
 
+  /// Gipfel, Hütten, Quellen – als aufrechte Schilder über der
+  /// Landschaft (siehe `gelaendeschilder.dart`).
+  final List<Gelaendeschild> schilder;
+
+  /// Die Geländehöhe an einer Stelle, in Netzmetern – für die
+  /// Sichtprüfung der Schilder. Ohne sie schweben Gipfelnamen durch
+  /// Berge hindurch.
+  final double? Function(double x, double y)? hoeheBei;
+
+  /// Das Foto zur Stelle – **nur für den Videoexport**.
+  ///
+  /// Am Bildschirm ist das Flugbild ein Widget (siehe `_Flugbild`): Dort
+  /// lädt Flutter die Datei selbst, blendet auf und ab und räumt hinter
+  /// sich auf. Ein Video entsteht dagegen ohne Widgetbaum, Bild für Bild
+  /// auf eine Leinwand – dort muss dasselbe gemalt werden.
+  final ({ui.Image bild, double deckkraft, String? unterschrift})? flugbild;
+
+  /// Die Namensnennung – ebenfalls nur für den Videoexport.
+  ///
+  /// **Keine Zierleiste, sondern eine Lizenzauflage.** Am Bildschirm
+  /// steht sie als Fussnote unter der Ansicht; ein Video geht aus der
+  /// App heraus und muss sie mitnehmen.
+  final String? namensnennung;
+
+  /// Der Abspann – die Zahlen der Tour, ebenfalls nur für das Video.
+  final ({List<String> zeilen, double deckkraft})? abspann;
+
+  /// Die Schrift der Schilder – nur für Bildwerkzeuge nötig.
+  ///
+  /// `flutter test` setzt sonst „Ahem", und die malt jedes Zeichen als
+  /// gefüllten Kasten; ein Standbild sähe dann aus wie eine Reihe
+  /// schwarzer Balken, und über Grösse und Lage der Schilder liesse sich
+  /// nichts sagen. In der laufenden App bleibt das `null` – dort steht
+  /// die Schrift des Themas.
+  final String? schriftart;
+
   Gelaendemaler({
     required this.netz,
     required this.kamera,
@@ -329,8 +754,15 @@ class Gelaendemaler extends CustomPainter {
     required this.spurfarbe,
     this.stimmung = stimmungMittag,
     this.karte,
+    this.blocktexturen,
     this.gefahrenBis,
     this.streckeJePunkt,
+    this.schilder = const [],
+    this.hoeheBei,
+    this.schriftart,
+    this.flugbild,
+    this.namensnennung,
+    this.abspann,
   });
 
   /// Die Grösse des letzten Bildes – die Dunstschicht braucht sie für
@@ -355,84 +787,49 @@ class Gelaendemaler extends CustomPainter {
         ),
     );
 
-    final anzahl = netz.ecken.length ~/ 3;
-    final flach = netz.bildstellen;
-    final tiefen = netz.tiefen;
-    // Merkposten je Eckpunkt: Liegt er hinter der Kamera? Als Bytes und
-    // nicht als `List<bool>`: Dart legt die als Zeiger auf zwei Objekte
-    // ab, acht Byte je Eintrag statt einem.
-    final hinten = netz.hinterDerKamera;
+    // **Erst alle sichtbaren Blöcke projizieren, dann zeichnen.** Der
+    // Dunst braucht die nächste und die fernste Tiefe über die **ganze**
+    // Landschaft; rechnete jeder Block seine eigene Skala, bekäme jeder
+    // Block seinen eigenen Nebel und die Blockgrenzen wären als Stufen zu
+    // sehen.
     var nahste = double.infinity;
     var fernste = 0.0;
-    for (var i = 0; i < anzahl; i++) {
-      final p = kamera.projiziere((
-        x: netz.ecken[i * 3],
-        y: netz.ecken[i * 3 + 1],
-        z: netz.ecken[i * 3 + 2],
-      ));
-      flach[i * 2] = p.stelle.dx;
-      flach[i * 2 + 1] = p.stelle.dy;
-      tiefen[i] = p.tiefe;
-      hinten[i] = p.tiefe <= 1 ? 1 : 0;
-      if (hinten[i] == 0) {
-        if (p.tiefe < nahste) nahste = p.tiefe;
-        if (p.tiefe > fernste) fernste = p.tiefe;
-      }
+    final sichtbar = <Blocknetz>[];
+    for (final b in netz.bloecke) {
+      if (!blockImBild(b, kamera, size)) continue;
+      _projiziere(b);
+      if (b.nahste < nahste) nahste = b.nahste;
+      if (b.fernste > fernste) fernste = b.fernste;
+      sichtbar.add(b);
     }
 
-    // **Dreiecke hinter der Kamera fallen weg.**
+    // **Die Blöcke von hinten nach vorn.**
     //
-    // `projiziere` legt einen Punkt hinter der Kamera auf die Bildmitte –
-    // das steht dort ausdrücklich dabei, und für eine Linie ist es
-    // richtig, weil die Linie an der Stelle ohnehin abgesetzt wird. Für
-    // `drawVertices` ist es verheerend: Flutter schneidet nicht an einer
-    // vorderen Ebene, also bleibt das Dreieck stehen und spannt sich vom
-    // Bildrand bis in die Mitte. Am Bild sind das Schlieren, die aus
-    // einem Punkt herausfächern.
+    // `drawVertices` kennt keinen Tiefenpuffer: Was zuletzt gemalt wird,
+    // gewinnt. Innerhalb eines Blocks ordnet [_reihenfolgeNachTiefe] die
+    // Dreiecke; zwischen den Blöcken ordnet diese Liste.
     //
-    // In der Übersicht kam das nie vor – dort steht die Kamera immer
-    // ausserhalb der Landschaft. Beim Flug steht sie mittendrin, und
-    // hinter ihr liegt die halbe Karte.
-    //
-    // Ein Dreieck zu einem Punkt zusammenzuziehen ist die billigste
-    // Fassung von „nicht zeichnen": Es hat dann keine Fläche mehr. Das
-    // richtige Beschneiden an der vorderen Ebene würde Dreiecke teilen
-    // und neue Eckpunkte erzeugen – Aufwand für einen Rand, den man
-    // ohnehin nicht ansieht, weil er hinter einem liegt.
-    for (var d = 0; d < anzahl; d += 3) {
-      if (hinten[d] != 0 || hinten[d + 1] != 0 || hinten[d + 2] != 0) {
-        for (var k = 1; k < 3; k++) {
-          flach[(d + k) * 2] = flach[d * 2];
-          flach[(d + k) * 2 + 1] = flach[d * 2 + 1];
-        }
-      }
+    // Sortiert wird nach dem **waagerechten Abstand zur Kamera** und
+    // nicht nach der Bildtiefe des Mittelpunkts. Der Unterschied zählt
+    // bei einem Block, der die Kamera umschliesst: Sein Mittelpunkt kann
+    // hinter ihr liegen, seine sichtbare Hälfte aber unmittelbar vor ihr.
+    // Nach Bildtiefe geriete er ganz nach hinten und verschwände unter
+    // der halben Landschaft.
+    final wo = kamera.standort;
+    final ordnung = sichtbar
+      ..sort((a, b) {
+        final da = (a.mitteX - wo.x) * (a.mitteX - wo.x) +
+            (a.mitteY - wo.y) * (a.mitteY - wo.y);
+        final db = (b.mitteX - wo.x) * (b.mitteX - wo.x) +
+            (b.mitteY - wo.y) * (b.mitteY - wo.y);
+        return db.compareTo(da);
+      });
+
+    for (final b in ordnung) {
+      _zeichneBlock(canvas, b);
     }
 
-    final ecken = ui.Vertices.raw(
-      ui.VertexMode.triangles,
-      flach,
-      colors: netz.farben,
-      textureCoordinates:
-          karte == null ? null : netz.texturInBildpunkten(karte!),
-    );
-    if (karte == null) {
-      canvas.drawVertices(ecken, BlendMode.dst, Paint());
-    } else {
-      // `modulate` multipliziert die Karte mit der Schattierung: Man
-      // sieht die Wege *und* das Relief. Nur die Karte wäre eine flache
-      // Karte in Schräglage, nur die Schattierung wären Berge ohne Wege.
-      canvas.drawVertices(
-        ecken,
-        BlendMode.modulate,
-        Paint()
-          ..shader = ui.ImageShader(karte!, TileMode.clamp, TileMode.clamp,
-              Matrix4.identity().storage)
-          ..filterQuality = FilterQuality.low,
-      );
-    }
-    ecken.dispose();
-
-    _dunstDarueber(canvas, flach, hinten, nahste, fernste);
+    _dunstDarueber(canvas, ordnung, nahste, fernste);
 
     if (spur.length > 1) {
       // Zwei Pfade statt eines: der zurückgelegte Teil und der, der noch
@@ -478,6 +875,345 @@ class Gelaendemaler extends CustomPainter {
       if (teilen) _spurZug(canvas, kommtNoch, spurfarbe, 0.4);
       _spurZug(canvas, pfad, spurfarbe, 1);
     }
+
+    // Die Schilder ganz zuletzt: Sie gehören nicht in die Landschaft,
+    // sondern davor – auch vor die Spur, denn ein Name, den ein Strich
+    // durchkreuzt, ist keiner.
+    zeichneSchilder(canvas, size, kamera, schilder,
+        hoeheBei: hoeheBei, stimmung: stimmung, schriftart: schriftart);
+
+    _flugbildMalen(canvas, size);
+    _abspannMalen(canvas, size);
+    _nennungMalen(canvas, size);
+  }
+
+  /// Baut einen Textabsatz – einmal je Aufruf, und das ist hier in
+  /// Ordnung: Diese drei Dinge werden nur beim Videoexport gemalt, und
+  /// dort kostet ein Bild ohnehin eine Kodierung.
+  ui.Paragraph _absatz(String text, double groesse,
+      {Color farbe = const Color(0xFF1B1B1B),
+      FontWeight gewicht = FontWeight.w500,
+      TextAlign ausrichtung = TextAlign.left,
+      double breite = 1200}) {
+    final bauer = ui.ParagraphBuilder(ui.ParagraphStyle(
+      fontFamily: schriftart,
+      fontSize: groesse,
+      fontWeight: gewicht,
+      textAlign: ausrichtung,
+    ))
+      ..pushStyle(ui.TextStyle(color: farbe))
+      ..addText(text);
+    return bauer.build()..layout(ui.ParagraphConstraints(width: breite));
+  }
+
+  /// Das Foto zur Stelle, oben rechts – dieselbe Ecke wie am Bildschirm.
+  void _flugbildMalen(Canvas canvas, Size size) {
+    final f = flugbild;
+    if (f == null || f.deckkraft <= 0.01) return;
+    final deck = f.deckkraft.clamp(0.0, 1.0);
+    // Ein Fünftel der Bildbreite: Auf 1920 sind das 384 Punkte, auf einer
+    // kleineren Ausgabe entsprechend weniger. Eine feste Zahl liesse das
+    // Foto bei 3840 zur Briefmarke werden.
+    final kante = size.width / 5;
+    final bildhoehe = kante * 0.75;
+    final rand = size.width * 0.02;
+    final unten = f.unterschrift == null ? 0.0 : kante * 0.1;
+    final kasten = Rect.fromLTWH(size.width - kante - rand - 8, rand,
+        kante + 8, bildhoehe + 8 + unten);
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(kasten, const Radius.circular(6)),
+      Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.92 * deck),
+    );
+    final ziel = Rect.fromLTWH(kasten.left + 4, kasten.top + 4, kante,
+        bildhoehe);
+    canvas.save();
+    canvas.clipRRect(
+        RRect.fromRectAndRadius(ziel, const Radius.circular(3)));
+    // `cover`: Ein Vorschaubild ist selten 4:3, und verzerrt sähe es aus
+    // wie ein Fehler.
+    final q = _fuellend(
+        f.bild.width.toDouble(), f.bild.height.toDouble(), ziel);
+    canvas.drawImageRect(f.bild, q, ziel,
+        Paint()
+          ..color = const Color(0xFFFFFFFF).withValues(alpha: deck)
+          ..filterQuality = FilterQuality.medium);
+    canvas.restore();
+
+    if (f.unterschrift case final u?) {
+      final absatz = _absatz(u, kante * 0.075,
+          farbe: const Color(0xFF1B1B1B).withValues(alpha: deck),
+          ausrichtung: TextAlign.center,
+          breite: kante);
+      canvas.drawParagraph(absatz, Offset(kasten.left + 4, ziel.bottom + 2));
+    }
+  }
+
+  /// Der Ausschnitt aus dem Bild, der [ziel] ohne Verzerrung ausfüllt.
+  static Rect _fuellend(double b, double h, Rect ziel) {
+    if (b <= 0 || h <= 0) return Rect.fromLTWH(0, 0, b, h);
+    final quellVerhaeltnis = b / h;
+    final zielVerhaeltnis = ziel.width / ziel.height;
+    if (quellVerhaeltnis > zielVerhaeltnis) {
+      final neu = h * zielVerhaeltnis;
+      return Rect.fromLTWH((b - neu) / 2, 0, neu, h);
+    }
+    final neu = b / zielVerhaeltnis;
+    return Rect.fromLTWH(0, (h - neu) / 2, b, neu);
+  }
+
+  void _abspannMalen(Canvas canvas, Size size) {
+    final a = abspann;
+    if (a == null || a.deckkraft <= 0.01 || a.zeilen.isEmpty) return;
+    final deck = a.deckkraft.clamp(0.0, 1.0);
+    final gross = size.height * 0.055;
+    final klein = size.height * 0.026;
+    final absaetze = [
+      for (var i = 0; i < a.zeilen.length; i++)
+        _absatz(a.zeilen[i], i == 0 ? gross : klein,
+            farbe: const Color(0xFF1B1B1B),
+            gewicht: i == 0 ? FontWeight.w300 : FontWeight.w500,
+            ausrichtung: TextAlign.center,
+            breite: size.width * 0.6),
+    ];
+    var hoehe = 0.0;
+    for (final p in absaetze) {
+      hoehe += p.height;
+    }
+    final kasten = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: size.width * 0.6,
+      height: hoehe + size.height * 0.08,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(kasten, Radius.circular(size.height * 0.02)),
+      Paint()..color = const Color(0xFFFFFFFF).withValues(alpha: 0.88 * deck),
+    );
+    var y = kasten.top + size.height * 0.04;
+    for (final p in absaetze) {
+      canvas.drawParagraph(p, Offset(kasten.left, y));
+      y += p.height;
+    }
+  }
+
+  void _nennungMalen(Canvas canvas, Size size) {
+    final n = namensnennung;
+    if (n == null || n.isEmpty) return;
+    final groesse = size.height * 0.018;
+    final absatz = _absatz(n, groesse,
+        farbe: const Color(0xFFFFFFFF), breite: size.width * 0.9);
+    final rand = size.width * 0.012;
+    final wo = Offset(rand, size.height - absatz.height - rand);
+    // Ein dunkler Grund darunter: Über hellem Himmel wäre weisse Schrift
+    // unlesbar, und über dunklem Wald schwarze.
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+          Rect.fromLTWH(wo.dx - 4, wo.dy - 2, absatz.maxIntrinsicWidth + 8,
+              absatz.height + 4),
+          const Radius.circular(3)),
+      Paint()..color = const Color(0x66000000),
+    );
+    canvas.drawParagraph(absatz, wo);
+  }
+
+  /// Rechnet die Eckpunkte eines Blocks auf den Bildschirm.
+  void _projiziere(Blocknetz b) {
+    final anzahl = b.eckenzahl;
+    final flach = b.bildstellen;
+    final tiefen = b.tiefen;
+    // Merkposten je Eckpunkt: Liegt er hinter der Kamera? Als Bytes und
+    // nicht als `List<bool>`: Dart legt die als Zeiger auf zwei Objekte
+    // ab, acht Byte je Eintrag statt einem.
+    final hinten = b.hinterDerKamera;
+    var nahste = double.infinity;
+    var fernste = 0.0;
+    for (var i = 0; i < anzahl; i++) {
+      final p = kamera.projiziere((
+        x: b.ecken[i * 3],
+        y: b.ecken[i * 3 + 1],
+        z: b.ecken[i * 3 + 2],
+      ));
+      flach[i * 2] = p.stelle.dx;
+      flach[i * 2 + 1] = p.stelle.dy;
+      tiefen[i] = p.tiefe;
+      hinten[i] = p.tiefe <= 1 ? 1 : 0;
+      if (hinten[i] == 0) {
+        if (p.tiefe < nahste) nahste = p.tiefe;
+        if (p.tiefe > fernste) fernste = p.tiefe;
+      }
+    }
+
+    // **Dreiecke hinter der Kamera fallen weg.**
+    //
+    // `projiziere` legt einen Punkt hinter der Kamera auf die Bildmitte –
+    // das steht dort ausdrücklich dabei, und für eine Linie ist es
+    // richtig, weil die Linie an der Stelle ohnehin abgesetzt wird. Für
+    // `drawVertices` ist es verheerend: Flutter schneidet nicht an einer
+    // vorderen Ebene, also bleibt das Dreieck stehen und spannt sich vom
+    // Bildrand bis in die Mitte. Am Bild sind das Schlieren, die aus
+    // einem Punkt herausfächern.
+    //
+    // In der Übersicht kam das nie vor – dort steht die Kamera immer
+    // ausserhalb der Landschaft. Beim Flug steht sie mittendrin, und
+    // hinter ihr liegt die halbe Karte.
+    //
+    // Ein Dreieck zu einem Punkt zusammenzuziehen ist die billigste
+    // Fassung von „nicht zeichnen": Es hat dann keine Fläche mehr. Das
+    // richtige Beschneiden an der vorderen Ebene würde Dreiecke teilen
+    // und neue Eckpunkte erzeugen – Aufwand für einen Rand, den man
+    // ohnehin nicht ansieht, weil er hinter einem liegt.
+    for (var d = 0; d < anzahl; d += 3) {
+      if (hinten[d] != 0 || hinten[d + 1] != 0 || hinten[d + 2] != 0) {
+        for (var k = 1; k < 3; k++) {
+          flach[(d + k) * 2] = flach[d * 2];
+          flach[(d + k) * 2 + 1] = flach[d * 2 + 1];
+        }
+      }
+    }
+
+    b.nahste = nahste;
+    b.fernste = fernste;
+  }
+
+  /// Zeichnet einen Block mit der Textur, die für ihn da ist.
+  void _zeichneBlock(Canvas canvas, Blocknetz b) {
+    final bild = blocktextur(b.block);
+    final ecken = ui.Vertices.raw(
+      ui.VertexMode.triangles,
+      b.bildstellen,
+      colors: b.farben,
+      indices: _reihenfolgeNachTiefe(b),
+      textureCoordinates: bild == null ? null : b.texturstellen,
+    );
+    if (bild == null) {
+      canvas.drawVertices(ecken, BlendMode.dst, Paint());
+    } else {
+      // `modulate` multipliziert die Karte mit der Schattierung: Man
+      // sieht die Wege *und* das Relief. Nur die Karte wäre eine flache
+      // Karte in Schräglage, nur die Schattierung wären Berge ohne Wege.
+      canvas.drawVertices(
+        ecken,
+        BlendMode.modulate,
+        Paint()
+          ..shader = ui.ImageShader(bild.bild, TileMode.clamp, TileMode.clamp,
+              bild.abbildung.storage)
+          ..filterQuality = FilterQuality.low,
+      );
+    }
+    ecken.dispose();
+  }
+
+  /// Welches Bild auf einen Block gehört – und wie es darauf liegt.
+  ///
+  /// Zwei Fälle, und der zweite ist der Grund für die Rechnung: Entweder
+  /// der Block hat **seine eigene** Textur, dann füllt sie ihn genau aus;
+  /// oder es gibt nur die **Übersichtskarte** über dem ganzen Ausschnitt,
+  /// und dann muss der Block sich sein Stück daraus herausschneiden.
+  ///
+  /// Das Herausschneiden steckt in der Abbildung des Shaders und nicht in
+  /// den Texturstellen der Eckpunkte: Die sind blocklokal und liegen
+  /// fest, die Karte darunter kann wechseln. `ui.ImageShader` rechnet
+  /// Bildpunkte in eben diese blocklokalen Stellen um – bei der eigenen
+  /// Textur ist das nur ein Massstab, bei der Übersicht kommt eine
+  /// Verschiebung dazu.
+  ({ui.Image bild, Matrix4 abbildung})? blocktextur(Texturblock block) {
+    final eigen = blocktexturen?[block];
+    if (eigen != null) {
+      return (
+        bild: eigen,
+        abbildung: Matrix4.diagonal3Values(
+            1 / eigen.width, 1 / eigen.height, 1),
+      );
+    }
+    final k = karte;
+    if (k == null) return null;
+    // Wo der Block im Ausschnitt liegt – in Länge geradlinig, in Breite
+    // über Mercator, weil die Karte eine Kachelkarte ist.
+    final u0 = (block.west - netz.west) / (netz.ost - netz.west);
+    final u1 = (block.ost - netz.west) / (netz.ost - netz.west);
+    final yN = kachelYGenau(netz.nord, 0);
+    final yS = kachelYGenau(netz.sued, 0);
+    final v0 = (kachelYGenau(block.nord, 0) - yN) / (yS - yN);
+    final v1 = (kachelYGenau(block.sued, 0) - yN) / (yS - yN);
+    if (!(u1 > u0) || !(v1 > v0)) return null;
+    final sx = 1 / (k.width * (u1 - u0));
+    final sy = 1 / (k.height * (v1 - v0));
+    return (
+      bild: k,
+      abbildung: Matrix4.identity()
+        ..translateByDouble(-u0 / (u1 - u0), -v0 / (v1 - v0), 0, 1)
+        ..scaleByDouble(sx, sy, 1, 1),
+    );
+  }
+
+  /// Die Eckpunkte eines Blocks in Zeichenreihenfolge – fernste Dreiecke
+  /// zuerst.
+  ///
+  /// **Zählsortierung und kein Vergleich.** Neuntausend Dreiecke je Bild
+  /// bei sechzig Bildern in der Sekunde: `sort` wäre n·log(n) mit einem
+  /// Vergleichsaufruf je Schritt, das hier ist zweimal linear plus ein
+  /// Durchlauf über die Eimer.
+  ///
+  /// Die Tiefe eines Dreiecks ist das Mittel seiner drei Eckpunkte. Ein
+  /// Dreieck mit einem Punkt hinter der Kamera ist an dieser Stelle
+  /// bereits auf einen Punkt zusammengezogen (siehe [_projiziere]) – es
+  /// hat keine Fläche mehr und darf deshalb irgendwohin; es kommt nach
+  /// ganz hinten.
+  ///
+  /// **Der Fund, den das behoben hat.** Vorher verliess sich der Maler
+  /// darauf, die Gitterreihenfolge (Norden nach Süden) sei schon von
+  /// hinten nach vorn. Das gilt nur, solange die Kamera nach Norden
+  /// sieht – **die Flugkamera dreht sich in Laufrichtung** (siehe
+  /// `Gelaendeflug.drehung`). Wer nach Süden wandert, sah fernes Gelände
+  /// über nahem: am gerenderten Bild ein breites Band quer durch die
+  /// Landschaft, in `gelaende_zeichenreihenfolge_test.dart` 960 von 3120
+  /// Bildpunkten.
+  Uint16List _reihenfolgeNachTiefe(Blocknetz netz) {
+    final ordnung = netz.reihenfolge;
+    final eimer = netz.eimer;
+    final tiefen = netz.tiefen;
+    final hinten = netz.hinterDerKamera;
+    final dreiecke = ordnung.length ~/ 3;
+    const stufen = Blocknetz.tiefenstufen;
+    final nahste = netz.nahste;
+    final fernste = netz.fernste;
+    final spanne = fernste - nahste;
+
+    // Ohne Tiefenunterschied gibt es nichts zu ordnen - die Gitterfolge
+    // ist dann so gut wie jede andere.
+    if (!(spanne > 0)) {
+      for (var i = 0; i < ordnung.length; i++) {
+        ordnung[i] = i;
+      }
+      return ordnung;
+    }
+
+    /// Stufe 0 ist die fernste. Damit kommt sie beim Auslesen zuerst.
+    int stufeVon(int d) {
+      if (hinten[d * 3] != 0 ||
+          hinten[d * 3 + 1] != 0 ||
+          hinten[d * 3 + 2] != 0) {
+        return 0;
+      }
+      final t = (tiefen[d * 3] + tiefen[d * 3 + 1] + tiefen[d * 3 + 2]) / 3;
+      final anteil = ((fernste - t) / spanne).clamp(0.0, 1.0);
+      return (anteil * (stufen - 1)).toInt();
+    }
+
+    eimer.fillRange(0, eimer.length, 0);
+    for (var d = 0; d < dreiecke; d++) {
+      eimer[stufeVon(d) + 1]++;
+    }
+    for (var s = 1; s < eimer.length; s++) {
+      eimer[s] += eimer[s - 1];
+    }
+    for (var d = 0; d < dreiecke; d++) {
+      final stelle = eimer[stufeVon(d)]++ * 3;
+      ordnung[stelle] = d * 3;
+      ordnung[stelle + 1] = d * 3 + 1;
+      ordnung[stelle + 2] = d * 3 + 2;
+    }
+    return ordnung;
   }
 
   /// **Der Dunst in der Ferne – und die weiche Kante.**
@@ -491,61 +1227,70 @@ class Gelaendemaler extends CustomPainter {
   /// Was weiter weg ist, verblasst – der älteste Tiefenhinweis der
   /// Malerei und der einzige, den eine Ansicht ohne Schattenwurf hat.
   /// Die Skala kommt aus der Szene selbst (nächster und fernster
-  /// Eckpunkt), damit sie in der Übersicht wie im Flug passt.
+  /// Eckpunkt **über alle Blöcke**), damit sie in der Übersicht wie im
+  /// Flug passt und nicht an den Blockgrenzen springt.
   ///
   /// Die weiche Kante steckt dagegen in der Deckkraft des Geländes
   /// selbst (siehe [baueNetz]) – hier wird sie nur ausgespart.
-  void _dunstDarueber(Canvas canvas, Float32List flach, Uint8List hinten,
-      double nahste, double fernste) {
+  void _dunstDarueber(
+      Canvas canvas, List<Blocknetz> ordnung, double nahste, double fernste) {
     if (_flaeche.isEmpty) return;
-    final anzahl = flach.length ~/ 2;
-    if (anzahl == 0 || fernste <= nahste) return;
-    final farben = netz.dunstfarben;
-    final tiefen = netz.tiefen;
+    if (fernste <= nahste) return;
     final spanne = fernste - nahste;
     final rot = (stimmung.dunst.r * 255).round().clamp(0, 255);
     final gruen = (stimmung.dunst.g * 255).round().clamp(0, 255);
     final blau = (stimmung.dunst.b * 255).round().clamp(0, 255);
     final grundton = (rot << 16) | (gruen << 8) | blau;
 
-    for (var i = 0; i < anzahl; i++) {
-      if (hinten[i] != 0) {
-        farben[i] = 0;
-        continue;
-      }
-      final t = ((tiefen[i] - nahste) / spanne).clamp(0.0, 1.0);
-      final deckung = _dunstStaerke * (1 - math.exp(-_dunstDichte * t))
-          // Wo das Gelände selbst schon durchsichtig ist, darf der Dunst
-          // es nicht wieder zumalen.
-          * netz.randnaehe[i];
-      farben[i] = ((deckung * 255).round().clamp(0, 255) << 24) | grundton;
-    }
-
-    final schleier = ui.Vertices.raw(ui.VertexMode.triangles, flach,
-        colors: farben);
     // **Auf eine eigene Schicht, und dort ersetzend statt überlagernd.**
     //
-    // `drawVertices` kennt keinen Tiefenpuffer; die Dreiecke liegen in
-    // der Reihenfolge des Gitters, und die läuft von Norden nach Süden,
-    // also von hinten nach vorn. Für das Gelände geht das auf: Das Nahe
-    // deckt das Ferne zu.
-    //
-    // Für den Dunst geht es nicht auf, und das war am Bild zu sehen:
-    // Hinter einem Grat liegt ferne Landschaft, deren Dunst zuerst
-    // gemalt wird – und das nahe Dreieck darüber trägt fast keinen
-    // Dunst, deckt also nichts zu. Übrig blieb ein weisses Band quer
-    // über die Gipfelkette. Erst die Gegenprobe mit ausgeschaltetem
-    // Saum zeigte, dass es nicht der Rand war.
+    // `drawVertices` kennt keinen Tiefenpuffer; für das Gelände löst das
+    // die Reihenfolge, für den Dunst reicht sie nicht: Hinter einem Grat
+    // liegt ferne Landschaft, deren Dunst zuerst gemalt wird – und das
+    // nahe Dreieck darüber trägt fast keinen Dunst, deckt also nichts zu.
+    // Übrig blieb ein weisses Band quer über die Gipfelkette. Erst die
+    // Gegenprobe mit ausgeschaltetem Saum zeigte, dass es nicht der Rand
+    // war.
     //
     // Auf einer eigenen Schicht mit `src` **ersetzt** jedes Dreieck, was
     // dort steht. Weil sie von hinten nach vorn kommen, gewinnt das
     // nächste – genau das, was ein Tiefenpuffer täte. Die fertige
     // Schicht kommt dann in einem Zug über das Gelände.
+    //
+    // **Eine Schicht für alle Blöcke**, nicht eine je Block: Eine
+    // Zwischenfläche in Bildschirmgrösse ist der teuerste Einzelposten
+    // dieses Malers, und hundert davon je Bild wären hundertmal der
+    // Preis. Die Blöcke kommen in derselben Reihenfolge hinein wie das
+    // Gelände, damit `src` innerhalb der Schicht dasselbe leistet.
     canvas.saveLayer(Offset.zero & _flaeche, Paint());
-    canvas.drawVertices(
-        schleier, BlendMode.dst, Paint()..blendMode = BlendMode.src);
+    final farbe = Paint()..blendMode = BlendMode.src;
+    for (final b in ordnung) {
+      final anzahl = b.eckenzahl;
+      final farben = b.dunstfarben;
+      final tiefen = b.tiefen;
+      final hinten = b.hinterDerKamera;
+      for (var i = 0; i < anzahl; i++) {
+        if (hinten[i] != 0) {
+          farben[i] = 0;
+          continue;
+        }
+        final t = ((tiefen[i] - nahste) / spanne).clamp(0.0, 1.0);
+        final deckung = _dunstStaerke * (1 - math.exp(-_dunstDichte * t))
+            // Wo das Gelände selbst schon durchsichtig ist, darf der
+            // Dunst es nicht wieder zumalen.
+            * b.randnaehe[i];
+        farben[i] = ((deckung * 255).round().clamp(0, 255) << 24) | grundton;
+      }
+      // Dieselbe Ordnung wie das Gelände – hier ist sie sogar zwingend:
+      // Auf der eigenen Schicht ERSETZT jedes Dreieck, was dort steht,
+      // und gewinnen soll das nächste.
+      final schleier = ui.Vertices.raw(
+          ui.VertexMode.triangles, b.bildstellen,
+          colors: farben, indices: b.reihenfolge);
+      canvas.drawVertices(schleier, BlendMode.dst, farbe);
+      schleier.dispose();
+    }
     canvas.restore();
-    schleier.dispose();
   }
 
   /// **Die Spur in drei Zügen.**
@@ -595,6 +1340,10 @@ class Gelaendemaler extends CustomPainter {
       alt.kamera != kamera ||
       alt.stimmung != stimmung ||
       alt.karte != karte ||
+      alt.blocktexturen != blocktexturen ||
+      alt.schilder != schilder ||
+      alt.flugbild != flugbild ||
+      alt.abspann != abspann ||
       alt.spur != spur ||
       // Ohne diese Zeile stünde der Schnitt zwischen zurückgelegt und
       // kommend still, sobald die Kamera einmal gleich bleibt – etwa
@@ -631,6 +1380,47 @@ class Gelaendeansicht extends StatefulWidget {
   /// Spalte zu stapeln kann nur die Stelle, die beide kennt.
   final List<Widget> fussnoten;
 
+  /// Was auf der Landschaft liegen soll – Grund, Ebenen, Höhenlinien.
+  ///
+  /// Dieselbe Wahl wie bei [karte]; die Übersicht ist nur der Rückfall,
+  /// solange ein Block seine eigene Textur noch nicht hat.
+  final Gelaendekarte auflage;
+
+  /// Das Höhengitter – für die Höhenlinien, die daraus gerechnet werden
+  /// statt geladen zu werden, und für die Sichtprüfung der Schilder.
+  final Hoehengitter? hoehen;
+
+  /// Gipfel, Hütten, Quellen – als aufrechte Schilder über der
+  /// Landschaft.
+  final List<Gelaendeschild> schilder;
+
+  /// Die Namensnennung, die **ins Video** gebrannt wird.
+  ///
+  /// Am Bildschirm steht sie als Fussnote unter der Ansicht; ein Video
+  /// geht aus der App heraus und muss sie mitnehmen. Keine Zierleiste,
+  /// sondern eine Lizenzauflage.
+  final String? namensnennung;
+
+  /// Wohin das Video geschrieben wird – `null` heisst: kein Knopf dafür.
+  ///
+  /// Als Rückruf und nicht als Pfad: Wo eine Datei hinsoll, fragt man
+  /// den, der sie haben will, und ein Dateiwähler gehört nicht in ein
+  /// Widget, das eine Landschaft zeichnet.
+  final Future<File?> Function()? beimVideoZiel;
+
+  /// Die Fotos der Aktivität, mit ihrer Stelle auf der Spur.
+  ///
+  /// **Das ist der Punkt, an dem sich eine Fotoverwaltung von einem
+  /// Sportprogramm unterscheidet.** Strava und Relive fliegen dieselbe
+  /// Spur ab; nur hier liegen die Bilder schon daneben und mussten nur
+  /// noch hergereicht werden.
+  final List<Flugfoto> fotos;
+
+  /// Nur für Tests: Wer hier etwas hereinreicht, holt keine Kacheln aus
+  /// dem Netz – und geht dann auch am gemeinsamen Kachelspeicher vorbei,
+  /// damit ein Test nicht davon abhängt, was auf dieser Platte liegt.
+  final http.Client? netzKlient;
+
   const Gelaendeansicht({
     super.key,
     required this.netz,
@@ -639,6 +1429,13 @@ class Gelaendeansicht extends StatefulWidget {
     this.karte,
     this.stimmung = stimmungMittag,
     this.fussnoten = const [],
+    this.auflage = const Gelaendekarte(),
+    this.hoehen,
+    this.schilder = const [],
+    this.fotos = const [],
+    this.namensnennung,
+    this.beimVideoZiel,
+    this.netzKlient,
   });
 
   @override
@@ -686,10 +1483,18 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
   /// gehört durchweg dem Betrachter.
   double _flugversatz = 0;
 
+  /// Der Lader für die scharfen Blocktexturen.
+  ///
+  /// **Gehört der Ansicht und nicht dem Bildschirm**, weil er die Kamera
+  /// braucht: Welcher Block wie fein sein muss, hängt daran, wie weit er
+  /// weg ist, und das weiss nur, wer die Kamera führt.
+  Blocktexturlader? _lader;
+
   @override
   void initState() {
     super.initState();
     _flug = Gelaendeflug(widget.spur, werte: widget.spurwerte);
+    _laderAufsetzen();
     _uhr = AnimationController(vsync: this, duration: _dauer())
       ..addListener(() => setState(() {}))
       ..addStatusListener((stand) {
@@ -706,14 +1511,101 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       _flug = Gelaendeflug(widget.spur, werte: widget.spurwerte);
       _uhr.duration = _dauer();
     }
+    // Anderes Gelände oder andere Karte heisst andere Texturen. Der alte
+    // Vorrat muss dabei **freigegeben** werden, sonst bliebe der Speicher
+    // der Grafikkarte bei jedem Stilwechsel um achtzig Megabyte voller.
+    if (alt.netz != widget.netz || alt.auflage != widget.auflage) {
+      _lader?.schliessen();
+      _laderAufsetzen();
+    }
   }
 
-  Duration _dauer() => _flug.moeglich
-      ? _flug.dauerBei(_flugtempo)
-      : const Duration(seconds: 10);
+  void _laderAufsetzen() {
+    _lader = Blocktexturlader(
+      karte: widget.auflage,
+      hoehen: widget.hoehen,
+      grundstufe: widget.netz.grundstufe,
+      netz: widget.netzKlient,
+      speicher: widget.netzKlient == null
+          ? null
+          : const DisabledMapCachingProvider(),
+      beiAenderung: () {
+        if (mounted) setState(() {});
+      },
+    );
+  }
+
+  /// Die Geländehöhe an einer Stelle des Netzes, in Netzmetern.
+  ///
+  /// **Aus dem Höhengitter und nicht aus dem Netz.** Das Netz besteht aus
+  /// Dreiecken und liesse sich nur durch Suchen abfragen; das Gitter kann
+  /// es direkt und bilinear. Gebraucht wird es für die Sichtprüfung der
+  /// Schilder – zwanzig Abfragen je Schild und Bild.
+  double? _hoeheBei(double x, double y) {
+    final g = widget.hoehen;
+    final netz = widget.netz;
+    if (g == null || netz.breiteMeter <= 0 || netz.hoeheMeter <= 0) return null;
+    final laenge = netz.west +
+        (x / netz.breiteMeter + 0.5) * (netz.ost - netz.west);
+    final breite = netz.nord -
+        (0.5 - y / netz.hoeheMeter) * (netz.nord - netz.sued);
+    final h = g.anOrt(breite, laenge);
+    if (h == null) return null;
+    return (h - netz.mittlereHoehe) * gelaendeUeberhoehung;
+  }
+
+  /// Was die Übersichtskarte an dieser Stelle hergibt, in Metern je
+  /// Bildpunkt – die Schwelle, ab der ein eigener Abruf sich lohnt.
+  double? get _uebersichtAufloesung {
+    final k = widget.karte;
+    if (k == null || k.width == 0) return null;
+    final mitte = (widget.netz.nord + widget.netz.sued) / 2;
+    return (widget.netz.ost - widget.netz.west) *
+        meterJeGradLaenge(mitte) /
+        k.width;
+  }
+
+  /// Wie lange der Einflug dauert, als Anteil an der ganzen Vorführung.
+  ///
+  /// **Warum es ihn gibt.** Bisher stand die Kamera im ersten Bild
+  /// mitten in der Landschaft, und man wusste nicht, wo. Der Einflug
+  /// beantwortet die Frage, die vor allen anderen kommt: *wo sind wir
+  /// überhaupt.* Er beginnt in der Übersicht, die man gerade noch
+  /// gesehen hat, und geht von dort auf den Startpunkt zu – dieselbe
+  /// Bewegung, die Strava und Relive an den Anfang stellen.
+  static const double _einflugAnteil = 0.07;
+
+  /// Und der Abspann am Ende – aufziehen und die Zahlen zeigen.
+  static const double _abspannAnteil = 0.10;
+
+  Duration _dauer() {
+    final flug = _flug.moeglich
+        ? _flug.dauerBei(_flugtempo)
+        : const Duration(seconds: 10);
+    // Einflug und Abspann kommen oben drauf, statt vom Flug abzugehen:
+    // Sonst wäre eine kurze Wanderung nach dem Einflug schon vorbei.
+    return flug * (1 / (1 - _einflugAnteil - _abspannAnteil));
+  }
+
+  /// Wo in der Vorführung wir sind.
+  ///
+  /// Drei Abschnitte auf einer Uhr: Einflug, Flug, Abspann. Sie liegen
+  /// auf **einer** Uhr und nicht auf dreien, damit der Regler unter dem
+  /// Bild die ganze Vorführung zeigt und nicht nur ihren Mittelteil.
+  ({double einflug, double flug, double abspann}) get _abschnitt {
+    final t = _uhr.value;
+    const a = _einflugAnteil;
+    const b = 1 - _abspannAnteil;
+    return (
+      einflug: t < a ? (t / a).clamp(0.0, 1.0) : 1.0,
+      flug: ((t - a) / (b - a)).clamp(0.0, 1.0),
+      abspann: t <= b ? 0.0 : ((t - b) / (1 - b)).clamp(0.0, 1.0),
+    );
+  }
 
   @override
   void dispose() {
+    _lader?.schliessen();
     _uhr.dispose();
     super.dispose();
   }
@@ -747,6 +1639,318 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
     });
   }
 
+  /// Ob gerade ein Video geschrieben wird.
+  bool _videoLaeuft = false;
+
+  /// Vom Knopf gesetzt, vom Lauf vor jedem Bild gelesen.
+  bool _videoAbbruch = false;
+
+  /// Wie weit die Ausgabe ist, 0 bis 1.
+  double _videoFortschritt = 0;
+
+  /// Die Grösse des ausgegebenen Videos.
+  ///
+  /// **Fest und nicht die Fenstergrösse.** Ein Video, dessen Kantenlänge
+  /// davon abhängt, wie gross gerade das Fenster war, ist beim
+  /// Weitergeben eine Überraschung – und auf einem Bildschirm mit
+  /// doppelter Punktdichte wäre es 3840 breit und viermal so teuer.
+  /// 1920 × 1080 nimmt jede Plattform an.
+  static const int _videoBreite = 1920;
+  static const int _videoHoehe = 1080;
+
+  /// Schreibt den Flug als Video – oder bricht einen laufenden ab.
+  Future<void> _videoAusgeben() async {
+    if (_videoLaeuft) {
+      setState(() => _videoAbbruch = true);
+      return;
+    }
+    final t = AppTexte.of(context);
+    final werkzeug = await ffmpegPfad();
+    if (!mounted) return;
+    if (werkzeug == null) {
+      melde.warnung(t.flugVideoKeinWerkzeug);
+      return;
+    }
+    final ziel = await widget.beimVideoZiel?.call();
+    if (ziel == null || !mounted) return;
+
+    // **Die Fotos vorher aufdecken.** Am Bildschirm lädt Flutter sie
+    // selbst, während der Flug läuft; ein Video entsteht ohne
+    // Widgetbaum, und ein Bild, das erst zur Hälfte des Fluges ankommt,
+    // fehlte in den Bildern davor.
+    final fotos = <double, ui.Image>{};
+    for (final f in widget.fotos) {
+      final bild = await _bildAufdecken(f.bild);
+      if (bild != null) fotos[f.meter] = bild;
+    }
+    if (!mounted) {
+      for (final b in fotos.values) {
+        b.dispose();
+      }
+      return;
+    }
+
+    setState(() {
+      _videoLaeuft = true;
+      _videoAbbruch = false;
+      _videoFortschritt = 0;
+    });
+    try {
+      final ergebnis = await schreibeFlugvideo(
+        ziel: ziel,
+        breite: _videoBreite,
+        hoehe: _videoHoehe,
+        dauer: _uhr.duration ?? const Duration(seconds: 20),
+        ffmpeg: werkzeug,
+        abbruch: () => _videoAbbruch || !mounted,
+        // Der Fortschritt steht als Balken über der Flugleiste und nicht
+        // als Meldung: Eine Meldung, die neunhundertmal aktualisiert
+        // wird, ist keine Meldung mehr.
+        fortschritt: (a) {
+          if (mounted) setState(() => _videoFortschritt = a);
+        },
+        // **Vor jedem Bild die Kacheln holen, die darin stehen.** Ohne
+        // das nähme die Ausgabe die Texturen, die gerade zufällig im
+        // Vorrat lagen – am Bildschirm holt der Lader nach, während man
+        // fliegt, ein Video hat dafür keine Gelegenheit mehr.
+        vorBild: (zeit) => _videoKachelnHolen(zeit),
+        maleBild: (leinwand, flaeche, zeit) =>
+            _videobild(leinwand, flaeche, zeit, fotos),
+      );
+      if (!mounted) return;
+      switch (ergebnis.ausgang) {
+        case Videoausgang.fertig:
+          melde.hinweis(t.flugVideoFertig(ziel.uri.pathSegments.last));
+        case Videoausgang.abgebrochen:
+          melde.hinweis(t.flugVideoAbgebrochen);
+        case Videoausgang.keinWerkzeug:
+          melde.warnung(t.flugVideoKeinWerkzeug);
+        case Videoausgang.fehler:
+          melde.warnung(t.flugVideoFehler(ergebnis.meldung ?? '?'));
+      }
+    } finally {
+      for (final b in fotos.values) {
+        b.dispose();
+      }
+      if (mounted) {
+        setState(() {
+          _videoLaeuft = false;
+          _videoAbbruch = false;
+        });
+      }
+    }
+  }
+
+  /// Holt aus einem Bildanbieter ein fertiges `ui.Image`.
+  Future<ui.Image?> _bildAufdecken(ImageProvider anbieter) {
+    final fertig = Completer<ui.Image?>();
+    final strom = anbieter.resolve(ImageConfiguration.empty);
+    late ImageStreamListener horcher;
+    horcher = ImageStreamListener(
+      (info, _) {
+        if (!fertig.isCompleted) fertig.complete(info.image.clone());
+        info.dispose();
+        strom.removeListener(horcher);
+      },
+      onError: (_, __) {
+        // Ein Bild, das nicht kommt, nimmt das Video nicht mit.
+        if (!fertig.isCompleted) fertig.complete(null);
+        strom.removeListener(horcher);
+      },
+    );
+    strom.addListener(horcher);
+    return fertig.future;
+  }
+
+  /// Sagt dem Lader, was in diesem Videobild steht – und wartet kurz.
+  Future<void> _videoKachelnHolen(double zeit) async {
+    final lader = _lader;
+    if (lader == null) return;
+    lader.brauche(bloeckeImBild(
+      widget.netz,
+      _videokamera(zeit, _videoBreite.toDouble(), _videoHoehe.toDouble()),
+      Size(_videoBreite.toDouble(), _videoHoehe.toDouble()),
+      uebersichtAufloesung: _uebersichtAufloesung,
+    ));
+    // Eine kurze Frist je Bild: Bei einer Tour, die schon einmal
+    // angesehen wurde, liegen die Kacheln auf der Platte und es kostet
+    // nichts. Beim ersten Mal wird die Ausgabe länger – und bleibt nicht
+    // stehen, wenn ein Server schweigt.
+    await lader.ruhe(hoechstens: const Duration(milliseconds: 700));
+  }
+
+  /// Die Kamera für ein Videobild – dieselbe Rechnung wie am Bildschirm.
+  Gelaendekamera _videokamera(double zeit, double breite, double hoehe) {
+    final ausdehnung =
+        math.max(widget.netz.breiteMeter, widget.netz.hoeheMeter);
+    final abschnitt = _abschnittBei(zeit);
+    final stand = _flug.bei(abschnitt.flug);
+    final brennweite = math.min(breite, hoehe) * 1.1;
+    final uebersicht = Gelaendekamera(
+      drehung: _drehung,
+      neigung: _neigung,
+      entfernung: ausdehnung * 0.95,
+      brennweite: brennweite,
+      mitte: Offset(breite / 2, hoehe * 0.5),
+    );
+    final flugkamera = Gelaendekamera(
+      drehung: stand.drehung,
+      neigung: _neigung,
+      entfernung: Gelaendeflug.flugabstand(
+          ausdehnung: ausdehnung,
+          kante: gelaendeGitterkante,
+          brennweite: brennweite),
+      brennweite: brennweite,
+      mitte: Offset(breite / 2, hoehe * 0.62),
+      blickpunkt: stand.blickpunkt,
+    );
+    if (abschnitt.einflug < 1) {
+      return _zwischenKamera(uebersicht, flugkamera,
+          Curves.easeInOutCubic.transform(abschnitt.einflug));
+    }
+    if (abschnitt.abspann > 0) {
+      return _zwischenKamera(flugkamera, uebersicht,
+          Curves.easeInOutCubic.transform(abschnitt.abspann));
+    }
+    return flugkamera;
+  }
+
+  /// Malt ein einzelnes Videobild – dieselbe Rechnung wie am Bildschirm,
+  /// nur auf eine feste Leinwand statt in ein Fenster.
+  void _videobild(ui.Canvas leinwand, ui.Size flaeche, double zeit,
+      Map<double, ui.Image> fotos) {
+    final abschnitt = _abschnittBei(zeit);
+    final stand = _flug.bei(abschnitt.flug);
+    final kamera = _videokamera(zeit, flaeche.width, flaeche.height);
+
+    final foto = _fotoBei(stand.gefahrenMeter);
+    final bild = foto == null ? null : fotos[foto.meter];
+
+    Gelaendemaler(
+      netz: widget.netz,
+      kamera: kamera,
+      spur: widget.spur,
+      karte: widget.karte,
+      blocktexturen: _lader?.bilder,
+      spurfarbe: const Color(0xFFFF5722),
+      stimmung: widget.stimmung,
+      gefahrenBis: stand.gefahrenMeter,
+      streckeJePunkt: _flug.streckeJePunkt,
+      schilder: widget.schilder,
+      hoeheBei: _hoeheBei,
+      flugbild: bild == null
+          ? null
+          : (
+              bild: bild,
+              deckkraft: _fotoDeckkraft(stand.gefahrenMeter),
+              unterschrift: foto!.unterschrift
+            ),
+      namensnennung: widget.namensnennung,
+      abspann: abschnitt.abspann <= 0
+          ? null
+          : (
+              zeilen: _abspannzeilen(),
+              deckkraft: Curves.easeIn.transform(abschnitt.abspann)
+            ),
+    ).paint(leinwand, flaeche);
+  }
+
+  /// Dieselbe Abschnittsrechnung wie [_abschnitt], nur für eine Zeit, die
+  /// nicht von der Uhr kommt – beim Video läuft keine.
+  ({double einflug, double flug, double abspann}) _abschnittBei(double t) {
+    const a = _einflugAnteil;
+    const b = 1 - _abspannAnteil;
+    return (
+      einflug: t < a ? (t / a).clamp(0.0, 1.0) : 1.0,
+      flug: ((t - a) / (b - a)).clamp(0.0, 1.0),
+      abspann: t <= b ? 0.0 : ((t - b) / (1 - b)).clamp(0.0, 1.0),
+    );
+  }
+
+  List<String> _abspannzeilen() {
+    final t = AppTexte.of(context);
+    final zahl = NumberFormat(
+        '#,##0.0', Localizations.localeOf(context).toLanguageTag());
+    final hoch = _flug.aufstiegMeter;
+    final dauer = _flug.gesamtdauer;
+    return [
+      '${zahl.format(_flug.laengeMeter / 1000)} km',
+      [
+        if (hoch != null) '${hoch.round()} m ${t.flugAufstieg}',
+        if (dauer != null)
+          '${dauer.inHours > 0 ? '${dauer.inHours}:${(dauer.inMinutes % 60).toString().padLeft(2, '0')} h' : '${dauer.inMinutes} min'} ${t.flugUnterwegs}',
+      ].join('   ·   '),
+    ];
+  }
+
+  /// Wie weit vor und hinter einem Foto es zu sehen ist, in Metern.
+  ///
+  /// **Als Anteil der Strecke und nicht als feste Zahl.** Bei einem
+  /// Spaziergang von zwei Kilometern wären zweihundert Meter ein Zehntel
+  /// des Weges; bei einer Radtour über hundert wären sie zwei
+  /// Zehntelsekunden. Sechs Prozent sind bei jeder Länge rund sechs
+  /// Prozent der Vorführung – zwei bis vier Sekunden.
+  double get _fotofenster =>
+      math.max(120.0, _flug.laengeMeter * 0.06);
+
+  /// Welches Foto an dieser Stelle dran ist.
+  Flugfoto? _fotoBei(double meter) {
+    Flugfoto? naechstes;
+    var naechster = double.infinity;
+    for (final f in widget.fotos) {
+      final d = (f.meter - meter).abs();
+      if (d < naechster && d <= _fotofenster / 2) {
+        naechster = d;
+        naechstes = f;
+      }
+    }
+    return naechstes;
+  }
+
+  /// Wie deutlich es gerade zu sehen ist – auf- und abblendend.
+  ///
+  /// Ein Bild, das hart erscheint und hart verschwindet, wirkt wie ein
+  /// Fehler. Das Auf- und Abblenden nimmt das erste Fünftel des Fensters
+  /// und das letzte.
+  double _fotoDeckkraft(double meter) {
+    final f = _fotoBei(meter);
+    if (f == null) return 0;
+    final anteil = ((f.meter - meter).abs() / (_fotofenster / 2)).clamp(0.0, 1.0);
+    return anteil > 0.8 ? (1 - anteil) / 0.2 : 1.0;
+  }
+
+  /// Mischt zwei Kameraeinstellungen – für Einflug und Abspann.
+  ///
+  /// **Die Drehung braucht Sonderbehandlung.** Sie ist ein Winkel, und
+  /// zwischen 3,1 und −3,1 liegt kein halber Umlauf, sondern ein
+  /// Fingerbreit. Ohne die Rechnung mit dem kürzeren Weg drehte sich die
+  /// Landschaft beim Einflug einmal ganz herum – am Bild sofort zu
+  /// sehen, in Zahlen nie.
+  Gelaendekamera _zwischenKamera(
+      Gelaendekamera von, Gelaendekamera nach, double t) {
+    double misch(double a, double b) => a + (b - a) * t;
+    var dd = nach.drehung - von.drehung;
+    while (dd > math.pi) {
+      dd -= 2 * math.pi;
+    }
+    while (dd < -math.pi) {
+      dd += 2 * math.pi;
+    }
+    return Gelaendekamera(
+      drehung: von.drehung + dd * t,
+      neigung: misch(von.neigung, nach.neigung),
+      entfernung: misch(von.entfernung, nach.entfernung),
+      brennweite: misch(von.brennweite, nach.brennweite),
+      mitte: Offset(misch(von.mitte.dx, nach.mitte.dx),
+          misch(von.mitte.dy, nach.mitte.dy)),
+      blickpunkt: (
+        x: misch(von.blickpunkt.x, nach.blickpunkt.x),
+        y: misch(von.blickpunkt.y, nach.blickpunkt.y),
+        z: misch(von.blickpunkt.z, nach.blickpunkt.z),
+      ),
+    );
+  }
+
   void _ziehen(DragUpdateDetails d) {
     setState(() {
       if (_imFlug) {
@@ -761,7 +1965,11 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
   @override
   Widget build(BuildContext context) {
     final farben = Theme.of(context).colorScheme;
-    final stand = _imFlug ? _flug.bei(_uhr.value) : null;
+    // **Nicht `_uhr.value`, sondern der Anteil des Flugabschnitts.** Die
+    // Uhr trägt Einflug, Flug und Abspann; die Spur kennt nur den Flug.
+    // Ohne diese Umrechnung wäre die Wanderung schon zu sieben Prozent
+    // gelaufen, bevor der Einflug überhaupt ankommt.
+    final stand = _imFlug ? _flug.bei(_abschnitt.flug) : null;
     return LayoutBuilder(
       builder: (context, platz) {
         final breite = platz.maxWidth;
@@ -774,6 +1982,13 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
         // Am Bildschirm eingestellt: Mit dem Faktor 1,6 lag die
         // Landschaft als Briefmarke in der Mitte eines schwarzen
         // Fensters.
+        final uebersichtkamera = Gelaendekamera(
+          drehung: _drehung,
+          neigung: _neigung,
+          entfernung: ausdehnung * 0.95 / _zoom,
+          brennweite: math.min(breite, hoehe) * 1.1,
+          mitte: Offset(breite / 2, hoehe * 0.5),
+        );
         final kamera = stand == null
             ? Gelaendekamera(
                 drehung: _drehung,
@@ -801,6 +2016,39 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                 mitte: Offset(breite / 2, hoehe * 0.62),
                 blickpunkt: stand.blickpunkt,
               );
+
+        // **Einflug und Abspann sind dieselbe Bewegung, rückwärts.** Am
+        // Anfang von der Übersicht auf den Startpunkt zu, am Ende von der
+        // letzten Stelle wieder auf. Eine Kurve dazwischen, damit es
+        // nicht ruckt: `easeInOutCubic` beschleunigt und bremst, ein
+        // linearer Übergang setzte an beiden Enden hart an.
+        final kameraJetzt = stand == null
+            ? kamera
+            : (_abschnitt.einflug < 1
+                ? _zwischenKamera(uebersichtkamera, kamera,
+                    Curves.easeInOutCubic.transform(_abschnitt.einflug))
+                : _abschnitt.abspann > 0
+                    ? _zwischenKamera(kamera, uebersichtkamera,
+                        Curves.easeInOutCubic.transform(_abschnitt.abspann))
+                    : kamera);
+
+        // **Sagen, was gebraucht wird – in jedem Bild.** Der Lader
+        // arbeitet immer nur an einer Sache und fragt nach jedem
+        // fertigen Block neu, was am nächsten liegt. Eine Liste von vor
+        // zwei Sekunden führte die Arbeit hinter dem Betrachter her.
+        //
+        // Steht hier und nicht in einem Rückruf nach dem Bild: Der
+        // Wunsch ändert nichts an der Oberfläche, er setzt nur einen
+        // Merkposten und stösst eine Aufgabe an. Ein zweiter Durchlauf
+        // dafür wäre ein Bild Verzögerung bei jeder Bewegung.
+        _lader?.brauche(bloeckeImBild(
+          widget.netz,
+          kameraJetzt,
+          Size(breite, hoehe),
+          schaerfe: MediaQuery.devicePixelRatioOf(context),
+          uebersichtAufloesung: _uebersichtAufloesung,
+        ));
+
         return Stack(
           children: [
             Positioned.fill(
@@ -817,9 +2065,10 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                     size: Size(breite, hoehe),
                     painter: Gelaendemaler(
                       netz: widget.netz,
-                      kamera: kamera,
+                      kamera: kameraJetzt,
                       spur: widget.spur,
                       karte: widget.karte,
+                      blocktexturen: _lader?.bilder,
                       spurfarbe: farben.error,
                       stimmung: widget.stimmung,
                       // Beim Flug endet die volle Farbe dort, wo man
@@ -829,11 +2078,39 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                       // wie im Stillstand, und man verliert, wo man ist.
                       gefahrenBis: stand?.gefahrenMeter,
                       streckeJePunkt: _imFlug ? _flug.streckeJePunkt : null,
+                      schilder: widget.schilder,
+                      hoeheBei: _hoeheBei,
                     ),
                   ),
                 ),
               ),
             ),
+            // Das Foto zur Stelle – oben rechts, damit es die Spur
+            // unten und die Schilder in der Mitte nicht verdeckt.
+            if (stand != null)
+              Positioned(
+                top: AppSpacing.md,
+                right: AppSpacing.md,
+                child: _Flugbild(
+                  foto: _fotoBei(stand.gefahrenMeter),
+                  deckkraft: _fotoDeckkraft(stand.gefahrenMeter),
+                ),
+              ),
+            if (stand != null && _abschnitt.abspann > 0)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Center(
+                    child: Opacity(
+                      opacity:
+                          Curves.easeIn.transform(_abschnitt.abspann.clamp(0.0, 1.0)),
+                      child: _Abspann(
+                          key: _Abspann.schluessel,
+                          flug: _flug,
+                          tempo: _flugtempo),
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               left: 0,
               right: 0,
@@ -870,6 +2147,11 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                       beimSchalten: _flugSchalten,
                       beimBeenden: _flugBeenden,
                       beimSpulen: _spulen,
+                      beimAusgeben:
+                          widget.beimVideoZiel == null ? null : _videoAusgeben,
+                      gibtAus: _videoLaeuft,
+                      ausgabeFortschritt:
+                          _videoLaeuft ? _videoFortschritt : null,
                     ),
                 ],
               ),
@@ -908,6 +2190,15 @@ class Flugleiste extends StatelessWidget {
   final VoidCallback beimBeenden;
   final ValueChanged<double> beimSpulen;
 
+  /// Den Flug als Video schreiben – `null` heisst: geht hier nicht.
+  final VoidCallback? beimAusgeben;
+
+  /// Ob gerade ausgegeben wird. Dann ist der Knopf ein Abbruch.
+  final bool gibtAus;
+
+  /// Wie weit die Ausgabe ist – `null` heisst: läuft keine.
+  final double? ausgabeFortschritt;
+
   const Flugleiste({
     super.key,
     required this.flug,
@@ -918,6 +2209,9 @@ class Flugleiste extends StatelessWidget {
     required this.beimSchalten,
     required this.beimBeenden,
     required this.beimSpulen,
+    this.beimAusgeben,
+    this.gibtAus = false,
+    this.ausgabeFortschritt,
   });
 
   @override
@@ -968,6 +2262,17 @@ class Flugleiste extends StatelessWidget {
                     tooltip: t.flugBeenden,
                     icon: const Icon(Icons.zoom_out_map),
                     onPressed: beimBeenden,
+                  ),
+                // Der Ausgabeknopf steht bei den Flugknöpfen und nicht in
+                // der Werkzeugleiste oben: Was ausgegeben wird, ist der
+                // Flug, nicht die Ansicht.
+                if (beimAusgeben != null)
+                  IconButton(
+                    tooltip: gibtAus ? t.flugVideoAbbrechen : t.flugVideo,
+                    icon: Icon(gibtAus
+                        ? Icons.stop_circle_outlined
+                        : Icons.movie_outlined),
+                    onPressed: beimAusgeben,
                   ),
                 Expanded(
                   child: Slider(
@@ -1218,4 +2523,196 @@ class _Flugprofilmaler extends CustomPainter {
       alt.fortschritt != fortschritt ||
       alt.punkte != punkte ||
       alt.gefahren != gefahren;
+}
+
+/// Das Foto zur Stelle, oben rechts im Bild.
+///
+/// **Der Punkt, an dem sich eine Fotoverwaltung von einem Sportprogramm
+/// unterscheidet.** Strava und Relive fliegen dieselbe Spur ab; nur hier
+/// liegen die Bilder schon daneben. Beim Vorbeifliegen taucht das
+/// Vorschaubild auf und verblasst wieder – nicht als Liste am Rand,
+/// sondern zu der Stelle, an der es entstanden ist.
+class _Flugbild extends StatelessWidget {
+  const _Flugbild({required this.foto, required this.deckkraft});
+
+  final Flugfoto? foto;
+  final double deckkraft;
+
+  /// Wie gross das Bild höchstens wird.
+  ///
+  /// Zweihundertvierzig Punkte. Grösser verdeckt es die Landschaft, um
+  /// die es geht; kleiner erkennt man nicht, was darauf ist.
+  static const double kante = 240;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = foto;
+    // **`AnimatedOpacity` und kein `if`.** Ohne die Animation springt das
+    // Bild beim Wechsel von einem zum nächsten hart um; das Auf- und
+    // Abblenden über die Strecke (siehe `_fotoDeckkraft`) allein reicht
+    // nicht, weil zwei dicht beieinander liegende Fotos einander
+    // ablösen, ohne dass die Deckkraft dazwischen auf null fällt.
+    return AnimatedOpacity(
+      opacity: f == null ? 0 : deckkraft.clamp(0.0, 1.0),
+      duration: const Duration(milliseconds: 180),
+      // **Eine feste Breite, und der Grund ist eine Fehlermeldung.** Das
+      // Bild haengt in einem `Positioned` mit nur `top` und `right`; die
+      // Breite ist dort unbegrenzt, und eine `Column` mit `stretch`
+      // darin bricht beim Vermessen ab.
+      child: f == null
+          ? const SizedBox(width: kante + 8, height: 1)
+          : SizedBox(
+              width: kante + 8,
+              child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x66000000), blurRadius: 10, spreadRadius: 1),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                            maxWidth: kante, maxHeight: kante),
+                        child: Image(
+                          image: f.bild,
+                          fit: BoxFit.cover,
+                          width: kante,
+                          height: kante * 0.75,
+                          // Ein Bild, das nicht kommt, darf keinen roten
+                          // Kasten in die Landschaft setzen.
+                          errorBuilder: (_, __, ___) =>
+                              const SizedBox(width: kante, height: 1),
+                        ),
+                      ),
+                    ),
+                    if (f.unterschrift case final u?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3, bottom: 1),
+                        child: Text(
+                          u,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+    );
+  }
+}
+
+/// Der Abspann – die Zahlen der Tour, wenn die Kamera wieder aufzieht.
+///
+/// **Was am Ende bleibt, ist nicht das letzte Bild, sondern die Bilanz.**
+/// Bis hierher blieb der Flug einfach stehen, wo er zu Ende war; die
+/// Zahlen standen zwar in der Leiste darunter, aber sie standen dort die
+/// ganze Zeit und wurden zum Schluss nicht mehr angesehen.
+class _Abspann extends StatelessWidget {
+  const _Abspann({super.key, required this.flug, required this.tempo});
+
+  /// Damit ein Test die Zahlen des Abspanns von denen der Flugleiste
+  /// unterscheiden kann – beide zeigen „unterwegs".
+  static const schluessel = ValueKey('gelaende-abspann');
+
+  final Gelaendeflug flug;
+  final double tempo;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+    // **`format` will eine Zahl, keinen Text.** Der erste Anlauf reichte
+    // `toStringAsFixed(1)` hinein; das wirft erst zur Laufzeit und nur
+    // dann, wenn der Abspann wirklich erscheint – gefunden hat es der
+    // Bedienungstest, nicht der Übersetzer.
+    final zahl = NumberFormat(
+        '#,##0.0', Localizations.localeOf(context).toLanguageTag());
+
+    final hoch = flug.aufstiegMeter;
+    final dauer = flug.gesamtdauer;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: farben.surface.withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(color: Color(0x55000000), blurRadius: 18, spreadRadius: 2),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xl, vertical: AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${zahl.format(flug.laengeMeter / 1000)} km',
+              style: TextStyle(
+                fontSize: 34,
+                fontWeight: FontWeight.w300,
+                color: farben.onSurface,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hoch != null) ...[
+                  _Zahl(wert: '${hoch.round()} m', was: t.flugAufstieg),
+                  const SizedBox(width: AppSpacing.xl),
+                ],
+                if (dauer != null)
+                  _Zahl(
+                      wert: _dauerText(dauer), was: t.flugUnterwegs),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _dauerText(Duration d) {
+    final st = d.inHours;
+    final mi = d.inMinutes % 60;
+    return st > 0 ? '$st:${mi.toString().padLeft(2, '0')} h' : '$mi min';
+  }
+}
+
+class _Zahl extends StatelessWidget {
+  const _Zahl({required this.wert, required this.was});
+  final String wert;
+  final String was;
+
+  @override
+  Widget build(BuildContext context) {
+    final farben = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(wert,
+            style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: farben.onSurface)),
+        Text(was,
+            style: TextStyle(fontSize: 11, color: farben.onSurfaceVariant)),
+      ],
+    );
+  }
 }

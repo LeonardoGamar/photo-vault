@@ -38,6 +38,27 @@ Hoehengitter _gitter({int n = 24}) {
   );
 }
 
+/// Die Randnähe aller Blöcke hintereinander.
+///
+/// Seit die Landschaft in Blöcke zerfällt, liegt jede Zahl je Block vor;
+/// geprüft wird aber eine Eigenschaft des **Ausschnitts** – der Saum
+/// gehört an dessen Kante und nicht an jede Blockgrenze.
+Float32List _randnaehe(Gelaendenetz n) {
+  final aus = <double>[];
+  for (final b in n.bloecke) {
+    aus.addAll(b.randnaehe);
+  }
+  return Float32List.fromList(aus);
+}
+
+Int32List _farben(Gelaendenetz n) {
+  final aus = <int>[];
+  for (final b in n.bloecke) {
+    aus.addAll(b.farben);
+  }
+  return Int32List.fromList(aus);
+}
+
 /// Zählt die Aufrufe mit, die der Maler auf der Leinwand macht.
 class _Mitschrift implements Canvas {
   int schichten = 0;
@@ -85,15 +106,17 @@ void main() {
     test('am Gitterrand ist das Gelände durchsichtig, in der Mitte nicht',
         () {
       final netz = baueNetz(_gitter(n: 40), kante: 40);
+      final randnaehe = _randnaehe(netz);
+      final farben = _farben(netz);
       var randDurchsichtig = 0;
       var mitteDeckend = 0;
-      for (var i = 0; i < netz.randnaehe.length; i++) {
-        final alpha = (netz.farben[i] >> 24) & 0xFF;
-        if (netz.randnaehe[i] == 0) {
+      for (var i = 0; i < randnaehe.length; i++) {
+        final alpha = (farben[i] >> 24) & 0xFF;
+        if (randnaehe[i] == 0) {
           expect(alpha, 0, reason: 'Eckpunkt $i liegt auf dem Rand');
           randDurchsichtig++;
         }
-        if (netz.randnaehe[i] == 1) {
+        if (randnaehe[i] == 1) {
           expect(alpha, 255, reason: 'Eckpunkt $i liegt im Inneren');
           mitteDeckend++;
         }
@@ -106,34 +129,36 @@ void main() {
       // Ein Zehntel der Kante war zu breit: In der Übersicht lag ein
       // handbreiter weisser Streifen über der Gipfelkette.
       final netz = baueNetz(_gitter(n: 60), kante: 60);
-      final voll = netz.randnaehe.where((r) => r == 1).length;
-      expect(voll / netz.randnaehe.length, greaterThan(0.7));
+      final randnaehe = _randnaehe(netz);
+      final voll = randnaehe.where((r) => r == 1).length;
+      expect(voll / randnaehe.length, greaterThan(0.7));
     });
 
     test('die Randnähe steigt von aussen nach innen monoton', () {
       final netz = baueNetz(_gitter(n: 40), kante: 40);
-      expect(netz.randnaehe.reduce(math.min), 0);
-      expect(netz.randnaehe.reduce(math.max), 1);
+      final randnaehe = _randnaehe(netz);
+      expect(randnaehe.reduce(math.min), 0);
+      expect(randnaehe.reduce(math.max), 1);
     });
   });
 
   group('Die Tageszeit steckt im Netz', () {
     test('eine andere Stimmung ergibt andere Eckpunktfarben', () {
-      final mittag = baueNetz(_gitter(), stimmung: stimmungMittag);
-      final abend = baueNetz(_gitter(), stimmung: stimmungAbend);
-      expect(mittag.farben.length, abend.farben.length);
+      final mittag = _farben(baueNetz(_gitter(), stimmung: stimmungMittag));
+      final abend = _farben(baueNetz(_gitter(), stimmung: stimmungAbend));
+      expect(mittag.length, abend.length);
       var anders = 0;
-      for (var i = 0; i < mittag.farben.length; i++) {
-        if (mittag.farben[i] != abend.farben[i]) anders++;
+      for (var i = 0; i < mittag.length; i++) {
+        if (mittag[i] != abend[i]) anders++;
       }
-      expect(anders, greaterThan(mittag.farben.length ~/ 2),
+      expect(anders, greaterThan(mittag.length ~/ 2),
           reason: 'die Stimmung kommt im Netz nicht an');
     });
 
     test('ohne Angabe entsteht genau das Mittagsnetz', () {
       final ohne = baueNetz(_gitter());
       final mittag = baueNetz(_gitter(), stimmung: stimmungMittag);
-      expect(ohne.farben, mittag.farben);
+      expect(_farben(ohne), _farben(mittag));
     });
 
     test('das warme Licht des Abends färbt rötlicher als der Mittag', () {
@@ -150,8 +175,8 @@ void main() {
         return summe / f.length;
       }
 
-      expect(mittelRotAnteil(abend.farben),
-          greaterThan(mittelRotAnteil(mittag.farben)));
+      expect(mittelRotAnteil(_farben(abend)),
+          greaterThan(mittelRotAnteil(_farben(mittag))));
     });
   });
 
@@ -178,7 +203,15 @@ void main() {
       // Bild war das ein weisses Band quer über die Gipfelkette.
       final leinwand = _Mitschrift();
       maler().paint(leinwand, const Size(1000, 800));
-      expect(leinwand.netze, 2, reason: 'Gelände und Dunst');
+      // Je Block ein Zug für das Gelände und einer für den Dunst – aber
+      // nur **eine** Schicht für alle. Eine Zwischenfläche in
+      // Bildschirmgrösse ist der teuerste Einzelposten dieses Malers;
+      // eine je Block wäre hundertmal der Preis.
+      final bloecke = baueNetz(_gitter()).bloecke.length;
+      expect(leinwand.netze, lessThanOrEqualTo(2 * bloecke));
+      expect(leinwand.netze, greaterThan(1), reason: 'Gelände und Dunst');
+      expect(leinwand.netze.isEven, isTrue,
+          reason: 'zu jedem Gelände gehört sein Dunst');
       expect(leinwand.schichten, 1, reason: 'der Dunst braucht seine Ebene');
       expect(leinwand.pinsel.last.blendMode, BlendMode.src,
           reason: 'ohne `src` überlagert der Dunst, statt zu ersetzen');

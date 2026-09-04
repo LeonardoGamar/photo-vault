@@ -171,7 +171,12 @@ class DesktopImageTools {
   ///
   /// Die Aufrufe unten gehen alle hierdurch. Damit kann die Suche nichts
   /// finden, was der Aufruf nicht startet – und umgekehrt.
-  @visibleForTesting
+  ///
+  /// **Nicht mehr nur für Tests.** Der Videoexport
+  /// (`services/flugvideo.dart`) startet ffmpeg selbst und mit eigenen
+  /// Schaltern; er braucht den Pfad, nicht einen weiteren Helfer hier.
+  /// Der Weg über diese Stelle bleibt trotzdem der einzige – auch für
+  /// ihn gilt: Was die Suche nicht findet, startet niemand.
   static Future<String?> aufruf(String werkzeug) async =>
       (await _suche())[werkzeug];
 

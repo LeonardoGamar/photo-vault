@@ -6744,6 +6744,32 @@ class AppTexteEn extends AppTexte {
   String get flugSteigung => 'Gradient';
 
   @override
+  String get flugVideo => 'Export as video';
+
+  @override
+  String get flugVideoAbbrechen => 'Cancel export';
+
+  @override
+  String flugVideoFertig(String datei) {
+    return 'Video saved: $datei';
+  }
+
+  @override
+  String get flugVideoAbgebrochen => 'Export cancelled';
+
+  @override
+  String get flugVideoKeinWerkzeug =>
+      'Video export needs ffmpeg. It is not bundled on macOS – once installed (for example via Homebrew) PhotoVault finds it automatically.';
+
+  @override
+  String flugVideoFehler(String grund) {
+    return 'Video export failed: $grund';
+  }
+
+  @override
+  String get flugAufstieg => 'Ascent';
+
+  @override
   String get flugUnterwegs => 'elapsed';
 
   @override
@@ -6796,8 +6822,22 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
-  String get gelaendeNamensnennung =>
-      'Elevation: Tilezen / AWS Open Data · Map: OpenTopoMap (CC-BY-SA)';
+  String get gelaendeNamensnennung => 'Elevation: Tilezen / AWS Open Data';
+
+  @override
+  String get karteLuftbild => 'Aerial imagery';
+
+  @override
+  String get gelaendeEbeneWege => 'Hiking routes';
+
+  @override
+  String get gelaendeEbeneBeschriftung => 'Roads and place names';
+
+  @override
+  String get gelaendeEbeneHoehenlinien => 'Contour lines';
+
+  @override
+  String get gelaendeEbeneWanderobjekte => 'Peaks, huts, springs';
 
   @override
   String get gelaendeErneut => 'Try again';

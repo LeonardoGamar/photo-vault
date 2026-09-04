@@ -345,6 +345,56 @@ class Gelaendeflug {
     );
   }
 
+  /// Die Summe aller Anstiege, in Metern – `null` ohne Höhen.
+  ///
+  /// **Nur Anstiege, und nur echte.** Die reine Differenz zwischen
+  /// Anfangs- und Endhöhe sagt bei einer Rundtour null, obwohl man
+  /// tausend Meter gestiegen ist. Und jeder Zentimeter Rauschen zählte
+  /// mit, wenn man alles addierte – deshalb erst ab [_rauschen] Metern.
+  ///
+  /// Die Höhen stammen aus der Aufzeichnung, nicht aus dem Gelände: Was
+  /// das Gerät gemessen hat, ist die Aussage.
+  double? get aufstiegMeter {
+    if (werte.length != spur.length || werte.isEmpty) return null;
+    const rauschen = 3.0;
+    double? letzte;
+    var summe = 0.0;
+    var gesehen = false;
+    for (final w in werte) {
+      final h = w.hoehe;
+      if (h == null) continue;
+      gesehen = true;
+      if (letzte == null) {
+        letzte = h;
+        continue;
+      }
+      final d = h - letzte;
+      if (d > rauschen) {
+        summe += d;
+        letzte = h;
+      } else if (d < -rauschen) {
+        letzte = h;
+      }
+    }
+    return gesehen ? summe : null;
+  }
+
+  /// Wie lange man unterwegs war – `null` ohne Zeitstempel.
+  Duration? get gesamtdauer {
+    DateTime? erste;
+    DateTime? letzte;
+    for (final w in werte) {
+      final z = w.zeit;
+      if (z == null) continue;
+      erste ??= z;
+      letzte = z;
+    }
+    if (erste == null || letzte == null) return null;
+    final d = letzte.difference(erste);
+    // Eine rückwärts laufende Uhr kommt in echten Dateien vor.
+    return d.isNegative ? null : d;
+  }
+
   /// Wie lange der ganze Flug dauern soll.
   ///
   /// Feste Geschwindigkeit über Grund statt fester Dauer: Ein

@@ -10,7 +10,7 @@ import 'package:photo_vault/l10n/app_localizations.dart';
 import 'package:photo_vault/screens/gelaende_screen.dart';
 import 'package:photo_vault/theme/app_theme.dart';
 import 'package:photo_vault/widgets/gelaende.dart';
-import 'package:photo_vault/widgets/mini_location_map.dart' show Kartenstil;
+import 'package:photo_vault/services/gelaendeebenen.dart';
 
 /// Die Geländeansicht am Bildschirm.
 ///
@@ -50,7 +50,7 @@ void main() {
   Future<void> zeige(
     WidgetTester tester, {
     required http.Client netz,
-    Kartenstil stil = Kartenstil.topo,
+    Gelaendekarte auflage = const Gelaendekarte(grund: Gelaendegrund.wanderkarte),
     List<Gelaendespurpunkt> spur = const [
       (breite: 50.61, laenge: 9.86, hoehe: 400.0, zeit: null),
       (breite: 50.62, laenge: 9.88, hoehe: 620.0, zeit: null),
@@ -66,7 +66,7 @@ void main() {
       supportedLocales: AppTexte.supportedLocales,
       theme: buildDarkTheme(),
       home: GelaendeScreen(
-          spur: spur, titel: 'Brocken', netz: netz, stil: stil),
+          spur: spur, titel: 'Brocken', netz: netz, auflage: auflage),
     ));
     // Das Laden läuft über echte Futures – ohne runAsync kehrt es in der
     // gestellten Zeit eines Widget-Tests nie zurück.
@@ -147,8 +147,22 @@ void main() {
     expect(find.textContaining('Ziehen dreht und kippt'), findsOneWidget);
     // Namensnennung ist bei OpenTopoMap keine Höflichkeit, sondern die
     // Lizenz.
-    expect(find.textContaining('OpenTopoMap'), findsOneWidget);
+    expect(find.textContaining('opentopomap.org'), findsOneWidget);
     expect(find.textContaining('Tilezen'), findsOneWidget);
+  });
+
+  testWidgets('die Namensnennung nennt genau die Ebenen, die im Bild stehen',
+      (tester) async {
+    // Eine Lizenzauflage ist keine Zierleiste: Wer die Wegeebene
+    // abschaltet, soll Waymarked Trails nicht mehr genannt sehen - und
+    // wer sie einschaltet, muss ihn nennen.
+    await zeige(tester,
+        auflage: const Gelaendekarte(
+            grund: Gelaendegrund.luftbild, wege: true, beschriftung: true),
+        netz: MockClient((anfrage) async => http.Response.bytes(kachel, 200)));
+    expect(find.textContaining('Esri'), findsOneWidget);
+    expect(find.textContaining('waymarkedtrails'), findsOneWidget);
+    expect(find.textContaining('opentopomap.org'), findsNothing);
   });
 
   group('Die Karte auf der Landschaft laesst sich waehlen', () {
@@ -159,7 +173,8 @@ void main() {
     testWidgets('der uebergebene Stil bestimmt, welche Kacheln geholt werden',
         (tester) async {
       final adressen = <String>[];
-      await zeige(tester, stil: Kartenstil.hell,
+      await zeige(tester,
+          auflage: const Gelaendekarte(grund: Gelaendegrund.hell),
           netz: MockClient((anfrage) async {
         adressen.add(anfrage.url.host);
         return http.Response.bytes(kachel, 200);
