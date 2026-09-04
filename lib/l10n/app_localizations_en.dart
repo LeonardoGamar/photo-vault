@@ -6682,6 +6682,11 @@ class AppTexteEn extends AppTexte {
   String get spurTitel => 'Recorded track';
 
   @override
+  String spurKm(String km) {
+    return '$km km';
+  }
+
+  @override
   String spurKennzahlen(String km, int auf, int ab) {
     return '$km km · ▲ $auf m · ▼ $ab m';
   }
@@ -6760,6 +6765,42 @@ class AppTexteEn extends AppTexte {
   @override
   String get flugVideoKeinWerkzeug =>
       'Video export is unavailable – the video encoder is missing. macOS provides it, Linux and Windows ship it in the package; if you see this, the installation is incomplete.';
+
+  @override
+  String flugVideoLaeuft(int prozent) {
+    return 'Writing video – $prozent %';
+  }
+
+  @override
+  String flugVideoLaeuftMitRest(int prozent, String rest) {
+    return 'Writing video – $prozent %, about $rest left';
+  }
+
+  @override
+  String get flugVideoEinstellungen => 'Export video';
+
+  @override
+  String get flugVideoAufloesung => 'Resolution';
+
+  @override
+  String get flugVideoDauer => 'Length';
+
+  @override
+  String flugVideoDauerWert(int sekunden) {
+    return '$sekunden seconds';
+  }
+
+  @override
+  String flugVideoBilder(int bilder) {
+    return '$bilder frames';
+  }
+
+  @override
+  String get flugVideoWeiter => 'Save as …';
+
+  @override
+  String get flugVideoWaehrenddessen =>
+      'The frames are rendered off screen – the flight is not played for it. This view has to stay open until it is done.';
 
   @override
   String flugVideoFehler(String grund) {
@@ -7384,4 +7425,98 @@ class AppTexteEn extends AppTexte {
   String einstKartenquellenEingetragen(String name) {
     return '$name is in the form below. Enter your key and save.';
   }
+
+  @override
+  String get aufgDatumsherkunftTitel => 'Where capture dates come from';
+
+  @override
+  String get aufgDatumsherkunftText =>
+      'Looks inside every file for an actual capture date. Where there is none, the date comes from the file system – from the last copy, not from the shutter. Those photos are marked and kept out of memories and bursts. The same pass reads the time-zone offset that every fourth file carries.';
+
+  @override
+  String get werkzPruefeDatumsherkunft =>
+      'Checking where capture dates come from …';
+
+  @override
+  String get werkzAlleDatumGeprueft => 'Every photo has already been checked.';
+
+  @override
+  String get infoDatumGeschaetzt => 'Date is a guess – the file carries none';
+
+  @override
+  String get infoDatumGeschaetztKurz => 'estimated';
+
+  @override
+  String get sucheDatumGeschaetzt => 'Only with an estimated date';
+
+  @override
+  String get ortVorschlagTitel => 'Places from neighbours';
+
+  @override
+  String get ortVorschlagErklaerung =>
+      'These photos carry no place – but the ones taken just before and after do, and they agree. Places taken over are marked as inherited: they are a reasoned guess, not a measurement.';
+
+  @override
+  String get ortVorschlagKeine => 'No photo can be placed from its neighbours.';
+
+  @override
+  String ortVorschlagAnzahl(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n photos',
+      one: '1 photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ortVorschlagBegruendung(int nachbarn, int minuten) {
+    String _temp0 = intl.Intl.pluralLogic(
+      nachbarn,
+      locale: localeName,
+      other: '$nachbarn placed neighbours',
+      one: '1 placed neighbour',
+    );
+    return '$_temp0, at most $minuten minutes away';
+  }
+
+  @override
+  String ortVorschlagAlleUebernehmen(int n) {
+    return 'Take all $n';
+  }
+
+  @override
+  String get ortVorschlagAlleFrageTitel => 'Take all suggestions?';
+
+  @override
+  String ortVorschlagAlleFrage(int gruppen, int aufnahmen) {
+    return '$gruppen groups with $aufnahmen photos in total will get the place of their neighbours. The place stays marked as inherited and can be removed individually.';
+  }
+
+  @override
+  String get ortVorschlagWerkzTitel => 'Inherit places from neighbours';
+
+  @override
+  String get ortVorschlagWerkzText =>
+      'Photos without a place whose neighbours in time were all at the same spot.';
+
+  @override
+  String get infoOrtGeerbt => 'Inherited from neighbouring photos';
+
+  @override
+  String get aufgVideobilderTitel => 'Videos: more than one still';
+
+  @override
+  String get aufgVideobilderText =>
+      'A video used to be analysed from a single still frame. From ten seconds of runtime, up to five frames spread over its length are analysed – for search, tags and faces. The frames are not kept.';
+
+  @override
+  String get werkzVideobilder => 'Analysing further stills …';
+
+  @override
+  String get werkzAlleVideobilder => 'Every video has already been checked.';
+
+  @override
+  String get suchoptIso => 'ISO';
 }

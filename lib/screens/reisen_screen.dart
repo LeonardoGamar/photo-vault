@@ -14,6 +14,7 @@ import '../services/meldungsdienst.dart';
 import '../widgets/namens_dialog.dart';
 import '../widgets/zeitraum_dialog.dart';
 import '../widgets/fortschrittsbalken.dart';
+import '../services/laendernamen.dart';
 import 'laenderliste_screen.dart';
 import 'reise_detail_screen.dart';
 import 'weltkarte_screen.dart';
@@ -69,6 +70,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
         ? null
         : reisefortschritt(besucht, laenderGesamt: verzeichnis.length);
     final t = AppTexte.of(context);
+    final sprache = Localizations.localeOf(context).languageCode;
     final vorschlaege = erkenneReisen(
       [
         for (final a in roh)
@@ -77,7 +79,15 @@ class _ReisenScreenState extends State<ReisenScreen> {
             zeit: a.zeit,
             breite: a.breite,
             laenge: a.laenge,
-            land: a.land,
+            // **Hier übersetzt und nicht in der Erkennung.** Der
+            // Ländername einer Aufnahme ist englisch – so steht er in
+            // der Datenbank, und dort gehört er auch hin, weil er der
+            // Schlüssel ist, über den Foto und Katalog zusammenfinden.
+            // Der Vorschlag heisst aber nach dem Land, und „Reise:
+            // Germany" ist in einer deutschen Oberfläche kein Name,
+            // sondern ein Fehler. Die Erkennung selbst bleibt frei vom
+            // Übersetzungsapparat – genauso wie bei [ohneOrt].
+            land: landAnzeige(a.land, sprache),
             region: a.region,
             stadt: a.stadt,
           ),

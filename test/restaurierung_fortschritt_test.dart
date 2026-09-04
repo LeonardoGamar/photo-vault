@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/l10n/app_localizations.dart';
-import 'package:photo_vault/screens/restore_queue_screen.dart';
+import 'package:photo_vault/utils/dauertext.dart';
 import 'package:photo_vault/services/restore_queue_service.dart';
 
 /// Der Fortschritt der KI-Restaurierung sprach Werkzeugsprache: „Kachel

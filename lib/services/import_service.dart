@@ -20,6 +20,7 @@ import 'raw_identify_parser.dart';
 import 'storage_paths.dart';
 import 'video_gps.dart';
 import 'video_metadaten.dart';
+import 'zeitversatz.dart';
 
 const _imageExtensions = {
   '.jpg',
@@ -182,9 +183,13 @@ class ImportService {
       // Der Zeitstempel der Datei ist der letzte Ausweg, nicht der zweite:
       // Er ist nach jedem Kopieren, Sichern und Zurückholen der Zeitpunkt
       // eben dieses Vorgangs.
-      final fileCreatedAt = exifMeta.date ??
-          videoMeta.zeit?.zeitpunkt ??
-          await sourceFile.lastModified();
+      //
+      // Und genau deshalb wird der Rückfall **vermerkt**: Ohne die Marke
+      // sähe der geratene Wert in der Datenbank aus wie ein gemessener,
+      // und die Zeitleiste, die Erinnerungen und die Serienerkennung
+      // glaubten ihm (siehe [Assets.datumGeschaetzt]).
+      final gemessenesDatum = exifMeta.date ?? videoMeta.zeit?.zeitpunkt;
+      final fileCreatedAt = gemessenesDatum ?? await sourceFile.lastModified();
 
       final relativePath =
           _paths.originalRelativePath(fileCreatedAt, assetId, ext);
@@ -215,6 +220,11 @@ class ImportService {
         // und dann stuende bei jedem Foto dasselbe Format.
         dateiformat: Value(dateiformatAus(p.basename(filePath))),
         fileCreatedAt: fileCreatedAt,
+        datumGeschaetzt: Value(gemessenesDatum == null),
+        zeitversatzMinuten: Value(exifMeta.versatzMinuten),
+        // Nachgesehen wurde gerade eben – der Nachtrag braucht diese
+        // Datei nie wieder anzufassen.
+        datumGeprueft: const Value(true),
         importedAt: DateTime.now(),
         thumbnailRelativePath: Value(thumbResult.thumbnailRelativePath),
         previewRelativePath: Value(thumbResult.previewRelativePath),
@@ -487,10 +497,12 @@ class ImportService {
             rawImageExtensions.contains(endung))) {
       final nativ = await NativeImageConverter.readCameraMetadata(datei);
       if (!nativ.isEmpty) {
-        return _ExifMetadata(nativ.zeitpunkt, gps, nativ.kamera);
+        return _ExifMetadata(nativ.zeitpunkt, gps, nativ.kamera,
+            versatzMinuten: zeitversatzAusTags(tags));
       }
     }
-    return _ExifMetadata(datum, gps, kamera);
+    return _ExifMetadata(datum, gps, kamera,
+        versatzMinuten: zeitversatzAusTags(tags));
   }
 
   /// Liest nur die Kamera-/Objektiv-Angaben aus den EXIF-Daten einer bereits
@@ -539,6 +551,102 @@ class ImportService {
     return Aufnahmedaten(kamera, datum);
   }
 
+  /// Was eine Datei über ihren Aufnahmezeitpunkt hergibt – **mit dem
+  /// Unterschied zwischen „trägt keinen" und „konnte niemand lesen".**
+  ///
+  /// Für die Marke „Datum geschätzt" ([Assets.datumGeschaetzt]) ist genau
+  /// dieser Unterschied das Ganze. Ohne ihn wäre die Marke selbst geraten.
+  ///
+  /// **Wie ich darauf gestossen bin.** Der erste Lauf über die echte
+  /// Bibliothek meldete 2806 Aufnahmen ohne Datum – darunter **alle 909
+  /// CR3**. Vier davon mit exiftool gegengelesen: alle vier tragen ein
+  /// `DateTimeOriginal`. Die Ursache war nicht die Datei, sondern der
+  /// Leser: CR3 ist ein ISO-BMFF-Container, `package:exif` liefert dort
+  /// null Tags, und der native Rückfall braucht einen Method-Channel, den
+  /// es im Prüflauf nicht gibt. Ein Fehlschlag des Werkzeugs hätte 909
+  /// richtig datierte Aufnahmen als „geraten" gebrandmarkt.
+  ///
+  /// Die Regel, die daraus wurde:
+  ///
+  /// - **Video** – der Leser ([leseVideoMetadaten]) ist reines Dart und
+  ///   läuft immer. Ein Nein ist ein Nein.
+  /// - **JPEG und Verwandte** – `package:exif` liest sie. Ein leerer
+  ///   Tagsatz heisst hier wirklich „ohne EXIF", und das ist der
+  ///   Normalfall bei Bildschirmfotos und weitergeleiteten Bildern.
+  /// - **RAW und HEIC** – `package:exif` kann sie nicht. Ein Nein zählt
+  ///   nur, wenn der native Leser wirklich etwas zurückgegeben hat;
+  ///   sonst hat schlicht niemand nachgesehen.
+  Future<Datumsbefund> pruefeAufnahmedatum(File file) async {
+    final endung = p.extension(file.path).toLowerCase();
+    if (_videoExtensions.contains(endung) &&
+        (await inhaltskennung(file, null)) == null) {
+      final meta = await leseVideoMetadaten(file);
+      return Datumsbefund(meta.zeit?.zeitpunkt);
+    }
+
+    // **CR3 wird gar nicht erst gelesen.** `package:exif` liefert dort
+    // nichts – nachgezaehlt an der echten Bibliothek: 0 von 8
+    // Stichproben tragen auch nur einen Tag, waehrend DNG (7 von 7),
+    // HEIC (2 von 2) und ARW sehr wohl gelesen werden. 909 CR3 mit je
+    // rund 29 MB sind 26 GB, die durch den Speicher gehen fuer ein
+    // sicheres Nichts.
+    //
+    // Der Kopf wird trotzdem gelesen: Ein als `.cr3` benanntes JPEG soll
+    // nicht durchrutschen, und dafuer reichen vier Byte (siehe
+    // [kennungAus]). Sagt der Kopf etwas anderes als der Name, wird doch
+    // ganz gelesen.
+    Map<String, IfdTag> tags = const {};
+    Uint8List? rohbytes;
+    var nurKopf = false;
+    try {
+      if (endung == '.cr3') {
+        rohbytes = await _kopfbytes(file);
+        nurKopf = kennungAus(rohbytes) == null;
+      }
+      if (!nurKopf) {
+        // **Einmal lesen, zweimal benutzen.** Bis hierher stand unten ein
+        // zweites `readAsBytes` fuer die vier Bytes, die [kennungAus]
+        // ansieht – gemessen 38 s gegen 31 s fuer denselben Lauf.
+        rohbytes = await file.readAsBytes();
+        tags = await readExifFromBytes(rohbytes);
+      }
+    } catch (_) {
+      // Bleibt leer – unten entscheidet das Format, was das bedeutet.
+    }
+    final datum = exifDatumAusText(_rohesExifDatum(tags));
+    final versatz = zeitversatzAusTags(tags);
+    if (datum != null) return Datumsbefund(datum, versatzMinuten: versatz);
+
+    // Massgeblich ist, was die Bytes sagen, nicht der Name: Ein als
+    // `.jpg` benanntes HEIC braucht den nativen Leser genauso.
+    final wirklich =
+        (rohbytes == null ? null : kennungAus(rohbytes)) ?? endung;
+    if (!heicAndRawExtensions.contains(endung) &&
+        !heicAndRawExtensions.contains(wirklich)) {
+      return Datumsbefund(null, versatzMinuten: versatz);
+    }
+    final nativ = await NativeImageConverter.readCameraMetadata(file);
+    if (nativ.zeitpunkt != null) {
+      return Datumsbefund(nativ.zeitpunkt, versatzMinuten: versatz);
+    }
+    // Nichts, aber auch gar nichts kam zurück – dann war das kein
+    // Befund, sondern ein Fehlschlag.
+    return nativ.isEmpty && tags.isEmpty
+        ? const Datumsbefund.unlesbar()
+        : Datumsbefund(null, versatzMinuten: versatz);
+  }
+
+  /// Die ersten Bytes einer Datei – genug fuer [kennungAus], das
+  /// hoechstens zwoelf davon ansieht.
+  static Future<Uint8List> _kopfbytes(File file, {int wieviele = 64}) async {
+    final griff = await file.open();
+    try {
+      return await griff.read(wieviele);
+    } finally {
+      await griff.close();
+    }
+  }
+
   /// Der Zeitstempel, wie er in den Tags steht – umgewandelt wird er von
   /// [exifDatumAusText], damit der native Weg dieselbe Umwandlung nutzt.
   ///
@@ -563,9 +671,45 @@ class ImportService {
       tags['Image DateTime']?.printable;
 }
 
+/// Die Antwort von [ImportService.pruefeAufnahmedatum].
+///
+/// Drei Zustände, und der dritte ist der Grund, warum es diese Klasse
+/// gibt: „konnte niemand lesen" ist etwas anderes als „trägt keines".
+class Datumsbefund {
+  /// Der gefundene Zeitpunkt, oder `null`.
+  final DateTime? zeitpunkt;
+
+  /// Ob überhaupt jemand die Datei lesen konnte. Ist das `false`, sagt
+  /// [zeitpunkt] nichts aus – dann fehlte der Leser, nicht das Datum.
+  final bool lesbar;
+
+  /// Der Zeitzonenversatz in Minuten, wie ihn `OffsetTimeOriginal` nennt –
+  /// `null`, wenn die Datei keinen trägt.
+  ///
+  /// **Warum das mitkommt.** Der Nachtrag liest die Datei ohnehin schon,
+  /// um nach dem Aufnahmedatum zu sehen. Den Versatz in einem zweiten
+  /// Lauf zu holen hiesse, achttausend Dateien ein zweites Mal zu öffnen
+  /// für eine Angabe, die im selben Tagsatz steht.
+  final int? versatzMinuten;
+
+  const Datumsbefund(this.zeitpunkt, {this.versatzMinuten}) : lesbar = true;
+  const Datumsbefund.unlesbar()
+      : zeitpunkt = null,
+        versatzMinuten = null,
+        lesbar = false;
+
+  /// Die Datei wurde gelesen und trägt kein Aufnahmedatum – nur dann ist
+  /// ein Datum in der Datenbank geraten.
+  bool get ohneDatum => lesbar && zeitpunkt == null;
+}
+
 class _ExifMetadata {
   final DateTime? date;
   final ({double latitude, double longitude})? gps;
   final CameraInfo camera;
-  const _ExifMetadata(this.date, this.gps, this.camera);
+
+  /// Der Zeitzonenversatz aus `OffsetTimeOriginal` (siehe
+  /// `zeitversatz.dart`) – jede vierte Datei traegt ihn.
+  final int? versatzMinuten;
+  const _ExifMetadata(this.date, this.gps, this.camera, {this.versatzMinuten});
 }

@@ -181,4 +181,26 @@ void main() {
     expect((await zeile('a')).locationCountry, isNull);
     expect((await zeile('b')).locationCountry, isNull);
   });
+
+  test('die Namen gehen in EINER Anweisung an alle', () async {
+    // Kein Verhaltenswechsel, sondern ein Preis- und ein
+    // Unteilbarkeitswechsel: Vorher lief je Aufnahme ein eigenes UPDATE.
+    // Bei 500 Fotos an einer Datei gemessen 163 ms gegen 2 ms – und eine
+    // Schleife, die in der Mitte scheitert, laesst die eine Haelfte am
+    // neuen Ort und die andere am alten stehen.
+    await phantom('a1');
+    await phantom('a2');
+    await phantom('fremd');
+    await db.setLocationNamesBulk(['a1', 'a2'],
+        country: 'Germany', state: 'Lower Saxony', city: 'Goslar');
+    for (final id in ['a1', 'a2']) {
+      final a = await db.assetById(id);
+      expect(a!.locationCountry, 'Germany');
+      expect(a.locationState, 'Lower Saxony');
+      expect(a.locationCity, 'Goslar');
+    }
+    // Und nur die genannten: Ein `IN` ohne Bedingung traefe die ganze
+    // Bibliothek.
+    expect((await db.assetById('fremd'))!.locationCountry, 'Afghanistan');
+  });
 }

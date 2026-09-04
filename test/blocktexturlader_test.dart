@@ -275,6 +275,81 @@ void main() {
       expect(anfragen, vorher);
     });
   });
+
+  testWidgets('ruheNah wartet auf das Nahe, nicht auf alles', (tester) async {
+    // **Der Unterschied, um den es geht.** `ruhe` wartet, bis der Lader
+    // gar nichts mehr zu tun hat. Im Flug tritt das nie ein: Ein Bild
+    // will mehr Bloecke, als in den Vorrat passen, und mit jedem Bild
+    // verschiebt sich die Zuteilung. Die Videoausgabe wartete deshalb
+    // jedes Mal die volle Frist ab - gemessen 666 ms je Bild, bei einem
+    // Server, der SOFORT antwortet.
+    //
+    // Hier wird ein langsamer Server gestellt: Jede Kachel braucht
+    // 60 ms. `ruheNah(naechste: 1)` darf zurueckkommen, sobald der
+    // naechstgelegene Block seine Stufe hat - `ruhe` erst, wenn alle
+    // durch sind.
+    await tester.runAsync(() async {
+      final l = lader(MockClient((_) async {
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        return http.Response.bytes(kachel, 200);
+      }));
+      addTearDown(l.schliessen);
+      final b = bloecke();
+      // Entfernung aufsteigend: Der erste ist der naechste.
+      l.brauche([
+        for (final (i, block) in b.indexed)
+          (block: block, stufe: 1, entfernung: 100.0 + i * 100),
+      ]);
+
+      final uhr = Stopwatch()..start();
+      await l.ruheNah(naechste: 1, hoechstens: const Duration(seconds: 5));
+      final nah = uhr.elapsedMilliseconds;
+      expect(l.bei(b.first), isNotNull,
+          reason: 'auf den naechsten Block wurde ja gewartet');
+      await l.ruhe(hoechstens: const Duration(seconds: 5));
+      final ganz = uhr.elapsedMilliseconds;
+      expect(nah, lessThan(ganz),
+          reason: 'sonst wartet ruheNah genauso lange wie ruhe');
+    });
+  });
+
+  testWidgets('ruheNah kehrt sofort zurueck, wenn das Nahe schon da ist',
+      (tester) async {
+    await tester.runAsync(() async {
+      final l = lader(MockClient((_) async => http.Response.bytes(kachel, 200)));
+      addTearDown(l.schliessen);
+      final b = bloecke();
+      l.brauche([
+        for (final (i, block) in b.indexed)
+          (block: block, stufe: 1, entfernung: 100.0 + i * 100),
+      ]);
+      await l.ruhe(hoechstens: const Duration(seconds: 5));
+      final uhr = Stopwatch()..start();
+      await l.ruheNah(hoechstens: const Duration(milliseconds: 800));
+      expect(uhr.elapsedMilliseconds, lessThan(120),
+          reason: 'nichts offen heisst nicht warten');
+    });
+  });
+
+  testWidgets('eine vergebliche Kachel haelt das Warten nicht auf',
+      (tester) async {
+    // Sonst stuende die Videoausgabe bei jedem Bild die volle Frist vor
+    // einem Block, der nie kommt.
+    await tester.runAsync(() async {
+      final l = lader(MockClient((_) async => http.Response('weg', 404)));
+      addTearDown(l.schliessen);
+      final b = bloecke();
+      l.brauche([
+        for (final (i, block) in b.indexed)
+          (block: block, stufe: 1, entfernung: 100.0 + i * 100),
+      ]);
+      await l.ruhe(hoechstens: const Duration(seconds: 3));
+      final uhr = Stopwatch()..start();
+      await l.ruheNah(hoechstens: const Duration(milliseconds: 800));
+      expect(uhr.elapsedMilliseconds, lessThan(200));
+    });
+  });
+
 }
 
 /// Wartet, bis [fertig] wahr ist – höchstens zwei Sekunden.

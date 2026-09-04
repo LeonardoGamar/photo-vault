@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
+import '../services/zeitversatz.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
@@ -635,13 +636,34 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
 
                       _SectionLabel(AppTexte.of(context).infoDetails),
                       const SizedBox(height: 4),
+                      // Die Uhrzeit weicht der Auskunft, wenn das Datum
+                      // geraten ist: Sie wäre die genaueste Angabe im
+                      // ganzen Blatt und zugleich die einzige, die sicher
+                      // nicht stimmt. Bei 948 Aufnahmen dieser Bibliothek
+                      // stünde dort „00:00:00" – eine Sekundenangabe, die
+                      // aus dem Dateisystem stammt.
                       _IconDetailRow(
-                        icon: Icons.calendar_today_outlined,
+                        icon: asset.datumGeschaetzt
+                            ? Icons.event_busy_outlined
+                            : Icons.calendar_today_outlined,
                         title: DateFormat.yMMMd(sprache).format(asset.fileCreatedAt),
-                        subtitle: DateFormat.E(sprache)
-                            .addPattern(', ')
-                            .add_Hms()
-                            .format(asset.fileCreatedAt),
+                        // Die Zeitzone steht hinter der Uhrzeit, nicht
+                        // statt ihrer: Der Zeitstempel ist und bleibt die
+                        // ORTSZEIT der Kamera, und die ist die Zeit, an
+                        // die man sich erinnert. Der Versatz sagt nur
+                        // dazu, in welcher Zone sie galt - ob die
+                        // Aufnahmen aus Mazar-e Sharif um 16 Uhr in
+                        // Berlin oder um 18:30 vor Ort entstanden.
+                        subtitle: asset.datumGeschaetzt
+                            ? AppTexte.of(context).infoDatumGeschaetzt
+                            : [
+                                DateFormat.E(sprache)
+                                    .addPattern(', ')
+                                    .add_Hms()
+                                    .format(asset.fileCreatedAt),
+                                if (asset.zeitversatzMinuten case final v?)
+                                  zeitversatzText(v),
+                              ].join(' · '),
                         onEdit: _pickDate,
                       ),
                       _IconDetailRow(
@@ -655,13 +677,23 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                           objektiv: objektiv,
                           werte: werte,
                         ),
+                      // Ein geerbter Ort steht hier mit anderem Zeichen und
+                      // sagt es in der Unterzeile: Er ist eine begruendete
+                      // Vermutung aus den Nachbaraufnahmen, keine Messung.
+                      // Die Region weicht dafuer – wer wissen will, wo das
+                      // ungefaehr war, liest den Ortsnamen; wer wissen will,
+                      // wie sicher das ist, braucht diesen Satz.
                       if (hasLocation)
                         _IconDetailRow(
-                          icon: Icons.location_on_outlined,
+                          icon: asset.ortGeerbt
+                              ? Icons.share_location_outlined
+                              : Icons.location_on_outlined,
                           title: asset.locationCity ?? AppTexte.of(context).infoStandortBekannt,
-                          subtitle: asset.locationCity != null
-                              ? (regionParts.isEmpty ? null : regionParts.join(', '))
-                              : AppTexte.of(context).infoOrtNichtAufgeloest,
+                          subtitle: asset.ortGeerbt
+                              ? AppTexte.of(context).infoOrtGeerbt
+                              : asset.locationCity != null
+                                  ? (regionParts.isEmpty ? null : regionParts.join(', '))
+                                  : AppTexte.of(context).infoOrtNichtAufgeloest,
                           onEdit: _clearLocation,
                           editIcon: Icons.close,
                           editTooltip: AppTexte.of(context).infoOrtEntfernen,

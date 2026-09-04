@@ -63,8 +63,64 @@ const _landschaften = [
   ),
 ];
 
+/// Eine echte Spur aus einer CSV (breite,laenge,hoehe) – oder `null`.
+///
+/// **Warum eine echte und nicht die gerechnete unten.** Die gerechnete
+/// ist eine Sinuswelle: gleichmässig, ohne Kehren, ohne Messrauschen.
+/// Genau daran war nicht zu sehen, dass die Kamera auf einem Wanderweg
+/// mit Serpentinen umschlägt.
+///
+/// ```sh
+/// sqlite3 -csv kopie.sqlite \
+///   "SELECT breite, laenge, hoehe FROM spurpunkte ORDER BY spur_id, nummer" \
+///   > /tmp/spur.csv
+/// PV_SPUR=/tmp/spur.csv PV_BILDER=~/Desktop/pv_flug \
+///   flutter test tool/gelaendeflug_bilder_test.dart
+/// ```
+List<({double breite, double laenge, double? hoehe})>? _echteSpur() {
+  final pfad = Platform.environment['PV_SPUR'];
+  if (pfad == null) return null;
+  final punkte = <({double breite, double laenge, double? hoehe})>[];
+  for (final z in File(pfad).readAsLinesSync()) {
+    final t = z.split(',');
+    if (t.length < 2) continue;
+    final b = double.tryParse(t[0]);
+    final l = double.tryParse(t[1]);
+    if (b == null || l == null) continue;
+    punkte.add((
+      breite: b,
+      laenge: l,
+      hoehe: t.length > 2 ? double.tryParse(t[2]) : null,
+    ));
+  }
+  return punkte.length < 2 ? null : punkte;
+}
+
 void main() {
-  for (final ort in _landschaften) {
+  final echte = _echteSpur();
+  final landschaften = echte == null
+      ? _landschaften
+      : [
+          () {
+            var sued = 90.0, nord = -90.0, west = 180.0, ost = -180.0;
+            for (final p in echte) {
+              sued = math.min(sued, p.breite);
+              nord = math.max(nord, p.breite);
+              west = math.min(west, p.laenge);
+              ost = math.max(ost, p.laenge);
+            }
+            // Etwas Rand, damit die Kamera nicht am Gitterende steht.
+            final db = (nord - sued) * 0.25, dl = (ost - west) * 0.25;
+            return (
+              name: 'echte-spur',
+              sued: sued - db,
+              nord: nord + db,
+              west: west - dl,
+              ost: ost + dl,
+            );
+          }(),
+        ];
+  for (final ort in landschaften) {
     testWidgets('Flug über echtes Gelände: ${ort.name}', (tester) async {
     final ziel = Directory(Platform.environment['PV_BILDER']!)
       ..createSync(recursive: true);
@@ -107,7 +163,17 @@ void main() {
     // Gelände gelesen, mit Zeitstempeln im Wandertempo.
     final start = DateTime.utc(2026, 8, 30, 8, 15);
     final spur = <Gelaendespurpunkt>[];
-    for (var i = 0; i <= 240; i++) {
+    if (echte != null) {
+      for (final (i, p) in echte.indexed) {
+        spur.add((
+          breite: p.breite,
+          laenge: p.laenge,
+          hoehe: p.hoehe ?? g.anOrt(p.breite, p.laenge),
+          zeit: start.add(Duration(seconds: i * 12)),
+        ));
+      }
+    }
+    for (var i = 0; echte == null && i <= 240; i++) {
       final t = i / 240;
       final breite = sued + (nord - sued) * (0.18 + 0.62 * t);
       final laenge = west + (ost - west) *

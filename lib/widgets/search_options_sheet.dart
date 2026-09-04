@@ -46,6 +46,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
   DateTime? _endDate;
   late MediaTypeFilter _mediaType;
   late bool _favoritesOnly;
+  late bool _nurGeschaetztesDatum;
   late bool _notInAnyAlbum;
   int? _minRating;
   late Set<String> _colorLabels;
@@ -111,6 +112,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
     _endDate = f.endDate;
     _mediaType = f.mediaType;
     _favoritesOnly = f.favoritesOnly;
+    _nurGeschaetztesDatum = f.nurGeschaetztesDatum;
     _notInAnyAlbum = f.notInAnyAlbum;
     _minRating = f.minRating;
     _colorLabels = f.colorLabels.toSet();
@@ -174,6 +176,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
       _endDate = null;
       _mediaType = MediaTypeFilter.all;
       _favoritesOnly = false;
+      _nurGeschaetztesDatum = false;
       _notInAnyAlbum = false;
       _minRating = null;
       _colorLabels = {};
@@ -204,6 +207,7 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
         endDate: _endDate,
         mediaType: _mediaType,
         favoritesOnly: _favoritesOnly,
+        nurGeschaetztesDatum: _nurGeschaetztesDatum,
         notInAnyAlbum: _notInAnyAlbum,
         minRating: _minRating,
         colorLabels: _colorLabels,
@@ -1044,6 +1048,18 @@ class _SearchOptionsSheetState extends State<SearchOptionsSheet> {
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 title: Text(AppTexte.of(context).suchoptFavoriten),
+              ),
+              // Der Weg zu den Aufnahmen, deren Datum geraten ist – und
+              // damit der Weg, sie mit der Sammelbearbeitung in einem
+              // Zug richtigzustellen.
+              CheckboxListTile(
+                value: _nurGeschaetztesDatum,
+                onChanged: (v) =>
+                    setState(() => _nurGeschaetztesDatum = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(AppTexte.of(context).sucheDatumGeschaetzt),
               ),
             ],
           ),

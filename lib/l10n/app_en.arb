@@ -3002,6 +3002,8 @@
     }
   },
   "spurTitel": "Recorded track",
+    "spurKm": "{km} km",
+  "@spurKm": {"placeholders": {"km": {"type": "String"}}},
   "spurKennzahlen": "{km} km · ▲ {auf} m · ▼ {ab} m",
   "@spurKennzahlen": {
     "placeholders": {
@@ -3078,6 +3080,19 @@
   "@flugVideoFertig": {"placeholders": {"datei": {"type": "String"}}},
   "flugVideoAbgebrochen": "Export cancelled",
   "flugVideoKeinWerkzeug": "Video export is unavailable – the video encoder is missing. macOS provides it, Linux and Windows ship it in the package; if you see this, the installation is incomplete.",
+    "flugVideoLaeuft": "Writing video – {prozent} %",
+  "@flugVideoLaeuft": {"placeholders": {"prozent": {"type": "int"}}},
+  "flugVideoLaeuftMitRest": "Writing video – {prozent} %, about {rest} left",
+  "@flugVideoLaeuftMitRest": {"placeholders": {"prozent": {"type": "int"}, "rest": {"type": "String"}}},
+  "flugVideoEinstellungen": "Export video",
+  "flugVideoAufloesung": "Resolution",
+  "flugVideoDauer": "Length",
+  "flugVideoDauerWert": "{sekunden} seconds",
+  "@flugVideoDauerWert": {"placeholders": {"sekunden": {"type": "int"}}},
+  "flugVideoBilder": "{bilder} frames",
+  "@flugVideoBilder": {"placeholders": {"bilder": {"type": "int"}}},
+  "flugVideoWeiter": "Save as …",
+  "flugVideoWaehrenddessen": "The frames are rendered off screen – the flight is not played for it. This view has to stay open until it is done.",
   "flugVideoFehler": "Video export failed: {grund}",
   "@flugVideoFehler": {"placeholders": {"grund": {"type": "String"}}},
   "flugAufstieg": "Ascent",
@@ -3526,5 +3541,32 @@
         "type": "String"
       }
     }
-  }
+  },
+  "aufgDatumsherkunftTitel": "Where capture dates come from",
+  "aufgDatumsherkunftText": "Looks inside every file for an actual capture date. Where there is none, the date comes from the file system – from the last copy, not from the shutter. Those photos are marked and kept out of memories and bursts. The same pass reads the time-zone offset that every fourth file carries.",
+  "werkzPruefeDatumsherkunft": "Checking where capture dates come from …",
+  "werkzAlleDatumGeprueft": "Every photo has already been checked.",
+  "infoDatumGeschaetzt": "Date is a guess – the file carries none",
+  "infoDatumGeschaetztKurz": "estimated",
+  "sucheDatumGeschaetzt": "Only with an estimated date",
+  "ortVorschlagTitel": "Places from neighbours",
+  "ortVorschlagErklaerung": "These photos carry no place – but the ones taken just before and after do, and they agree. Places taken over are marked as inherited: they are a reasoned guess, not a measurement.",
+  "ortVorschlagKeine": "No photo can be placed from its neighbours.",
+  "ortVorschlagAnzahl": "{n, plural, =1{1 photo} other{{n} photos}}",
+  "@ortVorschlagAnzahl": {"placeholders": {"n": {"type": "int"}}},
+  "ortVorschlagBegruendung": "{nachbarn, plural, =1{1 placed neighbour} other{{nachbarn} placed neighbours}}, at most {minuten} minutes away",
+  "@ortVorschlagBegruendung": {"placeholders": {"nachbarn": {"type": "int"}, "minuten": {"type": "int"}}},
+  "ortVorschlagAlleUebernehmen": "Take all {n}",
+  "@ortVorschlagAlleUebernehmen": {"placeholders": {"n": {"type": "int"}}},
+  "ortVorschlagAlleFrageTitel": "Take all suggestions?",
+  "ortVorschlagAlleFrage": "{gruppen} groups with {aufnahmen} photos in total will get the place of their neighbours. The place stays marked as inherited and can be removed individually.",
+  "@ortVorschlagAlleFrage": {"placeholders": {"gruppen": {"type": "int"}, "aufnahmen": {"type": "int"}}},
+  "ortVorschlagWerkzTitel": "Inherit places from neighbours",
+  "ortVorschlagWerkzText": "Photos without a place whose neighbours in time were all at the same spot.",
+  "infoOrtGeerbt": "Inherited from neighbouring photos",
+  "aufgVideobilderTitel": "Videos: more than one still",
+  "aufgVideobilderText": "A video used to be analysed from a single still frame. From ten seconds of runtime, up to five frames spread over its length are analysed – for search, tags and faces. The frames are not kept.",
+  "werkzVideobilder": "Analysing further stills …",
+  "werkzAlleVideobilder": "Every video has already been checked.",
+  "suchoptIso": "ISO"
 }

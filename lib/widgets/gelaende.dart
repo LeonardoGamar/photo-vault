@@ -24,6 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
+import '../utils/dauertext.dart';
 import '../services/gelaendeflug.dart';
 import '../theme/app_spacing.dart';
 
@@ -233,6 +234,21 @@ typedef Flugfoto = ({
 
   /// Was darunter steht – Uhrzeit oder nichts.
   String? unterschrift,
+});
+
+/// Was ausgegeben werden soll – Ziel, Kantenlängen und Dauer.
+///
+/// **Warum nicht nur eine Datei.** Bis 3.5.1 gab die Ansicht das Video
+/// starr in 1920 × 1080 und in der Länge aus, die der Flug auf dem
+/// Bildschirm gerade hatte. Beides sind aber Fragen an den, der das
+/// Video haben will: Ein Video zum Verschicken darf kleiner sein, eines
+/// für einen grossen Bildschirm grösser, und wie lange man zusehen mag,
+/// entscheidet nicht die Länge der Wanderung.
+typedef Videoauftrag = ({
+  File ziel,
+  int breite,
+  int hoehe,
+  Duration dauer,
 });
 
 /// Die fertig gerechneten Dreiecke – einmal je Gitter, nicht je Bild.
@@ -1406,7 +1422,7 @@ class Gelaendeansicht extends StatefulWidget {
   /// Als Rückruf und nicht als Pfad: Wo eine Datei hinsoll, fragt man
   /// den, der sie haben will, und ein Dateiwähler gehört nicht in ein
   /// Widget, das eine Landschaft zeichnet.
-  final Future<File?> Function()? beimVideoZiel;
+  final Future<Videoauftrag?> Function(Duration vorgabe)? beimVideoZiel;
 
   /// Die Fotos der Aktivität, mit ihrer Stelle auf der Spur.
   ///
@@ -1648,15 +1664,26 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
   /// Wie weit die Ausgabe ist, 0 bis 1.
   double _videoFortschritt = 0;
 
-  /// Die Grösse des ausgegebenen Videos.
+  /// Der Auftrag, der gerade läuft – für die Kachelvorschau, die seine
+  /// Bildgrösse braucht.
+  Videoauftrag? _videoauftrag;
+
+  /// Wann die Ausgabe begann – für die Restzeit.
+  DateTime? _videoBegann;
+
+  /// Wie lange die Ausgabe noch braucht – aus dem bisherigen Tempo.
   ///
-  /// **Fest und nicht die Fenstergrösse.** Ein Video, dessen Kantenlänge
-  /// davon abhängt, wie gross gerade das Fenster war, ist beim
-  /// Weitergeben eine Überraschung – und auf einem Bildschirm mit
-  /// doppelter Punktdichte wäre es 3840 breit und viermal so teuer.
-  /// 1920 × 1080 nimmt jede Plattform an.
-  static const int _videoBreite = 1920;
-  static const int _videoHoehe = 1080;
+  /// `null`, solange sich nichts rechnen lässt. **Eine geratene Restzeit
+  /// wäre schlimmer als keine** – dieselbe Regel wie bei der
+  /// KI-Restaurierung.
+  Duration? get _videoRest {
+    final begann = _videoBegann;
+    if (begann == null || _videoFortschritt <= 0.02) return null;
+    final her = DateTime.now().difference(begann).inMilliseconds;
+    if (her <= 0) return null;
+    final ganz = her / _videoFortschritt;
+    return Duration(milliseconds: (ganz - her).round());
+  }
 
   /// Schreibt den Flug als Video – oder bricht einen laufenden ab.
   Future<void> _videoAusgeben() async {
@@ -1674,8 +1701,10 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       return;
     }
     if (!mounted) return;
-    final ziel = await widget.beimVideoZiel?.call();
-    if (ziel == null || !mounted) return;
+    final auftrag =
+        await widget.beimVideoZiel?.call(_uhr.duration ?? _dauer());
+    if (auftrag == null || !mounted) return;
+    final ziel = auftrag.ziel;
 
     // **Die Fotos vorher aufdecken.** Am Bildschirm lädt Flutter sie
     // selbst, während der Flug läuft; ein Video entsteht ohne
@@ -1697,13 +1726,15 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       _videoLaeuft = true;
       _videoAbbruch = false;
       _videoFortschritt = 0;
+      _videoauftrag = auftrag;
+      _videoBegann = DateTime.now();
     });
     try {
       final ergebnis = await schreibeFlugvideo(
         ziel: ziel,
-        breite: _videoBreite,
-        hoehe: _videoHoehe,
-        dauer: _uhr.duration ?? const Duration(seconds: 20),
+        breite: auftrag.breite,
+        hoehe: auftrag.hoehe,
+        dauer: auftrag.dauer,
         abbruch: () => _videoAbbruch || !mounted,
         // Der Fortschritt steht als Balken über der Flugleiste und nicht
         // als Meldung: Eine Meldung, die neunhundertmal aktualisiert
@@ -1738,6 +1769,8 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
         setState(() {
           _videoLaeuft = false;
           _videoAbbruch = false;
+          _videoauftrag = null;
+          _videoBegann = null;
         });
       }
     }
@@ -1768,17 +1801,23 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
   Future<void> _videoKachelnHolen(double zeit) async {
     final lader = _lader;
     if (lader == null) return;
+    final breite = (_videoauftrag?.breite ?? 1920).toDouble();
+    final hoehe = (_videoauftrag?.hoehe ?? 1080).toDouble();
     lader.brauche(bloeckeImBild(
       widget.netz,
-      _videokamera(zeit, _videoBreite.toDouble(), _videoHoehe.toDouble()),
-      Size(_videoBreite.toDouble(), _videoHoehe.toDouble()),
+      _videokamera(zeit, breite, hoehe),
+      Size(breite, hoehe),
       uebersichtAufloesung: _uebersichtAufloesung,
     ));
-    // Eine kurze Frist je Bild: Bei einer Tour, die schon einmal
-    // angesehen wurde, liegen die Kacheln auf der Platte und es kostet
-    // nichts. Beim ersten Mal wird die Ausgabe länger – und bleibt nicht
-    // stehen, wenn ein Server schweigt.
-    await lader.ruhe(hoechstens: const Duration(milliseconds: 700));
+    // **Nur auf das warten, was man sieht.** Vorher stand hier
+    // `ruhe(700 ms)` – warten, bis der Lader gar nichts mehr zu tun hat.
+    // Das tritt im Flug nie ein: Ein Bild will über fünfhundert Blöcke,
+    // in den Vorrat passen hundertfünfzig, und mit jedem Bild verschiebt
+    // sich die Zuteilung. Gemessen kostete das 665 ms je Bild – bei einem
+    // Server, der sofort antwortet. Ein Überflug von einer Minute wäre
+    // zwanzig Minuten Warten gewesen, und genau so sah es aus: als
+    // täte die Ausgabe nichts.
+    await lader.ruheNah(hoechstens: const Duration(milliseconds: 300));
   }
 
   /// Die Kamera für ein Videobild – dieselbe Rechnung wie am Bildschirm.
@@ -2154,6 +2193,7 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                       gibtAus: _videoLaeuft,
                       ausgabeFortschritt:
                           _videoLaeuft ? _videoFortschritt : null,
+                      ausgabeRest: _videoRest,
                     ),
                 ],
               ),
@@ -2201,6 +2241,9 @@ class Flugleiste extends StatelessWidget {
   /// Wie weit die Ausgabe ist – `null` heisst: läuft keine.
   final double? ausgabeFortschritt;
 
+  /// Wie lange die Ausgabe noch braucht, oder `null`.
+  final Duration? ausgabeRest;
+
   const Flugleiste({
     super.key,
     required this.flug,
@@ -2214,6 +2257,7 @@ class Flugleiste extends StatelessWidget {
     this.beimAusgeben,
     this.gibtAus = false,
     this.ausgabeFortschritt,
+    this.ausgabeRest,
   });
 
   @override
@@ -2224,6 +2268,8 @@ class Flugleiste extends StatelessWidget {
     final eine = NumberFormat.decimalPatternDigits(
         locale: sprache, decimalDigits: 1);
 
+    final anteil = ausgabeFortschritt;
+
     return ColoredBox(
       color: farben.surface.withValues(alpha: 0.88),
       child: Padding(
@@ -2233,6 +2279,32 @@ class Flugleiste extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // **Der Balken, den es bis 3.5.1 nicht gab.** Der Fortschritt
+            // wurde gerechnet und bis hierher durchgereicht – und dann
+            // nirgends gezeichnet. Zu sehen war allein, dass aus dem
+            // Filmzeichen ein Stoppzeichen wurde. Wer auf eine Wanderung
+            // von sechzehn Kilometern rund zweitausend Bilder ausgeben
+            // liess, sass also eine Minute oder länger vor einer
+            // Oberfläche, die nichts sagte, und hielt das für „es tut
+            // nichts".
+            if (anteil != null) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      ausgabeRest == null
+                          ? t.flugVideoLaeuft((anteil * 100).round())
+                          : t.flugVideoLaeuftMitRest((anteil * 100).round(),
+                              dauerText(t, ausgabeRest!)),
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              LinearProgressIndicator(value: anteil.clamp(0.0, 1.0)),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             if (imFlug) ...[
               _Messwerte(stand: stand!, flug: flug),
               const SizedBox(height: AppSpacing.sm),
@@ -2414,11 +2486,9 @@ class _Flugprofil extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final farben = Theme.of(context).colorScheme;
-    final punkte = <({double meter, double hoehe})>[
-      for (var i = 0; i < flug.werte.length; i++)
-        if (flug.werte[i].hoehe case final h?)
-          (meter: flug.streckeJePunkt[i], hoehe: h),
-    ];
+    // Aus dem Flug und nicht hier gebaut: Diese Liste ist je Flug
+    // dieselbe, die Leiste baut sich aber in jedem Bild neu.
+    final punkte = flug.hoehenprofil;
     if (punkte.length < 2) return const SizedBox.shrink();
 
     return Semantics(

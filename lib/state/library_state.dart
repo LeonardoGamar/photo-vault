@@ -36,7 +36,9 @@ import '../services/model_catalog.dart';
 import '../services/model_download_service.dart';
 import '../services/ocr_service.dart';
 import '../services/personenvorschlag.dart';
+import '../services/ortsvorschlag.dart';
 import '../services/serienvorschlag.dart';
+import '../services/videostandbilder.dart';
 import '../services/textstellen.dart';
 import '../services/modell_halter.dart';
 import '../services/platform/folder_access.dart';
@@ -268,6 +270,50 @@ class LibraryState extends ChangeNotifier {
     return result;
   }
 
+  /// Die zusätzlichen Einbettungen der Video-Standbilder – **nur für die
+  /// Suche** (siehe [Videoeinbettungen]).
+  ///
+  /// Derselbe Zwischenspeicher wie bei [cachedEmbeddings] und dieselbe
+  /// Gültigkeitsprüfung: Beide ändern sich aus denselben Gründen.
+  Map<String, List<Float32List>>? _videoEinbettungenCache;
+  int? _videoEinbettungenGeneration;
+
+  Future<Map<String, List<Float32List>>> cachedVideoEinbettungen() async {
+    if (_videoEinbettungenCache != null &&
+        _videoEinbettungenGeneration == db.embeddingsGeneration) {
+      return _videoEinbettungenCache!;
+    }
+    final ergebnis = await db.alleVideoeinbettungen();
+    _videoEinbettungenCache = ergebnis;
+    _videoEinbettungenGeneration = db.embeddingsGeneration;
+    return ergebnis;
+  }
+
+  /// Die Kandidaten der Textsuche: je Aufnahme ihre Einbettung, bei
+  /// Videos zusätzlich die ihrer weiteren Standbilder.
+  ///
+  /// **Die Schlüssel tragen die Stelle mit** (`kennung#2`), damit die
+  /// Rangfolge jedes Standbild einzeln bewerten kann. Es zählt das
+  /// **beste**, nicht das Mittel: Ein Mittelwert über verschiedene Szenen
+  /// wäre ein Vektor, der zu nichts mehr recht passt. Zurück auf die
+  /// Aufnahme kommt man über [aufnahmeAusSuchschluessel].
+  Future<Map<String, Float32List>> suchkandidaten() async {
+    final einzeln = await cachedEmbeddings();
+    final videos = await cachedVideoEinbettungen();
+    if (videos.isEmpty) return einzeln;
+    return {
+      ...einzeln,
+      for (final e in videos.entries)
+        for (var i = 0; i < e.value.length; i++) '${e.key}#$i': e.value[i],
+    };
+  }
+
+  /// Die Aufnahmekennung zu einem Schlüssel aus [suchkandidaten].
+  static String aufnahmeAusSuchschluessel(String schluessel) {
+    final trenner = schluessel.lastIndexOf('#');
+    return trenner < 0 ? schluessel : schluessel.substring(0, trenner);
+  }
+
   /// Die Serienvorschläge – einmal gerechnet, nicht bei jedem Blick.
   ///
   /// **Warum das einen Zwischenspeicher braucht.** Die Rechnung kostet an
@@ -309,6 +355,47 @@ class LibraryState extends ChangeNotifier {
   void serienGeleert() {
     _serienCache = const [];
     _serienCacheGeneration = db.embeddingsGeneration;
+    notifyListeners();
+  }
+
+  /// Die Ortsvorschläge – was unverortete Aufnahmen von ihren zeitlichen
+  /// Nachbarn erben könnten (siehe `services/ortsvorschlag.dart`).
+  ///
+  /// **Ohne Zwischenspeicher, anders als bei den Serien.** Die Rechnung
+  /// braucht keine Einbettungen und keinen Isolatwechsel; an der echten
+  /// Bibliothek (5351 ohne Ort, 2092 mit) kostet sie **2 ms**. Ein
+  /// Vorrat wäre hier nur eine zweite Wahrheit, die veralten kann.
+  ///
+  /// Abgelehnte Bündel bleiben abgelehnt: Der Vorschlag entsteht bei
+  /// jedem Aufruf neu aus den Daten, und ohne das Gedächtnis stünde ein
+  /// „nein" beim nächsten Öffnen wieder da.
+  Future<List<Ortsbuendel>> ortsvorschlagsbuendel() async {
+    final daten = await db.ortsvorschlagsdaten();
+    final vorschlaege = ortsvorschlaege(daten.ohneOrt, daten.verortet);
+    if (vorschlaege.isEmpty) return const [];
+    final zeiten = {for (final o in daten.ohneOrt) o.id: o.wann};
+    final verworfen = await db.verworfeneOrtsvorschlagsschluessel();
+    return [
+      for (final b in buendleOrtsvorschlaege(vorschlaege, zeiten))
+        if (!verworfen.contains(b.schluessel)) b,
+    ];
+  }
+
+  /// Übernimmt ein Bündel: Die Aufnahmen bekommen den Ort ihrer Nachbarn,
+  /// gekennzeichnet als geerbt ([Assets.ortGeerbt]).
+  ///
+  /// Die ausgeschriebenen Ortsnamen kommen gleich hinterher – dieselbe
+  /// Umkehr-Geokodierung, die auch beim Import läuft. Ohne sie stünde die
+  /// Aufnahme mit einer Koordinate und ohne Ortsnamen da, und die
+  /// Ortsgruppen der Übersicht sähen sie nicht.
+  Future<void> uebernimmOrtsbuendel(Ortsbuendel buendel) async {
+    final ids = [for (final v in buendel.vorschlaege) v.assetId];
+    await db.uebernimmOrtsvorschlag(ids, buendel.breite, buendel.laenge);
+    final treffer = geocoder?.lookup(buendel.breite, buendel.laenge);
+    if (treffer != null) {
+      await db.setLocationNamesBulk(ids,
+          country: treffer.country, state: treffer.state, city: treffer.city);
+    }
     notifyListeners();
   }
 
@@ -1408,10 +1495,13 @@ class LibraryState extends ChangeNotifier {
     // Namen später ein.
     final treffer = geocoder?.lookup(breite, laenge);
     if (treffer == null) return;
-    for (final id in assetIds) {
-      await db.setLocationNames(id,
-          country: treffer.country, state: treffer.state, city: treffer.city);
-    }
+    // **Eine Anweisung, keine Schleife.** Alle bekommen denselben Ort –
+    // es gibt also nichts, was je Aufnahme verschieden wäre. Vorher stand
+    // hier ein UPDATE je Foto; bei 500 Fotos gemessen 163 ms gegen 2 ms.
+    // Wichtiger als die Zeit: Eine Schleife, die in der Mitte scheitert,
+    // lässt die eine Hälfte am neuen Ort und die andere am alten stehen.
+    await db.setLocationNamesBulk(assetIds,
+        country: treffer.country, state: treffer.state, city: treffer.city);
   }
 
   /// Führt die Gesichtserkennung für ein Asset aus, dessen Bild bereits
@@ -1432,6 +1522,7 @@ class LibraryState extends ChangeNotifier {
     required FaceEngineService engine,
     EyeStateService? eyeState,
     required bool deleteExistingUnassigned,
+    bool nurNeueStellen = false,
   }) async {
     // **Ohne Bild wird gar nichts angefasst.** Nicht die vorhandenen
     // Gesichter gelöscht, und vor allem nicht der Vermerk „gescannt"
@@ -1467,9 +1558,16 @@ class LibraryState extends ChangeNotifier {
     // zwar, aber die Erkennung findet dieselbe Stelle wieder – ohne diesen
     // Abgleich stünde neben jedem ignorierten Plakatgesicht nach dem
     // nächsten Scan ein frisches, unbenanntes.
+    //
+    // [nurNeueStellen] weitet das auf ALLE vorhandenen Gesichter aus – der
+    // Fall der weiteren Standbilder eines Videos: Wer zwei Sekunden lang
+    // stillsteht, ist auf jedem Standbild an derselben Stelle und soll
+    // trotzdem einmal in der Bibliothek stehen. Wer sich bewegt hat,
+    // bekommt eine zweite Zeile, und das ist richtig so.
     final ignorierteBoxen = [
       for (final f in await db.facesForAsset(asset.id))
-        if (f.isIgnored) DetectedFace(f.boxX, f.boxY, f.boxW, f.boxH, 1.0),
+        if (nurNeueStellen || f.isIgnored)
+          DetectedFace(f.boxX, f.boxY, f.boxW, f.boxH, 1.0),
     ];
 
     try {
@@ -1796,6 +1894,220 @@ class LibraryState extends ChangeNotifier {
       // gekündigtes Abonnement hält den Generator beim nächsten `yield`
       // an und durchläuft diesen Block.
       await blockSchreiben();
+    }
+  }
+
+  /// Sieht in jeder Datei nach, ob sie ein Aufnahmedatum trägt – und
+  /// vermerkt bei denen, die keines tragen, dass ihr Datum **geraten** ist
+  /// (siehe [Assets.datumGeschaetzt]).
+  ///
+  /// **Warum ein Lauf über die Dateien und nicht eine Regel über die
+  /// Datenbank.** Es wäre eine Zeile SQL, alles zu markieren, was auf
+  /// einer vollen Stunde liegt – an der echten Bibliothek träfe das 1097
+  /// Aufnahmen und damit fast genau die richtigen. Aber eben nur fast:
+  /// Ein Foto, das wirklich um Punkt achtzehn Uhr entstand, bekäme eine
+  /// Marke, die eine Falschaussage wäre. Und eine Marke, die selbst
+  /// geraten ist, taugt nicht als Auskunft darüber, was geraten ist.
+  ///
+  /// Der Lauf ist einmalig: Was angesehen wurde, bleibt angesehen
+  /// ([AppDatabase.markDatumGeprueft]). `alle: true` sieht auch dort noch
+  /// einmal nach – der Weg für Dateien, die ausserhalb der App
+  /// nachträglich ein Datum bekommen haben.
+  Stream<ImportProgress> backfillDatumsherkunft({bool alle = false}) async* {
+    final assets = await db.assetsFuerDatumsherkunft(alle: alle);
+    var done = 0;
+    var geraten = 0;
+    var unlesbar = 0;
+    var mitZone = 0;
+    yield ImportProgress(0, assets.length);
+
+    // Blockweise aus demselben Grund wie beim Ortsnachtrag: Das Lesen der
+    // Datei ist der teure Teil, aber tausende Einzelschreibvorgänge
+    // daneben wären es auch. Und ein Abbruch nach der halben Zeit behält
+    // die halbe Arbeit.
+    const blockGroesse = 200;
+    var block = <String>[];
+    var ohneDatum = <String>[];
+    var versatz = <String, int>{};
+    Future<void> blockSchreiben() async {
+      if (block.isEmpty) return;
+      final zuSchreiben = block;
+      final markieren = ohneDatum;
+      final zonen = versatz;
+      block = [];
+      ohneDatum = [];
+      versatz = {};
+      await db.markDatumGeprueft(zuSchreiben,
+          geschaetzt: markieren, versatz: zonen);
+    }
+
+    try {
+      for (final asset in assets) {
+        final datei = paths.absolute(asset.relativePath);
+        // Eine Datei, die nicht da ist, sagt nichts – und „nicht da"
+        // heisst nicht „ohne Datum". Sie bleibt ungeprüft, damit ein
+        // späterer Lauf sie wieder aufgreift.
+        if (await datei.exists()) {
+          try {
+            final befund = await importService.pruefeAufnahmedatum(datei);
+            // Ein Fehlschlag des Lesers ist kein Befund. Beim ersten Lauf
+            // über die echte Bibliothek meldete der Nachtrag alle 909 CR3
+            // als „ohne Datum" – sie tragen alle eines, nur konnte es
+            // niemand lesen. Die bleiben ungeprüft und kommen im nächsten
+            // Lauf wieder dran.
+            if (befund.lesbar) {
+              if (befund.zeitpunkt == null) {
+                ohneDatum.add(asset.id);
+                geraten++;
+              }
+              // Die Zeitzone kommt aus demselben Tagsatz – die Datei ist
+              // ohnehin offen. Ein eigener Lauf dafuer hiesse,
+              // achttausend Dateien ein zweites Mal zu lesen.
+              if (befund.versatzMinuten case final v?) {
+                versatz[asset.id] = v;
+                mitZone++;
+              }
+              block.add(asset.id);
+            } else {
+              unlesbar++;
+            }
+          } catch (e) {
+            debugPrint('Datum für ${asset.originalFileName} nicht lesbar: $e');
+          }
+        }
+        if (block.length >= blockGroesse) await blockSchreiben();
+        done++;
+        yield ImportProgress(done, assets.length,
+            currentFile: asset.originalFileName);
+      }
+    } finally {
+      await blockSchreiben();
+    }
+    debugPrint('Datumsherkunft: $geraten von ${assets.length} geraten, '
+        '$unlesbar nicht lesbar, $mitZone mit Zeitzone');
+  }
+
+  /// Wertet **weitere Standbilder** eines Videos aus – bisher war ein
+  /// Video ein einziges Bild.
+  ///
+  /// **Was daran fehlte.** Seit der 6. Vergleichsauflage haben 428 von 429
+  /// Videos eine Einbettung für die Suche und Schlagwörter. Alles davon
+  /// stammt aus dem einen Standbild, das seit dem Import auf der Platte
+  /// liegt. Bei einem Live-Photo-Fetzen von zwei Sekunden ist das das
+  /// ganze Video; bei neun Minuten – so lang ist das längste in der
+  /// echten Bibliothek – ist es eine Stichprobe von 0,2 Promille.
+  ///
+  /// ```
+  /// 429 Videos, 186 Minuten
+  ///   unter 10 s     208   ein Bild reicht
+  ///   ab 10 s        219   ein Bild reicht nicht
+  /// ```
+  ///
+  /// Die Bilder werden **nicht aufgehoben**. Sie entstehen, gehen durch
+  /// die Modelle und werden verworfen; was bleibt, sind die Einbettungen,
+  /// die Schlagwörter und die Gesichtsausschnitte, die die
+  /// Gesichtserkennung ohnehin selbst schreibt. Fünf Bilder je Video auf
+  /// der Platte wären an dieser Bibliothek rund 340 MB für nichts.
+  ///
+  /// Die zusätzlichen Einbettungen gehen in eine **eigene** Tabelle: Die
+  /// Duplikatsuche und die Serienerkennung fragen „welche Aufnahme sieht
+  /// wem ähnlich" und fänden bei fünf Zeilen je Video fünfmal dasselbe
+  /// Video (siehe [Videoeinbettungen]).
+  Stream<ImportProgress> backfillVideobilder({bool alle = false}) async* {
+    final videos = await db.assetsFuerVideobilder(alle: alle);
+    if (videos.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
+    // Erst die Arbeit ermitteln, dann die Modelle holen – siehe
+    // [_bildinhaltsAnalyse].
+    final clipBild = await clipBildHalter.leihen();
+    final clipText = await clipTextHalter.leihen();
+    try {
+      final gesichter = await faceEngineHalter.leihen();
+      try {
+        final augenzustand =
+            gesichter != null ? await eyeStateHalter.leihen() : null;
+        try {
+          final vokabular = await db.aiTagVocabularyTerms();
+          var done = 0;
+          var bilder = 0;
+          yield ImportProgress(0, videos.length);
+          final ohneArbeit = <String>[];
+
+          for (final video in videos) {
+            final stellen = videostandbildstellen(video.durationSeconds);
+            if (stellen.isEmpty) {
+              // Zu kurz – und das ist ein Ergebnis, kein offener Posten.
+              ohneArbeit.add(video.id);
+            } else {
+              try {
+                final neue = <({double stelle, Uint8List vector})>[];
+                for (final stelle in stellen) {
+                  final bild = await NativeImageConverter.generateVideoThumbnail(
+                    paths.absolute(video.relativePath),
+                    maxDimension: videoStandbildKante,
+                    anteil: stelle,
+                  );
+                  if (bild == null) continue;
+                  final dekodiert =
+                      await compute(img.decodeJpg, bild.jpegBytes);
+                  if (dekodiert == null) continue;
+                  bilder++;
+
+                  if (clipBild != null) {
+                    final vektor = await clipBild.embedImage(dekodiert);
+                    neue.add((
+                      stelle: stelle,
+                      vector: blobFromEmbeddingFloats(vektor)
+                    ));
+                    if (clipText != null) {
+                      for (final tag in await aiTaggingService.suggestTags(
+                          clipText, vektor, vokabular,
+                          insEnglische: insEnglische)) {
+                        await db.tagAsset(video.id, tag, quelle: Tagquelle.ki);
+                      }
+                    }
+                  }
+                  if (gesichter != null) {
+                    // `nurNeueStellen`: Wer im Video stillsteht, ist auf
+                    // jedem Standbild an derselben Stelle und soll
+                    // trotzdem einmal in der Bibliothek stehen.
+                    await _scanFacesForDecodedAsset(
+                      video,
+                      dekodiert,
+                      engine: gesichter,
+                      eyeState: augenzustand,
+                      deleteExistingUnassigned: false,
+                      nurNeueStellen: true,
+                    );
+                  }
+                }
+                // Auch mit leerer Liste vermerken: Ein Video, aus dem sich
+                // kein Standbild greifen lässt, ist angesehen worden.
+                await db.setzeVideoeinbettungen(video.id, neue);
+              } catch (e) {
+                debugPrint(
+                    'Standbilder fehlgeschlagen für ${video.originalFileName}: $e');
+              }
+            }
+            done++;
+            yield ImportProgress(done, videos.length,
+                currentFile: video.originalFileName);
+          }
+          if (ohneArbeit.isNotEmpty) {
+            await db.markVideobilderGeprueft(ohneArbeit);
+          }
+          debugPrint('Videostandbilder: $bilder aus ${videos.length} Videos');
+        } finally {
+          if (augenzustand != null) eyeStateHalter.zurueckgeben();
+        }
+      } finally {
+        if (gesichter != null) faceEngineHalter.zurueckgeben();
+      }
+    } finally {
+      if (clipBild != null) clipBildHalter.zurueckgeben();
+      if (clipText != null) clipTextHalter.zurueckgeben();
     }
   }
 

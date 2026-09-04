@@ -42,7 +42,22 @@ Future<List<List<AssetData>>> serienvorschlaege(
   if (einbettungen.isEmpty) return const [];
 
   final bekannt = await db.assetsByIds(einbettungen.keys.toList());
-  final zeiten = {for (final a in bekannt) a.id: a.fileCreatedAt};
+
+  // **Geschätzte Daten fliegen hier raus.** Eine Serie ist über ihren
+  // zeitlichen Abstand definiert – höchstens 30 Sekunden. Aufnahmen, deren
+  // Zeitstempel aus dem Dateisystem stammt, tragen alle denselben, und
+  // damit ist der Abstand null: Sie erfüllen die Bedingung nicht, weil sie
+  // zusammengehören, sondern weil niemand ihre Zeit kennt.
+  //
+  // Genau so ist es passiert. In der 6. Vergleichsauflage stand eine
+  // „Gruppe" mit 943 Mitgliedern in der Zählung – alle 943 lagen auf
+  // demselben erfundenen Zeitpunkt. Damals wurde sie über eine
+  // Plausibilitätsgrenze aussortiert; jetzt kommt sie gar nicht mehr
+  // zustande.
+  final zeiten = {
+    for (final a in bekannt)
+      if (!a.datumGeschaetzt) a.id: a.fileCreatedAt,
+  };
 
   final kennungen = await compute(
     findBurstGroups,

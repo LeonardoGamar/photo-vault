@@ -292,7 +292,8 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
   Future<void> _klick(ll.LatLng stelle) async {
     final geo = widget.library.geocoder;
     final t = AppTexte.of(context);
-    final ziel = _ziel(stelle, geo);
+    final ziel =
+        _ziel(stelle, geo, Localizations.localeOf(context).languageCode);
     if (ziel == null) {
       _sage(t.weltkarteKeinOrt);
       return;
@@ -306,7 +307,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     if (vorhanden != null && vorhanden.isNotEmpty) {
       await widget.library.db.loescheOrtsmarke(_stufe.name, ziel.schluessel);
       await _laden();
-      if (mounted) _sage(t.weltkarteMarkeWeggenommen(ziel.name));
+      if (mounted) _sage(t.weltkarteMarkeWeggenommen(ziel.anzeige));
       return;
     }
 
@@ -315,7 +316,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
     final belegt = _punkte?.any((p) =>
         p.ebene == _stufe && p.schluessel == ziel.schluessel && p.belegt);
     if (belegt == true && !_alsGeplant) {
-      _sage(t.weltkarteSchonBelegt(ziel.name));
+      _sage(t.weltkarteSchonBelegt(ziel.anzeige));
       return;
     }
 
@@ -324,8 +325,15 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
   }
 
   /// Worauf der Klick auf der eingestellten Stufe zeigt.
-  ({String schluessel, String name, double? breite, double? laenge})? _ziel(
-      ll.LatLng stelle, ReverseGeocoder? geo) {
+  ///
+  /// **Zwei Namen und nicht einer.** [name] ist der englische – er geht
+  /// in die Datenbank, weil eine Marke nicht davon abhängen darf, in
+  /// welcher Sprache sie gesetzt wurde. [anzeige] ist der übersetzte,
+  /// und der gehört in die Meldung: „Marke bei Germany weggenommen" ist
+  /// in einer deutschen Oberfläche keine Auskunft, sondern eine Panne.
+  ({String schluessel, String name, String anzeige, double? breite,
+      double? laenge})? _ziel(
+      ll.LatLng stelle, ReverseGeocoder? geo, String sprache) {
     final grenzen = _grenzen;
     final iso = grenzen?.landBei(stelle.latitude, stelle.longitude);
     final treffer = geo?.lookup(stelle.latitude, stelle.longitude);
@@ -337,8 +345,14 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                 ? null
                 : geo?.isoNachName[treffer!.country!]);
         if (code == null) return null;
-        final name = geo?.laenderkatalog.nachIso(code)?.name ?? code;
-        return (schluessel: code, name: name, breite: null, laenge: null);
+        final land = geo?.laenderkatalog.nachIso(code);
+        return (
+          schluessel: code,
+          name: land?.name ?? code,
+          anzeige: land?.anzeige(sprache) ?? code,
+          breite: null,
+          laenge: null,
+        );
 
       case _Ebene.region:
         final land = iso ??
@@ -360,7 +374,13 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
                 .firstOrNull ??
             treffer?.state ??
             code;
-        return (schluessel: code, name: name, breite: null, laenge: null);
+        return (
+          schluessel: code,
+          name: name,
+          anzeige: name,
+          breite: null,
+          laenge: null,
+        );
 
       case _Ebene.ort:
         // Für den Ort gibt es keinen Umriss – hier ist die nächste Stadt
@@ -372,6 +392,7 @@ class _WeltkarteScreenState extends State<WeltkarteScreen> {
           schluessel:
               '${treffer.country ?? ''}|${treffer.state ?? ''}|${treffer.city}',
           name: treffer.city,
+          anzeige: treffer.city,
           breite: stelle.latitude,
           laenge: stelle.longitude,
         );

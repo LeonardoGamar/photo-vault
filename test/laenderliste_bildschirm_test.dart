@@ -26,8 +26,8 @@ Future<ReverseGeocoder> _geokodierer(Directory wurzel) async {
   final laender = File(p.join(wurzel.path, 'countryInfo.txt'));
   await laender.writeAsString(
     '# Kopfzeile\n'
-    'DE\tDEU\t276\tDE\tDeutschland\tBerlin\t357021\t82927922\tEU\t.de\tEUR\tEuro\t49\t\t\tde-DE\t2921044\t\t\n'
-    'IT\tITA\t380\tIT\tItalien\tRom\t301230\t60431283\tEU\t.it\tEUR\tEuro\t39\t\t\tit-IT\t3175395\t\t\n'
+    'DE\tDEU\t276\tDE\tGermany\tBerlin\t357021\t82927922\tEU\t.de\tEUR\tEuro\t49\t\t\tde-DE\t2921044\t\t\n'
+    'IT\tITA\t380\tIT\tItaly\tRom\t301230\t60431283\tEU\t.it\tEUR\tEuro\t39\t\t\tit-IT\t3175395\t\t\n'
     'MC\tMCO\t492\tMN\tMonaco\tMonaco\t1.95\t32965\tEU\t.mc\tEUR\tEuro\t377\t\t\tfr-MC\t2993457\t\t\n',
   );
   return ReverseGeocoder.loadFromFiles(
@@ -90,7 +90,7 @@ void main() {
   testWidgets('jedes Land des Datensatzes steht da, nicht nur die besuchten',
       (tester) async {
     await aufnahme('a1',
-        land: 'Deutschland', region: 'Berlin', ort: 'Berlin');
+        land: 'Germany', region: 'Berlin', ort: 'Berlin');
     await zeige(tester);
 
     expect(find.text('Deutschland'), findsOneWidget);
@@ -105,7 +105,7 @@ void main() {
 
   testWidgets('die Filter sieben nach dem Grad', (tester) async {
     await aufnahme('a1',
-        land: 'Deutschland', region: 'Berlin', ort: 'Berlin');
+        land: 'Germany', region: 'Berlin', ort: 'Berlin');
     await zeige(tester);
 
     await tester.tap(find.widgetWithText(ChoiceChip, 'Teilweise'));
@@ -267,7 +267,7 @@ void main() {
 
     testWidgets('ein Land mit Aufnahmen traegt die Kamera', (tester) async {
       await aufnahme('a1',
-          land: 'Deutschland', region: 'Berlin', ort: 'Berlin');
+          land: 'Germany', region: 'Berlin', ort: 'Berlin');
       await zeige(tester);
       final zeile = find.ancestor(
           of: find.text('Deutschland'), matching: find.byType(ListTile));
@@ -321,7 +321,7 @@ void main() {
       // Vorher stand „von Hand" an jedem Land mit einer Marke – auch an
       // denen, die laengst durch Aufnahmen belegt waren.
       await aufnahme('a1',
-          land: 'Deutschland', region: 'Berlin', ort: 'Berlin');
+          land: 'Germany', region: 'Berlin', ort: 'Berlin');
       await db.setzeOrtsmarke(OrtsmarkenCompanion.insert(
         art: 'land',
         schluessel: 'DE',

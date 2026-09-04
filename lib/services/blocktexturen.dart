@@ -30,6 +30,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+
 import 'package:flutter_map/flutter_map.dart' show MapCachingProvider;
 import 'package:http/http.dart' as http;
 
@@ -171,6 +172,25 @@ class Blocktexturlader {
   /// Was ein Block im Vorrat hat – die feinste vorhandene Fassung.
   ui.Image? bei(Texturblock block) => _vorrat.bestes(block)?.inhalt;
 
+  /// Wie viele der [wieviele] nächstgelegenen gewünschten Blöcke ihre
+  /// Zielstufe haben.
+  ///
+  /// **Das Mass, an dem sich Warten überhaupt beurteilen lässt.** Ob ein
+  /// Bild scharf ist, entscheidet die Stufe, nicht die Anwesenheit einer
+  /// Textur – ein Block trägt notfalls die Übersichtskarte, und die ist
+  /// da, nur unschärfer. Gebraucht von `tool/messe_videolauf_test.dart`,
+  /// das damit belegt, was die kurze Frist kostet.
+  ({int scharf, int gesamt}) schaerfeNah(int wieviele) {
+    var scharf = 0, gesamt = 0;
+    for (final a in _auftraege()) {
+      if (gesamt >= wieviele) break;
+      gesamt++;
+      final da = _vorrat.bestes(a.block);
+      if (da != null && da.stufe >= a.stufe) scharf++;
+    }
+    return (scharf: scharf, gesamt: gesamt);
+  }
+
   int get belegt => _vorrat.belegt;
   int get gehalten => _vorrat.anzahl;
 
@@ -196,6 +216,55 @@ class Blocktexturlader {
         uhr.elapsed < hoechstens) {
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
+  }
+
+  /// Wartet, bis die [naechste] **nächstgelegenen** gewünschten Blöcke
+  /// ihre Zielstufe haben – höchstens aber [hoechstens].
+  ///
+  /// **Warum nicht [ruhe].** [ruhe] wartet, bis der Lader gar nichts mehr
+  /// zu tun hat. Das ist im Flug ein Zustand, der nie eintritt: Ein Bild
+  /// von 1920 × 1080 will über fünfhundert Blöcke, in achtzig Megabyte
+  /// passen hundertfünfzig Texturen, und mit jedem Bild verschiebt sich,
+  /// welcher Block welche Stufe bekommt. Der Vorrat läuft also dauernd
+  /// über, und die Ausgabe wartete jedes Mal die volle Frist ab.
+  ///
+  /// Gemessen an einem gestellten Netz, das **sofort** antwortet, über
+  /// vierzig Bilder einer Flugbahn (`tool/messe_videolauf_test.dart`):
+  ///
+  /// ```
+  /// ruhe(700 ms)   665 ms je Bild   39.525 Kachelabrufe für 40 Bilder
+  /// ```
+  ///
+  /// Hochgerechnet auf einen Überflug von einer Minute: **zwanzig Minuten
+  /// reines Warten**, und das mit einem Server, der nichts kostet.
+  ///
+  /// Gewartet wird deshalb nur auf das, was man auch sieht. Ein ferner
+  /// Block trägt bis dahin die Übersichtskarte – die ist da, sie ist nur
+  /// unschärfer, und in der Ferne ist genau das die Absicht.
+  Future<void> ruheNah({
+    int naechste = 24,
+    Duration hoechstens = const Duration(milliseconds: 300),
+  }) async {
+    final uhr = Stopwatch()..start();
+    while (!_geschlossen && uhr.elapsed < hoechstens && _offeneNahe(naechste)) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+  }
+
+  /// Ob unter den [wieviele] nächstgelegenen gewünschten Blöcken noch
+  /// einer auf seine Stufe wartet.
+  ///
+  /// Vergebliche werden übersprungen: Auf eine Kachel zu warten, die
+  /// schon einmal nicht kam, ist Warten auf nichts.
+  bool _offeneNahe(int wieviele) {
+    var gezaehlt = 0;
+    for (final a in _auftraege()) {
+      if (gezaehlt++ >= wieviele) return false;
+      if (_vergeblich.contains('${a.block}@${a.stufe}')) continue;
+      final da = _vorrat.bestes(a.block);
+      if (da == null || da.stufe < a.stufe) return true;
+    }
+    return false;
   }
 
   Future<void> _arbeite() async {

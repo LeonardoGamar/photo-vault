@@ -640,7 +640,7 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
                             paths: widget.library.paths,
                             beiOrt: _ortOeffnen,
                             hoehe: 260,
-                            spur: _spurlinie,
+                            spuren: [if (_spurlinie.length > 1) _spurlinie],
                             stelle: _stelleAufKarte,
                           ),
                         ] else if (_aufnahmen.isNotEmpty) ...[

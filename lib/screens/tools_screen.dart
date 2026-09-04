@@ -15,6 +15,7 @@ import 'export_presets_screen.dart';
 import 'staubsuche_screen.dart';
 import 'duplicates_screen.dart';
 import 'integrity_check_screen.dart';
+import 'ortsvorschlaege_screen.dart';
 import 'stack_review_screen.dart';
 import 'gpx_verortung_screen.dart';
 import 'statistics_screen.dart';
@@ -53,10 +54,25 @@ class _ToolsScreenState extends State<ToolsScreen> {
   /// und läuft einmal beim Öffnen dieses Bildschirms.
   Future<int>? _serienzahl;
 
+  /// Wie viele Buendel Ortsvorschlaege offen sind. Anders als bei den
+  /// Serien ohne Vorrat: Die Rechnung kostet an der echten Bibliothek
+  /// 2 ms, ein Zwischenspeicher waere hier nur eine zweite Wahrheit.
+  Future<int>? _ortsvorschlagszahl;
+
   @override
   void initState() {
     super.initState();
     _serienzahl = _zaehleSerien();
+    _ortsvorschlagszahl = _zaehleOrtsvorschlaege();
+  }
+
+  Future<int> _zaehleOrtsvorschlaege() async {
+    try {
+      return (await widget.library.ortsvorschlagsbuendel()).length;
+    } catch (e) {
+      debugPrint('Ortsvorschlaege nicht ermittelt: $e');
+      return 0;
+    }
   }
 
   Future<int> _zaehleSerien() async {
@@ -365,6 +381,62 @@ class _ToolsScreenState extends State<ToolsScreen> {
                         builder: (_) =>
                             StackReviewScreen(library: widget.library)));
                     if (mounted) setState(() => _serienzahl = _zaehleSerien());
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.where_to_vote_outlined),
+                  title: Text(t.ortVorschlagWerkzTitel),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t.ortVorschlagWerkzText),
+                      FutureBuilder<int>(
+                        future: _ortsvorschlagszahl,
+                        builder: (context, schnappschuss) {
+                          final zahl = schnappschuss.data ?? 0;
+                          if (zahl == 0) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              t.ortVorschlagAlleUebernehmen(zahl),
+                              style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.primary),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  isThreeLine: true,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FutureBuilder<int>(
+                        future: _ortsvorschlagszahl,
+                        builder: (context, schnappschuss) {
+                          final zahl = schnappschuss.data;
+                          if (zahl == null || zahl == 0) {
+                            return const SizedBox.shrink();
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(right: AppSpacing.sm),
+                            child: Badge(label: Text('$zahl')),
+                          );
+                        },
+                      ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () async {
+                    await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            OrtsvorschlaegeScreen(library: widget.library)));
+                    if (mounted) {
+                      setState(() =>
+                          _ortsvorschlagszahl = _zaehleOrtsvorschlaege());
+                    }
                   },
                 ),
                 const Divider(height: 1),

@@ -138,18 +138,52 @@ void main() {
     }
 
     test('ein Zickzack reisst die Kamera nicht herum', () {
-      final roh = Gelaendeflug(zickzack(), glaettung: 0.01);
-      final glatt = Gelaendeflug(zickzack(), glaettung: 150);
-      expect(groessterSprung(roh), greaterThan(1.0),
+      final roh = Gelaendeflug(zickzack(), blickglaettung: 0.01);
+      final glatt = Gelaendeflug(zickzack(), blickglaettung: 150);
+      // Gemessen: 0,91 gegen 0,04 Bogenmass je Vierhundertstel Flug.
+      expect(groessterSprung(roh), greaterThan(0.5),
           reason: 'ohne Glättung schlägt die Richtung wirklich aus');
-      expect(groessterSprung(glatt), lessThan(0.2),
+      expect(groessterSprung(glatt), lessThan(0.1),
           reason: 'mit Glättung bleibt der Blick auf dem Weg');
+    });
+
+    /// **Eine Kehre, und sie ist der Fall, an dem das Zickzack vorbeisah.**
+    ///
+    /// Ein Zickzack schwankt um eine Richtung; eine Serpentine **kehrt
+    /// um**. Wer dafür die Sehne über das Glättungsfenster nimmt – von
+    /// 120 Meter zurück nach 120 Meter voraus –, bekommt an der Spitze
+    /// zwei Enden, die fast aufeinanderliegen: Die Sehne wird kurz, und
+    /// ihre Richtung ist dann nicht mehr die Bewegung, sondern das
+    /// Rauschen. An der echten Spur durchs Ilsetal waren das 4783 Grad
+    /// je Sekunde – die Kamera schlug in einem Bild um.
+    List<Raumpunkt> kehre() => [
+          for (var i = 0; i <= 60; i++) (x: 0, y: i * 10.0, z: 0),
+          for (var i = 1; i <= 60; i++) (x: i * 10.0 * 0.17, y: 600 - i * 10.0, z: 0),
+        ];
+
+    test('eine Kehre wird ein Bogen, kein Umschlag', () {
+      final flug = Gelaendeflug(kehre());
+      expect(groessterSprung(flug), lessThan(0.1),
+          reason: 'die Kamera dreht durch die Kehre, sie schlägt nicht um');
+      // Und sie dreht wirklich um: Ein Blick, der einfach stehen bleibt,
+      // wäre ruhig und falsch.
+      final anfang = flug.bei(0.05).drehung;
+      final ende = flug.bei(0.95).drehung;
+      expect((ende - anfang).abs(), greaterThan(2.0),
+          reason: 'am Ende geht es zurück, das muss sich zeigen');
+    });
+
+    test('mit kurzem Fenster schlaegt dieselbe Kehre um', () {
+      // Die Gegenprobe: Ohne die breite Glättung ist der Ruck da.
+      final flug = Gelaendeflug(kehre(), blickglaettung: 0.01);
+      // Gemessen: 0,66 gegen 0,07 mit der vollen Glättung.
+      expect(groessterSprung(flug), greaterThan(0.5));
     });
 
     test('am Anfang rutscht das Fenster nach innen, statt zu schrumpfen', () {
       // Sonst wäre die Richtung ausgerechnet beim Start am unruhigsten,
       // weil sie dort nur aus einem halben Fenster käme.
-      final flug = Gelaendeflug(zickzack(), glaettung: 150);
+      final flug = Gelaendeflug(zickzack(), blickglaettung: 150);
       final start = flug.bei(0).drehung;
       final gleichDanach = flug.bei(0.01).drehung;
       expect((start - gleichDanach).abs(), lessThan(0.2));
@@ -158,7 +192,7 @@ void main() {
     test('eine Glättung länger als die Spur bricht nichts', () {
       final flug = Gelaendeflug(
           [(x: 0, y: 0, z: 0), (x: 0, y: 30, z: 0)],
-          glaettung: 5000);
+          glaettung: 5000, blickglaettung: 5000);
       expect(flug.bei(0.5).drehung, closeTo(0, 1e-9));
     });
   });

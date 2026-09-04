@@ -48,6 +48,17 @@ class SearchFilters {
   /// "Nur unscharfe anzeigen" – Fotos mit `sharpnessScore <= maxSharpnessScore`.
   final double? maxSharpnessScore;
 
+  /// Nur Aufnahmen, deren Datum geraten ist (siehe
+  /// [Assets.datumGeschaetzt]).
+  ///
+  /// Der Weg, die 1097 betroffenen Aufnahmen dieser Bibliothek überhaupt
+  /// zu Gesicht zu bekommen – und, zusammen mit der Sammelbearbeitung,
+  /// gleich einem Datum von Hand zuzuführen. Es gibt bewusst keinen
+  /// Umkehrfilter „nur mit gemessenem Datum": Das ist der Normalfall, und
+  /// ein Filter dafür wäre ein Kreuz, das man einmal setzt und nie wieder
+  /// findet.
+  final bool nurGeschaetztesDatum;
+
   const SearchFilters({
     this.personIds = const [],
     this.textMode = SearchTextMode.context,
@@ -75,6 +86,7 @@ class SearchFilters {
     this.minFocalLengthMm,
     this.maxFocalLengthMm,
     this.maxSharpnessScore,
+    this.nurGeschaetztesDatum = false,
   });
 
   bool get isEmpty =>
@@ -102,7 +114,8 @@ class SearchFilters {
       maxFNumber == null &&
       minFocalLengthMm == null &&
       maxFocalLengthMm == null &&
-      maxSharpnessScore == null;
+      maxSharpnessScore == null &&
+      !nurGeschaetztesDatum;
 
   /// Da `null` bei den optionalen String-/Zahlen-Feldern eine gültige
   /// Bedeutung hat ("kein Filter"), braucht `copyWith` für sie explizite
@@ -132,6 +145,7 @@ class SearchFilters {
     bool clearEndDate = false,
     MediaTypeFilter? mediaType,
     bool? favoritesOnly,
+    bool? nurGeschaetztesDatum,
     bool? notInAnyAlbum,
     int? minRating,
     bool clearMinRating = false,
@@ -168,6 +182,7 @@ class SearchFilters {
       endDate: clearEndDate ? null : (endDate ?? this.endDate),
       mediaType: mediaType ?? this.mediaType,
       favoritesOnly: favoritesOnly ?? this.favoritesOnly,
+      nurGeschaetztesDatum: nurGeschaetztesDatum ?? this.nurGeschaetztesDatum,
       notInAnyAlbum: notInAnyAlbum ?? this.notInAnyAlbum,
       minRating: clearMinRating ? null : (minRating ?? this.minRating),
       colorLabels: colorLabels ?? this.colorLabels,
@@ -202,6 +217,7 @@ class SearchFilters {
         'endDate': endDate?.toIso8601String(),
         'mediaType': mediaType.name,
         'favoritesOnly': favoritesOnly,
+        'nurGeschaetztesDatum': nurGeschaetztesDatum,
         'notInAnyAlbum': notInAnyAlbum,
         'minRating': minRating,
         'colorLabels': colorLabels.toList(),
@@ -231,6 +247,7 @@ class SearchFilters {
         endDate: json['endDate'] != null ? DateTime.parse(json['endDate'] as String) : null,
         mediaType: MediaTypeFilter.values.byName(json['mediaType'] as String? ?? 'all'),
         favoritesOnly: json['favoritesOnly'] as bool? ?? false,
+        nurGeschaetztesDatum: json['nurGeschaetztesDatum'] as bool? ?? false,
         notInAnyAlbum: json['notInAnyAlbum'] as bool? ?? false,
         minRating: json['minRating'] as int?,
         colorLabels: (json['colorLabels'] as List<dynamic>? ?? const []).cast<String>().toSet(),

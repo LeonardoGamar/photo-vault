@@ -29,7 +29,10 @@ void main() {
       );
 
   Future<void> spur(String id,
-      {String? aktivitaetId, int punkte = 5, bool hoehen = true}) {
+      {String? aktivitaetId,
+      String? reiseId,
+      int punkte = 5,
+      bool hoehen = true}) {
     final roh = <Rohpunkt>[
       for (var i = 0; i < punkte; i++)
         (
@@ -46,6 +49,7 @@ void main() {
         name: 'wanderung.gpx',
         quelle: '/tmp/wanderung.gpx',
         aktivitaetId: Value(aktivitaetId),
+        reiseId: Value(reiseId),
         von: Value(z.von),
         bis: Value(z.bis),
         punktzahl: z.punktzahl,
@@ -188,5 +192,66 @@ void main() {
       throwsA(anything),
     );
     expect(await db.alleSpuren(), isEmpty);
+  });
+
+  group('Eine Spur an einer Reise', () {
+    Future<void> reise(String id) => db.reiseAnlegen(
+          ReisenCompanion.insert(
+            id: id,
+            name: 'Harz',
+            von: DateTime(2024, 6, 1),
+            bis: DateTime(2024, 6, 8),
+            angelegtAm: DateTime(2024, 7, 1),
+          ),
+          const [],
+        );
+
+    test('sie haengt an der Reise und nicht an einer Aktivitaet', () async {
+      await reise('r1');
+      await spur('s1', reiseId: 'r1');
+      final anDerReise = await db.spurenDerReise('r1');
+      expect(anDerReise, hasLength(1));
+      expect(anDerReise.first.aktivitaetId, isNull);
+    });
+
+    test('eine Reise darf mehrere tragen - eine je Tag', () async {
+      // Der Grund fuer die Mehrzahl: Eine Wanderung hat eine Spur, eine
+      // Reise ueber zehn Tage hat zehn Dateien.
+      await reise('r1');
+      await spur('s1', reiseId: 'r1');
+      await spur('s2', reiseId: 'r1');
+      expect(await db.spurenDerReise('r1'), hasLength(2));
+    });
+
+    test('die beiden Sorten zaehlen einander nicht mit', () async {
+      // Das ist der ganze Grund fuer zwei Spalten statt einer mit einer
+      // Artangabe daneben: Wer die zweite Bedingung vergisst, bekommt
+      // sonst die Spuren der jeweils anderen Sorte dazu.
+      await reise('r1');
+      await aktivitaet('k1');
+      await spur('s1', reiseId: 'r1');
+      await spur('s2', aktivitaetId: 'k1');
+      expect(await db.spurenDerReise('r1'), hasLength(1));
+      expect(await db.spurenDerAktivitaet('k1'), hasLength(1));
+      expect((await db.spurenDerReise('r1')).first.id, 's1');
+      expect((await db.spurenDerAktivitaet('k1')).first.id, 's2');
+    });
+
+    test('eine Spur ohne beides gehoert zu keinem von beiden', () async {
+      await reise('r1');
+      await aktivitaet('k1');
+      await spur('s1');
+      expect(await db.spurenDerReise('r1'), isEmpty);
+      expect(await db.spurenDerAktivitaet('k1'), isEmpty);
+    });
+
+    test('das Loeschen nimmt die Punkte mit', () async {
+      await reise('r1');
+      await spur('s1', reiseId: 'r1', punkte: 7);
+      expect(await db.punkteDerSpur('s1'), hasLength(7));
+      await db.spurLoeschen('s1');
+      expect(await db.spurenDerReise('r1'), isEmpty);
+      expect(await db.punkteDerSpur('s1'), isEmpty);
+    });
   });
 }

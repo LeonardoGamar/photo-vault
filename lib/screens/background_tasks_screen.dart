@@ -922,6 +922,54 @@ List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
         ],
       ),
       Aufgabe(
+        schluessel: 'videobilder',
+        rechenintensiv: true,
+        icon: Icons.video_library_outlined,
+        titel: t.aufgVideobilderTitel,
+        beschreibung: t.aufgVideobilderText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countVideobilder(),
+        aktionen: [
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzVideobilder,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillVideobilder(alle: true),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzVideobilder,
+            emptyMessage: t.werkzAlleVideobilder,
+            stream: () => library.backfillVideobilder(),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'datumsherkunft',
+        icon: Icons.event_busy_outlined,
+        titel: t.aufgDatumsherkunftTitel,
+        beschreibung: t.aufgDatumsherkunftText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countDatumsherkunft(),
+        aktionen: [
+          // „Alle" sieht auch dort noch einmal nach, wo schon geprüft
+          // wurde – der Weg für Dateien, die ausserhalb der App
+          // nachträglich ein Datum bekommen haben.
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzPruefeDatumsherkunft,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillDatumsherkunft(alle: true),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzPruefeDatumsherkunft,
+            emptyMessage: t.werkzAlleDatumGeprueft,
+            stream: () => library.backfillDatumsherkunft(),
+          ),
+        ],
+      ),
+      Aufgabe(
         schluessel: 'orte',
         icon: Icons.place_outlined,
         titel: t.aufgOrteTitel,

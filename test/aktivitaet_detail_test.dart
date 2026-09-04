@@ -279,7 +279,8 @@ void main() {
       await zeige(tester, k);
       final karte =
           tester.widget<Routenkarte>(find.byType(Routenkarte));
-      expect(karte.spur, hasLength(20));
+      expect(karte.spuren, hasLength(1));
+      expect(karte.spuren.first, hasLength(20));
       // Solange niemand auf das Profil zeigt, gibt es keine Marke.
       expect(karte.stelle, isNull);
     });

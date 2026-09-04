@@ -379,9 +379,16 @@ class DesktopImageTools {
   }
 
   /// Extrahiert ein Vorschaubild aus einem Video plus dessen Länge.
+  /// Ein Standbild aus einem Video.
+  ///
+  /// [anteil] ist die Stelle in der Laufzeit, 0 bis 1. Ohne Angabe wird
+  /// wie bisher eine Sekunde hinein gegriffen; mit Angabe entstehen die
+  /// weiteren Standbilder, aus denen die Auswertung eines laengeren
+  /// Videos besteht (siehe `videostandbilder.dart`).
   static Future<({Uint8List jpeg, double? dauerSekunden})?> videoThumbnail(
     File datei, {
     int maxDimension = 800,
+    double? anteil,
   }) async {
     final werkzeug = await aufruf('ffmpeg');
     if (werkzeug == null) return null;
@@ -400,6 +407,16 @@ class DesktopImageTools {
           ziel,
         ]);
         return r.exitCode == 0 && await File(ziel).exists();
+      }
+
+      if (anteil != null) {
+        final dauer = await videoDauer(datei);
+        if (dauer == null || dauer <= 0) return null;
+        final stelle = (anteil.clamp(0, 1) * dauer);
+        // `-ss` VOR `-i` ist der schnelle Sprung: ffmpeg setzt am
+        // naechsten Keyframe auf, statt bis dorthin zu dekodieren.
+        if (!await greifeFrame(stelle.toStringAsFixed(3))) return null;
+        return (jpeg: await File(ziel).readAsBytes(), dauerSekunden: dauer);
       }
 
       // Sekunde 1 statt 0, weil der allererste Frame bei vielen Videos

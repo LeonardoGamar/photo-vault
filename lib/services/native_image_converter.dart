@@ -424,12 +424,19 @@ class NativeImageConverter {
   /// Extrahiert einen Frame aus einer Videodatei (über AVFoundation) als
   /// JPEG-Thumbnail, inklusive der Videolänge. Gibt `null` zurück, falls die
   /// native Anbindung fehlt oder das Video nicht gelesen werden konnte.
+  ///
+  /// [anteil] ist die Stelle in der Laufzeit, 0 bis 1. Ohne Angabe wird
+  /// wie bisher kurz nach dem Start gegriffen; mit Angabe entstehen die
+  /// weiteren Standbilder eines laengeren Videos (siehe
+  /// `services/videostandbilder.dart`).
   static Future<VideoThumbnailResult?> generateVideoThumbnail(
     File file, {
     int maxDimension = 800,
+    double? anteil,
   }) async {
     if (_ueberWerkzeuge) {
-      final r = await DesktopImageTools.videoThumbnail(file, maxDimension: maxDimension);
+      final r = await DesktopImageTools.videoThumbnail(file,
+          maxDimension: maxDimension, anteil: anteil);
       return r == null ? null : VideoThumbnailResult(r.jpeg, r.dauerSekunden);
     }
     if (!await isSupported()) return null;
@@ -437,6 +444,7 @@ class NativeImageConverter {
       final result = await _channel.invokeMethod<Map<Object?, Object?>>('videoThumbnail', {
         'path': file.path,
         'maxDimension': maxDimension,
+        if (anteil != null) 'anteil': anteil,
       });
       if (result == null) return null;
       final jpeg = result['jpeg'] as Uint8List?;

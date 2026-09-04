@@ -17,6 +17,7 @@ import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
 import 'package:photo_vault/widgets/asset_thumbnail_tile.dart';
+import 'package:photo_vault/widgets/routenkarte.dart';
 import 'package:photo_vault/services/meldungsdienst.dart';
 import 'package:photo_vault/widgets/meldungsfenster.dart';
 
@@ -39,10 +40,10 @@ Future<ReverseGeocoder> _geokodierer(Directory wurzel) async {
   final laender = File(p.join(wurzel.path, 'countryInfo.txt'));
   await laender.writeAsString(
     '# Kopfzeile\n'
-    'DE\tDEU\t276\tDE\tDeutschland\tBerlin\t357021\t82927922\tEU\t.de\tEUR\tEuro\t49\t\t\tde-DE\t2921044\t\t\n'
-    'IT\tITA\t380\tIT\tItalien\tRom\t301230\t60431283\tEU\t.it\tEUR\tEuro\t39\t\t\tit-IT\t3175395\t\t\n'
-    'FR\tFRA\t250\tFR\tFrankreich\tParis\t547030\t67059887\tEU\t.fr\tEUR\tEuro\t33\t\t\tfr-FR\t3017382\t\t\n'
-    'ES\tESP\t724\tES\tSpanien\tMadrid\t504782\t46723749\tEU\t.es\tEUR\tEuro\t34\t\t\tes-ES\t2510769\t\t\n',
+    'DE\tDEU\t276\tDE\tGermany\tBerlin\t357021\t82927922\tEU\t.de\tEUR\tEuro\t49\t\t\tde-DE\t2921044\t\t\n'
+    'IT\tITA\t380\tIT\tItaly\tRom\t301230\t60431283\tEU\t.it\tEUR\tEuro\t39\t\t\tit-IT\t3175395\t\t\n'
+    'FR\tFRA\t250\tFR\tFrance\tParis\t547030\t67059887\tEU\t.fr\tEUR\tEuro\t33\t\t\tfr-FR\t3017382\t\t\n'
+    'ES\tESP\t724\tES\tSpain\tMadrid\t504782\t46723749\tEU\t.es\tEUR\tEuro\t34\t\t\tes-ES\t2510769\t\t\n',
   );
   return ReverseGeocoder.loadFromFiles(
       citiesFile: staedte, admin1File: regionen, countryFile: laender);
@@ -85,14 +86,14 @@ void main() {
     // Hamburg als Wohnort: sechzig verschiedene Tage.
     for (var t = 0; t < 60; t++) {
       await aufnahme('h$t', DateTime(2024, 1, 1).add(Duration(days: t)), 53.55,
-          9.99, 'Hamburg', 'Deutschland');
+          9.99, 'Hamburg', 'Germany');
     }
     // Sechs Tage Rom, je vier Aufnahmen.
     for (var t = 0; t < 6; t++) {
       for (var i = 0; i < 4; i++) {
         await aufnahme('r$t-$i',
             DateTime(2024, 6, 3, 9, i * 10).add(Duration(days: t)), 41.90,
-            12.50, 'Roma', 'Italien');
+            12.50, 'Roma', 'Italy');
       }
     }
   });
@@ -258,7 +259,7 @@ void main() {
             latitude: const Value(43.77),
             longitude: const Value(11.26),
             locationCity: const Value('Firenze'),
-            locationCountry: const Value('Italien'),
+            locationCountry: const Value('Italy'),
           ));
     }
     await zeige(tester);
@@ -352,7 +353,7 @@ void main() {
           latitude: const Value(43.7696),
           longitude: const Value(11.2558),
           locationCity: const Value('Firenze'),
-          locationCountry: const Value('Italien'),
+          locationCountry: const Value('Italy'),
         ));
     await db.reiseAnlegen(
       ReisenCompanion.insert(
@@ -390,5 +391,144 @@ void main() {
     expect(find.byTooltip('Firenze · eine Aufnahme'), findsOneWidget);
     // Die Zahl steht an der Marke – aber nur, wo mehr als eine ist.
     expect(find.text('24'), findsOneWidget);
+  });
+
+  testWidgets('ein Vorschlag ueber zwei Laender heisst deutsch',
+      (tester) async {
+    // **Der Datensatz kennt Laender nur englisch** – so stehen sie in der
+    // Datenbank, und dort gehoeren sie auch hin: Sie sind der Schluessel,
+    // ueber den Aufnahme und Katalog zusammenfinden. Der Vorschlag heisst
+    // aber nach dem Land, und „Italy – France" ist in einer deutschen
+    // Oberflaeche kein Name, sondern eine Panne.
+    //
+    // Zwei Laender, weil der Name erst dann aus ihnen gebildet wird –
+    // sonst heisst ein Vorschlag nach seinen Staedten.
+    for (var t = 0; t < 3; t++) {
+      for (var i = 0; i < 4; i++) {
+        await db.into(db.assets).insert(AssetsCompanion.insert(
+              id: 'p$t-$i',
+              originalFileName: 'p$t-$i.jpg',
+              relativePath: 'originals/p$t-$i.jpg',
+              checksum: 'pruef-p$t-$i',
+              type: 'IMAGE',
+              fileCreatedAt:
+                  DateTime(2024, 6, 9, 9, i * 10).add(Duration(days: t)),
+              importedAt: DateTime(2024),
+              latitude: const Value(48.85),
+              longitude: const Value(2.35),
+              locationCity: const Value('Paris'),
+              locationCountry: const Value('France'),
+            ));
+      }
+    }
+    await zeige(tester);
+    expect(find.text('Italien – Frankreich'), findsOneWidget);
+    expect(find.text('Italy – France'), findsNothing,
+        reason: 'der englische Schluessel gehoert nicht auf den Schirm');
+  });
+
+  group('Eine GPX-Spur an einer Reise', () {
+    Future<String> reiseMitSpur({bool mitSpur = true}) async {
+      // Ein zweiter Ort, 230 km entfernt: Ohne ihn liegen alle 24
+      // Aufnahmen in Rom innerhalb eines Kilometers, es gibt gar keine
+      // Route – und damit auch keine Karte, auf der eine Spur liegen
+      // koennte.
+      await db.into(db.assets).insert(AssetsCompanion.insert(
+            id: 'flo',
+            originalFileName: 'flo.jpg',
+            relativePath: 'originals/flo.jpg',
+            checksum: 'pruef-flo',
+            type: 'IMAGE',
+            fileCreatedAt: DateTime(2024, 6, 8, 10),
+            importedAt: DateTime(2024),
+            latitude: const Value(43.7696),
+            longitude: const Value(11.2558),
+            locationCity: const Value('Firenze'),
+            locationCountry: const Value('Italy'),
+          ));
+      await db.reiseAnlegen(
+        ReisenCompanion.insert(
+          id: 'r1',
+          name: 'Rom im Juni',
+          von: DateTime(2024, 6, 3),
+          bis: DateTime(2024, 6, 8),
+          angelegtAm: DateTime(2024, 7, 1),
+        ),
+        [
+          for (var t = 0; t < 6; t++)
+            for (var i = 0; i < 4; i++) 'r$t-$i',
+          'flo',
+        ],
+      );
+      if (mitSpur) {
+        await db.spurAnlegen(
+          SpurenCompanion.insert(
+            id: 's1',
+            name: 'tag1.gpx',
+            quelle: '/tmp/tag1.gpx',
+            reiseId: const Value('r1'),
+            punktzahl: 12,
+            laengeKm: 7.4,
+            angelegtAm: DateTime(2024, 7, 1),
+          ),
+          [
+            for (var i = 0; i < 12; i++)
+              SpurpunkteCompanion.insert(
+                spurId: 's1',
+                nummer: i,
+                breite: 41.89 + i / 500,
+                laenge: 12.49 + i / 500,
+              ),
+          ],
+        );
+      }
+      return 'r1';
+    }
+
+    Future<void> zeigeReise(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        locale: const Locale('de'),
+        localizationsDelegates: AppTexte.localizationsDelegates,
+        supportedLocales: AppTexte.supportedLocales,
+        theme: buildDarkTheme(),
+        builder: (context, kind) => mitMeldungen(kind),
+        home: ReiseDetailScreen(
+            library: library, reise: (await db.alleReisen()).single),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sie liegt als eigene Linie auf der Karte', (tester) async {
+      await reiseMitSpur();
+      await zeigeReise(tester);
+      final karte = tester.widget<Routenkarte>(find.byType(Routenkarte));
+      expect(karte.spuren, hasLength(1),
+          reason: 'die gemessene Linie gehoert neben die geratene');
+      expect(karte.spuren.first, hasLength(12));
+      // Und sie steht mit Namen darunter - sonst waere nicht zu sehen,
+      // welche Datei da liegt.
+      expect(find.textContaining('tag1.gpx'), findsOneWidget);
+    });
+
+    testWidgets('ohne Spur liegt auch keine Linie da', (tester) async {
+      await reiseMitSpur(mitSpur: false);
+      await zeigeReise(tester);
+      final karte = tester.widget<Routenkarte>(find.byType(Routenkarte));
+      expect(karte.spuren, isEmpty);
+      expect(find.textContaining('.gpx'), findsNothing);
+    });
+
+    testWidgets('der Knopf daneben nimmt sie wieder weg', (tester) async {
+      await reiseMitSpur();
+      await zeigeReise(tester);
+      await tester.tap(find.byTooltip('Spur entfernen'));
+      await tester.pumpAndSettle();
+      expect(await db.spurenDerReise('r1'), isEmpty);
+      expect(await db.punkteDerSpur('s1'), isEmpty);
+      expect(find.textContaining('tag1.gpx'), findsNothing);
+    });
   });
 }

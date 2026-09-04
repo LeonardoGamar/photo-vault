@@ -473,8 +473,17 @@ class _Zeile extends StatelessWidget {
     Widget inhalt(Listenspalte s) => switch (s) {
           Listenspalte.dateiname => Text(asset.originalFileName,
               maxLines: 1, overflow: TextOverflow.ellipsis),
+          // Die Uhrzeit weicht dem Vermerk, wenn das Datum geraten ist:
+          // Sie waere hier die genaueste Angabe der ganzen Zeile und
+          // zugleich die einzige, die sicher nicht stimmt. Und die
+          // Listenansicht ist die Stelle, an der jemand Daten
+          // nebeneinander liest - dort faellt eine Reihe gleicher
+          // Zeitstempel ueberhaupt erst auf.
           Listenspalte.datum => text(
-              DateFormat.yMd(sprache).add_Hm().format(asset.fileCreatedAt),
+              asset.datumGeschaetzt
+                  ? '${DateFormat.yMd(sprache).format(asset.fileCreatedAt)} '
+                      '(${AppTexte.of(context).infoDatumGeschaetztKurz})'
+                  : DateFormat.yMd(sprache).add_Hm().format(asset.fileCreatedAt),
               ziffern: true),
           Listenspalte.kamera => text(kamerabezeichnung(asset) ?? ''),
           Listenspalte.objektiv => text(asset.lensModel ?? ''),

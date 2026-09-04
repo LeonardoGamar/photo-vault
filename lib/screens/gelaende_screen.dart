@@ -11,6 +11,7 @@ import 'package:http/http.dart' as http;
 
 import '../l10n/app_localizations.dart';
 import '../services/gelaende_laden.dart';
+import '../services/flugvideo.dart';
 import '../services/gelaendeebenen.dart';
 import '../services/gelaendeflug.dart';
 import '../services/gelaendekacheln.dart';
@@ -465,13 +466,25 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
     setState(() => _schilder = schilder);
   }
 
-  /// Fragt, wohin das Video geschrieben werden soll.
+  /// Fragt, **was** ausgegeben werden soll und **wohin**.
   ///
   /// **Der Dateiwähler steht hier und nicht in der Ansicht.** Die
   /// Landschaft zeichnet; wo eine Datei hinsoll, ist eine Frage an den,
   /// der sie haben will.
-  Future<File?> _videoZiel() async {
+  ///
+  /// **Und vorher die Einstellungen.** Bis 3.5.1 gab es nur den
+  /// Speichern-Dialog: Grösse und Länge standen fest. Beides sind aber
+  /// Fragen an den, der das Video weitergibt – ein Video für eine
+  /// Nachricht darf klein sein, und wie lange jemand zusehen mag,
+  /// entscheidet nicht die Länge der Wanderung.
+  Future<Videoauftrag?> _videoAuftrag(Duration vorgabe) async {
     final t = AppTexte.of(context);
+    final wahl = await showDialog<({int breite, int hoehe, int sekunden})>(
+      context: context,
+      builder: (_) => _VideoDialog(vorgabe: vorgabe),
+    );
+    if (wahl == null || !mounted) return null;
+
     final sauber = widget.titel
         .replaceAll(RegExp(r'[^\w\s-]'), '')
         .trim()
@@ -485,7 +498,12 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
     if (pfad == null) return null;
     // Manche Dateiwähler geben die Endung nicht mit; ohne sie schreibt
     // ffmpeg nichts, weil es das Format am Namen erkennt.
-    return File(pfad.toLowerCase().endsWith('.mp4') ? pfad : '$pfad.mp4');
+    return (
+      ziel: File(pfad.toLowerCase().endsWith('.mp4') ? pfad : '$pfad.mp4'),
+      breite: wahl.breite,
+      hoehe: wahl.hoehe,
+      dauer: Duration(seconds: wahl.sekunden),
+    );
   }
 
   /// Was auf dem Schild steht – `null` heisst: nur das Zeichen.
@@ -709,7 +727,7 @@ class _GelaendeScreenState extends State<GelaendeScreen> {
                   fotos: _flugfotos,
                   namensnennung:
                       '${t.gelaendeNamensnennung} · ${_auflage.nennung}',
-                  beimVideoZiel: _videoZiel,
+                  beimVideoZiel: _videoAuftrag,
                   netzKlient: widget.netz,
                   stimmung: stimmungFuer(_stimmung),
                   fussnoten: [
@@ -778,4 +796,113 @@ class _Kartenwahl {
 
   final Gelaendegrund? grund;
   final _Ebenenschalter? ebene;
+}
+
+/// Was ausgegeben wird: Grösse und Länge, bevor der Speichern-Dialog
+/// kommt.
+///
+/// **Warum ein eigener Dialog und nicht drei Knöpfe in der Leiste.** Die
+/// Flugleiste ist schmal und trägt schon Steuerung, Messwerte und
+/// Höhenprofil. Und die Frage stellt sich genau einmal – beim Ausgeben –,
+/// nicht während man fliegt.
+class _VideoDialog extends StatefulWidget {
+  const _VideoDialog({required this.vorgabe});
+
+  /// Wie lange der Flug am Bildschirm dauert. Das ist die Vorgabe, weil
+  /// es die Länge ist, die man gerade gesehen hat.
+  final Duration vorgabe;
+
+  @override
+  State<_VideoDialog> createState() => _VideoDialogState();
+}
+
+class _VideoDialogState extends State<_VideoDialog> {
+  /// **Drei Grössen und nicht die Fenstergrösse.** Ein Video, dessen
+  /// Kantenlänge davon abhängt, wie gross gerade das Fenster war, ist
+  /// beim Weitergeben eine Überraschung – und auf einem Bildschirm mit
+  /// doppelter Punktdichte wäre es 3840 breit und viermal so teuer.
+  static const _groessen = <(int, int)>[(1280, 720), (1920, 1080), (2560, 1440)];
+
+  int _grad = 1;
+  late double _sekunden;
+
+  @override
+  void initState() {
+    super.initState();
+    _sekunden = widget.vorgabe.inMilliseconds / 1000;
+    if (_sekunden < 5) _sekunden = 20;
+    if (_sekunden > 300) _sekunden = 300;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final (breite, hoehe) = _groessen[_grad];
+    final bilder = (_sekunden * videoBilderJeSekunde).round();
+    return AlertDialog(
+      title: Text(t.flugVideoEinstellungen),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t.flugVideoAufloesung,
+                style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.xs),
+            SegmentedButton<int>(
+              segments: [
+                for (var i = 0; i < _groessen.length; i++)
+                  ButtonSegment(
+                    value: i,
+                    label: Text('${_groessen[i].$1}×${_groessen[i].$2}'),
+                  ),
+              ],
+              selected: {_grad},
+              showSelectedIcon: false,
+              onSelectionChanged: (w) => setState(() => _grad = w.first),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(t.flugVideoDauer,
+                style: Theme.of(context).textTheme.labelLarge),
+            Row(
+              children: [
+                Expanded(
+                  child: Slider(
+                    value: _sekunden,
+                    min: 5,
+                    max: 300,
+                    divisions: 59,
+                    label: t.flugVideoDauerWert(_sekunden.round()),
+                    onChanged: (w) => setState(() => _sekunden = w),
+                  ),
+                ),
+                Text(t.flugVideoDauerWert(_sekunden.round()),
+                    style: Theme.of(context).textTheme.labelMedium),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '${t.flugVideoBilder(bilder)} · $breite×$hoehe',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(t.flugVideoWaehrenddessen,
+                style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(t.allgAbbrechen),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+              (breite: breite, hoehe: hoehe, sekunden: _sekunden.round())),
+          child: Text(t.flugVideoWeiter),
+        ),
+      ],
+    );
+  }
 }

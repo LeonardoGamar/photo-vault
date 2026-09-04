@@ -53,13 +53,18 @@ class Routenkarte extends StatefulWidget {
   /// mehr Fläche als eine Wanderung über zwölf Kilometer.
   final double hoehe;
 
-  /// Eine aufgezeichnete Spur, über die Foto-Route gelegt.
+  /// Aufgezeichnete Spuren, über die Foto-Route gelegt.
   ///
-  /// **Zwei Linien und nicht eine.** Die Route aus den Fotos ist eine
-  /// Vermutung – zwischen zwei Bildern wird geradeaus gegangen. Die Spur
-  /// ist eine Messung. Sie ineinander zu rechnen hiesse, den Unterschied
-  /// zu verwischen.
-  final List<({double breite, double laenge})> spur;
+  /// **Zwei Sorten Linien und nicht eine.** Die Route aus den Fotos ist
+  /// eine Vermutung – zwischen zwei Bildern wird geradeaus gegangen. Eine
+  /// Spur ist eine Messung. Sie ineinander zu rechnen hiesse, den
+  /// Unterschied zu verwischen.
+  ///
+  /// **Mehrere und nicht eine.** Eine Wanderung hat eine Spur, eine Reise
+  /// hat je Tag eine. Alle Punkte in eine Liste zu werfen zöge zwischen
+  /// dem Ende des einen Tages und dem Anfang des nächsten eine gerade
+  /// Linie quer über die Karte – eine Strecke, die niemand gegangen ist.
+  final List<List<({double breite, double laenge})>> spuren;
 
   /// Der Punkt der Spur, auf den gerade gezeigt wird – aus dem
   /// Höhenprofil daneben.
@@ -73,7 +78,7 @@ class Routenkarte extends StatefulWidget {
     required this.paths,
     required this.beiOrt,
     this.hoehe = 240,
-    this.spur = const [],
+    this.spuren = const [],
     this.stelle,
   });
 
@@ -132,12 +137,14 @@ class _RoutenkarteState extends State<Routenkarte> {
     final nachId = widget.nachId;
     final paths = widget.paths;
     final beiOrt = widget.beiOrt;
-    final spur = widget.spur;
     final stelle = widget.stelle;
     final punkte = [for (final p in route) ll.LatLng(p.breite, p.laenge)];
-    final spurpunkte = [for (final p in spur) ll.LatLng(p.breite, p.laenge)];
+    final spurlinien = [
+      for (final s in widget.spuren)
+        [for (final p in s) ll.LatLng(p.breite, p.laenge)],
+    ];
     _anfang ??= CameraFit.coordinates(
-      coordinates: [...punkte, ...spurpunkte],
+      coordinates: [...punkte, for (final l in spurlinien) ...l],
       padding: const EdgeInsets.all(AppSpacing.xxl),
     );
     return ClipRRect(
@@ -171,12 +178,13 @@ class _RoutenkarteState extends State<Routenkarte> {
                 strokeWidth: 3,
                 color: farben.primary,
               ),
-              if (spurpunkte.length > 1)
-                Polyline(
-                  points: spurpunkte,
-                  strokeWidth: 4,
-                  color: farben.tertiary,
-                ),
+              for (final linie in spurlinien)
+                if (linie.length > 1)
+                  Polyline(
+                    points: linie,
+                    strokeWidth: 4,
+                    color: farben.tertiary,
+                  ),
             ]),
             MarkerLayer(markers: [
               for (final (i, p) in punkte.indexed)

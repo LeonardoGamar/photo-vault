@@ -10331,6 +10331,12 @@ abstract class AppTexte {
   /// **'Aufgezeichnete Spur'**
   String get spurTitel;
 
+  /// No description provided for @spurKm.
+  ///
+  /// In de, this message translates to:
+  /// **'{km} km'**
+  String spurKm(String km);
+
   /// No description provided for @spurKennzahlen.
   ///
   /// In de, this message translates to:
@@ -10462,6 +10468,60 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Für die Videoausgabe fehlt der Videoschreiber. Unter macOS gehört er zum System, unter Linux und Windows liegt er im Paket – erscheint diese Meldung, ist die Installation unvollständig.'**
   String get flugVideoKeinWerkzeug;
+
+  /// No description provided for @flugVideoLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Video wird geschrieben – {prozent} %'**
+  String flugVideoLaeuft(int prozent);
+
+  /// No description provided for @flugVideoLaeuftMitRest.
+  ///
+  /// In de, this message translates to:
+  /// **'Video wird geschrieben – {prozent} %, noch etwa {rest}'**
+  String flugVideoLaeuftMitRest(int prozent, String rest);
+
+  /// No description provided for @flugVideoEinstellungen.
+  ///
+  /// In de, this message translates to:
+  /// **'Video ausgeben'**
+  String get flugVideoEinstellungen;
+
+  /// No description provided for @flugVideoAufloesung.
+  ///
+  /// In de, this message translates to:
+  /// **'Auflösung'**
+  String get flugVideoAufloesung;
+
+  /// No description provided for @flugVideoDauer.
+  ///
+  /// In de, this message translates to:
+  /// **'Dauer'**
+  String get flugVideoDauer;
+
+  /// No description provided for @flugVideoDauerWert.
+  ///
+  /// In de, this message translates to:
+  /// **'{sekunden} Sekunden'**
+  String flugVideoDauerWert(int sekunden);
+
+  /// No description provided for @flugVideoBilder.
+  ///
+  /// In de, this message translates to:
+  /// **'{bilder} Bilder'**
+  String flugVideoBilder(int bilder);
+
+  /// No description provided for @flugVideoWeiter.
+  ///
+  /// In de, this message translates to:
+  /// **'Speichern unter …'**
+  String get flugVideoWeiter;
+
+  /// No description provided for @flugVideoWaehrenddessen.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Bilder entstehen abseits des Bildschirms – der Flug wird dafür nicht abgespielt. Diese Ansicht muss so lange offen bleiben.'**
+  String get flugVideoWaehrenddessen;
 
   /// No description provided for @flugVideoFehler.
   ///
@@ -11488,6 +11548,144 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'{name} steht unten im Formular. Trage deinen Schlüssel ein und speichere.'**
   String einstKartenquellenEingetragen(String name);
+
+  /// No description provided for @aufgDatumsherkunftTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Herkunft der Aufnahmedaten'**
+  String get aufgDatumsherkunftTitel;
+
+  /// No description provided for @aufgDatumsherkunftText.
+  ///
+  /// In de, this message translates to:
+  /// **'Sieht in jeder Datei nach, ob wirklich ein Aufnahmedatum darin steht. Wo keines steht, stammt das Datum aus dem Dateisystem – also vom letzten Kopieren, nicht vom Auslösen. Diese Aufnahmen werden gekennzeichnet und aus Erinnerungen und Serien herausgehalten. Im selben Zug wird der Zeitzonenversatz gelesen, den jede vierte Datei trägt.'**
+  String get aufgDatumsherkunftText;
+
+  /// No description provided for @werkzPruefeDatumsherkunft.
+  ///
+  /// In de, this message translates to:
+  /// **'Prüfe, woher die Aufnahmedaten stammen …'**
+  String get werkzPruefeDatumsherkunft;
+
+  /// No description provided for @werkzAlleDatumGeprueft.
+  ///
+  /// In de, this message translates to:
+  /// **'Bei allen Aufnahmen wurde schon nachgesehen.'**
+  String get werkzAlleDatumGeprueft;
+
+  /// No description provided for @infoDatumGeschaetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Datum geschätzt – die Datei trägt keines'**
+  String get infoDatumGeschaetzt;
+
+  /// No description provided for @infoDatumGeschaetztKurz.
+  ///
+  /// In de, this message translates to:
+  /// **'geschätzt'**
+  String get infoDatumGeschaetztKurz;
+
+  /// No description provided for @sucheDatumGeschaetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Nur mit geschätztem Datum'**
+  String get sucheDatumGeschaetzt;
+
+  /// No description provided for @ortVorschlagTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Orte von Nachbarn'**
+  String get ortVorschlagTitel;
+
+  /// No description provided for @ortVorschlagErklaerung.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Aufnahmen tragen keinen Ort – aber die Aufnahmen kurz davor und danach tun es, und sie sind sich einig. Übernommene Orte werden als geerbt gekennzeichnet: Sie sind eine begründete Vermutung, keine Messung.'**
+  String get ortVorschlagErklaerung;
+
+  /// No description provided for @ortVorschlagKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'Keine Aufnahme lässt sich über ihre Nachbarn verorten.'**
+  String get ortVorschlagKeine;
+
+  /// No description provided for @ortVorschlagAnzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{n, plural, =1{1 Aufnahme} other{{n} Aufnahmen}}'**
+  String ortVorschlagAnzahl(int n);
+
+  /// No description provided for @ortVorschlagBegruendung.
+  ///
+  /// In de, this message translates to:
+  /// **'{nachbarn, plural, =1{1 verorteter Nachbar} other{{nachbarn} verortete Nachbarn}}, höchstens {minuten} Minuten entfernt'**
+  String ortVorschlagBegruendung(int nachbarn, int minuten);
+
+  /// No description provided for @ortVorschlagAlleUebernehmen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle {n} übernehmen'**
+  String ortVorschlagAlleUebernehmen(int n);
+
+  /// No description provided for @ortVorschlagAlleFrageTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Vorschläge übernehmen?'**
+  String get ortVorschlagAlleFrageTitel;
+
+  /// No description provided for @ortVorschlagAlleFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'{gruppen} Gruppen mit zusammen {aufnahmen} Aufnahmen bekommen den Ort ihrer Nachbarn. Der Ort bleibt als geerbt gekennzeichnet und lässt sich einzeln wieder entfernen.'**
+  String ortVorschlagAlleFrage(int gruppen, int aufnahmen);
+
+  /// No description provided for @ortVorschlagWerkzTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Orte von Nachbarn erben'**
+  String get ortVorschlagWerkzTitel;
+
+  /// No description provided for @ortVorschlagWerkzText.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmen ohne Ort, deren zeitliche Nachbarn alle am selben Ort waren.'**
+  String get ortVorschlagWerkzText;
+
+  /// No description provided for @infoOrtGeerbt.
+  ///
+  /// In de, this message translates to:
+  /// **'Von den Nachbaraufnahmen geerbt'**
+  String get infoOrtGeerbt;
+
+  /// No description provided for @aufgVideobilderTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Videos: mehr als ein Standbild'**
+  String get aufgVideobilderTitel;
+
+  /// No description provided for @aufgVideobilderText.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein Video wurde bisher aus einem einzigen Standbild ausgewertet. Ab zehn Sekunden Laufzeit werden bis zu fünf über die Länge verteilte Bilder ausgewertet – für die Suche, die Schlagwörter und die Gesichter. Die Bilder werden nicht aufgehoben.'**
+  String get aufgVideobilderText;
+
+  /// No description provided for @werkzVideobilder.
+  ///
+  /// In de, this message translates to:
+  /// **'Werte weitere Standbilder aus …'**
+  String get werkzVideobilder;
+
+  /// No description provided for @werkzAlleVideobilder.
+  ///
+  /// In de, this message translates to:
+  /// **'Bei allen Videos wurde schon nachgesehen.'**
+  String get werkzAlleVideobilder;
+
+  /// No description provided for @suchoptIso.
+  ///
+  /// In de, this message translates to:
+  /// **'ISO'**
+  String get suchoptIso;
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {

@@ -10,6 +10,7 @@ import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/clip_service.dart';
 import '../services/search_filters.dart';
 import '../services/suchsatz.dart';
+import '../services/videostandbilder.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
@@ -282,7 +283,10 @@ class _SearchScreenState extends State<SearchScreen>
       }
 
       if (queryVector != null) {
-        final embeddings = await widget.library.cachedEmbeddings();
+        // Bei Videos sind hier auch die weiteren Standbilder dabei –
+        // ein Video ist nicht mehr ein einziges Bild (siehe
+        // [LibraryState.suchkandidaten]).
+        final embeddings = await widget.library.suchkandidaten();
 
         // Reihenfolge ist entscheidend: ERST die übrigen Filter anwenden,
         // DANN innerhalb dieser Treffermenge nach Ähnlichkeit ranken.
@@ -296,11 +300,24 @@ class _SearchScreenState extends State<SearchScreen>
         final byId = {for (final a in gefiltert) a.id: a};
         final kandidaten = <String, Float32List>{
           for (final e in embeddings.entries)
-            if (byId.containsKey(e.key)) e.key: e.value,
+            if (byId.containsKey(
+                LibraryState.aufnahmeAusSuchschluessel(e.key)))
+              e.key: e.value,
         };
-        final ranked = ClipService.rankBySimilarity(queryVector, kandidaten, topK: 200);
+        // Etwas mehr als die 200, die am Ende stehen sollen: Ein Video
+        // kann mit mehreren Standbildern in der Rangfolge auftauchen, und
+        // die fallen gleich wieder zusammen.
+        final ranked = ClipService.rankBySimilarity(queryVector, kandidaten,
+            topK: 200 * (1 + videoStandbilderHoechstens));
         // searchAssets sortiert nach Datum – hier zählt die Ähnlichkeit.
-        results = [for (final e in ranked) byId[e.key]!];
+        // Je Aufnahme zählt ihr bestes Standbild; die Rangfolge kommt
+        // absteigend, das erste Auftreten ist also das beste.
+        final gesehen = <String>{};
+        results = [
+          for (final e in ranked)
+            if (gesehen.add(LibraryState.aufnahmeAusSuchschluessel(e.key)))
+              byId[LibraryState.aufnahmeAusSuchschluessel(e.key)]!,
+        ].take(200).toList();
       } else {
         results = await widget.library.db.searchAssets(_filters);
       }
@@ -529,6 +546,9 @@ class _Satzmarken extends StatelessWidget {
         Satzfundart.farbmarke => t.suchoptFarbmarkierung,
         Satzfundart.medienart => t.suchoptMedientyp,
         Satzfundart.favorit => t.auswFavorisieren,
+        Satzfundart.schaerfe => t.suchoptNurUnscharfe,
+        Satzfundart.iso => t.suchoptIso,
+        Satzfundart.datumsherkunft => t.sucheDatumGeschaetzt,
       };
 
   @override

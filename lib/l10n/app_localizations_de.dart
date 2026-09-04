@@ -6717,6 +6717,11 @@ class AppTexteDe extends AppTexte {
   String get spurTitel => 'Aufgezeichnete Spur';
 
   @override
+  String spurKm(String km) {
+    return '$km km';
+  }
+
+  @override
   String spurKennzahlen(String km, int auf, int ab) {
     return '$km km · ▲ $auf m · ▼ $ab m';
   }
@@ -6795,6 +6800,42 @@ class AppTexteDe extends AppTexte {
   @override
   String get flugVideoKeinWerkzeug =>
       'Für die Videoausgabe fehlt der Videoschreiber. Unter macOS gehört er zum System, unter Linux und Windows liegt er im Paket – erscheint diese Meldung, ist die Installation unvollständig.';
+
+  @override
+  String flugVideoLaeuft(int prozent) {
+    return 'Video wird geschrieben – $prozent %';
+  }
+
+  @override
+  String flugVideoLaeuftMitRest(int prozent, String rest) {
+    return 'Video wird geschrieben – $prozent %, noch etwa $rest';
+  }
+
+  @override
+  String get flugVideoEinstellungen => 'Video ausgeben';
+
+  @override
+  String get flugVideoAufloesung => 'Auflösung';
+
+  @override
+  String get flugVideoDauer => 'Dauer';
+
+  @override
+  String flugVideoDauerWert(int sekunden) {
+    return '$sekunden Sekunden';
+  }
+
+  @override
+  String flugVideoBilder(int bilder) {
+    return '$bilder Bilder';
+  }
+
+  @override
+  String get flugVideoWeiter => 'Speichern unter …';
+
+  @override
+  String get flugVideoWaehrenddessen =>
+      'Die Bilder entstehen abseits des Bildschirms – der Flug wird dafür nicht abgespielt. Diese Ansicht muss so lange offen bleiben.';
 
   @override
   String flugVideoFehler(String grund) {
@@ -7423,4 +7464,101 @@ class AppTexteDe extends AppTexte {
   String einstKartenquellenEingetragen(String name) {
     return '$name steht unten im Formular. Trage deinen Schlüssel ein und speichere.';
   }
+
+  @override
+  String get aufgDatumsherkunftTitel => 'Herkunft der Aufnahmedaten';
+
+  @override
+  String get aufgDatumsherkunftText =>
+      'Sieht in jeder Datei nach, ob wirklich ein Aufnahmedatum darin steht. Wo keines steht, stammt das Datum aus dem Dateisystem – also vom letzten Kopieren, nicht vom Auslösen. Diese Aufnahmen werden gekennzeichnet und aus Erinnerungen und Serien herausgehalten. Im selben Zug wird der Zeitzonenversatz gelesen, den jede vierte Datei trägt.';
+
+  @override
+  String get werkzPruefeDatumsherkunft =>
+      'Prüfe, woher die Aufnahmedaten stammen …';
+
+  @override
+  String get werkzAlleDatumGeprueft =>
+      'Bei allen Aufnahmen wurde schon nachgesehen.';
+
+  @override
+  String get infoDatumGeschaetzt => 'Datum geschätzt – die Datei trägt keines';
+
+  @override
+  String get infoDatumGeschaetztKurz => 'geschätzt';
+
+  @override
+  String get sucheDatumGeschaetzt => 'Nur mit geschätztem Datum';
+
+  @override
+  String get ortVorschlagTitel => 'Orte von Nachbarn';
+
+  @override
+  String get ortVorschlagErklaerung =>
+      'Diese Aufnahmen tragen keinen Ort – aber die Aufnahmen kurz davor und danach tun es, und sie sind sich einig. Übernommene Orte werden als geerbt gekennzeichnet: Sie sind eine begründete Vermutung, keine Messung.';
+
+  @override
+  String get ortVorschlagKeine =>
+      'Keine Aufnahme lässt sich über ihre Nachbarn verorten.';
+
+  @override
+  String ortVorschlagAnzahl(int n) {
+    String _temp0 = intl.Intl.pluralLogic(
+      n,
+      locale: localeName,
+      other: '$n Aufnahmen',
+      one: '1 Aufnahme',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String ortVorschlagBegruendung(int nachbarn, int minuten) {
+    String _temp0 = intl.Intl.pluralLogic(
+      nachbarn,
+      locale: localeName,
+      other: '$nachbarn verortete Nachbarn',
+      one: '1 verorteter Nachbar',
+    );
+    return '$_temp0, höchstens $minuten Minuten entfernt';
+  }
+
+  @override
+  String ortVorschlagAlleUebernehmen(int n) {
+    return 'Alle $n übernehmen';
+  }
+
+  @override
+  String get ortVorschlagAlleFrageTitel => 'Alle Vorschläge übernehmen?';
+
+  @override
+  String ortVorschlagAlleFrage(int gruppen, int aufnahmen) {
+    return '$gruppen Gruppen mit zusammen $aufnahmen Aufnahmen bekommen den Ort ihrer Nachbarn. Der Ort bleibt als geerbt gekennzeichnet und lässt sich einzeln wieder entfernen.';
+  }
+
+  @override
+  String get ortVorschlagWerkzTitel => 'Orte von Nachbarn erben';
+
+  @override
+  String get ortVorschlagWerkzText =>
+      'Aufnahmen ohne Ort, deren zeitliche Nachbarn alle am selben Ort waren.';
+
+  @override
+  String get infoOrtGeerbt => 'Von den Nachbaraufnahmen geerbt';
+
+  @override
+  String get aufgVideobilderTitel => 'Videos: mehr als ein Standbild';
+
+  @override
+  String get aufgVideobilderText =>
+      'Ein Video wurde bisher aus einem einzigen Standbild ausgewertet. Ab zehn Sekunden Laufzeit werden bis zu fünf über die Länge verteilte Bilder ausgewertet – für die Suche, die Schlagwörter und die Gesichter. Die Bilder werden nicht aufgehoben.';
+
+  @override
+  String get werkzVideobilder => 'Werte weitere Standbilder aus …';
+
+  @override
+  String get werkzAlleVideobilder =>
+      'Bei allen Videos wurde schon nachgesehen.';
+
+  @override
+  String get suchoptIso => 'ISO';
 }

@@ -1,12 +1,17 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
 import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../services/gpx.dart';
 import '../services/reiseroute.dart';
 import '../widgets/zuordnung_auswahlleiste.dart';
 import '../widgets/asset_thumbnail_tile.dart';
@@ -42,6 +47,13 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   late ReisenData _reise = widget.reise;
   List<AssetData> _aufnahmen = const [];
   List<AktivitaetenData> _aktivitaeten = const [];
+
+  /// Die aufgezeichneten Spuren dieser Reise, samt ihren Punkten.
+  ///
+  /// **Mehrere.** Eine Wanderung hat eine Spur; eine Reise über zehn Tage
+  /// hat zehn Dateien, eine je Tag. Sie in eine Liste zu werfen zöge
+  /// zwischen den Tagen eine gerade Linie quer über die Karte.
+  List<({SpurenData spur, List<SpurpunkteData> punkte})> _spuren = const [];
   bool _laedt = true;
 
   @override
@@ -55,10 +67,15 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
     final frisch = await widget.library.db.reise(_reise.id);
     final aktivitaeten =
         await widget.library.db.aktivitaetenDerReise(_reise.id);
+    final spuren = <({SpurenData spur, List<SpurpunkteData> punkte})>[];
+    for (final s in await widget.library.db.spurenDerReise(_reise.id)) {
+      spuren.add((spur: s, punkte: await widget.library.db.punkteDerSpur(s.id)));
+    }
     if (!mounted) return;
     setState(() {
       _aufnahmen = aufnahmen;
       _aktivitaeten = aktivitaeten;
+      _spuren = spuren;
       if (frisch != null) _reise = frisch;
       _laedt = false;
     });
@@ -329,6 +346,91 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
     ));
   }
 
+  /// Die Spuren als reine Linien – das ist alles, was die Karte braucht.
+  List<List<({double breite, double laenge})>> get _spurlinien => [
+        for (final e in _spuren)
+          if (e.punkte.length > 1)
+            [for (final p in e.punkte) (breite: p.breite, laenge: p.laenge)],
+      ];
+
+  /// Eine GPX-Datei als Route an diese Reise hängen.
+  ///
+  /// **Dieselbe Rechnung wie bei einer Aktivität**, nur die andere
+  /// Spalte: Was die Datei hergibt, ist eine Messung, und die gehört
+  /// neben die aus den Fotos geratene Linie – nicht hinein.
+  Future<void> _spurHinzufuegen() async {
+    final t = AppTexte.of(context);
+    final wahl = await FilePicker.platform.pickFiles(
+      dialogTitle: t.gpxDateiWaehlen,
+      type: FileType.custom,
+      allowedExtensions: const ['gpx'],
+    );
+    final pfad = wahl?.files.firstOrNull?.path;
+    if (pfad == null || !mounted) return;
+
+    List<Rohpunkt> punkte;
+    try {
+      punkte = liesGpxPunkte(await File(pfad).readAsString());
+    } on GpxFehler catch (f) {
+      if (!mounted) return;
+      melde.fehler(switch (f.grund) {
+        GpxAbbruch.keinGpx => t.gpxFehlerKeinGpx,
+        GpxAbbruch.ohneZeit => t.gpxFehlerOhneZeit,
+        GpxAbbruch.leer => t.gpxFehlerLeer,
+      });
+      return;
+    } on FileSystemException catch (e) {
+      if (!mounted) return;
+      melde.fehler('$e');
+      return;
+    }
+
+    final zahlen = spurkennzahlen(punkte);
+    final id = const Uuid().v4();
+    final name = pfad.split(Platform.pathSeparator).last;
+    await widget.library.db.spurAnlegen(
+      SpurenCompanion.insert(
+        id: id,
+        name: name,
+        quelle: pfad,
+        reiseId: Value(_reise.id),
+        von: Value(zahlen.von),
+        bis: Value(zahlen.bis),
+        punktzahl: zahlen.punktzahl,
+        laengeKm: zahlen.laengeKm,
+        aufstieg: Value(zahlen.aufstieg),
+        abstieg: Value(zahlen.abstieg),
+        angelegtAm: DateTime.now(),
+      ),
+      [
+        for (final (i, p) in punkte.indexed)
+          SpurpunkteCompanion.insert(
+            spurId: id,
+            nummer: i,
+            breite: p.breite,
+            laenge: p.laenge,
+            hoehe: Value(p.hoehe),
+            zeit: Value(p.zeit),
+          ),
+      ],
+    );
+    if (!mounted) return;
+    melde.erfolg(t.spurHinzugefuegtMeldung(
+        name,
+        NumberFormat.decimalPatternDigits(
+                locale: Localizations.localeOf(context).toString(),
+                decimalDigits: 1)
+            .format(zahlen.laengeKm)));
+    await _laden();
+  }
+
+  Future<void> _spurEntfernen(SpurenData spur) async {
+    final t = AppTexte.of(context);
+    await widget.library.db.spurLoeschen(spur.id);
+    melde.hinweis(t.spurEntferntMeldung);
+    await _laden();
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
@@ -346,6 +448,14 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
             tooltip: t.aufnahmenHinzufuegen,
             icon: const Icon(Icons.add_photo_alternate_outlined),
             onPressed: _aufnahmenBearbeiten,
+          ),
+          // **Hinzufügen, nicht ersetzen.** Eine Reise darf mehrere
+          // Spuren tragen – eine je Tag. Der Knopf bleibt deshalb immer
+          // stehen; weggenommen wird eine einzelne unter der Karte.
+          IconButton(
+            tooltip: t.spurHinzufuegen,
+            icon: const Icon(Icons.route_outlined),
+            onPressed: _spurHinzufuegen,
           ),
           IconButton(
             tooltip: t.reisenUmbenennen,
@@ -385,7 +495,7 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                           style: TextStyle(
                               fontSize: 13, color: farben.onSurfaceVariant),
                         ),
-                        if (_route.length > 1) ...[
+                        if (_route.length > 1 || _spuren.isNotEmpty) ...[
                           const SizedBox(height: AppSpacing.md),
                           Text(t.reisenRoute,
                               style: Theme.of(context).textTheme.titleSmall),
@@ -396,7 +506,18 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                             nachId: _nachId,
                             paths: widget.library.paths,
                             beiOrt: _ortOeffnen,
+                            spuren: _spurlinien,
                           ),
+                          if (_spuren.isNotEmpty) ...[
+                            const SizedBox(height: AppSpacing.xs),
+                            for (final e in _spuren)
+                              _Spurzeile(
+                                spur: e.spur,
+                                sprache:
+                                    Localizations.localeOf(context).toString(),
+                                beimEntfernen: () => _spurEntfernen(e.spur),
+                              ),
+                          ],
                         ] else if (_aufnahmen.isNotEmpty) ...[
                           const SizedBox(height: AppSpacing.md),
                           Text(t.reisenKeineRoute,
@@ -561,3 +682,48 @@ class _Tageskopf extends StatelessWidget {
 ///
 /// Ohne Bedienung: Diese Karte beantwortet eine Frage („wo war das?"),
 /// sie ist kein Kartenbildschirm. Wer suchen will, hat den unter „Orte".
+
+/// Eine angehängte Spur unter der Karte: Name, Länge, Zeitraum – und der
+/// Weg, sie wieder wegzunehmen.
+///
+/// **Sie steht unter der Karte und nicht in der Kopfleiste.** In der
+/// Kopfleiste könnte nur *eine* Spur weggenommen werden; eine Reise hat
+/// aber je Tag eine, und welche gemeint ist, sagt nur ihr Name.
+class _Spurzeile extends StatelessWidget {
+  const _Spurzeile({
+    required this.spur,
+    required this.sprache,
+    required this.beimEntfernen,
+  });
+
+  final SpurenData spur;
+  final String sprache;
+  final VoidCallback beimEntfernen;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    final farben = Theme.of(context).colorScheme;
+    final eine =
+        NumberFormat.decimalPatternDigits(locale: sprache, decimalDigits: 1);
+    return Row(
+      children: [
+        Icon(Icons.route_outlined, size: 16, color: farben.tertiary),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            '${spur.name} · ${t.spurKm(eine.format(spur.laengeKm))}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 12, color: farben.onSurfaceVariant),
+          ),
+        ),
+        IconButton(
+          tooltip: t.spurEntfernen,
+          icon: const Icon(Icons.wrong_location_outlined, size: 18),
+          onPressed: beimEntfernen,
+        ),
+      ],
+    );
+  }
+}

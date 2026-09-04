@@ -21,6 +21,7 @@ import '../services/library_location.dart';
 import '../services/library_stats.dart';
 import '../services/lichtstimmung.dart';
 import '../services/listenspalten.dart';
+import '../services/ortsvorschlag.dart' show Ortsloser, Ortsnachbar;
 import 'rasterzeile.dart';
 import '../services/rasterstufen.dart'
     show
@@ -215,6 +216,87 @@ class Assets extends Table {
   /// Videos, an die er vorher nie herankam. Danach ist er still.
   BoolColumn get gpsGeprueft =>
       boolean().withDefault(const Constant(false))();
+
+  /// Ob [fileCreatedAt] **geraten** ist statt gemessen.
+  ///
+  /// **Der Anlass.** An der echten Bibliothek tragen 1097 von 7443
+  /// Aufnahmen einen Zeitstempel auf die volle Stunde – ohne Minute, ohne
+  /// Sekunde. Bei Gleichverteilung wären zwei zu erwarten. 948 davon
+  /// tragen sogar denselben Zeitpunkt auf die Sekunde: den 27.08.2006,
+  /// 00:00 Uhr. In den Dateien nachgesehen steht dort wörtlich
+  /// `DateTimeOriginal: 0000:00:00 00:00:00` – die Kamerauhr war nie
+  /// gestellt, und der Import fiel auf den Zeitstempel der Datei zurück.
+  ///
+  /// Dass er das tut, ist richtig; es ist der letzte Ausweg und als
+  /// solcher im Import auch benannt. Falsch war das **Schweigen danach**:
+  /// Der geratene Wert landete in derselben Spalte wie ein gemessener,
+  /// und ab da konnte kein Bildschirm die beiden mehr unterscheiden. Die
+  /// Zeitleiste stellte eine halbe Kindheit auf einen einzigen Abend, die
+  /// Erinnerungen meldeten am 27. August „vor 20 Jahren" mit 948
+  /// Aufnahmen, die an diesem Tag nicht entstanden sind, und die
+  /// Serienerkennung fand eine „Serie" mit 943 Mitgliedern.
+  ///
+  /// Diese Spalte erfindet keinen besseren Wert. Sie hört auf, einen
+  /// schlechten als guten auszugeben.
+  ///
+  /// Wird beim Setzen von Hand wieder gelöscht (siehe
+  /// [setAufnahmezeitpunkt]): Wer das Datum selbst einträgt, weiss mehr
+  /// als die Datei.
+  BoolColumn get datumGeschaetzt =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Ob in dieser Datei schon einmal nach einem Aufnahmedatum gesucht
+  /// wurde – dieselbe Notiz „nachgesehen" wie bei [gpsGeprueft] und aus
+  /// demselben Grund.
+  ///
+  /// Ohne sie liefe der Nachtrag bei jedem Aufruf über die ganze
+  /// Bibliothek, und der teure Teil ist das Lesen der Datei, nicht das
+  /// Vergleichen. `false` für alles Bestehende: Der erste Lauf nach dem
+  /// Umstieg sieht sich jede Aufnahme einmal an, danach ist er still.
+  BoolColumn get datumGeprueft =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Ob [latitude]/[longitude] von einer **zeitlichen Nachbaraufnahme
+  /// geerbt** sind statt gemessen oder von Hand gesetzt.
+  ///
+  /// Ein geerbter Ort ist eine begruendete Vermutung: Die Aufnahmen davor
+  /// und danach waren alle am selben Ort, also war es diese
+  /// hoechstwahrscheinlich auch. Das ist gut genug, um ein Foto auf der
+  /// Karte zu finden – und nicht gut genug, um als Messung durchzugehen.
+  ///
+  /// `false` fuer alles Bestehende ist keine Behauptung, sondern die
+  /// Wahrheit: Vor Schema 76 gab es das Erben nicht.
+  ///
+  /// Faellt mit, sobald der Ort neu gesetzt wird (siehe [setLocation]) –
+  /// wer eine Koordinate eintraegt oder aus der Datei liest, ersetzt die
+  /// Vermutung durch etwas Belegtes.
+  BoolColumn get ortGeerbt =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Ob bei diesem Video schon nach weiteren Standbildern gesehen wurde
+  /// (siehe `services/videostandbilder.dart`).
+  ///
+  /// Eigene Spalte und nicht „hat Zeilen in [Videoeinbettungen]": Ein
+  /// Video unter zehn Sekunden bekommt **keine** weiteren Standbilder,
+  /// und das ist ein Ergebnis, kein offener Posten. Ohne die Spalte
+  /// nähme sich der Nachtrag bei jedem Lauf dieselben 208 kurzen Videos
+  /// erneut vor.
+  BoolColumn get videobilderGeprueft =>
+      boolean().withDefault(const Constant(false))();
+
+  /// Der Zeitzonenversatz in Minuten, wie ihn `OffsetTimeOriginal` der
+  /// Datei nennt – `null`, wenn die Datei keinen traegt.
+  ///
+  /// **Jede vierte Datei traegt ihn.** 126 Dateien quer durch die echte
+  /// Bibliothek gezogen: 34 tragen `OffsetTimeOriginal`, also 27 %. Im
+  /// ganzen Quelltext gab es dafuer bis Schema 78 null Fundstellen.
+  ///
+  /// [fileCreatedAt] bleibt davon unberuehrt: Das ist und war die
+  /// **Ortszeit der Kamera**, und die ist die Zeit, an die man sich
+  /// erinnert. Der Versatz sagt nur dazu, in welcher Zone sie galt – ob
+  /// die 228 Aufnahmen aus Mazar-e Sharif um 16 Uhr in Berlin oder um
+  /// 18:30 vor Ort entstanden.
+  IntColumn get zeitversatzMinuten => integer().nullable()();
 
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
   /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
@@ -932,6 +1014,48 @@ class VerworfeneSerien extends Table {
   Set<Column> get primaryKey => {schluessel};
 }
 
+/// Ein abgelehntes Buendel von Ortsvorschlaegen. [schluessel] ist die
+/// kleinste Kennung der Gruppe – wie bei [VerworfeneReisen],
+/// [VerworfeneAktivitaeten] und [VerworfeneSerien].
+///
+/// **Warum es die Tabelle braucht.** Der Vorschlag entsteht bei jedem
+/// Aufruf neu aus den Daten; ohne Gedaechtnis stuende ein „nein" beim
+/// naechsten Oeffnen wieder da. Und anders als bei Serien gibt es hier
+/// keinen anderen Weg, ein Nein festzuhalten: Eine abgelehnte Aufnahme
+/// bleibt genau das, was sie vorher war – unverortet.
+class VerworfeneOrtsvorschlaege extends Table {
+  TextColumn get schluessel => text()();
+  DateTimeColumn get verworfenAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {schluessel};
+}
+
+/// Weitere Einbettungen eines Videos – eine je zusaetzlich ausgewertetem
+/// Standbild.
+///
+/// **Warum eine eigene Tabelle und nicht mehrere Zeilen in
+/// [ImageEmbeddings].** Dort ist die Aufnahmekennung der Schluessel, und
+/// darauf verlassen sich die Duplikatsuche, die Serienerkennung und der
+/// Bibliotheksvergleich: Sie fragen „welche Aufnahme sieht wem aehnlich"
+/// und wuerden bei fuenf Zeilen je Video fuenfmal dasselbe Video finden.
+///
+/// Die Suche dagegen fragt „welche Aufnahme passt zu diesem Satz", und
+/// dort ist mehr Material genau richtig: Es zaehlt das beste der
+/// Standbilder, nicht ihr Mittel. Ein Mittelwert ueber verschiedene
+/// Szenen waere ein Vektor, der zu nichts mehr recht passt.
+class Videoeinbettungen extends Table {
+  TextColumn get assetId => text()();
+
+  /// Die Stelle in der Laufzeit, 0 bis 1 – als Tausendstel, damit der
+  /// Primaerschluessel ganzzahlig bleibt.
+  IntColumn get stelle => integer()();
+  BlobColumn get vector => blob()();
+
+  @override
+  Set<Column> get primaryKey => {assetId, stelle};
+}
+
 /// Eine aufgezeichnete Spur – die GPX-Datei einer Wanderung oder
 /// Radtour.
 ///
@@ -958,6 +1082,15 @@ class Spuren extends Table {
   /// wer die Spalte auf die ältere Tabelle legte, müsste sie dort
   /// nachträglich anbauen, damit sie meistens leer bleibt.
   TextColumn get aktivitaetId => text().nullable()();
+
+  /// Die Reise, zu der sie gehört – oder `null`.
+  ///
+  /// **Eine zweite Spalte und keine gemeinsame.** Eine Spur gehört zu
+  /// einer Aktivität *oder* zu einer Reise, und beides in einem Feld mit
+  /// einer Artangabe daneben zu führen hiesse, bei jeder Abfrage zwei
+  /// Bedingungen zu schreiben, wo eine reicht – und beim Vergessen der
+  /// zweiten die Spuren der jeweils anderen Sorte mitzuzählen.
+  TextColumn get reiseId => text().nullable()();
 
   /// Erster und letzter Zeitstempel – `null`, wenn die Datei keine
   /// führt (eine geplante Route etwa).
@@ -1679,6 +1812,8 @@ class DuplikatAusnahmen extends Table {
   Spuren,
   Spurpunkte,
   VerworfeneSerien,
+  VerworfeneOrtsvorschlaege,
+  Videoeinbettungen,
   Wanderpunkte,
   Wanderabfragen,
 ])
@@ -1695,7 +1830,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 73;
+  int get schemaVersion => 78;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -2359,6 +2494,54 @@ class AppDatabase extends _$AppDatabase {
             await _addColumnIfMissing(m, appSettings,
                 appSettings.gelaendeWanderobjekte, 'app_settings',
                 'gelaende_wanderobjekte');
+          }
+          if (from < 74) {
+            // Eine Spur darf jetzt auch an einer Reise haengen. Die
+            // Spalte bleibt bei allen vorhandenen Spuren leer - die
+            // gehoeren zu Aktivitaeten.
+            await _addColumnIfMissing(
+                m, spuren, spuren.reiseId, 'spuren', 'reise_id');
+          }
+          if (from < 75) {
+            // Woher der Aufnahmezeitpunkt stammt (siehe die beiden
+            // Spalten). BEIDE `false` fuer alles Bestehende, und das ist
+            // die vorsichtige Wahl:
+            //
+            // Es waere verlockend, hier gleich `datum_geschaetzt` fuer
+            // alles zu setzen, was auf einer vollen Stunde liegt - an der
+            // echten Bibliothek traefe das 1097 Aufnahmen und damit fast
+            // genau die richtigen. Aber eben nur fast: Ein Foto, das
+            // wirklich um Punkt 18 Uhr entstand, bekaeme eine Marke, die
+            // eine Falschaussage waere. Statt einer Vermutung ueber alle
+            // laeuft der Nachtrag einmal ueber die Bibliothek und sieht
+            // in JEDER Datei nach, ob ein Aufnahmedatum darin steht.
+            await _addColumnIfMissing(
+                m, assets, assets.datumGeschaetzt, 'assets', 'datum_geschaetzt');
+            await _addColumnIfMissing(
+                m, assets, assets.datumGeprueft, 'assets', 'datum_geprueft');
+          }
+          if (from < 76) {
+            // Ein geerbter Ort ist kein gemessener (siehe die Spalte),
+            // und abgelehnte Vorschlaege sollen abgelehnt bleiben -
+            // dieselbe Machart wie bei Reisen, Aktivitaeten und Serien.
+            await _addColumnIfMissing(
+                m, assets, assets.ortGeerbt, 'assets', 'ort_geerbt');
+            await m.createTable(verworfeneOrtsvorschlaege);
+          }
+          if (from < 77) {
+            // Ein Video war bis hierher ein einziges Standbild (siehe
+            // die Spalte und die Tabelle). `false` fuer alles
+            // Bestehende: Der Nachtrag sieht sich jedes Video einmal an.
+            await _addColumnIfMissing(m, assets, assets.videobilderGeprueft,
+                'assets', 'videobilder_geprueft');
+            await m.createTable(videoeinbettungen);
+          }
+          if (from < 78) {
+            // Der Zeitzonenversatz aus der Datei (siehe die Spalte). Er
+            // wird vom selben Nachtrag mitgelesen, der nach der Herkunft
+            // des Datums sieht - die Datei ist dann ohnehin offen.
+            await _addColumnIfMissing(m, assets, assets.zeitversatzMinuten,
+                'assets', 'zeitversatz_minuten');
           }
         },
       );
@@ -3041,10 +3224,45 @@ class AppDatabase extends _$AppDatabase {
   /// `datum_setzen_verschiebt_test.dart`); für Prüfstände selbst ist der
   /// kurze Weg hier richtig.
   Future<void> setFileCreatedAtBulk(List<String> assetIds, DateTime fileCreatedAt) =>
-      (update(assets)..where((t) => t.id.isIn(assetIds)))
-          .write(AssetsCompanion(fileCreatedAt: Value(fileCreatedAt)));
+      (update(assets)..where((t) => t.id.isIn(assetIds))).write(AssetsCompanion(
+        fileCreatedAt: Value(fileCreatedAt),
+        // Wie bei [setAufnahmezeitpunkt]: Ein gesetztes Datum ist kein
+        // geratenes mehr.
+        datumGeschaetzt: const Value(false),
+      ));
 
   /// Siehe [setLocation] – auch hier fallen die alten Ortsnamen mit.
+  /// Setzt Land, Region und Ort für viele Aufnahmen auf **denselben**
+  /// Wert – in einer einzigen Anweisung.
+  ///
+  /// **Warum nicht in einer Schleife.** Genau das stand vorher in
+  /// [LibraryState.setzeOrtVonHand]: je Aufnahme ein eigenes UPDATE, und
+  /// jedes ist für SQLite eine eigene Übertragung samt Sichern auf die
+  /// Platte. An einer Datei gemessen
+  /// (`tool/messe_sammelaenderung_test.dart`), 500 Aufnahmen:
+  ///
+  /// ```
+  /// je Aufnahme ein UPDATE   163 ms
+  /// eine Klammer darum         24 ms
+  /// eine einzige Anweisung      2 ms
+  /// ```
+  ///
+  /// Und der wichtigere Grund ist gar nicht die Zeit: Eine Schleife
+  /// hinterlässt, wenn sie in der Mitte scheitert, die eine Hälfte der
+  /// Fotos am neuen Ort und die andere am alten. Eine Anweisung tut das
+  /// nicht.
+  Future<void> setLocationNamesBulk(
+    List<String> assetIds, {
+    String? country,
+    String? state,
+    required String city,
+  }) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds))).write(AssetsCompanion(
+        locationCountry: Value(country),
+        locationState: Value(state),
+        locationCity: Value(city),
+      ));
+
   Future<void> setLocationBulk(List<String> assetIds, double? latitude, double? longitude) =>
       (update(assets)..where((t) => t.id.isIn(assetIds))).write(AssetsCompanion(
         latitude: Value(latitude),
@@ -3347,8 +3565,12 @@ class AppDatabase extends _$AppDatabase {
   /// `datum_setzen_verschiebt_test.dart`); für Prüfstände selbst ist der
   /// kurze Weg hier richtig.
   Future<void> setFileCreatedAt(String assetId, DateTime fileCreatedAt) =>
-      (update(assets)..where((t) => t.id.equals(assetId)))
-          .write(AssetsCompanion(fileCreatedAt: Value(fileCreatedAt)));
+      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+        fileCreatedAt: Value(fileCreatedAt),
+        // Wie bei [setAufnahmezeitpunkt]: Ein gesetztes Datum ist kein
+        // geratenes mehr.
+        datumGeschaetzt: const Value(false),
+      ));
 
   /// Setzt (oder löscht, bei `null`) den Ort eines Assets – entweder aus
   /// EXIF-GPS-Daten beim Import übernommen oder manuell in der Info-Ansicht
@@ -3373,7 +3595,77 @@ class AppDatabase extends _$AppDatabase {
         locationCountry: const Value(null),
         locationState: const Value(null),
         locationCity: const Value(null),
+        // Wer eine Koordinate setzt oder aus der Datei liest, ersetzt
+        // eine Vermutung durch etwas Belegtes (siehe [Assets.ortGeerbt]).
+        ortGeerbt: const Value(false),
       ));
+
+  /// Die Daten, aus denen die Ortsvorschlaege entstehen: die
+  /// unverorteten Aufnahmen und die verorteten, je nur mit dem, was die
+  /// Rechnung braucht.
+  ///
+  /// **Zwei schlanke Abfragen statt zweier voller.** Es geht um 5351 und
+  /// 2092 Zeilen; `select(assets)` zoege fuer jede alle 57 Spalten
+  /// herueber, um daraus drei Zahlen zu lesen.
+  ///
+  /// Papierkorb und Tresor bleiben draussen: Ein geloeschtes Foto braucht
+  /// keinen Ort, und ein gesperrtes soll nicht ueber seine Nachbarn
+  /// verraten, wo es entstand.
+  Future<({List<Ortsloser> ohneOrt, List<Ortsnachbar> verortet})>
+      ortsvorschlagsdaten() async {
+    Expression<bool> grund() =>
+        assets.isTrashed.equals(false) & assets.isLocked.equals(false);
+
+    final ohne = selectOnly(assets)
+      ..addColumns([assets.id, assets.fileCreatedAt])
+      ..where(grund() & assets.latitude.isNull());
+    final mit = selectOnly(assets)
+      ..addColumns([assets.fileCreatedAt, assets.latitude, assets.longitude])
+      ..where(grund() & assets.latitude.isNotNull());
+
+    return (
+      ohneOrt: [
+        for (final z in await ohne.get())
+          (
+            id: z.read<String>(assets.id)!,
+            wann: z.read<DateTime>(assets.fileCreatedAt)!,
+          ),
+      ],
+      verortet: [
+        for (final z in await mit.get())
+          (
+            wann: z.read<DateTime>(assets.fileCreatedAt)!,
+            breite: z.read<double>(assets.latitude)!,
+            laenge: z.read<double>(assets.longitude)!,
+          ),
+      ],
+    );
+  }
+
+  /// Uebernimmt einen Ortsvorschlag fuer eine ganze Gruppe – **in einer
+  /// Anweisung je Koordinate**.
+  ///
+  /// Die ausgeschriebenen Ortsnamen bleiben leer; die traegt der
+  /// vorhandene Nachtrag [assetsForLocationNameBackfill] nach, der genau
+  /// nach Zeilen mit Koordinate und ohne Land sucht.
+  Future<void> uebernimmOrtsvorschlag(
+          List<String> assetIds, double breite, double laenge) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds))).write(AssetsCompanion(
+        latitude: Value(breite),
+        longitude: Value(laenge),
+        locationCountry: const Value(null),
+        locationState: const Value(null),
+        locationCity: const Value(null),
+        ortGeerbt: const Value(true),
+      ));
+
+  Future<Set<String>> verworfeneOrtsvorschlagsschluessel() async =>
+      {for (final z in await select(verworfeneOrtsvorschlaege).get()) z.schluessel};
+
+  Future<void> verwirfOrtsvorschlag(String schluessel) =>
+      into(verworfeneOrtsvorschlaege).insertOnConflictUpdate(
+          VerworfeneOrtsvorschlaegeCompanion.insert(
+              schluessel: schluessel, verworfenAm: DateTime.now()));
 
   /// Fotos ohne bekannten Ort – für das nachträgliche Einlesen von
   /// EXIF-GPS-Daten (Werkzeuge), z.B. für Fotos, die vor Einführung dieser
@@ -3417,6 +3709,64 @@ class AppDatabase extends _$AppDatabase {
   Future<void> markGpsGeprueft(List<String> assetIds) =>
       (update(assets)..where((t) => t.id.isIn(assetIds)))
           .write(const AssetsCompanion(gpsGeprueft: Value(true)));
+
+  /// Aufnahmen, in deren Datei noch nicht nach einem Aufnahmedatum
+  /// gesehen wurde (siehe [Assets.datumGeprueft]).
+  ///
+  /// Der Papierkorb ist dabei: Ein zurückgeholtes Foto soll nicht als
+  /// einziges ohne Herkunftsvermerk dastehen.
+  Expression<bool> _datumOffen(bool alle) =>
+      alle ? const CustomExpression<bool>('1') : assets.datumGeprueft.equals(false);
+
+  Future<List<AssetData>> assetsFuerDatumsherkunft({bool alle = false}) =>
+      (select(assets)..where((_) => _datumOffen(alle))).get();
+
+  /// Zählvariante von [assetsFuerDatumsherkunft], siehe [countLocationBackfill].
+  Future<int> countDatumsherkunft({bool alle = false}) =>
+      _countWhere(_datumOffen(alle));
+
+  /// Vermerkt „nachgesehen" für eine ganze Gruppe – und setzt bei denen
+  /// aus [geschaetzt] zugleich die Marke.
+  ///
+  /// **Zwei Anweisungen und nicht zweitausend.** Der Nachtrag geht über
+  /// die ganze Bibliothek; je Aufnahme ein eigenes UPDATE wäre derselbe
+  /// Fehler, der bei den Ortsnamen 163 ms gegen 2 ms kostete. Und ein
+  /// Abbruch mittendrin lässt hier keinen halben Zustand zurück: Beide
+  /// Anweisungen betreffen denselben Block.
+  ///
+  /// Die Marke wird auch **zurückgenommen**: Wer den Lauf mit „alle"
+  /// wiederholt, nachdem er die Kameradaten ausserhalb der App
+  /// nachgetragen hat, soll die Marke wieder los sein.
+  Future<void> markDatumGeprueft(List<String> assetIds,
+      {required List<String> geschaetzt,
+      Map<String, int> versatz = const {}}) async {
+    if (assetIds.isEmpty) return;
+    final geraten = geschaetzt.toSet();
+    await transaction(() async {
+      await (update(assets)..where((t) => t.id.isIn(assetIds))).write(
+          const AssetsCompanion(
+              datumGeprueft: Value(true),
+              datumGeschaetzt: Value(false),
+              // Auch der Versatz wird zurueckgenommen: Wer den Lauf mit
+              // „alle" wiederholt, soll eine Angabe loswerden, die in der
+              // Datei nicht mehr steht.
+              zeitversatzMinuten: Value(null)));
+      if (geraten.isNotEmpty) {
+        await (update(assets)..where((t) => t.id.isIn(geraten.toList())))
+            .write(const AssetsCompanion(datumGeschaetzt: Value(true)));
+      }
+      // Nach Wert gebuendelt: Eine Anweisung je vorkommender Zone statt
+      // einer je Aufnahme. In der echten Bibliothek kommen zwei vor.
+      final nachWert = <int, List<String>>{};
+      for (final e in versatz.entries) {
+        nachWert.putIfAbsent(e.value, () => []).add(e.key);
+      }
+      for (final e in nachWert.entries) {
+        await (update(assets)..where((t) => t.id.isIn(e.value)))
+            .write(AssetsCompanion(zeitversatzMinuten: Value(e.key)));
+      }
+    });
+  }
 
   /// Setzt die Kamera-/Objektiv-/Aufnahme-Angaben eines Assets (siehe
   /// CameraInfo) – beim Import automatisch oder nachträglich über das
@@ -3465,10 +3815,18 @@ class AppDatabase extends _$AppDatabase {
   /// `originals/` wird aus dem Aufnahmedatum gebildet. Ein neues Datum
   /// ohne neuen Pfad hiesse, dass die Ablage auf der Platte nicht mehr zu
   /// dem passt, was die App anzeigt.
+  /// Setzt den Aufnahmezeitpunkt – und nimmt dabei die Marke
+  /// „geschätzt" zurück (siehe [Assets.datumGeschaetzt]).
+  ///
+  /// Wer ein Datum von Hand einträgt, weiss mehr als die Datei. Bliebe
+  /// die Marke stehen, hinge sie ausgerechnet an dem Wert, der von allen
+  /// der belegteste ist – und das Foto fiele weiter aus Erinnerungen und
+  /// Serien heraus, obwohl der Grund dafür gerade behoben wurde.
   Future<void> setAufnahmezeitpunkt(String assetId, DateTime zeitpunkt,
           {String? neuerPfad}) =>
       (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
         fileCreatedAt: Value(zeitpunkt),
+        datumGeschaetzt: const Value(false),
         relativePath:
             neuerPfad == null ? const Value.absent() : Value(neuerPfad),
       ));
@@ -4266,11 +4624,20 @@ class AppDatabase extends _$AppDatabase {
   /// alles laden, in Dart filtern   250,1 ms
   /// erst Kennung und Datum          30,9 ms
   /// ```
+  /// Die Erinnerungen: was heute vor Jahren entstanden ist.
+  ///
+  /// **Ohne geschätzte Daten.** Ein geratener Zeitstempel ist hier
+  /// besonders schädlich, weil dieser Abschnitt aus dem Datum eine
+  /// Behauptung macht: „vor 20 Jahren, an genau diesem Tag". An der
+  /// echten Bibliothek liegen 948 Aufnahmen auf einem einzigen erfundenen
+  /// Zeitpunkt – am 27. August wären sie alle auf einmal erschienen, und
+  /// keine einzige davon entstand an diesem Tag.
   Future<List<AssetData>> assetsOnThisDay(DateTime today) async {
     final schlank = selectOnly(assets)
       ..addColumns([assets.id, assets.fileCreatedAt])
       ..where(assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
+          assets.datumGeschaetzt.equals(false) &
           _isPrimaryGridEntry(assets));
     final treffer = <String>[];
     for (final zeile in await schlank.get()) {
@@ -5444,6 +5811,9 @@ class AppDatabase extends _$AppDatabase {
     }
     if (filters.maxSharpnessScore != null) {
       query.where((t) => t.sharpnessScore.isSmallerOrEqualValue(filters.maxSharpnessScore!));
+    }
+    if (filters.nurGeschaetztesDatum) {
+      query.where((t) => t.datumGeschaetzt.equals(true));
     }
 
     for (final personId in filters.personIds) {
@@ -6778,6 +7148,13 @@ class AppDatabase extends _$AppDatabase {
   Future<List<SpurenData>> alleSpuren() =>
       (select(spuren)..orderBy([(t) => OrderingTerm.desc(t.angelegtAm)])).get();
 
+  /// Die Spuren einer Reise – dieselbe Tabelle, die andere Spalte.
+  Future<List<SpurenData>> spurenDerReise(String reiseId) =>
+      (select(spuren)
+            ..where((t) => t.reiseId.equals(reiseId))
+            ..orderBy([(t) => OrderingTerm(expression: t.angelegtAm)]))
+          .get();
+
   Future<List<SpurenData>> spurenDerAktivitaet(String aktivitaetId) =>
       (select(spuren)
             ..where((t) => t.aktivitaetId.equals(aktivitaetId))
@@ -7393,6 +7770,74 @@ class AppDatabase extends _$AppDatabase {
   /// Papierkorb, nicht gesperrt"), nicht die Auskunft. Und `rawData` statt
   /// `read(spalte)`, aus demselben Grund wie in [assetsOnThisDay]: Der
   /// bequeme Weg schlägt jede Spalte über ihren Typ-Umsetzer nach.
+  /// Videos, bei denen noch nicht nach weiteren Standbildern gesehen
+  /// wurde (siehe [Assets.videobilderGeprueft]).
+  ///
+  /// Ohne Papierkorb und ohne Tresor, wie ueberall bei der Auswertung:
+  /// Was im Bildinhalt steckt, hat in der unverschluesselten Datenbank
+  /// nichts zu suchen.
+  Expression<bool> _videobilderOffen(bool alle) =>
+      assets.type.equals('VIDEO') &
+      assets.isTrashed.equals(false) &
+      assets.isLocked.equals(false) &
+      (alle ? const CustomExpression<bool>('1') : assets.videobilderGeprueft.equals(false));
+
+  Future<List<AssetData>> assetsFuerVideobilder({bool alle = false}) =>
+      (select(assets)..where((_) => _videobilderOffen(alle))).get();
+
+  /// Zaehlvariante von [assetsFuerVideobilder], siehe [countLocationBackfill].
+  Future<int> countVideobilder({bool alle = false}) =>
+      _countWhere(_videobilderOffen(alle));
+
+  /// Schreibt die Einbettungen der zusaetzlichen Standbilder eines Videos
+  /// – **die alten fallen dabei weg**.
+  ///
+  /// Ein zweiter Lauf ueber dasselbe Video soll es ersetzen und nicht
+  /// verdoppeln; die Stellen koennen sich mit der Laufzeit aendern.
+  Future<void> setzeVideoeinbettungen(
+      String assetId, List<({double stelle, Uint8List vector})> bilder) async {
+    await transaction(() async {
+      await (delete(videoeinbettungen)
+            ..where((t) => t.assetId.equals(assetId)))
+          .go();
+      for (final b in bilder) {
+        await into(videoeinbettungen).insert(VideoeinbettungenCompanion.insert(
+          assetId: assetId,
+          stelle: (b.stelle * 1000).round(),
+          vector: b.vector,
+        ));
+      }
+      await (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(const AssetsCompanion(videobilderGeprueft: Value(true)));
+    });
+    _embeddingsGeneration++;
+  }
+
+  /// Merkt „nachgesehen" fuer Videos, bei denen nichts zu holen war –
+  /// zu kurz, oder das Standbild liess sich nicht greifen.
+  Future<void> markVideobilderGeprueft(List<String> assetIds) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(const AssetsCompanion(videobilderGeprueft: Value(true)));
+
+  /// Die zusaetzlichen Einbettungen, nach Aufnahme gebuendelt – fuer die
+  /// Suche, und nur fuer sie (siehe [Videoeinbettungen]).
+  Future<Map<String, List<Float32List>>> alleVideoeinbettungen() async {
+    final query = selectOnly(videoeinbettungen).join([
+      innerJoin(assets, assets.id.equalsExp(videoeinbettungen.assetId)),
+    ])
+      ..addColumns([videoeinbettungen.assetId, videoeinbettungen.vector])
+      ..where(assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+    final out = <String, List<Float32List>>{};
+    for (final z in await query.get()) {
+      out
+          .putIfAbsent(
+              z.rawData.read<String>('videoeinbettungen.asset_id'), () => [])
+          .add(floatsFromEmbeddingBlob(
+              z.rawData.read<Uint8List>('videoeinbettungen.vector')));
+    }
+    return out;
+  }
+
   Future<Map<String, Float32List>> allEmbeddings() async {
     final query = selectOnly(imageEmbeddings).join([
       innerJoin(assets, assets.id.equalsExp(imageEmbeddings.assetId)),

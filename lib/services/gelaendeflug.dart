@@ -81,10 +81,41 @@ class Gelaendeflug {
   /// keine wäre zu gebrauchen.
   final double glaettung;
 
+  /// Über wie viele Meter die **Blickrichtung** geglättet wird.
+  ///
+  /// **Warum eine eigene, viel grössere Zahl als [glaettung].** Die
+  /// Kamera fliegt mit 300 m/s. Ein Fenster von 120 Metern ist damit
+  /// vier Zehntelsekunden – die Blickrichtung konnte sich also innerhalb
+  /// eines Wimpernschlags vollständig ändern, und auf einem Weg mit
+  /// Serpentinen tat sie das auch. An der echten Spur durchs Ilsetal
+  /// gemessen (16 km, 53 s Flug, `tool/messe_flugkamera_test.dart`):
+  ///
+  /// ```
+  ///                    Gesamtdrehung   Median   90 %    hoechste
+  /// 120 m (Sehne)        3864 Grad     45,5     131,8    4783,4 Grad/s
+  /// ```
+  ///
+  /// Knapp elf volle Umdrehungen auf einer Wanderung, die einmal hin und
+  /// einmal zurück geht. Das ist kein Geschmacksurteil mehr.
+  ///
+  /// 450 Meter sind bei 300 m/s anderthalb Sekunden – lang genug, dass
+  /// eine Kehre als Bogen erscheint statt als Ruck, und kurz genug, dass
+  /// die Kamera dem Tal noch folgt.
+  final double blickglaettung;
+
   /// Aufsummierte waagerechte Länge bis zu jedem Punkt.
   final List<double> _bisHier;
 
-  Gelaendeflug(this.spur, {this.werte = const [], this.glaettung = 120})
+  /// Die geglättete Blickrichtung an gleichmässigen Stützstellen,
+  /// **entfaltet** – die Reihe läuft stetig durch und springt nicht von
+  /// +π auf −π. Wird beim ersten Zugriff gebaut.
+  List<double>? _richtungen;
+  double _richtungsschritt = 0;
+
+  Gelaendeflug(this.spur,
+      {this.werte = const [],
+      this.glaettung = 120,
+      this.blickglaettung = 900})
       : _bisHier = _laengenSumme(spur),
         assert(werte.isEmpty || werte.length == spur.length,
             'Zu jedem Raumpunkt gehört genau ein Wert oder gar keiner.');
@@ -286,6 +317,144 @@ class Gelaendeflug {
     return a.add(Duration(milliseconds: (spanne * s.anteil).round()));
   }
 
+  /// Das Höhenprofil: zu jedem Punkt mit gemessener Höhe die Strecke
+  /// dorthin.
+  ///
+  /// **Einmal je Flug und nicht je Bild.** Die Leiste baut sich
+  /// dreissigmal je Sekunde neu, und sie legte diese Liste jedes Mal neu
+  /// an – bei einer Tageswanderung viertausend Datensätze, bei einer
+  /// Mehrtagestour zwölftausend. Gemessen kostete allein das 0,6 ms je
+  /// Bild von 4,1 ms für die ganze Leiste
+  /// (`tool/messe_flugleiste_test.dart`).
+  List<({double meter, double hoehe})> get hoehenprofil =>
+      _hoehenprofil ??= [
+        for (var i = 0; i < werte.length && i < _bisHier.length; i++)
+          if (werte[i].hoehe case final h?) (meter: _bisHier[i], hoehe: h),
+      ];
+  List<({double meter, double hoehe})>? _hoehenprofil;
+
+  /// Die geglättete Blickrichtung bei [meter].
+  ///
+  /// **Gemittelt werden Richtungen, nicht Punkte.** Vorher stand hier
+  /// die Sehne über das Glättungsfenster: die Verbindung vom Punkt
+  /// 120 Meter zurück zum Punkt 120 Meter voraus. Auf einer Geraden ist
+  /// das dasselbe wie eine gemittelte Richtung – in einer Kehre nicht.
+  /// Dort fallen beide Enden fast zusammen, die Sehne wird kurz, und
+  /// ihre Richtung ist dann nicht mehr die Bewegung, sondern das
+  /// Rauschen dazwischen. Das ist der Grund für die 4783 Grad je
+  /// Sekunde in der Messung oben: eine einzige Kehre, in der die Sehne
+  /// umschlägt.
+  ///
+  /// Gemittelt wird deshalb über **Einheitstangenten**: Jede Stelle
+  /// steuert eine Richtung gleichen Gewichts bei, und eine Kehre wird
+  /// dadurch zu einem Bogen statt zu einem Vorzeichenwechsel.
+  /// Zwei Kastenmittel hintereinander ergeben ein Dreiecksfenster – ein
+  /// einzelnes Kastenmittel hat einen Knick an jedem Fensterrand, und
+  /// ein Knick in der Richtung ist am Bild ein Ruck.
+  double richtungBei(double meter) {
+    final tafel = _richtungstafel();
+    if (tafel.length < 2) return tafel.isEmpty ? 0 : tafel.first;
+    final x = (meter / _richtungsschritt)
+        .clamp(0.0, (tafel.length - 1).toDouble());
+    final i = x.floor().clamp(0, tafel.length - 2);
+    return tafel[i] + (tafel[i + 1] - tafel[i]) * (x - i);
+  }
+
+  List<double> _richtungstafel() {
+    final fertig = _richtungen;
+    if (fertig != null) return fertig;
+    if (!moeglich) return _richtungen = const [0.0];
+
+    // Fünf Meter, aber nie mehr als viertausend Stützstellen: Eine
+    // Tagestour hat sechzehn Kilometer, eine Mehrtagestour hundert.
+    final schritt = math.max(5.0, laengeMeter / 4000);
+    _richtungsschritt = schritt;
+    final n = (laengeMeter / schritt).ceil() + 1;
+
+    var vx = List<double>.filled(n, 0);
+    var vy = List<double>.filled(n, 0);
+    for (var i = 0; i < n; i++) {
+      final m = math.min(laengeMeter, i * schritt);
+      final a = punktBei(math.max(0, m - schritt));
+      final b = punktBei(math.min(laengeMeter, m + schritt));
+      var dx = b.x - a.x;
+      var dy = b.y - a.y;
+      final l = math.sqrt(dx * dx + dy * dy);
+      if (l > 0) {
+        dx /= l;
+        dy /= l;
+      } else if (i > 0) {
+        // Zwei Punkte an derselben Stelle sagen nichts über die
+        // Richtung. Die vorige gilt weiter, statt eine Null in den
+        // Mittelwert zu geben.
+        dx = vx[i - 1];
+        dy = vy[i - 1];
+      }
+      vx[i] = dx;
+      vy[i] = dy;
+    }
+
+    final halb = math.max(1, (blickglaettung / 2 / schritt).round());
+    for (var runde = 0; runde < 2; runde++) {
+      vx = _kastenmittel(vx, halb);
+      vy = _kastenmittel(vy, halb);
+    }
+
+    final winkel = List<double>.filled(n, 0);
+    var letzt = 0.0;
+    var haben = false;
+    for (var i = 0; i < n; i++) {
+      final l = math.sqrt(vx[i] * vx[i] + vy[i] * vy[i]);
+      double w;
+      if (l < 1e-9) {
+        // Eine exakt aufgehobene Richtung – ein Hin und Zurück auf
+        // derselben Linie. Die vorige Richtung beibehalten ist die
+        // einzige Antwort, die nicht springt.
+        w = haben ? letzt : 0;
+      } else {
+        w = math.atan2(vx[i], vy[i]);
+        if (haben) {
+          // Aufs vorige Blatt drehen: Die Reihe soll stetig laufen,
+          // damit zwischen zwei Stützstellen linear gemischt werden
+          // darf. Ohne das läge zwischen +3,1 und −3,1 ein halber
+          // Umlauf statt eines Fingerbreits.
+          while (w - letzt > math.pi) {
+            w -= 2 * math.pi;
+          }
+          while (w - letzt < -math.pi) {
+            w += 2 * math.pi;
+          }
+        }
+        haben = true;
+      }
+      winkel[i] = w;
+      letzt = w;
+    }
+    return _richtungen = winkel;
+  }
+
+  /// Gleitendes Mittel über 2·[halb]+1 Stützstellen, an den Rändern mit
+  /// dem Randwert fortgesetzt.
+  ///
+  /// **Fortgesetzt und nicht geschrumpft.** Ein schrumpfendes Fenster
+  /// liefert am ersten Punkt den rohen Wert – also ausgerechnet dort das
+  /// unruhigste Ergebnis, wo der Flug anfängt und jeder hinsieht.
+  static List<double> _kastenmittel(List<double> werte, int halb) {
+    final n = werte.length;
+    final summe = List<double>.filled(n + 1, 0);
+    for (var i = 0; i < n; i++) {
+      summe[i + 1] = summe[i] + werte[i];
+    }
+    double bis(int i) => summe[i.clamp(0, n)] +
+        (i < 0 ? werte[0] * i : 0) +
+        (i > n ? werte[n - 1] * (i - n) : 0);
+    final aus = List<double>.filled(n, 0);
+    for (var i = 0; i < n; i++) {
+      aus[i] = (bis(i + halb + 1) - bis(i - halb)) / (2 * halb + 1);
+    }
+    return aus;
+  }
+
   /// Der Flugstand bei [fortschritt] zwischen 0 und 1.
   Flugstand bei(double fortschritt) {
     final t = fortschritt.clamp(0.0, 1.0);
@@ -296,11 +465,6 @@ class Gelaendeflug {
     final f = _fenster(meter);
     final von = f.von;
     final bis = f.bis;
-
-    final a = punktBei(von);
-    final b = punktBei(bis);
-    final dx = b.x - a.x;
-    final dy = b.y - a.y;
 
     final strecke = bis - von;
     final hVon = hoeheBei(von);
@@ -329,10 +493,11 @@ class Gelaendeflug {
       // also ist d der Winkel, unter dem die Laufrichtung nach hinten
       // zeigt und die Kamera dahinter steht.
       //
-      // Der Sprung von +π auf −π an der Südrichtung macht hier nichts:
-      // Die Kamera benutzt allein Sinus und Kosinus dieses Winkels, und
-      // die sind über den Sprung hinweg stetig.
-      drehung: (dx == 0 && dy == 0) ? 0.0 : math.atan2(dx, dy),
+      // Der Wert ist **entfaltet** und kann über ±π hinausgehen: Die
+      // Kamera benutzt allein Sinus und Kosinus, und wer zwei Winkel
+      // mischt, rechnet ohnehin den kürzeren Weg (siehe
+      // `_zwischenKamera`).
+      drehung: richtungBei(meter),
       gefahrenMeter: meter,
       hoeheMeter: hoeheBei(meter),
       tempoMeterJeSekunde: tempo,

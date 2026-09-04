@@ -22,6 +22,7 @@
 /// genau das Gegenteil, ohne dass man es der Trefferliste ansieht.
 library;
 
+import 'blur_detection.dart' show blurryScoreThreshold;
 import 'search_filters.dart';
 
 /// Ein Wort oder eine Wendung, die der Leser erkannt hat.
@@ -52,6 +53,9 @@ enum Satzfundart {
   farbmarke,
   medienart,
   favorit,
+  schaerfe,
+  iso,
+  datumsherkunft,
 }
 
 /// Die Wörter, gegen die der Leser prüft – aus der Bibliothek, nicht fest
@@ -164,6 +168,55 @@ Satzdeutung deuteSuchsatz(
         (_) => 'Foto',
         (f, _) => f.copyWith(mediaType: MediaTypeFilter.image),
       );
+
+  // --- Unschaerfe ----------------------------------------------------
+  // Die Sichtung fragt genau danach, und bis hierher gab es dafuer nur
+  // das Kreuz im Optionenfenster.
+  nimm(
+    RegExp(r'\b(unscharfe?n?|verwackelte?n?|blurry)\b', caseSensitive: false),
+    Satzfundart.schaerfe,
+    (_) => '',
+    (f, _) => f.copyWith(maxSharpnessScore: blurryScoreThreshold),
+  );
+
+  // --- Aufnahmewerte: ISO ---------------------------------------------
+  // "ab ISO 1600", "bis ISO 400", "ISO 100". Nur ISO, nicht Blende und
+  // Brennweite: Bei "Blende 2,8" ist nicht entschieden, ob genau 2,8 oder
+  // "mindestens so offen" gemeint ist, und ein halbverstandener Wert ist
+  // schlimmer als gar keiner (siehe der Kopf dieser Datei). Bei ISO ist
+  // die Richtung dagegen eindeutig: Wer "ab ISO 1600" sagt, meint das
+  // Rauschen nach oben.
+  nimm(
+    RegExp(r'\bab\s*iso\s*(\d{2,6})\b', caseSensitive: false),
+    Satzfundart.iso,
+    (m) => 'ab ${m.group(1)}',
+    (f, m) => f.copyWith(minIso: int.parse(m.group(1)!)),
+  ) ||
+      nimm(
+        RegExp(r'\bbis\s*iso\s*(\d{2,6})\b', caseSensitive: false),
+        Satzfundart.iso,
+        (m) => 'bis ${m.group(1)}',
+        (f, m) => f.copyWith(maxIso: int.parse(m.group(1)!)),
+      ) ||
+      nimm(
+        RegExp(r'\biso\s*(\d{2,6})\b', caseSensitive: false),
+        Satzfundart.iso,
+        (m) => m.group(1)!,
+        (f, m) => f.copyWith(
+            minIso: int.parse(m.group(1)!), maxIso: int.parse(m.group(1)!)),
+      );
+
+  // --- Herkunft des Datums --------------------------------------------
+  // Der Weg zu den 1097 Aufnahmen, deren Zeitstempel aus dem Dateisystem
+  // stammt (siehe [Assets.datumGeschaetzt]).
+  nimm(
+    RegExp(r'\b(gesch(ä|ae)tzte[nrs]?\s+datum|gesch(ä|ae)tzte[nrs]?\s+daten|'
+        r'estimated\s+dates?)\b',
+        caseSensitive: false),
+    Satzfundart.datumsherkunft,
+    (_) => '',
+    (f, _) => f.copyWith(nurGeschaetztesDatum: true),
+  );
 
   // --- Zeit ----------------------------------------------------------
   final zeit = _deuteZeit(rest, heute);

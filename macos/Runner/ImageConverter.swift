@@ -202,8 +202,12 @@ class ImageConverterChannel: NSObject {
                     return
                 }
                 let maxDimension = (args["maxDimension"] as? NSNumber)?.intValue ?? 800
+                // Anteil der Laufzeit, an dem gegriffen wird. Fehlt er,
+                // bleibt es beim bisherigen Verhalten (kurz nach dem Start).
+                let anteil = (args["anteil"] as? NSNumber)?.doubleValue
                 DispatchQueue.global(qos: .userInitiated).async {
-                    let thumbnail = videoThumbnail(path: path, maxDimension: maxDimension)
+                    let thumbnail = videoThumbnail(
+                        path: path, maxDimension: maxDimension, anteil: anteil)
                     DispatchQueue.main.async {
                         if let thumbnail = thumbnail {
                             result([
@@ -1170,7 +1174,20 @@ class ImageConverterChannel: NSObject {
     /// AVFoundation (behebt das Platzhalter-Icon für Video-Thumbnails in der
     /// Kachelansicht) und liefert gleich die Videolänge mit, da beides über
     /// dasselbe AVAsset ohnehin benötigt wird.
-    private static func videoThumbnail(path: String, maxDimension: Int) -> VideoThumbnail? {
+    /// Ein Standbild aus einem Video.
+    ///
+    /// [anteil] ist die Stelle in der Laufzeit, 0 bis 1. Ohne Angabe wird
+    /// wie bisher kurz nach dem Start gegriffen; mit Angabe entstehen die
+    /// weiteren Standbilder, aus denen die Auswertung eines laengeren
+    /// Videos besteht (siehe `videostandbilder.dart`).
+    ///
+    /// `requestedTimeToleranceBefore/After` auf zero: Ohne das liefert
+    /// AVFoundation das naechstgelegene KEYFRAME, und bei einem Video mit
+    /// weit auseinanderliegenden Keyframes waeren mehrere angeforderte
+    /// Stellen dasselbe Bild.
+    private static func videoThumbnail(
+        path: String, maxDimension: Int, anteil: Double? = nil
+    ) -> VideoThumbnail? {
         let url = URL(fileURLWithPath: path)
         let asset = AVURLAsset(url: url)
         let rawDuration = CMTimeGetSeconds(asset.duration)
@@ -1182,7 +1199,14 @@ class ImageConverterChannel: NSObject {
 
         // Ein kleines Stück nach dem Start greifen statt exakt Frame 0 – bei
         // vielen Videos ist der allererste Frame schwarz oder unbrauchbar.
-        let offsetSeconds = durationSeconds > 0 ? min(0.5, durationSeconds / 2) : 0
+        let offsetSeconds: Double
+        if let anteil = anteil, durationSeconds > 0 {
+            generator.requestedTimeToleranceBefore = .zero
+            generator.requestedTimeToleranceAfter = .zero
+            offsetSeconds = min(max(anteil, 0), 1) * durationSeconds
+        } else {
+            offsetSeconds = durationSeconds > 0 ? min(0.5, durationSeconds / 2) : 0
+        }
         let requestedTime = CMTime(seconds: offsetSeconds, preferredTimescale: 600)
 
         guard let cgImage = try? generator.copyCGImage(at: requestedTime, actualTime: nil) else {

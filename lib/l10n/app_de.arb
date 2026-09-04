@@ -4072,6 +4072,8 @@
     }
   },
   "spurTitel": "Aufgezeichnete Spur",
+    "spurKm": "{km} km",
+  "@spurKm": {"placeholders": {"km": {"type": "String"}}},
   "spurKennzahlen": "{km} km · ▲ {auf} m · ▼ {ab} m",
   "@spurKennzahlen": {
     "placeholders": {
@@ -4148,6 +4150,19 @@
   "@flugVideoFertig": {"placeholders": {"datei": {"type": "String"}}},
   "flugVideoAbgebrochen": "Ausgabe abgebrochen",
   "flugVideoKeinWerkzeug": "Für die Videoausgabe fehlt der Videoschreiber. Unter macOS gehört er zum System, unter Linux und Windows liegt er im Paket – erscheint diese Meldung, ist die Installation unvollständig.",
+    "flugVideoLaeuft": "Video wird geschrieben – {prozent} %",
+  "@flugVideoLaeuft": {"placeholders": {"prozent": {"type": "int"}}},
+  "flugVideoLaeuftMitRest": "Video wird geschrieben – {prozent} %, noch etwa {rest}",
+  "@flugVideoLaeuftMitRest": {"placeholders": {"prozent": {"type": "int"}, "rest": {"type": "String"}}},
+  "flugVideoEinstellungen": "Video ausgeben",
+  "flugVideoAufloesung": "Auflösung",
+  "flugVideoDauer": "Dauer",
+  "flugVideoDauerWert": "{sekunden} Sekunden",
+  "@flugVideoDauerWert": {"placeholders": {"sekunden": {"type": "int"}}},
+  "flugVideoBilder": "{bilder} Bilder",
+  "@flugVideoBilder": {"placeholders": {"bilder": {"type": "int"}}},
+  "flugVideoWeiter": "Speichern unter …",
+  "flugVideoWaehrenddessen": "Die Bilder entstehen abseits des Bildschirms – der Flug wird dafür nicht abgespielt. Diese Ansicht muss so lange offen bleiben.",
   "flugVideoFehler": "Die Videoausgabe ist fehlgeschlagen: {grund}",
   "@flugVideoFehler": {"placeholders": {"grund": {"type": "String"}}},
   "flugAufstieg": "Aufstieg",
@@ -4596,5 +4611,32 @@
         "type": "String"
       }
     }
-  }
+  },
+  "aufgDatumsherkunftTitel": "Herkunft der Aufnahmedaten",
+  "aufgDatumsherkunftText": "Sieht in jeder Datei nach, ob wirklich ein Aufnahmedatum darin steht. Wo keines steht, stammt das Datum aus dem Dateisystem – also vom letzten Kopieren, nicht vom Auslösen. Diese Aufnahmen werden gekennzeichnet und aus Erinnerungen und Serien herausgehalten. Im selben Zug wird der Zeitzonenversatz gelesen, den jede vierte Datei trägt.",
+  "werkzPruefeDatumsherkunft": "Prüfe, woher die Aufnahmedaten stammen …",
+  "werkzAlleDatumGeprueft": "Bei allen Aufnahmen wurde schon nachgesehen.",
+  "infoDatumGeschaetzt": "Datum geschätzt – die Datei trägt keines",
+  "infoDatumGeschaetztKurz": "geschätzt",
+  "sucheDatumGeschaetzt": "Nur mit geschätztem Datum",
+  "ortVorschlagTitel": "Orte von Nachbarn",
+  "ortVorschlagErklaerung": "Diese Aufnahmen tragen keinen Ort – aber die Aufnahmen kurz davor und danach tun es, und sie sind sich einig. Übernommene Orte werden als geerbt gekennzeichnet: Sie sind eine begründete Vermutung, keine Messung.",
+  "ortVorschlagKeine": "Keine Aufnahme lässt sich über ihre Nachbarn verorten.",
+  "ortVorschlagAnzahl": "{n, plural, =1{1 Aufnahme} other{{n} Aufnahmen}}",
+  "@ortVorschlagAnzahl": {"placeholders": {"n": {"type": "int"}}},
+  "ortVorschlagBegruendung": "{nachbarn, plural, =1{1 verorteter Nachbar} other{{nachbarn} verortete Nachbarn}}, höchstens {minuten} Minuten entfernt",
+  "@ortVorschlagBegruendung": {"placeholders": {"nachbarn": {"type": "int"}, "minuten": {"type": "int"}}},
+  "ortVorschlagAlleUebernehmen": "Alle {n} übernehmen",
+  "@ortVorschlagAlleUebernehmen": {"placeholders": {"n": {"type": "int"}}},
+  "ortVorschlagAlleFrageTitel": "Alle Vorschläge übernehmen?",
+  "ortVorschlagAlleFrage": "{gruppen} Gruppen mit zusammen {aufnahmen} Aufnahmen bekommen den Ort ihrer Nachbarn. Der Ort bleibt als geerbt gekennzeichnet und lässt sich einzeln wieder entfernen.",
+  "@ortVorschlagAlleFrage": {"placeholders": {"gruppen": {"type": "int"}, "aufnahmen": {"type": "int"}}},
+  "ortVorschlagWerkzTitel": "Orte von Nachbarn erben",
+  "ortVorschlagWerkzText": "Aufnahmen ohne Ort, deren zeitliche Nachbarn alle am selben Ort waren.",
+  "infoOrtGeerbt": "Von den Nachbaraufnahmen geerbt",
+  "aufgVideobilderTitel": "Videos: mehr als ein Standbild",
+  "aufgVideobilderText": "Ein Video wurde bisher aus einem einzigen Standbild ausgewertet. Ab zehn Sekunden Laufzeit werden bis zu fünf über die Länge verteilte Bilder ausgewertet – für die Suche, die Schlagwörter und die Gesichter. Die Bilder werden nicht aufgehoben.",
+  "werkzVideobilder": "Werte weitere Standbilder aus …",
+  "werkzAlleVideobilder": "Bei allen Videos wurde schon nachgesehen.",
+  "suchoptIso": "ISO"
 }

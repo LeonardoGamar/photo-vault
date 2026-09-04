@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../utils/dauertext.dart';
 
 import '../db/database.dart';
 import '../services/restore_queue_service.dart';
@@ -153,20 +154,6 @@ class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
       ),
     );
   }
-}
-
-/// Eine Dauer als Satz.
-///
-/// Auf ganze Minuten gerundet, sobald es mehr als eine ist: Eine
-/// Restzeit von „3 Minuten 47 Sekunden" ist genauer, als die Schätzung
-/// es hergibt, und sie ändert sich bei jedem Bildaufbau. Unter einer
-/// Minute stehen Sekunden, weil es dann tatsächlich gleich vorbei ist.
-String dauerText(AppTexte t, Duration dauer) {
-  final sekunden = dauer.inSeconds;
-  if (sekunden < 60) {
-    return t.restaurDauerSekunden(sekunden < 1 ? 1 : sekunden);
-  }
-  return t.restaurDauerMinuten((dauer.inSeconds / 60).round().clamp(1, 1 << 30));
 }
 
 /// Was die Zeile eines laufenden Auftrags sagt.

@@ -33,6 +33,71 @@ Satzdeutung deute(String satz, {SearchFilters grundlage = const SearchFilters()}
     deuteSuchsatz(satz, vokabular: _vokabular, heute: _heute, grundlage: grundlage);
 
 void main() {
+  /// Drei Felder, die der Satzleser bis zur 7. Vergleichsauflage nicht
+  /// erreichte, obwohl die Suche sie kennt.
+  group('Schaerfe, ISO, Datumsherkunft', () {
+    test('„unscharfe Fotos" setzt die Schaerfeschwelle', () {
+      // Die Sichtung fragt genau danach; bis hierher gab es dafuer nur
+      // das Kreuz im Optionenfenster.
+      for (final satz in ['unscharfe Fotos', 'verwackelte Bilder']) {
+        final d = deute(satz);
+        expect(d.filter.maxSharpnessScore, isNotNull, reason: satz);
+        expect(d.rest, isEmpty, reason: satz);
+      }
+    });
+
+    test('„ab ISO 1600" grenzt nach unten ab, „bis ISO 400" nach oben', () {
+      final ab = deute('ab ISO 1600');
+      expect(ab.filter.minIso, 1600);
+      expect(ab.filter.maxIso, isNull);
+
+      final bis = deute('bis ISO 400');
+      expect(bis.filter.maxIso, 400);
+      expect(bis.filter.minIso, isNull);
+    });
+
+    test('„ISO 100" allein meint genau diesen Wert', () {
+      final d = deute('ISO 100');
+      expect(d.filter.minIso, 100);
+      expect(d.filter.maxIso, 100);
+      expect(d.rest, isEmpty);
+    });
+
+    test('eine Blende bleibt unangetastet stehen', () {
+      // Bewusst NICHT gedeutet: Bei „Blende 2,8" ist nicht entschieden, ob
+      // genau 2,8 oder „mindestens so offen" gemeint ist. Ein
+      // halbverstandener Wert ist schlimmer als gar keiner – er liefert
+      // etwas anderes, ohne dass man es der Trefferliste ansieht.
+      final d = deute('Blende 2.8');
+      expect(d.filter.minFNumber, isNull);
+      expect(d.filter.maxFNumber, isNull);
+      expect(d.rest, contains('2.8'));
+    });
+
+    test('„geschätztes Datum" findet die geratenen Zeitstempel', () {
+      for (final satz in ['geschätztes Datum', 'geschaetzte Daten']) {
+        final d = deute(satz);
+        expect(d.filter.nurGeschaetztesDatum, isTrue, reason: satz);
+        expect(d.rest, isEmpty, reason: satz);
+      }
+    });
+
+    test('ein Satz aus mehreren neuen Feldern faellt nicht auseinander', () {
+      final d = deute('unscharfe Fotos ab ISO 3200 aus Berlin');
+      expect(d.filter.maxSharpnessScore, isNotNull);
+      expect(d.filter.minIso, 3200);
+      expect(d.filter.locationCity, 'Berlin');
+      expect(d.rest, isEmpty);
+      // Die Marken zeichnen den Satz nach, nicht die Pruefreihenfolge.
+      expect([for (final f in d.funde) f.art], [
+        Satzfundart.schaerfe,
+        Satzfundart.medienart,
+        Satzfundart.iso,
+        Satzfundart.ort,
+      ]);
+    });
+  });
+
   group('Bewertung, Farbe, Art', () {
     test('„5 Sterne" wird zur Mindestbewertung', () {
       final d = deute('Fotos mit 5 Sternen');

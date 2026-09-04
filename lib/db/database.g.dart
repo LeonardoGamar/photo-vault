@@ -328,6 +328,52 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("gps_geprueft" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _datumGeschaetztMeta =
+      const VerificationMeta('datumGeschaetzt');
+  @override
+  late final GeneratedColumn<bool> datumGeschaetzt = GeneratedColumn<bool>(
+      'datum_geschaetzt', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("datum_geschaetzt" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _datumGeprueftMeta =
+      const VerificationMeta('datumGeprueft');
+  @override
+  late final GeneratedColumn<bool> datumGeprueft = GeneratedColumn<bool>(
+      'datum_geprueft', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("datum_geprueft" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _ortGeerbtMeta =
+      const VerificationMeta('ortGeerbt');
+  @override
+  late final GeneratedColumn<bool> ortGeerbt = GeneratedColumn<bool>(
+      'ort_geerbt', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("ort_geerbt" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _videobilderGeprueftMeta =
+      const VerificationMeta('videobilderGeprueft');
+  @override
+  late final GeneratedColumn<bool> videobilderGeprueft = GeneratedColumn<bool>(
+      'videobilder_geprueft', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("videobilder_geprueft" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _zeitversatzMinutenMeta =
+      const VerificationMeta('zeitversatzMinuten');
+  @override
+  late final GeneratedColumn<int> zeitversatzMinuten = GeneratedColumn<int>(
+      'zeitversatz_minuten', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _aiCaptionMeta =
       const VerificationMeta('aiCaption');
   @override
@@ -447,6 +493,11 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
         ocrScanned,
         ocrBoxen,
         gpsGeprueft,
+        datumGeschaetzt,
+        datumGeprueft,
+        ortGeerbt,
+        videobilderGeprueft,
+        zeitversatzMinuten,
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
@@ -728,6 +779,34 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           gpsGeprueft.isAcceptableOrUnknown(
               data['gps_geprueft']!, _gpsGeprueftMeta));
     }
+    if (data.containsKey('datum_geschaetzt')) {
+      context.handle(
+          _datumGeschaetztMeta,
+          datumGeschaetzt.isAcceptableOrUnknown(
+              data['datum_geschaetzt']!, _datumGeschaetztMeta));
+    }
+    if (data.containsKey('datum_geprueft')) {
+      context.handle(
+          _datumGeprueftMeta,
+          datumGeprueft.isAcceptableOrUnknown(
+              data['datum_geprueft']!, _datumGeprueftMeta));
+    }
+    if (data.containsKey('ort_geerbt')) {
+      context.handle(_ortGeerbtMeta,
+          ortGeerbt.isAcceptableOrUnknown(data['ort_geerbt']!, _ortGeerbtMeta));
+    }
+    if (data.containsKey('videobilder_geprueft')) {
+      context.handle(
+          _videobilderGeprueftMeta,
+          videobilderGeprueft.isAcceptableOrUnknown(
+              data['videobilder_geprueft']!, _videobilderGeprueftMeta));
+    }
+    if (data.containsKey('zeitversatz_minuten')) {
+      context.handle(
+          _zeitversatzMinutenMeta,
+          zeitversatzMinuten.isAcceptableOrUnknown(
+              data['zeitversatz_minuten']!, _zeitversatzMinutenMeta));
+    }
     if (data.containsKey('ai_caption')) {
       context.handle(_aiCaptionMeta,
           aiCaption.isAcceptableOrUnknown(data['ai_caption']!, _aiCaptionMeta));
@@ -882,6 +961,16 @@ class $AssetsTable extends Assets with TableInfo<$AssetsTable, AssetData> {
           .read(DriftSqlType.string, data['${effectivePrefix}ocr_boxen']),
       gpsGeprueft: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}gps_geprueft'])!,
+      datumGeschaetzt: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}datum_geschaetzt'])!,
+      datumGeprueft: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}datum_geprueft'])!,
+      ortGeerbt: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}ort_geerbt'])!,
+      videobilderGeprueft: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool, data['${effectivePrefix}videobilder_geprueft'])!,
+      zeitversatzMinuten: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}zeitversatz_minuten']),
       aiCaption: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}ai_caption']),
       aiCaptionDe: attachedDatabase.typeMapping
@@ -1082,6 +1171,83 @@ class AssetData extends DataClass implements Insertable<AssetData> {
   /// Videos, an die er vorher nie herankam. Danach ist er still.
   final bool gpsGeprueft;
 
+  /// Ob [fileCreatedAt] **geraten** ist statt gemessen.
+  ///
+  /// **Der Anlass.** An der echten Bibliothek tragen 1097 von 7443
+  /// Aufnahmen einen Zeitstempel auf die volle Stunde – ohne Minute, ohne
+  /// Sekunde. Bei Gleichverteilung wären zwei zu erwarten. 948 davon
+  /// tragen sogar denselben Zeitpunkt auf die Sekunde: den 27.08.2006,
+  /// 00:00 Uhr. In den Dateien nachgesehen steht dort wörtlich
+  /// `DateTimeOriginal: 0000:00:00 00:00:00` – die Kamerauhr war nie
+  /// gestellt, und der Import fiel auf den Zeitstempel der Datei zurück.
+  ///
+  /// Dass er das tut, ist richtig; es ist der letzte Ausweg und als
+  /// solcher im Import auch benannt. Falsch war das **Schweigen danach**:
+  /// Der geratene Wert landete in derselben Spalte wie ein gemessener,
+  /// und ab da konnte kein Bildschirm die beiden mehr unterscheiden. Die
+  /// Zeitleiste stellte eine halbe Kindheit auf einen einzigen Abend, die
+  /// Erinnerungen meldeten am 27. August „vor 20 Jahren" mit 948
+  /// Aufnahmen, die an diesem Tag nicht entstanden sind, und die
+  /// Serienerkennung fand eine „Serie" mit 943 Mitgliedern.
+  ///
+  /// Diese Spalte erfindet keinen besseren Wert. Sie hört auf, einen
+  /// schlechten als guten auszugeben.
+  ///
+  /// Wird beim Setzen von Hand wieder gelöscht (siehe
+  /// [setAufnahmezeitpunkt]): Wer das Datum selbst einträgt, weiss mehr
+  /// als die Datei.
+  final bool datumGeschaetzt;
+
+  /// Ob in dieser Datei schon einmal nach einem Aufnahmedatum gesucht
+  /// wurde – dieselbe Notiz „nachgesehen" wie bei [gpsGeprueft] und aus
+  /// demselben Grund.
+  ///
+  /// Ohne sie liefe der Nachtrag bei jedem Aufruf über die ganze
+  /// Bibliothek, und der teure Teil ist das Lesen der Datei, nicht das
+  /// Vergleichen. `false` für alles Bestehende: Der erste Lauf nach dem
+  /// Umstieg sieht sich jede Aufnahme einmal an, danach ist er still.
+  final bool datumGeprueft;
+
+  /// Ob [latitude]/[longitude] von einer **zeitlichen Nachbaraufnahme
+  /// geerbt** sind statt gemessen oder von Hand gesetzt.
+  ///
+  /// Ein geerbter Ort ist eine begruendete Vermutung: Die Aufnahmen davor
+  /// und danach waren alle am selben Ort, also war es diese
+  /// hoechstwahrscheinlich auch. Das ist gut genug, um ein Foto auf der
+  /// Karte zu finden – und nicht gut genug, um als Messung durchzugehen.
+  ///
+  /// `false` fuer alles Bestehende ist keine Behauptung, sondern die
+  /// Wahrheit: Vor Schema 76 gab es das Erben nicht.
+  ///
+  /// Faellt mit, sobald der Ort neu gesetzt wird (siehe [setLocation]) –
+  /// wer eine Koordinate eintraegt oder aus der Datei liest, ersetzt die
+  /// Vermutung durch etwas Belegtes.
+  final bool ortGeerbt;
+
+  /// Ob bei diesem Video schon nach weiteren Standbildern gesehen wurde
+  /// (siehe `services/videostandbilder.dart`).
+  ///
+  /// Eigene Spalte und nicht „hat Zeilen in [Videoeinbettungen]": Ein
+  /// Video unter zehn Sekunden bekommt **keine** weiteren Standbilder,
+  /// und das ist ein Ergebnis, kein offener Posten. Ohne die Spalte
+  /// nähme sich der Nachtrag bei jedem Lauf dieselben 208 kurzen Videos
+  /// erneut vor.
+  final bool videobilderGeprueft;
+
+  /// Der Zeitzonenversatz in Minuten, wie ihn `OffsetTimeOriginal` der
+  /// Datei nennt – `null`, wenn die Datei keinen traegt.
+  ///
+  /// **Jede vierte Datei traegt ihn.** 126 Dateien quer durch die echte
+  /// Bibliothek gezogen: 34 tragen `OffsetTimeOriginal`, also 27 %. Im
+  /// ganzen Quelltext gab es dafuer bis Schema 78 null Fundstellen.
+  ///
+  /// [fileCreatedAt] bleibt davon unberuehrt: Das ist und war die
+  /// **Ortszeit der Kamera**, und die ist die Zeit, an die man sich
+  /// erinnert. Der Versatz sagt nur dazu, in welcher Zone sie galt – ob
+  /// die 228 Aufnahmen aus Mazar-e Sharif um 16 Uhr in Berlin oder um
+  /// 18:30 vor Ort entstanden.
+  final int? zeitversatzMinuten;
+
   /// Automatisch erzeugte (englische) Bildunterschrift (siehe
   /// FlorenceCaptioningService), durchsuchbar über SearchTextMode.caption. Bewusst
   /// NICHT [description] wiederverwendet – das ist Nutzer-Freitext.
@@ -1186,6 +1352,11 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       required this.ocrScanned,
       this.ocrBoxen,
       required this.gpsGeprueft,
+      required this.datumGeschaetzt,
+      required this.datumGeprueft,
+      required this.ortGeerbt,
+      required this.videobilderGeprueft,
+      this.zeitversatzMinuten,
       this.aiCaption,
       this.aiCaptionDe,
       required this.aiCaptionScanned,
@@ -1303,6 +1474,13 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       map['ocr_boxen'] = Variable<String>(ocrBoxen);
     }
     map['gps_geprueft'] = Variable<bool>(gpsGeprueft);
+    map['datum_geschaetzt'] = Variable<bool>(datumGeschaetzt);
+    map['datum_geprueft'] = Variable<bool>(datumGeprueft);
+    map['ort_geerbt'] = Variable<bool>(ortGeerbt);
+    map['videobilder_geprueft'] = Variable<bool>(videobilderGeprueft);
+    if (!nullToAbsent || zeitversatzMinuten != null) {
+      map['zeitversatz_minuten'] = Variable<int>(zeitversatzMinuten);
+    }
     if (!nullToAbsent || aiCaption != null) {
       map['ai_caption'] = Variable<String>(aiCaption);
     }
@@ -1430,6 +1608,13 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ? const Value.absent()
           : Value(ocrBoxen),
       gpsGeprueft: Value(gpsGeprueft),
+      datumGeschaetzt: Value(datumGeschaetzt),
+      datumGeprueft: Value(datumGeprueft),
+      ortGeerbt: Value(ortGeerbt),
+      videobilderGeprueft: Value(videobilderGeprueft),
+      zeitversatzMinuten: zeitversatzMinuten == null && nullToAbsent
+          ? const Value.absent()
+          : Value(zeitversatzMinuten),
       aiCaption: aiCaption == null && nullToAbsent
           ? const Value.absent()
           : Value(aiCaption),
@@ -1509,6 +1694,12 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrScanned: serializer.fromJson<bool>(json['ocrScanned']),
       ocrBoxen: serializer.fromJson<String?>(json['ocrBoxen']),
       gpsGeprueft: serializer.fromJson<bool>(json['gpsGeprueft']),
+      datumGeschaetzt: serializer.fromJson<bool>(json['datumGeschaetzt']),
+      datumGeprueft: serializer.fromJson<bool>(json['datumGeprueft']),
+      ortGeerbt: serializer.fromJson<bool>(json['ortGeerbt']),
+      videobilderGeprueft:
+          serializer.fromJson<bool>(json['videobilderGeprueft']),
+      zeitversatzMinuten: serializer.fromJson<int?>(json['zeitversatzMinuten']),
       aiCaption: serializer.fromJson<String?>(json['aiCaption']),
       aiCaptionDe: serializer.fromJson<String?>(json['aiCaptionDe']),
       aiCaptionScanned: serializer.fromJson<bool>(json['aiCaptionScanned']),
@@ -1573,6 +1764,11 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       'ocrScanned': serializer.toJson<bool>(ocrScanned),
       'ocrBoxen': serializer.toJson<String?>(ocrBoxen),
       'gpsGeprueft': serializer.toJson<bool>(gpsGeprueft),
+      'datumGeschaetzt': serializer.toJson<bool>(datumGeschaetzt),
+      'datumGeprueft': serializer.toJson<bool>(datumGeprueft),
+      'ortGeerbt': serializer.toJson<bool>(ortGeerbt),
+      'videobilderGeprueft': serializer.toJson<bool>(videobilderGeprueft),
+      'zeitversatzMinuten': serializer.toJson<int?>(zeitversatzMinuten),
       'aiCaption': serializer.toJson<String?>(aiCaption),
       'aiCaptionDe': serializer.toJson<String?>(aiCaptionDe),
       'aiCaptionScanned': serializer.toJson<bool>(aiCaptionScanned),
@@ -1633,6 +1829,11 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           bool? ocrScanned,
           Value<String?> ocrBoxen = const Value.absent(),
           bool? gpsGeprueft,
+          bool? datumGeschaetzt,
+          bool? datumGeprueft,
+          bool? ortGeerbt,
+          bool? videobilderGeprueft,
+          Value<int?> zeitversatzMinuten = const Value.absent(),
           Value<String?> aiCaption = const Value.absent(),
           Value<String?> aiCaptionDe = const Value.absent(),
           bool? aiCaptionScanned,
@@ -1713,6 +1914,13 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         ocrScanned: ocrScanned ?? this.ocrScanned,
         ocrBoxen: ocrBoxen.present ? ocrBoxen.value : this.ocrBoxen,
         gpsGeprueft: gpsGeprueft ?? this.gpsGeprueft,
+        datumGeschaetzt: datumGeschaetzt ?? this.datumGeschaetzt,
+        datumGeprueft: datumGeprueft ?? this.datumGeprueft,
+        ortGeerbt: ortGeerbt ?? this.ortGeerbt,
+        videobilderGeprueft: videobilderGeprueft ?? this.videobilderGeprueft,
+        zeitversatzMinuten: zeitversatzMinuten.present
+            ? zeitversatzMinuten.value
+            : this.zeitversatzMinuten,
         aiCaption: aiCaption.present ? aiCaption.value : this.aiCaption,
         aiCaptionDe: aiCaptionDe.present ? aiCaptionDe.value : this.aiCaptionDe,
         aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
@@ -1824,6 +2032,19 @@ class AssetData extends DataClass implements Insertable<AssetData> {
       ocrBoxen: data.ocrBoxen.present ? data.ocrBoxen.value : this.ocrBoxen,
       gpsGeprueft:
           data.gpsGeprueft.present ? data.gpsGeprueft.value : this.gpsGeprueft,
+      datumGeschaetzt: data.datumGeschaetzt.present
+          ? data.datumGeschaetzt.value
+          : this.datumGeschaetzt,
+      datumGeprueft: data.datumGeprueft.present
+          ? data.datumGeprueft.value
+          : this.datumGeprueft,
+      ortGeerbt: data.ortGeerbt.present ? data.ortGeerbt.value : this.ortGeerbt,
+      videobilderGeprueft: data.videobilderGeprueft.present
+          ? data.videobilderGeprueft.value
+          : this.videobilderGeprueft,
+      zeitversatzMinuten: data.zeitversatzMinuten.present
+          ? data.zeitversatzMinuten.value
+          : this.zeitversatzMinuten,
       aiCaption: data.aiCaption.present ? data.aiCaption.value : this.aiCaption,
       aiCaptionDe:
           data.aiCaptionDe.present ? data.aiCaptionDe.value : this.aiCaptionDe,
@@ -1897,6 +2118,11 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           ..write('ocrScanned: $ocrScanned, ')
           ..write('ocrBoxen: $ocrBoxen, ')
           ..write('gpsGeprueft: $gpsGeprueft, ')
+          ..write('datumGeschaetzt: $datumGeschaetzt, ')
+          ..write('datumGeprueft: $datumGeprueft, ')
+          ..write('ortGeerbt: $ortGeerbt, ')
+          ..write('videobilderGeprueft: $videobilderGeprueft, ')
+          ..write('zeitversatzMinuten: $zeitversatzMinuten, ')
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
@@ -1959,6 +2185,11 @@ class AssetData extends DataClass implements Insertable<AssetData> {
         ocrScanned,
         ocrBoxen,
         gpsGeprueft,
+        datumGeschaetzt,
+        datumGeprueft,
+        ortGeerbt,
+        videobilderGeprueft,
+        zeitversatzMinuten,
         aiCaption,
         aiCaptionDe,
         aiCaptionScanned,
@@ -2020,6 +2251,11 @@ class AssetData extends DataClass implements Insertable<AssetData> {
           other.ocrScanned == this.ocrScanned &&
           other.ocrBoxen == this.ocrBoxen &&
           other.gpsGeprueft == this.gpsGeprueft &&
+          other.datumGeschaetzt == this.datumGeschaetzt &&
+          other.datumGeprueft == this.datumGeprueft &&
+          other.ortGeerbt == this.ortGeerbt &&
+          other.videobilderGeprueft == this.videobilderGeprueft &&
+          other.zeitversatzMinuten == this.zeitversatzMinuten &&
           other.aiCaption == this.aiCaption &&
           other.aiCaptionDe == this.aiCaptionDe &&
           other.aiCaptionScanned == this.aiCaptionScanned &&
@@ -2079,6 +2315,11 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
   final Value<bool> ocrScanned;
   final Value<String?> ocrBoxen;
   final Value<bool> gpsGeprueft;
+  final Value<bool> datumGeschaetzt;
+  final Value<bool> datumGeprueft;
+  final Value<bool> ortGeerbt;
+  final Value<bool> videobilderGeprueft;
+  final Value<int?> zeitversatzMinuten;
   final Value<String?> aiCaption;
   final Value<String?> aiCaptionDe;
   final Value<bool> aiCaptionScanned;
@@ -2137,6 +2378,11 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.ocrScanned = const Value.absent(),
     this.ocrBoxen = const Value.absent(),
     this.gpsGeprueft = const Value.absent(),
+    this.datumGeschaetzt = const Value.absent(),
+    this.datumGeprueft = const Value.absent(),
+    this.ortGeerbt = const Value.absent(),
+    this.videobilderGeprueft = const Value.absent(),
+    this.zeitversatzMinuten = const Value.absent(),
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
@@ -2196,6 +2442,11 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     this.ocrScanned = const Value.absent(),
     this.ocrBoxen = const Value.absent(),
     this.gpsGeprueft = const Value.absent(),
+    this.datumGeschaetzt = const Value.absent(),
+    this.datumGeprueft = const Value.absent(),
+    this.ortGeerbt = const Value.absent(),
+    this.videobilderGeprueft = const Value.absent(),
+    this.zeitversatzMinuten = const Value.absent(),
     this.aiCaption = const Value.absent(),
     this.aiCaptionDe = const Value.absent(),
     this.aiCaptionScanned = const Value.absent(),
@@ -2261,6 +2512,11 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     Expression<bool>? ocrScanned,
     Expression<String>? ocrBoxen,
     Expression<bool>? gpsGeprueft,
+    Expression<bool>? datumGeschaetzt,
+    Expression<bool>? datumGeprueft,
+    Expression<bool>? ortGeerbt,
+    Expression<bool>? videobilderGeprueft,
+    Expression<int>? zeitversatzMinuten,
     Expression<String>? aiCaption,
     Expression<String>? aiCaptionDe,
     Expression<bool>? aiCaptionScanned,
@@ -2326,6 +2582,12 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       if (ocrScanned != null) 'ocr_scanned': ocrScanned,
       if (ocrBoxen != null) 'ocr_boxen': ocrBoxen,
       if (gpsGeprueft != null) 'gps_geprueft': gpsGeprueft,
+      if (datumGeschaetzt != null) 'datum_geschaetzt': datumGeschaetzt,
+      if (datumGeprueft != null) 'datum_geprueft': datumGeprueft,
+      if (ortGeerbt != null) 'ort_geerbt': ortGeerbt,
+      if (videobilderGeprueft != null)
+        'videobilder_geprueft': videobilderGeprueft,
+      if (zeitversatzMinuten != null) 'zeitversatz_minuten': zeitversatzMinuten,
       if (aiCaption != null) 'ai_caption': aiCaption,
       if (aiCaptionDe != null) 'ai_caption_de': aiCaptionDe,
       if (aiCaptionScanned != null) 'ai_caption_scanned': aiCaptionScanned,
@@ -2387,6 +2649,11 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       Value<bool>? ocrScanned,
       Value<String?>? ocrBoxen,
       Value<bool>? gpsGeprueft,
+      Value<bool>? datumGeschaetzt,
+      Value<bool>? datumGeprueft,
+      Value<bool>? ortGeerbt,
+      Value<bool>? videobilderGeprueft,
+      Value<int?>? zeitversatzMinuten,
       Value<String?>? aiCaption,
       Value<String?>? aiCaptionDe,
       Value<bool>? aiCaptionScanned,
@@ -2447,6 +2714,11 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
       ocrScanned: ocrScanned ?? this.ocrScanned,
       ocrBoxen: ocrBoxen ?? this.ocrBoxen,
       gpsGeprueft: gpsGeprueft ?? this.gpsGeprueft,
+      datumGeschaetzt: datumGeschaetzt ?? this.datumGeschaetzt,
+      datumGeprueft: datumGeprueft ?? this.datumGeprueft,
+      ortGeerbt: ortGeerbt ?? this.ortGeerbt,
+      videobilderGeprueft: videobilderGeprueft ?? this.videobilderGeprueft,
+      zeitversatzMinuten: zeitversatzMinuten ?? this.zeitversatzMinuten,
       aiCaption: aiCaption ?? this.aiCaption,
       aiCaptionDe: aiCaptionDe ?? this.aiCaptionDe,
       aiCaptionScanned: aiCaptionScanned ?? this.aiCaptionScanned,
@@ -2610,6 +2882,21 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
     if (gpsGeprueft.present) {
       map['gps_geprueft'] = Variable<bool>(gpsGeprueft.value);
     }
+    if (datumGeschaetzt.present) {
+      map['datum_geschaetzt'] = Variable<bool>(datumGeschaetzt.value);
+    }
+    if (datumGeprueft.present) {
+      map['datum_geprueft'] = Variable<bool>(datumGeprueft.value);
+    }
+    if (ortGeerbt.present) {
+      map['ort_geerbt'] = Variable<bool>(ortGeerbt.value);
+    }
+    if (videobilderGeprueft.present) {
+      map['videobilder_geprueft'] = Variable<bool>(videobilderGeprueft.value);
+    }
+    if (zeitversatzMinuten.present) {
+      map['zeitversatz_minuten'] = Variable<int>(zeitversatzMinuten.value);
+    }
     if (aiCaption.present) {
       map['ai_caption'] = Variable<String>(aiCaption.value);
     }
@@ -2693,6 +2980,11 @@ class AssetsCompanion extends UpdateCompanion<AssetData> {
           ..write('ocrScanned: $ocrScanned, ')
           ..write('ocrBoxen: $ocrBoxen, ')
           ..write('gpsGeprueft: $gpsGeprueft, ')
+          ..write('datumGeschaetzt: $datumGeschaetzt, ')
+          ..write('datumGeprueft: $datumGeprueft, ')
+          ..write('ortGeerbt: $ortGeerbt, ')
+          ..write('videobilderGeprueft: $videobilderGeprueft, ')
+          ..write('zeitversatzMinuten: $zeitversatzMinuten, ')
           ..write('aiCaption: $aiCaption, ')
           ..write('aiCaptionDe: $aiCaptionDe, ')
           ..write('aiCaptionScanned: $aiCaptionScanned, ')
@@ -17696,6 +17988,12 @@ class $SpurenTable extends Spuren with TableInfo<$SpurenTable, SpurenData> {
   late final GeneratedColumn<String> aktivitaetId = GeneratedColumn<String>(
       'aktivitaet_id', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _reiseIdMeta =
+      const VerificationMeta('reiseId');
+  @override
+  late final GeneratedColumn<String> reiseId = GeneratedColumn<String>(
+      'reise_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _vonMeta = const VerificationMeta('von');
   @override
   late final GeneratedColumn<DateTime> von = GeneratedColumn<DateTime>(
@@ -17742,6 +18040,7 @@ class $SpurenTable extends Spuren with TableInfo<$SpurenTable, SpurenData> {
         name,
         quelle,
         aktivitaetId,
+        reiseId,
         von,
         bis,
         punktzahl,
@@ -17782,6 +18081,10 @@ class $SpurenTable extends Spuren with TableInfo<$SpurenTable, SpurenData> {
           _aktivitaetIdMeta,
           aktivitaetId.isAcceptableOrUnknown(
               data['aktivitaet_id']!, _aktivitaetIdMeta));
+    }
+    if (data.containsKey('reise_id')) {
+      context.handle(_reiseIdMeta,
+          reiseId.isAcceptableOrUnknown(data['reise_id']!, _reiseIdMeta));
     }
     if (data.containsKey('von')) {
       context.handle(
@@ -17836,6 +18139,8 @@ class $SpurenTable extends Spuren with TableInfo<$SpurenTable, SpurenData> {
           .read(DriftSqlType.string, data['${effectivePrefix}quelle'])!,
       aktivitaetId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}aktivitaet_id']),
+      reiseId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reise_id']),
       von: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}von']),
       bis: attachedDatabase.typeMapping
@@ -17875,6 +18180,15 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
   /// nachträglich anbauen, damit sie meistens leer bleibt.
   final String? aktivitaetId;
 
+  /// Die Reise, zu der sie gehört – oder `null`.
+  ///
+  /// **Eine zweite Spalte und keine gemeinsame.** Eine Spur gehört zu
+  /// einer Aktivität *oder* zu einer Reise, und beides in einem Feld mit
+  /// einer Artangabe daneben zu führen hiesse, bei jeder Abfrage zwei
+  /// Bedingungen zu schreiben, wo eine reicht – und beim Vergessen der
+  /// zweiten die Spuren der jeweils anderen Sorte mitzuzählen.
+  final String? reiseId;
+
   /// Erster und letzter Zeitstempel – `null`, wenn die Datei keine
   /// führt (eine geplante Route etwa).
   final DateTime? von;
@@ -17892,6 +18206,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
       required this.name,
       required this.quelle,
       this.aktivitaetId,
+      this.reiseId,
       this.von,
       this.bis,
       required this.punktzahl,
@@ -17907,6 +18222,9 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
     map['quelle'] = Variable<String>(quelle);
     if (!nullToAbsent || aktivitaetId != null) {
       map['aktivitaet_id'] = Variable<String>(aktivitaetId);
+    }
+    if (!nullToAbsent || reiseId != null) {
+      map['reise_id'] = Variable<String>(reiseId);
     }
     if (!nullToAbsent || von != null) {
       map['von'] = Variable<DateTime>(von);
@@ -17934,6 +18252,9 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
       aktivitaetId: aktivitaetId == null && nullToAbsent
           ? const Value.absent()
           : Value(aktivitaetId),
+      reiseId: reiseId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reiseId),
       von: von == null && nullToAbsent ? const Value.absent() : Value(von),
       bis: bis == null && nullToAbsent ? const Value.absent() : Value(bis),
       punktzahl: Value(punktzahl),
@@ -17956,6 +18277,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
       name: serializer.fromJson<String>(json['name']),
       quelle: serializer.fromJson<String>(json['quelle']),
       aktivitaetId: serializer.fromJson<String?>(json['aktivitaetId']),
+      reiseId: serializer.fromJson<String?>(json['reiseId']),
       von: serializer.fromJson<DateTime?>(json['von']),
       bis: serializer.fromJson<DateTime?>(json['bis']),
       punktzahl: serializer.fromJson<int>(json['punktzahl']),
@@ -17973,6 +18295,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
       'name': serializer.toJson<String>(name),
       'quelle': serializer.toJson<String>(quelle),
       'aktivitaetId': serializer.toJson<String?>(aktivitaetId),
+      'reiseId': serializer.toJson<String?>(reiseId),
       'von': serializer.toJson<DateTime?>(von),
       'bis': serializer.toJson<DateTime?>(bis),
       'punktzahl': serializer.toJson<int>(punktzahl),
@@ -17988,6 +18311,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
           String? name,
           String? quelle,
           Value<String?> aktivitaetId = const Value.absent(),
+          Value<String?> reiseId = const Value.absent(),
           Value<DateTime?> von = const Value.absent(),
           Value<DateTime?> bis = const Value.absent(),
           int? punktzahl,
@@ -18001,6 +18325,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
         quelle: quelle ?? this.quelle,
         aktivitaetId:
             aktivitaetId.present ? aktivitaetId.value : this.aktivitaetId,
+        reiseId: reiseId.present ? reiseId.value : this.reiseId,
         von: von.present ? von.value : this.von,
         bis: bis.present ? bis.value : this.bis,
         punktzahl: punktzahl ?? this.punktzahl,
@@ -18017,6 +18342,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
       aktivitaetId: data.aktivitaetId.present
           ? data.aktivitaetId.value
           : this.aktivitaetId,
+      reiseId: data.reiseId.present ? data.reiseId.value : this.reiseId,
       von: data.von.present ? data.von.value : this.von,
       bis: data.bis.present ? data.bis.value : this.bis,
       punktzahl: data.punktzahl.present ? data.punktzahl.value : this.punktzahl,
@@ -18035,6 +18361,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
           ..write('name: $name, ')
           ..write('quelle: $quelle, ')
           ..write('aktivitaetId: $aktivitaetId, ')
+          ..write('reiseId: $reiseId, ')
           ..write('von: $von, ')
           ..write('bis: $bis, ')
           ..write('punktzahl: $punktzahl, ')
@@ -18047,8 +18374,8 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
   }
 
   @override
-  int get hashCode => Object.hash(id, name, quelle, aktivitaetId, von, bis,
-      punktzahl, laengeKm, aufstieg, abstieg, angelegtAm);
+  int get hashCode => Object.hash(id, name, quelle, aktivitaetId, reiseId, von,
+      bis, punktzahl, laengeKm, aufstieg, abstieg, angelegtAm);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -18057,6 +18384,7 @@ class SpurenData extends DataClass implements Insertable<SpurenData> {
           other.name == this.name &&
           other.quelle == this.quelle &&
           other.aktivitaetId == this.aktivitaetId &&
+          other.reiseId == this.reiseId &&
           other.von == this.von &&
           other.bis == this.bis &&
           other.punktzahl == this.punktzahl &&
@@ -18071,6 +18399,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
   final Value<String> name;
   final Value<String> quelle;
   final Value<String?> aktivitaetId;
+  final Value<String?> reiseId;
   final Value<DateTime?> von;
   final Value<DateTime?> bis;
   final Value<int> punktzahl;
@@ -18084,6 +18413,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
     this.name = const Value.absent(),
     this.quelle = const Value.absent(),
     this.aktivitaetId = const Value.absent(),
+    this.reiseId = const Value.absent(),
     this.von = const Value.absent(),
     this.bis = const Value.absent(),
     this.punktzahl = const Value.absent(),
@@ -18098,6 +18428,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
     required String name,
     required String quelle,
     this.aktivitaetId = const Value.absent(),
+    this.reiseId = const Value.absent(),
     this.von = const Value.absent(),
     this.bis = const Value.absent(),
     required int punktzahl,
@@ -18117,6 +18448,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
     Expression<String>? name,
     Expression<String>? quelle,
     Expression<String>? aktivitaetId,
+    Expression<String>? reiseId,
     Expression<DateTime>? von,
     Expression<DateTime>? bis,
     Expression<int>? punktzahl,
@@ -18131,6 +18463,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
       if (name != null) 'name': name,
       if (quelle != null) 'quelle': quelle,
       if (aktivitaetId != null) 'aktivitaet_id': aktivitaetId,
+      if (reiseId != null) 'reise_id': reiseId,
       if (von != null) 'von': von,
       if (bis != null) 'bis': bis,
       if (punktzahl != null) 'punktzahl': punktzahl,
@@ -18147,6 +18480,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
       Value<String>? name,
       Value<String>? quelle,
       Value<String?>? aktivitaetId,
+      Value<String?>? reiseId,
       Value<DateTime?>? von,
       Value<DateTime?>? bis,
       Value<int>? punktzahl,
@@ -18160,6 +18494,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
       name: name ?? this.name,
       quelle: quelle ?? this.quelle,
       aktivitaetId: aktivitaetId ?? this.aktivitaetId,
+      reiseId: reiseId ?? this.reiseId,
       von: von ?? this.von,
       bis: bis ?? this.bis,
       punktzahl: punktzahl ?? this.punktzahl,
@@ -18185,6 +18520,9 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
     }
     if (aktivitaetId.present) {
       map['aktivitaet_id'] = Variable<String>(aktivitaetId.value);
+    }
+    if (reiseId.present) {
+      map['reise_id'] = Variable<String>(reiseId.value);
     }
     if (von.present) {
       map['von'] = Variable<DateTime>(von.value);
@@ -18220,6 +18558,7 @@ class SpurenCompanion extends UpdateCompanion<SpurenData> {
           ..write('name: $name, ')
           ..write('quelle: $quelle, ')
           ..write('aktivitaetId: $aktivitaetId, ')
+          ..write('reiseId: $reiseId, ')
           ..write('von: $von, ')
           ..write('bis: $bis, ')
           ..write('punktzahl: $punktzahl, ')
@@ -18776,6 +19115,453 @@ class VerworfeneSerienCompanion extends UpdateCompanion<VerworfeneSerienData> {
     return (StringBuffer('VerworfeneSerienCompanion(')
           ..write('schluessel: $schluessel, ')
           ..write('verworfenAm: $verworfenAm, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VerworfeneOrtsvorschlaegeTable extends VerworfeneOrtsvorschlaege
+    with
+        TableInfo<$VerworfeneOrtsvorschlaegeTable,
+            VerworfeneOrtsvorschlaegeData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VerworfeneOrtsvorschlaegeTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _schluesselMeta =
+      const VerificationMeta('schluessel');
+  @override
+  late final GeneratedColumn<String> schluessel = GeneratedColumn<String>(
+      'schluessel', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _verworfenAmMeta =
+      const VerificationMeta('verworfenAm');
+  @override
+  late final GeneratedColumn<DateTime> verworfenAm = GeneratedColumn<DateTime>(
+      'verworfen_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [schluessel, verworfenAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'verworfene_ortsvorschlaege';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<VerworfeneOrtsvorschlaegeData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('schluessel')) {
+      context.handle(
+          _schluesselMeta,
+          schluessel.isAcceptableOrUnknown(
+              data['schluessel']!, _schluesselMeta));
+    } else if (isInserting) {
+      context.missing(_schluesselMeta);
+    }
+    if (data.containsKey('verworfen_am')) {
+      context.handle(
+          _verworfenAmMeta,
+          verworfenAm.isAcceptableOrUnknown(
+              data['verworfen_am']!, _verworfenAmMeta));
+    } else if (isInserting) {
+      context.missing(_verworfenAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {schluessel};
+  @override
+  VerworfeneOrtsvorschlaegeData map(Map<String, dynamic> data,
+      {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VerworfeneOrtsvorschlaegeData(
+      schluessel: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}schluessel'])!,
+      verworfenAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}verworfen_am'])!,
+    );
+  }
+
+  @override
+  $VerworfeneOrtsvorschlaegeTable createAlias(String alias) {
+    return $VerworfeneOrtsvorschlaegeTable(attachedDatabase, alias);
+  }
+}
+
+class VerworfeneOrtsvorschlaegeData extends DataClass
+    implements Insertable<VerworfeneOrtsvorschlaegeData> {
+  final String schluessel;
+  final DateTime verworfenAm;
+  const VerworfeneOrtsvorschlaegeData(
+      {required this.schluessel, required this.verworfenAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['schluessel'] = Variable<String>(schluessel);
+    map['verworfen_am'] = Variable<DateTime>(verworfenAm);
+    return map;
+  }
+
+  VerworfeneOrtsvorschlaegeCompanion toCompanion(bool nullToAbsent) {
+    return VerworfeneOrtsvorschlaegeCompanion(
+      schluessel: Value(schluessel),
+      verworfenAm: Value(verworfenAm),
+    );
+  }
+
+  factory VerworfeneOrtsvorschlaegeData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VerworfeneOrtsvorschlaegeData(
+      schluessel: serializer.fromJson<String>(json['schluessel']),
+      verworfenAm: serializer.fromJson<DateTime>(json['verworfenAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'schluessel': serializer.toJson<String>(schluessel),
+      'verworfenAm': serializer.toJson<DateTime>(verworfenAm),
+    };
+  }
+
+  VerworfeneOrtsvorschlaegeData copyWith(
+          {String? schluessel, DateTime? verworfenAm}) =>
+      VerworfeneOrtsvorschlaegeData(
+        schluessel: schluessel ?? this.schluessel,
+        verworfenAm: verworfenAm ?? this.verworfenAm,
+      );
+  VerworfeneOrtsvorschlaegeData copyWithCompanion(
+      VerworfeneOrtsvorschlaegeCompanion data) {
+    return VerworfeneOrtsvorschlaegeData(
+      schluessel:
+          data.schluessel.present ? data.schluessel.value : this.schluessel,
+      verworfenAm:
+          data.verworfenAm.present ? data.verworfenAm.value : this.verworfenAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VerworfeneOrtsvorschlaegeData(')
+          ..write('schluessel: $schluessel, ')
+          ..write('verworfenAm: $verworfenAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(schluessel, verworfenAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VerworfeneOrtsvorschlaegeData &&
+          other.schluessel == this.schluessel &&
+          other.verworfenAm == this.verworfenAm);
+}
+
+class VerworfeneOrtsvorschlaegeCompanion
+    extends UpdateCompanion<VerworfeneOrtsvorschlaegeData> {
+  final Value<String> schluessel;
+  final Value<DateTime> verworfenAm;
+  final Value<int> rowid;
+  const VerworfeneOrtsvorschlaegeCompanion({
+    this.schluessel = const Value.absent(),
+    this.verworfenAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VerworfeneOrtsvorschlaegeCompanion.insert({
+    required String schluessel,
+    required DateTime verworfenAm,
+    this.rowid = const Value.absent(),
+  })  : schluessel = Value(schluessel),
+        verworfenAm = Value(verworfenAm);
+  static Insertable<VerworfeneOrtsvorschlaegeData> custom({
+    Expression<String>? schluessel,
+    Expression<DateTime>? verworfenAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (schluessel != null) 'schluessel': schluessel,
+      if (verworfenAm != null) 'verworfen_am': verworfenAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VerworfeneOrtsvorschlaegeCompanion copyWith(
+      {Value<String>? schluessel,
+      Value<DateTime>? verworfenAm,
+      Value<int>? rowid}) {
+    return VerworfeneOrtsvorschlaegeCompanion(
+      schluessel: schluessel ?? this.schluessel,
+      verworfenAm: verworfenAm ?? this.verworfenAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (schluessel.present) {
+      map['schluessel'] = Variable<String>(schluessel.value);
+    }
+    if (verworfenAm.present) {
+      map['verworfen_am'] = Variable<DateTime>(verworfenAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VerworfeneOrtsvorschlaegeCompanion(')
+          ..write('schluessel: $schluessel, ')
+          ..write('verworfenAm: $verworfenAm, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VideoeinbettungenTable extends Videoeinbettungen
+    with TableInfo<$VideoeinbettungenTable, VideoeinbettungenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VideoeinbettungenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _assetIdMeta =
+      const VerificationMeta('assetId');
+  @override
+  late final GeneratedColumn<String> assetId = GeneratedColumn<String>(
+      'asset_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _stelleMeta = const VerificationMeta('stelle');
+  @override
+  late final GeneratedColumn<int> stelle = GeneratedColumn<int>(
+      'stelle', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _vectorMeta = const VerificationMeta('vector');
+  @override
+  late final GeneratedColumn<Uint8List> vector = GeneratedColumn<Uint8List>(
+      'vector', aliasedName, false,
+      type: DriftSqlType.blob, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [assetId, stelle, vector];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'videoeinbettungen';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<VideoeinbettungenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('asset_id')) {
+      context.handle(_assetIdMeta,
+          assetId.isAcceptableOrUnknown(data['asset_id']!, _assetIdMeta));
+    } else if (isInserting) {
+      context.missing(_assetIdMeta);
+    }
+    if (data.containsKey('stelle')) {
+      context.handle(_stelleMeta,
+          stelle.isAcceptableOrUnknown(data['stelle']!, _stelleMeta));
+    } else if (isInserting) {
+      context.missing(_stelleMeta);
+    }
+    if (data.containsKey('vector')) {
+      context.handle(_vectorMeta,
+          vector.isAcceptableOrUnknown(data['vector']!, _vectorMeta));
+    } else if (isInserting) {
+      context.missing(_vectorMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {assetId, stelle};
+  @override
+  VideoeinbettungenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VideoeinbettungenData(
+      assetId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}asset_id'])!,
+      stelle: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}stelle'])!,
+      vector: attachedDatabase.typeMapping
+          .read(DriftSqlType.blob, data['${effectivePrefix}vector'])!,
+    );
+  }
+
+  @override
+  $VideoeinbettungenTable createAlias(String alias) {
+    return $VideoeinbettungenTable(attachedDatabase, alias);
+  }
+}
+
+class VideoeinbettungenData extends DataClass
+    implements Insertable<VideoeinbettungenData> {
+  final String assetId;
+
+  /// Die Stelle in der Laufzeit, 0 bis 1 – als Tausendstel, damit der
+  /// Primaerschluessel ganzzahlig bleibt.
+  final int stelle;
+  final Uint8List vector;
+  const VideoeinbettungenData(
+      {required this.assetId, required this.stelle, required this.vector});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['asset_id'] = Variable<String>(assetId);
+    map['stelle'] = Variable<int>(stelle);
+    map['vector'] = Variable<Uint8List>(vector);
+    return map;
+  }
+
+  VideoeinbettungenCompanion toCompanion(bool nullToAbsent) {
+    return VideoeinbettungenCompanion(
+      assetId: Value(assetId),
+      stelle: Value(stelle),
+      vector: Value(vector),
+    );
+  }
+
+  factory VideoeinbettungenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VideoeinbettungenData(
+      assetId: serializer.fromJson<String>(json['assetId']),
+      stelle: serializer.fromJson<int>(json['stelle']),
+      vector: serializer.fromJson<Uint8List>(json['vector']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'assetId': serializer.toJson<String>(assetId),
+      'stelle': serializer.toJson<int>(stelle),
+      'vector': serializer.toJson<Uint8List>(vector),
+    };
+  }
+
+  VideoeinbettungenData copyWith(
+          {String? assetId, int? stelle, Uint8List? vector}) =>
+      VideoeinbettungenData(
+        assetId: assetId ?? this.assetId,
+        stelle: stelle ?? this.stelle,
+        vector: vector ?? this.vector,
+      );
+  VideoeinbettungenData copyWithCompanion(VideoeinbettungenCompanion data) {
+    return VideoeinbettungenData(
+      assetId: data.assetId.present ? data.assetId.value : this.assetId,
+      stelle: data.stelle.present ? data.stelle.value : this.stelle,
+      vector: data.vector.present ? data.vector.value : this.vector,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VideoeinbettungenData(')
+          ..write('assetId: $assetId, ')
+          ..write('stelle: $stelle, ')
+          ..write('vector: $vector')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(assetId, stelle, $driftBlobEquality.hash(vector));
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VideoeinbettungenData &&
+          other.assetId == this.assetId &&
+          other.stelle == this.stelle &&
+          $driftBlobEquality.equals(other.vector, this.vector));
+}
+
+class VideoeinbettungenCompanion
+    extends UpdateCompanion<VideoeinbettungenData> {
+  final Value<String> assetId;
+  final Value<int> stelle;
+  final Value<Uint8List> vector;
+  final Value<int> rowid;
+  const VideoeinbettungenCompanion({
+    this.assetId = const Value.absent(),
+    this.stelle = const Value.absent(),
+    this.vector = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VideoeinbettungenCompanion.insert({
+    required String assetId,
+    required int stelle,
+    required Uint8List vector,
+    this.rowid = const Value.absent(),
+  })  : assetId = Value(assetId),
+        stelle = Value(stelle),
+        vector = Value(vector);
+  static Insertable<VideoeinbettungenData> custom({
+    Expression<String>? assetId,
+    Expression<int>? stelle,
+    Expression<Uint8List>? vector,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (assetId != null) 'asset_id': assetId,
+      if (stelle != null) 'stelle': stelle,
+      if (vector != null) 'vector': vector,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VideoeinbettungenCompanion copyWith(
+      {Value<String>? assetId,
+      Value<int>? stelle,
+      Value<Uint8List>? vector,
+      Value<int>? rowid}) {
+    return VideoeinbettungenCompanion(
+      assetId: assetId ?? this.assetId,
+      stelle: stelle ?? this.stelle,
+      vector: vector ?? this.vector,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (assetId.present) {
+      map['asset_id'] = Variable<String>(assetId.value);
+    }
+    if (stelle.present) {
+      map['stelle'] = Variable<int>(stelle.value);
+    }
+    if (vector.present) {
+      map['vector'] = Variable<Uint8List>(vector.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VideoeinbettungenCompanion(')
+          ..write('assetId: $assetId, ')
+          ..write('stelle: $stelle, ')
+          ..write('vector: $vector, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -19373,6 +20159,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SpurpunkteTable spurpunkte = $SpurpunkteTable(this);
   late final $VerworfeneSerienTable verworfeneSerien =
       $VerworfeneSerienTable(this);
+  late final $VerworfeneOrtsvorschlaegeTable verworfeneOrtsvorschlaege =
+      $VerworfeneOrtsvorschlaegeTable(this);
+  late final $VideoeinbettungenTable videoeinbettungen =
+      $VideoeinbettungenTable(this);
   late final $WanderpunkteTable wanderpunkte = $WanderpunkteTable(this);
   late final $WanderabfragenTable wanderabfragen = $WanderabfragenTable(this);
   @override
@@ -19420,6 +20210,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         spuren,
         spurpunkte,
         verworfeneSerien,
+        verworfeneOrtsvorschlaege,
+        videoeinbettungen,
         wanderpunkte,
         wanderabfragen
       ];
@@ -19473,6 +20265,11 @@ typedef $$AssetsTableCreateCompanionBuilder = AssetsCompanion Function({
   Value<bool> ocrScanned,
   Value<String?> ocrBoxen,
   Value<bool> gpsGeprueft,
+  Value<bool> datumGeschaetzt,
+  Value<bool> datumGeprueft,
+  Value<bool> ortGeerbt,
+  Value<bool> videobilderGeprueft,
+  Value<int?> zeitversatzMinuten,
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
@@ -19532,6 +20329,11 @@ typedef $$AssetsTableUpdateCompanionBuilder = AssetsCompanion Function({
   Value<bool> ocrScanned,
   Value<String?> ocrBoxen,
   Value<bool> gpsGeprueft,
+  Value<bool> datumGeschaetzt,
+  Value<bool> datumGeprueft,
+  Value<bool> ortGeerbt,
+  Value<bool> videobilderGeprueft,
+  Value<int?> zeitversatzMinuten,
   Value<String?> aiCaption,
   Value<String?> aiCaptionDe,
   Value<bool> aiCaptionScanned,
@@ -19705,6 +20507,24 @@ class $$AssetsTableFilterComposer
 
   ColumnFilters<bool> get gpsGeprueft => $composableBuilder(
       column: $table.gpsGeprueft, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get datumGeschaetzt => $composableBuilder(
+      column: $table.datumGeschaetzt,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get datumGeprueft => $composableBuilder(
+      column: $table.datumGeprueft, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get ortGeerbt => $composableBuilder(
+      column: $table.ortGeerbt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get videobilderGeprueft => $composableBuilder(
+      column: $table.videobilderGeprueft,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get zeitversatzMinuten => $composableBuilder(
+      column: $table.zeitversatzMinuten,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnFilters(column));
@@ -19908,6 +20728,25 @@ class $$AssetsTableOrderingComposer
   ColumnOrderings<bool> get gpsGeprueft => $composableBuilder(
       column: $table.gpsGeprueft, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<bool> get datumGeschaetzt => $composableBuilder(
+      column: $table.datumGeschaetzt,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get datumGeprueft => $composableBuilder(
+      column: $table.datumGeprueft,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get ortGeerbt => $composableBuilder(
+      column: $table.ortGeerbt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get videobilderGeprueft => $composableBuilder(
+      column: $table.videobilderGeprueft,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get zeitversatzMinuten => $composableBuilder(
+      column: $table.zeitversatzMinuten,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get aiCaption => $composableBuilder(
       column: $table.aiCaption, builder: (column) => ColumnOrderings(column));
 
@@ -20091,6 +20930,21 @@ class $$AssetsTableAnnotationComposer
   GeneratedColumn<bool> get gpsGeprueft => $composableBuilder(
       column: $table.gpsGeprueft, builder: (column) => column);
 
+  GeneratedColumn<bool> get datumGeschaetzt => $composableBuilder(
+      column: $table.datumGeschaetzt, builder: (column) => column);
+
+  GeneratedColumn<bool> get datumGeprueft => $composableBuilder(
+      column: $table.datumGeprueft, builder: (column) => column);
+
+  GeneratedColumn<bool> get ortGeerbt =>
+      $composableBuilder(column: $table.ortGeerbt, builder: (column) => column);
+
+  GeneratedColumn<bool> get videobilderGeprueft => $composableBuilder(
+      column: $table.videobilderGeprueft, builder: (column) => column);
+
+  GeneratedColumn<int> get zeitversatzMinuten => $composableBuilder(
+      column: $table.zeitversatzMinuten, builder: (column) => column);
+
   GeneratedColumn<String> get aiCaption =>
       $composableBuilder(column: $table.aiCaption, builder: (column) => column);
 
@@ -20189,6 +21043,11 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<bool> ocrScanned = const Value.absent(),
             Value<String?> ocrBoxen = const Value.absent(),
             Value<bool> gpsGeprueft = const Value.absent(),
+            Value<bool> datumGeschaetzt = const Value.absent(),
+            Value<bool> datumGeprueft = const Value.absent(),
+            Value<bool> ortGeerbt = const Value.absent(),
+            Value<bool> videobilderGeprueft = const Value.absent(),
+            Value<int?> zeitversatzMinuten = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
@@ -20248,6 +21107,11 @@ class $$AssetsTableTableManager extends RootTableManager<
             ocrScanned: ocrScanned,
             ocrBoxen: ocrBoxen,
             gpsGeprueft: gpsGeprueft,
+            datumGeschaetzt: datumGeschaetzt,
+            datumGeprueft: datumGeprueft,
+            ortGeerbt: ortGeerbt,
+            videobilderGeprueft: videobilderGeprueft,
+            zeitversatzMinuten: zeitversatzMinuten,
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
@@ -20307,6 +21171,11 @@ class $$AssetsTableTableManager extends RootTableManager<
             Value<bool> ocrScanned = const Value.absent(),
             Value<String?> ocrBoxen = const Value.absent(),
             Value<bool> gpsGeprueft = const Value.absent(),
+            Value<bool> datumGeschaetzt = const Value.absent(),
+            Value<bool> datumGeprueft = const Value.absent(),
+            Value<bool> ortGeerbt = const Value.absent(),
+            Value<bool> videobilderGeprueft = const Value.absent(),
+            Value<int?> zeitversatzMinuten = const Value.absent(),
             Value<String?> aiCaption = const Value.absent(),
             Value<String?> aiCaptionDe = const Value.absent(),
             Value<bool> aiCaptionScanned = const Value.absent(),
@@ -20366,6 +21235,11 @@ class $$AssetsTableTableManager extends RootTableManager<
             ocrScanned: ocrScanned,
             ocrBoxen: ocrBoxen,
             gpsGeprueft: gpsGeprueft,
+            datumGeschaetzt: datumGeschaetzt,
+            datumGeprueft: datumGeprueft,
+            ortGeerbt: ortGeerbt,
+            videobilderGeprueft: videobilderGeprueft,
+            zeitversatzMinuten: zeitversatzMinuten,
             aiCaption: aiCaption,
             aiCaptionDe: aiCaptionDe,
             aiCaptionScanned: aiCaptionScanned,
@@ -27759,6 +28633,7 @@ typedef $$SpurenTableCreateCompanionBuilder = SpurenCompanion Function({
   required String name,
   required String quelle,
   Value<String?> aktivitaetId,
+  Value<String?> reiseId,
   Value<DateTime?> von,
   Value<DateTime?> bis,
   required int punktzahl,
@@ -27773,6 +28648,7 @@ typedef $$SpurenTableUpdateCompanionBuilder = SpurenCompanion Function({
   Value<String> name,
   Value<String> quelle,
   Value<String?> aktivitaetId,
+  Value<String?> reiseId,
   Value<DateTime?> von,
   Value<DateTime?> bis,
   Value<int> punktzahl,
@@ -27803,6 +28679,9 @@ class $$SpurenTableFilterComposer
 
   ColumnFilters<String> get aktivitaetId => $composableBuilder(
       column: $table.aktivitaetId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get reiseId => $composableBuilder(
+      column: $table.reiseId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get von => $composableBuilder(
       column: $table.von, builder: (column) => ColumnFilters(column));
@@ -27848,6 +28727,9 @@ class $$SpurenTableOrderingComposer
       column: $table.aktivitaetId,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get reiseId => $composableBuilder(
+      column: $table.reiseId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get von => $composableBuilder(
       column: $table.von, builder: (column) => ColumnOrderings(column));
 
@@ -27890,6 +28772,9 @@ class $$SpurenTableAnnotationComposer
 
   GeneratedColumn<String> get aktivitaetId => $composableBuilder(
       column: $table.aktivitaetId, builder: (column) => column);
+
+  GeneratedColumn<String> get reiseId =>
+      $composableBuilder(column: $table.reiseId, builder: (column) => column);
 
   GeneratedColumn<DateTime> get von =>
       $composableBuilder(column: $table.von, builder: (column) => column);
@@ -27940,6 +28825,7 @@ class $$SpurenTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<String> quelle = const Value.absent(),
             Value<String?> aktivitaetId = const Value.absent(),
+            Value<String?> reiseId = const Value.absent(),
             Value<DateTime?> von = const Value.absent(),
             Value<DateTime?> bis = const Value.absent(),
             Value<int> punktzahl = const Value.absent(),
@@ -27954,6 +28840,7 @@ class $$SpurenTableTableManager extends RootTableManager<
             name: name,
             quelle: quelle,
             aktivitaetId: aktivitaetId,
+            reiseId: reiseId,
             von: von,
             bis: bis,
             punktzahl: punktzahl,
@@ -27968,6 +28855,7 @@ class $$SpurenTableTableManager extends RootTableManager<
             required String name,
             required String quelle,
             Value<String?> aktivitaetId = const Value.absent(),
+            Value<String?> reiseId = const Value.absent(),
             Value<DateTime?> von = const Value.absent(),
             Value<DateTime?> bis = const Value.absent(),
             required int punktzahl,
@@ -27982,6 +28870,7 @@ class $$SpurenTableTableManager extends RootTableManager<
             name: name,
             quelle: quelle,
             aktivitaetId: aktivitaetId,
+            reiseId: reiseId,
             von: von,
             bis: bis,
             punktzahl: punktzahl,
@@ -28326,6 +29215,288 @@ typedef $$VerworfeneSerienTableProcessedTableManager = ProcessedTableManager<
           VerworfeneSerienData>
     ),
     VerworfeneSerienData,
+    PrefetchHooks Function()>;
+typedef $$VerworfeneOrtsvorschlaegeTableCreateCompanionBuilder
+    = VerworfeneOrtsvorschlaegeCompanion Function({
+  required String schluessel,
+  required DateTime verworfenAm,
+  Value<int> rowid,
+});
+typedef $$VerworfeneOrtsvorschlaegeTableUpdateCompanionBuilder
+    = VerworfeneOrtsvorschlaegeCompanion Function({
+  Value<String> schluessel,
+  Value<DateTime> verworfenAm,
+  Value<int> rowid,
+});
+
+class $$VerworfeneOrtsvorschlaegeTableFilterComposer
+    extends Composer<_$AppDatabase, $VerworfeneOrtsvorschlaegeTable> {
+  $$VerworfeneOrtsvorschlaegeTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$VerworfeneOrtsvorschlaegeTableOrderingComposer
+    extends Composer<_$AppDatabase, $VerworfeneOrtsvorschlaegeTable> {
+  $$VerworfeneOrtsvorschlaegeTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$VerworfeneOrtsvorschlaegeTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VerworfeneOrtsvorschlaegeTable> {
+  $$VerworfeneOrtsvorschlaegeTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get schluessel => $composableBuilder(
+      column: $table.schluessel, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get verworfenAm => $composableBuilder(
+      column: $table.verworfenAm, builder: (column) => column);
+}
+
+class $$VerworfeneOrtsvorschlaegeTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $VerworfeneOrtsvorschlaegeTable,
+    VerworfeneOrtsvorschlaegeData,
+    $$VerworfeneOrtsvorschlaegeTableFilterComposer,
+    $$VerworfeneOrtsvorschlaegeTableOrderingComposer,
+    $$VerworfeneOrtsvorschlaegeTableAnnotationComposer,
+    $$VerworfeneOrtsvorschlaegeTableCreateCompanionBuilder,
+    $$VerworfeneOrtsvorschlaegeTableUpdateCompanionBuilder,
+    (
+      VerworfeneOrtsvorschlaegeData,
+      BaseReferences<_$AppDatabase, $VerworfeneOrtsvorschlaegeTable,
+          VerworfeneOrtsvorschlaegeData>
+    ),
+    VerworfeneOrtsvorschlaegeData,
+    PrefetchHooks Function()> {
+  $$VerworfeneOrtsvorschlaegeTableTableManager(
+      _$AppDatabase db, $VerworfeneOrtsvorschlaegeTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VerworfeneOrtsvorschlaegeTableFilterComposer(
+                  $db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VerworfeneOrtsvorschlaegeTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VerworfeneOrtsvorschlaegeTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> schluessel = const Value.absent(),
+            Value<DateTime> verworfenAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VerworfeneOrtsvorschlaegeCompanion(
+            schluessel: schluessel,
+            verworfenAm: verworfenAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String schluessel,
+            required DateTime verworfenAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VerworfeneOrtsvorschlaegeCompanion.insert(
+            schluessel: schluessel,
+            verworfenAm: verworfenAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$VerworfeneOrtsvorschlaegeTableProcessedTableManager
+    = ProcessedTableManager<
+        _$AppDatabase,
+        $VerworfeneOrtsvorschlaegeTable,
+        VerworfeneOrtsvorschlaegeData,
+        $$VerworfeneOrtsvorschlaegeTableFilterComposer,
+        $$VerworfeneOrtsvorschlaegeTableOrderingComposer,
+        $$VerworfeneOrtsvorschlaegeTableAnnotationComposer,
+        $$VerworfeneOrtsvorschlaegeTableCreateCompanionBuilder,
+        $$VerworfeneOrtsvorschlaegeTableUpdateCompanionBuilder,
+        (
+          VerworfeneOrtsvorschlaegeData,
+          BaseReferences<_$AppDatabase, $VerworfeneOrtsvorschlaegeTable,
+              VerworfeneOrtsvorschlaegeData>
+        ),
+        VerworfeneOrtsvorschlaegeData,
+        PrefetchHooks Function()>;
+typedef $$VideoeinbettungenTableCreateCompanionBuilder
+    = VideoeinbettungenCompanion Function({
+  required String assetId,
+  required int stelle,
+  required Uint8List vector,
+  Value<int> rowid,
+});
+typedef $$VideoeinbettungenTableUpdateCompanionBuilder
+    = VideoeinbettungenCompanion Function({
+  Value<String> assetId,
+  Value<int> stelle,
+  Value<Uint8List> vector,
+  Value<int> rowid,
+});
+
+class $$VideoeinbettungenTableFilterComposer
+    extends Composer<_$AppDatabase, $VideoeinbettungenTable> {
+  $$VideoeinbettungenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get assetId => $composableBuilder(
+      column: $table.assetId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get stelle => $composableBuilder(
+      column: $table.stelle, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<Uint8List> get vector => $composableBuilder(
+      column: $table.vector, builder: (column) => ColumnFilters(column));
+}
+
+class $$VideoeinbettungenTableOrderingComposer
+    extends Composer<_$AppDatabase, $VideoeinbettungenTable> {
+  $$VideoeinbettungenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get assetId => $composableBuilder(
+      column: $table.assetId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get stelle => $composableBuilder(
+      column: $table.stelle, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<Uint8List> get vector => $composableBuilder(
+      column: $table.vector, builder: (column) => ColumnOrderings(column));
+}
+
+class $$VideoeinbettungenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VideoeinbettungenTable> {
+  $$VideoeinbettungenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get assetId =>
+      $composableBuilder(column: $table.assetId, builder: (column) => column);
+
+  GeneratedColumn<int> get stelle =>
+      $composableBuilder(column: $table.stelle, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get vector =>
+      $composableBuilder(column: $table.vector, builder: (column) => column);
+}
+
+class $$VideoeinbettungenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $VideoeinbettungenTable,
+    VideoeinbettungenData,
+    $$VideoeinbettungenTableFilterComposer,
+    $$VideoeinbettungenTableOrderingComposer,
+    $$VideoeinbettungenTableAnnotationComposer,
+    $$VideoeinbettungenTableCreateCompanionBuilder,
+    $$VideoeinbettungenTableUpdateCompanionBuilder,
+    (
+      VideoeinbettungenData,
+      BaseReferences<_$AppDatabase, $VideoeinbettungenTable,
+          VideoeinbettungenData>
+    ),
+    VideoeinbettungenData,
+    PrefetchHooks Function()> {
+  $$VideoeinbettungenTableTableManager(
+      _$AppDatabase db, $VideoeinbettungenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VideoeinbettungenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VideoeinbettungenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VideoeinbettungenTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> assetId = const Value.absent(),
+            Value<int> stelle = const Value.absent(),
+            Value<Uint8List> vector = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VideoeinbettungenCompanion(
+            assetId: assetId,
+            stelle: stelle,
+            vector: vector,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String assetId,
+            required int stelle,
+            required Uint8List vector,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              VideoeinbettungenCompanion.insert(
+            assetId: assetId,
+            stelle: stelle,
+            vector: vector,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$VideoeinbettungenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $VideoeinbettungenTable,
+    VideoeinbettungenData,
+    $$VideoeinbettungenTableFilterComposer,
+    $$VideoeinbettungenTableOrderingComposer,
+    $$VideoeinbettungenTableAnnotationComposer,
+    $$VideoeinbettungenTableCreateCompanionBuilder,
+    $$VideoeinbettungenTableUpdateCompanionBuilder,
+    (
+      VideoeinbettungenData,
+      BaseReferences<_$AppDatabase, $VideoeinbettungenTable,
+          VideoeinbettungenData>
+    ),
+    VideoeinbettungenData,
     PrefetchHooks Function()>;
 typedef $$WanderpunkteTableCreateCompanionBuilder = WanderpunkteCompanion
     Function({
@@ -28722,6 +29893,11 @@ class $AppDatabaseManager {
       $$SpurpunkteTableTableManager(_db, _db.spurpunkte);
   $$VerworfeneSerienTableTableManager get verworfeneSerien =>
       $$VerworfeneSerienTableTableManager(_db, _db.verworfeneSerien);
+  $$VerworfeneOrtsvorschlaegeTableTableManager get verworfeneOrtsvorschlaege =>
+      $$VerworfeneOrtsvorschlaegeTableTableManager(
+          _db, _db.verworfeneOrtsvorschlaege);
+  $$VideoeinbettungenTableTableManager get videoeinbettungen =>
+      $$VideoeinbettungenTableTableManager(_db, _db.videoeinbettungen);
   $$WanderpunkteTableTableManager get wanderpunkte =>
       $$WanderpunkteTableTableManager(_db, _db.wanderpunkte);
   $$WanderabfragenTableTableManager get wanderabfragen =>

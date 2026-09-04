@@ -175,6 +175,10 @@ void main() {
           isStackCover: false,
           faceScanExcluded: false,
           gpsGeprueft: false,
+          datumGeschaetzt: false,
+          datumGeprueft: false,
+          ortGeerbt: false,
+          videobilderGeprueft: false,
         );
 
     test('ein Video wird abgespielt, nicht als Standbild gezeigt', () {
