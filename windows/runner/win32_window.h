@@ -92,6 +92,13 @@ class Win32Window {
 
   bool quit_on_close_ = false;
 
+  // Wie das Fenster gezeigt werden soll - normal oder als Vollbild.
+  //
+  // Ohne dieses Feld waere die wiederhergestellte Lage sofort wieder
+  // hin: Show() rief bedingungslos SW_SHOWNORMAL und machte damit jedes
+  // maximiert geschlossene Fenster wieder klein.
+  int zeigebefehl_ = SW_SHOWNORMAL;
+
   // window handle for top level window.
   HWND window_handle_ = nullptr;
 

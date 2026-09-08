@@ -193,6 +193,69 @@ void main() {
       expect(gast.gewaehlt, {'f4'});
     });
 
+    /// **Der Fehler aus dem Erstlauf-Bericht.** "Einzelauswahl
+    /// funktioniert, Umschalt-Klick nur bis zu dem gewaehlten Foto,
+    /// teilweise auch einige zusammenhaengende Fotos, aber nicht der
+    /// ganze Bereich." Ausgewaehlt wird mit dem Finger ueber einen
+    /// langen Druck - und der setzte den Anker nicht.
+    testWidgets('nach dem Auswaehlen per langem Druck greift Umschalt',
+        (tester) async {
+      final gast = await zeige(tester);
+      gast.rasterUmschalten('f2');
+      await tester.pump();
+      await tippeMit(tester, LogicalKeyboardKey.shiftLeft, 'f5');
+      expect(gast.gewaehlt, {'f2', 'f3', 'f4', 'f5'},
+          reason: 'der lange Druck hat keinen Anker hinterlassen');
+    });
+
+    testWidgets('ein alter Anker darf den langen Druck nicht ueberstimmen',
+        (tester) async {
+      // Genau die zweite Haelfte der Beobachtung: Es kamen "einige
+      // zusammenhaengende Fotos", naemlich der Bereich ab einem laengst
+      // vergessenen Klick - und nicht der, den man aufziehen wollte.
+      final gast = await zeige(tester);
+      await tippeMit(tester, LogicalKeyboardKey.metaLeft, 'f7');
+      gast.rasterUmschalten('f2');
+      await tester.pump();
+      await tippeMit(tester, LogicalKeyboardKey.shiftLeft, 'f4');
+      expect(gast.gewaehlt, {'f2', 'f3', 'f4', 'f7'});
+    });
+
+    testWidgets('auch das Abwaehlen setzt den Anker um', (tester) async {
+      final gast = await zeige(tester);
+      gast.rasterUmschalten('f2');
+      gast.rasterUmschalten('f5');
+      gast.rasterUmschalten('f5');
+      await tester.pump();
+      await tippeMit(tester, LogicalKeyboardKey.shiftLeft, 'f7');
+      // Bezugspunkt ist die zuletzt angefasste Kachel (f5), nicht die
+      // zuletzt hinzugefuegte (f2).
+      expect(gast.gewaehlt, {'f2', 'f5', 'f6', 'f7'});
+    });
+
+    testWidgets('eine ganze Gruppe hinterlaesst ihren letzten Eintrag',
+        (tester) async {
+      final gast = await zeige(tester);
+      gast.rasterGruppeUmschalten(['f1', 'f2', 'f3']);
+      await tester.pump();
+      await tippeMit(tester, LogicalKeyboardKey.shiftLeft, 'f5');
+      expect(gast.gewaehlt, {'f1', 'f2', 'f3', 'f4', 'f5'});
+    });
+
+    testWidgets('das Abwaehlen einer Gruppe laesst den Anker stehen',
+        (tester) async {
+      final gast = await zeige(tester);
+      gast.rasterGruppeUmschalten(['f1', 'f2']);
+      gast.rasterGruppeUmschalten(['f1', 'f2']);
+      await tester.pump();
+      expect(gast.gewaehlt, isEmpty);
+      // Der Anker steht noch auf f2 - vom Auswaehlen, nicht vom
+      // Abwaehlen. Wer eine Gruppe wieder loslaesst, hat damit nicht
+      // gesagt, wo der naechste Bereich beginnen soll.
+      await tippeMit(tester, LogicalKeyboardKey.shiftLeft, 'f4');
+      expect(gast.gewaehlt, {'f2', 'f3', 'f4'});
+    });
+
     testWidgets('Command-Klick auf ein ausgewähltes wählt es wieder ab', (tester) async {
       final gast = await zeige(tester);
       await tippeMit(tester, LogicalKeyboardKey.metaLeft, 'f3');
@@ -319,6 +382,82 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.digit4);
       await tester.pumpAndSettle();
       expect((await db.assetById('f1'))!.rating, 0);
+    });
+  });
+
+  group('unter der Hülle der App', () {
+    /// Wie im Programm: `HomeShell` legt einen eigenen `Focus` mit
+    /// `autofocus` über den ganzen Bildschirm, damit ⌘1…⌘0 und „?"
+    /// ankommen. Bis zur Prüfrunde vom 04.09.2026 gewann dieser äussere
+    /// Knoten den Fokus und das Raster ging leer aus – **im Programm tat
+    /// keine einzige Rastertaste etwas**, obwohl jeder Fall hier oben grün
+    /// war. Genau diese Verschachtelung fehlte im Prüfstand.
+    Future<_GastState> zeigeUnterHuelle(
+      WidgetTester tester, {
+      List<String>? huellenTasten,
+    }) async {
+      await tester.pumpWidget(MaterialApp(
+        home: Focus(
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent) {
+              huellenTasten?.add(event.logicalKey.keyLabel);
+            }
+            return KeyEventResult.ignored;
+          },
+          child: Scaffold(body: _Gast(db: db, assets: assets)),
+        ),
+      ));
+      await tester.pump();
+      return tester.state<_GastState>(find.byType(_Gast));
+    }
+
+    testWidgets('die Ziffer bewertet auch unter dem Fokus der Hülle',
+        (tester) async {
+      await zeigeUnterHuelle(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit3);
+      await tester.pumpAndSettle();
+      expect((await db.assetById('f1'))!.rating, 3);
+    });
+
+    testWidgets('die Pfeiltaste setzt den Zeiger auch dort', (tester) async {
+      final gast = await zeigeUnterHuelle(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump();
+      expect(gast.aktiveKachel, 'f1');
+    });
+
+    testWidgets('das Nummernfeld bewertet wie die Ziffernreihe',
+        (tester) async {
+      // Gemeldet als „Nummernfeld nur ein Piep": Die Zuordnung kannte nur
+      // digit0…digit5, nicht numpad0…numpad5.
+      await zeigeUnterHuelle(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.sendKeyEvent(LogicalKeyboardKey.numpad4);
+      await tester.pumpAndSettle();
+      expect((await db.assetById('f1'))!.rating, 4);
+    });
+
+    testWidgets('das Nummernfeld setzt auch die Farbmarke', (tester) async {
+      await zeigeUnterHuelle(tester);
+      await tippeMit(tester, LogicalKeyboardKey.metaLeft, 'f1');
+      await tester.sendKeyEvent(LogicalKeyboardKey.numpad7);
+      await tester.pumpAndSettle();
+      expect((await db.assetById('f1'))!.colorLabel, 'yellow');
+    });
+
+    testWidgets('die Hülle sieht ⌘2 weiterhin', (tester) async {
+      // Die Gegenprobe zur Reparatur: Das Raster nimmt den Fokus, aber die
+      // Bereichskürzel dürfen darüber nicht verlorengehen – Tasten wandern
+      // vom Raster aus nach oben weiter.
+      final gesehen = <String>[];
+      await zeigeUnterHuelle(tester, huellenTasten: gesehen);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit2);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(gesehen, contains('2'));
     });
   });
 }

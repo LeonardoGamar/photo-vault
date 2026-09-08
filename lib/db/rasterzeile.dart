@@ -43,6 +43,21 @@ const String rasterSpalten = 'id, type, original_file_name, relative_path, '
     'rating, color_label, width_px, height_px, latitude, longitude, '
     'camera_make, is_locked';
 
+/// Wer im Raster eigenständig sichtbar ist – als SQL-Bedingung.
+///
+/// **Das Gegenstück zu `_isPrimaryGridEntry`, und es gehört hierher.**
+/// Die Bedingung hat zwei Hälften: kein Live-Photo-Partner (das .mov zu
+/// einem Standbild) **und** kein Stapelmitglied ausser dem Titelbild.
+/// Von Hand nachgeschrieben stand hier nur die erste – 144 Aufnahmen
+/// dieser Bibliothek erschienen dadurch im Raster, obwohl sie hinter
+/// ihrem Titelbild liegen sollten, und die Listenansicht daneben
+/// blendete dieselben 144 korrekt aus. Eine Bedingung, die an zwei
+/// Stellen geschrieben wird, verliert irgendwann an einer davon ihre
+/// Hälfte; deshalb steht sie jetzt einmal da.
+const String rasterSichtbar = 'is_trashed = 0 AND is_locked = 0 '
+    "AND (type = 'IMAGE' OR linked_asset_id IS NULL) "
+    'AND (stack_id IS NULL OR is_stack_cover = 1)';
+
 /// Eine Zeile für die Kachelwand.
 class Rasterzeile {
   const Rasterzeile({

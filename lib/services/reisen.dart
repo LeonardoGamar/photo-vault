@@ -19,6 +19,39 @@ library;
 
 import 'reverse_geocoder.dart';
 
+/// Was für eine Art Reise das war.
+///
+/// **Warum eine Reise eine Art braucht.** In dieser Bibliothek stehen
+/// nebeneinander: ein zweimonatiger Auslandseinsatz, eine Gedenkfahrt,
+/// eine Firmenveranstaltung und ein Verwandtenbesuch. „Reise" trifft
+/// keines davon richtig, und wer die Liste ansieht, sieht vier Zeilen
+/// derselben Sorte.
+///
+/// Fünf Arten und nicht fünfzehn: Jede hier ist eine, die in einer
+/// echten Bibliothek vorkam. Eine Aufzählung, die alles vorsieht,
+/// verlangt bei jedem Eintrag eine Entscheidung, die niemand treffen
+/// will.
+enum Reiseart {
+  reise,
+  unternehmung,
+  geschaeftlich,
+  besuch,
+  sonstiges;
+
+  /// Wie die Art in der Datenbank steht – der Name und nicht der Index,
+  /// aus demselben Grund wie bei `Aktivitaetsart`: Wer später eine Art
+  /// dazwischenschiebt, verschöbe sonst alle gespeicherten Zeilen.
+  String get kennung => name;
+
+  static Reiseart aus(String s) => Reiseart.values.firstWhere(
+        (a) => a.name == s,
+        orElse: () => Reiseart.reise,
+      );
+}
+
+/// Die Vorgabe für eine neue oder eine bestehende Reise ohne Angabe.
+const Reiseart reiseartVorgabe = Reiseart.reise;
+
 /// Eine Aufnahme, wie die Erkennung sie braucht.
 typedef Reiseaufnahme = ({
   String id,

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
+import 'modellthreads.dart';
 
 /// Entfernt Objekte aus einem Foto, indem es die markierte Stelle aus der
 /// Umgebung neu erfindet (LaMa, siehe ModelCatalog.inpainting).
@@ -36,7 +37,7 @@ class InpaintingService {
     final ort = OnnxRuntime();
     final session = await ort.createSession(
       '$modelsDir/lama_fp32.onnx',
-      options: OrtSessionOptions(providers: [OrtProvider.CPU]),
+      options: modelloptionen(providers: [OrtProvider.CPU]),
     );
     return InpaintingService._(session);
   }

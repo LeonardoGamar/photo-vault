@@ -161,6 +161,62 @@ class Gelaendekamera {
   }
 }
 
+/// Wie viele Meter die Kamera mindestens über dem Boden bleibt.
+///
+/// In den Einheiten des Netzes, also bereits überhöht
+/// ([gelaendeUeberhoehung]). Fünfzig sind knapp: Sie reichen, damit kein
+/// Hang durchs Bild schneidet, und liegen tief genug, dass ein Flug
+/// durch ein Tal auch wirklich im Tal bleibt.
+const double gelaendeBodenabstand = 50;
+
+/// Hebt [k] an, wenn die Kamera sonst im Berg stünde.
+///
+/// **Der Fund.** Aus dem Erstlauf-Bericht: „im Flug teilweise breiig
+/// oder es fliegt unter dem Berg". Die Kamera kreist um ihren
+/// Blickpunkt; bei flacher [Gelaendekamera.neigung] steht sie fast auf
+/// dessen Höhe und damit **innerhalb** des Hangs, der hinter dem Weg
+/// ansteigt. Gezeichnet wird dann die Landschaft von innen, und das
+/// sieht aus wie ein Fehler im Maler.
+///
+/// Angehoben wird über die Neigung und nicht über den Blickpunkt: Das
+/// ist dieselbe Bewegung, die ein Pilot machen würde, und der Weg bleibt
+/// dabei im Bild. Gesucht wird die **kleinste** Neigung, die reicht –
+/// eine feste Anhebung machte jeden flachen Flug unnötig steil.
+///
+/// [hoeheBei] liefert die Geländehöhe an einer Stelle des Netzes oder
+/// `null`, wo das Höhengitter nichts weiss; dort gibt es auch nichts zu
+/// unterschreiten.
+Gelaendekamera ueberDemBoden(
+  Gelaendekamera k, {
+  required double? Function(double x, double y) hoeheBei,
+  double abstand = gelaendeBodenabstand,
+  double hoechsteNeigung = 1.45,
+}) {
+  bool frei(Gelaendekamera kandidat) {
+    final wo = kandidat.standort;
+    final boden = hoeheBei(wo.x, wo.y);
+    return boden == null || wo.z >= boden + abstand;
+  }
+
+  if (frei(k)) return k;
+  // Senkrecht von oben steht die Kamera immer frei; dazwischen wird
+  // gesucht. Acht Halbierungen treffen die Neigung auf ein
+  // Zweihundertstel genau – genauer, als ein Auge es sieht.
+  final steil = k.kopieMit(neigung: hoechsteNeigung);
+  if (!frei(steil)) return steil;
+  var unten = k.neigung;
+  var oben = hoechsteNeigung;
+  for (var i = 0; i < 8; i++) {
+    final mitte = (unten + oben) / 2;
+    if (frei(k.kopieMit(neigung: mitte))) {
+      oben = mitte;
+    } else {
+      unten = mitte;
+    }
+  }
+  return k.kopieMit(neigung: oben);
+}
+
 /// Wie viele Meter ein Grad Länge auf einer Breite misst.
 double meterJeGradLaenge(double breite) =>
     111320 * math.cos(breite * math.pi / 180);

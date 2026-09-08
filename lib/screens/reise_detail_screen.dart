@@ -17,6 +17,8 @@ import '../widgets/zuordnung_auswahlleiste.dart';
 import '../widgets/asset_thumbnail_tile.dart';
 import '../widgets/routenkarte.dart';
 import '../widgets/namens_dialog.dart';
+import '../widgets/reiseart_anzeige.dart';
+import '../widgets/zeitraum_dialog.dart';
 import 'asset_viewer_screen.dart';
 import 'aufnahmen_waehlen_screen.dart';
 import 'reisen_screen.dart' show reiseUnterzeile;
@@ -48,6 +50,14 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   List<AssetData> _aufnahmen = const [];
   List<AktivitaetenData> _aktivitaeten = const [];
 
+  /// Was der Reisende zu einzelnen Tagen geschrieben hat, nach Tag.
+  ///
+  /// **Der fehlende Teil des Tagebuchs.** Die Kapitel nach Tagen gab es
+  /// schon; ein Tagebuch besteht aber nicht aus Bildern allein. Die Notiz
+  /// an der Reise galt für die ganze Reise – „am dritten Tag hat es
+  /// geschüttet" gehört an den dritten Tag.
+  Map<DateTime, String> _tagesnotizen = const {};
+
   /// Die aufgezeichneten Spuren dieser Reise, samt ihren Punkten.
   ///
   /// **Mehrere.** Eine Wanderung hat eine Spur; eine Reise über zehn Tage
@@ -67,6 +77,7 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
     final frisch = await widget.library.db.reise(_reise.id);
     final aktivitaeten =
         await widget.library.db.aktivitaetenDerReise(_reise.id);
+    final notizen = await widget.library.db.reisetagnotizenFuer(_reise.id);
     final spuren = <({SpurenData spur, List<SpurpunkteData> punkte})>[];
     for (final s in await widget.library.db.spurenDerReise(_reise.id)) {
       spuren.add((spur: s, punkte: await widget.library.db.punkteDerSpur(s.id)));
@@ -75,6 +86,7 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
     setState(() {
       _aufnahmen = aufnahmen;
       _aktivitaeten = aktivitaeten;
+      _tagesnotizen = notizen;
       _spuren = spuren;
       if (frisch != null) _reise = frisch;
       _laedt = false;
@@ -164,6 +176,24 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
       // sonst stünde in der Ansicht ein leerer Absatz.
       ReisenCompanion(notiz: Value(text.isEmpty ? null : text)),
     );
+    await _laden();
+  }
+
+  /// Schreibt oder ändert die Notiz eines Reisetages.
+  Future<void> _tagesnotiz(DateTime tag) async {
+    final t = AppTexte.of(context);
+    final datum =
+        DateFormat.yMMMMd(Localizations.localeOf(context).toString());
+    final text = await frageNamen(
+      context,
+      titel: t.reisenTagesnotizTitel(datum.format(tag)),
+      feldbeschriftung: t.reisenTagesnotiz,
+      vorgabe: _tagesnotizen[DateTime(tag.year, tag.month, tag.day)] ?? '',
+      mehrzeilig: true,
+      leerErlaubt: true,
+    );
+    if (text == null || !mounted) return;
+    await widget.library.db.setzeReisetagnotiz(_reise.id, tag, text);
     await _laden();
   }
 
@@ -305,6 +335,78 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   /// „Was habe ich in Rom fotografiert" ist eine eigene Frage, und ein
   /// Betrachter, der danach weiterblättert nach Florenz, beantwortet sie
   /// nur halb.
+  /// Die Art der Reise wählen – Reise, Unternehmung, dienstlich, Besuch.
+  ///
+  /// **Warum sichtbar und nicht im Menü.** In der Bibliothek stehen ein
+  /// zweimonatiger Einsatz, eine Gedenkfahrt, eine Firmenveranstaltung
+  /// und ein Verwandtenbesuch nebeneinander. Was für eine Art Reise das
+  /// war, gehört neben ihren Zeitraum und nicht hinter drei Punkte.
+  Future<void> _artWaehlen() async {
+    final gewaehlt = await frageReiseart(context, aktuell: _reise.art);
+    if (gewaehlt == null || gewaehlt == _reise.art || !mounted) return;
+    await widget.library.db.setzeReiseart(_reise.id, gewaehlt);
+    await _laden();
+  }
+
+  /// Eine Unternehmung innerhalb dieser Reise anlegen.
+  ///
+  /// **Der Weg, der gefehlt hat.** Aktivitäten entstanden bisher nur im
+  /// Aktivitätenbildschirm und fanden ihre Reise über den Kalender. Seit
+  /// eine bestätigte Reise keine Vorschläge mehr erzeugt (sie bot
+  /// dieselben Fotos ein zweites Mal an, siehe
+  /// `aktivitaeten_screen.dart`), muss es hier gehen – dort, wo man die
+  /// Reise vor sich hat.
+  ///
+  /// **Vorbelegt mit der ganzen Reise.** Wer nichts ändert, bekommt die
+  /// Reise selbst als eine Unternehmung – mit Spur, Überflug und
+  /// Zusammenfassung wie eine Wanderung. Wer den Zeitraum enger zieht,
+  /// bekommt ein Kapitel daraus. Beides ist derselbe Handgriff.
+  Future<void> _aktivitaetAnlegen() async {
+    final t = AppTexte.of(context);
+    final angabe = await frageZeitraum(
+      context,
+      titel: t.reisenAktivitaetAnlegen,
+      db: widget.library.db,
+      mitArt: true,
+      von: _reise.von,
+      bis: _reise.bis,
+      name: _reise.name,
+    );
+    if (angabe == null || !mounted) return;
+
+    // **Die Aufnahmen der Reise, nicht die der Bibliothek.** Wer eine
+    // Aufnahme aus der Reise genommen hat, will sie auch in deren
+    // Unternehmung nicht wiedersehen.
+    final vom = DateTime(angabe.von.year, angabe.von.month, angabe.von.day);
+    final bis = DateTime(
+        angabe.bis.year, angabe.bis.month, angabe.bis.day, 23, 59, 59, 999);
+    final ids = [
+      for (final a in _aufnahmen)
+        if (!a.fileCreatedAt.isBefore(vom) && !a.fileCreatedAt.isAfter(bis))
+          a.id,
+    ];
+    if (ids.isEmpty) {
+      melde.hinweis(t.reisenAktivitaetLeer);
+      return;
+    }
+
+    await widget.library.db.aktivitaetAnlegen(
+      AktivitaetenCompanion.insert(
+        id: const Uuid().v4(),
+        name: angabe.name,
+        art: angabe.art!,
+        von: angabe.von,
+        bis: angabe.bis,
+        reiseId: Value(_reise.id),
+        angelegtAm: DateTime.now(),
+      ),
+      ids,
+    );
+    if (!mounted) return;
+    melde.erfolg(t.reisenAktivitaetAngelegt(angabe.name, ids.length));
+    await _laden();
+  }
+
   Future<void> _aktivitaetOeffnen(AktivitaetenData k) async {
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) =>
@@ -453,6 +555,11 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
           // Spuren tragen – eine je Tag. Der Knopf bleibt deshalb immer
           // stehen; weggenommen wird eine einzelne unter der Karte.
           IconButton(
+            tooltip: t.reisenAktivitaetAnlegen,
+            icon: const Icon(Icons.hiking_outlined),
+            onPressed: _aktivitaetAnlegen,
+          ),
+          IconButton(
             tooltip: t.spurHinzufuegen,
             icon: const Icon(Icons.route_outlined),
             onPressed: _spurHinzufuegen,
@@ -486,14 +593,33 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          reiseUnterzeile(t, Localizations.localeOf(context),
-                              von: _reise.von,
-                              bis: _reise.bis,
-                              naechte: _naechte,
-                              anzahl: _aufnahmen.length),
-                          style: TextStyle(
-                              fontSize: 13, color: farben.onSurfaceVariant),
+                        Row(
+                          children: [
+                            ActionChip(
+                              avatar: Icon(
+                                  symbolFuerReiseartKennung(_reise.art),
+                                  size: 18),
+                              label: Text(
+                                  nameFuerReiseartKennung(t, _reise.art)),
+                              tooltip: t.reisenArtAendern,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: _artWaehlen,
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                reiseUnterzeile(
+                                    t, Localizations.localeOf(context),
+                                    von: _reise.von,
+                                    bis: _reise.bis,
+                                    naechte: _naechte,
+                                    anzahl: _aufnahmen.length),
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: farben.onSurfaceVariant),
+                              ),
+                            ),
+                          ],
                         ),
                         if (_route.length > 1 || _spuren.isNotEmpty) ...[
                           const SizedBox(height: AppSpacing.md),
@@ -554,8 +680,11 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                 // Die Unternehmungen dieser Reise – vor den Tagen, weil
                 // sie die Frage „was haben wir gemacht?" beantworten und
                 // die Tage nur die Frage „wann".
-                if (_aktivitaeten.isNotEmpty)
-                  SliverToBoxAdapter(
+                // **Immer da, auch leer.** Vorher erschien der
+                // Abschnitt erst, wenn schon eine Unternehmung
+                // existierte – wer keine hatte, erfuhr nie, dass es sie
+                // gibt.
+                SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(AppSpacing.lg,
                           AppSpacing.md, AppSpacing.lg, 0),
@@ -565,6 +694,18 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                           Text(t.aktivitaetenInDieserReise,
                               style: Theme.of(context).textTheme.titleSmall),
                           const SizedBox(height: AppSpacing.xs),
+                          if (_aktivitaeten.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.xs),
+                              child: Text(
+                                t.reisenOhneAktivitaeten,
+                                style: TextStyle(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant),
+                              ),
+                            ),
                           for (final k in _aktivitaeten)
                             Aktivitaetszeile(
                               aktivitaet: k,
@@ -586,6 +727,9 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
                     child: _Tageskopf(
                       tag: tag,
                       anzahl: tag.aufnahmeIds.length,
+                      notiz: _tagesnotizen[
+                          DateTime(tag.tag.year, tag.tag.month, tag.tag.day)],
+                      beimSchreiben: () => _tagesnotiz(tag.tag),
                     ),
                   ),
                   SliverPadding(
@@ -644,7 +788,17 @@ class _Tageskopf extends StatelessWidget {
   final Reisetag tag;
   final int anzahl;
 
-  const _Tageskopf({required this.tag, required this.anzahl});
+  /// Was an diesem Tag geschah – `null` heisst „nichts geschrieben".
+  final String? notiz;
+
+  final VoidCallback beimSchreiben;
+
+  const _Tageskopf({
+    required this.tag,
+    required this.anzahl,
+    required this.notiz,
+    required this.beimSchreiben,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -655,23 +809,53 @@ class _Tageskopf extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xs),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flexible(
-            child: Text(
-              tag.ort == null
-                  ? t.reisenTag(datum.format(tag.tag))
-                  : '${datum.format(tag.tag)} · ${tag.ort}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Flexible(
+                child: Text(
+                  tag.ort == null
+                      ? t.reisenTag(datum.format(tag.tag))
+                      : '${datum.format(tag.tag)} · ${tag.ort}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(t.reisenAufnahmen(anzahl),
+                  style:
+                      TextStyle(fontSize: 12, color: farben.onSurfaceVariant)),
+              const Spacer(),
+              // Der Stift steht immer da, auch am leeren Tag: Eine
+              // Bedienmoeglichkeit, die erst erscheint, wenn es schon
+              // etwas gibt, findet niemand beim ersten Mal.
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                iconSize: 18,
+                icon: Icon(notiz == null
+                    ? Icons.note_add_outlined
+                    : Icons.edit_note_outlined),
+                tooltip: notiz == null
+                    ? t.reisenTagesnotizSchreiben
+                    : t.reisenTagesnotizAendern,
+                onPressed: beimSchreiben,
+              ),
+            ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(t.reisenAufnahmen(anzahl),
-              style: TextStyle(fontSize: 12, color: farben.onSurfaceVariant)),
+          // Der geschriebene Teil des Tagebuchs. Ueber den Bildern und
+          // nicht darunter: Er sagt, was man auf ihnen sieht.
+          if (notiz != null)
+            Padding(
+              padding: const EdgeInsets.only(
+                  top: AppSpacing.xs, bottom: AppSpacing.xs, right: AppSpacing.xl),
+              child: Text(notiz!,
+                  style: Theme.of(context).textTheme.bodyMedium),
+            ),
         ],
       ),
     );

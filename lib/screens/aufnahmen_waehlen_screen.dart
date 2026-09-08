@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../db/database.dart';
 import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../state/library_state.dart';
@@ -32,17 +31,24 @@ class AufnahmenWaehlenScreen extends StatefulWidget {
   final Set<String> vorhanden;
 
   /// Der Zeitraum der Reise/Aktivität – die Voreinstellung der Ansicht.
-  final DateTime von;
-  final DateTime bis;
+  ///
+  /// `null` bei etwas, das keinen Zeitraum hat: Ein Album ist eine
+  /// Sammlung und keine Zeitspanne. Dann entfällt die Marke, und die
+  /// Ansicht steht von Anfang an auf der ganzen Bibliothek.
+  final DateTime? von;
+  final DateTime? bis;
 
   const AufnahmenWaehlenScreen({
     super.key,
     required this.library,
     required this.titel,
     required this.vorhanden,
-    required this.von,
-    required this.bis,
+    this.von,
+    this.bis,
   });
+
+  /// Ob es überhaupt einen Zeitraum gibt, auf den sich einschränken lässt.
+  bool get hatZeitraum => von != null && bis != null;
 
   @override
   State<AufnahmenWaehlenScreen> createState() => _AufnahmenWaehlenScreenState();
@@ -53,8 +59,12 @@ enum _Umfang { zeitraum, alle }
 
 class _AufnahmenWaehlenScreenState extends State<AufnahmenWaehlenScreen> {
   late final Set<String> _gewaehlt = {...widget.vorhanden};
-  _Umfang _umfang = _Umfang.zeitraum;
-  List<AssetData> _gezeigt = const [];
+  late _Umfang _umfang =
+      widget.hatZeitraum ? _Umfang.zeitraum : _Umfang.alle;
+  /// Schmale Zeilen: Das Raster zeigt Kachel, Name und Datum – die
+  /// vollen 56 Spalten dafür zu lesen kostete an der gewachsenen
+  /// Bibliothek 80 ms statt 30, und umgewandelt wurden sie hier ohnehin.
+  List<Rasterzeile> _gezeigt = const [];
   bool _laedt = true;
 
   @override
@@ -71,10 +81,10 @@ class _AufnahmenWaehlenScreenState extends State<AufnahmenWaehlenScreen> {
     // Aufnahmen selbst, das Foto vom Vorabend liegt also grundsätzlich
     // ausserhalb – und genau um solche geht es hier.
     final liste = gefragt == _Umfang.alle
-        ? await db.alleAufnahmen()
-        : await db.aufnahmenImZeitraum(
-            widget.von.subtract(const Duration(days: 1)),
-            widget.bis.add(const Duration(days: 1)));
+        ? await db.alleRasterzeilen()
+        : await db.rasterzeilenImZeitraum(
+            widget.von!.subtract(const Duration(days: 1)),
+            widget.bis!.add(const Duration(days: 1)));
     if (!mounted || gefragt != _umfang) return;
     setState(() {
       _gezeigt = liste;
@@ -88,7 +98,7 @@ class _AufnahmenWaehlenScreenState extends State<AufnahmenWaehlenScreen> {
     _laden();
   }
 
-  void _tippen(AssetData a) => setState(() {
+  void _tippen(Rasterzeile a) => setState(() {
         if (!_gewaehlt.remove(a.id)) _gewaehlt.add(a.id);
       });
 
@@ -128,12 +138,13 @@ class _AufnahmenWaehlenScreenState extends State<AufnahmenWaehlenScreen> {
               spacing: AppSpacing.sm,
               runSpacing: AppSpacing.xs,
               children: [
-                ChoiceChip(
-                  label: Text(t.aufnahmenWahlZeitraum(
-                      datum.format(widget.von), datum.format(widget.bis))),
-                  selected: _umfang == _Umfang.zeitraum,
-                  onSelected: (_) => _umschalten(_Umfang.zeitraum),
-                ),
+                if (widget.hatZeitraum)
+                  ChoiceChip(
+                    label: Text(t.aufnahmenWahlZeitraum(
+                        datum.format(widget.von!), datum.format(widget.bis!))),
+                    selected: _umfang == _Umfang.zeitraum,
+                    onSelected: (_) => _umschalten(_Umfang.zeitraum),
+                  ),
                 ChoiceChip(
                   label: Text(t.aufnahmenWahlAlle),
                   selected: _umfang == _Umfang.alle,
@@ -178,7 +189,7 @@ class _AufnahmenWaehlenScreenState extends State<AufnahmenWaehlenScreen> {
                         ),
                         itemCount: _gezeigt.length,
                         itemBuilder: (context, i) => AssetThumbnailTile(
-                          asset: Rasterzeile.aus(_gezeigt[i]),
+                          asset: _gezeigt[i],
                           paths: widget.library.paths,
                           selected: _gewaehlt.contains(_gezeigt[i].id),
                           onTap: () => _tippen(_gezeigt[i]),

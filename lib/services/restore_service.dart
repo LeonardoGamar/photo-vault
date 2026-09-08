@@ -5,6 +5,7 @@ import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
 
 import 'tile_processor.dart';
+import 'modellthreads.dart';
 
 /// Kapselt On-Device-Inferenz mit Real-ESRGAN x4 (siehe model_catalog.dart:
 /// `neuralRestore`) für KI-Restaurierung (Hochskalieren + Entrauschen in
@@ -33,7 +34,7 @@ class RestoreService {
     final ort = OnnxRuntime();
     final session = await ort.createSession(
       '$modelsDir/real_esrgan_x4.onnx',
-      options: OrtSessionOptions(providers: [OrtProvider.CORE_ML, OrtProvider.CPU]),
+      options: modelloptionen(providers: [OrtProvider.CORE_ML, OrtProvider.CPU]),
     );
     return RestoreService._(session);
   }

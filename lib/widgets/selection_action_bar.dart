@@ -134,8 +134,12 @@ class SelectionActionBar extends StatelessWidget {
 /// Bei der Integritaetspruefung geht es um Dateien, die unwiderruflich
 /// von der Platte verschwinden – und deren Pfad allein nicht verraet, was
 /// darin steckt. Wer sehen kann, was er loescht, entscheidet anders.
+/// [bestaetigen] beschriftet den Ja-Knopf. Ohne Angabe steht dort
+/// „Löschen" – der Regelfall. Wo etwas anderes geschieht, muss dort
+/// etwas anderes stehen: „Original wiederherstellen" mit einem Knopf
+/// „Löschen" daneben liest sich, als werde das Original gelöscht.
 Future<bool> confirmDialog(BuildContext context, String title, String message,
-    {Widget? vorschau}) async {
+    {Widget? vorschau, String? bestaetigen}) async {
   final result = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
@@ -167,7 +171,7 @@ Future<bool> confirmDialog(BuildContext context, String title, String message,
             foregroundColor: Theme.of(context).colorScheme.onError,
           ),
           onPressed: () => Navigator.pop(context, true),
-          child: Text(AppTexte.of(context).allgLoeschen),
+          child: Text(bestaetigen ?? AppTexte.of(context).allgLoeschen),
         ),
       ],
     ),

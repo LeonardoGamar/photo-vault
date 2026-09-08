@@ -11,6 +11,7 @@ import 'package:image/image.dart' as img;
 
 import 'onnx_hardswish.dart';
 import 'textstellen.dart';
+import 'modellthreads.dart';
 
 /// Texterkennung ohne Betriebssystem-Hilfe – zwei ONNX-Modelle aus der
 /// PaddleOCR-Familie, dieselbe Zerlegung wie dort: erst finden, dann lesen.
@@ -179,8 +180,10 @@ class OcrService {
 
   static Future<OcrService> load(String modelsDir) async {
     final ort = OnnxRuntime();
-    final erkennung = await ort.createSession('$modelsDir/$erkennungsDatei');
-    final lesung = await ort.createSession(await lesemodellPfad(modelsDir));
+    final erkennung = await ort.createSession('$modelsDir/$erkennungsDatei',
+        options: modelloptionen());
+    final lesung = await ort.createSession(await lesemodellPfad(modelsDir),
+        options: modelloptionen());
     final tabelle = zeichenAusKonfig(
         await File('$modelsDir/$zeichenDatei').readAsString(encoding: utf8));
     // Leerplatz vorn, Leerzeichen hinten – genau so zählt PaddleOCR.

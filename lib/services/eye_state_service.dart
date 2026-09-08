@@ -6,6 +6,7 @@ import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
 
 import 'face_postprocess.dart';
+import 'modellthreads.dart';
 
 const int _eyeStateInputWidth = 40;
 const int _eyeStateInputHeight = 24;
@@ -75,7 +76,8 @@ class EyeStateService {
   static Future<EyeStateService?> load(String modelsDir) async {
     if (!isAvailable(modelsDir)) return null;
     final ort = OnnxRuntime();
-    final session = await ort.createSession('$modelsDir/eye_state_ocec_n.onnx');
+    final session = await ort.createSession('$modelsDir/eye_state_ocec_n.onnx',
+        options: modelloptionen());
     return EyeStateService._(session);
   }
 

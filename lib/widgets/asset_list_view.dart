@@ -30,6 +30,11 @@ class AssetListView extends StatefulWidget {
   final List<AssetData> assets;
   final StoragePaths paths;
   final ListenGruppierung gruppierung;
+
+  /// In welche Richtung die Monatsgruppen laufen – siehe
+  /// [gruppiereAssets]. Bei aufsteigender Sortierung stünden die Monate
+  /// sonst rückwärts und die Fotos darin vorwärts.
+  final bool absteigend;
   final Set<String> selectedIds;
   final void Function(AssetData asset) onTap;
   final void Function(AssetData asset) onLongPress;
@@ -53,6 +58,7 @@ class AssetListView extends StatefulWidget {
     required this.assets,
     required this.paths,
     required this.gruppierung,
+    this.absteigend = true,
     required this.selectedIds,
     required this.onTap,
     required this.onLongPress,
@@ -158,7 +164,8 @@ class _AssetListViewState extends State<AssetListView> {
 
   @override
   Widget build(BuildContext context) {
-    final gruppen = gruppiereAssets(widget.assets, widget.gruppierung);
+    final gruppen = gruppiereAssets(widget.assets, widget.gruppierung,
+        absteigend: widget.absteigend);
 
     // Eine flache Liste aus Kopfzeilen und Fotos: So bleibt das Bauen
     // faul, auch wenn eine Gruppe mehrere tausend Fotos enthält.

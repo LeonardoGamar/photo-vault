@@ -398,6 +398,18 @@ abstract class AppTexte {
   /// **'Sofort ablehnen und weiter (ohne Bestätigung)'**
   String get kuerzelSofortAblehnen;
 
+  /// No description provided for @kuerzelZoomWischen.
+  ///
+  /// In de, this message translates to:
+  /// **'⌘/Strg + Wischen'**
+  String get kuerzelZoomWischen;
+
+  /// No description provided for @kuerzelZoomImBild.
+  ///
+  /// In de, this message translates to:
+  /// **'Ins Bild hinein- und herauszoomen (auch mit einer Magic Mouse)'**
+  String get kuerzelZoomImBild;
+
   /// No description provided for @timelineLeer.
   ///
   /// In de, this message translates to:
@@ -433,6 +445,36 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Noch keine Alben vorhanden.'**
   String get albenLeer;
+
+  /// No description provided for @albenIntelligente.
+  ///
+  /// In de, this message translates to:
+  /// **'Intelligente Alben'**
+  String get albenIntelligente;
+
+  /// No description provided for @albenGewoehnliche.
+  ///
+  /// In de, this message translates to:
+  /// **'Alben'**
+  String get albenGewoehnliche;
+
+  /// No description provided for @albumIntelligentLoeschen.
+  ///
+  /// In de, this message translates to:
+  /// **'Intelligentes Album löschen'**
+  String get albumIntelligentLoeschen;
+
+  /// No description provided for @albumIntelligentLoeschenFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'„{name}“ entfernen? Die Aufnahmen bleiben, nur die gespeicherte Suche verschwindet.'**
+  String albumIntelligentLoeschenFrage(String name);
+
+  /// No description provided for @albenIntelligentWoher.
+  ///
+  /// In de, this message translates to:
+  /// **'Ein intelligentes Album ist eine gespeicherte Suche: Es sammelt keine Aufnahmen ein, sondern zeigt jedes Mal neu, was gerade passt. Angelegt wird es in der Suche über das Lesezeichen neben dem Suchfeld.'**
+  String get albenIntelligentWoher;
 
   /// No description provided for @erkundenPersonen.
   ///
@@ -523,6 +565,18 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Modell für die Bildsuche wird geladen …'**
   String get sucheModellLaedt;
+
+  /// No description provided for @sucheOhneEmbeddings.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch ist kein Foto für die KI-Bildsuche ausgewertet. Der Durchgang steht unter Werkzeuge → Aufgaben („CLIP-Embeddings“).'**
+  String get sucheOhneEmbeddings;
+
+  /// No description provided for @sucheOhneTexterkennung.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch ist auf keinem Foto Text erkannt worden. Der Durchgang steht unter Werkzeuge → Aufgaben („Text erkennen (OCR)“).'**
+  String get sucheOhneTexterkennung;
 
   /// No description provided for @sucheModellUnbrauchbar.
   ///
@@ -919,6 +973,30 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Keine unbenannten Gesichter (mehr). Neue erscheinen hier automatisch, sobald du weitere Fotos importierst oder erneut nach Gesichtern suchst. Einzelne kannst du auch selbst markieren: Foto öffnen, Rechtsklick → „Gesichter bearbeiten“, dann oben rechts auf „Gesicht manuell hinzufügen“.'**
   String get personenKeineUnbenannten;
+
+  /// No description provided for @personenOhneGesichtsmodell.
+  ///
+  /// In de, this message translates to:
+  /// **'Ohne ein Modell für die Gesichtserkennung findet Photo Vault keine Gesichter.'**
+  String get personenOhneGesichtsmodell;
+
+  /// No description provided for @personenNochNichtDurchsucht.
+  ///
+  /// In de, this message translates to:
+  /// **'{offen, plural, =1{Eine Aufnahme ist noch nicht nach Gesichtern durchsucht.} other{{offen} Aufnahmen sind noch nicht nach Gesichtern durchsucht.}} Solange das aussteht, kann hier nichts stehen.'**
+  String personenNochNichtDurchsucht(int offen);
+
+  /// No description provided for @personenJetztSuchen.
+  ///
+  /// In de, this message translates to:
+  /// **'Jetzt nach Gesichtern suchen'**
+  String get personenJetztSuchen;
+
+  /// No description provided for @personenSucheLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Gesichtssuche läuft gerade. Die ersten Funde erscheinen hier, sobald sie durch ist.'**
+  String get personenSucheLaeuft;
 
   /// No description provided for @personenSchwellenHinweis.
   ///
@@ -1901,8 +1979,80 @@ abstract class AppTexte {
   /// No description provided for @einstSpeicherbedarf.
   ///
   /// In de, this message translates to:
-  /// **'Speicherbedarf (Originale)'**
+  /// **'Speicherbedarf'**
   String get einstSpeicherbedarf;
+
+  /// No description provided for @belegung_originals.
+  ///
+  /// In de, this message translates to:
+  /// **'Originale'**
+  String get belegung_originals;
+
+  /// No description provided for @belegung_previews.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschauen'**
+  String get belegung_previews;
+
+  /// No description provided for @belegung_thumbnails.
+  ///
+  /// In de, this message translates to:
+  /// **'Miniaturen'**
+  String get belegung_thumbnails;
+
+  /// No description provided for @belegung_developed.
+  ///
+  /// In de, this message translates to:
+  /// **'Entwickelte Fassungen'**
+  String get belegung_developed;
+
+  /// No description provided for @belegung_restored.
+  ///
+  /// In de, this message translates to:
+  /// **'Restaurierte Fassungen'**
+  String get belegung_restored;
+
+  /// No description provided for @belegung_trimmed.
+  ///
+  /// In de, this message translates to:
+  /// **'Zugeschnittene Videos'**
+  String get belegung_trimmed;
+
+  /// No description provided for @belegung_masks.
+  ///
+  /// In de, this message translates to:
+  /// **'Masken'**
+  String get belegung_masks;
+
+  /// No description provided for @belegung_faces.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichtsausschnitte'**
+  String get belegung_faces;
+
+  /// No description provided for @belegung_luts.
+  ///
+  /// In de, this message translates to:
+  /// **'Farbtabellen'**
+  String get belegung_luts;
+
+  /// No description provided for @belegung_trash.
+  ///
+  /// In de, this message translates to:
+  /// **'Papierkorb'**
+  String get belegung_trash;
+
+  /// No description provided for @belegung_datenbank.
+  ///
+  /// In de, this message translates to:
+  /// **'Datenbank'**
+  String get belegung_datenbank;
+
+  /// No description provided for @belegung_sonstiges.
+  ///
+  /// In de, this message translates to:
+  /// **'Sonstiges'**
+  String get belegung_sonstiges;
 
   /// No description provided for @einstModellLaedt.
   ///
@@ -2227,6 +2377,24 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'KI-Bildsuche – CLIP ViT-B/32'**
   String get modellClipTitel;
+
+  /// No description provided for @einstAlleModelleLaden.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle fehlenden laden ({anzahl})'**
+  String einstAlleModelleLaden(int anzahl);
+
+  /// No description provided for @einstAlleModelleDa.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Modelle liegen bereit'**
+  String get einstAlleModelleDa;
+
+  /// No description provided for @einstAlleModelleLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Modell {nummer} von {gesamt}'**
+  String einstAlleModelleLaeuft(int nummer, int gesamt);
 
   /// No description provided for @modellClipText.
   ///
@@ -3963,6 +4131,12 @@ abstract class AppTexte {
   /// **'KI'**
   String get entwFormKi;
 
+  /// No description provided for @entwFormKiFehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'Benötigt das Segmentierungs-Modell (Einstellungen → KI-Modelle)'**
+  String get entwFormKiFehlt;
+
   /// No description provided for @entwFormPinsel.
   ///
   /// In de, this message translates to:
@@ -4677,6 +4851,30 @@ abstract class AppTexte {
   /// **'Dieses Album enthält noch keine Fotos.'**
   String get albumLeer;
 
+  /// No description provided for @albumFotosHinzufuegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos hinzufügen'**
+  String get albumFotosHinzufuegen;
+
+  /// No description provided for @albumTitelbildSetzen.
+  ///
+  /// In de, this message translates to:
+  /// **'Als Titelbild'**
+  String get albumTitelbildSetzen;
+
+  /// No description provided for @albumTitelbildGesetzt.
+  ///
+  /// In de, this message translates to:
+  /// **'Titelbild gesetzt'**
+  String get albumTitelbildGesetzt;
+
+  /// No description provided for @albumFotosWaehlenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Fotos für „{album}“'**
+  String albumFotosWaehlenTitel(String album);
+
   /// No description provided for @regelLoeschenTitel.
   ///
   /// In de, this message translates to:
@@ -5150,6 +5348,24 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Import abgeschlossen'**
   String get importAbgeschlossen;
+
+  /// No description provided for @importBilanzNeu.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{1 neu hereingekommen} other{{anzahl} neu hereingekommen}}'**
+  String importBilanzNeu(int anzahl);
+
+  /// No description provided for @importBilanzDuplikate.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{1 lag schon in der Bibliothek und wurde übersprungen} other{{anzahl} lagen schon in der Bibliothek und wurden übersprungen}}'**
+  String importBilanzDuplikate(int anzahl);
+
+  /// No description provided for @importBilanzFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{1 kam nicht herein} other{{anzahl} kamen nicht herein}}'**
+  String importBilanzFehler(int anzahl);
 
   /// No description provided for @importLaeuft.
   ///
@@ -5967,6 +6183,54 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Ort entfernen'**
   String get infoOrtEntfernen;
+
+  /// No description provided for @infoBearbeitet.
+  ///
+  /// In de, this message translates to:
+  /// **'Bearbeitet'**
+  String get infoBearbeitet;
+
+  /// No description provided for @infoBearbeitetEntwickelt.
+  ///
+  /// In de, this message translates to:
+  /// **'entwickelt'**
+  String get infoBearbeitetEntwickelt;
+
+  /// No description provided for @infoBearbeitetRestauriert.
+  ///
+  /// In de, this message translates to:
+  /// **'restauriert'**
+  String get infoBearbeitetRestauriert;
+
+  /// No description provided for @infoBearbeitetZugeschnitten.
+  ///
+  /// In de, this message translates to:
+  /// **'zugeschnitten'**
+  String get infoBearbeitetZugeschnitten;
+
+  /// No description provided for @infoOriginalUnberuehrt.
+  ///
+  /// In de, this message translates to:
+  /// **'{arten} – die Originaldatei ist unverändert'**
+  String infoOriginalUnberuehrt(String arten);
+
+  /// No description provided for @infoOriginalHerstellen.
+  ///
+  /// In de, this message translates to:
+  /// **'Original wiederherstellen'**
+  String get infoOriginalHerstellen;
+
+  /// No description provided for @infoOriginalHerstellenFrage.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Bearbeitungen dieser Aufnahme zurücknehmen? Die abgeleiteten Dateien werden gelöscht; das Original bleibt, wie es ist.'**
+  String get infoOriginalHerstellenFrage;
+
+  /// No description provided for @infoOriginalHergestellt.
+  ///
+  /// In de, this message translates to:
+  /// **'Original wiederhergestellt.'**
+  String get infoOriginalHergestellt;
 
   /// No description provided for @infoSerie.
   ///
@@ -7631,6 +7895,54 @@ abstract class AppTexte {
   /// **'Ohne Gliederung'**
   String get gruppeKeine;
 
+  /// No description provided for @sortReihenfolge.
+  ///
+  /// In de, this message translates to:
+  /// **'Reihenfolge'**
+  String get sortReihenfolge;
+
+  /// No description provided for @sortAufnahmeNeu.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmedatum, neueste zuerst'**
+  String get sortAufnahmeNeu;
+
+  /// No description provided for @sortAufnahmeAlt.
+  ///
+  /// In de, this message translates to:
+  /// **'Aufnahmedatum, älteste zuerst'**
+  String get sortAufnahmeAlt;
+
+  /// No description provided for @sortImportNeu.
+  ///
+  /// In de, this message translates to:
+  /// **'Zuletzt hinzugefügt'**
+  String get sortImportNeu;
+
+  /// No description provided for @sortName.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateiname, A–Z'**
+  String get sortName;
+
+  /// No description provided for @sortBewertung.
+  ///
+  /// In de, this message translates to:
+  /// **'Bewertung, beste zuerst'**
+  String get sortBewertung;
+
+  /// No description provided for @sortGroesse.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateigrösse, grösste zuerst'**
+  String get sortGroesse;
+
+  /// No description provided for @sortFundreihenfolge.
+  ///
+  /// In de, this message translates to:
+  /// **'Fundreihenfolge'**
+  String get sortFundreihenfolge;
+
   /// No description provided for @bearbGeradeziehen.
   ///
   /// In de, this message translates to:
@@ -7672,6 +7984,18 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Objekt entfernen'**
   String get bearbRetusche;
+
+  /// No description provided for @aufgLamaModell.
+  ///
+  /// In de, this message translates to:
+  /// **'das LaMa-Modell'**
+  String get aufgLamaModell;
+
+  /// No description provided for @bearbRetuscheNichtsMarkiert.
+  ///
+  /// In de, this message translates to:
+  /// **'Nichts markiert – male über das, was verschwinden soll.'**
+  String get bearbRetuscheNichtsMarkiert;
 
   /// No description provided for @bearbRetuscheAnwenden.
   ///
@@ -8650,6 +8974,30 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Notiz'**
   String get reisenNotiz;
+
+  /// No description provided for @reisenTagesnotiz.
+  ///
+  /// In de, this message translates to:
+  /// **'Notiz zu diesem Tag'**
+  String get reisenTagesnotiz;
+
+  /// No description provided for @reisenTagesnotizTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'{datum}'**
+  String reisenTagesnotizTitel(String datum);
+
+  /// No description provided for @reisenTagesnotizSchreiben.
+  ///
+  /// In de, this message translates to:
+  /// **'Notiz zu diesem Tag schreiben'**
+  String get reisenTagesnotizSchreiben;
+
+  /// No description provided for @reisenTagesnotizAendern.
+  ///
+  /// In de, this message translates to:
+  /// **'Notiz zu diesem Tag ändern'**
+  String get reisenTagesnotizAendern;
 
   /// No description provided for @reisenUmbenennen.
   ///
@@ -10169,6 +10517,96 @@ abstract class AppTexte {
   /// **'Unternehmungen'**
   String get aktivitaetenInDieserReise;
 
+  /// No description provided for @reiseartReise.
+  ///
+  /// In de, this message translates to:
+  /// **'Reise'**
+  String get reiseartReise;
+
+  /// No description provided for @reisenZusammenfuehren.
+  ///
+  /// In de, this message translates to:
+  /// **'Zusammenführen'**
+  String get reisenZusammenfuehren;
+
+  /// No description provided for @reisenZusammenfuehrenAllein.
+  ///
+  /// In de, this message translates to:
+  /// **'Es gibt keine zweite Reise, mit der sich diese zusammenführen liesse.'**
+  String get reisenZusammenfuehrenAllein;
+
+  /// No description provided for @reisenZusammenfuehrenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Zu „{name}\" hinzufügen'**
+  String reisenZusammenfuehrenTitel(String name);
+
+  /// No description provided for @reisenZusammenfuehrenHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Die gewählten Reisen gehen in „{name}\" auf: Aufnahmen, Unternehmungen, Spuren und Tagesnotizen kommen mit, die Namen der gewählten verschwinden.'**
+  String reisenZusammenfuehrenHinweis(String name);
+
+  /// No description provided for @reisenZusammengefuehrt.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, one{Eine Reise ging} other{{anzahl} Reisen gingen}} in „{name}\" auf.'**
+  String reisenZusammengefuehrt(String name, int anzahl);
+
+  /// No description provided for @reiseartUnternehmung.
+  ///
+  /// In de, this message translates to:
+  /// **'Unternehmung'**
+  String get reiseartUnternehmung;
+
+  /// No description provided for @reiseartGeschaeftlich.
+  ///
+  /// In de, this message translates to:
+  /// **'Dienstlich'**
+  String get reiseartGeschaeftlich;
+
+  /// No description provided for @reiseartBesuch.
+  ///
+  /// In de, this message translates to:
+  /// **'Besuch'**
+  String get reiseartBesuch;
+
+  /// No description provided for @reiseartSonstiges.
+  ///
+  /// In de, this message translates to:
+  /// **'Sonstiges'**
+  String get reiseartSonstiges;
+
+  /// No description provided for @reisenArtAendern.
+  ///
+  /// In de, this message translates to:
+  /// **'Art der Reise'**
+  String get reisenArtAendern;
+
+  /// No description provided for @reisenAktivitaetAnlegen.
+  ///
+  /// In de, this message translates to:
+  /// **'Unternehmung anlegen'**
+  String get reisenAktivitaetAnlegen;
+
+  /// No description provided for @reisenOhneAktivitaeten.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch keine – „Unternehmung anlegen\" macht aus der ganzen Reise oder einem Abschnitt daraus eine.'**
+  String get reisenOhneAktivitaeten;
+
+  /// No description provided for @reisenAktivitaetLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'In diesem Zeitraum liegt keine Aufnahme dieser Reise.'**
+  String get reisenAktivitaetLeer;
+
+  /// No description provided for @reisenAktivitaetAngelegt.
+  ///
+  /// In de, this message translates to:
+  /// **'Unternehmung „{name}\" angelegt, {anzahl} Aufnahmen.'**
+  String reisenAktivitaetAngelegt(String name, int anzahl);
+
   /// No description provided for @aktivitaetenAngelegt.
   ///
   /// In de, this message translates to:
@@ -10996,6 +11434,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Jede Aufnahme liegt im Ordner ihres Datums.'**
   String get werkzAblageStimmt;
+
+  /// No description provided for @werkzAblageBilanz.
+  ///
+  /// In de, this message translates to:
+  /// **'{verschoben} von {gesamt} umgelegt'**
+  String werkzAblageBilanz(int verschoben, int gesamt);
 
   /// No description provided for @werkzAblageFrageTitel.
   ///

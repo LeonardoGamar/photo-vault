@@ -12,6 +12,7 @@ import '../screens/person_detail_screen.dart';
 import '../screens/serienvergleich_screen.dart';
 import '../services/reverse_geocoder.dart';
 import '../services/asset_format.dart';
+import '../services/bearbeitung_zuruecknehmen.dart';
 import '../services/storage_paths.dart';
 import '../services/textstellen.dart';
 import '../state/library_state.dart';
@@ -20,6 +21,7 @@ import 'color_label_picker.dart';
 import 'mini_location_map.dart';
 import 'person_picker_dialog.dart';
 import 'star_rating.dart';
+import 'selection_action_bar.dart' show confirmDialog;
 import '../services/meldungsdienst.dart';
 import 'profilbild.dart';
 import '../services/laendernamen.dart';
@@ -379,6 +381,36 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
     await _refresh();
   }
 
+  /// Was an dieser Aufnahme bearbeitet ist, als Aufzaehlung.
+  String _bearbeitungstext(AppTexte t) => [
+        for (final art in bearbeitungsarten(_asset))
+          switch (art) {
+            Bearbeitungsart.entwickelt => t.infoBearbeitetEntwickelt,
+            Bearbeitungsart.restauriert => t.infoBearbeitetRestauriert,
+            Bearbeitungsart.zugeschnitten => t.infoBearbeitetZugeschnitten,
+          }
+      ].join(', ');
+
+  /// Nimmt jede Bearbeitung dieser Aufnahme zurueck – siehe
+  /// [originalWiederherstellen].
+  ///
+  /// Mit Rueckfrage: Die abgeleiteten Dateien verschwinden dabei von der
+  /// Platte, und wer eine halbe Stunde an den Reglern gesessen hat, soll
+  /// das nicht durch einen verrutschten Klick verlieren.
+  Future<void> _originalWiederherstellen() async {
+    final t = AppTexte.of(context);
+    if (!await confirmDialog(
+        context, t.infoOriginalHerstellen, t.infoOriginalHerstellenFrage,
+        bestaetigen: t.infoOriginalHerstellen)) {
+      return;
+    }
+    await originalWiederherstellen(
+        db: widget.db, paths: widget.paths, asset: _asset);
+    if (!mounted) return;
+    melde.erfolg(t.infoOriginalHergestellt);
+    await _refresh();
+  }
+
   /// Löst eine Serien-Gruppierung wieder auf (siehe StackReviewScreen) – nur
   /// vom Titelbild aus erreichbar, da nur dessen Info-Panel überhaupt
   /// sichtbar ist (die übrigen Mitglieder sind aus der Rasteransicht
@@ -671,6 +703,24 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
                         title: asset.originalFileName,
                         subtitle: _fileDetailsSubtitle(asset),
                       ),
+                      // Der Weg zurueck. Nicht-destruktiv zu arbeiten
+                      // heisst, dass es ihn gibt - nur stand er bisher
+                      // allein in dem Werkzeug, das die Aenderung gemacht
+                      // hat, und hiess dort "Zuruecksetzen". Wer eine
+                      // Aufnahme vor sich hat, sieht hier, DASS sie
+                      // bearbeitet ist, WAS an ihr bearbeitet ist und
+                      // kommt mit einem Klick auf das Original zurueck.
+                      if (bearbeitungsarten(_asset).isNotEmpty)
+                        _IconDetailRow(
+                          icon: Icons.auto_fix_high_outlined,
+                          title: AppTexte.of(context).infoBearbeitet,
+                          subtitle: AppTexte.of(context).infoOriginalUnberuehrt(
+                              _bearbeitungstext(AppTexte.of(context))),
+                          onEdit: _originalWiederherstellen,
+                          editIcon: Icons.restore,
+                          editTooltip:
+                              AppTexte.of(context).infoOriginalHerstellen,
+                        ),
                       if (kameraTitel != null || werte.isNotEmpty)
                         _Aufnahmeblock(
                           kamera: kameraTitel ?? asset.lensModel,

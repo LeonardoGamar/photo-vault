@@ -337,7 +337,8 @@ class _HomeShellState extends State<HomeShell> {
 
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (HardwareKeyboard.instance.isMetaPressed) {
+    if (HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed) {
       final ziffern = [
         LogicalKeyboardKey.digit1,
         LogicalKeyboardKey.digit2,
@@ -355,9 +356,26 @@ class _HomeShellState extends State<HomeShell> {
         // Tastenfeld.
         LogicalKeyboardKey.digit0,
       ];
+      // Das Nummernfeld trägt eigene Tasten. Wer es benutzt, drückt
+      // dieselbe Ziffer und erwartet dasselbe – bis zur Prüfrunde vom
+      // 04.09.2026 passierte dort nichts.
+      const nummernfeld = [
+        LogicalKeyboardKey.numpad1,
+        LogicalKeyboardKey.numpad2,
+        LogicalKeyboardKey.numpad3,
+        LogicalKeyboardKey.numpad4,
+        LogicalKeyboardKey.numpad5,
+        LogicalKeyboardKey.numpad6,
+        LogicalKeyboardKey.numpad7,
+        LogicalKeyboardKey.numpad8,
+        LogicalKeyboardKey.numpad9,
+        LogicalKeyboardKey.numpad0,
+      ];
       final digitKeys = <LogicalKeyboardKey, int>{
         for (var i = 0; i < _kuerzelZiele.length && i < ziffern.length; i++)
           ziffern[i]: _kuerzelZiele[i],
+        for (var i = 0; i < _kuerzelZiele.length && i < nummernfeld.length; i++)
+          nummernfeld[i]: _kuerzelZiele[i],
       };
       final target = digitKeys[event.logicalKey];
       if (target != null) {
@@ -368,7 +386,20 @@ class _HomeShellState extends State<HomeShell> {
     // event.character statt LogicalKeyboardKey.slash, damit es unabhängig
     // vom Tastaturlayout funktioniert ("?" liegt auf deutschen Tastaturen
     // z.B. auf Umschalt+ß, nicht auf Umschalt+/ wie im US-Layout).
-    if (event.character == '?') {
+    //
+    // Die logische Taste steht als zweiter Weg daneben: Nicht jede Umgebung
+    // liefert zu einem Tastendruck ein Zeichen mit (gemeldet in der
+    // Prüfrunde vom 04.09.2026 – „passiert nichts, auch nicht mit
+    // Umschalt+ß"). Zwei Wege zu prüfen kostet nichts; einer, der still
+    // ausfällt, kostet die ganze Tafel.
+    if (event.character == '?' ||
+        event.logicalKey == LogicalKeyboardKey.question ||
+        (HardwareKeyboard.instance.isShiftPressed &&
+            // Über die Lage der Taste, nicht über ihr Zeichen: Auf der
+            // deutschen Tastatur sitzt das ß dort, wo im US-Layout der
+            // Bindestrich liegt – und Umschalt darauf ergibt beide Male „?".
+            (event.physicalKey == PhysicalKeyboardKey.slash ||
+                event.physicalKey == PhysicalKeyboardKey.minus))) {
       _showShortcutsOverview();
       return KeyEventResult.handled;
     }

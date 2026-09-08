@@ -13,6 +13,7 @@ import '../widgets/pin_dialogs.dart';
 import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
 import 'asset_viewer_screen.dart';
+import 'aufnahmen_waehlen_screen.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/stromhalter.dart';
 
@@ -71,9 +72,8 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen>
     if (index >= 0) _openViewer(_geladen, index);
   }
 
-  void _toggle(String id) => setState(() {
-        if (!_selected.remove(id)) _selected.add(id);
-      });
+  /// Siehe [Rasterbedienung.rasterUmschalten]: Der Anker gehoert dazu.
+  void _toggle(String id) => rasterUmschalten(id);
 
   void _openViewer(List<AssetData> assets, int index) {
     Navigator.of(context).push(MaterialPageRoute(
@@ -160,6 +160,42 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen>
     }
   }
 
+  /// Waehlt Aufnahmen aus der Bibliothek und legt sie ins Album.
+  ///
+  /// Der Waehler kennt keinen Zeitraum – ein Album ist eine Sammlung und
+  /// keine Zeitspanne, deshalb steht er von Anfang an auf der ganzen
+  /// Bibliothek.
+  Future<void> _fotosHinzufuegen(List<AssetData> vorhanden) async {
+    final vorher = {for (final a in vorhanden) a.id};
+    final gewaehlt = await Navigator.of(context).push<Set<String>>(
+      MaterialPageRoute(
+        builder: (_) => AufnahmenWaehlenScreen(
+          library: widget.library,
+          titel: AppTexte.of(context).albumFotosWaehlenTitel(widget.albumName),
+          vorhanden: vorher,
+        ),
+      ),
+    );
+    if (gewaehlt == null || !mounted) return;
+    final dazu = gewaehlt.difference(vorher).toList();
+    final weg = vorher.difference(gewaehlt);
+    if (dazu.isNotEmpty) {
+      await widget.library.db.addAssetsToAlbum(widget.albumId, dazu);
+    }
+    // Abwaehlen zaehlt auch: Der Waehler zeigt das Vorhandene angehakt,
+    // und ein entferntes Haekchen ist eine Ansage.
+    for (final id in weg) {
+      await widget.library.db.removeAssetFromAlbum(widget.albumId, id);
+    }
+  }
+
+  Future<void> _titelbildSetzen(String assetId) async {
+    await widget.library.db.setzeAlbumTitelbild(widget.albumId, assetId);
+    if (!mounted) return;
+    melde.hinweis(AppTexte.of(context).albumTitelbildGesetzt);
+    setState(_selected.clear);
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<AssetData>>(
@@ -172,6 +208,20 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen>
           appBar: AppBar(
             title: Text(widget.albumName),
             actions: [
+              // Aus dem Album heraus, nicht nur von aussen ueber "Zu
+              // Album hinzufuegen": Wer ein Album offen hat und es
+              // fuellen will, sucht den Knopf hier.
+              IconButton(
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                tooltip: AppTexte.of(context).albumFotosHinzufuegen,
+                onPressed: () => _fotosHinzufuegen(assets),
+              ),
+              if (_selected.length == 1)
+                IconButton(
+                  icon: const Icon(Icons.image_outlined),
+                  tooltip: AppTexte.of(context).albumTitelbildSetzen,
+                  onPressed: () => _titelbildSetzen(_selected.first),
+                ),
               if (assets.isNotEmpty)
                 IconButton(
                   icon: const Icon(Icons.ios_share),

@@ -251,20 +251,25 @@ List<String> tastenziel(Set<String> auswahl, String? aktiveKachel) {
 /// Taste. Eine fünfte Taste dazuzuerfinden hiesse, eine Gewohnheit zu brechen,
 /// die Umsteiger mitbringen. Violett bleibt der Maus.
 String? farbmarkeFuerZiffer(LogicalKeyboardKey taste) => switch (taste) {
-      LogicalKeyboardKey.digit6 => 'red',
-      LogicalKeyboardKey.digit7 => 'yellow',
-      LogicalKeyboardKey.digit8 => 'green',
-      LogicalKeyboardKey.digit9 => 'blue',
+      LogicalKeyboardKey.digit6 || LogicalKeyboardKey.numpad6 => 'red',
+      LogicalKeyboardKey.digit7 || LogicalKeyboardKey.numpad7 => 'yellow',
+      LogicalKeyboardKey.digit8 || LogicalKeyboardKey.numpad8 => 'green',
+      LogicalKeyboardKey.digit9 || LogicalKeyboardKey.numpad9 => 'blue',
       _ => null,
     };
 
 /// Die Bewertung zu einer Zifferntaste 0–5, oder `null` für jede andere Taste.
+///
+/// **Das Nummernfeld zählt mit.** Es lag zwei Fassungen lang daneben: Wer
+/// die Tastatur rechts benutzte, bekam nur einen Systempiep – das Zeichen
+/// dafür, dass niemand die Taste haben wollte. Gemeldet in der Prüfrunde
+/// vom 04.09.2026.
 int? bewertungFuerZiffer(LogicalKeyboardKey taste) => switch (taste) {
-      LogicalKeyboardKey.digit0 => 0,
-      LogicalKeyboardKey.digit1 => 1,
-      LogicalKeyboardKey.digit2 => 2,
-      LogicalKeyboardKey.digit3 => 3,
-      LogicalKeyboardKey.digit4 => 4,
-      LogicalKeyboardKey.digit5 => 5,
+      LogicalKeyboardKey.digit0 || LogicalKeyboardKey.numpad0 => 0,
+      LogicalKeyboardKey.digit1 || LogicalKeyboardKey.numpad1 => 1,
+      LogicalKeyboardKey.digit2 || LogicalKeyboardKey.numpad2 => 2,
+      LogicalKeyboardKey.digit3 || LogicalKeyboardKey.numpad3 => 3,
+      LogicalKeyboardKey.digit4 || LogicalKeyboardKey.numpad4 => 4,
+      LogicalKeyboardKey.digit5 || LogicalKeyboardKey.numpad5 => 5,
       _ => null,
     };

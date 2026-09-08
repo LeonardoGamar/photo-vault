@@ -16,6 +16,7 @@ import 'package:photo_vault/services/reverse_geocoder.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 import 'package:photo_vault/state/library_state.dart';
 import 'package:photo_vault/theme/app_theme.dart';
+import 'package:photo_vault/widgets/ortskachel.dart';
 import 'package:photo_vault/widgets/asset_thumbnail_tile.dart';
 import 'package:photo_vault/widgets/routenkarte.dart';
 import 'package:photo_vault/services/meldungsdienst.dart';
@@ -185,6 +186,92 @@ void main() {
     expect(find.text('Besuchte Orte'), findsOneWidget);
     // Der Ort steht als Chip und als Titel – deshalb mehrfach.
     expect(find.text('Roma'), findsWidgets);
+  });
+
+  testWidgets('zwei Reisen lassen sich zu einer zusammenfuehren',
+      (tester) async {
+    // **Warum es das braucht.** Die Erkennung trennt bei mehr als zwei
+    // Tagen ohne Aufnahme. Bei einem Urlaub ist das richtig; ein
+    // zweimonatiger Auslandseinsatz zerfiel dadurch in vier Vorschlaege
+    // von 25, 63, 89 und 20 Bildern.
+    await db.reiseAnlegen(
+      ReisenCompanion.insert(
+        id: 'r1',
+        name: 'Einsatz',
+        von: DateTime(2024, 6, 3, 9),
+        bis: DateTime(2024, 6, 4, 9),
+        angelegtAm: DateTime(2024, 7, 1),
+      ),
+      ['r0-0', 'r0-1'],
+    );
+    await db.reiseAnlegen(
+      ReisenCompanion.insert(
+        id: 'r2',
+        name: 'Zweiter Teil',
+        von: DateTime(2024, 6, 8, 9),
+        bis: DateTime(2024, 6, 8, 9),
+        angelegtAm: DateTime(2024, 7, 1),
+      ),
+      ['r5-0', 'r5-1'],
+    );
+    await zeige(tester);
+    expect(find.text('Einsatz'), findsOneWidget);
+    expect(find.text('Zweiter Teil'), findsOneWidget);
+
+    // Das Menue der Reise, die stehenbleiben soll – die Kachel traegt
+    // es oben rechts.
+    final kachel = find.ancestor(
+        of: find.text('Einsatz'),
+        matching: find.byType(Reisekachel));
+    await tester.tap(find.descendant(
+        of: kachel, matching: find.byType(PopupMenuButton<Kachelbefehl>)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Zusammenführen').last);
+    await tester.pumpAndSettle();
+
+    // Die andere Reise steht zur Wahl, die eigene nicht.
+    expect(find.widgetWithText(CheckboxListTile, 'Zweiter Teil'),
+        findsOneWidget);
+    expect(find.widgetWithText(CheckboxListTile, 'Einsatz'), findsNothing,
+        reason: 'in sich selbst kann nichts aufgehen');
+
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Zweiter Teil'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Zusammenführen'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Zweiter Teil'), findsNothing);
+    expect(find.text('Einsatz'), findsOneWidget);
+    final uebrig = await db.alleReisen();
+    expect(uebrig, hasLength(1));
+    expect(await db.aufnahmenDerReise('r1'), hasLength(4));
+  });
+
+  testWidgets('die Art der Reise steht dabei und laesst sich aendern',
+      (tester) async {
+    await db.reiseAnlegen(
+      ReisenCompanion.insert(
+        id: 'r1',
+        name: 'Einsatz',
+        von: DateTime(2024, 6, 3, 9),
+        bis: DateTime(2024, 6, 4, 9),
+        angelegtAm: DateTime(2024, 7, 1),
+      ),
+      ['r0-0'],
+    );
+    await zeige(tester);
+    await tester.tap(find.text('Einsatz'));
+    await tester.pumpAndSettle();
+
+    // Vorbelegt ist „Reise" – was jede bestehende der Sache nach war.
+    expect(find.widgetWithText(ActionChip, 'Reise'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ActionChip, 'Reise'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unternehmung'));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(ActionChip, 'Unternehmung'), findsOneWidget);
+    expect((await db.alleReisen()).single.art, 'unternehmung');
   });
 
   testWidgets('eine Notiz laesst sich schreiben und wieder loeschen',

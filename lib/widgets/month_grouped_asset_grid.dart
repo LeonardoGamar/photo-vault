@@ -28,13 +28,18 @@ const double _scrubberWidth = 64.0;
 /// formatierten Datums-Strings – bei jeder DB-Änderung liefert
 /// `watchTimeline()` die komplette Liste neu, wodurch diese Gruppierung bei
 /// großen Bibliotheken sonst unnötig oft (kostspielig) neu läuft.
-({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen}) monatsgruppen(List<Rasterzeile> assets) {
+({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen}) monatsgruppen(
+    List<Rasterzeile> assets, {bool absteigend = true}) {
   final gruppen = <int, List<Rasterzeile>>{};
   for (final a in assets) {
     final key = a.fileCreatedAt.year * 100 + a.fileCreatedAt.month;
     gruppen.putIfAbsent(key, () => []).add(a);
   }
-  final schluessel = gruppen.keys.toList()..sort((a, b) => b.compareTo(a));
+  // Die Monate laufen in dieselbe Richtung wie die Fotos darin. Stünde
+  // hier fest „neueste zuerst", zeigte die Zeitleiste bei aufsteigender
+  // Sortierung die Monate rückwärts und die Fotos darin vorwärts.
+  final schluessel = gruppen.keys.toList()
+    ..sort((a, b) => absteigend ? b.compareTo(a) : a.compareTo(b));
   return (schluessel: schluessel, gruppen: gruppen);
 }
 
@@ -45,14 +50,15 @@ const double _scrubberWidth = 64.0;
 /// mangels zweiter Gruppe weg. Der Schlüssel ist wieder ein günstiger
 /// Integer (Jahr*10000 + Monat*100 + Tag), aus demselben Grund wie oben.
 ({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen}) tagesgruppen(
-    List<Rasterzeile> assets) {
+    List<Rasterzeile> assets, {bool absteigend = true}) {
   final gruppen = <int, List<Rasterzeile>>{};
   for (final a in assets) {
     final d = a.fileCreatedAt;
     gruppen.putIfAbsent(d.year * 10000 + d.month * 100 + d.day, () => [])
         .add(a);
   }
-  final schluessel = gruppen.keys.toList()..sort((a, b) => b.compareTo(a));
+  final schluessel = gruppen.keys.toList()
+    ..sort((a, b) => absteigend ? b.compareTo(a) : a.compareTo(b));
   return (schluessel: schluessel, gruppen: gruppen);
 }
 
@@ -152,6 +158,20 @@ class MonthGroupedAssetGrid extends StatefulWidget {
   /// Quadrate oder bündige Reihen.
   final Zeitleistenform form;
 
+  /// Ob überhaupt nach Zeit gegliedert wird.
+  ///
+  /// **Warum das abschaltbar sein muss.** Die Überschrift einer Gruppe
+  /// nennt den Monat der ersten Aufnahme darin. Sortiert die Zeitleiste
+  /// nach Dateigrösse oder Bewertung, stünde über einer Gruppe „März
+  /// 2019", obwohl die Aufnahme darunter von 2024 sein kann – und der
+  /// Zeitstrahl daneben führte an Monate, die es so nicht gibt. Ohne
+  /// Gliederung fällt beides weg, und die Fotos stehen in genau der
+  /// Reihenfolge, die eingestellt ist.
+  final bool gliedern;
+
+  /// In welche Richtung die Gruppen laufen – siehe [monatsgruppen].
+  final bool absteigend;
+
   const MonthGroupedAssetGrid({
     super.key,
     required this.assets,
@@ -167,6 +187,8 @@ class MonthGroupedAssetGrid extends StatefulWidget {
     this.nachTag = false,
     this.kachelbreite = timelineGridMaxCrossAxisExtent,
     this.form = zeitleisteFormVorgabe,
+    this.gliedern = true,
+    this.absteigend = true,
   });
 
   @override
@@ -466,7 +488,9 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     return SliverList(
       delegate: _ReihenDelegate(
         gesamthoehe: timelineMonthGroupHeight(gruppe, gridWidth,
-            kachelbreite: widget.kachelbreite, form: widget.form),
+            kachelbreite: widget.kachelbreite,
+            form: widget.form,
+            mitUeberschrift: widget.gliedern),
         anzahl: anzahl + 1,
         bauen: (context, index) =>
             index == 0 ? ueberschrift : reiheBauen(index - 1),
@@ -478,6 +502,8 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
   ({List<int> schluessel, Map<int, List<Rasterzeile>> gruppen})? _gruppenCache;
   List<Rasterzeile>? _gruppenFuer;
   bool? _gruppenNachTag;
+  bool? _gruppenGliedern;
+  bool? _gruppenAbsteigend;
 
   /// Gruppiert – aber nur, wenn sich etwas geändert hat.
   ///
@@ -504,14 +530,25 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     final cache = _gruppenCache;
     if (cache != null &&
         identical(_gruppenFuer, widget.assets) &&
-        _gruppenNachTag == widget.nachTag) {
+        _gruppenNachTag == widget.nachTag &&
+        _gruppenGliedern == widget.gliedern &&
+        _gruppenAbsteigend == widget.absteigend) {
       return cache;
     }
     _gruppenFuer = widget.assets;
     _gruppenNachTag = widget.nachTag;
+    _gruppenGliedern = widget.gliedern;
+    _gruppenAbsteigend = widget.absteigend;
+    // Ohne Gliederung eine einzige Gruppe, die die Liste unveraendert
+    // durchreicht - und keine zweite Sortierung darauf: Die Reihenfolge
+    // kommt aus dem ORDER BY und soll genau so stehen bleiben.
+    if (!widget.gliedern) {
+      return _gruppenCache =
+          (schluessel: const [0], gruppen: {0: widget.assets});
+    }
     return _gruppenCache = widget.nachTag
-        ? tagesgruppen(widget.assets)
-        : monatsgruppen(widget.assets);
+        ? tagesgruppen(widget.assets, absteigend: widget.absteigend)
+        : monatsgruppen(widget.assets, absteigend: widget.absteigend);
   }
 
   @override
@@ -525,7 +562,8 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
     final geteilt = _gruppierung();
     final groups = geteilt.gruppen;
     final orderedKeys = geteilt.schluessel;
-    final showScrubber = rasterMitZeitstrahl(orderedKeys.length);
+    final showScrubber =
+        widget.gliedern && rasterMitZeitstrahl(orderedKeys.length);
     _lastGroups = groups;
     _lastOrderedKeys = orderedKeys;
 
@@ -555,8 +593,12 @@ class _MonthGroupedAssetGridState extends State<MonthGroupedAssetGrid> {
                   controller: _scrollController,
                   slivers: [
                     for (final key in orderedKeys) ...[
-                      _gruppenSliver(groups[key]!, gridWidth,
-                          _ueberschrift(context, groups[key]!)),
+                      _gruppenSliver(
+                          groups[key]!,
+                          gridWidth,
+                          widget.gliedern
+                              ? _ueberschrift(context, groups[key]!)
+                              : const SizedBox.shrink()),
                     ],
                     const SliverToBoxAdapter(child: SizedBox(height: 40)),
                   ],

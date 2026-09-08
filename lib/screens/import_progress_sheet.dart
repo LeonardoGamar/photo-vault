@@ -94,6 +94,30 @@ Future<void> showImportSheet(BuildContext context, LibraryState library) async {
 
 enum _ImportMode { files, folder, camera }
 
+/// Die Bilanz eines Imports als eine Zeile – oder `null`, wenn es nichts
+/// zu sagen gibt.
+///
+/// **Warum es sie gibt.** Duplikate wurden immer schon übersprungen, nur
+/// sagte es niemand. Wer zweihundert Dateien hereinzieht und danach
+/// hundertachtzig Fotos vorfindet, sucht den Fehler bei sich.
+///
+/// Und warum sie meistens `null` ist: Ging alles glatt, steht die Zahl der
+/// neuen Aufnahmen ohnehin schon im Fortschritt darüber. „0 übersprungen,
+/// 0 Fehler" wäre keine Nachricht, sondern Rauschen.
+String? importBilanz(
+  AppTexte t, {
+  required int neu,
+  required int duplikate,
+  required int fehler,
+}) {
+  if (duplikate == 0 && fehler == 0) return null;
+  return [
+    t.importBilanzNeu(neu),
+    if (duplikate > 0) t.importBilanzDuplikate(duplikate),
+    if (fehler > 0) t.importBilanzFehler(fehler),
+  ].join(' · ');
+}
+
 class _ImportProgressSheet extends StatefulWidget {
   final LibraryState library;
   final List<String> filePaths;
@@ -114,6 +138,14 @@ class _ImportProgressSheetState extends State<_ImportProgressSheet> {
   /// den Sichtungs-Modus (Culling) direkt nach dem Import.
   final List<String> _importedAssetIds = [];
 
+  /// Was uebersprungen wurde und was gar nicht hereinkam.
+  ///
+  /// Beides gab es immer schon, gesagt wurde es nie: Wer zweihundert
+  /// Dateien hereinzieht und danach hundertachtzig Fotos vorfindet,
+  /// sucht den Fehler bei sich.
+  int _duplikate = 0;
+  int _fehler = 0;
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +160,8 @@ class _ImportProgressSheetState extends State<_ImportProgressSheet> {
         _total = progress.total;
         _currentFile = progress.currentFile;
         if (progress.assetId != null) _importedAssetIds.add(progress.assetId!);
+        if (progress.duplikat) _duplikate++;
+        if (progress.gescheitert) _fehler++;
       });
     }
     if (mounted) setState(() => _finished = true);
@@ -172,6 +206,20 @@ class _ImportProgressSheetState extends State<_ImportProgressSheet> {
             const SizedBox(height: 8),
             Text('$_done / $_total${_currentFile != null ? ' — $_currentFile' : ''}'),
             const SizedBox(height: 16),
+            // Die Bilanz steht nur da, wenn es etwas zu sagen gibt -
+            // "0 uebersprungen" ist keine Nachricht.
+            if (_finished && (_duplikate > 0 || _fehler > 0)) ...[
+              Text(
+                [
+                  AppTexte.of(context).importBilanzNeu(_importedAssetIds.length),
+                  if (_duplikate > 0)
+                    AppTexte.of(context).importBilanzDuplikate(_duplikate),
+                  if (_fehler > 0) AppTexte.of(context).importBilanzFehler(_fehler),
+                ].join(' · '),
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+            ],
             if (_finished) ...[
               if (_importedAssetIds.isNotEmpty) ...[
                 FilledButton.icon(

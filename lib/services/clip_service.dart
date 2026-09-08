@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 import 'clip_tokenizer.dart';
+import 'modellthreads.dart';
 
 /// Mittelwert/Standardabweichung, mit denen CLIP-Modelle trainiert wurden
 /// (Standard für alle offiziellen OpenAI-CLIP-Checkpoints).
@@ -114,7 +115,7 @@ class ClipService {
   /// abfangen: Ob ein Modell lädt, weiss man erst, wenn man es lädt.
   static Future<OrtSession> _sitzung(OnnxRuntime ort, String pfad) async {
     try {
-      return await ort.createSession(pfad);
+      return await ort.createSession(pfad, options: modelloptionen());
     } catch (fehler) {
       throw ModellUnbrauchbar(p.basename(pfad), fehler);
     }

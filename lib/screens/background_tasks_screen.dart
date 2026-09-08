@@ -56,6 +56,10 @@ class Aufgabenaktion {
 
   final Stream<ImportProgress> Function() stream;
 
+  /// Wie die Schlussbilanz heisst – siehe [Hintergrundlauf.bilanztext].
+  /// `null` bei allen Aufgaben, bei denen angesehen und getan dasselbe ist.
+  final String Function(int getan, int gesamt)? bilanztext;
+
   /// Rückfrage vor dem Start, oder `null`.
   ///
   /// Zwei Aufgaben haben eine, und beide aus demselben Grund: Sie fassen
@@ -70,6 +74,7 @@ class Aufgabenaktion {
     required this.laufTitel,
     required this.emptyMessage,
     required this.stream,
+    this.bilanztext,
     this.bestaetigung,
   });
 }
@@ -93,7 +98,12 @@ class _Laufanzeige extends StatelessWidget {
     } else if (lauf.abgebrochen) {
       satz = t.aufgAbgebrochenBei(lauf.erledigt, lauf.gesamt);
     } else if (lauf.beendet) {
-      satz = t.aufgFertigMit(lauf.gesamt);
+      // Was der Lauf wirklich getan hat, geht vor: „N bearbeitet" ist
+      // die Zahl der angesehenen Dinge.
+      final getan = lauf.getan;
+      satz = (getan != null && lauf.bilanztext != null)
+          ? lauf.bilanztext!(getan, lauf.gesamt)
+          : t.aufgFertigMit(lauf.gesamt);
     } else {
       satz = '${lauf.erledigt} / ${lauf.gesamt}';
     }
@@ -621,6 +631,7 @@ Startabweisung? reiheEin(
       schluessel: aufgabe.schluessel,
       titel: aktion.laufTitel,
       leermeldung: aktion.emptyMessage,
+      bilanztext: aktion.bilanztext,
       strom: aktion.stream,
       rechenintensiv: aufgabe.rechenintensiv,
     );
@@ -1061,6 +1072,9 @@ List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
             modus: Aufgabenmodus.alle,
             laufTitel: t.werkzOrdneAblage,
             emptyMessage: t.werkzAblageStimmt,
+            // Am Ende soll die Zahl der wirklich umgelegten Dateien
+            // dastehen, nicht die der angesehenen.
+            bilanztext: (getan, gesamt) => t.werkzAblageBilanz(getan, gesamt),
             stream: () => library.ordneAblageNeu(),
             // Die zweite Aufgabe mit Rückfrage, aus demselben Grund wie
             // die erste: Sie fasst Dateien auf der Platte an.

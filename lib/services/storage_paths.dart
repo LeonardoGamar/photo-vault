@@ -154,8 +154,7 @@ class StoragePaths {
     if (await file.exists()) await file.delete();
   }
 
-  /// Gesamtgröße aller Originaldateien in Bytes (für die Speicheranzeige in
-  /// den Einstellungen).
+  /// Gesamtgröße aller Originaldateien in Bytes.
   Future<int> totalOriginalsSizeBytes() async {
     var total = 0;
     if (!await originalsDir.exists()) return 0;
@@ -164,4 +163,100 @@ class StoragePaths {
     }
     return total;
   }
+
+  /// Die Unterordner, die die Bibliothek anlegt – in der Reihenfolge, in
+  /// der sie in der Aufstellung stehen sollen.
+  static const List<String> belegungsordner = [
+    'originals',
+    'previews',
+    'thumbnails',
+    'developed',
+    'restored',
+    'trimmed',
+    'masks',
+    'faces',
+    'luts',
+    'trash',
+  ];
+
+  /// Was die Bibliothek belegt – nach Teilen aufgeschlüsselt.
+  ///
+  /// **Warum es das braucht.** Die Anzeige in den Einstellungen zählte
+  /// allein `originals/`. Aus dem Erstlauf-Bericht: „Es werden nur
+  /// Originale ausgewiesen, Vorschauen und DB-Größe nicht. Speicherbedarf
+  /// wird mit 1,57 GB angezeigt, real im Finder 1,75 GB." Die fehlenden
+  /// 180 MB sind Vorschauen, Miniaturen, Gesichtsausschnitte und die
+  /// Datenbank – alles Dinge, die die App selbst anlegt und die deshalb
+  /// gerade interessant sind.
+  ///
+  /// `library.sqlite` liegt **neben** der Bibliothek, nicht darin, und
+  /// wird deshalb eigens gesucht – samt ihrer WAL- und SHM-Nebendateien,
+  /// die zusammen durchaus ein paar hundert Megabyte ausmachen können.
+  Future<Bibliotheksbelegung> belegung() async {
+    final teile = <String, int>{};
+    var sonstiges = 0;
+    if (await root.exists()) {
+      await for (final eintrag
+          in root.list(recursive: true, followLinks: false)) {
+        if (eintrag is! File) continue;
+        final laenge = await eintrag.length();
+        final rest = p.relative(eintrag.path, from: root.path);
+        final erster = p.split(rest).first;
+        if (belegungsordner.contains(erster)) {
+          teile[erster] = (teile[erster] ?? 0) + laenge;
+        } else {
+          // Alles, was nicht in einen der bekannten Ordner gehört: eine
+          // vergessene Datei, ein Rest aus einer früheren Fassung. Sie
+          // unter den Tisch fallen zu lassen hiesse, die Summe wieder zu
+          // klein zu machen – und genau das war der Fehler.
+          sonstiges += laenge;
+        }
+      }
+    }
+    var datenbank = 0;
+    final neben = root.parent;
+    for (final endung in ['', '-wal', '-shm']) {
+      final datei = File(p.join(neben.path, 'library.sqlite$endung'));
+      if (await datei.exists()) datenbank += await datei.length();
+    }
+    return Bibliotheksbelegung(
+        teile: teile, sonstiges: sonstiges, datenbank: datenbank);
+  }
+}
+
+/// Was die Bibliothek belegt, nach Teilen getrennt – siehe
+/// [StoragePaths.belegung].
+class Bibliotheksbelegung {
+  const Bibliotheksbelegung({
+    required this.teile,
+    required this.sonstiges,
+    required this.datenbank,
+  });
+
+  /// Bytes je Unterordner, Schlüssel wie der Ordnername.
+  final Map<String, int> teile;
+
+  /// Was in keinen der bekannten Ordner fiel.
+  final int sonstiges;
+
+  /// `library.sqlite` samt WAL/SHM.
+  final int datenbank;
+
+  int get gesamt =>
+      datenbank +
+      sonstiges +
+      teile.values.fold<int>(0, (a, b) => a + b);
+
+  /// Die Posten in der Reihenfolge der Aufstellung, ohne die leeren.
+  ///
+  /// Leere Posten wegzulassen ist kein Verstecken: Eine Zeile „Masken 0
+  /// B" sagt nichts, und zehn davon machen die drei, auf die es ankommt,
+  /// unauffindbar.
+  List<({String name, int bytes})> get posten => [
+        for (final ordner in StoragePaths.belegungsordner)
+          if ((teile[ordner] ?? 0) > 0)
+            (name: ordner, bytes: teile[ordner]!),
+        if (datenbank > 0) (name: 'datenbank', bytes: datenbank),
+        if (sonstiges > 0) (name: 'sonstiges', bytes: sonstiges),
+      ];
 }

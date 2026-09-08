@@ -1,6 +1,9 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <glib/gstdio.h>
+
+#include <cstdio>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
@@ -13,6 +16,65 @@ struct _MyApplication {
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// Wo Groesse und Zustand des Fensters zwischen zwei Laeufen liegen.
+//
+// GTK merkt sich davon nichts von allein - anders als Cocoa, das dafuer
+// einen Merknamen kennt. Eine winzige Textdatei im Konfigurationsordner
+// des Nutzers ist der schlichteste Weg, der ohne zusaetzliche Abhaengigkeit
+// auskommt; GSettings braeuchte ein eigenes Schema samt Installation.
+static gchar* fenster_pfad() {
+  g_autofree gchar* ordner =
+      g_build_filename(g_get_user_config_dir(), "photo_vault", nullptr);
+  g_mkdir_with_parents(ordner, 0700);
+  return g_build_filename(ordner, "fenster", nullptr);
+}
+
+// Holt den letzten Stand. Fehlt die Datei oder steht Unsinn darin, bleibt
+// es bei der Vorgabe - eine kaputte Zeile darf keinen Start verhindern.
+static void fenster_stand_holen(int* breite, int* hoehe, gboolean* voll) {
+  g_autofree gchar* pfad = fenster_pfad();
+  g_autofree gchar* inhalt = nullptr;
+  if (!g_file_get_contents(pfad, &inhalt, nullptr, nullptr)) return;
+  int b = 0, h = 0, v = 0;
+  if (sscanf(inhalt, "%d %d %d", &b, &h, &v) != 3) return;
+  // Ein Fenster, das kleiner als handtellergross oder groesser als jeder
+  // Bildschirm ist, waere unbedienbar. Solche Werte entstehen, wenn ein
+  // Bildschirm abgezogen wurde.
+  if (b >= 640 && h >= 480 && b <= 16384 && h <= 16384) {
+    *breite = b;
+    *hoehe = h;
+  }
+  *voll = v != 0 ? TRUE : FALSE;
+}
+
+static void fenster_stand_sichern(GtkWindow* window) {
+  gboolean voll = gtk_window_is_maximized(window);
+  gint breite = 0, hoehe = 0;
+  // Im Vollbild liefert gtk_window_get_size die Bildschirmgroesse - dann
+  // waere die vorherige Groesse verloren, sobald man einmal maximiert
+  // hat. GTK haelt die letzte nicht-maximierte Groesse selbst vor.
+  gtk_window_get_size(window, &breite, &hoehe);
+  if (voll) {
+    int alteB = breite, alteH = hoehe;
+    gboolean egal = FALSE;
+    fenster_stand_holen(&alteB, &alteH, &egal);
+    breite = alteB;
+    hoehe = alteH;
+  }
+  g_autofree gchar* pfad = fenster_pfad();
+  g_autofree gchar* zeile =
+      g_strdup_printf("%d %d %d\n", breite, hoehe, voll ? 1 : 0);
+  g_file_set_contents(pfad, zeile, -1, nullptr);
+}
+
+// Beim Schliessen, nicht bei jeder Groessenaenderung: Ein configure-event
+// kommt waehrend des Ziehens dutzendfach je Sekunde, und jedes davon
+// waere ein Schreibvorgang auf die Platte.
+static gboolean fenster_schliesst_cb(GtkWidget* widget, GdkEvent*, gpointer) {
+  fenster_stand_sichern(GTK_WINDOW(widget));
+  return FALSE;
+}
 
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
@@ -53,7 +115,16 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_title(window, "Photo Vault");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  // Die Vorgabe gilt nur beim allerersten Start; danach steht hier die
+  // Groesse, mit der zuletzt gearbeitet wurde.
+  int breite = 1280;
+  int hoehe = 720;
+  gboolean voll = FALSE;
+  fenster_stand_holen(&breite, &hoehe, &voll);
+  gtk_window_set_default_size(window, breite, hoehe);
+  if (voll) gtk_window_maximize(window);
+  g_signal_connect(window, "delete-event", G_CALLBACK(fenster_schliesst_cb),
+                   nullptr);
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(

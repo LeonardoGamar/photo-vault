@@ -85,6 +85,8 @@
   "kuerzelFavoritUmschalten": "Favorit umschalten",
   "kuerzelPapierkorbMitBestaetigung": "In den Papierkorb verschieben (mit Bestätigung)",
   "kuerzelSofortAblehnen": "Sofort ablehnen und weiter (ohne Bestätigung)",
+  "kuerzelZoomWischen": "⌘/Strg + Wischen",
+  "kuerzelZoomImBild": "Ins Bild hinein- und herauszoomen (auch mit einer Magic Mouse)",
   "timelineLeer": "Noch keine Fotos in der Bibliothek.",
   "loeschenTitel": "{anzahl, plural, =1{Foto löschen?} other{{anzahl} Fotos löschen?}}",
   "@loeschenTitel": {
@@ -105,6 +107,18 @@
   "albumNeu": "Neues Album",
   "albumName": "Albumname",
   "albenLeer": "Noch keine Alben vorhanden.",
+  "albenIntelligente": "Intelligente Alben",
+  "albenGewoehnliche": "Alben",
+  "albumIntelligentLoeschen": "Intelligentes Album löschen",
+  "albumIntelligentLoeschenFrage": "„{name}“ entfernen? Die Aufnahmen bleiben, nur die gespeicherte Suche verschwindet.",
+  "@albumIntelligentLoeschenFrage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "albenIntelligentWoher": "Ein intelligentes Album ist eine gespeicherte Suche: Es sammelt keine Aufnahmen ein, sondern zeigt jedes Mal neu, was gerade passt. Angelegt wird es in der Suche über das Lesezeichen neben dem Suchfeld.",
   "erkundenPersonen": "Personen",
   "erkundenOrte": "Orte",
   "erkundenLetzteAlben": "Zuletzt hinzugefügte Alben",
@@ -127,6 +141,8 @@
   "sucheSpeichernTitel": "Suche speichern",
   "sucheModellFehlt": "Für die Kontext-Suche fehlt das Bildsuche-Modell. Es lässt sich in den Einstellungen unter „KI-Modelle“ laden.",
   "sucheModellLaedt": "Modell für die Bildsuche wird geladen …",
+  "sucheOhneEmbeddings": "Noch ist kein Foto für die KI-Bildsuche ausgewertet. Der Durchgang steht unter Werkzeuge → Aufgaben („CLIP-Embeddings“).",
+  "sucheOhneTexterkennung": "Noch ist auf keinem Foto Text erkannt worden. Der Durchgang steht unter Werkzeuge → Aufgaben („Text erkennen (OCR)“).",
   "sucheModellUnbrauchbar": "Das Modell {datei} liegt zwar auf der Platte, lässt sich aber nicht öffnen. Lade es unter Einstellungen → KI-Modelle neu – die Suche und die KI-Schlagwörter brauchen es.",
   "@sucheModellUnbrauchbar": {
     "placeholders": {
@@ -279,6 +295,17 @@
   "personenLeer": "Noch keine Personen angelegt. Wechsle zum Tab „Unbenannte Gesichter“, wähle ein paar Gesichter aus und ordne sie einer neuen Person zu.",
   "personenLangeDruecken": "lange drücken: zusammenführen",
   "personenKeineUnbenannten": "Keine unbenannten Gesichter (mehr). Neue erscheinen hier automatisch, sobald du weitere Fotos importierst oder erneut nach Gesichtern suchst. Einzelne kannst du auch selbst markieren: Foto öffnen, Rechtsklick → „Gesichter bearbeiten“, dann oben rechts auf „Gesicht manuell hinzufügen“.",
+  "personenOhneGesichtsmodell": "Ohne ein Modell für die Gesichtserkennung findet Photo Vault keine Gesichter.",
+  "personenNochNichtDurchsucht": "{offen, plural, =1{Eine Aufnahme ist noch nicht nach Gesichtern durchsucht.} other{{offen} Aufnahmen sind noch nicht nach Gesichtern durchsucht.}} Solange das aussteht, kann hier nichts stehen.",
+  "@personenNochNichtDurchsucht": {
+    "placeholders": {
+      "offen": {
+        "type": "int"
+      }
+    }
+  },
+  "personenJetztSuchen": "Jetzt nach Gesichtern suchen",
+  "personenSucheLaeuft": "Die Gesichtssuche läuft gerade. Die ersten Funde erscheinen hier, sobald sie durch ist.",
   "personenSchwellenHinweis": "Ähnlichkeitsschwelle einstellbar unter Werkzeuge → Gesichtserkennung.",
   "personenDoppelklickHinweis": "Doppelklick auf ein Gesicht öffnet das ganze Foto zur Kontrolle.",
   "personenAutomatischGruppieren": "Automatisch gruppieren",
@@ -570,7 +597,19 @@
   "einstBibImmerVorhanden": "immer vorhanden",
   "einstSpeicherort": "Speicherort",
   "einstSpeicherortVerschiebenLaeuft": "Verschiebe Bibliothek …",
-  "einstSpeicherbedarf": "Speicherbedarf (Originale)",
+  "einstSpeicherbedarf": "Speicherbedarf",
+  "belegung_originals": "Originale",
+  "belegung_previews": "Vorschauen",
+  "belegung_thumbnails": "Miniaturen",
+  "belegung_developed": "Entwickelte Fassungen",
+  "belegung_restored": "Restaurierte Fassungen",
+  "belegung_trimmed": "Zugeschnittene Videos",
+  "belegung_masks": "Masken",
+  "belegung_faces": "Gesichtsausschnitte",
+  "belegung_luts": "Farbtabellen",
+  "belegung_trash": "Papierkorb",
+  "belegung_datenbank": "Datenbank",
+  "belegung_sonstiges": "Sonstiges",
   "einstModellLaedt": "Lade „{titel}“ herunter …",
   "@einstModellLaedt": {
     "placeholders": {
@@ -700,6 +739,11 @@
   "modellSfaceText": "Berechnet ein Embedding pro Gesicht, um ähnliche/gleiche Gesichter beim manuellen Zuordnen leichter zu gruppieren. Teil von OpenCV Zoo.",
   "modellSfaceLizenz": "Apache-2.0",
   "modellClipTitel": "KI-Bildsuche – CLIP ViT-B/32",
+  "einstAlleModelleLaden": "Alle fehlenden laden ({anzahl})",
+  "@einstAlleModelleLaden": { "placeholders": { "anzahl": { "type": "int" } } },
+  "einstAlleModelleDa": "Alle Modelle liegen bereit",
+  "einstAlleModelleLaeuft": "Modell {nummer} von {gesamt}",
+  "@einstAlleModelleLaeuft": { "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } } },
   "modellClipText": "Ermöglicht die Suche nach Fotos in natürlicher Sprache (z.B. \"Sonnenuntergang am Meer\"). OpenAI-Originalgewichte, als separate Bild-/Text-Encoder-ONNX-Graphen exportiert.",
   "modellClipLizenz": "MIT (Gewichte: OpenAI CLIP, siehe Quelle)",
   "modellSamTitel": "KI-Objektmasken – SAM ViT-Base",
@@ -1175,6 +1219,7 @@
   "entwTrennstrichWartet": "Das unbearbeitete Bild wird noch berechnet – einen Moment.",
   "entwMaskeErstellen": "Maske erstellen",
   "entwFormKi": "KI",
+  "entwFormKiFehlt": "Benötigt das Segmentierungs-Modell (Einstellungen → KI-Modelle)",
   "entwFormPinsel": "Pinsel",
   "entwFormEllipse": "Ellipse",
   "entwFormVerlauf": "Verlauf",
@@ -1391,6 +1436,11 @@
   },
   "albumExportieren": "Album exportieren",
   "albumLeer": "Dieses Album enthält noch keine Fotos.",
+  "albumFotosHinzufuegen": "Fotos hinzufügen",
+  "albumTitelbildSetzen": "Als Titelbild",
+  "albumTitelbildGesetzt": "Titelbild gesetzt",
+  "albumFotosWaehlenTitel": "Fotos für „{album}“",
+  "@albumFotosWaehlenTitel": { "placeholders": { "album": { "type": "String" } } },
   "regelLoeschenTitel": "Regel löschen?",
   "regelLoeschenText": "Die Regel \"{name}\" wirklich löschen? Bereits angewendete Aktionen bleiben erhalten.",
   "@regelLoeschenText": {
@@ -1522,6 +1572,12 @@
   "importNichtsImOrdner": "Keine unterstützten Fotos/Videos in diesem Ordner gefunden.",
   "importNichtsAufDatentraeger": "Keine unterstützten Fotos/Videos auf diesem Datenträger gefunden.",
   "importAbgeschlossen": "Import abgeschlossen",
+  "importBilanzNeu": "{anzahl, plural, =1{1 neu hereingekommen} other{{anzahl} neu hereingekommen}}",
+  "@importBilanzNeu": { "placeholders": { "anzahl": { "type": "int" } } },
+  "importBilanzDuplikate": "{anzahl, plural, =1{1 lag schon in der Bibliothek und wurde übersprungen} other{{anzahl} lagen schon in der Bibliothek und wurden übersprungen}}",
+  "@importBilanzDuplikate": { "placeholders": { "anzahl": { "type": "int" } } },
+  "importBilanzFehler": "{anzahl, plural, =1{1 kam nicht herein} other{{anzahl} kamen nicht herein}}",
+  "@importBilanzFehler": { "placeholders": { "anzahl": { "type": "int" } } },
   "importLaeuft": "Importiere Fotos & Videos …",
   "importJetztSichten": "Jetzt sichten",
   "integPruefungFehlgeschlagen": "Prüfung fehlgeschlagen: {fehler}",
@@ -1903,6 +1959,21 @@
   "infoStandortBekannt": "Standort bekannt",
   "infoOrtNichtAufgeloest": "Ort noch nicht aufgelöst (Werkzeuge → Orte)",
   "infoOrtEntfernen": "Ort entfernen",
+  "infoBearbeitet": "Bearbeitet",
+  "infoBearbeitetEntwickelt": "entwickelt",
+  "infoBearbeitetRestauriert": "restauriert",
+  "infoBearbeitetZugeschnitten": "zugeschnitten",
+  "infoOriginalUnberuehrt": "{arten} – die Originaldatei ist unverändert",
+  "@infoOriginalUnberuehrt": {
+    "placeholders": {
+      "arten": {
+        "type": "String"
+      }
+    }
+  },
+  "infoOriginalHerstellen": "Original wiederherstellen",
+  "infoOriginalHerstellenFrage": "Alle Bearbeitungen dieser Aufnahme zurücknehmen? Die abgeleiteten Dateien werden gelöscht; das Original bleibt, wie es ist.",
+  "infoOriginalHergestellt": "Original wiederhergestellt.",
   "infoSerie": "Serie: {anzahl} Fotos",
   "@infoSerie": {
     "placeholders": {
@@ -2672,6 +2743,14 @@
   "gruppeMonat": "Nach Monat",
   "gruppeKamera": "Nach Kamera",
   "gruppeKeine": "Ohne Gliederung",
+  "sortReihenfolge": "Reihenfolge",
+  "sortAufnahmeNeu": "Aufnahmedatum, neueste zuerst",
+  "sortAufnahmeAlt": "Aufnahmedatum, älteste zuerst",
+  "sortImportNeu": "Zuletzt hinzugefügt",
+  "sortName": "Dateiname, A–Z",
+  "sortBewertung": "Bewertung, beste zuerst",
+  "sortGroesse": "Dateigrösse, grösste zuerst",
+  "sortFundreihenfolge": "Fundreihenfolge",
   "bearbGeradeziehen": "Geradeziehen",
   "bearbPerspektive": "Perspektive",
   "bearbPerspektiveAnwenden": "Entzerren",
@@ -2679,6 +2758,8 @@
   "modellLamaText": "Füllt eine markierte Stelle aus der Umgebung neu auf – für Staubflecken, Passanten oder den Mülleimer am Bildrand. Mit 208 MB das grösste Modell hier; ein Durchgang dauert rund eine Sekunde.",
   "modellLamaLizenz": "Apache 2.0 (Samsung Research), ONNX-Export von Carve",
   "bearbRetusche": "Objekt entfernen",
+  "aufgLamaModell": "das LaMa-Modell",
+  "bearbRetuscheNichtsMarkiert": "Nichts markiert – male über das, was verschwinden soll.",
   "bearbRetuscheAnwenden": "Entfernen",
   "bearbRetuscheZurueck": "Letzten Strich zurücknehmen",
   "bearbPinselbreite": "Pinselbreite",
@@ -3275,6 +3356,17 @@
   "reisenBenennen": "Reise benennen",
   "reisenName": "Name",
   "reisenNotiz": "Notiz",
+  "reisenTagesnotiz": "Notiz zu diesem Tag",
+  "reisenTagesnotizTitel": "{datum}",
+  "@reisenTagesnotizTitel": {
+    "placeholders": {
+      "datum": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenTagesnotizSchreiben": "Notiz zu diesem Tag schreiben",
+  "reisenTagesnotizAendern": "Notiz zu diesem Tag ändern",
   "reisenUmbenennen": "Umbenennen",
   "reisenLoeschen": "Reise entfernen",
   "reisenLoeschenFrage": "„{name}“ entfernen? Die Aufnahmen bleiben, wo sie sind.",
@@ -3983,6 +4075,55 @@
   },
   "aktivitaetenKeineRoute": "Zu wenige verortete Aufnahmen für eine Strecke.",
   "aktivitaetenInDieserReise": "Unternehmungen",
+  "reiseartReise": "Reise",
+  "reisenZusammenfuehren": "Zusammenführen",
+  "reisenZusammenfuehrenAllein": "Es gibt keine zweite Reise, mit der sich diese zusammenführen liesse.",
+  "reisenZusammenfuehrenTitel": "Zu „{name}\" hinzufügen",
+  "@reisenZusammenfuehrenTitel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenZusammenfuehrenHinweis": "Die gewählten Reisen gehen in „{name}\" auf: Aufnahmen, Unternehmungen, Spuren und Tagesnotizen kommen mit, die Namen der gewählten verschwinden.",
+  "@reisenZusammenfuehrenHinweis": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenZusammengefuehrt": "{anzahl, plural, one{Eine Reise ging} other{{anzahl} Reisen gingen}} in „{name}\" auf.",
+  "@reisenZusammengefuehrt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reiseartUnternehmung": "Unternehmung",
+  "reiseartGeschaeftlich": "Dienstlich",
+  "reiseartBesuch": "Besuch",
+  "reiseartSonstiges": "Sonstiges",
+  "reisenArtAendern": "Art der Reise",
+  "reisenAktivitaetAnlegen": "Unternehmung anlegen",
+  "reisenOhneAktivitaeten": "Noch keine – „Unternehmung anlegen\" macht aus der ganzen Reise oder einem Abschnitt daraus eine.",
+  "reisenAktivitaetLeer": "In diesem Zeitraum liegt keine Aufnahme dieser Reise.",
+  "reisenAktivitaetAngelegt": "Unternehmung „{name}\" angelegt, {anzahl} Aufnahmen.",
+  "@reisenAktivitaetAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "aktivitaetenAngelegt": "„{name}\" eingetragen.",
   "@aktivitaetenAngelegt": {
     "placeholders": {
@@ -4377,6 +4518,8 @@
   "aufgAblageText": "Legt Aufnahmen in den Ordner ihres Aufnahmemonats, wenn sie dort nicht liegen, und legt liegengebliebene .xmp-Beipackzettel wieder neben ihr Foto. Ändert kein Datum – nur den Ort auf der Platte. Verschiebt Dateien, deshalb mit Rückfrage.",
   "werkzOrdneAblage": "Ordne die Ablage …",
   "werkzAblageStimmt": "Jede Aufnahme liegt im Ordner ihres Datums.",
+  "werkzAblageBilanz": "{verschoben} von {gesamt} umgelegt",
+  "@werkzAblageBilanz": { "placeholders": { "verschoben": { "type": "int" }, "gesamt": { "type": "int" } } },
   "werkzAblageFrageTitel": "Ablage neu ordnen?",
   "werkzAblageFrage": "Aufnahmen, deren Ordner nicht zu ihrem Aufnahmedatum passt, werden in den richtigen Monatsordner verschoben. Die Aufnahmedaten selbst bleiben unverändert. In der App ändert sich dadurch nichts Sichtbares – wohl aber die Ordnerstruktur der Bibliothek auf der Platte.",
   "werkzAblageStarten": "Ablage ordnen",

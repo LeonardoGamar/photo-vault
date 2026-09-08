@@ -18,6 +18,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../services/aktualisierungspruefung.dart';
 import '../services/backup_service.dart';
 import '../services/library_location.dart';
+import '../services/storage_paths.dart';
 import '../services/model_catalog.dart';
 import '../state/library_state.dart';
 import '../services/platform/reveal_in_file_manager.dart';
@@ -144,9 +145,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         : AppTexte.supportedLocales.first.languageCode;
   }
 
-  int? _sizeBytes;
+  /// Was die Bibliothek belegt – aufgeschlüsselt, nicht nur die
+  /// Originale. Siehe [StoragePaths.belegung].
+  Bibliotheksbelegung? _belegung;
   BackupRecordData? _lastBackup;
   final Set<String> _downloading = {};
+
+  /// Wo die Reihe steht, wenn alle fehlenden Modelle am Stueck geholt
+  /// werden: (das wievielte, wie viele). `null`, wenn keine Reihe laeuft.
+  (int, int)? _reihenstand;
   bool _encryptManualBackup = false;
   bool _downloadingGeoData = false;
   double _geoDataProgress = 0;
@@ -249,11 +256,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _trashSettingsFuture = widget.library.db.trashSettingsRow());
 
   Future<void> _refresh() async {
-    final size = await widget.library.paths.totalOriginalsSizeBytes();
+    final belegt = await widget.library.paths.belegung();
     final last = await widget.library.db.lastBackupRecord();
     if (mounted) {
       setState(() {
-        _sizeBytes = size;
+        _belegung = belegt;
         _lastBackup = last;
       });
     }
@@ -462,6 +469,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Text(AppTexte.of(context).einstModellLaedt(modellTitel(AppTexte.of(context), entry.id)),
                   style: Theme.of(context).textTheme.titleMedium),
+              // Bei einer Reihe steht sonst zwoelfmal dasselbe Fenster da
+              // und man weiss nicht, wie weit es noch ist.
+              if (_reihenstand != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  AppTexte.of(context)
+                      .einstAlleModelleLaeuft(_reihenstand!.$1, _reihenstand!.$2),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
               const SizedBox(height: 12),
               LinearProgressIndicator(value: progress > 0 ? progress : null),
               const SizedBox(height: 8),
@@ -486,6 +503,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
       setState(() => _downloading.remove(entry.id));
     }
+  }
+
+  /// Holt alle noch fehlenden Modelle nacheinander.
+  ///
+  /// Nacheinander und nicht gleichzeitig: Es sind zusammen ueber ein
+  /// Gigabyte, und zwoelf offene Verbindungen machen keine davon
+  /// schneller - sie machen nur den Fortschritt unlesbar. Bricht eines
+  /// ab, laufen die uebrigen weiter; [_downloadModel] meldet den Fehler
+  /// selbst und der naechste Anlauf holt genau das eine nach.
+  Future<void> _alleModelleLaden(List<ModelCatalogEntry> fehlende) async {
+    for (var i = 0; i < fehlende.length; i++) {
+      if (!mounted) return;
+      setState(() => _reihenstand = (i + 1, fehlende.length));
+      await _downloadModel(fehlende[i]);
+    }
+    if (mounted) setState(() => _reihenstand = null);
   }
 
   Future<void> _deleteModel(ModelCatalogEntry entry) async {
@@ -1408,15 +1441,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   );
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.sd_storage_outlined),
-                title: Text(AppTexte.of(context).einstSpeicherbedarf),
-                subtitle: Text(_sizeBytes == null ? AppTexte.of(context).einstWirdBerechnet : groessentext(_sizeBytes!)),
-              ),
+              // **Aufgeschlüsselt und nicht als eine Zahl.** Hier stand
+              // allein die Summe der Originale; im Finder war der Ordner
+              // deutlich grösser, und niemand konnte sehen, warum. Die
+              // Teile, die die App selbst anlegt – Vorschauen,
+              // Miniaturen, Gesichtsausschnitte, die Datenbank – sind
+              // gerade die, die man beurteilen will.
+              if (_belegung == null)
+                ListTile(
+                  leading: const Icon(Icons.sd_storage_outlined),
+                  title: Text(AppTexte.of(context).einstSpeicherbedarf),
+                  subtitle: Text(AppTexte.of(context).einstWirdBerechnet),
+                )
+              else
+                ExpansionTile(
+                  leading: const Icon(Icons.sd_storage_outlined),
+                  title: Text(AppTexte.of(context).einstSpeicherbedarf),
+                  subtitle: Text(groessentext(_belegung!.gesamt)),
+                  childrenPadding: const EdgeInsets.only(
+                      left: AppSpacing.xxl, right: AppSpacing.lg,
+                      bottom: AppSpacing.sm),
+                  children: [
+                    for (final posten in _belegung!.posten)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                belegungName(AppTexte.of(context), posten.name),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            Text(
+                              groessentext(posten.bytes),
+                              // Ziffern in einer Spalte gehören
+                              // untereinander.
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures()
+                                      ],
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
             ],
           ),
         ),
       ];
+
+  /// Die Modelle, die zur eingestellten Oberflächensprache passen –
+  /// siehe [ModelCatalog.fuerSprache].
+  List<ModelCatalogEntry> _modelle(BuildContext context) =>
+      ModelCatalog.fuerSprache(Localizations.localeOf(context).languageCode,
+          istInstalliert: widget.library.isModelInstalled);
 
   List<Widget> _gruppeModelle() => [
         Padding(
@@ -1478,7 +1564,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
         const SizedBox(height: 12),
-        for (final entry in ModelCatalog.all)
+        // Zwoelf Modelle einzeln anzutippen und jedes Mal zu warten, war
+        // der erste Weg, den ein neuer Nutzer vor sich hatte - einen Knopf
+        // dafuer gab es nicht. Er laedt nur, was fehlt: Wer die
+        // Uebersetzung nicht braucht, loescht sie danach einmal und
+        // bekommt sie nicht wieder aufgedraengt.
+        Builder(builder: (context) {
+          final fehlende = [
+            for (final e in _modelle(context))
+              if (!widget.library.isModelInstalled(e)) e,
+          ];
+          return Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                onPressed: (fehlende.isEmpty || _downloading.isNotEmpty)
+                    ? null
+                    : () => _alleModelleLaden(fehlende),
+                label: Text(fehlende.isEmpty
+                    ? AppTexte.of(context).einstAlleModelleDa
+                    : AppTexte.of(context).einstAlleModelleLaden(fehlende.length)),
+              ),
+            ),
+          );
+        }),
+        for (final entry in _modelle(context))
           _ModelCard(
             entry: entry,
             installed: widget.library.isModelInstalled(entry),
@@ -2431,7 +2544,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             builder: (context, snapshot) {
               final info = snapshot.data;
               final version = info?.version ?? '…';
-              final modelle = ModelCatalog.all
+              // Dieselbe Auswahl wie in der Modellgruppe: Sonst stuende
+              // hier auf Englisch fuer immer „9 von 11".
+              final katalog = _modelle(context);
+              final modelle = katalog
                   .where((e) => widget.library.isModelInstalled(e))
                   .toList();
               return Column(
@@ -2458,7 +2574,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     leading: const Icon(Icons.memory_outlined),
                     title: Text(modelle.isEmpty
                         ? AppTexte.of(context).einstKeineModelle
-                        : AppTexte.of(context).einstModelleGeladen(modelle.length, ModelCatalog.all.length)),
+                        : AppTexte.of(context).einstModelleGeladen(modelle.length, katalog.length)),
                     subtitle: Text(modelle.isEmpty
                         ? AppTexte.of(context).einstModelleUnbenutzt
                         : modelle

@@ -13,7 +13,39 @@ class ImportProgress {
   /// Sichtungs-Modus (Culling) springen wollen, ohne die importierten Fotos
   /// erneut aus der DB abfragen zu müssen.
   final String? assetId;
-  ImportProgress(this.done, this.total, {this.currentFile, this.assetId});
+
+  /// Ob genau diese Datei uebersprungen wurde, weil sie schon in der
+  /// Bibliothek liegt.
+  ///
+  /// Sie wurde immer schon uebersprungen - nur sagte es niemand. Wer
+  /// zweihundert Dateien hereinzieht und danach hundertachtzig Fotos
+  /// vorfindet, sucht den Fehler bei sich.
+  final bool duplikat;
+
+  /// Ob diese Datei gar nicht hereinkam.
+  final bool gescheitert;
+
+  /// Wie viele Dinge wirklich getan wurden – nicht wie viele angesehen.
+  ///
+  /// **Warum es die Zahl gesondert braucht.** „N bearbeitet" ist die
+  /// Zahl der angesehenen Dinge. Beim Ordnen der Ablage stand deshalb am
+  /// Ende nichts, woraus man ablesen konnte, ob etwas verschoben wurde –
+  /// aus dem Erstlauf-Bericht (A08): „Aufgabe lief ohne Fehlermeldung
+  /// durch, genannt wurde nichts."
+  ///
+  /// `null` bei allen Läufen, bei denen angesehen und getan dasselbe
+  /// ist; gesetzt wird sie am letzten `yield`.
+  final int? getan;
+
+  ImportProgress(
+    this.done,
+    this.total, {
+    this.currentFile,
+    this.assetId,
+    this.duplikat = false,
+    this.gescheitert = false,
+    this.getan,
+  });
 }
 
 /// Ein Nachholvorgang, der wirklich im Hintergrund läuft.
@@ -34,6 +66,7 @@ class Hintergrundlauf {
     required this.titel,
     required this.leermeldung,
     required this.strom,
+    this.bilanztext,
     this.rechenintensiv = false,
   });
 
@@ -66,6 +99,15 @@ class Hintergrundlauf {
   /// mehr, welche der beiden Aktionen einer Karte gestartet wurde.
   final String leermeldung;
 
+  /// Wie die Schlussbilanz heisst, wenn der Lauf eine [getan]-Zahl
+  /// schickt.
+  ///
+  /// Eine Funktion und kein fertiger Satz: Die Zahlen stehen erst am
+  /// Ende fest. Und sie kommt vom Bildschirm und nicht aus dem Zustand,
+  /// weil nur dort die Sprache der Oberfläche bekannt ist – dasselbe
+  /// Muster wie bei [leermeldung].
+  final String Function(int getan, int gesamt)? bilanztext;
+
   /// Ob dieser Lauf zu den teuren Auswertungen gehört – entweder weil er
   /// ein KI-Modell in den Speicher holt oder weil die Hintergrundanalyse
   /// dieselbe Arbeit als eine ihrer Stufen erledigt. Nur solche Läufe
@@ -83,6 +125,10 @@ class Hintergrundlauf {
   bool beendet = false;
   bool abgebrochen = false;
   Object? fehler;
+
+  /// Wie viele Dinge der Lauf wirklich getan hat – siehe
+  /// [ImportProgress.getan].
+  int? getan;
 
   /// Das Abonnement des zugrunde liegenden `Stream<ImportProgress>`.
   ///

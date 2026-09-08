@@ -20,6 +20,7 @@ import '../services/gelaendeebenen.dart';
 import '../services/library_location.dart';
 import '../services/library_stats.dart';
 import '../services/lichtstimmung.dart';
+import '../services/reisen.dart' show Reiseart, reiseartVorgabe;
 import '../services/listenspalten.dart';
 import '../services/ortsvorschlag.dart' show Ortsloser, Ortsnachbar;
 import 'rasterzeile.dart';
@@ -31,6 +32,12 @@ import '../services/rasterstufen.dart'
         Zeitleistenform;
 import '../services/raw_formats.dart' show rawImageExtensions;
 import '../services/search_filters.dart';
+import '../services/sortierung.dart'
+    show
+        Rastersortierung,
+        rastersortierung,
+        rastersortierungVorgabe,
+        sortierungSql;
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
 import '../services/xmp_regionen.dart';
@@ -886,6 +893,13 @@ class Reisen extends Table {
 
   TextColumn get notiz => text().nullable()();
 
+  /// Was für eine Art Reise – als Name der Aufzählung [Reiseart].
+  ///
+  /// Einsatz, Dienstreise, Besuch: „Reise" trifft nicht jede, und in der
+  /// Liste sähen sonst alle gleich aus.
+  TextColumn get art =>
+      text().withDefault(Constant(reiseartVorgabe.kennung))();
+
   /// Das Titelbild. `null` heißt „nimm die erste Aufnahme" – und ist
   /// etwas anderes als ein gewähltes Bild, das später gelöscht wurde.
   TextColumn get titelbildAssetId => text().nullable()();
@@ -908,6 +922,37 @@ class ReiseAufnahmen extends Table {
 
   @override
   Set<Column> get primaryKey => {reiseId, assetId};
+}
+
+/// Was an einem Reisetag geschah – von Hand geschrieben.
+///
+/// **Warum es das braucht.** Die Reise war nach Tagen gegliedert, aber
+/// ein Tagebuch besteht nicht aus Bildern allein. Es fehlte genau das,
+/// was ein Tagebuch ausmacht: der Satz, den nur der Reisende schreiben
+/// kann. Die Notiz an der Reise ([Reisen.notiz]) gab es schon, sie gilt
+/// aber für die ganze Reise – und „am dritten Tag hat es geschüttet"
+/// gehört an den dritten Tag.
+///
+/// **Der Tag als Datum ohne Uhrzeit** ist der Schlüssel, weil die
+/// Kapitel genau so entstehen (siehe `reisetage`). Ein Eintrag ohne
+/// Aufnahmen an diesem Tag bliebe unsichtbar – das ist gewollt: Das
+/// Tagebuch folgt den Bildern, es führt keine eigene Zeitrechnung.
+class Reisetagnotizen extends Table {
+  TextColumn get reiseId => text()();
+
+  /// Mitternacht des Tages, dem die Notiz gilt.
+  DateTimeColumn get tag => dateTime()();
+
+  /// Nicht `text`: Der Spaltenname wäre derselbe wie der Baustein
+  /// `text()`, mit dem drift ihn beschreibt – der Getter riefe sich
+  /// selbst auf, und die Erzeugung brach mit 3485 Fehlern ab, von denen
+  /// keiner hier stand.
+  TextColumn get notiz => text()();
+
+  DateTimeColumn get geaendertAm => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {reiseId, tag};
 }
 
 /// Wo eine Reise oder Aktivität stattfand, in einer Zeile.
@@ -1680,6 +1725,14 @@ class AppSettings extends Table {
   IntColumn get zeitleisteFormNr =>
       integer().withDefault(Constant(zeitleisteFormVorgabe.index))();
 
+  /// Wonach die Zeitleiste ordnet – als Nummer aus [Rastersortierung].
+  ///
+  /// Als Zahl und aus demselben Grund wie bei [zeitleisteFormNr]: Ein
+  /// Name aus einer aelteren Fassung koennte einer sein, den es nicht
+  /// mehr gibt.
+  IntColumn get zeitleisteSortierungNr =>
+      integer().withDefault(Constant(rastersortierungVorgabe.index))();
+
   /// Welche Spalten die Listenansicht zeigt und wie breit sie sind –
   /// als Text, siehe [Listenspaltenwahl.alsText].
   ///
@@ -1804,6 +1857,7 @@ class DuplikatAusnahmen extends Table {
   Lebensereignisse,
   Reisen,
   ReiseAufnahmen,
+  Reisetagnotizen,
   VerworfeneReisen,
   Ortsmarken,
   Aktivitaeten,
@@ -1830,7 +1884,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 78;
+  int get schemaVersion => 81;
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
@@ -2543,6 +2597,26 @@ class AppDatabase extends _$AppDatabase {
             await _addColumnIfMissing(m, assets, assets.zeitversatzMinuten,
                 'assets', 'zeitversatz_minuten');
           }
+          if (from < 79) {
+            // Vorgabe = neueste Aufnahme oben, also genau die
+            // Reihenfolge, die es vorher als einzige gab. Wer nichts
+            // umstellt, merkt von der Wahl nichts.
+            await _addColumnIfMissing(m, appSettings,
+                appSettings.zeitleisteSortierungNr, 'app_settings',
+                'zeitleiste_sortierung_nr');
+          }
+          if (from < 80) {
+            // Neue Tabelle, also nichts umzuschreiben: Wer nichts
+            // schreibt, hat keine Tagesnotizen, und die Ansicht sieht
+            // aus wie bisher.
+            await m.createTable(reisetagnotizen);
+          }
+          if (from < 81) {
+            // Jede bestehende Reise wird über den Vorgabewert eine
+            // „Reise" – was sie bisher der Sache nach war. Wer eine als
+            // Einsatz oder Dienstreise führen will, sagt es danach.
+            await _addColumnIfMissing(m, reisen, reisen.art, 'reisen', 'art');
+          }
         },
       );
 
@@ -2817,7 +2891,10 @@ class AppDatabase extends _$AppDatabase {
   /// Ladefenster (siehe dort), damit weder bei jeder Mutation noch beim
   /// ersten Öffnen zwingend die GESAMTE Bibliothek aus der DB geladen und in
   /// Dart neu gruppiert werden muss.
-  Stream<List<AssetData>> watchTimeline({bool favoritesOnly = false, int? limit}) {
+  Stream<List<AssetData>> watchTimeline(
+      {bool favoritesOnly = false,
+      int? limit,
+      Rastersortierung sortierung = rastersortierungVorgabe}) {
     final query = select(assets)
       ..where((t) =>
           t.isTrashed.equals(false) &
@@ -2826,12 +2903,46 @@ class AppDatabase extends _$AppDatabase {
     if (favoritesOnly) {
       query.where((t) => t.isFavorite.equals(true));
     }
-    query.orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]);
+    query.orderBy(_sortierterme(sortierung));
     if (limit != null) {
       query.limit(limit);
     }
     return _gedrosselt(() => query, TableUpdateQuery.onTable(assets));
   }
+
+  /// [sortierungSql] als Abfragebauer-Fassung – fuer die Abfragen, die
+  /// nicht als rohes SQL dastehen.
+  ///
+  /// Zwei Fassungen derselben Reihenfolge sind zwei Regeln, die
+  /// auseinanderlaufen koennen; `sortierung_test.dart` haelt sie
+  /// zusammen, indem es die erzeugte Abfrage gegen [sortierungSql]
+  /// stellt.
+  List<OrderingTerm Function($AssetsTable)> _sortierterme(
+          Rastersortierung s) =>
+      switch (s) {
+        Rastersortierung.aufnahmeNeu => [
+            (t) => OrderingTerm.desc(t.fileCreatedAt)
+          ],
+        Rastersortierung.aufnahmeAlt => [
+            (t) => OrderingTerm.asc(t.fileCreatedAt)
+          ],
+        Rastersortierung.importNeu => [
+            (t) => OrderingTerm.desc(t.importedAt),
+            (t) => OrderingTerm.desc(t.fileCreatedAt),
+          ],
+        Rastersortierung.name => [
+            (t) => OrderingTerm.asc(t.originalFileName.collate(Collate.noCase)),
+            (t) => OrderingTerm.desc(t.fileCreatedAt),
+          ],
+        Rastersortierung.bewertung => [
+            (t) => OrderingTerm.desc(t.rating),
+            (t) => OrderingTerm.desc(t.fileCreatedAt),
+          ],
+        Rastersortierung.groesse => [
+            (t) => OrderingTerm.desc(t.fileSizeBytes),
+            (t) => OrderingTerm.desc(t.fileCreatedAt),
+          ],
+      };
 
   /// Dieselbe Auswahl wie [watchTimeline], aber **nur die Spalten, die
   /// ein Raster anfasst** – siehe [Rasterzeile] für die Messung.
@@ -2841,15 +2952,16 @@ class AppDatabase extends _$AppDatabase {
   /// beiden Posten sollen hier wegfallen. `readsFrom` sorgt dafür, dass
   /// der Strom trotzdem meldet, wenn sich an `assets` etwas ändert.
   Stream<List<Rasterzeile>> watchRasterzeilen(
-      {bool favoritesOnly = false, int? limit}) {
-    final wo = StringBuffer('is_trashed = 0 AND is_locked = 0 '
-        "AND (type = 'IMAGE' OR linked_asset_id IS NULL)");
+      {bool favoritesOnly = false,
+      int? limit,
+      Rastersortierung sortierung = rastersortierungVorgabe}) {
+    final wo = StringBuffer(rasterSichtbar);
     if (favoritesOnly) wo.write(' AND is_favorite = 1');
     final grenze = limit == null ? '' : ' LIMIT $limit';
     return _gedrosselt(
       () => customSelect(
         'SELECT $rasterSpalten FROM assets WHERE $wo '
-        'ORDER BY file_created_at DESC$grenze',
+        'ORDER BY ${sortierungSql(sortierung)}$grenze',
         readsFrom: {assets},
       ).map(Rasterzeile.ausZeile),
       TableUpdateQuery.onTable(assets),
@@ -2863,6 +2975,20 @@ class AppDatabase extends _$AppDatabase {
   /// unnötig, sondern lästig: Er hinterlässt beim Abbauen einen
   /// Zeitgeber, und die Liste unter der Hand zu ändern, während jemand
   /// Häkchen setzt, wäre ohnehin das Gegenteil von hilfreich.
+  /// Dieselbe Menge wie [alleAufnahmen], aber als schmale Rasterzeilen.
+  ///
+  /// Der Fotowähler zeigt ein Raster und wandelt jede Zeile ohnehin in
+  /// eine [Rasterzeile] um – die 56 Spalten davor waren an dieser
+  /// Bibliothek 80 ms, die 20 gebrauchten sind 30.
+  Future<List<Rasterzeile>> alleRasterzeilen() async =>
+      (await customSelect(
+              'SELECT $rasterSpalten FROM assets WHERE $rasterSichtbar '
+              'ORDER BY file_created_at DESC',
+              readsFrom: {assets})
+          .get())
+          .map(Rasterzeile.ausZeile)
+          .toList();
+
   Future<List<AssetData>> alleAufnahmen() => (select(assets)
         ..where((t) =>
             t.isTrashed.equals(false) &
@@ -3954,6 +4080,15 @@ class AppDatabase extends _$AppDatabase {
   /// Zählvariante von [assetsForOcrBackfill], siehe [countLocationBackfill].
   Future<int> countOcrBackfill() => _countWhere(_ocrOffen(assets));
 
+  /// Auf wie vielen Aufnahmen überhaupt Text erkannt worden ist.
+  ///
+  /// Für die Suche im erkannten Text: Steht hier eine Null, dann liegt es
+  /// nicht an der Suchanfrage, dass nichts kommt – dann ist die
+  /// Texterkennung schlicht noch nie gelaufen. "Keine Treffer" wäre
+  /// dafür die falsche Auskunft.
+  Future<int> zaehleMitErkanntemText() => _countWhere(
+      assets.ocrText.isNotNull() & assets.ocrText.equals('').not());
+
   /// Was die Texterkennung noch vor sich hat.
   ///
   /// Zwei Fälle, nicht einer. Der erste ist der alte: nie gescannt. Der
@@ -4187,6 +4322,20 @@ class AppDatabase extends _$AppDatabase {
       into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
         id: const Value(0),
         zeitleisteFormNr: Value(form.index),
+      ));
+
+  /// Wonach die Zeitleiste ordnet – siehe [Rastersortierung].
+  Future<Rastersortierung> zeitleisteSortierungWert() async {
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
+    return rastersortierung(
+        row?.zeitleisteSortierungNr ?? rastersortierungVorgabe.index);
+  }
+
+  Future<void> setzeZeitleisteSortierung(Rastersortierung s) =>
+      into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        id: const Value(0),
+        zeitleisteSortierungNr: Value(s.index),
       ));
 
   /// Die gemerkte Stammbaum-Ansicht und die Person darin (siehe die
@@ -5180,6 +5329,47 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Setzt das Titelbild eines Albums – `null` nimmt die Wahl zurück.
+  ///
+  /// Die Spalte gab es seit jeher, gelesen und geschrieben hat sie
+  /// niemand: Ein Album war in der Übersicht ein Symbol und ein Name.
+  Future<void> setzeAlbumTitelbild(String albumId, String? assetId) =>
+      (update(albums)..where((t) => t.id.equals(albumId)))
+          .write(AlbumsCompanion(coverAssetId: Value(assetId)));
+
+  /// Das Bild, mit dem ein Album in der Übersicht steht.
+  ///
+  /// Erst das gewählte Titelbild; ist keines gewählt – oder liegt das
+  /// gewählte inzwischen im Papierkorb, ist gesperrt oder gar nicht mehr
+  /// im Album –, die neueste Aufnahme darin. `null` nur bei einem leeren
+  /// Album. Ein Titelbild, das aus dem Album entfernt wurde, würde sonst
+  /// weiter dafür werben.
+  Future<AssetData?> albumTitelbild(AlbumData album) async {
+    final gewaehlt = album.coverAssetId;
+    if (gewaehlt != null) {
+      final treffer = await (select(assets).join([
+        innerJoin(albumAssets, albumAssets.assetId.equalsExp(assets.id)),
+      ])
+            ..where(albumAssets.albumId.equals(album.id) &
+                assets.id.equals(gewaehlt) &
+                assets.isTrashed.equals(false) &
+                assets.isLocked.equals(false)))
+          .getSingleOrNull();
+      final zeile = treffer?.readTableOrNull(assets);
+      if (zeile != null) return zeile;
+    }
+    final erste = await (select(assets).join([
+      innerJoin(albumAssets, albumAssets.assetId.equalsExp(assets.id)),
+    ])
+          ..where(albumAssets.albumId.equals(album.id) &
+              assets.isTrashed.equals(false) &
+              assets.isLocked.equals(false))
+          ..orderBy([OrderingTerm.desc(assets.fileCreatedAt)])
+          ..limit(1))
+        .getSingleOrNull();
+    return erste?.readTableOrNull(assets);
+  }
+
   Future<void> removeAssetFromAlbum(String albumId, String assetId) =>
       (delete(albumAssets)
             ..where((t) => t.albumId.equals(albumId) & t.assetId.equals(assetId)))
@@ -5701,138 +5891,175 @@ class AppDatabase extends _$AppDatabase {
   /// bekamen, und ließ Treffer in kleinen Alben verschwinden (Audit-Fund).
   /// Der Suchtext selbst wird unten im Kontext-Modus absichtlich nicht als
   /// LIKE-Bedingung angewendet – dafür ist gerade das Embedding zuständig.
-  Future<List<AssetData>> searchAssets(SearchFilters filters, {List<String>? restrictToIds}) {
-    final query = select(assets)
-      ..where((t) =>
-          t.isTrashed.equals(false) &
-          t.isLocked.equals(false) &
-          // Live-Photo-Partner (das .mov zu einem Standbild) und
-          // nicht-Titelbild-Stapelmitglieder werden hier wie überall sonst
-          // (Timeline, Alben, Kartenansicht) ausgeblendet – sichtbar/
-          // abspielbar bleiben sie weiterhin über das verknüpfte Foto bzw.
-          // das Titelbild, nur nicht als zusätzlicher, eigenständiger Treffer.
-          _isPrimaryGridEntry(t));
+  /// Die Bedingungen der Suche - einmal gebaut, von beiden Wegen
+  /// benutzt.
+  ///
+  /// **Warum getrennt.** [searchAssets] liefert volle Zeilen, und die KI-
+  /// Suche brauchte davon nur die Kennungen, um ihre Kandidaten
+  /// einzugrenzen: 7163 Zeilen mit 56 Spalten fuer eine Frage nach
+  /// Zugehoerigkeit. Zwei Wege auf denselben Bedingungen sind billiger
+  /// als eine zweite Aufzaehlung derselben 24 Filter, die eines Tages
+  /// auseinanderliefe.
+  List<Expression<bool>> _suchbedingungen(
+      SearchFilters filters, List<String>? restrictToIds) {
+    final wo = <Expression<bool>>[
+      assets.isTrashed.equals(false),
+      assets.isLocked.equals(false),
+      // Live-Photo-Partner (das .mov zu einem Standbild) und
+      // nicht-Titelbild-Stapelmitglieder werden hier wie überall sonst
+      // (Timeline, Alben, Kartenansicht) ausgeblendet – sichtbar/
+      // abspielbar bleiben sie weiterhin über das verknüpfte Foto bzw.
+      // das Titelbild, nur nicht als zusätzlicher, eigenständiger Treffer.
+      _isPrimaryGridEntry(assets),
+    ];
 
     if (restrictToIds != null) {
-      query.where((t) => t.id.isIn(restrictToIds));
+      wo.add(assets.id.isIn(restrictToIds));
     }
 
     final text = filters.query.trim();
     if (text.isNotEmpty && filters.textMode == SearchTextMode.filename) {
-      query.where((t) => t.originalFileName.like('%$text%'));
+      wo.add(assets.originalFileName.like('%$text%'));
     } else if (text.isNotEmpty && filters.textMode == SearchTextMode.description) {
-      query.where((t) => t.description.like('%$text%'));
+      wo.add(assets.description.like('%$text%'));
     } else if (text.isNotEmpty && filters.textMode == SearchTextMode.ocr) {
-      query.where((t) => t.ocrText.like('%$text%'));
+      wo.add(assets.ocrText.like('%$text%'));
     } else if (text.isNotEmpty && filters.textMode == SearchTextMode.caption) {
       // Beide Fassungen: Wer die Übersetzung erst später einschaltet, hat
       // Fotos mit nur englischer und Fotos mit beiden Beschreibungen. Nur
       // in einer zu suchen liesse einen Teil der Bibliothek unauffindbar.
-      query.where((t) => t.aiCaption.like('%$text%') | t.aiCaptionDe.like('%$text%'));
+      wo.add(assets.aiCaption.like('%$text%') | assets.aiCaptionDe.like('%$text%'));
     }
 
     if (filters.cameraMake != null) {
-      query.where((t) => t.cameraMake.equals(filters.cameraMake!));
+      wo.add(assets.cameraMake.equals(filters.cameraMake!));
     }
     if (filters.cameraModel != null) {
-      query.where((t) => t.cameraModel.equals(filters.cameraModel!));
+      wo.add(assets.cameraModel.equals(filters.cameraModel!));
     }
     if (filters.lensModel != null) {
-      query.where((t) => t.lensModel.equals(filters.lensModel!));
+      wo.add(assets.lensModel.equals(filters.lensModel!));
     }
 
     if (filters.locationCountry != null) {
-      query.where((t) => t.locationCountry.equals(filters.locationCountry!));
+      wo.add(assets.locationCountry.equals(filters.locationCountry!));
     }
     if (filters.locationState != null) {
-      query.where((t) => t.locationState.equals(filters.locationState!));
+      wo.add(assets.locationState.equals(filters.locationState!));
     }
     if (filters.locationCity != null) {
-      query.where((t) => t.locationCity.equals(filters.locationCity!));
+      wo.add(assets.locationCity.equals(filters.locationCity!));
     }
 
     if (filters.startDate != null) {
       final start = filters.startDate!;
-      query.where((t) => t.fileCreatedAt
+      wo.add(assets.fileCreatedAt
           .isBiggerOrEqualValue(DateTime(start.year, start.month, start.day)));
     }
     if (filters.endDate != null) {
       final end = filters.endDate!;
       // Enddatum inklusive -> bis zum letzten Millisekunde des gewählten Tages.
-      query.where((t) => t.fileCreatedAt
+      wo.add(assets.fileCreatedAt
           .isSmallerOrEqualValue(DateTime(end.year, end.month, end.day, 23, 59, 59, 999)));
     }
 
     if (filters.mediaType == MediaTypeFilter.image) {
-      query.where((t) => t.type.equals('IMAGE'));
+      wo.add(assets.type.equals('IMAGE'));
     } else if (filters.mediaType == MediaTypeFilter.video) {
-      query.where((t) => t.type.equals('VIDEO'));
+      wo.add(assets.type.equals('VIDEO'));
     }
 
     // Leerer Satz heisst „alle" – nicht „keins". Ein `isIn([])` waere
     // sonst eine Bedingung, die nie zutrifft, und die Suche bliebe ohne
     // erkennbaren Grund leer.
     if (filters.formate.isNotEmpty) {
-      query.where((t) => t.dateiformat.isIn(filters.formate.toList()));
+      wo.add(assets.dateiformat.isIn(filters.formate.toList()));
     }
 
     if (filters.favoritesOnly) {
-      query.where((t) => t.isFavorite.equals(true));
+      wo.add(assets.isFavorite.equals(true));
     }
 
     if (filters.notInAnyAlbum) {
-      query.where((t) =>
-          notExistsQuery(select(albumAssets)..where((aa) => aa.assetId.equalsExp(t.id))));
+      wo.add(notExistsQuery(select(albumAssets)..where((aa) => aa.assetId.equalsExp(assets.id))));
     }
 
     if (filters.minRating != null) {
-      query.where((t) => t.rating.isBiggerOrEqualValue(filters.minRating!));
+      wo.add(assets.rating.isBiggerOrEqualValue(filters.minRating!));
     }
     if (filters.colorLabels.isNotEmpty) {
-      query.where((t) => t.colorLabel.isIn(filters.colorLabels));
+      wo.add(assets.colorLabel.isIn(filters.colorLabels));
     }
     if (filters.minIso != null) {
-      query.where((t) => t.iso.isBiggerOrEqualValue(filters.minIso!));
+      wo.add(assets.iso.isBiggerOrEqualValue(filters.minIso!));
     }
     if (filters.maxIso != null) {
-      query.where((t) => t.iso.isSmallerOrEqualValue(filters.maxIso!));
+      wo.add(assets.iso.isSmallerOrEqualValue(filters.maxIso!));
     }
     if (filters.minFNumber != null) {
-      query.where((t) => t.fNumber.isBiggerOrEqualValue(filters.minFNumber!));
+      wo.add(assets.fNumber.isBiggerOrEqualValue(filters.minFNumber!));
     }
     if (filters.maxFNumber != null) {
-      query.where((t) => t.fNumber.isSmallerOrEqualValue(filters.maxFNumber!));
+      wo.add(assets.fNumber.isSmallerOrEqualValue(filters.maxFNumber!));
     }
     if (filters.minFocalLengthMm != null) {
-      query.where((t) => t.focalLengthMm.isBiggerOrEqualValue(filters.minFocalLengthMm!));
+      wo.add(assets.focalLengthMm.isBiggerOrEqualValue(filters.minFocalLengthMm!));
     }
     if (filters.maxFocalLengthMm != null) {
-      query.where((t) => t.focalLengthMm.isSmallerOrEqualValue(filters.maxFocalLengthMm!));
+      wo.add(assets.focalLengthMm.isSmallerOrEqualValue(filters.maxFocalLengthMm!));
     }
     if (filters.maxSharpnessScore != null) {
-      query.where((t) => t.sharpnessScore.isSmallerOrEqualValue(filters.maxSharpnessScore!));
+      wo.add(assets.sharpnessScore.isSmallerOrEqualValue(filters.maxSharpnessScore!));
     }
     if (filters.nurGeschaetztesDatum) {
-      query.where((t) => t.datumGeschaetzt.equals(true));
+      wo.add(assets.datumGeschaetzt.equals(true));
     }
 
     for (final personId in filters.personIds) {
-      query.where((t) => existsQuery(
-          select(faces)..where((f) => f.assetId.equalsExp(t.id) & f.personId.equals(personId))));
+      wo.add(existsQuery(
+          select(faces)..where((f) => f.assetId.equalsExp(assets.id) & f.personId.equals(personId))));
     }
 
     if (filters.noTag) {
-      query.where(
-          (t) => notExistsQuery(select(assetTags)..where((at) => at.assetId.equalsExp(t.id))));
+      wo.add(notExistsQuery(select(assetTags)..where((at) => at.assetId.equalsExp(assets.id))));
     } else {
       for (final tagId in filters.tagIds) {
-        query.where((t) => existsQuery(
-            select(assetTags)..where((at) => at.assetId.equalsExp(t.id) & at.tagId.equals(tagId))));
+        wo.add(existsQuery(
+            select(assetTags)..where((at) => at.assetId.equalsExp(assets.id) & at.tagId.equals(tagId))));
       }
     }
 
+    return wo;
+  }
+
+  Future<List<AssetData>> searchAssets(SearchFilters filters,
+      {List<String>? restrictToIds}) {
+    final query = select(assets);
+    for (final b in _suchbedingungen(filters, restrictToIds)) {
+      query.where((_) => b);
+    }
     query.orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]);
     return query.get();
+  }
+
+  /// Dieselbe Suche, aber nur die Kennungen.
+  ///
+  /// Fuer die KI-Bildsuche: Die filtert erst hier und rankt danach ueber
+  /// die Einbettungen: Aus der Trefferliste werden am Ende 200 gezeigt.
+  /// Die vollen Zeilen der 7163 Kandidaten dafuer zu lesen kostete an
+  /// dieser Bibliothek 81 ms, die Kennungen kosten 4,3 ms - die 200
+  /// Zeilen holt danach [assetsByIds] fuer 2,6 ms.
+  ///
+  /// **Ohne Reihenfolge**, und das ist Absicht: Wer die Kennungen holt,
+  /// ordnet danach selbst (nach Aehnlichkeit). Ein ORDER BY waere hier
+  /// eine Sortierung, die niemand liest.
+  Future<List<String>> searchAssetIds(SearchFilters filters,
+      {List<String>? restrictToIds}) async {
+    final query = selectOnly(assets)..addColumns([assets.id]);
+    for (final b in _suchbedingungen(filters, restrictToIds)) {
+      query.where(b);
+    }
+    return [for (final z in await query.get()) z.read(assets.id)!];
   }
 
   /// Alle in der Bibliothek tatsächlich vorkommenden, nicht-leeren Werte
@@ -6742,8 +6969,132 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> reiseLoeschen(String id) => transaction(() async {
         await (delete(reiseAufnahmen)..where((t) => t.reiseId.equals(id))).go();
+        // Sonst blieben die Tagesnotizen einer geloeschten Reise stehen
+        // und taeten so, als gehoerten sie zur naechsten mit derselben
+        // Kennung - dieselbe Sorte Rest wie die verwaisten
+        // Gesichtsausschnitte der 8. Pruefrunde.
+        await (delete(reisetagnotizen)..where((t) => t.reiseId.equals(id)))
+            .go();
+        // **Aktivitäten und Spuren überleben, ihre Reise nicht.** Sie
+        // hingen bisher an der Kennung der gelöschten Reise weiter: eine
+        // Wanderung, die zu einer Reise gehört, die es nicht mehr gibt.
+        // Gezeigt hätte sie „Gehört zu: " und nichts dahinter.
+        await (update(aktivitaeten)..where((t) => t.reiseId.equals(id)))
+            .write(const AktivitaetenCompanion(reiseId: Value(null)));
+        await (update(spuren)..where((t) => t.reiseId.equals(id)))
+            .write(const SpurenCompanion(reiseId: Value(null)));
         await (delete(reisen)..where((t) => t.id.equals(id))).go();
       });
+
+  /// Führt Reisen zusammen: Die [quellen] gehen in [ziel] auf.
+  ///
+  /// **Warum es das braucht.** Die Erkennung trennt zwei Reisen, sobald
+  /// mehr als zwei Tage ohne Aufnahme dazwischenliegen (siehe
+  /// `reiseLueckeTage`). Bei einem Urlaub ist das richtig; bei einem
+  /// langen Aufenthalt ist es genau falsch – die 199 verorteten
+  /// Aufnahmen eines zweimonatigen Auslandseinsatzes zerfielen dadurch
+  /// in vier Vorschläge von 25, 63, 89 und 20 Bildern, und zwei weitere
+  /// fielen ganz heraus, weil sie unter der Mindestzahl blieben. Ein
+  /// Einsatz ist keine Reise mit Lücken; er *ist* die Lücken.
+  ///
+  /// Die Schwelle deshalb zu lockern wäre der falsche Griff: Sie ist für
+  /// den Regelfall richtig, und wer sie hochsetzt, bekommt aus zwei
+  /// Wochenenden im selben Monat eine Reise. Zusammenführen ist die
+  /// Entscheidung eines Menschen, und die trifft er einmal.
+  ///
+  /// **[ziel] behält Namen, Art, Titelbild und Notiz** – es ist die
+  /// Reise, die stehenbleibt. Zeitraum und Aufnahmen wachsen um die der
+  /// Quellen; Tagesnotizen kommen mit, wo das Ziel für den Tag noch
+  /// keine hat. Aktivitäten und Spuren der Quellen hängen danach am Ziel.
+  Future<void> reisenZusammenfuehren(String ziel, List<String> quellen) async {
+    final andere = quellen.where((q) => q != ziel).toList();
+    if (andere.isEmpty) return;
+    final platzhalter = List.filled(andere.length, '?').join(', ');
+
+    await transaction(() async {
+      // `OR IGNORE`: Eine Aufnahme, die in beiden Reisen steht, ist kein
+      // Fehler – sie steht danach einmal in der einen.
+      await customStatement(
+        'INSERT OR IGNORE INTO reise_aufnahmen (reise_id, asset_id) '
+        'SELECT ?, asset_id FROM reise_aufnahmen WHERE reise_id IN ($platzhalter)',
+        [ziel, ...andere],
+      );
+      // Beim Tag gewinnt die Notiz des Ziels: Sie ist die, die
+      // stehenbleibt, und zwei Sätze zu einem Tag zusammenzukleben
+      // ergäbe einen dritten, den niemand geschrieben hat.
+      await customStatement(
+        'INSERT OR IGNORE INTO reisetagnotizen '
+        '(reise_id, tag, notiz, geaendert_am) '
+        'SELECT ?, tag, notiz, geaendert_am FROM reisetagnotizen '
+        'WHERE reise_id IN ($platzhalter)',
+        [ziel, ...andere],
+      );
+      await (update(aktivitaeten)..where((t) => t.reiseId.isIn(andere)))
+          .write(AktivitaetenCompanion(reiseId: Value(ziel)));
+      await (update(spuren)..where((t) => t.reiseId.isIn(andere)))
+          .write(SpurenCompanion(reiseId: Value(ziel)));
+      await (delete(reiseAufnahmen)..where((t) => t.reiseId.isIn(andere))).go();
+      await (delete(reisetagnotizen)..where((t) => t.reiseId.isIn(andere))).go();
+      await (delete(reisen)..where((t) => t.id.isIn(andere))).go();
+
+      // **Zeitraum aus den Aufnahmen und nicht aus den Reisen.** Wer
+      // eine Aufnahme aus einer der Quellen genommen hatte, soll ihren
+      // Tag nicht über den Umweg des gespeicherten Zeitraums
+      // zurückbekommen.
+      final frueheste = assets.fileCreatedAt.min();
+      final spaeteste = assets.fileCreatedAt.max();
+      final spanne = await (selectOnly(reiseAufnahmen).join([
+        innerJoin(assets, assets.id.equalsExp(reiseAufnahmen.assetId)),
+      ])
+            ..addColumns([frueheste, spaeteste])
+            ..where(reiseAufnahmen.reiseId.equals(ziel)))
+          .getSingleOrNull();
+      final anfang = spanne?.read(frueheste);
+      final ende = spanne?.read(spaeteste);
+      if (anfang != null && ende != null) {
+        await (update(reisen)..where((t) => t.id.equals(ziel)))
+            .write(ReisenCompanion(
+          von: Value(anfang),
+          bis: Value(ende),
+        ));
+      }
+    });
+  }
+
+  /// Die Tagesnotizen einer Reise, nach Tag.
+  ///
+  /// Als Karte und nicht als Liste: Die Ansicht fragt je Kapitel genau
+  /// einen Tag ab, und eine Liste hiesse, sie bei jedem Kapitel erneut
+  /// zu durchsuchen.
+  Future<Map<DateTime, String>> reisetagnotizenFuer(String reiseId) async {
+    final zeilen = await (select(reisetagnotizen)
+          ..where((t) => t.reiseId.equals(reiseId)))
+        .get();
+    return {for (final z in zeilen) z.tag: z.notiz};
+  }
+
+  /// Schreibt die Notiz eines Reisetages – leerer Text loescht sie.
+  ///
+  /// Leer heisst „keine Notiz" und nicht „eine leere Notiz": Sonst
+  /// stuende unter der Ueberschrift ein leerer Absatz, und das Kapitel
+  /// saehe aus, als fehle etwas.
+  Future<void> setzeReisetagnotiz(
+      String reiseId, DateTime tag, String text) async {
+    final tagesbeginn = DateTime(tag.year, tag.month, tag.day);
+    final sauber = text.trim();
+    if (sauber.isEmpty) {
+      await (delete(reisetagnotizen)
+            ..where((t) => t.reiseId.equals(reiseId) & t.tag.equals(tagesbeginn)))
+          .go();
+      return;
+    }
+    await into(reisetagnotizen).insertOnConflictUpdate(
+        ReisetagnotizenCompanion.insert(
+            reiseId: reiseId,
+            tag: tagesbeginn,
+            notiz: sauber,
+            geaendertAm: DateTime.now()));
+  }
 
   Future<void> reiseAendern(String id, ReisenCompanion aenderung) =>
       (update(reisen)..where((t) => t.id.equals(id))).write(aenderung);
@@ -7002,6 +7353,45 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// [bis] ist einschliessend gemeint: Wer den 14. Juni als letzten Tag
   /// nennt, meint auch das Foto von 23:50 Uhr.
+  /// Wie viele Aufnahmen im Zeitraum liegen – als Zahl, nicht als Liste.
+  ///
+  /// Der Zeitraum-Dialog zeigt beim Verschieben der Daten eine Zahl an.
+  /// Er holte dafür bisher die vollen Zeilen und nahm deren `length` –
+  /// bei einem weiten Zeitraum die halbe Bibliothek für eine einzige
+  /// Ziffer, und das bei jeder Änderung.
+  Future<int> zahlImZeitraum(DateTime von, DateTime bis) async {
+    final ende = DateTime(bis.year, bis.month, bis.day, 23, 59, 59, 999);
+    final anfang = DateTime(von.year, von.month, von.day);
+    final zaehler = assets.id.count();
+    final abfrage = selectOnly(assets)
+      ..addColumns([zaehler])
+      ..where(assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          assets.fileCreatedAt.isBiggerOrEqualValue(anfang) &
+          assets.fileCreatedAt.isSmallerOrEqualValue(ende) &
+          _isPrimaryGridEntry(assets));
+    return (await abfrage.getSingle()).read(zaehler)!;
+  }
+
+  /// Dieselbe Menge wie [aufnahmenImZeitraum] als schmale Rasterzeilen.
+  Future<List<Rasterzeile>> rasterzeilenImZeitraum(
+      DateTime von, DateTime bis) async {
+    final ende = DateTime(bis.year, bis.month, bis.day, 23, 59, 59, 999);
+    final anfang = DateTime(von.year, von.month, von.day);
+    return (await customSelect(
+                'SELECT $rasterSpalten FROM assets WHERE $rasterSichtbar '
+                'AND file_created_at >= ? AND file_created_at <= ? '
+                'ORDER BY file_created_at ASC',
+                variables: [
+                  Variable.withDateTime(anfang),
+                  Variable.withDateTime(ende)
+                ],
+                readsFrom: {assets})
+            .get())
+        .map(Rasterzeile.ausZeile)
+        .toList();
+  }
+
   Future<List<AssetData>> aufnahmenImZeitraum(DateTime von, DateTime bis) {
     final ende = DateTime(bis.year, bis.month, bis.day, 23, 59, 59, 999);
     final anfang = DateTime(von.year, von.month, von.day);
@@ -7139,6 +7529,27 @@ class AppDatabase extends _$AppDatabase {
 
   /// Welche Aufnahme zu welcher Reise gehört – für die Zuordnung einer
   /// Aktivität (siehe `reiseFuerAktivitaet`).
+  /// Wie viele Aufnahmen je Reise – eine Abfrage für alle.
+  ///
+  /// Als Zahl und nicht als Liste: Gebraucht wird sie dort, wo man
+  /// entscheidet, welche Reisen zusammengehören, und dafür genügt die
+  /// Ziffer. (Siehe die Papierkorb-Kennzahl der Runde vom 31.08.: Zwei
+  /// Stellen zogen 618 volle Zeilen, um deren Länge zu zeigen.)
+  Future<Map<String, int>> aufnahmenzahlJeReise() async {
+    final zeilen = await customSelect(
+      'SELECT reise_id, count(*) AS n FROM reise_aufnahmen GROUP BY reise_id',
+      readsFrom: {reiseAufnahmen},
+    ).get();
+    return {
+      for (final z in zeilen) z.read<String>('reise_id'): z.read<int>('n'),
+    };
+  }
+
+  /// Setzt die Art einer Reise (siehe [Reiseart]).
+  Future<void> setzeReiseart(String id, String art) =>
+      (update(reisen)..where((t) => t.id.equals(id)))
+          .write(ReisenCompanion(art: Value(art)));
+
   Future<Map<String, String>> reiseJeAufnahme() async =>
       {for (final z in await select(reiseAufnahmen).get()) z.assetId: z.reiseId};
 

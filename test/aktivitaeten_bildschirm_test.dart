@@ -103,6 +103,39 @@ void main() {
     expect(find.textContaining('8 Fotos'), findsOneWidget);
   });
 
+  testWidgets('eine bestätigte Reise wird nicht noch einmal als Aktivität '
+      'vorgeschlagen', (tester) async {
+    await wanderung();
+    // Dieselben acht Bilder als bestätigte Reise. Vorher bot der
+    // Bildschirm sie trotzdem als Aktivität an – bei der echten Reise
+    // „Mazār-e Sharīf – ISAF" stammten zwei von vier Vorschlägen aus
+    // ihren Aufnahmen, einer davon zu 28 von 28.
+    await db.reiseAnlegen(
+      ReisenCompanion.insert(
+        id: 'r1',
+        name: 'Harzwoche',
+        von: DateTime(2026, 6, 14, 9),
+        bis: DateTime(2026, 6, 14, 13),
+        angelegtAm: DateTime(2026, 6, 15),
+      ),
+      [for (var i = 0; i < 8; i++) 'w$i'],
+    );
+    await zeige(tester);
+
+    expect(find.text('Vorschläge'), findsNothing,
+        reason: 'was in einer Reise steht, ist schon zugeordnet');
+    expect(find.text('Goslar'), findsNothing);
+  });
+
+  testWidgets('ohne die Reise steht der Vorschlag sehr wohl da',
+      (tester) async {
+    // Die Gegenprobe zum Test darüber: Sonst prüfte er nur, dass der
+    // Bildschirm überhaupt nichts anzeigt.
+    await wanderung();
+    await zeige(tester);
+    expect(find.text('Vorschläge'), findsOneWidget);
+  });
+
   testWidgets('bestätigen legt sie an – für sich, ohne Reise',
       (tester) async {
     await wanderung();
@@ -128,7 +161,12 @@ void main() {
     expect(find.text('Vorschläge'), findsNothing);
   });
 
-  testWidgets('eine Wanderung im Urlaub landet bei der Reise', (tester) async {
+  testWidgets('eine Wanderung im Urlaub steht unter „Auf Reisen"',
+      (tester) async {
+    // **Angelegt wird sie im Reisebildschirm**, nicht hier: Aus einer
+    // bestätigten Reise entstehen keine Vorschläge mehr (siehe oben).
+    // Was dieser Test bewacht, ist die Anzeige – dass eine Aktivität mit
+    // Reise in der anderen der beiden Listen landet und ihre Reise nennt.
     await wanderung();
     await db.reiseAnlegen(
       ReisenCompanion.insert(
@@ -138,18 +176,22 @@ void main() {
         bis: DateTime(2026, 6, 16),
         angelegtAm: DateTime(2026, 7, 1),
       ),
-      // Die Bilder der Wanderung gehören zur Reise – daran, und nicht am
-      // Kalender, hängt die Zuordnung.
+      ['w0', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7'],
+    );
+    await db.aktivitaetAnlegen(
+      AktivitaetenCompanion.insert(
+        id: 'k1',
+        name: 'Goslar',
+        art: Aktivitaetsart.wanderung.kennung,
+        von: DateTime(2026, 6, 14, 9),
+        bis: DateTime(2026, 6, 14, 12, 30),
+        reiseId: const Value('r1'),
+        angelegtAm: DateTime(2026, 7, 1),
+      ),
       ['w0', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7'],
     );
     await zeige(tester);
 
-    await tester.tap(find.text('War eine Unternehmung'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Übernehmen'));
-    await tester.pumpAndSettle();
-
-    expect((await db.alleAktivitaeten()).single.reiseId, 'r1');
     expect(find.text('Auf Reisen'), findsOneWidget);
     expect(find.textContaining('Gehört zu: Harz'), findsOneWidget);
   });

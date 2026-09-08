@@ -5,6 +5,7 @@ import 'dart:ui' show Offset;
 
 import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
+import 'modellthreads.dart';
 
 /// SAMs Standard-Vorverarbeitung (ImageNet-Mittel/Standardabweichung,
 /// längste Kante auf 1024px, danach quadratisch aufgefüllt) – exakt gegen
@@ -77,8 +78,10 @@ class SegmentationService {
 
   static Future<SegmentationService> load(String modelsDir) async {
     final ort = OnnxRuntime();
-    final visionSession = await ort.createSession('$modelsDir/sam_vision_encoder.onnx');
-    final decoderSession = await ort.createSession('$modelsDir/sam_prompt_mask_decoder.onnx');
+    final visionSession = await ort.createSession('$modelsDir/sam_vision_encoder.onnx',
+        options: modelloptionen());
+    final decoderSession = await ort.createSession('$modelsDir/sam_prompt_mask_decoder.onnx',
+        options: modelloptionen());
     return SegmentationService._(visionSession, decoderSession);
   }
 

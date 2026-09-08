@@ -289,6 +289,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
   SamImageEmbedding? _embedding;
   img.Image? _decodedForMasking;
 
+  /// Ein laufender Dekodierlauf, damit er nur einmal stattfindet.
+  Future<img.Image?>? _dekodierung;
+
   /// Die von [widget.segmentation] geliehene Sitzung (siehe
   /// [_ensureEmbedding]) – nicht-null bedeutet zugleich "muss in [dispose]
   /// zurückgegeben werden".
@@ -1327,6 +1330,9 @@ class _DevelopScreenState extends State<DevelopScreen> {
       _pendingMaskOverlayPng = null;
     });
     if (type == _MaskFormType.aiSelect) _ensureEmbedding();
+    // Vorgriff: Dann steht das Bild meist schon bereit, wenn der erste
+    // Tipp kommt.
+    if (type == _MaskFormType.colorRange) unawaited(_ensureDekodiert());
   }
 
   void _cancelMaskCreation() {
@@ -1411,27 +1417,46 @@ class _DevelopScreenState extends State<DevelopScreen> {
     }
   }
 
+  /// Der Rand, in dem das Vorschaubild im Maskeneditor sitzt. Muss mit
+  /// dem `Padding` in [_buildShapeMaskEditor] und
+  /// [_buildAiSelectMaskEditor] übereinstimmen – die Umrechnung von
+  /// Zeiger- auf Bildkoordinaten rechnet mit genau diesem Wert.
+  static const double _maskenrand = AppSpacing.lg;
+
   /// Der tatsächlich gerenderte Bildbereich innerhalb eines Widgets, das per
   /// `BoxFit.contain` skaliert/gelettert wird (Muster: BoxFit.contain-Formel).
   /// Gemeinsame Grundlage für [_widgetPointToImagePoint] (Pixel-Koordinaten,
   /// KI-Auswahl) und [_widgetPointToNormalizedImagePoint] ([0,1]-Koordinaten,
   /// Vektorformen).
+  ///
+  /// [widgetSize] ist die volle Fläche des Editors – der Rand, in dem das
+  /// Bild darin sitzt ([_maskenrand]), wird hier abgezogen. Ohne das lag
+  /// der berechnete Bildbereich um genau diesen Rand daneben, und jede
+  /// Maskengeste traf ein paar Bildpunkte neben der Stelle, auf die
+  /// gezeigt wurde.
   Rect _imageDisplayRect(Size widgetSize, double imageWidth, double imageHeight) {
+    final flaeche = Rect.fromLTWH(0, 0, widgetSize.width, widgetSize.height)
+        .deflate(_maskenrand);
+    // Ein Editor, der schmaler ist als sein eigener Rand, hat keinen
+    // Bildbereich – ohne diese Rückfallebene käme eine negative Breite
+    // heraus, und jede Umrechnung darauf wäre Unsinn.
+    if (flaeche.width <= 0 || flaeche.height <= 0) return Rect.zero;
     final imageAspect = imageWidth / imageHeight;
-    final widgetAspect = widgetSize.width / widgetSize.height;
+    final widgetAspect = flaeche.width / flaeche.height;
     double renderedWidth, renderedHeight, offsetX, offsetY;
     if (imageAspect > widgetAspect) {
-      renderedWidth = widgetSize.width;
-      renderedHeight = widgetSize.width / imageAspect;
+      renderedWidth = flaeche.width;
+      renderedHeight = flaeche.width / imageAspect;
       offsetX = 0;
-      offsetY = (widgetSize.height - renderedHeight) / 2;
+      offsetY = (flaeche.height - renderedHeight) / 2;
     } else {
-      renderedHeight = widgetSize.height;
-      renderedWidth = widgetSize.height * imageAspect;
+      renderedHeight = flaeche.height;
+      renderedWidth = flaeche.height * imageAspect;
       offsetY = 0;
-      offsetX = (widgetSize.width - renderedWidth) / 2;
+      offsetX = (flaeche.width - renderedWidth) / 2;
     }
-    return Rect.fromLTWH(offsetX, offsetY, renderedWidth, renderedHeight);
+    return Rect.fromLTWH(
+        flaeche.left + offsetX, flaeche.top + offsetY, renderedWidth, renderedHeight);
   }
 
   /// Rechnet eine Tipp-Position innerhalb des Vorschau-Widgets in eine
@@ -1461,6 +1486,41 @@ class _DevelopScreenState extends State<DevelopScreen> {
     return Offset(dx / rect.width, dy / rect.height);
   }
 
+  /// Sorgt dafür, dass das Vorschaubild dekodiert vorliegt.
+  ///
+  /// Bis hierher füllte [_decodedForMasking] **nur** der KI-Weg
+  /// ([_ensureEmbedding]). Wer die Farbmaske wählte, ohne vorher die
+  /// KI-Auswahl geöffnet zu haben – und ohne installiertes
+  /// Segmentierungsmodell geht das gar nicht –, tippte ins Leere:
+  /// [_handleFarbeAufnehmen] kehrt ohne dekodiertes Bild wortlos zurück.
+  /// Der Farbwähler braucht kein SAM, nur Bildpunkte.
+  Future<img.Image?> _ensureDekodiert() {
+    final vorhanden = _decodedForMasking;
+    if (vorhanden != null) return Future.value(vorhanden);
+    // Ein laufender Lauf wird geteilt: Zwei Tipps kurz nacheinander
+    // sollen nicht zweimal dasselbe Bild dekodieren.
+    return _dekodierung ??= _dekodiereVorschau();
+  }
+
+  Future<img.Image?> _dekodiereVorschau() async {
+    final bytes = _previewBytes;
+    if (bytes == null) {
+      _dekodierung = null;
+      return null;
+    }
+    final decoded = await compute(decodeImageBytes, bytes);
+    if (!mounted) return decoded;
+    if (decoded == null) {
+      // Beim nächsten Versuch neu probieren: Ein gescheiterter Lauf ist
+      // kein Ergebnis, das man festhalten will.
+      _dekodierung = null;
+      melde.warnung(AppTexte.of(context).entwVorschauNichtDekodiert);
+      return null;
+    }
+    setState(() => _decodedForMasking = decoded);
+    return decoded;
+  }
+
   void _handleMaskTap(Offset local, Size widgetSize) {
     final decoded = _decodedForMasking;
     if (decoded == null || _computingMask) return;
@@ -1476,12 +1536,16 @@ class _DevelopScreenState extends State<DevelopScreen> {
   /// Gelesen wird aus der Vorschau, die ohnehin im Speicher liegt – das
   /// Original dafür zu dekodieren wäre für drei Zahlen zu teuer, und für
   /// eine Farbe ist die Vorschau genau genug.
-  void _handleFarbeAufnehmen(Offset local, Size widgetSize) {
+  Future<void> _handleFarbeAufnehmen(Offset local, Size widgetSize) async {
     if (_maskFormType != _MaskFormType.colorRange) return;
-    final decoded = _decodedForMasking;
-    if (decoded == null) return;
     final punkt = _widgetPointToNormalizedImagePoint(local, widgetSize);
     if (punkt == null) return;
+    final decoded = await _ensureDekodiert();
+    if (decoded == null || !mounted) return;
+    // Der Werkzeugwechsel während des Dekodierens verwirft den Tipp:
+    // Sonst entstünde eine Farbmaske, obwohl längst ein anderes
+    // Werkzeug gewählt ist.
+    if (_maskFormType != _MaskFormType.colorRange) return;
 
     final x = (punkt.dx * decoded.width).floor().clamp(0, decoded.width - 1);
     final y = (punkt.dy * decoded.height).floor().clamp(0, decoded.height - 1);
@@ -2249,9 +2313,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final widgetSize = Size(constraints.maxWidth, constraints.maxHeight);
-        return GestureDetector(
-          onTapUp: (details) => _handleMaskTap(details.localPosition, widgetSize),
-          child: Stack(
+        // `SizedBox.expand`: Der Editor haengt unter einem `Center` und
+        // bekommt dort lockere Zwaenge. Ohne dieses Ausfuellen meldet der
+        // `LayoutBuilder` die ganze freie Flaeche, der Stapel darunter
+        // schrumpft aber auf das Bild - und dann rechnet die Umrechnung
+        // Zeiger -> Bild mit einer anderen Flaeche, als die Geste
+        // ankommt. Bei querformatigem Bild in hochformatiger Flaeche kam
+        // dabei fuer jeden Punkt "ausserhalb" heraus: Das Werkzeug tat
+        // gar nichts.
+        return SizedBox.expand(
+          child: GestureDetector(
+            // Damit auch ein Tipp im Letterbox-Rand beim Werkzeug
+            // ankommt und nicht ins Leere faellt.
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (details) => _handleMaskTap(details.localPosition, widgetSize),
+            child: Stack(
             alignment: Alignment.center,
             children: [
               Padding(
@@ -2286,7 +2362,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -2307,12 +2384,17 @@ class _DevelopScreenState extends State<DevelopScreen> {
         final displayRect = (assetWidth != null && assetHeight != null && assetWidth > 0 && assetHeight > 0)
             ? _imageDisplayRect(widgetSize, assetWidth.toDouble(), assetHeight.toDouble())
             : Rect.fromLTWH(0, 0, widgetSize.width, widgetSize.height);
-        return GestureDetector(
-          onPanStart: (details) => _handleShapePanStart(details, widgetSize),
-          onPanUpdate: (details) => _handleShapePanUpdate(details, widgetSize),
-          // Die Farbauswahl entsteht durch Tippen, nicht durch Ziehen.
-          onTapUp: (details) => _handleFarbeAufnehmen(details.localPosition, widgetSize),
-          child: Stack(
+        // Siehe [_buildAiSelectMaskEditor]: ohne `SizedBox.expand` meldet
+        // der `LayoutBuilder` eine andere Flaeche, als die Geste sie
+        // trifft - und keine Form entsteht.
+        return SizedBox.expand(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onPanStart: (details) => _handleShapePanStart(details, widgetSize),
+            onPanUpdate: (details) => _handleShapePanUpdate(details, widgetSize),
+            // Die Farbauswahl entsteht durch Tippen, nicht durch Ziehen.
+            onTapUp: (details) => _handleFarbeAufnehmen(details.localPosition, widgetSize),
+            child: Stack(
             alignment: Alignment.center,
             children: [
               Padding(
@@ -2333,7 +2415,8 @@ class _DevelopScreenState extends State<DevelopScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
                   ),
                 ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -2395,13 +2478,21 @@ class _DevelopScreenState extends State<DevelopScreen> {
                   true
                 ),
               ])
-                ChoiceChip(
-                  label: Text(beschriftung, style: const TextStyle(fontSize: 12)),
-                  avatar: Icon(symbol, size: 15),
-                  selected: _maskFormType == typ,
-                  visualDensity: VisualDensity.compact,
-                  onSelected:
-                      bedienbar ? (_) => _switchMaskFormType(typ) : null,
+                // Ein grauer Knopf ohne Grund ist eine Sackgasse: Die
+                // KI-Auswahl bleibt ohne Segmentierungsmodell stumm, und
+                // wer das nicht weiss, haelt das Werkzeug fuer kaputt.
+                Tooltip(
+                  message: bedienbar
+                      ? beschriftung
+                      : AppTexte.of(context).entwFormKiFehlt,
+                  child: ChoiceChip(
+                    label: Text(beschriftung, style: const TextStyle(fontSize: 12)),
+                    avatar: Icon(symbol, size: 15),
+                    selected: _maskFormType == typ,
+                    visualDensity: VisualDensity.compact,
+                    onSelected:
+                        bedienbar ? (_) => _switchMaskFormType(typ) : null,
+                  ),
                 ),
             ],
           ),
@@ -2561,10 +2652,18 @@ class _DevelopScreenState extends State<DevelopScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                AppTexte.of(context)
-                    .entwFarbeAufgenommen(gewaehlt.red, gewaehlt.green, gewaehlt.blue),
-                style: const TextStyle(color: DunkleFlaeche.zweitText, fontSize: 12),
+              // Die aufgenommene Farbe steht als "R 120, G 140, B 160"
+              // da und passt in der 300 Punkte schmalen Bedienspalte
+              // nicht immer neben das Farbfeld. Ohne [Expanded] lief die
+              // Zeile ueber - zu sehen war das bisher nie, weil der
+              // Farbwaehler ueberhaupt keine Farbe aufnahm.
+              Expanded(
+                child: Text(
+                  AppTexte.of(context)
+                      .entwFarbeAufgenommen(gewaehlt.red, gewaehlt.green, gewaehlt.blue),
+                  style: const TextStyle(color: DunkleFlaeche.zweitText, fontSize: 12),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),

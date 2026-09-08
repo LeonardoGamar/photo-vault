@@ -10,6 +10,7 @@ import '../services/embedding_codec.dart';
 import '../services/face_clustering_service.dart';
 import '../services/face_engine_service.dart';
 import '../services/storage_paths.dart';
+import '../state/hintergrundlauf.dart' show abweisungstext;
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
@@ -87,6 +88,21 @@ class _PeopleScreenState extends State<PeopleScreen>
   /// oder 16 000 Gesichter liegen.
   int _unbenannteAnzahl = 0;
 
+  /// Warum hier nichts steht, wenn nichts dasteht.
+  ///
+  /// **Der Bericht hiess: „Nach dem Import keine unbekannten
+  /// Gesichter".** Der Tab sagte darauf „Keine unbenannten Gesichter
+  /// (mehr). Neue erscheinen hier automatisch, sobald du weitere Fotos
+  /// importierst" – und versprach damit genau das, was gerade nicht
+  /// eingetreten war. Dieselbe falsche Auskunft wie „Keine Treffer" bei
+  /// der Suche in einem leeren Verzeichnis (D02/D08): Die Aussage stimmt
+  /// nur, wenn die Suche ueberhaupt gelaufen ist.
+  ///
+  /// [modell] sagt, ob es ein Gesichtsmodell gibt, [offen], wie viele
+  /// Aufnahmen noch nicht durchsucht sind. `null`, solange beides noch
+  /// ermittelt wird.
+  ({bool modell, int offen})? _gesichtsstand;
+
   /// Ob der Inhalt des Tabs „Ignoriert" noch zum Datenbankstand passt.
   ///
   /// Beim Beiseitelegen wird er absichtlich nicht sofort nachgeladen: Wer
@@ -123,6 +139,25 @@ class _PeopleScreenState extends State<PeopleScreen>
     super.dispose();
   }
 
+  /// Reiht die Gesichtssuche ueber die noch offenen Aufnahmen ein –
+  /// derselbe Lauf und derselbe Schluessel wie in der Aufgabenliste, damit
+  /// nicht zwei Durchgaenge dieselbe Liste abarbeiten.
+  ///
+  /// Von hier aus und nicht nur aus den Werkzeugen: Wer im leeren Tab
+  /// steht und liest, dass noch nichts durchsucht ist, soll nicht erst
+  /// einen anderen Bildschirm suchen muessen.
+  void _starteGesichtssuche() {
+    final t = AppTexte.of(context);
+    final abweisung = widget.library.reiheAufgabeEin(
+      schluessel: 'gesichter',
+      titel: t.werkzScanneNeue,
+      leermeldung: t.werkzKeinePassenden,
+      rechenintensiv: true,
+      strom: () => widget.library.rescanFaces(onlyNewPhotos: true),
+    );
+    if (abweisung != null) melde.hinweis(abweisungstext(t, abweisung));
+  }
+
   /// Holt den Tab „Ignoriert" nach, sobald er tatsächlich angesehen wird.
   void _tabGewechselt() {
     if (_tabs.indexIsChanging || _tabs.index != 2 || !_ignorierteVeraltet) return;
@@ -134,8 +169,18 @@ class _PeopleScreenState extends State<PeopleScreen>
   Future<void> _neuLaden() async {
     final faces = await widget.library.db.unassignedFaces();
     final unbenannt = await widget.library.db.unassignedFacesCount();
+    // Nur gefragt, wenn das Raster leer bleibt: Die Zaehlung laeuft ueber
+    // die ganze Bibliothek, und wer 4000 Gesichter vor sich hat, braucht
+    // keine Erklaerung dafuer, dass keine da sind.
+    final stand = faces.isNotEmpty
+        ? null
+        : (
+            modell: widget.library.faceDetectionAvailable,
+            offen: await widget.library.db.countFaceScan(onlyNew: true)
+          );
     if (mounted) {
       setState(() {
+        _gesichtsstand = stand;
         _unassignedFaces = faces;
         _unbenannteAnzahl = unbenannt;
       });
@@ -701,6 +746,9 @@ class _PeopleScreenState extends State<PeopleScreen>
                 _UnassignedFacesGrid(
                   onKontextmenue: _kontextmenue,
                   faces: _unassignedFaces,
+                  library: widget.library,
+                  stand: _gesichtsstand,
+                  onSucheStarten: _starteGesichtssuche,
                   paths: widget.library.paths,
                   selected: _selectedFaceIds,
                   autoSelected: _autoSelectedIds,
@@ -868,10 +916,83 @@ class _PeopleGrid extends StatelessWidget {
   }
 }
 
+/// Was im leeren „Unbenannte"-Tab steht – und warum es davon vier
+/// Fassungen gibt, siehe [_PeopleScreenState._gesichtsstand].
+class _LeeresGesichterraster extends StatelessWidget {
+  const _LeeresGesichterraster({
+    required this.library,
+    required this.stand,
+    required this.onSucheStarten,
+  });
+
+  final LibraryState library;
+  final ({bool modell, int offen})? stand;
+  final VoidCallback onSucheStarten;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    // Am ChangeNotifier, weil sich der mittlere Fall waehrend des
+    // Zusehens aendert: Wer den Knopf drueckt, soll nicht denselben Text
+    // mit demselben Knopf behalten.
+    return ListenableBuilder(
+      listenable: library,
+      builder: (context, _) {
+        final s = stand;
+        final laeuft = library.analyseLaeuft ||
+            library.laufendeSchwerarbeit.isNotEmpty ||
+            library.analyseZurueckgestellt;
+        final (String text, bool knopf) = switch (s) {
+          null => (t.personenKeineUnbenannten, false),
+          _ when !s.modell => (
+              '${t.personenOhneGesichtsmodell} '
+                  '${t.aufgModellNoetig(t.aufgYunetModell, t.aufgWoModelle)}',
+              false
+            ),
+          _ when s.offen > 0 && laeuft => (t.personenSucheLaeuft, false),
+          _ when s.offen > 0 => (
+              t.personenNochNichtDurchsucht(s.offen),
+              true
+            ),
+          _ => (t.personenKeineUnbenannten, false),
+        };
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xxl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(text, textAlign: TextAlign.center),
+                if (knopf) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  FilledButton.icon(
+                    icon: const Icon(Icons.face_retouching_natural),
+                    label: Text(t.personenJetztSuchen),
+                    onPressed: onSucheStarten,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _UnassignedFacesGrid extends StatelessWidget {
   /// Rechtsklick irgendwo im Raster – die Massenaktionen.
   final void Function(Offset position) onKontextmenue;
   final List<FaceData> faces;
+  final LibraryState library;
+
+  /// Siehe [_PeopleScreenState._gesichtsstand] – nur gesetzt, wenn
+  /// [faces] leer ist.
+  final ({bool modell, int offen})? stand;
+
+  /// Startet die Gesichtssuche ueber die noch offenen Aufnahmen.
+  final VoidCallback onSucheStarten;
+
   final StoragePaths paths;
   final Set<String> selected;
   final Set<String> autoSelected;
@@ -885,6 +1006,9 @@ class _UnassignedFacesGrid extends StatelessWidget {
   const _UnassignedFacesGrid({
     required this.onKontextmenue,
     required this.faces,
+    required this.library,
+    required this.stand,
+    required this.onSucheStarten,
     required this.paths,
     required this.selected,
     required this.autoSelected,
@@ -910,15 +1034,8 @@ class _UnassignedFacesGrid extends StatelessWidget {
 
   Widget _inhalt(BuildContext context) {
     if (faces.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Text(
-            AppTexte.of(context).personenKeineUnbenannten,
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
+      return _LeeresGesichterraster(
+          library: library, stand: stand, onSucheStarten: onSucheStarten);
     }
     return Column(
       children: [

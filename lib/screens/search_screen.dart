@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../l10n/app_localizations.dart';
 import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/clip_service.dart';
 import '../services/search_filters.dart';
+import '../services/sortierung.dart';
 import '../services/suchsatz.dart';
 import '../services/videostandbilder.dart';
 import '../state/library_state.dart';
@@ -18,11 +20,33 @@ import '../widgets/pin_dialogs.dart';
 import '../widgets/search_options_sheet.dart';
 import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
+import '../widgets/sortierungswahl.dart';
 import 'asset_viewer_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   final LibraryState library;
-  const SearchScreen({super.key, required this.library});
+
+  /// Filter, mit denen der Bildschirm aufgeht – und die er sofort
+  /// ausfuehrt.
+  ///
+  /// **Wofuer.** Ein intelligentes Album ist eine gespeicherte Suche, und
+  /// eines zu oeffnen heisst, genau diese Suche laufen zu lassen. Statt
+  /// die Trefferansicht ein viertes Mal nachzubauen (Zeitleiste, Album,
+  /// Suche haben sie bereits), oeffnet das Album diesen Bildschirm mit
+  /// seinen Filtern. Der Nebeneffekt ist der eigentliche Gewinn: Man kann
+  /// darin weitersuchen, statt in einer Sackgasse zu stehen.
+  final SearchFilters? startFilter;
+
+  /// Ueberschrift, wenn der Bildschirm als eigene Seite aufgeht. `null`
+  /// heisst: Er sitzt in einem Reiter und braucht keine.
+  final String? titel;
+
+  const SearchScreen({
+    super.key,
+    required this.library,
+    this.startFilter,
+    this.titel,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -38,7 +62,27 @@ class _SearchScreenState extends State<SearchScreen>
   /// zu erklären gibt.
   String? _statusText;
   bool _searched = false;
+
+  /// Die Treffer in der Reihenfolge, in der die Suche sie gefunden hat –
+  /// bei der Bildersuche nach Ähnlichkeit, sonst nach Aufnahmedatum.
+  ///
+  /// Getrennt von [_results], weil sich diese Reihenfolge durch keine
+  /// Spalte nachbilden lässt: Wer auf „Fundreihenfolge" zurückstellt,
+  /// bekäme sie sonst nicht wieder.
+  List<AssetData> _funde = [];
+
+  /// Die Treffer so, wie sie dastehen – [_funde] in der eingestellten
+  /// Reihenfolge.
   List<AssetData> _results = [];
+
+  /// Wonach die Treffer geordnet werden; `null` heisst Fundreihenfolge.
+  ///
+  /// **In Dart geordnet und nicht im `ORDER BY`.** Die Suche holt ihre
+  /// Treffer vollständig statt seitenweise, und bei der Bildersuche
+  /// entsteht die Reihenfolge überhaupt erst danach, aus den
+  /// Ähnlichkeiten. Ein zweites `ORDER BY` in der Abfrage würde die
+  /// zweite Hälfte davon gar nicht erreichen.
+  Rastersortierung? _sortierung;
   String? _error;
   final Set<String> _selected = {};
 
@@ -87,13 +131,36 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   Future<void> rasterAktualisieren() async {
     final frisch =
-        await widget.library.db.assetsByIds([for (final a in _results) a.id]);
-    if (mounted) setState(() => _results = frisch);
+        await widget.library.db.assetsByIds([for (final a in _funde) a.id]);
+    if (mounted) setState(() => _zeigeFunde(frisch));
   }
 
-  void _toggleSelected(String id) => setState(() {
-        if (!_selected.remove(id)) _selected.add(id);
-      });
+  /// Übernimmt eine Trefferliste und ordnet sie nach [_sortierung].
+  ///
+  /// Nur innerhalb eines `setState` aufrufen – die Methode setzt bloss
+  /// die beiden Felder.
+  void _zeigeFunde(List<AssetData> funde) {
+    _funde = funde;
+    final s = _sortierung;
+    _results = s == null
+        ? funde
+        : (List<AssetData>.of(funde)..sort(sortierungVergleicher(s)));
+  }
+
+  void _setzeSortierung(Rastersortierung? wahl) {
+    if (wahl == _sortierung) return;
+    setState(() {
+      _sortierung = wahl;
+      // Wie in der Zeitleiste: Der Rahmen darf nicht auf einem anderen
+      // Foto wieder auftauchen.
+      aktiveKachel = null;
+      anker = null;
+      _zeigeFunde(_funde);
+    });
+  }
+
+  /// Siehe [Rasterbedienung.rasterUmschalten]: Der Anker gehoert dazu.
+  void _toggleSelected(String id) => rasterUmschalten(id);
 
   void _openViewer(int index) {
     Navigator.of(context).push(MaterialPageRoute(
@@ -243,12 +310,22 @@ class _SearchScreenState extends State<SearchScreen>
     await _runSearch();
   }
 
+  /// Warum nichts zurückkam, wenn es nicht an der Suchanfrage lag.
+  ///
+  /// Zwei Suchweisen brauchen einen Durchgang über die Bibliothek, bevor
+  /// sie überhaupt etwas finden können: die KI-Bildsuche (CLIP) und die
+  /// Suche im erkannten Text (OCR). Wer die App neu aufsetzt, hat beides
+  /// noch nicht – und bekam dann "Keine Treffer" zu sehen. Das ist die
+  /// falsche Auskunft: Gesucht wurde in einem leeren Verzeichnis.
+  String? _leerGrund;
+
   Future<void> _runSearch() async {
     if (_filters.isEmpty) return;
     setState(() {
       _loading = true;
       _searched = true;
       _error = null;
+      _leerGrund = null;
     });
     try {
       final query = _filters.query.trim();
@@ -287,6 +364,14 @@ class _SearchScreenState extends State<SearchScreen>
         // ein Video ist nicht mehr ein einziges Bild (siehe
         // [LibraryState.suchkandidaten]).
         final embeddings = await widget.library.suchkandidaten();
+        if (embeddings.isEmpty) {
+          if (!mounted) return;
+          setState(() {
+            _zeigeFunde(const []);
+            _leerGrund = AppTexte.of(context).sucheOhneEmbeddings;
+          });
+          return;
+        }
 
         // Reihenfolge ist entscheidend: ERST die übrigen Filter anwenden,
         // DANN innerhalb dieser Treffermenge nach Ähnlichkeit ranken.
@@ -296,11 +381,17 @@ class _SearchScreenState extends State<SearchScreen>
         // verlor damit jeden Treffer, der es global nicht unter die besten
         // 200 geschafft hatte – auch wenn das Album nur fünf Fotos umfasst.
         // Ohne gesetzte Filter bleibt das Ergebnis dasselbe wie zuvor.
-        final gefiltert = await widget.library.db.searchAssets(_filters);
-        final byId = {for (final a in gefiltert) a.id: a};
+        //
+        // **Nur die Kennungen.** Gebraucht wird hier eine Frage nach
+        // Zugehörigkeit – „darf diese Aufnahme in die Rangfolge?" –, und
+        // dafür die vollen Zeilen aller 7163 Kandidaten zu lesen kostete
+        // 81 ms je Suche. Die Kennungen kosten 4,3 ms; die 200 Zeilen,
+        // die am Ende wirklich gezeigt werden, holt `assetsByIds`
+        // danach für 2,6 ms.
+        final erlaubt = (await widget.library.db.searchAssetIds(_filters)).toSet();
         final kandidaten = <String, Float32List>{
           for (final e in embeddings.entries)
-            if (byId.containsKey(
+            if (erlaubt.contains(
                 LibraryState.aufnahmeAusSuchschluessel(e.key)))
               e.key: e.value,
         };
@@ -313,16 +404,31 @@ class _SearchScreenState extends State<SearchScreen>
         // Je Aufnahme zählt ihr bestes Standbild; die Rangfolge kommt
         // absteigend, das erste Auftreten ist also das beste.
         final gesehen = <String>{};
-        results = [
+        final rangfolge = [
           for (final e in ranked)
             if (gesehen.add(LibraryState.aufnahmeAusSuchschluessel(e.key)))
-              byId[LibraryState.aufnahmeAusSuchschluessel(e.key)]!,
+              LibraryState.aufnahmeAusSuchschluessel(e.key),
         ].take(200).toList();
+        // `assetsByIds` behält die übergebene Reihenfolge bei – die
+        // Rangfolge nach Ähnlichkeit übersteht den Umweg also.
+        results = await widget.library.db.assetsByIds(rangfolge);
       } else {
         results = await widget.library.db.searchAssets(_filters);
       }
+      // Erst fragen, wenn wirklich nichts kam: Der Zähler läuft über die
+      // ganze Bibliothek, und das ist kein Preis für jede Suche.
+      String? grund;
+      if (results.isEmpty && _filters.textMode == SearchTextMode.ocr) {
+        if (await widget.library.db.zaehleMitErkanntemText() == 0) {
+          if (!mounted) return;
+          grund = AppTexte.of(context).sucheOhneTexterkennung;
+        }
+      }
       if (!mounted) return;
-      setState(() => _results = results);
+      setState(() {
+        _zeigeFunde(results);
+        _leerGrund = grund;
+      });
     } on ModellUnbrauchbar catch (e) {
       // Eigener Zweig, weil hier etwas zu TUN ist: Der Rohtext war eine
       // C++-Zusicherung mit den Pfaden eines fremden Bauservers.
@@ -343,6 +449,20 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   @override
+  void initState() {
+    super.initState();
+    final start = widget.startFilter;
+    if (start == null) return;
+    _filters = start;
+    _queryCtrl.text = start.query;
+    // Erst nach dem ersten Aufbau: `_runSearch` setzt Zustand und will
+    // im Fehlerfall an `AppTexte.of(context)`.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_runSearch());
+    });
+  }
+
+  @override
   void dispose() {
     _queryCtrl.dispose();
     super.dispose();
@@ -350,6 +470,14 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    final inhalt = _inhalt(context);
+    final titel = widget.titel;
+    return titel == null
+        ? inhalt
+        : Scaffold(appBar: AppBar(title: Text(titel)), body: inhalt);
+  }
+
+  Widget _inhalt(BuildContext context) {
     return Column(
       children: [
         Padding(
@@ -433,11 +561,35 @@ class _SearchScreenState extends State<SearchScreen>
             ),
           ),
         if (_error != null) Padding(padding: const EdgeInsets.all(AppSpacing.sm), child: Text(_error!)),
+        // Die Reihenfolge erscheint erst mit Treffern: ein Knopf ueber
+        // einer leeren Flaeche haette nichts zu ordnen.
+        if (_searched && _results.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Sortierungswahl(
+                  gewaehlt: _sortierung,
+                  beiWahl: _setzeSortierung,
+                  mitFundreihenfolge: true,
+                ),
+              ],
+            ),
+          ),
         Expanded(
           child: !_searched
               ? Center(child: Text(AppTexte.of(context).sucheAnleitung))
               : _results.isEmpty && !_loading
-                  ? Center(child: Text(AppTexte.of(context).sucheKeineTreffer))
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: Text(
+                          _leerGrund ?? AppTexte.of(context).sucheKeineTreffer,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
                   : mitTastatur(
                       kind: Stack(
                       children: [

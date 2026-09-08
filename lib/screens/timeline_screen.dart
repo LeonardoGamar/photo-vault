@@ -13,11 +13,13 @@ import '../state/library_state.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/asset_list_view.dart';
 import '../services/listenspalten.dart';
+import '../services/sortierung.dart';
 import '../widgets/month_grouped_asset_grid.dart';
 import '../widgets/timeline_grid_layout.dart';
 import '../widgets/pin_dialogs.dart';
 import '../widgets/rasterbedienung.dart';
 import '../widgets/selection_action_bar.dart';
+import '../widgets/sortierungswahl.dart';
 import 'asset_viewer_screen.dart';
 import 'import_progress_sheet.dart';
 import '../widgets/stromhalter.dart';
@@ -104,8 +106,11 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   /// Gruppe. Sonst die Monatsgruppen, die das Raster auch malt.
   @override
   List<List<String>> get rasterGruppen {
-    if (_alsListe) return [[for (final a in _geladen) a.id]];
-    final m = monatsgruppen(_geladen);
+    // Ohne Gliederung ist alles eine Gruppe – die Tastatur muss dieselbe
+    // Einteilung sehen wie das Raster, sonst springt der Zeiger woanders
+    // hin als der Rahmen.
+    if (_alsListe || !_gliedert) return [[for (final a in _geladen) a.id]];
+    final m = monatsgruppen(_geladen, absteigend: sortierungAbsteigend(_sortierung));
     return [for (final k in m.schluessel) [for (final a in m.gruppen[k]!) a.id]];
   }
 
@@ -119,11 +124,19 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
         _rasterbreite <= 0) {
       return null;
     }
-    final m = monatsgruppen(_geladen);
+    // Dieselbe Einteilung wie [rasterGruppen] – sonst zählt die eine
+    // Rechnung Reihen in Gruppen, die die andere gar nicht kennt.
+    final gruppen = _gliedert
+        ? () {
+            final m = monatsgruppen(_geladen,
+                absteigend: sortierungAbsteigend(_sortierung));
+            return [for (final k in m.schluessel) m.gruppen[k]!];
+          }()
+        : [_geladen];
     return [
-      for (final k in m.schluessel)
+      for (final g in gruppen)
         [
-          for (final r in zeitleisteReihen(m.gruppen[k]!, _rasterbreite,
+          for (final r in zeitleisteReihen(g, _rasterbreite,
               kachelbreite: _kachelbreite))
             r.plaetze.length
         ]
@@ -164,6 +177,20 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   /// einmal ein.
   Listenspaltenwahl _listenspalten = Listenspaltenwahl.vorgabe;
 
+  /// Wonach geordnet wird – siehe [Rastersortierung]. Aus demselben Grund
+  /// gemerkt wie Kachelgrösse und Form.
+  Rastersortierung _sortierung = rastersortierungVorgabe;
+
+  /// Nur nach dem Aufnahmedatum darf nach Monaten gegliedert werden –
+  /// siehe [MonthGroupedAssetGrid.gliedern].
+  bool get _gliedert => nachAufnahmedatum(_sortierung);
+
+  /// Was die Liste wirklich gliedert. Ohne Zeitbezug in der Reihenfolge
+  /// wäre eine Monatsüberschrift eine Behauptung über eine Gruppe, in der
+  /// jedes Jahr vorkommen kann.
+  ListenGruppierung get _wirksameGruppierung =>
+      _gliedert ? _gruppierung : ListenGruppierung.keine;
+
   @override
   void initState() {
     super.initState();
@@ -176,13 +203,29 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
     final stufe = await widget.library.db.zeitleisteKachelstufeWert();
     final spalten = await widget.library.db.listenspaltenWahl();
     final form = await widget.library.db.zeitleisteFormWert();
+    final sortierung = await widget.library.db.zeitleisteSortierungWert();
     if (mounted) {
       setState(() {
         _kachelstufe = stufe;
         _listenspalten = spalten;
         _form = form;
+        _sortierung = sortierung;
       });
     }
+  }
+
+  void _setzeSortierung(Rastersortierung? wahl) {
+    if (wahl == null || wahl == _sortierung) return;
+    setState(() {
+      _sortierung = wahl;
+      // Die Kachel unter dem Rahmen wandert beim Umsortieren woanders
+      // hin; ein Rahmen, der auf einem anderen Foto wieder auftaucht,
+      // wäre eine falsche Auskunft darüber, wo man gerade steht.
+      aktiveKachel = null;
+      anker = null;
+    });
+    // Ohne `await`, aus demselben Grund wie bei der Kachelgroesse.
+    unawaited(widget.library.db.setzeZeitleisteSortierung(wahl));
   }
 
   void _wechsleForm() {
@@ -241,22 +284,13 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
     setState(() => _windowSize += _windowGrowth);
   }
 
-  void _toggle(String id) => setState(() {
-        if (!_selected.remove(id)) _selected.add(id);
-      });
+  /// Siehe [Rasterbedienung.rasterUmschalten]: Der Anker gehoert dazu.
+  void _toggle(String id) => rasterUmschalten(id);
 
   /// Auf die Monatsüberschrift getippt: alle Fotos/Videos des Monats
   /// auswählen – oder, falls bereits alle ausgewählt sind, wieder abwählen.
-  void _toggleGroup(List<Rasterzeile> groupAssets) => setState(() {
-        final allSelected = groupAssets.every((a) => _selected.contains(a.id));
-        for (final a in groupAssets) {
-          if (allSelected) {
-            _selected.remove(a.id);
-          } else {
-            _selected.add(a.id);
-          }
-        }
-      });
+  void _toggleGroup(List<Rasterzeile> groupAssets) =>
+      rasterGruppeUmschalten([for (final a in groupAssets) a.id]);
 
   /// Bei einem Serien-Titelbild (siehe StackReviewScreen) werden nur die
   /// Stapel-Mitglieder geöffnet statt der vollen Timeline-Liste – sonst
@@ -343,7 +377,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
             showSelectedIcon: false,
             onSelectionChanged: (s) => setState(() => _alsListe = s.first),
           ),
-          if (_alsListe) ...[
+          if (_alsListe && _gliedert) ...[
             const SizedBox(width: AppSpacing.md),
             DropdownButton<ListenGruppierung>(
               value: _gruppierung,
@@ -362,6 +396,10 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
             ),
           ],
           const Spacer(),
+          // Die Reihenfolge gilt fuer beide Ansichten, steht also vor der
+          // Trennung in Raster und Liste.
+          Sortierungswahl(
+              gewaehlt: _sortierung, beiWahl: _setzeSortierung),
           // Kleiner heisst mehr Fotos und damit mehr Monate auf einmal.
           // Nur im Raster: In der Liste steht ohnehin alles
           // untereinander, und ein Knopf, der nichts bewirkt, waere
@@ -413,7 +451,9 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   Widget _mitSchmalenZeilen() {
     return StreamBuilder<List<Rasterzeile>>(
       stream: _zeitleiste.hole(
-          _windowSize, () => widget.library.db.watchRasterzeilen(limit: _windowSize)),
+          (_windowSize, _sortierung),
+          () => widget.library.db.watchRasterzeilen(
+              limit: _windowSize, sortierung: _sortierung)),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         return _inhalt(context, snapshot.data!, null);
@@ -429,7 +469,9 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
   Widget _mitVollenZeilen() {
     return StreamBuilder<List<AssetData>>(
       stream: _liste.hole(
-          _windowSize, () => widget.library.db.watchTimeline(limit: _windowSize)),
+          (_windowSize, _sortierung),
+          () => widget.library.db
+              .watchTimeline(limit: _windowSize, sortierung: _sortierung)),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         final voll = snapshot.data!;
@@ -469,8 +511,11 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                   // Die Spaltenzahl steht nur hier fest, wird aber beim
                   // Tastendruck gebraucht – dort gibt es keine Constraints.
                   child: LayoutBuilder(builder: (context, constraints) {
-                    final mitZeitstrahl = rasterMitZeitstrahl(
-                        monatsgruppen(assets).schluessel.length);
+                    final mitZeitstrahl = _gliedert &&
+                        rasterMitZeitstrahl(monatsgruppen(assets,
+                                absteigend: sortierungAbsteigend(_sortierung))
+                            .schluessel
+                            .length);
                     _rasterbreite = rasterGridbreite(constraints.maxWidth,
                         mitZeitstrahl: mitZeitstrahl);
                     _spalten = _alsListe
@@ -484,7 +529,8 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                         ? AssetListView(
                             assets: voll ?? const [],
                             paths: widget.library.paths,
-                            gruppierung: _gruppierung,
+                            gruppierung: _wirksameGruppierung,
+                            absteigend: sortierungAbsteigend(_sortierung),
                             selectedIds: _selected,
                             highlightAssetId: widget.highlightAssetId,
                             nachObenSignal: widget.nachObenSignal,
@@ -509,6 +555,8 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
                             onTap: rasterKlick,
                             kachelbreite: _kachelbreite,
                             form: _form,
+                            gliedern: _gliedert,
+                            absteigend: sortierungAbsteigend(_sortierung),
                             onScrollNearEnd: () => _maybeGrowWindow(assets.length),
                           );
                   }),

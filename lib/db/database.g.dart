@@ -11471,6 +11471,14 @@ class $AppSettingsTable extends AppSettings
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: Constant(zeitleisteFormVorgabe.index));
+  static const VerificationMeta _zeitleisteSortierungNrMeta =
+      const VerificationMeta('zeitleisteSortierungNr');
+  @override
+  late final GeneratedColumn<int> zeitleisteSortierungNr = GeneratedColumn<int>(
+      'zeitleiste_sortierung_nr', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: Constant(rastersortierungVorgabe.index));
   static const VerificationMeta _listenspaltenMeta =
       const VerificationMeta('listenspalten');
   @override
@@ -11533,6 +11541,7 @@ class $AppSettingsTable extends AppSettings
         stammbaumPerson,
         zeitleisteKachelstufe,
         zeitleisteFormNr,
+        zeitleisteSortierungNr,
         listenspalten,
         maxGleichzeitig,
         translateCaptions,
@@ -11698,6 +11707,12 @@ class $AppSettingsTable extends AppSettings
           zeitleisteFormNr.isAcceptableOrUnknown(
               data['zeitleiste_form_nr']!, _zeitleisteFormNrMeta));
     }
+    if (data.containsKey('zeitleiste_sortierung_nr')) {
+      context.handle(
+          _zeitleisteSortierungNrMeta,
+          zeitleisteSortierungNr.isAcceptableOrUnknown(
+              data['zeitleiste_sortierung_nr']!, _zeitleisteSortierungNrMeta));
+    }
     if (data.containsKey('listenspalten')) {
       context.handle(
           _listenspaltenMeta,
@@ -11786,6 +11801,9 @@ class $AppSettingsTable extends AppSettings
           DriftSqlType.int, data['${effectivePrefix}zeitleiste_kachelstufe'])!,
       zeitleisteFormNr: attachedDatabase.typeMapping.read(
           DriftSqlType.int, data['${effectivePrefix}zeitleiste_form_nr'])!,
+      zeitleisteSortierungNr: attachedDatabase.typeMapping.read(
+          DriftSqlType.int,
+          data['${effectivePrefix}zeitleiste_sortierung_nr'])!,
       listenspalten: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}listenspalten']),
       maxGleichzeitig: attachedDatabase.typeMapping
@@ -12037,6 +12055,13 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
   /// Kartenstil.
   final int zeitleisteFormNr;
 
+  /// Wonach die Zeitleiste ordnet – als Nummer aus [Rastersortierung].
+  ///
+  /// Als Zahl und aus demselben Grund wie bei [zeitleisteFormNr]: Ein
+  /// Name aus einer aelteren Fassung koennte einer sein, den es nicht
+  /// mehr gibt.
+  final int zeitleisteSortierungNr;
+
   /// Welche Spalten die Listenansicht zeigt und wie breit sie sind –
   /// als Text, siehe [Listenspaltenwahl.alsText].
   ///
@@ -12100,6 +12125,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       this.stammbaumPerson,
       required this.zeitleisteKachelstufe,
       required this.zeitleisteFormNr,
+      required this.zeitleisteSortierungNr,
       this.listenspalten,
       required this.maxGleichzeitig,
       required this.translateCaptions,
@@ -12152,6 +12178,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
     }
     map['zeitleiste_kachelstufe'] = Variable<int>(zeitleisteKachelstufe);
     map['zeitleiste_form_nr'] = Variable<int>(zeitleisteFormNr);
+    map['zeitleiste_sortierung_nr'] = Variable<int>(zeitleisteSortierungNr);
     if (!nullToAbsent || listenspalten != null) {
       map['listenspalten'] = Variable<String>(listenspalten);
     }
@@ -12207,6 +12234,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           : Value(stammbaumPerson),
       zeitleisteKachelstufe: Value(zeitleisteKachelstufe),
       zeitleisteFormNr: Value(zeitleisteFormNr),
+      zeitleisteSortierungNr: Value(zeitleisteSortierungNr),
       listenspalten: listenspalten == null && nullToAbsent
           ? const Value.absent()
           : Value(listenspalten),
@@ -12257,6 +12285,8 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       zeitleisteKachelstufe:
           serializer.fromJson<int>(json['zeitleisteKachelstufe']),
       zeitleisteFormNr: serializer.fromJson<int>(json['zeitleisteFormNr']),
+      zeitleisteSortierungNr:
+          serializer.fromJson<int>(json['zeitleisteSortierungNr']),
       listenspalten: serializer.fromJson<String?>(json['listenspalten']),
       maxGleichzeitig: serializer.fromJson<int>(json['maxGleichzeitig']),
       translateCaptions: serializer.fromJson<bool>(json['translateCaptions']),
@@ -12295,6 +12325,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       'stammbaumPerson': serializer.toJson<String?>(stammbaumPerson),
       'zeitleisteKachelstufe': serializer.toJson<int>(zeitleisteKachelstufe),
       'zeitleisteFormNr': serializer.toJson<int>(zeitleisteFormNr),
+      'zeitleisteSortierungNr': serializer.toJson<int>(zeitleisteSortierungNr),
       'listenspalten': serializer.toJson<String?>(listenspalten),
       'maxGleichzeitig': serializer.toJson<int>(maxGleichzeitig),
       'translateCaptions': serializer.toJson<bool>(translateCaptions),
@@ -12329,6 +12360,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           Value<String?> stammbaumPerson = const Value.absent(),
           int? zeitleisteKachelstufe,
           int? zeitleisteFormNr,
+          int? zeitleisteSortierungNr,
           Value<String?> listenspalten = const Value.absent(),
           int? maxGleichzeitig,
           bool? translateCaptions,
@@ -12382,6 +12414,8 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         zeitleisteKachelstufe:
             zeitleisteKachelstufe ?? this.zeitleisteKachelstufe,
         zeitleisteFormNr: zeitleisteFormNr ?? this.zeitleisteFormNr,
+        zeitleisteSortierungNr:
+            zeitleisteSortierungNr ?? this.zeitleisteSortierungNr,
         listenspalten:
             listenspalten.present ? listenspalten.value : this.listenspalten,
         maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
@@ -12463,6 +12497,9 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
       zeitleisteFormNr: data.zeitleisteFormNr.present
           ? data.zeitleisteFormNr.value
           : this.zeitleisteFormNr,
+      zeitleisteSortierungNr: data.zeitleisteSortierungNr.present
+          ? data.zeitleisteSortierungNr.value
+          : this.zeitleisteSortierungNr,
       listenspalten: data.listenspalten.present
           ? data.listenspalten.value
           : this.listenspalten,
@@ -12507,6 +12544,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           ..write('stammbaumPerson: $stammbaumPerson, ')
           ..write('zeitleisteKachelstufe: $zeitleisteKachelstufe, ')
           ..write('zeitleisteFormNr: $zeitleisteFormNr, ')
+          ..write('zeitleisteSortierungNr: $zeitleisteSortierungNr, ')
           ..write('listenspalten: $listenspalten, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
@@ -12543,6 +12581,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
         stammbaumPerson,
         zeitleisteKachelstufe,
         zeitleisteFormNr,
+        zeitleisteSortierungNr,
         listenspalten,
         maxGleichzeitig,
         translateCaptions,
@@ -12578,6 +12617,7 @@ class AppSettingsData extends DataClass implements Insertable<AppSettingsData> {
           other.stammbaumPerson == this.stammbaumPerson &&
           other.zeitleisteKachelstufe == this.zeitleisteKachelstufe &&
           other.zeitleisteFormNr == this.zeitleisteFormNr &&
+          other.zeitleisteSortierungNr == this.zeitleisteSortierungNr &&
           other.listenspalten == this.listenspalten &&
           other.maxGleichzeitig == this.maxGleichzeitig &&
           other.translateCaptions == this.translateCaptions &&
@@ -12611,6 +12651,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
   final Value<String?> stammbaumPerson;
   final Value<int> zeitleisteKachelstufe;
   final Value<int> zeitleisteFormNr;
+  final Value<int> zeitleisteSortierungNr;
   final Value<String?> listenspalten;
   final Value<int> maxGleichzeitig;
   final Value<bool> translateCaptions;
@@ -12642,6 +12683,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.stammbaumPerson = const Value.absent(),
     this.zeitleisteKachelstufe = const Value.absent(),
     this.zeitleisteFormNr = const Value.absent(),
+    this.zeitleisteSortierungNr = const Value.absent(),
     this.listenspalten = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
@@ -12674,6 +12716,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     this.stammbaumPerson = const Value.absent(),
     this.zeitleisteKachelstufe = const Value.absent(),
     this.zeitleisteFormNr = const Value.absent(),
+    this.zeitleisteSortierungNr = const Value.absent(),
     this.listenspalten = const Value.absent(),
     this.maxGleichzeitig = const Value.absent(),
     this.translateCaptions = const Value.absent(),
@@ -12706,6 +12749,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     Expression<String>? stammbaumPerson,
     Expression<int>? zeitleisteKachelstufe,
     Expression<int>? zeitleisteFormNr,
+    Expression<int>? zeitleisteSortierungNr,
     Expression<String>? listenspalten,
     Expression<int>? maxGleichzeitig,
     Expression<bool>? translateCaptions,
@@ -12749,6 +12793,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       if (zeitleisteKachelstufe != null)
         'zeitleiste_kachelstufe': zeitleisteKachelstufe,
       if (zeitleisteFormNr != null) 'zeitleiste_form_nr': zeitleisteFormNr,
+      if (zeitleisteSortierungNr != null)
+        'zeitleiste_sortierung_nr': zeitleisteSortierungNr,
       if (listenspalten != null) 'listenspalten': listenspalten,
       if (maxGleichzeitig != null) 'max_gleichzeitig': maxGleichzeitig,
       if (translateCaptions != null) 'translate_captions': translateCaptions,
@@ -12784,6 +12830,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       Value<String?>? stammbaumPerson,
       Value<int>? zeitleisteKachelstufe,
       Value<int>? zeitleisteFormNr,
+      Value<int>? zeitleisteSortierungNr,
       Value<String?>? listenspalten,
       Value<int>? maxGleichzeitig,
       Value<bool>? translateCaptions,
@@ -12820,6 +12867,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
       zeitleisteKachelstufe:
           zeitleisteKachelstufe ?? this.zeitleisteKachelstufe,
       zeitleisteFormNr: zeitleisteFormNr ?? this.zeitleisteFormNr,
+      zeitleisteSortierungNr:
+          zeitleisteSortierungNr ?? this.zeitleisteSortierungNr,
       listenspalten: listenspalten ?? this.listenspalten,
       maxGleichzeitig: maxGleichzeitig ?? this.maxGleichzeitig,
       translateCaptions: translateCaptions ?? this.translateCaptions,
@@ -12914,6 +12963,10 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
     if (zeitleisteFormNr.present) {
       map['zeitleiste_form_nr'] = Variable<int>(zeitleisteFormNr.value);
     }
+    if (zeitleisteSortierungNr.present) {
+      map['zeitleiste_sortierung_nr'] =
+          Variable<int>(zeitleisteSortierungNr.value);
+    }
     if (listenspalten.present) {
       map['listenspalten'] = Variable<String>(listenspalten.value);
     }
@@ -12959,6 +13012,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSettingsData> {
           ..write('stammbaumPerson: $stammbaumPerson, ')
           ..write('zeitleisteKachelstufe: $zeitleisteKachelstufe, ')
           ..write('zeitleisteFormNr: $zeitleisteFormNr, ')
+          ..write('zeitleisteSortierungNr: $zeitleisteSortierungNr, ')
           ..write('listenspalten: $listenspalten, ')
           ..write('maxGleichzeitig: $maxGleichzeitig, ')
           ..write('translateCaptions: $translateCaptions, ')
@@ -15928,6 +15982,13 @@ class $ReisenTable extends Reisen with TableInfo<$ReisenTable, ReisenData> {
   late final GeneratedColumn<String> notiz = GeneratedColumn<String>(
       'notiz', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _artMeta = const VerificationMeta('art');
+  @override
+  late final GeneratedColumn<String> art = GeneratedColumn<String>(
+      'art', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: Constant(reiseartVorgabe.kennung));
   static const VerificationMeta _titelbildAssetIdMeta =
       const VerificationMeta('titelbildAssetId');
   @override
@@ -15942,7 +16003,7 @@ class $ReisenTable extends Reisen with TableInfo<$ReisenTable, ReisenData> {
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, name, von, bis, notiz, titelbildAssetId, angelegtAm];
+      [id, name, von, bis, notiz, art, titelbildAssetId, angelegtAm];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -15980,6 +16041,10 @@ class $ReisenTable extends Reisen with TableInfo<$ReisenTable, ReisenData> {
       context.handle(
           _notizMeta, notiz.isAcceptableOrUnknown(data['notiz']!, _notizMeta));
     }
+    if (data.containsKey('art')) {
+      context.handle(
+          _artMeta, art.isAcceptableOrUnknown(data['art']!, _artMeta));
+    }
     if (data.containsKey('titelbild_asset_id')) {
       context.handle(
           _titelbildAssetIdMeta,
@@ -16013,6 +16078,8 @@ class $ReisenTable extends Reisen with TableInfo<$ReisenTable, ReisenData> {
           .read(DriftSqlType.dateTime, data['${effectivePrefix}bis'])!,
       notiz: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}notiz']),
+      art: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}art'])!,
       titelbildAssetId: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}titelbild_asset_id']),
       angelegtAm: attachedDatabase.typeMapping
@@ -16037,6 +16104,12 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
   final DateTime bis;
   final String? notiz;
 
+  /// Was für eine Art Reise – als Name der Aufzählung [Reiseart].
+  ///
+  /// Einsatz, Dienstreise, Besuch: „Reise" trifft nicht jede, und in der
+  /// Liste sähen sonst alle gleich aus.
+  final String art;
+
   /// Das Titelbild. `null` heißt „nimm die erste Aufnahme" – und ist
   /// etwas anderes als ein gewähltes Bild, das später gelöscht wurde.
   final String? titelbildAssetId;
@@ -16047,6 +16120,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
       required this.von,
       required this.bis,
       this.notiz,
+      required this.art,
       this.titelbildAssetId,
       required this.angelegtAm});
   @override
@@ -16059,6 +16133,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
     if (!nullToAbsent || notiz != null) {
       map['notiz'] = Variable<String>(notiz);
     }
+    map['art'] = Variable<String>(art);
     if (!nullToAbsent || titelbildAssetId != null) {
       map['titelbild_asset_id'] = Variable<String>(titelbildAssetId);
     }
@@ -16074,6 +16149,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
       bis: Value(bis),
       notiz:
           notiz == null && nullToAbsent ? const Value.absent() : Value(notiz),
+      art: Value(art),
       titelbildAssetId: titelbildAssetId == null && nullToAbsent
           ? const Value.absent()
           : Value(titelbildAssetId),
@@ -16090,6 +16166,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
       von: serializer.fromJson<DateTime>(json['von']),
       bis: serializer.fromJson<DateTime>(json['bis']),
       notiz: serializer.fromJson<String?>(json['notiz']),
+      art: serializer.fromJson<String>(json['art']),
       titelbildAssetId: serializer.fromJson<String?>(json['titelbildAssetId']),
       angelegtAm: serializer.fromJson<DateTime>(json['angelegtAm']),
     );
@@ -16103,6 +16180,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
       'von': serializer.toJson<DateTime>(von),
       'bis': serializer.toJson<DateTime>(bis),
       'notiz': serializer.toJson<String?>(notiz),
+      'art': serializer.toJson<String>(art),
       'titelbildAssetId': serializer.toJson<String?>(titelbildAssetId),
       'angelegtAm': serializer.toJson<DateTime>(angelegtAm),
     };
@@ -16114,6 +16192,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
           DateTime? von,
           DateTime? bis,
           Value<String?> notiz = const Value.absent(),
+          String? art,
           Value<String?> titelbildAssetId = const Value.absent(),
           DateTime? angelegtAm}) =>
       ReisenData(
@@ -16122,6 +16201,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
         von: von ?? this.von,
         bis: bis ?? this.bis,
         notiz: notiz.present ? notiz.value : this.notiz,
+        art: art ?? this.art,
         titelbildAssetId: titelbildAssetId.present
             ? titelbildAssetId.value
             : this.titelbildAssetId,
@@ -16134,6 +16214,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
       von: data.von.present ? data.von.value : this.von,
       bis: data.bis.present ? data.bis.value : this.bis,
       notiz: data.notiz.present ? data.notiz.value : this.notiz,
+      art: data.art.present ? data.art.value : this.art,
       titelbildAssetId: data.titelbildAssetId.present
           ? data.titelbildAssetId.value
           : this.titelbildAssetId,
@@ -16150,6 +16231,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
           ..write('von: $von, ')
           ..write('bis: $bis, ')
           ..write('notiz: $notiz, ')
+          ..write('art: $art, ')
           ..write('titelbildAssetId: $titelbildAssetId, ')
           ..write('angelegtAm: $angelegtAm')
           ..write(')'))
@@ -16158,7 +16240,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
 
   @override
   int get hashCode =>
-      Object.hash(id, name, von, bis, notiz, titelbildAssetId, angelegtAm);
+      Object.hash(id, name, von, bis, notiz, art, titelbildAssetId, angelegtAm);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -16168,6 +16250,7 @@ class ReisenData extends DataClass implements Insertable<ReisenData> {
           other.von == this.von &&
           other.bis == this.bis &&
           other.notiz == this.notiz &&
+          other.art == this.art &&
           other.titelbildAssetId == this.titelbildAssetId &&
           other.angelegtAm == this.angelegtAm);
 }
@@ -16178,6 +16261,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
   final Value<DateTime> von;
   final Value<DateTime> bis;
   final Value<String?> notiz;
+  final Value<String> art;
   final Value<String?> titelbildAssetId;
   final Value<DateTime> angelegtAm;
   final Value<int> rowid;
@@ -16187,6 +16271,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
     this.von = const Value.absent(),
     this.bis = const Value.absent(),
     this.notiz = const Value.absent(),
+    this.art = const Value.absent(),
     this.titelbildAssetId = const Value.absent(),
     this.angelegtAm = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -16197,6 +16282,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
     required DateTime von,
     required DateTime bis,
     this.notiz = const Value.absent(),
+    this.art = const Value.absent(),
     this.titelbildAssetId = const Value.absent(),
     required DateTime angelegtAm,
     this.rowid = const Value.absent(),
@@ -16211,6 +16297,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
     Expression<DateTime>? von,
     Expression<DateTime>? bis,
     Expression<String>? notiz,
+    Expression<String>? art,
     Expression<String>? titelbildAssetId,
     Expression<DateTime>? angelegtAm,
     Expression<int>? rowid,
@@ -16221,6 +16308,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
       if (von != null) 'von': von,
       if (bis != null) 'bis': bis,
       if (notiz != null) 'notiz': notiz,
+      if (art != null) 'art': art,
       if (titelbildAssetId != null) 'titelbild_asset_id': titelbildAssetId,
       if (angelegtAm != null) 'angelegt_am': angelegtAm,
       if (rowid != null) 'rowid': rowid,
@@ -16233,6 +16321,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
       Value<DateTime>? von,
       Value<DateTime>? bis,
       Value<String?>? notiz,
+      Value<String>? art,
       Value<String?>? titelbildAssetId,
       Value<DateTime>? angelegtAm,
       Value<int>? rowid}) {
@@ -16242,6 +16331,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
       von: von ?? this.von,
       bis: bis ?? this.bis,
       notiz: notiz ?? this.notiz,
+      art: art ?? this.art,
       titelbildAssetId: titelbildAssetId ?? this.titelbildAssetId,
       angelegtAm: angelegtAm ?? this.angelegtAm,
       rowid: rowid ?? this.rowid,
@@ -16266,6 +16356,9 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
     if (notiz.present) {
       map['notiz'] = Variable<String>(notiz.value);
     }
+    if (art.present) {
+      map['art'] = Variable<String>(art.value);
+    }
     if (titelbildAssetId.present) {
       map['titelbild_asset_id'] = Variable<String>(titelbildAssetId.value);
     }
@@ -16286,6 +16379,7 @@ class ReisenCompanion extends UpdateCompanion<ReisenData> {
           ..write('von: $von, ')
           ..write('bis: $bis, ')
           ..write('notiz: $notiz, ')
+          ..write('art: $art, ')
           ..write('titelbildAssetId: $titelbildAssetId, ')
           ..write('angelegtAm: $angelegtAm, ')
           ..write('rowid: $rowid')
@@ -16482,6 +16576,289 @@ class ReiseAufnahmenCompanion extends UpdateCompanion<ReiseAufnahmenData> {
     return (StringBuffer('ReiseAufnahmenCompanion(')
           ..write('reiseId: $reiseId, ')
           ..write('assetId: $assetId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ReisetagnotizenTable extends Reisetagnotizen
+    with TableInfo<$ReisetagnotizenTable, ReisetagnotizenData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ReisetagnotizenTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _reiseIdMeta =
+      const VerificationMeta('reiseId');
+  @override
+  late final GeneratedColumn<String> reiseId = GeneratedColumn<String>(
+      'reise_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _tagMeta = const VerificationMeta('tag');
+  @override
+  late final GeneratedColumn<DateTime> tag = GeneratedColumn<DateTime>(
+      'tag', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _notizMeta = const VerificationMeta('notiz');
+  @override
+  late final GeneratedColumn<String> notiz = GeneratedColumn<String>(
+      'notiz', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _geaendertAmMeta =
+      const VerificationMeta('geaendertAm');
+  @override
+  late final GeneratedColumn<DateTime> geaendertAm = GeneratedColumn<DateTime>(
+      'geaendert_am', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [reiseId, tag, notiz, geaendertAm];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'reisetagnotizen';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<ReisetagnotizenData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('reise_id')) {
+      context.handle(_reiseIdMeta,
+          reiseId.isAcceptableOrUnknown(data['reise_id']!, _reiseIdMeta));
+    } else if (isInserting) {
+      context.missing(_reiseIdMeta);
+    }
+    if (data.containsKey('tag')) {
+      context.handle(
+          _tagMeta, tag.isAcceptableOrUnknown(data['tag']!, _tagMeta));
+    } else if (isInserting) {
+      context.missing(_tagMeta);
+    }
+    if (data.containsKey('notiz')) {
+      context.handle(
+          _notizMeta, notiz.isAcceptableOrUnknown(data['notiz']!, _notizMeta));
+    } else if (isInserting) {
+      context.missing(_notizMeta);
+    }
+    if (data.containsKey('geaendert_am')) {
+      context.handle(
+          _geaendertAmMeta,
+          geaendertAm.isAcceptableOrUnknown(
+              data['geaendert_am']!, _geaendertAmMeta));
+    } else if (isInserting) {
+      context.missing(_geaendertAmMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {reiseId, tag};
+  @override
+  ReisetagnotizenData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ReisetagnotizenData(
+      reiseId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}reise_id'])!,
+      tag: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}tag'])!,
+      notiz: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}notiz'])!,
+      geaendertAm: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}geaendert_am'])!,
+    );
+  }
+
+  @override
+  $ReisetagnotizenTable createAlias(String alias) {
+    return $ReisetagnotizenTable(attachedDatabase, alias);
+  }
+}
+
+class ReisetagnotizenData extends DataClass
+    implements Insertable<ReisetagnotizenData> {
+  final String reiseId;
+
+  /// Mitternacht des Tages, dem die Notiz gilt.
+  final DateTime tag;
+
+  /// Nicht `text`: Der Spaltenname wäre derselbe wie der Baustein
+  /// `text()`, mit dem drift ihn beschreibt – der Getter riefe sich
+  /// selbst auf, und die Erzeugung brach mit 3485 Fehlern ab, von denen
+  /// keiner hier stand.
+  final String notiz;
+  final DateTime geaendertAm;
+  const ReisetagnotizenData(
+      {required this.reiseId,
+      required this.tag,
+      required this.notiz,
+      required this.geaendertAm});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['reise_id'] = Variable<String>(reiseId);
+    map['tag'] = Variable<DateTime>(tag);
+    map['notiz'] = Variable<String>(notiz);
+    map['geaendert_am'] = Variable<DateTime>(geaendertAm);
+    return map;
+  }
+
+  ReisetagnotizenCompanion toCompanion(bool nullToAbsent) {
+    return ReisetagnotizenCompanion(
+      reiseId: Value(reiseId),
+      tag: Value(tag),
+      notiz: Value(notiz),
+      geaendertAm: Value(geaendertAm),
+    );
+  }
+
+  factory ReisetagnotizenData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ReisetagnotizenData(
+      reiseId: serializer.fromJson<String>(json['reiseId']),
+      tag: serializer.fromJson<DateTime>(json['tag']),
+      notiz: serializer.fromJson<String>(json['notiz']),
+      geaendertAm: serializer.fromJson<DateTime>(json['geaendertAm']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'reiseId': serializer.toJson<String>(reiseId),
+      'tag': serializer.toJson<DateTime>(tag),
+      'notiz': serializer.toJson<String>(notiz),
+      'geaendertAm': serializer.toJson<DateTime>(geaendertAm),
+    };
+  }
+
+  ReisetagnotizenData copyWith(
+          {String? reiseId,
+          DateTime? tag,
+          String? notiz,
+          DateTime? geaendertAm}) =>
+      ReisetagnotizenData(
+        reiseId: reiseId ?? this.reiseId,
+        tag: tag ?? this.tag,
+        notiz: notiz ?? this.notiz,
+        geaendertAm: geaendertAm ?? this.geaendertAm,
+      );
+  ReisetagnotizenData copyWithCompanion(ReisetagnotizenCompanion data) {
+    return ReisetagnotizenData(
+      reiseId: data.reiseId.present ? data.reiseId.value : this.reiseId,
+      tag: data.tag.present ? data.tag.value : this.tag,
+      notiz: data.notiz.present ? data.notiz.value : this.notiz,
+      geaendertAm:
+          data.geaendertAm.present ? data.geaendertAm.value : this.geaendertAm,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReisetagnotizenData(')
+          ..write('reiseId: $reiseId, ')
+          ..write('tag: $tag, ')
+          ..write('notiz: $notiz, ')
+          ..write('geaendertAm: $geaendertAm')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(reiseId, tag, notiz, geaendertAm);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ReisetagnotizenData &&
+          other.reiseId == this.reiseId &&
+          other.tag == this.tag &&
+          other.notiz == this.notiz &&
+          other.geaendertAm == this.geaendertAm);
+}
+
+class ReisetagnotizenCompanion extends UpdateCompanion<ReisetagnotizenData> {
+  final Value<String> reiseId;
+  final Value<DateTime> tag;
+  final Value<String> notiz;
+  final Value<DateTime> geaendertAm;
+  final Value<int> rowid;
+  const ReisetagnotizenCompanion({
+    this.reiseId = const Value.absent(),
+    this.tag = const Value.absent(),
+    this.notiz = const Value.absent(),
+    this.geaendertAm = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ReisetagnotizenCompanion.insert({
+    required String reiseId,
+    required DateTime tag,
+    required String notiz,
+    required DateTime geaendertAm,
+    this.rowid = const Value.absent(),
+  })  : reiseId = Value(reiseId),
+        tag = Value(tag),
+        notiz = Value(notiz),
+        geaendertAm = Value(geaendertAm);
+  static Insertable<ReisetagnotizenData> custom({
+    Expression<String>? reiseId,
+    Expression<DateTime>? tag,
+    Expression<String>? notiz,
+    Expression<DateTime>? geaendertAm,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (reiseId != null) 'reise_id': reiseId,
+      if (tag != null) 'tag': tag,
+      if (notiz != null) 'notiz': notiz,
+      if (geaendertAm != null) 'geaendert_am': geaendertAm,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ReisetagnotizenCompanion copyWith(
+      {Value<String>? reiseId,
+      Value<DateTime>? tag,
+      Value<String>? notiz,
+      Value<DateTime>? geaendertAm,
+      Value<int>? rowid}) {
+    return ReisetagnotizenCompanion(
+      reiseId: reiseId ?? this.reiseId,
+      tag: tag ?? this.tag,
+      notiz: notiz ?? this.notiz,
+      geaendertAm: geaendertAm ?? this.geaendertAm,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (reiseId.present) {
+      map['reise_id'] = Variable<String>(reiseId.value);
+    }
+    if (tag.present) {
+      map['tag'] = Variable<DateTime>(tag.value);
+    }
+    if (notiz.present) {
+      map['notiz'] = Variable<String>(notiz.value);
+    }
+    if (geaendertAm.present) {
+      map['geaendert_am'] = Variable<DateTime>(geaendertAm.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ReisetagnotizenCompanion(')
+          ..write('reiseId: $reiseId, ')
+          ..write('tag: $tag, ')
+          ..write('notiz: $notiz, ')
+          ..write('geaendertAm: $geaendertAm, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -20147,6 +20524,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $LebensereignisseTable(this);
   late final $ReisenTable reisen = $ReisenTable(this);
   late final $ReiseAufnahmenTable reiseAufnahmen = $ReiseAufnahmenTable(this);
+  late final $ReisetagnotizenTable reisetagnotizen =
+      $ReisetagnotizenTable(this);
   late final $VerworfeneReisenTable verworfeneReisen =
       $VerworfeneReisenTable(this);
   late final $OrtsmarkenTable ortsmarken = $OrtsmarkenTable(this);
@@ -20202,6 +20581,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         lebensereignisse,
         reisen,
         reiseAufnahmen,
+        reisetagnotizen,
         verworfeneReisen,
         ortsmarken,
         aktivitaeten,
@@ -25427,6 +25807,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder = AppSettingsCompanion
   Value<String?> stammbaumPerson,
   Value<int> zeitleisteKachelstufe,
   Value<int> zeitleisteFormNr,
+  Value<int> zeitleisteSortierungNr,
   Value<String?> listenspalten,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
@@ -25460,6 +25841,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder = AppSettingsCompanion
   Value<String?> stammbaumPerson,
   Value<int> zeitleisteKachelstufe,
   Value<int> zeitleisteFormNr,
+  Value<int> zeitleisteSortierungNr,
   Value<String?> listenspalten,
   Value<int> maxGleichzeitig,
   Value<bool> translateCaptions,
@@ -25572,6 +25954,10 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<int> get zeitleisteFormNr => $composableBuilder(
       column: $table.zeitleisteFormNr,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get zeitleisteSortierungNr => $composableBuilder(
+      column: $table.zeitleisteSortierungNr,
       builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get listenspalten => $composableBuilder(
@@ -25700,6 +26086,10 @@ class $$AppSettingsTableOrderingComposer
       column: $table.zeitleisteFormNr,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get zeitleisteSortierungNr => $composableBuilder(
+      column: $table.zeitleisteSortierungNr,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get listenspalten => $composableBuilder(
       column: $table.listenspalten,
       builder: (column) => ColumnOrderings(column));
@@ -25804,6 +26194,9 @@ class $$AppSettingsTableAnnotationComposer
   GeneratedColumn<int> get zeitleisteFormNr => $composableBuilder(
       column: $table.zeitleisteFormNr, builder: (column) => column);
 
+  GeneratedColumn<int> get zeitleisteSortierungNr => $composableBuilder(
+      column: $table.zeitleisteSortierungNr, builder: (column) => column);
+
   GeneratedColumn<String> get listenspalten => $composableBuilder(
       column: $table.listenspalten, builder: (column) => column);
 
@@ -25869,6 +26262,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> stammbaumPerson = const Value.absent(),
             Value<int> zeitleisteKachelstufe = const Value.absent(),
             Value<int> zeitleisteFormNr = const Value.absent(),
+            Value<int> zeitleisteSortierungNr = const Value.absent(),
             Value<String?> listenspalten = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
@@ -25901,6 +26295,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             stammbaumPerson: stammbaumPerson,
             zeitleisteKachelstufe: zeitleisteKachelstufe,
             zeitleisteFormNr: zeitleisteFormNr,
+            zeitleisteSortierungNr: zeitleisteSortierungNr,
             listenspalten: listenspalten,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
@@ -25933,6 +26328,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             Value<String?> stammbaumPerson = const Value.absent(),
             Value<int> zeitleisteKachelstufe = const Value.absent(),
             Value<int> zeitleisteFormNr = const Value.absent(),
+            Value<int> zeitleisteSortierungNr = const Value.absent(),
             Value<String?> listenspalten = const Value.absent(),
             Value<int> maxGleichzeitig = const Value.absent(),
             Value<bool> translateCaptions = const Value.absent(),
@@ -25965,6 +26361,7 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             stammbaumPerson: stammbaumPerson,
             zeitleisteKachelstufe: zeitleisteKachelstufe,
             zeitleisteFormNr: zeitleisteFormNr,
+            zeitleisteSortierungNr: zeitleisteSortierungNr,
             listenspalten: listenspalten,
             maxGleichzeitig: maxGleichzeitig,
             translateCaptions: translateCaptions,
@@ -27474,6 +27871,7 @@ typedef $$ReisenTableCreateCompanionBuilder = ReisenCompanion Function({
   required DateTime von,
   required DateTime bis,
   Value<String?> notiz,
+  Value<String> art,
   Value<String?> titelbildAssetId,
   required DateTime angelegtAm,
   Value<int> rowid,
@@ -27484,6 +27882,7 @@ typedef $$ReisenTableUpdateCompanionBuilder = ReisenCompanion Function({
   Value<DateTime> von,
   Value<DateTime> bis,
   Value<String?> notiz,
+  Value<String> art,
   Value<String?> titelbildAssetId,
   Value<DateTime> angelegtAm,
   Value<int> rowid,
@@ -27512,6 +27911,9 @@ class $$ReisenTableFilterComposer
 
   ColumnFilters<String> get notiz => $composableBuilder(
       column: $table.notiz, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get titelbildAssetId => $composableBuilder(
       column: $table.titelbildAssetId,
@@ -27545,6 +27947,9 @@ class $$ReisenTableOrderingComposer
   ColumnOrderings<String> get notiz => $composableBuilder(
       column: $table.notiz, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get art => $composableBuilder(
+      column: $table.art, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get titelbildAssetId => $composableBuilder(
       column: $table.titelbildAssetId,
       builder: (column) => ColumnOrderings(column));
@@ -27576,6 +27981,9 @@ class $$ReisenTableAnnotationComposer
 
   GeneratedColumn<String> get notiz =>
       $composableBuilder(column: $table.notiz, builder: (column) => column);
+
+  GeneratedColumn<String> get art =>
+      $composableBuilder(column: $table.art, builder: (column) => column);
 
   GeneratedColumn<String> get titelbildAssetId => $composableBuilder(
       column: $table.titelbildAssetId, builder: (column) => column);
@@ -27612,6 +28020,7 @@ class $$ReisenTableTableManager extends RootTableManager<
             Value<DateTime> von = const Value.absent(),
             Value<DateTime> bis = const Value.absent(),
             Value<String?> notiz = const Value.absent(),
+            Value<String> art = const Value.absent(),
             Value<String?> titelbildAssetId = const Value.absent(),
             Value<DateTime> angelegtAm = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -27622,6 +28031,7 @@ class $$ReisenTableTableManager extends RootTableManager<
             von: von,
             bis: bis,
             notiz: notiz,
+            art: art,
             titelbildAssetId: titelbildAssetId,
             angelegtAm: angelegtAm,
             rowid: rowid,
@@ -27632,6 +28042,7 @@ class $$ReisenTableTableManager extends RootTableManager<
             required DateTime von,
             required DateTime bis,
             Value<String?> notiz = const Value.absent(),
+            Value<String> art = const Value.absent(),
             Value<String?> titelbildAssetId = const Value.absent(),
             required DateTime angelegtAm,
             Value<int> rowid = const Value.absent(),
@@ -27642,6 +28053,7 @@ class $$ReisenTableTableManager extends RootTableManager<
             von: von,
             bis: bis,
             notiz: notiz,
+            art: art,
             titelbildAssetId: titelbildAssetId,
             angelegtAm: angelegtAm,
             rowid: rowid,
@@ -27793,6 +28205,165 @@ typedef $$ReiseAufnahmenTableProcessedTableManager = ProcessedTableManager<
       BaseReferences<_$AppDatabase, $ReiseAufnahmenTable, ReiseAufnahmenData>
     ),
     ReiseAufnahmenData,
+    PrefetchHooks Function()>;
+typedef $$ReisetagnotizenTableCreateCompanionBuilder = ReisetagnotizenCompanion
+    Function({
+  required String reiseId,
+  required DateTime tag,
+  required String notiz,
+  required DateTime geaendertAm,
+  Value<int> rowid,
+});
+typedef $$ReisetagnotizenTableUpdateCompanionBuilder = ReisetagnotizenCompanion
+    Function({
+  Value<String> reiseId,
+  Value<DateTime> tag,
+  Value<String> notiz,
+  Value<DateTime> geaendertAm,
+  Value<int> rowid,
+});
+
+class $$ReisetagnotizenTableFilterComposer
+    extends Composer<_$AppDatabase, $ReisetagnotizenTable> {
+  $$ReisetagnotizenTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get reiseId => $composableBuilder(
+      column: $table.reiseId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get tag => $composableBuilder(
+      column: $table.tag, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get geaendertAm => $composableBuilder(
+      column: $table.geaendertAm, builder: (column) => ColumnFilters(column));
+}
+
+class $$ReisetagnotizenTableOrderingComposer
+    extends Composer<_$AppDatabase, $ReisetagnotizenTable> {
+  $$ReisetagnotizenTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get reiseId => $composableBuilder(
+      column: $table.reiseId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get tag => $composableBuilder(
+      column: $table.tag, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get notiz => $composableBuilder(
+      column: $table.notiz, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get geaendertAm => $composableBuilder(
+      column: $table.geaendertAm, builder: (column) => ColumnOrderings(column));
+}
+
+class $$ReisetagnotizenTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ReisetagnotizenTable> {
+  $$ReisetagnotizenTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get reiseId =>
+      $composableBuilder(column: $table.reiseId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get tag =>
+      $composableBuilder(column: $table.tag, builder: (column) => column);
+
+  GeneratedColumn<String> get notiz =>
+      $composableBuilder(column: $table.notiz, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get geaendertAm => $composableBuilder(
+      column: $table.geaendertAm, builder: (column) => column);
+}
+
+class $$ReisetagnotizenTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $ReisetagnotizenTable,
+    ReisetagnotizenData,
+    $$ReisetagnotizenTableFilterComposer,
+    $$ReisetagnotizenTableOrderingComposer,
+    $$ReisetagnotizenTableAnnotationComposer,
+    $$ReisetagnotizenTableCreateCompanionBuilder,
+    $$ReisetagnotizenTableUpdateCompanionBuilder,
+    (
+      ReisetagnotizenData,
+      BaseReferences<_$AppDatabase, $ReisetagnotizenTable, ReisetagnotizenData>
+    ),
+    ReisetagnotizenData,
+    PrefetchHooks Function()> {
+  $$ReisetagnotizenTableTableManager(
+      _$AppDatabase db, $ReisetagnotizenTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ReisetagnotizenTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ReisetagnotizenTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ReisetagnotizenTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> reiseId = const Value.absent(),
+            Value<DateTime> tag = const Value.absent(),
+            Value<String> notiz = const Value.absent(),
+            Value<DateTime> geaendertAm = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ReisetagnotizenCompanion(
+            reiseId: reiseId,
+            tag: tag,
+            notiz: notiz,
+            geaendertAm: geaendertAm,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String reiseId,
+            required DateTime tag,
+            required String notiz,
+            required DateTime geaendertAm,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              ReisetagnotizenCompanion.insert(
+            reiseId: reiseId,
+            tag: tag,
+            notiz: notiz,
+            geaendertAm: geaendertAm,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$ReisetagnotizenTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $ReisetagnotizenTable,
+    ReisetagnotizenData,
+    $$ReisetagnotizenTableFilterComposer,
+    $$ReisetagnotizenTableOrderingComposer,
+    $$ReisetagnotizenTableAnnotationComposer,
+    $$ReisetagnotizenTableCreateCompanionBuilder,
+    $$ReisetagnotizenTableUpdateCompanionBuilder,
+    (
+      ReisetagnotizenData,
+      BaseReferences<_$AppDatabase, $ReisetagnotizenTable, ReisetagnotizenData>
+    ),
+    ReisetagnotizenData,
     PrefetchHooks Function()>;
 typedef $$VerworfeneReisenTableCreateCompanionBuilder
     = VerworfeneReisenCompanion Function({
@@ -29876,6 +30447,8 @@ class $AppDatabaseManager {
       $$ReisenTableTableManager(_db, _db.reisen);
   $$ReiseAufnahmenTableTableManager get reiseAufnahmen =>
       $$ReiseAufnahmenTableTableManager(_db, _db.reiseAufnahmen);
+  $$ReisetagnotizenTableTableManager get reisetagnotizen =>
+      $$ReisetagnotizenTableTableManager(_db, _db.reisetagnotizen);
   $$VerworfeneReisenTableTableManager get verworfeneReisen =>
       $$VerworfeneReisenTableTableManager(_db, _db.verworfeneReisen);
   $$OrtsmarkenTableTableManager get ortsmarken =>

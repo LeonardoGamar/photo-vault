@@ -50,12 +50,26 @@
   "kuerzelFavoritUmschalten": "Toggle favourite",
   "kuerzelPapierkorbMitBestaetigung": "Move to trash (asks first)",
   "kuerzelSofortAblehnen": "Reject and move on (no confirmation)",
+  "kuerzelZoomWischen": "⌘/Ctrl + swipe",
+  "kuerzelZoomImBild": "Zoom into and out of the photo (works with a Magic Mouse too)",
   "timelineLeer": "No photos in this library yet.",
   "loeschenTitel": "{anzahl, plural, =1{Delete photo?} other{Delete {anzahl} photos?}}",
   "loeschenHinweis": "{anzahl, plural, =1{It will be moved to the trash.} other{They will be moved to the trash.}}",
   "albumNeu": "New album",
   "albumName": "Album name",
   "albenLeer": "No albums yet.",
+  "albenIntelligente": "Smart albums",
+  "albenGewoehnliche": "Albums",
+  "albumIntelligentLoeschen": "Delete smart album",
+  "albumIntelligentLoeschenFrage": "Remove “{name}”? The photos stay; only the saved search disappears.",
+  "@albumIntelligentLoeschenFrage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "albenIntelligentWoher": "A smart album is a saved search: it does not collect photos, it shows whatever currently matches. You create one in Search, via the bookmark next to the search field.",
   "erkundenPersonen": "People",
   "erkundenOrte": "Places",
   "erkundenLetzteAlben": "Recently added albums",
@@ -71,6 +85,8 @@
   "sucheSpeichernTitel": "Save search",
   "sucheModellFehlt": "Context search needs the image search model. You can download it in Settings under “AI models”.",
   "sucheModellLaedt": "Loading the image search model …",
+  "sucheOhneEmbeddings": "No photo has been analysed for AI image search yet. The run is under Tools → Tasks (“CLIP embeddings”).",
+  "sucheOhneTexterkennung": "No text has been recognised on any photo yet. The run is under Tools → Tasks (“Recognise text (OCR)”).",
   "sucheModellUnbrauchbar": "The model {datei} is on disk but cannot be opened. Download it again under Settings - AI models; search and AI tags need it.",
   "@sucheModellUnbrauchbar": {
     "placeholders": {
@@ -195,6 +211,17 @@
   "personenLeer": "No people yet. Switch to the “Unnamed faces” tab, pick a few faces and assign them to a new person.",
   "personenLangeDruecken": "press and hold: merge",
   "personenKeineUnbenannten": "No unnamed faces (left). New ones appear here automatically as you import more photos or run another face scan. You can also mark individual ones yourself: open a photo, right-click → “Edit faces”, then use “Add face manually” at the top right.",
+  "personenOhneGesichtsmodell": "Without a face-detection model Photo Vault cannot find any faces.",
+  "personenNochNichtDurchsucht": "{offen, plural, =1{One photo has not been scanned for faces yet.} other{{offen} photos have not been scanned for faces yet.}} Until that is done, nothing can appear here.",
+  "@personenNochNichtDurchsucht": {
+    "placeholders": {
+      "offen": {
+        "type": "int"
+      }
+    }
+  },
+  "personenJetztSuchen": "Scan for faces now",
+  "personenSucheLaeuft": "The face scan is running. The first results will appear here once it is done.",
   "personenSchwellenHinweis": "The similarity threshold lives in Tools → Face recognition.",
   "personenDoppelklickHinweis": "Double-click a face to open the whole photo and check it.",
   "personenAutomatischGruppieren": "Group automatically",
@@ -358,7 +385,19 @@
   "einstBibImmerVorhanden": "always present",
   "einstSpeicherort": "Storage location",
   "einstSpeicherortVerschiebenLaeuft": "Moving library …",
-  "einstSpeicherbedarf": "Space used (originals)",
+  "einstSpeicherbedarf": "Space used",
+  "belegung_originals": "Originals",
+  "belegung_previews": "Previews",
+  "belegung_thumbnails": "Thumbnails",
+  "belegung_developed": "Developed versions",
+  "belegung_restored": "Restored versions",
+  "belegung_trimmed": "Trimmed videos",
+  "belegung_masks": "Masks",
+  "belegung_faces": "Face crops",
+  "belegung_luts": "Colour tables",
+  "belegung_trash": "Trash",
+  "belegung_datenbank": "Database",
+  "belegung_sonstiges": "Other",
   "einstModellLaedt": "Downloading “{titel}” …",
   "einstModellePruefenTitel": "Verify models",
   "einstModellePruefenText": "Recomputes the checksum of every installed model file and compares it with the catalogue. Takes a few seconds. Finds files that changed after they were downloaded – the download itself is always checked.",
@@ -427,6 +466,11 @@
   "modellSfaceText": "Computes one embedding per face so that similar or identical faces group together while you assign them by hand. Part of the OpenCV Zoo.",
   "modellSfaceLizenz": "Apache-2.0",
   "modellClipTitel": "AI image search – CLIP ViT-B/32",
+  "einstAlleModelleLaden": "Download all missing ({anzahl})",
+  "@einstAlleModelleLaden": { "placeholders": { "anzahl": { "type": "int" } } },
+  "einstAlleModelleDa": "All models are ready",
+  "einstAlleModelleLaeuft": "Model {nummer} of {gesamt}",
+  "@einstAlleModelleLaeuft": { "placeholders": { "nummer": { "type": "int" }, "gesamt": { "type": "int" } } },
   "modellClipText": "Lets you search for photos in plain language (for example “sunset over the sea”). Original OpenAI weights, exported as separate image and text encoder ONNX graphs.",
   "modellClipLizenz": "MIT (weights: OpenAI CLIP, see source)",
   "modellSamTitel": "AI object masks – SAM ViT-Base",
@@ -716,6 +760,7 @@
   "entwTrennstrichWartet": "The unedited image is still being rendered – one moment.",
   "entwMaskeErstellen": "Create a mask",
   "entwFormKi": "AI",
+  "entwFormKiFehlt": "Needs the segmentation model (Settings → AI models)",
   "entwFormPinsel": "Brush",
   "entwFormEllipse": "Ellipse",
   "entwFormVerlauf": "Gradient",
@@ -835,6 +880,11 @@
   "albumZielordner": "Choose a destination folder for \"{album}\"",
   "albumExportieren": "Export the album",
   "albumLeer": "This album has no photos in it yet.",
+  "albumFotosHinzufuegen": "Add photos",
+  "albumTitelbildSetzen": "Use as cover",
+  "albumTitelbildGesetzt": "Cover set",
+  "albumFotosWaehlenTitel": "Photos for “{album}”",
+  "@albumFotosWaehlenTitel": { "placeholders": { "album": { "type": "String" } } },
   "regelLoeschenTitel": "Delete the rule?",
   "regelLoeschenText": "Really delete the rule \"{name}\"? Actions it has already applied are kept.",
   "regelOrtUnvollstaendig": "Location: not fully configured",
@@ -914,6 +964,12 @@
   "importNichtsImOrdner": "No supported photos or videos found in that folder.",
   "importNichtsAufDatentraeger": "No supported photos or videos found on that volume.",
   "importAbgeschlossen": "Import finished",
+  "importBilanzNeu": "{anzahl, plural, =1{1 added} other{{anzahl} added}}",
+  "@importBilanzNeu": { "placeholders": { "anzahl": { "type": "int" } } },
+  "importBilanzDuplikate": "{anzahl, plural, =1{1 was already in the library and was skipped} other{{anzahl} were already in the library and were skipped}}",
+  "@importBilanzDuplikate": { "placeholders": { "anzahl": { "type": "int" } } },
+  "importBilanzFehler": "{anzahl, plural, =1{1 did not come in} other{{anzahl} did not come in}}",
+  "@importBilanzFehler": { "placeholders": { "anzahl": { "type": "int" } } },
   "importLaeuft": "Importing photos & videos …",
   "importJetztSichten": "Cull them now",
   "integPruefungFehlgeschlagen": "The check failed: {fehler}",
@@ -1167,6 +1223,21 @@
   "infoStandortBekannt": "Location known",
   "infoOrtNichtAufgeloest": "Location not resolved yet (Tools → Locations)",
   "infoOrtEntfernen": "Clear the location",
+  "infoBearbeitet": "Edited",
+  "infoBearbeitetEntwickelt": "developed",
+  "infoBearbeitetRestauriert": "restored",
+  "infoBearbeitetZugeschnitten": "trimmed",
+  "infoOriginalUnberuehrt": "{arten} – the original file is unchanged",
+  "@infoOriginalUnberuehrt": {
+    "placeholders": {
+      "arten": {
+        "type": "String"
+      }
+    }
+  },
+  "infoOriginalHerstellen": "Restore original",
+  "infoOriginalHerstellenFrage": "Undo every edit on this photo? The derived files are deleted; the original stays as it is.",
+  "infoOriginalHergestellt": "Original restored.",
   "infoSerie": "Series: {anzahl} photos",
   "infoNurTitelbild": "Only the cover image is visible in the overview",
   "infoSerieAufloesen": "Break up the series",
@@ -1688,6 +1759,14 @@
   "gruppeMonat": "By month",
   "gruppeKamera": "By camera",
   "gruppeKeine": "No grouping",
+  "sortReihenfolge": "Sort order",
+  "sortAufnahmeNeu": "Date taken, newest first",
+  "sortAufnahmeAlt": "Date taken, oldest first",
+  "sortImportNeu": "Recently added",
+  "sortName": "File name, A–Z",
+  "sortBewertung": "Rating, best first",
+  "sortGroesse": "File size, largest first",
+  "sortFundreihenfolge": "Match order",
   "bearbGeradeziehen": "Straighten",
   "bearbPerspektive": "Perspective",
   "bearbPerspektiveAnwenden": "Correct",
@@ -1695,6 +1774,8 @@
   "modellLamaText": "Fills a marked area from its surroundings – for dust spots, passers-by or the bin at the edge of the frame. At 208 MB the largest model here; one pass takes about a second.",
   "modellLamaLizenz": "Apache 2.0 (Samsung Research), ONNX export by Carve",
   "bearbRetusche": "Remove object",
+  "aufgLamaModell": "the LaMa model",
+  "bearbRetuscheNichtsMarkiert": "Nothing marked – paint over whatever should disappear.",
   "bearbRetuscheAnwenden": "Remove",
   "bearbRetuscheZurueck": "Undo last stroke",
   "bearbPinselbreite": "Brush width",
@@ -2291,6 +2372,17 @@
   "reisenBenennen": "Name the trip",
   "reisenName": "Name",
   "reisenNotiz": "Note",
+  "reisenTagesnotiz": "Note for this day",
+  "reisenTagesnotizTitel": "{datum}",
+  "@reisenTagesnotizTitel": {
+    "placeholders": {
+      "datum": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenTagesnotizSchreiben": "Write a note for this day",
+  "reisenTagesnotizAendern": "Edit the note for this day",
   "reisenUmbenennen": "Rename",
   "reisenLoeschen": "Remove trip",
   "reisenLoeschenFrage": "Remove “{name}”? The photos stay where they are.",
@@ -2951,6 +3043,55 @@
   },
   "aktivitaetenKeineRoute": "Too few located photos for a route.",
   "aktivitaetenInDieserReise": "Outings",
+  "reiseartReise": "Trip",
+  "reisenZusammenfuehren": "Merge",
+  "reisenZusammenfuehrenAllein": "There is no second trip to merge this one with.",
+  "reisenZusammenfuehrenTitel": "Add to “{name}”",
+  "@reisenZusammenfuehrenTitel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenZusammenfuehrenHinweis": "The selected trips are absorbed into “{name}”: photos, outings, tracks and daily notes come along, and the selected names disappear.",
+  "@reisenZusammenfuehrenHinweis": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "reisenZusammengefuehrt": "{anzahl, plural, one{One trip was} other{{anzahl} trips were}} merged into “{name}”.",
+  "@reisenZusammengefuehrt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
+  "reiseartUnternehmung": "Deployment",
+  "reiseartGeschaeftlich": "Business",
+  "reiseartBesuch": "Visit",
+  "reiseartSonstiges": "Other",
+  "reisenArtAendern": "Kind of trip",
+  "reisenAktivitaetAnlegen": "Add outing",
+  "reisenOhneAktivitaeten": "None yet – “Add outing” turns the whole trip, or a stretch of it, into one.",
+  "reisenAktivitaetLeer": "No photo of this trip falls in that period.",
+  "reisenAktivitaetAngelegt": "Outing “{name}” created with {anzahl} photos.",
+  "@reisenAktivitaetAngelegt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "anzahl": {
+        "type": "int"
+      }
+    }
+  },
   "aktivitaetenAngelegt": "“{name}” recorded.",
   "@aktivitaetenAngelegt": {
     "placeholders": {
@@ -3307,6 +3448,8 @@
   "aufgAblageText": "Moves photos into the folder of the month they were taken if they are not there, and puts stray .xmp sidecars back next to their photo. Changes no date – only the location on disk. Moves files, hence the confirmation.",
   "werkzOrdneAblage": "Sorting the storage ...",
   "werkzAblageStimmt": "Every item sits in the folder of its date.",
+  "werkzAblageBilanz": "{verschoben} of {gesamt} moved",
+  "@werkzAblageBilanz": { "placeholders": { "verschoben": { "type": "int" }, "gesamt": { "type": "int" } } },
   "werkzAblageFrageTitel": "Sort the storage?",
   "werkzAblageFrage": "Items whose folder does not match their capture date are moved into the right month folder. The capture dates themselves stay untouched. Nothing visible changes inside the app - but the library's folder structure on disk does.",
   "werkzAblageStarten": "Sort storage",

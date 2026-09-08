@@ -22,6 +22,7 @@ import '../services/textstellen.dart';
 import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
+import '../widgets/bild_zoom_gesten.dart';
 import '../widgets/asset_info_sheet.dart';
 import '../widgets/gesichtsrahmen.dart';
 import '../services/gesicht_von_hand.dart';
@@ -38,9 +39,10 @@ import 'person_detail_screen.dart';
 import 'image_editor_screen.dart';
 import 'similar_photos_screen.dart';
 import 'video_trim_screen.dart';
+import '../services/bearbeitung_zuruecknehmen.dart';
 import '../services/meldungsdienst.dart';
 
-enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata, faceReview, entwicklungEinfuegen }
+enum _ContextMenuAction { showInTimeline, showSimilar, editMetadata, faceReview, entwicklungEinfuegen, originalHerstellen }
 
 /// Obergrenze für die Dekodierauflösung (längste Kante) in der
 /// Vollbildansicht. Ohne diese Grenze dekodiert `Image`/`PhotoView` ein Foto
@@ -389,6 +391,22 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
     if (saved == true) await _refreshCurrentAsset();
   }
 
+  /// Nimmt jede Bearbeitung der gezeigten Aufnahme zurueck – siehe
+  /// [originalWiederherstellen]. Mit Rueckfrage, wie in der Info-Ansicht.
+  Future<void> _originalWiederherstellen() async {
+    final t = AppTexte.of(context);
+    if (!await confirmDialog(
+        context, t.infoOriginalHerstellen, t.infoOriginalHerstellenFrage,
+        bestaetigen: t.infoOriginalHerstellen)) {
+      return;
+    }
+    await originalWiederherstellen(
+        db: widget.db, paths: widget.paths, asset: _currentAsset);
+    if (!mounted) return;
+    melde.erfolg(t.infoOriginalHergestellt);
+    await _refreshCurrentAsset();
+  }
+
   Future<void> _showContextMenu(Offset globalPosition) async {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final selected = await showMenu<_ContextMenuAction>(
@@ -426,6 +444,19 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
             Text(AppTexte.of(context).viewerAehnlicheZeigen),
           ]),
         ),
+        // Der Weg zurueck – nur bei einer Aufnahme, an der es etwas
+        // zurueckzunehmen gibt. Denselben Knopf traegt die Info-Ansicht;
+        // hier steht er, weil das Rechtsklick-Menue der Ort ist, an dem
+        // man an einem Foto etwas TUT.
+        if (bearbeitungsarten(_currentAsset).isNotEmpty)
+          PopupMenuItem(
+            value: _ContextMenuAction.originalHerstellen,
+            child: Row(children: [
+              const Icon(Icons.restore, size: 20),
+              const SizedBox(width: 12),
+              Text(AppTexte.of(context).infoOriginalHerstellen),
+            ]),
+          ),
         PopupMenuItem(
           value: _ContextMenuAction.editMetadata,
           child: Row(children: [
@@ -464,6 +495,8 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
       case _ContextMenuAction.entwicklungEinfuegen:
         await runBatchPasteDevelop(context, widget.library!, [_currentAsset.id]);
         await _refreshCurrentAsset();
+      case _ContextMenuAction.originalHerstellen:
+        await _originalWiederherstellen();
     }
   }
 
@@ -1145,6 +1178,10 @@ class _AssetPage extends StatefulWidget {
 }
 
 class _AssetPageState extends State<_AssetPage> {
+  /// Der Massstab der Vollbildansicht – gebraucht, damit [BildZoomGesten]
+  /// ihn setzen kann (siehe dort: eine Magic Mouse kann nicht kneifen).
+  final PhotoViewController _zoomsteuerung = PhotoViewController();
+
   /// Die beiden Ecken, während ein Rahmen aufgezogen wird – in Punkten
   /// der Fotofläche, nicht des Fensters.
   Offset? _zugAnfang;
@@ -1243,6 +1280,7 @@ class _AssetPageState extends State<_AssetPage> {
   @override
   void dispose() {
     _focusPeakingDebounce?.cancel();
+    _zoomsteuerung.dispose();
     super.dispose();
   }
 
@@ -1503,11 +1541,15 @@ class _AssetPageState extends State<_AssetPage> {
         if (overlay == null && !ueberlagert) {
           return Stack(
             children: [
-              PhotoView(
-                imageProvider: begrenztesBild(file),
-                backgroundDecoration: const BoxDecoration(color: Colors.black),
-                initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
-                minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
+              BildZoomGesten(
+                steuerung: _zoomsteuerung,
+                child: PhotoView(
+                  imageProvider: begrenztesBild(file),
+                  controller: _zoomsteuerung,
+                  backgroundDecoration: const BoxDecoration(color: Colors.black),
+                  initialScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
+                  minScale: isPanorama(asset) ? PhotoViewComputedScale.covered : null,
+                ),
               ),
               // Im Malmodus sagt die Fahne, was zu tun ist. Sie ersetzt die
               // Auskunft „hier ist kein Gesicht" – die ist dann gerade der
@@ -1558,7 +1600,10 @@ class _AssetPageState extends State<_AssetPage> {
             ],
           );
         }
-        return PhotoView.customChild(
+        return BildZoomGesten(
+          steuerung: _zoomsteuerung,
+          child: PhotoView.customChild(
+          controller: _zoomsteuerung,
           backgroundDecoration: const BoxDecoration(color: Colors.black),
           // Mit Rahmen ist das Kind genau das Bild – nur dann liegt ein
           // Kasten bei 0,3 auch auf drei Zehnteln des Fotos und nicht auf
@@ -1636,6 +1681,7 @@ class _AssetPageState extends State<_AssetPage> {
             ],
             ),
           ),
+        ),
         );
       },
     );
@@ -1691,6 +1737,17 @@ class _LivePhotoPage extends StatefulWidget {
 }
 
 class _LivePhotoPageState extends State<_LivePhotoPage> {
+  /// Siehe [BildZoomGesten] – eigene Steuerung, weil dies ein eigener
+  /// Zustand ist.
+  final PhotoViewController _zoomsteuerung = PhotoViewController();
+
+  @override
+  void dispose() {
+    _zoomsteuerung.dispose();
+    super.dispose();
+  }
+
+
   late final Future<AssetData?> _videoAssetFuture =
       widget.db.assetById(widget.videoAssetId);
   // Erst berechenbar, sobald _videoAssetFuture aufgelöst ist – deshalb per
@@ -1713,11 +1770,17 @@ class _LivePhotoPageState extends State<_LivePhotoPage> {
         if (videoAsset == null) {
           // Video (noch) nicht geladen oder wurde gelöscht – Standbild ohne
           // Live-Funktion zeigen, statt die Ansicht zu blockieren.
-          return PhotoView(
-            imageProvider: begrenztesBild(widget.imageFile),
-            backgroundDecoration: const BoxDecoration(color: Colors.black),
-            initialScale: widget.isPanorama ? PhotoViewComputedScale.covered : null,
-            minScale: widget.isPanorama ? PhotoViewComputedScale.covered : null,
+          return BildZoomGesten(
+            steuerung: _zoomsteuerung,
+            child: PhotoView(
+              imageProvider: begrenztesBild(widget.imageFile),
+              controller: _zoomsteuerung,
+              backgroundDecoration: const BoxDecoration(color: Colors.black),
+              initialScale:
+                  widget.isPanorama ? PhotoViewComputedScale.covered : null,
+              minScale:
+                  widget.isPanorama ? PhotoViewComputedScale.covered : null,
+            ),
           );
         }
         return FutureBuilder<File>(

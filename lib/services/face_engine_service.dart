@@ -6,6 +6,7 @@ import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
 
 import 'face_postprocess.dart';
+import 'modellthreads.dart';
 
 export 'face_postprocess.dart' show DetectedFace;
 
@@ -56,10 +57,12 @@ class FaceEngineService {
   static Future<FaceEngineService?> load(String modelsDir) async {
     if (!isDetectionAvailable(modelsDir)) return null;
     final ort = OnnxRuntime();
-    final detector = await ort.createSession('$modelsDir/face_detection_yunet.onnx');
+    final detector = await ort.createSession('$modelsDir/face_detection_yunet.onnx',
+        options: modelloptionen());
     OrtSession? recognizer;
     if (isRecognitionAvailable(modelsDir)) {
-      recognizer = await ort.createSession('$modelsDir/face_recognition_sface.onnx');
+      recognizer = await ort.createSession('$modelsDir/face_recognition_sface.onnx',
+          options: modelloptionen());
     }
     return FaceEngineService._(detector, recognizer);
   }

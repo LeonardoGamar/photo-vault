@@ -40,11 +40,19 @@ Future<Zeitraumangabe?> frageZeitraum(
   required String titel,
   required AppDatabase db,
   bool mitArt = false,
+  DateTime? von,
+  DateTime? bis,
+  String? name,
 }) =>
     showDialog<Zeitraumangabe>(
       context: context,
-      builder: (dialog) =>
-          _ZeitraumDialog(titel: titel, db: db, mitArt: mitArt),
+      builder: (dialog) => _ZeitraumDialog(
+          titel: titel,
+          db: db,
+          mitArt: mitArt,
+          von: von,
+          bis: bis,
+          name: name),
     );
 
 class _ZeitraumDialog extends StatefulWidget {
@@ -52,17 +60,29 @@ class _ZeitraumDialog extends StatefulWidget {
   final AppDatabase db;
   final bool mitArt;
 
+  /// Vorbelegung – für den Weg aus einer Reise heraus: Dort ist der
+  /// Zeitraum schon bekannt, und wer ihn erst eintippen muss, tippt ihn
+  /// falsch ab.
+  final DateTime? von;
+  final DateTime? bis;
+  final String? name;
+
   const _ZeitraumDialog(
-      {required this.titel, required this.db, required this.mitArt});
+      {required this.titel,
+      required this.db,
+      required this.mitArt,
+      this.von,
+      this.bis,
+      this.name});
 
   @override
   State<_ZeitraumDialog> createState() => _ZeitraumDialogState();
 }
 
 class _ZeitraumDialogState extends State<_ZeitraumDialog> {
-  final _name = TextEditingController();
-  late DateTime _von = DateTime.now();
-  late DateTime _bis = DateTime.now();
+  late final _name = TextEditingController(text: widget.name ?? '');
+  late DateTime _von = widget.von ?? DateTime.now();
+  late DateTime _bis = widget.bis ?? DateTime.now();
   String _art = Aktivitaetsart.wanderung.kennung;
   int? _anzahl;
 
@@ -82,9 +102,11 @@ class _ZeitraumDialogState extends State<_ZeitraumDialog> {
   ///
   /// Ein Zähler je Änderung und nicht die Liste: Gezeigt wird eine Zahl,
   /// und die vollen Zeilen zu holen wäre bei einem Jahr Zeitraum eine
-  /// spürbare Abfrage für nichts.
+  /// spürbare Abfrage für nichts. **Genau das stand hier trotzdem** –
+  /// `aufnahmenImZeitraum(...).length`, also die halbe Bibliothek für
+  /// eine Ziffer, bei jeder Verschiebung des Datums.
   Future<void> _zaehle() async {
-    final n = (await widget.db.aufnahmenImZeitraum(_von, _bis)).length;
+    final n = await widget.db.zahlImZeitraum(_von, _bis);
     if (mounted) setState(() => _anzahl = n);
   }
 

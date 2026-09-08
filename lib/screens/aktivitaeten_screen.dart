@@ -56,7 +56,24 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
     final aktivitaeten = await db.alleAktivitaeten();
     final reisen = await db.alleReisen();
     final roh = await db.aufnahmenFuerReiseerkennung();
-    final belegt = await db.zugeordneteAktivitaetsAufnahmen();
+    // **Was in einer bestätigten Reise steht, wird nicht noch einmal
+    // vorgeschlagen.**
+    //
+    // Eine bestätigte Reise ist eine Entscheidung: Diese Aufnahmen
+    // gehören zusammen und tragen einen Namen. Die Aktivitätserkennung
+    // sah sie trotzdem weiter als freies Material und bot dieselben
+    // Fotos ein zweites Mal an – bei der Reise „Mazār-e Sharīf – ISAF"
+    // stammten zwei von vier Vorschlägen aus ihren Aufnahmen, einer
+    // davon zu 28 von 28. Wer beide bestätigt, hat dasselbe zweimal in
+    // der Bibliothek.
+    //
+    // Innerhalb einer Reise entsteht eine Aktivität deshalb von Hand –
+    // im Reisebildschirm, wo man die Reise vor sich hat (siehe
+    // `reise_detail_screen.dart`).
+    final belegt = {
+      ...await db.zugeordneteAktivitaetsAufnahmen(),
+      ...(await db.reiseJeAufnahme()).keys,
+    };
     final verworfen = await db.verworfeneAktivitaetsvorschlaege();
     final orte = await db.ortsbezugJeAktivitaet();
     if (!mounted) return;

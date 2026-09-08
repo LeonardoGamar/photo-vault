@@ -59,7 +59,8 @@ String? kamerabezeichnung(AssetData asset) {
 /// Fotos ohne Kameraangabe am Ende. Nach Häufigkeit zu sortieren wäre
 /// verlockend, ist aber unbrauchbar: Die Reihenfolge änderte sich dann bei
 /// jedem Import, und man müsste die gesuchte Kamera jedes Mal neu suchen.
-List<Assetgruppe> gruppiereAssets(List<AssetData> assets, ListenGruppierung art) {
+List<Assetgruppe> gruppiereAssets(List<AssetData> assets, ListenGruppierung art,
+    {bool absteigend = true}) {
   if (art == ListenGruppierung.keine) {
     return assets.isEmpty ? const [] : [Assetgruppe('', assets)];
   }
@@ -78,8 +79,10 @@ List<Assetgruppe> gruppiereAssets(List<AssetData> assets, ListenGruppierung art)
   final schluessel = nachSchluessel.keys.toList();
   switch (art) {
     case ListenGruppierung.monat:
-      // Absteigend: neueste zuerst, wie im Raster.
-      schluessel.sort((a, b) => int.parse(b).compareTo(int.parse(a)));
+      // In dieselbe Richtung wie die Aufnahmen darin – wie im Raster.
+      schluessel.sort((a, b) => absteigend
+          ? int.parse(b).compareTo(int.parse(a))
+          : int.parse(a).compareTo(int.parse(b)));
     case ListenGruppierung.kamera:
       schluessel.sort((a, b) {
         // Ohne Kameraangabe immer ans Ende, unabhängig vom Alphabet.

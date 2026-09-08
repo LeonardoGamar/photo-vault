@@ -353,22 +353,13 @@ class _YearDetailScreenState extends State<YearDetailScreen>
   @override
   void rasterOeffne(AssetData asset) => _openViewer(_geladen, asset);
 
-  void _toggle(String id) => setState(() {
-        if (!_selected.remove(id)) _selected.add(id);
-      });
+  /// Siehe [Rasterbedienung.rasterUmschalten]: Der Anker gehoert dazu.
+  void _toggle(String id) => rasterUmschalten(id);
 
   /// Auf die Monatsüberschrift getippt: alle Fotos/Videos des Monats
   /// auswählen – oder, falls bereits alle ausgewählt sind, wieder abwählen.
-  void _toggleGruppe(List<String> kennungen) => setState(() {
-        final allSelected = kennungen.every(_selected.contains);
-        for (final id in kennungen) {
-          if (allSelected) {
-            _selected.remove(id);
-          } else {
-            _selected.add(id);
-          }
-        }
-      });
+  void _toggleGruppe(List<String> kennungen) =>
+      rasterGruppeUmschalten(kennungen);
 
   void _openViewer(List<AssetData> assets, AssetData asset) {
     Navigator.of(context).push(MaterialPageRoute(

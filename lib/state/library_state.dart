@@ -880,6 +880,8 @@ class LibraryState extends ChangeNotifier {
         filePaths.length,
         currentFile: p.basename(filePath),
         assetId: result.outcome == ImportOutcome.imported ? result.assetId : null,
+        duplikat: result.outcome == ImportOutcome.duplicateSkipped,
+        gescheitert: result.outcome == ImportOutcome.failed,
       );
     }
 
@@ -1310,6 +1312,7 @@ class LibraryState extends ChangeNotifier {
     required String titel,
     required String leermeldung,
     required Stream<ImportProgress> Function() strom,
+    String Function(int getan, int gesamt)? bilanztext,
     bool rechenintensiv = false,
   }) {
     final abweisung = pruefeStart(schluessel);
@@ -1319,6 +1322,7 @@ class LibraryState extends ChangeNotifier {
       schluessel: schluessel,
       titel: titel,
       leermeldung: leermeldung,
+      bilanztext: bilanztext,
       rechenintensiv: rechenintensiv,
       strom: strom,
     );
@@ -1347,6 +1351,9 @@ class LibraryState extends ChangeNotifier {
           lauf.erledigt = p.done;
           lauf.gesamt = p.total;
           lauf.datei = p.currentFile;
+          // Die zuletzt gemeldete Zahl gilt: Ein Lauf schickt sie am
+          // Schluss, und ein spaeteres `null` soll sie nicht loeschen.
+          if (p.getan != null) lauf.getan = p.getan;
           final jetzt = DateTime.now();
           // Der letzte Schritt kommt immer durch, sonst bliebe die Anzeige
           // kurz vor der Gesamtzahl stehen.
@@ -2325,6 +2332,14 @@ class LibraryState extends ChangeNotifier {
       }
       done++;
       yield ImportProgress(done, gesamt, currentFile: p.basename(z.nach));
+    }
+    // Die Schlussmeldung: Was wirklich umgelegt wurde, Fotos und
+    // Beipackzettel zusammen. Sie stand bisher nur im Entwicklerprotokoll
+    // – aus dem Erstlauf-Bericht (A08): „Aufgabe lief ohne Fehlermeldung
+    // durch, genannt wurde nichts."
+    if (gesamt > 0) {
+      yield ImportProgress(gesamt, gesamt,
+          getan: verschoben + zettelVerschoben);
     }
     debugPrint('Ablage neu geordnet: $verschoben von ${betroffen.length}, '
         'Beipackzettel $zettelVerschoben von ${zettel.length}');

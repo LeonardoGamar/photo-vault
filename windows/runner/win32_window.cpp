@@ -120,6 +120,51 @@ Win32Window::~Win32Window() {
   Destroy();
 }
 
+namespace {
+
+// Wo Groesse, Ort und Vollbildzustand des Fensters zwischen zwei Laeufen
+// liegen.
+//
+// Ein WINDOWPLACEMENT traegt alles drei in einem Stueck - und zwar in
+// Bildpunkten des Arbeitsbereichs, also unabhaengig davon, an welchem
+// Bildschirm das Fenster gerade haengt. Genau dafuer ist die Struktur
+// gedacht; sie von Hand in drei Zahlen zu zerlegen waere mehr Arbeit und
+// weniger genau.
+constexpr wchar_t kFensterSchluessel[] = L"Software\\Photo Vault";
+constexpr wchar_t kFensterWert[] = L"Fensterlage";
+
+bool FensterlageHolen(WINDOWPLACEMENT* lage) {
+  DWORD groesse = sizeof(WINDOWPLACEMENT);
+  DWORD art = 0;
+  LSTATUS ergebnis =
+      RegGetValue(HKEY_CURRENT_USER, kFensterSchluessel, kFensterWert,
+                  RRF_RT_REG_BINARY, &art, lage, &groesse);
+  // Nur was vollstaendig und plausibel ist: Eine halbe Struktur aus einer
+  // frueheren Fassung waere schlimmer als gar keine.
+  return ergebnis == ERROR_SUCCESS && groesse == sizeof(WINDOWPLACEMENT) &&
+         lage->length == sizeof(WINDOWPLACEMENT);
+}
+
+void FensterlageSichern(HWND fenster) {
+  WINDOWPLACEMENT lage = {};
+  lage.length = sizeof(WINDOWPLACEMENT);
+  if (!GetWindowPlacement(fenster, &lage)) return;
+  // Minimiert schliessen heisst nicht, minimiert starten wollen.
+  if (lage.showCmd == SW_SHOWMINIMIZED) lage.showCmd = SW_SHOWNORMAL;
+  HKEY schluessel = nullptr;
+  if (RegCreateKeyEx(HKEY_CURRENT_USER, kFensterSchluessel, 0, nullptr, 0,
+                     KEY_WRITE, nullptr, &schluessel,
+                     nullptr) != ERROR_SUCCESS) {
+    return;
+  }
+  RegSetValueEx(schluessel, kFensterWert, 0, REG_BINARY,
+                reinterpret_cast<const BYTE*>(&lage),
+                sizeof(WINDOWPLACEMENT));
+  RegCloseKey(schluessel);
+}
+
+}  // namespace
+
 bool Win32Window::Create(const std::wstring& title,
                          const Point& origin,
                          const Size& size) {
@@ -146,11 +191,19 @@ bool Win32Window::Create(const std::wstring& title,
 
   UpdateTheme(window);
 
+  // Groesse, Ort und Vollbildzustand des letzten Laufs. Erst nach
+  // CreateWindow: Vorher gibt es kein Fenster, dem sie gehoeren koennten.
+  WINDOWPLACEMENT lage = {};
+  if (FensterlageHolen(&lage)) {
+    SetWindowPlacement(window, &lage);
+    if (lage.showCmd == SW_SHOWMAXIMIZED) zeigebefehl_ = SW_SHOWMAXIMIZED;
+  }
+
   return OnCreate();
 }
 
 bool Win32Window::Show() {
-  return ShowWindow(window_handle_, SW_SHOWNORMAL);
+  return ShowWindow(window_handle_, zeigebefehl_);
 }
 
 // static
@@ -179,6 +232,13 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_CLOSE:
+      // Hier und nicht bei WM_DESTROY: Dort ist das Fenster schon im
+      // Abbau, und GetWindowPlacement liefert dann nichts Brauchbares
+      // mehr. WM_CLOSE kommt vor jedem regulaeren Schliessen.
+      FensterlageSichern(hwnd);
+      break;
+
     case WM_DESTROY:
       window_handle_ = nullptr;
       Destroy();

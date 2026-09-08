@@ -113,8 +113,9 @@ class ImageEditorScreen extends StatefulWidget {
   final AppDatabase db;
   final StoragePaths paths;
 
-  /// Wo die KI-Modelle liegen – nur für die Objektentfernung. `null` heisst
-  /// „nicht verfügbar"; das Werkzeug wird dann gar nicht erst angeboten.
+  /// Wo die KI-Modelle liegen – nur für die Objektentfernung. `null`
+  /// heisst „nicht verfügbar"; das Werkzeug steht dann abgeschaltet da
+  /// und sagt im Hinweistext, was fehlt (siehe `_retuscheMoeglich`).
   final String? modelsDir;
 
   const ImageEditorScreen({
@@ -300,7 +301,12 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
       dienst = await InpaintingService.load(modelle);
       final ergebnis = await dienst.entferne(decoded, maske);
       if (ergebnis == null) {
-        if (mounted) setState(() => _processing = false);
+        // Leere Maske. Frueher endete der Weg hier wortlos - und wortlos
+        // nichts tun ist die Auskunft, die am teuersten zu deuten ist.
+        if (mounted) {
+          setState(() => _processing = false);
+          melde.hinweis(AppTexte.of(context).bearbRetuscheNichtsMarkiert);
+        }
         return;
       }
       final kodiert = _encodeResult(ergebnis)!;
@@ -622,11 +628,25 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
         _toolButton(Icons.crop_outlined, t.bearbZuschneiden, _startCrop),
         _toolButton(Icons.straighten, t.bearbGeradeziehen, _startStraighten),
         _toolButton(Icons.transform, t.bearbPerspektive, _startPerspektive),
-        // Nur, wenn das Modell überhaupt da sein kann – ein Werkzeug, das
-        // beim Antippen nur meldet „geht nicht", ist schlechter als keines.
-        if (widget.modelsDir != null &&
-            InpaintingService.isAvailable(widget.modelsDir!))
-          _toolButton(Icons.auto_fix_high, t.bearbRetusche, _startRetusche),
+        // **Sichtbar, auch ohne Modell – aber abgeschaltet und mit
+        // Begründung.** Vorher fiel der Knopf ganz weg, mit dem Argument,
+        // ein Werkzeug, das beim Antippen nur „geht nicht" meldet, sei
+        // schlechter als keines. Das Ergebnis war schlechter als beides:
+        // In den Einstellungen steht ein Modell namens
+        // „Objektentfernung (LaMa)", in der Bearbeitung gab es dazu
+        // nichts zu sehen, und nirgends stand ein Zusammenhang. Wer das
+        // Werkzeug suchte, fand eine leere Stelle. Dieselbe Regel wie
+        // beim leeren Gesichter-Tab und bei der KI-Maske im Entwickeln:
+        // sagen, was fehlt und wo es herkommt.
+        _toolButton(
+          Icons.auto_fix_high,
+          _retuscheMoeglich
+              ? t.bearbRetusche
+              : '${t.bearbRetusche} – '
+                  '${t.aufgModellNoetig(t.aufgLamaModell, t.aufgWoModelle)}',
+          _startRetusche,
+          aus: !_retuscheMoeglich,
+        ),
         _toolButton(Icons.rotate_left, t.bearbLinksDrehen, _rotateLeft),
         _toolButton(Icons.rotate_right, t.bearbRechtsDrehen, _rotateRight),
         _toolButton(Icons.flip, t.bearbHorizontalSpiegeln, _flipHorizontal),
@@ -635,12 +655,21 @@ class _ImageEditorScreenState extends State<ImageEditorScreen> {
     );
   }
 
-  Widget _toolButton(IconData icon, String tooltip, VoidCallback onPressed, {int quarterTurns = 0}) {
+  /// Ob die Objektentfernung ueberhaupt rechnen kann.
+  bool get _retuscheMoeglich =>
+      widget.modelsDir != null &&
+      InpaintingService.isAvailable(widget.modelsDir!);
+
+  Widget _toolButton(IconData icon, String tooltip, VoidCallback onPressed,
+      {int quarterTurns = 0, bool aus = false}) {
     return IconButton(
       tooltip: tooltip,
       color: Colors.white,
+      // Ein abgeschalteter Knopf behaelt seinen Hinweistext: Genau dort
+      // steht, warum er abgeschaltet ist.
+      disabledColor: Colors.white24,
       icon: RotatedBox(quarterTurns: quarterTurns, child: Icon(icon)),
-      onPressed: _processing ? null : onPressed,
+      onPressed: _processing || aus ? null : onPressed,
     );
   }
 

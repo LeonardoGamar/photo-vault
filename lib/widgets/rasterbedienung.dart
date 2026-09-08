@@ -87,6 +87,50 @@ mixin Rasterbedienung<T extends StatefulWidget, Z extends Object>
 
   // ---- Maus ----
 
+  /// Wählt eine Kachel an oder ab – und merkt sie sich als [anker].
+  ///
+  /// **Warum der Anker hier stehen muss.** [rasterKlick] setzt ihn bei
+  /// jedem Klick; das Auswählen per langem Druck (und über eine
+  /// Monatsüberschrift) tat es nicht. Wer so begann und dann mit
+  /// Umschalt weiterklickte, bekam entweder genau diese eine Kachel dazu
+  /// – es gab ja keinen Anker – oder einen Bereich, der bei einem längst
+  /// vergessenen Foto begann. Aus dem Erstlauf-Bericht: „Einzelauswahl
+  /// funktioniert, Umschalt-Klick nur bis zu dem gewählten Foto,
+  /// teilweise auch einige zusammenhängende Fotos, aber nicht der ganze
+  /// Bereich."
+  ///
+  /// Auch beim Abwählen wandert der Anker mit: Bezugspunkt ist die
+  /// zuletzt angefasste Kachel, nicht die zuletzt hinzugefügte.
+  void rasterUmschalten(String kennung) {
+    setState(() {
+      if (!auswahl.remove(kennung)) auswahl.add(kennung);
+      anker = kennung;
+      aktiveKachel = kennung;
+    });
+  }
+
+  /// Wählt eine ganze Gruppe an oder ab – etwa über eine Monatsüberschrift.
+  ///
+  /// Der Anker landet auf der letzten Kachel der Gruppe: Von dort aus
+  /// geht es beim nächsten Umschalt-Klick lückenlos weiter.
+  void rasterGruppeUmschalten(List<String> kennungen) {
+    if (kennungen.isEmpty) return;
+    setState(() {
+      final alleDrin = kennungen.every(auswahl.contains);
+      for (final id in kennungen) {
+        if (alleDrin) {
+          auswahl.remove(id);
+        } else {
+          auswahl.add(id);
+        }
+      }
+      if (!alleDrin) {
+        anker = kennungen.last;
+        aktiveKachel = kennungen.last;
+      }
+    });
+  }
+
   /// Ein Klick auf eine Kachel, mit oder ohne Zusatztaste.
   ///
   /// Ohne Zusatztaste bleibt alles beim Alten: Gibt es schon eine Auswahl,
@@ -143,12 +187,55 @@ mixin Rasterbedienung<T extends StatefulWidget, Z extends Object>
 
   // ---- Tastatur ----
 
-  /// Umschliesst [kind] mit der Tastaturbedienung.
+  /// Der eigene Fokusknoten des Rasters.
   ///
-  /// `autofocus` ist gesetzt, weil das Raster den Bildschirm füllt: Wer ihn
-  /// öffnet, will tippen können, ohne vorher irgendwohin zu klicken.
-  Widget mitTastatur({required Widget kind}) =>
-      Focus(autofocus: true, onKeyEvent: rasterTaste, child: kind);
+  /// **Warum nicht mehr `autofocus`.** Die Hülle legt ihrerseits einen
+  /// `Focus` über den ganzen Bildschirm (für ⌘1…⌘0 und „?", siehe
+  /// `HomeShell`), ebenfalls mit `autofocus`. Zwei Knoten desselben
+  /// Bereichs bitten damit im selben Atemzug um den Fokus – und Flutter
+  /// gibt ihn dem, der zuerst dran ist: der Hülle. Das Raster ging leer
+  /// aus, und weil Tasten von der fokussierten Stelle nur nach **oben**
+  /// weiterwandern, kam bei ihm nie eine an. Bewertung, Farbmarke, Pfeile,
+  /// F und Esc taten nichts; das Nummernfeld quittierte mit einem Piep.
+  /// Belegt in `test/fokus_verschachtelt_test.dart`.
+  ///
+  /// Eine ausdrückliche Anforderung schlägt die frühere Autofokus-Bitte.
+  /// Die Hülle verliert dabei nichts: Tasten laufen vom Raster aus weiter
+  /// zu ihr hinauf, ⌘1…⌘0 kommt also weiterhin an.
+  final FocusNode rasterFokus = FocusNode();
+  bool _fokusErbeten = false;
+
+  /// Holt den Fokus zum Raster – beim ersten Aufbau und nach jedem Klick
+  /// hinein.
+  ///
+  /// Das Nachfassen beim Klick ist kein Beiwerk: Wer ein Foto anklickt und
+  /// danach „3" drückt, erwartet drei Sterne. Ohne das läge der Fokus nach
+  /// dem Klick womöglich auf der angeklickten Kachel selbst oder – wenn
+  /// vorher gesucht wurde – noch im Suchfeld.
+  void rasterFokusHolen() {
+    if (!mounted) return;
+    if (!rasterFokus.hasFocus) rasterFokus.requestFocus();
+  }
+
+  /// Umschliesst [kind] mit der Tastaturbedienung.
+  Widget mitTastatur({required Widget kind}) {
+    if (!_fokusErbeten) {
+      _fokusErbeten = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => rasterFokusHolen());
+    }
+    return Listener(
+      // `down` statt `up`: Bis der Finger wieder hochgeht, hat die Kachel
+      // ihre eigene Reaktion schon begonnen.
+      onPointerDown: (_) => rasterFokusHolen(),
+      child: Focus(focusNode: rasterFokus, onKeyEvent: rasterTaste, child: kind),
+    );
+  }
+
+  @override
+  void dispose() {
+    rasterFokus.dispose();
+    super.dispose();
+  }
 
   /// Ob gerade in ein Textfeld geschrieben wird.
   ///

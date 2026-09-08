@@ -177,6 +177,13 @@ class AppTexteDe extends AppTexte {
       'Sofort ablehnen und weiter (ohne Bestätigung)';
 
   @override
+  String get kuerzelZoomWischen => '⌘/Strg + Wischen';
+
+  @override
+  String get kuerzelZoomImBild =>
+      'Ins Bild hinein- und herauszoomen (auch mit einer Magic Mouse)';
+
+  @override
   String get timelineLeer => 'Noch keine Fotos in der Bibliothek.';
 
   @override
@@ -209,6 +216,24 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get albenLeer => 'Noch keine Alben vorhanden.';
+
+  @override
+  String get albenIntelligente => 'Intelligente Alben';
+
+  @override
+  String get albenGewoehnliche => 'Alben';
+
+  @override
+  String get albumIntelligentLoeschen => 'Intelligentes Album löschen';
+
+  @override
+  String albumIntelligentLoeschenFrage(String name) {
+    return '„$name“ entfernen? Die Aufnahmen bleiben, nur die gespeicherte Suche verschwindet.';
+  }
+
+  @override
+  String get albenIntelligentWoher =>
+      'Ein intelligentes Album ist eine gespeicherte Suche: Es sammelt keine Aufnahmen ein, sondern zeigt jedes Mal neu, was gerade passt. Angelegt wird es in der Suche über das Lesezeichen neben dem Suchfeld.';
 
   @override
   String get erkundenPersonen => 'Personen';
@@ -264,6 +289,14 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get sucheModellLaedt => 'Modell für die Bildsuche wird geladen …';
+
+  @override
+  String get sucheOhneEmbeddings =>
+      'Noch ist kein Foto für die KI-Bildsuche ausgewertet. Der Durchgang steht unter Werkzeuge → Aufgaben („CLIP-Embeddings“).';
+
+  @override
+  String get sucheOhneTexterkennung =>
+      'Noch ist auf keinem Foto Text erkannt worden. Der Durchgang steht unter Werkzeuge → Aufgaben („Text erkennen (OCR)“).';
 
   @override
   String sucheModellUnbrauchbar(String datei) {
@@ -509,6 +542,28 @@ class AppTexteDe extends AppTexte {
   @override
   String get personenKeineUnbenannten =>
       'Keine unbenannten Gesichter (mehr). Neue erscheinen hier automatisch, sobald du weitere Fotos importierst oder erneut nach Gesichtern suchst. Einzelne kannst du auch selbst markieren: Foto öffnen, Rechtsklick → „Gesichter bearbeiten“, dann oben rechts auf „Gesicht manuell hinzufügen“.';
+
+  @override
+  String get personenOhneGesichtsmodell =>
+      'Ohne ein Modell für die Gesichtserkennung findet Photo Vault keine Gesichter.';
+
+  @override
+  String personenNochNichtDurchsucht(int offen) {
+    String _temp0 = intl.Intl.pluralLogic(
+      offen,
+      locale: localeName,
+      other: '$offen Aufnahmen sind noch nicht nach Gesichtern durchsucht.',
+      one: 'Eine Aufnahme ist noch nicht nach Gesichtern durchsucht.',
+    );
+    return '$_temp0 Solange das aussteht, kann hier nichts stehen.';
+  }
+
+  @override
+  String get personenJetztSuchen => 'Jetzt nach Gesichtern suchen';
+
+  @override
+  String get personenSucheLaeuft =>
+      'Die Gesichtssuche läuft gerade. Die ersten Funde erscheinen hier, sobald sie durch ist.';
 
   @override
   String get personenSchwellenHinweis =>
@@ -1120,7 +1175,43 @@ class AppTexteDe extends AppTexte {
   String get einstSpeicherortVerschiebenLaeuft => 'Verschiebe Bibliothek …';
 
   @override
-  String get einstSpeicherbedarf => 'Speicherbedarf (Originale)';
+  String get einstSpeicherbedarf => 'Speicherbedarf';
+
+  @override
+  String get belegung_originals => 'Originale';
+
+  @override
+  String get belegung_previews => 'Vorschauen';
+
+  @override
+  String get belegung_thumbnails => 'Miniaturen';
+
+  @override
+  String get belegung_developed => 'Entwickelte Fassungen';
+
+  @override
+  String get belegung_restored => 'Restaurierte Fassungen';
+
+  @override
+  String get belegung_trimmed => 'Zugeschnittene Videos';
+
+  @override
+  String get belegung_masks => 'Masken';
+
+  @override
+  String get belegung_faces => 'Gesichtsausschnitte';
+
+  @override
+  String get belegung_luts => 'Farbtabellen';
+
+  @override
+  String get belegung_trash => 'Papierkorb';
+
+  @override
+  String get belegung_datenbank => 'Datenbank';
+
+  @override
+  String get belegung_sonstiges => 'Sonstiges';
 
   @override
   String einstModellLaedt(String titel) {
@@ -1315,6 +1406,19 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get modellClipTitel => 'KI-Bildsuche – CLIP ViT-B/32';
+
+  @override
+  String einstAlleModelleLaden(int anzahl) {
+    return 'Alle fehlenden laden ($anzahl)';
+  }
+
+  @override
+  String get einstAlleModelleDa => 'Alle Modelle liegen bereit';
+
+  @override
+  String einstAlleModelleLaeuft(int nummer, int gesamt) {
+    return 'Modell $nummer von $gesamt';
+  }
 
   @override
   String get modellClipText =>
@@ -2299,6 +2403,10 @@ class AppTexteDe extends AppTexte {
   String get entwFormKi => 'KI';
 
   @override
+  String get entwFormKiFehlt =>
+      'Benötigt das Segmentierungs-Modell (Einstellungen → KI-Modelle)';
+
+  @override
   String get entwFormPinsel => 'Pinsel';
 
   @override
@@ -2704,6 +2812,20 @@ class AppTexteDe extends AppTexte {
   String get albumLeer => 'Dieses Album enthält noch keine Fotos.';
 
   @override
+  String get albumFotosHinzufuegen => 'Fotos hinzufügen';
+
+  @override
+  String get albumTitelbildSetzen => 'Als Titelbild';
+
+  @override
+  String get albumTitelbildGesetzt => 'Titelbild gesetzt';
+
+  @override
+  String albumFotosWaehlenTitel(String album) {
+    return 'Fotos für „$album“';
+  }
+
+  @override
   String get regelLoeschenTitel => 'Regel löschen?';
 
   @override
@@ -2973,6 +3095,39 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get importAbgeschlossen => 'Import abgeschlossen';
+
+  @override
+  String importBilanzNeu(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl neu hereingekommen',
+      one: '1 neu hereingekommen',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String importBilanzDuplikate(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl lagen schon in der Bibliothek und wurden übersprungen',
+      one: '1 lag schon in der Bibliothek und wurde übersprungen',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String importBilanzFehler(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl kamen nicht herein',
+      one: '1 kam nicht herein',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get importLaeuft => 'Importiere Fotos & Videos …';
@@ -3529,6 +3684,33 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get infoOrtEntfernen => 'Ort entfernen';
+
+  @override
+  String get infoBearbeitet => 'Bearbeitet';
+
+  @override
+  String get infoBearbeitetEntwickelt => 'entwickelt';
+
+  @override
+  String get infoBearbeitetRestauriert => 'restauriert';
+
+  @override
+  String get infoBearbeitetZugeschnitten => 'zugeschnitten';
+
+  @override
+  String infoOriginalUnberuehrt(String arten) {
+    return '$arten – die Originaldatei ist unverändert';
+  }
+
+  @override
+  String get infoOriginalHerstellen => 'Original wiederherstellen';
+
+  @override
+  String get infoOriginalHerstellenFrage =>
+      'Alle Bearbeitungen dieser Aufnahme zurücknehmen? Die abgeleiteten Dateien werden gelöscht; das Original bleibt, wie es ist.';
+
+  @override
+  String get infoOriginalHergestellt => 'Original wiederhergestellt.';
 
   @override
   String infoSerie(int anzahl) {
@@ -4611,6 +4793,30 @@ class AppTexteDe extends AppTexte {
   String get gruppeKeine => 'Ohne Gliederung';
 
   @override
+  String get sortReihenfolge => 'Reihenfolge';
+
+  @override
+  String get sortAufnahmeNeu => 'Aufnahmedatum, neueste zuerst';
+
+  @override
+  String get sortAufnahmeAlt => 'Aufnahmedatum, älteste zuerst';
+
+  @override
+  String get sortImportNeu => 'Zuletzt hinzugefügt';
+
+  @override
+  String get sortName => 'Dateiname, A–Z';
+
+  @override
+  String get sortBewertung => 'Bewertung, beste zuerst';
+
+  @override
+  String get sortGroesse => 'Dateigrösse, grösste zuerst';
+
+  @override
+  String get sortFundreihenfolge => 'Fundreihenfolge';
+
+  @override
   String get bearbGeradeziehen => 'Geradeziehen';
 
   @override
@@ -4632,6 +4838,13 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get bearbRetusche => 'Objekt entfernen';
+
+  @override
+  String get aufgLamaModell => 'das LaMa-Modell';
+
+  @override
+  String get bearbRetuscheNichtsMarkiert =>
+      'Nichts markiert – male über das, was verschwinden soll.';
 
   @override
   String get bearbRetuscheAnwenden => 'Entfernen';
@@ -5529,6 +5742,20 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get reisenNotiz => 'Notiz';
+
+  @override
+  String get reisenTagesnotiz => 'Notiz zu diesem Tag';
+
+  @override
+  String reisenTagesnotizTitel(String datum) {
+    return '$datum';
+  }
+
+  @override
+  String get reisenTagesnotizSchreiben => 'Notiz zu diesem Tag schreiben';
+
+  @override
+  String get reisenTagesnotizAendern => 'Notiz zu diesem Tag ändern';
 
   @override
   String get reisenUmbenennen => 'Umbenennen';
@@ -6575,6 +6802,68 @@ class AppTexteDe extends AppTexte {
   String get aktivitaetenInDieserReise => 'Unternehmungen';
 
   @override
+  String get reiseartReise => 'Reise';
+
+  @override
+  String get reisenZusammenfuehren => 'Zusammenführen';
+
+  @override
+  String get reisenZusammenfuehrenAllein =>
+      'Es gibt keine zweite Reise, mit der sich diese zusammenführen liesse.';
+
+  @override
+  String reisenZusammenfuehrenTitel(String name) {
+    return 'Zu „$name\" hinzufügen';
+  }
+
+  @override
+  String reisenZusammenfuehrenHinweis(String name) {
+    return 'Die gewählten Reisen gehen in „$name\" auf: Aufnahmen, Unternehmungen, Spuren und Tagesnotizen kommen mit, die Namen der gewählten verschwinden.';
+  }
+
+  @override
+  String reisenZusammengefuehrt(String name, int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Reisen gingen',
+      one: 'Eine Reise ging',
+    );
+    return '$_temp0 in „$name\" auf.';
+  }
+
+  @override
+  String get reiseartUnternehmung => 'Unternehmung';
+
+  @override
+  String get reiseartGeschaeftlich => 'Dienstlich';
+
+  @override
+  String get reiseartBesuch => 'Besuch';
+
+  @override
+  String get reiseartSonstiges => 'Sonstiges';
+
+  @override
+  String get reisenArtAendern => 'Art der Reise';
+
+  @override
+  String get reisenAktivitaetAnlegen => 'Unternehmung anlegen';
+
+  @override
+  String get reisenOhneAktivitaeten =>
+      'Noch keine – „Unternehmung anlegen\" macht aus der ganzen Reise oder einem Abschnitt daraus eine.';
+
+  @override
+  String get reisenAktivitaetLeer =>
+      'In diesem Zeitraum liegt keine Aufnahme dieser Reise.';
+
+  @override
+  String reisenAktivitaetAngelegt(String name, int anzahl) {
+    return 'Unternehmung „$name\" angelegt, $anzahl Aufnahmen.';
+  }
+
+  @override
   String aktivitaetenAngelegt(String name) {
     return '„$name\" eingetragen.';
   }
@@ -7122,6 +7411,11 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get werkzAblageStimmt => 'Jede Aufnahme liegt im Ordner ihres Datums.';
+
+  @override
+  String werkzAblageBilanz(int verschoben, int gesamt) {
+    return '$verschoben von $gesamt umgelegt';
+  }
 
   @override
   String get werkzAblageFrageTitel => 'Ablage neu ordnen?';

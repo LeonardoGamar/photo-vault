@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 
 import 'marian_tokenizer.dart';
+import 'modellthreads.dart';
 
 /// Welche Richtung ein [TranslationService] übersetzt.
 enum Uebersetzungsrichtung {
@@ -73,8 +74,10 @@ class TranslationService {
     Uebersetzungsrichtung richtung,
   ) async {
     final ort = OnnxRuntime();
-    final encoder = await ort.createSession('$modelsDir/${richtung.encoderDatei}');
-    final decoder = await ort.createSession('$modelsDir/${richtung.decoderDatei}');
+    final encoder = await ort.createSession('$modelsDir/${richtung.encoderDatei}',
+        options: modelloptionen());
+    final decoder = await ort.createSession('$modelsDir/${richtung.decoderDatei}',
+        options: modelloptionen());
     final tokenizer = await MarianTokenizer.loadFromFile('$modelsDir/$_vokabularDatei');
     return TranslationService._(encoder, decoder, tokenizer, richtung);
   }

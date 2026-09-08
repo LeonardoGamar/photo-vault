@@ -203,8 +203,8 @@ void main() {
           findsOneWidget);
     });
 
-    testWidgets('das Foto taucht dort auf, wo es entstanden ist',
-        (tester) async {
+    testWidgets('das Foto taucht dort auf, wo es entstanden ist – und '
+        'bleibt, bis das naechste kommt', (tester) async {
       final n = _netz();
       final s = _spur(n);
       final laenge = Gelaendeflug(s.linie, werte: s.werte).laengeMeter;
@@ -233,18 +233,33 @@ void main() {
         return null;
       }
 
+      // **Vor dem ersten Foto bleibt es leer.** Ein vorgezogenes Bild
+      // behauptete eine Stelle, an der es nicht entstanden ist.
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(0.10);
+      await tester.pump();
+      expect(sichtbar(), isNull, reason: 'vor dem ersten Foto steht keines');
+
       // Der Flugabschnitt liegt zwischen 7 % und 90 % der Uhr; 20 % der
       // Strecke sind also rund 24 % der Vorfuehrung.
-      tester.widget<Slider>(find.byType(Slider)).onChanged!(0.24);
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(0.26);
       await tester.pump();
       expect(sichtbar(), 'frueh');
 
+      // **Und es bleibt stehen.** Hier stand einmal die umgekehrte
+      // Erwartung – „zwischen den Fotos darf keines stehen". Wer nicht
+      // gleichmaessig fotografiert, sah damit fast nichts: an einer
+      // echten Wanderung 22 % des Fluges mit Bild, die ersten 28 % ohne.
       tester.widget<Slider>(find.byType(Slider)).onChanged!(0.50);
       await tester.pump();
-      expect(sichtbar(), isNull,
-          reason: 'zwischen den Fotos darf keines stehen');
+      expect(sichtbar(), 'frueh',
+          reason: 'das letzte Bild gilt weiter, bis eines an seine Stelle tritt');
 
-      tester.widget<Slider>(find.byType(Slider)).onChanged!(0.73);
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(0.75);
+      await tester.pump();
+      expect(sichtbar(), 'spaet');
+
+      // Nach dem letzten bleibt das letzte – es wird von nichts abgeloest.
+      tester.widget<Slider>(find.byType(Slider)).onChanged!(0.95);
       await tester.pump();
       expect(sichtbar(), 'spaet');
     });

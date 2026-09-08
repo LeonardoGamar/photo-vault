@@ -89,19 +89,23 @@ double timelineMonthGroupHeight(
   double gridWidth, {
   double kachelbreite = timelineGridMaxCrossAxisExtent,
   Zeitleistenform form = zeitleisteFormVorgabe,
+  bool mitUeberschrift = true,
 }) {
+  // Ohne Gliederung steht statt der Überschrift ein leerer Kasten (siehe
+  // MonthGroupedAssetGrid.gliedern); die Höhe muss dasselbe sagen wie das
+  // Bild, sonst schätzt der Sliver seine Gesamthöhe daneben.
+  final kopf = mitUeberschrift ? timelineHeaderHeight : 0.0;
   if (form == Zeitleistenform.reihen) {
     final reihen =
         zeitleisteReihen(gruppe, gridWidth, kachelbreite: kachelbreite);
-    return timelineHeaderHeight +
-        reihenGesamthoehe(reihen, timelineGridSpacing);
+    return kopf + reihenGesamthoehe(reihen, timelineGridSpacing);
   }
   final columns = timelineColumnsForWidth(gridWidth, kachelbreite: kachelbreite);
   final rows = (gruppe.length / columns).ceil();
   // Die Zeilenhöhe trägt den Abstand UNTER sich. Hinter der letzten Zeile
   // gibt es keinen – sonst zählte jede Monatsgruppe vier Punkte zu viel,
   // und über die ganze Bibliothek wurden daraus 164.
-  return timelineHeaderHeight +
+  return kopf +
       rows * timelineRowHeightForWidth(gridWidth, kachelbreite: kachelbreite) -
       (rows > 0 ? timelineGridSpacing : 0);
 }

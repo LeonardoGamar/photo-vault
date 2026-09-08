@@ -12,6 +12,7 @@ import '../theme/app_spacing.dart';
 import '../widgets/ortskachel.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/namens_dialog.dart';
+import '../widgets/reiseart_anzeige.dart';
 import '../widgets/zeitraum_dialog.dart';
 import '../widgets/fortschrittsbalken.dart';
 import '../services/laendernamen.dart';
@@ -37,6 +38,9 @@ class ReisenScreen extends StatefulWidget {
 
 class _ReisenScreenState extends State<ReisenScreen> {
   List<ReisenData> _reisen = const [];
+
+  /// Wie viele Aufnahmen je Reise – für die Wahl beim Zusammenführen.
+  Map<String, int> _anzahlen = const {};
   List<Reisevorschlag> _vorschlaege = const [];
   Reisefortschritt? _fortschritt;
 
@@ -55,6 +59,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
     setState(() => _laedt = true);
     final db = widget.library.db;
     final reisen = await db.alleReisen();
+    final anzahlen = await db.aufnahmenzahlJeReise();
     final roh = await db.aufnahmenFuerReiseerkennung();
     final ohneOrt = await db.aufnahmenOhneKoordinate();
     final zugeordnet = await db.zugeordneteReiseAufnahmen();
@@ -100,6 +105,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
     if (!mounted) return;
     setState(() {
       _reisen = reisen;
+      _anzahlen = anzahlen;
       _vorschlaege = vorschlaege;
       _fortschritt = fortschritt;
       _orte = orte;
@@ -183,6 +189,82 @@ class _ReisenScreenState extends State<ReisenScreen> {
     if (sauber == null || !mounted) return;
     await widget.library.db
         .reiseAendern(reise.id, ReisenCompanion(name: Value(sauber)));
+    await _laden();
+  }
+
+  /// Andere Reisen in [ziel] aufgehen lassen.
+  ///
+  /// **Das Ziel ist die Reise, in deren Menü man steht.** Sie behält
+  /// Namen, Art, Titelbild und Notiz; gewählt wird nur, was
+  /// hinzukommt. Andersherum – erst die Quelle wählen, dann das Ziel –
+  /// müsste man sich merken, welche der beiden stehenbleibt.
+  Future<void> _zusammenfuehren(ReisenData ziel) async {
+    final t = AppTexte.of(context);
+    final andere = [
+      for (final r in _reisen)
+        if (r.id != ziel.id) r,
+    ];
+    if (andere.isEmpty) {
+      melde.hinweis(t.reisenZusammenfuehrenAllein);
+      return;
+    }
+    final gewaehlt = <String>{};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (dialog, setzen) => AlertDialog(
+          title: Text(t.reisenZusammenfuehrenTitel(ziel.name)),
+          content: SizedBox(
+            width: 420,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t.reisenZusammenfuehrenHinweis(ziel.name)),
+                const SizedBox(height: AppSpacing.sm),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final r in andere)
+                        CheckboxListTile(
+                          value: gewaehlt.contains(r.id),
+                          onChanged: (an) => setzen(() =>
+                              an == true ? gewaehlt.add(r.id) : gewaehlt.remove(r.id)),
+                          title: Text(r.name),
+                          subtitle: Text(reiseUnterzeile(
+                              t, Localizations.localeOf(context),
+                              von: r.von,
+                              bis: r.bis,
+                              naechte: naechteZwischen(von: r.von, bis: r.bis),
+                              anzahl: _anzahlen[r.id] ?? 0)),
+                          dense: true,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialog, false),
+                child: Text(t.allgAbbrechen)),
+            FilledButton(
+                onPressed: gewaehlt.isEmpty
+                    ? null
+                    : () => Navigator.pop(dialog, true),
+                child: Text(t.reisenZusammenfuehren)),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final anzahl = gewaehlt.length;
+    await widget.library.db
+        .reisenZusammenfuehren(ziel.id, gewaehlt.toList());
+    if (!mounted) return;
+    melde.erfolg(t.reisenZusammengefuehrt(ziel.name, anzahl));
     await _laden();
   }
 
@@ -386,6 +468,11 @@ class _ReisenScreenState extends State<ReisenScreen> {
                                 tun: () => _umbenennen(r),
                               ),
                               (
+                                symbol: Icons.merge_outlined,
+                                text: t.reisenZusammenfuehren,
+                                tun: () => _zusammenfuehren(r),
+                              ),
+                              (
                                 symbol: Icons.delete_outline,
                                 text: t.reisenLoeschen,
                                 tun: () => _loeschen(r),
@@ -546,7 +633,10 @@ class _ReisekachelState extends State<Reisekachel> {
       builder: (context, schnappschuss) => Ortskachel(
         bild: schnappschuss.data,
         paths: widget.library.paths,
-        symbol: Icons.luggage_outlined,
+        // Das Symbol der Art und nicht immer der Koffer: In der Liste
+        // sähen ein Einsatz, eine Dienstreise und ein Verwandtenbesuch
+        // sonst alle gleich aus.
+        symbol: symbolFuerReiseartKennung(widget.reise.art),
         name: widget.reise.name,
         kennzeichen: t.reisenNaechte(naechteZwischen(
             von: widget.reise.von, bis: widget.reise.bis)),

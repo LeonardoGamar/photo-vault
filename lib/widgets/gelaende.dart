@@ -24,6 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
+import 'wisch_zoom.dart' show istWischen;
 import '../utils/dauertext.dart';
 import '../services/gelaendeflug.dart';
 import '../theme/app_spacing.dart';
@@ -1967,15 +1968,17 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       mitte: Offset(breite / 2, hoehe * 0.62),
       blickpunkt: stand.blickpunkt,
     );
+    // Dieselbe Anhebung wie am Bildschirm: Ein Video, das durch den Berg
+    // fliegt, waere derselbe Fehler in haltbar.
     if (abschnitt.einflug < 1) {
-      return _zwischenKamera(uebersicht, flugkamera,
-          Curves.easeInOutCubic.transform(abschnitt.einflug));
+      return _ueberDemBoden(_zwischenKamera(uebersicht, flugkamera,
+          Curves.easeInOutCubic.transform(abschnitt.einflug)));
     }
     if (abschnitt.abspann > 0) {
-      return _zwischenKamera(flugkamera, uebersicht,
-          Curves.easeInOutCubic.transform(abschnitt.abspann));
+      return _ueberDemBoden(_zwischenKamera(flugkamera, uebersicht,
+          Curves.easeInOutCubic.transform(abschnitt.abspann)));
     }
-    return flugkamera;
+    return _ueberDemBoden(flugkamera);
   }
 
   /// Malt ein einzelnes Videobild – dieselbe Rechnung wie am Bildschirm,
@@ -2137,40 +2140,51 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
     ];
   }
 
-  /// Wie weit vor und hinter einem Foto es zu sehen ist, in Metern.
+  /// Über welchen Weg ein eben erschienenes Foto aufblendet, in Metern.
   ///
   /// **Als Anteil der Strecke und nicht als feste Zahl.** Bei einem
   /// Spaziergang von zwei Kilometern wären zweihundert Meter ein Zehntel
   /// des Weges; bei einer Radtour über hundert wären sie zwei
-  /// Zehntelsekunden. Sechs Prozent sind bei jeder Länge rund sechs
-  /// Prozent der Vorführung – zwei bis vier Sekunden.
-  double get _fotofenster =>
-      math.max(120.0, _flug.laengeMeter * 0.06);
+  /// Zehntelsekunden.
+  double get _einblendweg => math.max(40.0, _flug.laengeMeter * 0.01);
 
-  /// Welches Foto an dieser Stelle dran ist.
+  /// Welches Foto an dieser Stelle dran ist – das zuletzt erreichte.
+  ///
+  /// **Es bleibt stehen, bis das nächste kommt.** Vorher galt ein Fenster
+  /// von sechs Prozent der Strecke um die Stelle herum; wer nicht
+  /// gleichmässig fotografiert, sah dadurch fast nichts. An der Wanderung
+  /// Ilsenburg–Ilsefälle–Plesseburg gemessen: 14 Fotos an drei Stellen
+  /// einer 16-km-Runde, **22 % des Fluges mit Bild** – die ersten 28 %,
+  /// also gerade der Anfang, ganz ohne. Dass dazwischen nicht
+  /// fotografiert wurde, ist kein Grund, die Landschaft unbebildert zu
+  /// lassen: Das letzte Bild gilt weiter, bis eines an seine Stelle
+  /// tritt.
+  ///
+  /// **Vor dem ersten Foto bleibt es leer**, und das ist Absicht: Dort
+  /// gab es keines, und ein vorgezogenes Bild behauptete eine Stelle, an
+  /// der es nicht entstanden ist.
+  ///
+  /// [widget.fotos] ist nach `meter` sortiert (siehe
+  /// `_fotosAufDieSpur`); mehrere Fotos an derselben Stelle sind durch
+  /// das letzte von ihnen vertreten.
   Flugfoto? _fotoBei(double meter) {
-    Flugfoto? naechstes;
-    var naechster = double.infinity;
+    Flugfoto? erreicht;
     for (final f in widget.fotos) {
-      final d = (f.meter - meter).abs();
-      if (d < naechster && d <= _fotofenster / 2) {
-        naechster = d;
-        naechstes = f;
-      }
+      if (f.meter > meter) break;
+      erreicht = f;
     }
-    return naechstes;
+    return erreicht;
   }
 
-  /// Wie deutlich es gerade zu sehen ist – auf- und abblendend.
+  /// Wie deutlich es gerade zu sehen ist – aufblendend.
   ///
-  /// Ein Bild, das hart erscheint und hart verschwindet, wirkt wie ein
-  /// Fehler. Das Auf- und Abblenden nimmt das erste Fünftel des Fensters
-  /// und das letzte.
+  /// Ein Bild, das hart erscheint, wirkt wie ein Fehler. Abgeblendet wird
+  /// nicht mehr: Das Bild geht, wenn das nächste kommt, und den Wechsel
+  /// blendet [_Flugbild] selbst über.
   double _fotoDeckkraft(double meter) {
     final f = _fotoBei(meter);
     if (f == null) return 0;
-    final anteil = ((f.meter - meter).abs() / (_fotofenster / 2)).clamp(0.0, 1.0);
-    return anteil > 0.8 ? (1 - anteil) / 0.2 : 1.0;
+    return ((meter - f.meter) / _einblendweg).clamp(0.0, 1.0);
   }
 
   /// Mischt zwei Kameraeinstellungen – für Einflug und Abspann.
@@ -2204,6 +2218,21 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
       ),
     );
   }
+
+  /// Hebt die Kamera an, wenn sie sonst im Berg stünde – siehe
+  /// [ueberDemBoden]. Die Rechnung liegt bei der Sicht, weil sie ohne
+  /// ein Pixel auskommt; hier steht nur, woher die Höhen kommen.
+  Gelaendekamera _ueberDemBoden(Gelaendekamera k) =>
+      ueberDemBoden(k, hoeheBei: _hoeheBei);
+
+  /// Der Zoom beim Beginn einer Wisch-/Kneifgeste.
+  ///
+  /// Fortgeschrieben wird daraus und nicht aus dem jeweils letzten Wert:
+  /// `pan` und `scale` sind der Gesamtweg seit dem Beginn, nicht der Weg
+  /// seit dem letzten Ereignis.
+  double? _zoomBeginn;
+
+  double _zoomGrenzen(double z) => z.clamp(0.4, 6.0);
 
   void _ziehen(DragUpdateDetails d) {
     setState(() {
@@ -2276,7 +2305,7 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
         // letzten Stelle wieder auf. Eine Kurve dazwischen, damit es
         // nicht ruckt: `easeInOutCubic` beschleunigt und bremst, ein
         // linearer Übergang setzte an beiden Enden hart an.
-        final kameraJetzt = stand == null
+        final kameraJetzt = _ueberDemBoden(stand == null
             ? kamera
             : (_abschnitt.einflug < 1
                 ? _zwischenKamera(uebersichtkamera, kamera,
@@ -2284,7 +2313,7 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                 : _abschnitt.abspann > 0
                     ? _zwischenKamera(kamera, uebersichtkamera,
                         Curves.easeInOutCubic.transform(_abschnitt.abspann))
-                    : kamera);
+                    : kamera));
 
         // **Sagen, was gebraucht wird – in jedem Bild.** Der Lader
         // arbeitet immer nur an einer Sache und fragt nach jedem
@@ -2311,10 +2340,32 @@ class _GelaendeansichtState extends State<Gelaendeansicht>
                 child: Listener(
                   onPointerSignal: (e) {
                     if (e is PointerScrollEvent) {
-                      setState(() => _zoom = (_zoom * (1 - e.scrollDelta.dy * 0.002))
-                          .clamp(0.4, 6.0));
+                      setState(() => _zoom = _zoomGrenzen(
+                          _zoom * (1 - e.scrollDelta.dy * 0.002)));
                     }
                   },
+                  // **Eine Magic Mouse hat kein Rad.** macOS meldet das
+                  // Wischen auf ihrer Tastfläche nicht als Radschritte,
+                  // sondern als fortlaufende Geste – dieselbe Art
+                  // Ereignis wie ein Trackpad. Hier kam bis dahin gar
+                  // nichts an: kein Zoom mit der Maus, kein Zoom mit
+                  // dem Trackpad (Erstlauf-Bericht, G12). Dieselbe
+                  // Behandlung wie bei der Karte, siehe
+                  // [WischZoom] – nur ohne den Kunstgriff mit der
+                  // Mikroaufgabe, weil hier niemand dazwischenfunkt.
+                  onPointerPanZoomStart: (_) => _zoomBeginn = _zoom,
+                  onPointerPanZoomUpdate: (e) {
+                    final beginn = _zoomBeginn;
+                    if (beginn == null) return;
+                    // Kneifen und Wischen sind hier beides Zoom: Der
+                    // Flug wird mit dem Ziehen gedreht und geneigt, das
+                    // Wischen ist also frei.
+                    final neu = istWischen(e.scale)
+                        ? beginn * math.exp(-e.pan.dy * 0.004)
+                        : beginn * e.scale;
+                    setState(() => _zoom = _zoomGrenzen(neu));
+                  },
+                  onPointerPanZoomEnd: (_) => _zoomBeginn = null,
                   child: CustomPaint(
                     size: Size(breite, hoehe),
                     painter: Gelaendemaler(

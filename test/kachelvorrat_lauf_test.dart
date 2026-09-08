@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show HttpDate;
 import 'dart:typed_data';
 
 import 'package:flutter_map/flutter_map.dart';
@@ -31,6 +32,23 @@ class _Merkspeicher implements MapCachingProvider {
   }
 }
 
+/// Die Kopfzeilen einer eben angekommenen Kachel: sieben Tage haltbar.
+///
+/// **Und das Datum wird gerechnet, nicht eingetragen.** flutter_map
+/// bestimmt die Frist als `max-age` minus dem Alter, das sich aus `date`
+/// ergibt. Ein festes Datum altert also mit der Wanduhr: Sieben Tage
+/// nachdem dieser Test geschrieben war, galt seine Kachel beim zweiten
+/// Lauf als abgelaufen, wurde erwartungsgemäss neu geholt – und der Test
+/// fiel, ohne dass sich am Programm etwas geändert hätte. Ein Test, der
+/// vom Kalender abhängt, prüft nicht das Programm.
+///
+/// [alter] macht die Kachel absichtlich alt, um den anderen Fall zu
+/// prüfen.
+Map<String, String> _kopfzeilen({Duration alter = Duration.zero}) => {
+      'cache-control': 'max-age=604800',
+      'date': HttpDate.format(DateTime.now().toUtc().subtract(alter)),
+    };
+
 void main() {
   final gebiet = [(sued: 51.9, west: 10.4, nord: 51.95, ost: 10.45)];
 
@@ -38,11 +56,7 @@ void main() {
     var abrufe = 0;
     final netz = MockClient((_) async {
       abrufe++;
-      return Response.bytes(utf8.encode('kachel'), 200,
-          headers: {
-            'cache-control': 'max-age=604800',
-            'date': 'Thu, 28 Aug 2026 06:00:00 GMT',
-          });
+      return Response.bytes(utf8.encode('kachel'), 200, headers: _kopfzeilen());
     });
     final speicher = _Merkspeicher();
     final staende = await ladeVorrat(gebiet, Kartenstil.topo,
@@ -61,11 +75,7 @@ void main() {
     var abrufe = 0;
     final netz = MockClient((_) async {
       abrufe++;
-      return Response.bytes(utf8.encode('kachel'), 200,
-          headers: {
-            'cache-control': 'max-age=604800',
-            'date': 'Thu, 28 Aug 2026 06:00:00 GMT',
-          });
+      return Response.bytes(utf8.encode('kachel'), 200, headers: _kopfzeilen());
     });
     final speicher = _Merkspeicher();
     await ladeVorrat(gebiet, Kartenstil.topo,
@@ -83,17 +93,40 @@ void main() {
     expect(zweiter.fertig, zweiter.gesamt);
   });
 
+  test('eine abgelaufene Kachel wird sehr wohl neu geholt', () async {
+    // Die Kehrseite, und sie stand bisher nur zufällig unter Beobachtung:
+    // Übersprungen wird die *frische* Kachel, nicht jede vorhandene. Acht
+    // Tage sind älter als die sieben, die `max-age` zugesteht.
+    var abrufe = 0;
+    var alter = Duration.zero;
+    final netz = MockClient((_) async {
+      abrufe++;
+      return Response.bytes(utf8.encode('kachel'), 200,
+          headers: _kopfzeilen(alter: alter));
+    });
+    final speicher = _Merkspeicher();
+    alter = const Duration(days: 8);
+    await ladeVorrat(gebiet, Kartenstil.topo,
+            speicher: speicher, netz: netz, von: 5, bis: 6)
+        .drain<void>();
+    final ersteRunde = abrufe;
+    expect(ersteRunde, greaterThan(0));
+    expect(speicher.inhalt, isNotEmpty, reason: 'abgelegt wurde sie trotzdem');
+
+    final zweiter = await ladeVorrat(gebiet, Kartenstil.topo,
+            speicher: speicher, netz: netz, von: 5, bis: 6)
+        .last;
+    expect(abrufe, ersteRunde * 2, reason: 'alles noch einmal');
+    expect(zweiter.geladen, zweiter.gesamt);
+  });
+
   test('ein Fehlschlag bricht den Lauf nicht ab', () async {
     var nummer = 0;
     final netz = MockClient((_) async {
       nummer++;
       // Jede zweite Kachel scheitert.
       if (nummer.isEven) return Response('weg', 404);
-      return Response.bytes(utf8.encode('kachel'), 200,
-          headers: {
-            'cache-control': 'max-age=604800',
-            'date': 'Thu, 28 Aug 2026 06:00:00 GMT',
-          });
+      return Response.bytes(utf8.encode('kachel'), 200, headers: _kopfzeilen());
     });
     final speicher = _Merkspeicher();
     final letzter = await ladeVorrat(gebiet, Kartenstil.topo,

@@ -5,6 +5,7 @@ import 'package:flutter_onnxruntime/flutter_onnxruntime.dart';
 import 'package:image/image.dart' as img;
 
 import 'bart_tokenizer.dart';
+import 'modellthreads.dart';
 
 /// Bildvorverarbeitung laut `preprocessor_config.json` des Exports:
 /// 768×768, ImageNet-Statistik, **kein** mittiger Zuschnitt
@@ -113,10 +114,14 @@ class FlorenceCaptioningService {
   static Future<FlorenceCaptioningService> load(String modelsDir) async {
     final ort = OnnxRuntime();
     return FlorenceCaptioningService._(
-      await ort.createSession('$modelsDir/florence_vision.onnx'),
-      await ort.createSession('$modelsDir/florence_embed.onnx'),
-      await ort.createSession('$modelsDir/florence_encoder.onnx'),
-      await ort.createSession('$modelsDir/florence_decoder.onnx'),
+      await ort.createSession('$modelsDir/florence_vision.onnx',
+          options: modelloptionen()),
+      await ort.createSession('$modelsDir/florence_embed.onnx',
+          options: modelloptionen()),
+      await ort.createSession('$modelsDir/florence_encoder.onnx',
+          options: modelloptionen()),
+      await ort.createSession('$modelsDir/florence_decoder.onnx',
+          options: modelloptionen()),
       await BartTokenizer.loadFromFiles(
         vocabJsonPath: '$modelsDir/florence_vocab.json',
         mergesTxtPath: '$modelsDir/florence_merges.txt',

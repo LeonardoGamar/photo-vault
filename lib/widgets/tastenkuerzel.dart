@@ -52,6 +52,10 @@ class Tastenkuerzeltafel extends StatelessWidget {
           ('6 – 9', t.kuerzelFarbmarkeSetzen),
           ('F', t.kuerzelFavoritUmschalten),
           ('⌫ / Delete', t.kuerzelPapierkorbMitBestaetigung),
+          // Eine Magic Mouse kann nicht kneifen - siehe
+          // [BildZoomGesten]. Ohne diese Zeile waere der Zoom dort eine
+          // Geste, die niemand findet.
+          (t.kuerzelZoomWischen, t.kuerzelZoomImBild),
           ('Esc', t.allgSchliessen),
         ]),
         const SizedBox(height: AppSpacing.md),

@@ -611,4 +611,35 @@ class ModelCatalog {
     translationDeEn,
     ocrPaddle,
   ];
+
+  /// Die beiden Modelle, die es nur wegen der deutschen Oberfläche gibt.
+  static const nurFuerDeutsch = [translationEnDe, translationDeEn];
+
+  /// Welche Modelle bei dieser Oberflächensprache überhaupt zu etwas
+  /// gut sind.
+  ///
+  /// **Warum das eine Rolle spielt.** Beide OPUS-MT-Modelle übersetzen
+  /// zwischen Englisch und Deutsch: das eine die Bildbeschreibungen ins
+  /// Deutsche, das andere deutsche Suchbegriffe ins Englische. Steht die
+  /// Oberfläche auf Englisch, ist beides gegenstandslos – die
+  /// Beschreibungen liegen bereits in der Sprache vor, in der man sucht.
+  /// Die zwei Schalter dazu wurden aus genau diesem Grund schon
+  /// ausgeblendet; die zwei Modellkarten daneben standen weiter da und
+  /// boten 200 MB zum Herunterladen an, die nichts bewirken würden.
+  ///
+  /// **Was schon auf der Platte liegt, bleibt sichtbar.** Wer sie auf
+  /// Deutsch geladen und danach umgestellt hat, muss sie wieder
+  /// loswerden können – ein verstecktes Modell ist ein Modell, das
+  /// niemand mehr löscht.
+  static List<ModelCatalogEntry> fuerSprache(
+    String sprachcode, {
+    required bool Function(ModelCatalogEntry) istInstalliert,
+  }) =>
+      [
+        for (final e in all)
+          if (sprachcode == 'de' ||
+              !nurFuerDeutsch.contains(e) ||
+              istInstalliert(e))
+            e,
+      ];
 }
