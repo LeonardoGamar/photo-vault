@@ -7957,6 +7957,28 @@ class AppTexteDe extends AppTexte {
   }
 
   @override
+  String get gesundheitOrteTitel => 'Orte zum Erben';
+
+  @override
+  String gesundheitOrteOffen(int anzahl) {
+    return '$anzahl Aufnahme(n) ohne Ort haben einen verorteten Nachbarn in zeitlicher Nähe.';
+  }
+
+  @override
+  String get gesundheitOrteAnsehen => 'Vorschläge ansehen';
+
+  @override
+  String get gesundheitGesichterTitel => 'Gesichter ohne Person';
+
+  @override
+  String gesundheitGesichterOffen(int anzahl) {
+    return '$anzahl erkannte(s) Gesicht(er) gehören noch zu niemandem. Unter Personen lassen sie sich in Gruppen zuordnen.';
+  }
+
+  @override
+  String get gesundheitGesichterZuordnen => 'Zu den Personen';
+
+  @override
   String get datenschutzExportTitel => 'Datenschutzexport';
 
   @override

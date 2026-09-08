@@ -172,4 +172,48 @@ void main() {
     expect(find.byIcon(Icons.manage_search_outlined), findsOneWidget);
     await abbauen(tester);
   });
+
+  /// **Ein Bildschirm tief im Bereich kann die Leiste nicht selbst
+  /// umschalten** – sie liegt über ihm. Der Gesundheitsbildschirm meldet
+  /// offene Gesichter und will den Weg zu den Personen anbieten, ohne den
+  /// Gruppierlauf ein zweites Mal zu bauen. Dafür gibt es
+  /// [LibraryState.zeigeBereich]; hier steht, dass die Hülle darauf hört.
+  testWidgets('ein Bereichswunsch von unten schaltet die Leiste um',
+      (tester) async {
+    await huelle(tester);
+    await oeffne(tester, ganzesFenster: false);
+    expect(find.text('Unterseite'), findsOneWidget);
+
+    // Alben als Ziel und nicht Personen: Der Personen-Bildschirm liest
+    // beim Aufbau Gesichtsausschnitte von der Platte, und echte
+    // Ein-/Ausgabe haengt unter der gestellten Testuhr wortlos (siehe
+    // papierkorb_bedienung_test). Geprueft wird der Kanal, nicht sein Ziel.
+    library.zeigeBereich(Hauptbereich.alben);
+    // Zweimal: Anders als ein Tippen wirkt der Wunsch erst am ENDE des
+    // ersten Bildes (er wird im Aufbau des Bereichs gelesen und per
+    // Rückruf nach dem Bild eingelöst). Der Übergang der abzuräumenden
+    // Seite beginnt damit ein Bild später als sonst.
+    await ruhe(tester);
+    await ruhe(tester);
+
+    expect(find.byType(AlbumsScreen), findsOneWidget);
+    expect(find.text('Unterseite'), findsNothing,
+        reason: 'Der Wechsel raeumt den Bereich auf wie ein Tippen auch.');
+    await abbauen(tester);
+  });
+
+  testWidgets('der Wunsch gilt genau einmal', (tester) async {
+    await huelle(tester);
+    library.zeigeBereich(Hauptbereich.kalender);
+    await ruhe(tester);
+    await ruhe(tester);
+
+    // Zurueck auf die Zeitleiste tippen – der verbrauchte Wunsch darf nicht
+    // noch einmal greifen und einen wieder wegschieben.
+    await tester.tap(find.byIcon(Icons.photo_outlined));
+    await ruhe(tester);
+
+    expect(find.byType(TimelineScreen), findsOneWidget);
+    await abbauen(tester);
+  });
 }

@@ -230,6 +230,27 @@ class _HoverNavIconState extends State<_HoverNavIcon> {
   }
 }
 
+/// Die Nummern der Hauptbereiche – dieselbe Reihenfolge wie
+/// [_HomeShellState._destinationLabels], und die ist die eine Quelle der
+/// Wahrheit dafür.
+///
+/// Sie stehen hier, weil ein Bildschirm tief im Arbeitsbereich über
+/// [LibraryState.zeigeBereich] dorthin schicken können muss und eine nackte
+/// `6` an jener Stelle niemandem sagt, wohin.
+abstract final class Hauptbereich {
+  static const zeitleiste = 0;
+  static const erkunden = 1;
+  static const kalender = 2;
+  static const karte = 3;
+  static const reisen = 4;
+  static const suche = 5;
+  static const personen = 6;
+  static const stammbaum = 7;
+  static const alben = 8;
+  static const werkzeuge = 9;
+  static const einstellungen = 10;
+}
+
 class HomeShell extends StatefulWidget {
   final LibraryState library;
   const HomeShell({super.key, required this.library});
@@ -535,6 +556,22 @@ class _HomeShellState extends State<HomeShell> {
   Widget _seiteBauen(BuildContext context, int i) {
     // "Foto in der Timeline anzeigen" (Kontextmenü der Vollbildansicht):
     // einmalig auf den Timeline-Tab wechseln und die Ziel-ID durchreichen.
+    // Ein Bereichswunsch von unten (siehe [LibraryState.zeigeBereich]).
+    // Vor dem Hervorheben, weil das Hervorheben selbst auf die Zeitleiste
+    // schaltet – stünde es davor, überschriebe es den Wunsch.
+    final wunsch = widget.library.bereichswunsch;
+    if (wunsch != null && wunsch >= 0 && wunsch <= Hauptbereich.einstellungen) {
+      widget.library.bereichswunschErledigt();
+      i = wunsch;
+      // Erst nach diesem Bild, aus demselben Grund wie beim Hervorheben
+      // unten: Die Leiste liegt neben dem Bereich, nicht darin. Das
+      // Aufräumen des Bereichs hängt am Notifier – siehe
+      // [Arbeitsbereich.seite] –, es braucht hier keinen zweiten Weg.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _seite.value = wunsch;
+      });
+    }
+
     final pendingHighlight = widget.library.timelineHighlightAssetId;
     if (pendingHighlight != null) {
       widget.library.clearTimelineHighlightRequest();

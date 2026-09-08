@@ -4,7 +4,7 @@ import '../l10n/app_localizations.dart';
 
 import '../db/database.dart';
 import '../db/rasterzeile.dart';
-import '../services/similarity_ranking.dart';
+import '../services/clip_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../widgets/asset_thumbnail_tile.dart';
@@ -36,9 +36,9 @@ class _SimilarPhotosScreenState extends State<SimilarPhotosScreen> {
     final sourceEmbedding = await widget.library.db.embeddingForAsset(widget.sourceAsset.id);
     if (sourceEmbedding == null) return [];
     final embeddings = await widget.library.cachedEmbeddings();
-    final ranked = await rankBySimilarityOffMain(sourceEmbedding, embeddings,
+    final ranked = ClipService.rankBySimilarity(sourceEmbedding, embeddings,
         topK: _maxResults + 1);
-    final ids = ranked.map((e) => e.$1).where((id) => id != widget.sourceAsset.id).take(_maxResults).toList();
+    final ids = ranked.map((e) => e.key).where((id) => id != widget.sourceAsset.id).take(_maxResults).toList();
     return widget.library.db.assetsByIds(ids);
   }
 

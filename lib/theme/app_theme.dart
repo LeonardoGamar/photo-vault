@@ -1,5 +1,8 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+
+import 'app_spacing.dart';
 
 /// Zentrale Theme-Definition für Light/Dark Mode (siehe
 /// [AppSettings.themeMode] in database.dart für die Persistenz, main.dart
@@ -127,23 +130,107 @@ extension AppSemantikZugriff on BuildContext {
   AppSemantik get semantik => Theme.of(this).extension<AppSemantik>()!;
 }
 
-ThemeData buildLightTheme() => ThemeData(
-      useMaterial3: true,
-      colorSchemeSeed: Colors.teal,
-      brightness: Brightness.light,
-      fontFamily: _fontFamily,
-      fontFamilyFallback: _fontFamilyFallback,
-      extensions: const [AppSemantik._hell],
-    );
+/// Die eine Farbe, aus der Material alles Übrige ableitet.
+///
+/// **Der einzige Knopf, an dem Geschmack sitzt.** Alles andere in dieser
+/// Datei lässt sich begründen; die Wahl des Farbtons nicht. Er steht
+/// deshalb hier, benannt und an einer Stelle, statt zweimal im Aufbau.
+const Color _saatfarbe = Colors.teal;
 
-ThemeData buildDarkTheme() => ThemeData(
-      useMaterial3: true,
-      colorSchemeSeed: Colors.teal,
-      brightness: Brightness.dark,
-      fontFamily: _fontFamily,
-      fontFamilyFallback: _fontFamilyFallback,
-      extensions: const [AppSemantik._dunkel],
-    );
+/// Warum die Flächen **grau** sind und nicht getönt.
+///
+/// Materials Vorgabe (`tonalSpot`) zieht den Farbton der Saat durch jede
+/// Fläche – Karten, Leisten, Hintergründe bekommen einen Stich. Für die
+/// meisten Anwendungen ist das gewollt. Eine Fotoverwaltung ist der
+/// Gegenfall: Alles, was hier eine Farbe hat, steht neben einem Bild und
+/// verschiebt, wie man dessen Farben sieht. Ein grüner Stich am Rand macht
+/// aus einem neutralen Foto ein magentastichiges.
+///
+/// [DynamicSchemeVariant.neutral] nimmt die Saat aus den Flächen – aber es
+/// nimmt sie **auch aus dem Akzent**. Am Vergleichsbild von
+/// `aufgaben_optik_test` gesehen: Der Knopf, der eine Aufgabe startet, sah
+/// danach aus wie ein abgeschalteter. Ein Akzent, der nicht als Akzent
+/// liest, ist keine Verbesserung.
+///
+/// Deshalb aus zwei Ableitungen zusammengesetzt: die Flächen aus der
+/// neutralen, die Akzentfamilie aus der gewöhnlichen. Die Hülle bleibt
+/// grau, der Knopf bleibt ein Knopf.
+ColorScheme _schema(Brightness helligkeit) {
+  final flaechen = ColorScheme.fromSeed(
+    seedColor: _saatfarbe,
+    brightness: helligkeit,
+    dynamicSchemeVariant: DynamicSchemeVariant.neutral,
+  );
+  final akzent =
+      ColorScheme.fromSeed(seedColor: _saatfarbe, brightness: helligkeit);
+  return flaechen.copyWith(
+    primary: akzent.primary,
+    onPrimary: akzent.onPrimary,
+    primaryContainer: akzent.primaryContainer,
+    onPrimaryContainer: akzent.onPrimaryContainer,
+    secondary: akzent.secondary,
+    onSecondary: akzent.onSecondary,
+    secondaryContainer: akzent.secondaryContainer,
+    onSecondaryContainer: akzent.onSecondaryContainer,
+    tertiary: akzent.tertiary,
+    onTertiary: akzent.onTertiary,
+    inversePrimary: akzent.inversePrimary,
+  );
+}
+
+/// Die gemeinsamen Teile beider Themen.
+///
+/// **Dichte.** Material 3 ist für Finger auf Telefonen bemessen. Diese App
+/// läuft auf dem Schreibtisch, mit Maus, oft in einem sehr breiten
+/// Fenster, und zeigt vor allem Listen. `compact` holt in jeder Liste
+/// mehrere Zeilen mehr ins Bild, ohne dass etwas schwerer zu treffen wäre.
+///
+/// **Karten.** Ohne eigene Angabe bringt jede Karte einen Aussenabstand
+/// mit, der sich mit dem Abstand der Liste addiert. Einmal hier gesetzt
+/// statt an jeder Karte nachgebessert.
+ThemeData _grundthema(Brightness helligkeit, AppSemantik semantik) {
+  final schema = _schema(helligkeit);
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: schema,
+    fontFamily: _fontFamily,
+    fontFamilyFallback: _fontFamilyFallback,
+    visualDensity: VisualDensity.compact,
+    cardTheme: CardThemeData(
+      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: schema.outlineVariant),
+      ),
+    ),
+    dividerTheme: DividerThemeData(
+      space: 1,
+      thickness: 1,
+      color: schema.outlineVariant,
+    ),
+    extensions: [semantik],
+  );
+}
+
+ThemeData buildLightTheme() =>
+    _grundthema(Brightness.light, AppSemantik._hell);
+
+ThemeData buildDarkTheme() => _grundthema(Brightness.dark, AppSemantik._dunkel);
+
+/// Ziffern, die untereinander stehen bleiben.
+///
+/// Wo Zahlen in Spalten oder in einer Zeile stehen, die sich laufend
+/// ändert – Belegung, Fortschritt, Kennzahlen –, wandert der Text bei
+/// proportionalen Ziffern bei jeder Änderung hin und her. Eine `1` ist in
+/// den meisten Schriften schmaler als eine `8`.
+///
+/// Als Erweiterung auf [TextStyle], damit an der Aufrufstelle
+/// `.mitTabellenziffern` steht und nicht drei Zeilen `fontFeatures`.
+extension Tabellenziffern on TextStyle {
+  TextStyle get mitTabellenziffern =>
+      copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+}
 
 /// Wandelt den in [AppSettings.themeMode] gespeicherten String
 /// ('system'|'light'|'dark') in ein [ThemeMode] um – unbekannte/fehlende

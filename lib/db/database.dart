@@ -1969,7 +1969,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 83;
+  int get schemaVersion => 84;
 
   Future<void> _createAssetSearchFts() async {
     await customStatement('''
@@ -1992,6 +1992,15 @@ class AppDatabase extends _$AppDatabase {
              coalesce(ai_caption_de, '')
       FROM assets
     ''');
+    await _createAssetSearchTriggers();
+  }
+
+  /// Die drei Auslöser, die den Volltextindex mitführen.
+  ///
+  /// Eigene Methode, weil die Wanderung auf 84 **nur sie** neu setzt: Der
+  /// Index selbst bleibt gültig, ihn dabei neu aufzubauen wäre für 8098
+  /// Aufnahmen umsonst getane Arbeit.
+  Future<void> _createAssetSearchTriggers() async {
     await customStatement('''
       CREATE TRIGGER IF NOT EXISTS assets_fts_insert AFTER INSERT ON assets BEGIN
         INSERT INTO asset_search_fts
@@ -2001,10 +2010,29 @@ class AppDatabase extends _$AppDatabase {
                 coalesce(new.ai_caption_de, ''));
       END
     ''');
+    // **`UPDATE OF` genügt nicht.** Es feuert, sobald eine der Spalten in
+    // der SET-Klausel STEHT – nicht erst, wenn sich ihr Wert ändert. drift
+    // schreibt bei `update(...).write(...)` regelmässig ganze Zeilen zurück,
+    // und die Durchgänge (Texterkennung, Bildbeschreibung) tun das für die
+    // ganze Bibliothek. Gemessen kostet ein Zeilen-UPDATE mit Auslöser
+    // 1,56 ms gegen 0,03 ms ohne – das Zweiundfünfzigfache, und eine
+    // Transaktion hilft kaum, weil der Preis das Neuschreiben des Index ist
+    // und nicht das Sichern auf die Platte. Über 8098 Aufnahmen sind das
+    // rund neun Sekunden je Durchgang, für lauter unveränderten Text.
+    //
+    // `IS NOT` und nicht `<>`: Nur `IS NOT` vergleicht NULL richtig. Mit
+    // `<>` wäre jeder Übergang von oder nach NULL unbemerkt geblieben – und
+    // genau so sieht das erste Beschreiben eines leeren Feldes aus.
     await customStatement('''
       CREATE TRIGGER IF NOT EXISTS assets_fts_update
       AFTER UPDATE OF original_file_name, description, ocr_text, ai_caption, ai_caption_de
-      ON assets BEGIN
+      ON assets
+      WHEN new.original_file_name IS NOT old.original_file_name
+        OR new.description IS NOT old.description
+        OR new.ocr_text IS NOT old.ocr_text
+        OR new.ai_caption IS NOT old.ai_caption
+        OR new.ai_caption_de IS NOT old.ai_caption_de
+      BEGIN
         DELETE FROM asset_search_fts WHERE asset_id = old.id;
         INSERT INTO asset_search_fts
           (asset_id, original_file_name, description, ocr_text, ai_caption, ai_caption_de)
@@ -2862,6 +2890,13 @@ class AppDatabase extends _$AppDatabase {
                 privacySettings.protectMetadata,
                 'privacy_settings',
                 'protect_metadata');
+          }
+          if (from < 84) {
+            // Der Auslöser bekommt eine Bedingung (siehe
+            // [_createAssetSearchFts]). `CREATE TRIGGER IF NOT EXISTS`
+            // liesse den alten stehen – er muss weg, bevor der neue kommt.
+            await customStatement('DROP TRIGGER IF EXISTS assets_fts_update');
+            await _createAssetSearchTriggers();
           }
         },
       );
@@ -4105,6 +4140,65 @@ class AppDatabase extends _$AppDatabase {
   /// BackgroundTasksScreen), ohne die vollen Zeilen aus der DB zu holen.
   Future<int> countLocationBackfill({bool alle = false}) =>
       _countWhere(_ohneOrt(alle));
+
+  /// Wie viele ortlose Aufnahmen einen **verorteten zeitlichen Nachbarn**
+  /// haben und deshalb im Ortsvorschlag landen können.
+  ///
+  /// Nicht dasselbe wie [countLocationBackfill]: Das zählt alles ohne Ort
+  /// (an dieser Bibliothek 5143), hiervon sind aber nur 408 überhaupt
+  /// erbbar. Eine Zahl, die zehnmal grösser ist als das, was der Bildschirm
+  /// dahinter anbietet, wäre keine Auskunft, sondern ein Ärgernis.
+  ///
+  /// **In einem Durchlauf, nicht als Nachbarschaftssuche je Zeile.** Das
+  /// nächstliegende `EXISTS (… abs(differenz) <= fenster)` braucht an
+  /// dieser Bibliothek **2,4 s** – für einen Bildschirm, der ohnehin schon
+  /// eine halbe Sekunde lädt, das Ende. Über zwei Fensterfunktionen auf
+  /// derselben Sortierung – der letzte verortete davor, der nächste
+  /// danach – sind es **27 ms** bei identischem Ergebnis.
+  ///
+  /// [fenster] in Sekunden, und die Vorgabe ist dieselbe wie in
+  /// [Ortsvorschlagsregeln]: Was hier gezählt wird, muss das sein, was
+  /// dort auch herauskommt.
+  Future<int> countOrtsvorschlagskandidaten(
+      {int fensterSekunden = 2 * 60 * 60}) async {
+    final zeile = await customSelect(
+      'WITH t AS (SELECT file_created_at AS ts, (latitude IS NOT NULL) AS hat '
+      '           FROM assets WHERE is_trashed = 0), '
+      '     f AS (SELECT ts, hat, '
+      '             max(CASE WHEN hat THEN ts END) OVER (ORDER BY ts '
+      '                 ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) '
+      '               AS vorher, '
+      '             min(CASE WHEN hat THEN ts END) OVER (ORDER BY ts '
+      '                 ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING) '
+      '               AS nachher '
+      '           FROM t) '
+      'SELECT count(*) AS n FROM f WHERE hat = 0 '
+      '  AND (ts - vorher <= ?1 OR nachher - ts <= ?1)',
+      variables: [Variable<int>(fensterSekunden)],
+      readsFrom: {assets},
+    ).getSingle();
+    return zeile.read<int>('n');
+  }
+
+  /// Wie viele erkannte Gesichter noch keiner Person gehören.
+  ///
+  /// Dieselbe Einschränkung wie [unassignedFaces] – beiseitegelegte
+  /// Gesichter und solche an gelöschten oder gesperrten Aufnahmen zählen
+  /// nicht mit. Eine Zahl, die mehr verspricht als die Liste dahinter
+  /// zeigt, ist schlimmer als keine.
+  Future<int> countOffeneGesichter() async {
+    final n = faces.id.count();
+    final zeile = await (selectOnly(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+          ..addColumns([n])
+          ..where(faces.personId.isNull() &
+              faces.isIgnored.equals(false) &
+              assets.isTrashed.equals(false) &
+              assets.isLocked.equals(false)))
+        .getSingle();
+    return zeile.read(n) ?? 0;
+  }
 
   /// Vermerkt für mehrere Aufnahmen auf einmal, dass in ihrer Datei nach
   /// einem Ort gesucht wurde – gleich ob mit Erfolg.

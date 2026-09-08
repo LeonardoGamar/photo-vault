@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 3.10.0
+version: 3.11.0
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -46,7 +46,6 @@ dependencies:
   crypto: ^3.0.5
 
   # Darstellung / Medien
-  cached_network_image: ^4.0.0 # auch für lokale file://-URIs mit Caching nutzbar
   photo_view: ^0.15.0
 
   # Videowiedergabe über libmpv. Ersetzt video_player, das ausschließlich

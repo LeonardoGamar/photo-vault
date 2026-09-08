@@ -7912,6 +7912,28 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String get gesundheitOrteTitel => 'Places to inherit';
+
+  @override
+  String gesundheitOrteOffen(int anzahl) {
+    return '$anzahl item(s) without a place have a located neighbour close in time.';
+  }
+
+  @override
+  String get gesundheitOrteAnsehen => 'Review suggestions';
+
+  @override
+  String get gesundheitGesichterTitel => 'Faces without a person';
+
+  @override
+  String gesundheitGesichterOffen(int anzahl) {
+    return '$anzahl detected face(s) belong to nobody yet. Under People they can be assigned in groups.';
+  }
+
+  @override
+  String get gesundheitGesichterZuordnen => 'Go to People';
+
+  @override
   String get datenschutzExportTitel => 'Privacy export';
 
   @override

@@ -48,7 +48,7 @@ Plattformen.
 
 **Unterstützen Linux und Windows:** `flutter_onnxruntime` (alle KI-Funktionen),
 `sqlite3`, `drift`, `path_provider`, `file_picker`, `share_plus`,
-`flutter_map`, `photo_view`, `cached_network_image` sowie sämtliche reinen
+`flutter_map`, `photo_view` sowie sämtliche reinen
 Dart-Pakete (`image`, `exif`, `crypto`, `cryptography`, `archive`, `xml`,
 `fl_chart`, `panorama_viewer`, `flutter_cube`, `flutter_earth_globe`, …).
 

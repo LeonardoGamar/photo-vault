@@ -12282,6 +12282,42 @@ abstract class AppTexte {
   /// **'{bereit} von {gesamt} lokalen Daten- und KI-Funktionen sind bereit.'**
   String gesundheitModelleStand(int bereit, int gesamt);
 
+  /// No description provided for @gesundheitOrteTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Orte zum Erben'**
+  String get gesundheitOrteTitel;
+
+  /// No description provided for @gesundheitOrteOffen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Aufnahme(n) ohne Ort haben einen verorteten Nachbarn in zeitlicher Nähe.'**
+  String gesundheitOrteOffen(int anzahl);
+
+  /// No description provided for @gesundheitOrteAnsehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschläge ansehen'**
+  String get gesundheitOrteAnsehen;
+
+  /// No description provided for @gesundheitGesichterTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter ohne Person'**
+  String get gesundheitGesichterTitel;
+
+  /// No description provided for @gesundheitGesichterOffen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} erkannte(s) Gesicht(er) gehören noch zu niemandem. Unter Personen lassen sie sich in Gruppen zuordnen.'**
+  String gesundheitGesichterOffen(int anzahl);
+
+  /// No description provided for @gesundheitGesichterZuordnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Zu den Personen'**
+  String get gesundheitGesichterZuordnen;
+
   /// No description provided for @datenschutzExportTitel.
   ///
   /// In de, this message translates to:

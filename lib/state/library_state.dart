@@ -538,6 +538,29 @@ class LibraryState extends ChangeNotifier {
     _timelineHighlightAssetId = null;
   }
 
+  /// Einmalige Anfrage „zeig mir den Bereich mit dieser Nummer".
+  ///
+  /// Dieselbe Machart wie [requestTimelineHighlight] daneben, und aus
+  /// demselben Grund: Ein Bildschirm tief im Arbeitsbereich kann die
+  /// Menüleiste nicht selbst umschalten – sie liegt über ihm. Gebraucht
+  /// wird das vom Gesundheitsbildschirm, der offene Arbeit meldet und den
+  /// Weg dorthin anbieten will, ohne die Maschinerie dahinter ein zweites
+  /// Mal zu bauen.
+  ///
+  /// Die Nummern stehen in [Hauptbereich]; hier steht bewusst nur ein
+  /// `int`, damit die Zustandsklasse nichts von der Oberfläche wissen muss.
+  int? _bereichswunsch;
+  int? get bereichswunsch => _bereichswunsch;
+
+  void zeigeBereich(int nummer) {
+    _bereichswunsch = nummer;
+    notifyListeners();
+  }
+
+  void bereichswunschErledigt() {
+    _bereichswunsch = null;
+  }
+
   Future<void> initialize() async {
     if (_initialisierungLaeuft) return;
     _initialisierungLaeuft = true;

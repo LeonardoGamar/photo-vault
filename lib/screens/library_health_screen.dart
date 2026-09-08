@@ -7,7 +7,9 @@ import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import 'home_shell.dart' show Hauptbereich;
 import 'integrity_check_screen.dart';
+import 'ortsvorschlaege_screen.dart';
 
 class LibraryHealthScreen extends StatefulWidget {
   const LibraryHealthScreen({super.key, required this.library});
@@ -28,6 +30,8 @@ class _LibraryHealthState {
     required this.videoCount,
     required this.modelsReady,
     required this.modelsTotal,
+    required this.ortsvorschlaege,
+    required this.offeneGesichter,
   });
 
   final bool databaseOk;
@@ -38,6 +42,10 @@ class _LibraryHealthState {
   final int videoCount;
   final int modelsReady;
   final int modelsTotal;
+
+  /// Was an Arbeit bereitliegt, ohne dass jemand danach fragen muss.
+  final int ortsvorschlaege;
+  final int offeneGesichter;
 }
 
 class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
@@ -52,6 +60,8 @@ class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
       widget.library.db.countNotAutoBackedUp(),
       widget.library.db.countAssetsOfType('IMAGE'),
       widget.library.db.countAssetsOfType('VIDEO'),
+      widget.library.db.countOrtsvorschlagskandidaten(),
+      widget.library.db.countOffeneGesichter(),
     ]);
     final models = [
       widget.library.clipAvailable,
@@ -71,6 +81,8 @@ class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
       videoCount: values[5] as int,
       modelsReady: models.where((ready) => ready).length,
       modelsTotal: models.length,
+      ortsvorschlaege: values[6] as int,
+      offeneGesichter: values[7] as int,
     );
   }
 
@@ -199,6 +211,45 @@ class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
                   label: Text(t.gesundheitBereinigen),
                 ),
               ),
+              // **Warum das hier steht.** An dieser Bibliothek warteten 408
+              // erbbare Orte und 1658 unzugeordnete Gesichter – nicht weil
+              // die Werkzeuge fehlten (beide gibt es, und beide arbeiten in
+              // Gruppen), sondern weil nirgends stand, dass etwas wartet.
+              // Ein Bildschirm, der den Zustand der Bibliothek meldet, ist
+              // dafür der richtige Ort.
+              if (state.ortsvorschlaege > 0)
+                _StatusCard(
+                  icon: Icons.add_location_alt_outlined,
+                  color: context.semantik.warnung,
+                  title: t.gesundheitOrteTitel,
+                  text: t.gesundheitOrteOffen(state.ortsvorschlaege),
+                  action: FilledButton.tonalIcon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            OrtsvorschlaegeScreen(library: widget.library),
+                      ),
+                    ),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: Text(t.gesundheitOrteAnsehen),
+                  ),
+                ),
+              if (state.offeneGesichter > 0)
+                _StatusCard(
+                  icon: Icons.face_retouching_natural_outlined,
+                  color: context.semantik.warnung,
+                  title: t.gesundheitGesichterTitel,
+                  text: t.gesundheitGesichterOffen(state.offeneGesichter),
+                  action: FilledButton.tonalIcon(
+                    // Das Gruppieren lebt im Personen-Bereich und zieht
+                    // einen eigenen Fortschritt auf; es hier ein zweites
+                    // Mal zu bauen waere dieselbe Maschine zweimal.
+                    onPressed: () =>
+                        widget.library.zeigeBereich(Hauptbereich.personen),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: Text(t.gesundheitGesichterZuordnen),
+                  ),
+                ),
               _StatusCard(
                 icon: state.modelsReady == state.modelsTotal
                     ? Icons.memory_outlined
@@ -257,9 +308,15 @@ class _StatusCard extends StatelessWidget {
                         spacing: AppSpacing.md,
                         runSpacing: AppSpacing.xs,
                         children: [
+                          // Untereinander stehende Groessen: mit
+                          // Tabellenziffern bleiben die Kommastellen in
+                          // einer Flucht (siehe [Tabellenziffern]).
                           for (final detail in details)
                             Text(detail,
-                                style: Theme.of(context).textTheme.bodySmall),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall!
+                                    .mitTabellenziffern),
                         ],
                       ),
                     ],

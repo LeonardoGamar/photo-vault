@@ -236,6 +236,29 @@ class ClipService {
   /// Sortiert eine Menge gespeicherter Embeddings nach Kosinus-Ähnlichkeit
   /// zu einem Anfrage-Vektor (z.B. aus [embedText]) – Brute-Force, aber für
   /// private Fotobibliotheken ausreichend performant.
+  ///
+  /// Nur die besten [topK] werden festgehalten, über einen begrenzten
+  /// Haufen statt einer vollständigen Sortierung. Bei gleichem Abstand
+  /// gewinnt der zuerst gesehene Eintrag – damit ist die Reihenfolge
+  /// **verlässlich dieselbe**, was sie mit `List.sort` nicht war.
+  ///
+  /// **Und sie läuft hier, nicht in einem eigenen Isolat.** Das war eine
+  /// Zeit lang anders. Gemessen an der gewachsenen Bibliothek
+  /// (`tool/messe_rangfolge_test.dart`):
+  ///
+  /// ```
+  /// Kandidaten   hier     im Isolat
+  ///        50   0,4 ms      0,2 ms
+  ///       500   0,3 ms      1,5 ms
+  ///      2000   0,8 ms      2,9 ms
+  ///      8096   3,0 ms      8,8 ms
+  /// ```
+  ///
+  /// Drei Millisekunden für die ganze Bibliothek sind ein Sechstel eines
+  /// Bildes – es gab kein Ruckeln zu verhindern, und der Umweg hat die
+  /// Gesamtzeit verdreifacht. Ab etwa der zehnfachen Bibliothek kippt das:
+  /// Dann kostet diese Schleife mehr als ein Bild, und dann gehört sie
+  /// wieder hinaus.
   static List<MapEntry<String, double>> rankBySimilarity(
     Float32List query,
     Map<String, Float32List> candidates, {
