@@ -201,7 +201,12 @@ echter Hardware.
 - **Favoriten, Sternebewertung (1–5) & Farbmarkierungen** (Lightroom-Stil),
   einzeln oder als Stapelaktion auf eine Auswahl
 - **Tags & Volltextsuche** über Dateiname, Beschreibung, Tags, erkannten
-  Text im Foto (OCR) sowie KI-Bildbeschreibung
+  Text im Foto (OCR) sowie KI-Bildbeschreibung. Dahinter liegt ein
+  FTS5-Index, den drei Auslöser mitführen – die Suche liest also nicht
+  jede Zeile durch. Der Auslöser für Änderungen fragt ausdrücklich nach,
+  ob sich der Text wirklich geändert hat: `AFTER UPDATE OF spalte` feuert
+  sonst, sobald die Spalte in der Anweisung *steht*, und Texterkennung
+  wie Bildbeschreibung schreiben sie für die ganze Bibliothek
 - **Suche in ganzen Sätzen** – „unscharfe Fotos vom letzten Sommer ohne
   Ort" wird in die passenden Filter übersetzt, **ohne Sprachmodell**: Was
   verstanden wurde, steht als Marke unter dem Feld, und was nicht
@@ -536,12 +541,39 @@ echter Hardware.
   KI-Vergabe erklärt, auch dann nicht, wenn die Bilderkennung denselben
   Begriff später vorschlägt.
 
+  **Was bleiben muss, liegt verschlüsselt daneben.** Das Aufnahmedatum,
+  der Ort, die Kamera, die Schlagwörter und die Albenzugehörigkeit einer
+  gesperrten Aufnahme standen früher weiter im Klartext in
+  `library.sqlite` – wer die Datei öffnete, sah nicht das Foto, aber
+  alles darüber. Sie liegen jetzt unter `vault_metadata/`, gebunden an
+  denselben Schlüssel wie die Bilddatei und an die Kennung der Aufnahme,
+  und wandern beim Entsperren zurück. Bestände aus älteren Fassungen
+  bleiben lesbar.
+
   Eines bleibt bewusst liegen: die **Einbettung eines Gesichts**, rund
   512 Byte. Sie ist aus dem Bildinhalt abgeleitet und gehörte nach
   derselben Regel dazu — nur wurde sie aus einem an den Landmarken
   ausgerichteten Ausschnitt berechnet, und die Landmarken stehen nicht in
   der Zeile. Sie zu löschen hiesse, die Wiedererkennung für genau die
   gesperrten Fotos dauerhaft zu verschlechtern.
+- **Datenschutzexport** – ein Export, der die Metadaten abstreift: JPEG
+  bis 2048 Bildpunkte, ohne EXIF, GPS oder XMP. Bekannte Gesichter werden
+  unkenntlich gemacht, dazu Textzeilen, die Form und Inhalt eines
+  Kennzeichens haben (mindestens ein Buchstabe und eine Ziffer, höchstens
+  zwölf Zeichen, deutlich breiter als hoch). Beides geschieht **lokal**
+  aus bereits gespeicherten Daten; es wird nichts hochgeladen und nichts
+  neu analysiert. **Und was sich nicht säubern lässt, geht nicht mit** –
+  ein Video kann den Weg über das Neurendern nicht gehen, ein Bild mit
+  fehlgeschlagener Umwandlung ebenso wenig. Solche Aufnahmen werden
+  ausgelassen und im Ergebnis benannt, statt unverändert mitzugehen.
+- **Ein Paket zum Weitergeben** – mehrere Aufnahmen als *eine*
+  passwortgeschützte Datei. Verschlüsselt sind nicht nur die Bilder,
+  sondern auch die Dateinamen und das Verzeichnis darin; von aussen ist
+  nur die Zahl der Einträge zu sehen. Beim Öffnen wird geprüft, bevor
+  irgendetwas entpackt wird – erlaubte Einträge, keine Verweise, keine
+  Pfade nach draussen, plausible Grösse –, danach jede Aufnahme gegen
+  ihre Prüfsumme. Der Klartext liegt nur in einem privaten Ordner und
+  wird auch bei einem Fehler wieder entfernt.
 - **Hardened Runtime auf macOS** – die Anwendung ignoriert eingeschleuste
   Bibliotheken. Gemessen mit einer eigens gebauten Testbibliothek: ohne die
   Härtung lief fremder Code im Prozess mit, mit ihr nicht mehr. Die Prüfung
@@ -566,6 +598,22 @@ echter Hardware.
 
 ### Bedienung
 
+- **Die Menüleiste bleibt stehen.** Die Leiste mit den elf Bereichen gab
+  es seit langem – nur legte sich jeder geöffnete Bildschirm über das
+  ganze Fenster, weil ein Bildschirmwechsel sich die nächstgelegene Ebene
+  sucht und es daneben keine gab. Die Fläche rechts neben der Leiste ist
+  jetzt eine eigene Ebene: Alben, Personen, Orte, Reisen, Papierkorb,
+  Werkzeuge und Einstellungen öffnen sich **darin**, mitsamt der Anzeige,
+  wo man gerade ist. Wer ein Foto ansieht, über eine Wanderung fliegt
+  oder ein Bild entwickelt, bekommt weiterhin das ganze Fenster – das
+  sind 33 ausdrücklich benannte Stellen, an denen jeder Bildpunkt zählt.
+  Ein Bereichswechsel räumt dabei auf, und derselbe Bereich noch einmal
+  angetippt schliesst die offene Detailseite.
+- **Befehlspalette (⌘K)** – ein Feld, das die Bereiche, Werkzeuge und
+  Einstellungen durchsucht, statt sie im Menü zu suchen.
+- **Ein Start, der scheitern darf** – ging beim Programmstart etwas
+  schief, blieb früher ein Ladekreis stehen, der sich nie drehen würde.
+  Jetzt steht dort, was schiefging, und was sich dagegen tun lässt.
 - **Zweisprachige Oberfläche – Deutsch und Englisch.** Umschaltbar unter
   Einstellungen → Sprache, wahlweise fest oder der Systemsprache folgend;
   der Wechsel wirkt sofort, ohne Neustart. Datum, Uhrzeit und
@@ -574,9 +622,10 @@ echter Hardware.
   dabei unangetastet.
 - **Helles/Dunkles/System-Erscheinungsbild**, native macOS-Typografie
   (San Francisco über `.AppleSystemUIFont`)
-- **Tastaturkürzel** – ⌘1–⌘9 für die Navigation, F (Favorit), ⌫ (Löschen mit
-  Bestätigung), Escape/Leertaste im Vollbild-Viewer, "?" öffnet eine
-  Übersicht aller Kürzel
+- **Tastaturkürzel** – ⌘1–⌘9 und ⌘0 für die Navigation, ⌘K für die
+  Befehlspalette, F (Favorit), ⌫ (Löschen mit Bestätigung),
+  Escape/Leertaste im Vollbild-Viewer, "?" öffnet eine Übersicht aller
+  Kürzel
 - Einheitliches Design-Token-System für Abstände/Radien
 
 ## Aus dem Quellcode bauen
@@ -653,7 +702,7 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 78: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 84: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
@@ -666,7 +715,9 @@ CARTO-Schlüssel für die dunkle Karte, Hintergrundaufgaben,
 Bewertungen, geprüfte Video-Orte, Reihen und Serienvergleich,
 Kartenstil und Ebenen der Geländeansicht, Wanderobjekte, geschätzte und
 geprüfte Aufnahmedaten, geerbte Orte samt verworfenen Vorschlägen,
-Video-Einbettungen mehrerer Standbilder, Zeitzonenversatz, …). Drift
+Video-Einbettungen mehrerer Standbilder, Zeitzonenversatz, Sortierung
+der Zeitleiste, Tagesnotizen und Art einer Reise, Volltextsuchindex,
+Metadaten-Datenschutz beim Export, …). Drift
 migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
@@ -802,6 +853,14 @@ im Hintergrund laufen sollen:
 - **Orte & Kameradaten einlesen** – GPS aus den Fotos übernehmen, daraus
   Land/Bundesland/Stadt auflösen, Kameramodelle nachtragen und
   **Kamera-Presets** verwalten
+- **Zustand der Bibliothek** – eine Seite, die sagt, ob die Datenbank in
+  Ordnung ist, wie viel Platz belegt ist, welche Modelle bereitliegen –
+  und **welche Arbeit liegengeblieben ist**: wie viele Aufnahmen einen Ort
+  von ihren zeitlichen Nachbarn erben könnten und wie viele erkannte
+  Gesichter noch zu niemandem gehören. Beide Zahlen führen dorthin, wo
+  sich die Sache erledigen lässt, und beide sind bewusst genau: gezählt
+  wird nicht „alles ohne Ort", sondern nur, was der Vorschlag auch
+  anbieten kann
 - **Bibliotheks-Integritätsprüfung** – fehlende oder veränderte Dateien finden
 - **XMP-Sidecars schreiben/einlesen** – Metadatenaustausch mit anderen
   Programmen in beide Richtungen
