@@ -99,7 +99,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
       melde.hinweis(AppTexte.of(context).werkzKeineUnbewerteten);
       return;
     }
-    await Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: assets,
         initialIndex: 0,

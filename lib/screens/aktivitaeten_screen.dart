@@ -540,7 +540,7 @@ class _Vorschaureihe extends StatelessWidget {
                         child: AssetThumbnailTile(
                           asset: Rasterzeile.aus(a),
                           paths: library.paths,
-                          onTap: () => Navigator.of(context).push(
+                          onTap: () => Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute(
                               builder: (_) => AssetViewerScreen(
                                 assets: aufnahmen,

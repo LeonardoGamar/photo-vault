@@ -421,7 +421,7 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
         if (_nachId[id] case final a?) a,
     ];
     if (bilder.isEmpty) return;
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: bilder,
         initialIndex: 0,
@@ -435,7 +435,7 @@ class _ReiseDetailScreenState extends State<ReiseDetailScreen> {
   }
 
   void _oeffnen(int index) {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: _aufnahmen,
         initialIndex: index,

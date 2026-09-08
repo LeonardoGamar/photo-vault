@@ -307,7 +307,7 @@ class _Fundliste extends StatelessWidget {
         OutlinedButton.icon(
           icon: const Icon(Icons.healing_outlined),
           label: Text(t.staubImEditorOeffnen),
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+          onPressed: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
             builder: (_) => ImageEditorScreen(
               asset: beispiel,
               db: library.db,

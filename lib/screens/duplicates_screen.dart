@@ -376,7 +376,7 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
                             child: AssetThumbnailTile(
                               asset: Rasterzeile.aus(asset),
                               paths: widget.library.paths,
-                              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                              onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
                                 builder: (_) => AssetViewerScreen(
                                   assets: group,
                                   initialIndex: index,

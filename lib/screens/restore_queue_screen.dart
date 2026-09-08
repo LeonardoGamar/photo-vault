@@ -31,7 +31,7 @@ class _RestoreQueueScreenState extends State<RestoreQueueScreen> {
   Future<void> _openAsset(BuildContext context, String assetId) async {
     final asset = await library.db.assetById(assetId);
     if (asset == null || !context.mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: [asset],
         initialIndex: 0,

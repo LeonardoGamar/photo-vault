@@ -193,7 +193,7 @@ class _TrashScreenState extends State<TrashScreen> {
                   if (_selected.isNotEmpty) {
                     setState(() => isSelected ? _selected.remove(asset.id) : _selected.add(asset.id));
                   } else {
-                    Navigator.of(context).push(MaterialPageRoute(
+                    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
                       builder: (_) => AssetViewerScreen(
                         assets: assets,
                         initialIndex: index,

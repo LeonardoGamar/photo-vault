@@ -412,7 +412,7 @@ class _Fotokachel extends StatelessWidget {
         child: AssetThumbnailTile(
           asset: Rasterzeile.aus(asset),
           paths: library.paths,
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
             builder: (_) => AssetViewerScreen(
               assets: alle,
               initialIndex: alle.indexOf(asset),
@@ -652,7 +652,7 @@ class _LocationGroupTile extends StatelessWidget {
       SearchFilters(locationCity: group.city, locationCountry: group.country),
     );
     if (results.isEmpty || !context.mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: results,
         initialIndex: 0,
@@ -905,7 +905,7 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
   }
 
   void _openMemory(BuildContext context, List<AssetData> assets, AssetData asset) {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: assets,
         initialIndex: assets.indexOf(asset),

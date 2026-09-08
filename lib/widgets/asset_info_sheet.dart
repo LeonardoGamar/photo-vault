@@ -434,7 +434,7 @@ class _AssetInfoSheetState extends State<AssetInfoSheet> {
       return;
     }
     serie.sort((a, b) => a.fileCreatedAt.compareTo(b.fileCreatedAt));
-    await Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) =>
           SerienvergleichScreen(library: library, serie: serie),
     ));

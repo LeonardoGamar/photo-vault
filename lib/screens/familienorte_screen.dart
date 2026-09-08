@@ -117,7 +117,7 @@ class _FamilienorteScreenState extends State<FamilienorteScreen> {
   }
 
   void _oeffne(List<AssetData> gruppe) {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: gruppe,
         initialIndex: 0,

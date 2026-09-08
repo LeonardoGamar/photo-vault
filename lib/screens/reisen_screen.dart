@@ -329,7 +329,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
           IconButton(
             tooltip: t.weltkarteOeffnen,
             icon: const Icon(Icons.public),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+            onPressed: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
               builder: (_) => WeltkarteScreen(library: widget.library),
             )),
           ),

@@ -241,7 +241,7 @@ class _SecondLibraryCompareScreenState extends State<SecondLibraryCompareScreen>
                         child: AssetThumbnailTile(
                           asset: Rasterzeile.aus(match.ownAsset),
                           paths: widget.library.paths,
-                          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
                             builder: (_) => AssetViewerScreen(
                               assets: [match.ownAsset],
                               initialIndex: 0,

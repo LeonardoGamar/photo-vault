@@ -312,7 +312,7 @@ class _TimelineScreenState extends State<TimelineScreen> with Rasterbedienung<Ti
             .assetsByIds([for (final z in zeilen) z.id]);
     if (!mounted) return;
     final initialIndex = viewerAssets.indexWhere((a) => a.id == zeile.id);
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: viewerAssets,
         initialIndex: initialIndex < 0 ? 0 : initialIndex,

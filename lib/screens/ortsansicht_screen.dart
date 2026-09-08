@@ -176,7 +176,7 @@ class _OrtsansichtScreenState extends State<OrtsansichtScreen> {
   }
 
   void _fotoOeffnen(AssetData asset) {
-    Navigator.of(context)
+    Navigator.of(context, rootNavigator: true)
         .push(MaterialPageRoute(
           builder: (_) => AssetViewerScreen(
             assets: _fotos,

@@ -323,7 +323,7 @@ class _IntegrityCheckScreenState extends State<IntegrityCheckScreen> {
   Future<void> _openAsset(String assetId) async {
     final asset = await widget.library.db.assetById(assetId);
     if (asset == null || !mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: [asset],
         initialIndex: 0,

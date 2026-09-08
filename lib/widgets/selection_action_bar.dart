@@ -200,7 +200,7 @@ VoidCallback? vergleichsAktion(
   return () async {
     final assets = await library.db.assetsByIds(ausgewaehlt);
     if (assets.length != 2 || !context.mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => PhotoCompareScreen(
         links: assets[0],
         rechts: assets[1],

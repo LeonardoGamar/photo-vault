@@ -163,7 +163,7 @@ class _SearchScreenState extends State<SearchScreen>
   void _toggleSelected(String id) => rasterUmschalten(id);
 
   void _openViewer(int index) {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: _results,
         initialIndex: index,

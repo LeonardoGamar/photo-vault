@@ -76,7 +76,7 @@ class _AlbumDetailScreenState extends State<AlbumDetailScreen>
   void _toggle(String id) => rasterUmschalten(id);
 
   void _openViewer(List<AssetData> assets, int index) {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: assets,
         initialIndex: index,

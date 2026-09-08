@@ -175,7 +175,7 @@ class _ImportProgressSheetState extends State<_ImportProgressSheet> {
     }
     if (!mounted || assets.isEmpty) return;
     Navigator.of(context).pop();
-    await Navigator.of(context).push(MaterialPageRoute(
+    await Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: assets,
         initialIndex: 0,

@@ -249,7 +249,7 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
     // Und die Tageszeit, aus demselben Grund an derselben Stelle.
     final stimmung = await widget.library.db.gelaendeStimmungWert();
     if (!mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => GelaendeScreen(
         titel: _k.name,
         auflage: auflage,
@@ -501,7 +501,7 @@ class _AktivitaetDetailScreenState extends State<AktivitaetDetailScreen> {
   }
 
   void _oeffnen(int index) {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: _aufnahmen,
         initialIndex: index,

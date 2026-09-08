@@ -42,7 +42,7 @@ class FamilienfotosScreen extends StatelessWidget {
         itemBuilder: (context, index) => AssetThumbnailTile(
           asset: Rasterzeile.aus(assets[index]),
           paths: library.paths,
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          onTap: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
             builder: (_) => AssetViewerScreen(
               assets: assets,
               initialIndex: index,

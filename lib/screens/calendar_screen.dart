@@ -362,7 +362,7 @@ class _YearDetailScreenState extends State<YearDetailScreen>
       rasterGruppeUmschalten(kennungen);
 
   void _openViewer(List<AssetData> assets, AssetData asset) {
-    Navigator.of(context).push(MaterialPageRoute(
+    Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
       builder: (_) => AssetViewerScreen(
         assets: assets,
         initialIndex: assets.indexOf(asset),

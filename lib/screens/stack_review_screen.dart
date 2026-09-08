@@ -255,7 +255,7 @@ class _StackReviewScreenState extends State<StackReviewScreen> {
                   ),
                   // Vor dem Verwerfen: erst ansehen, wer blinzelt.
                   TextButton.icon(
-                    onPressed: () => Navigator.of(context).push(
+                    onPressed: () => Navigator.of(context, rootNavigator: true).push(
                       MaterialPageRoute(
                         builder: (_) => SerienvergleichScreen(
                             library: widget.library, serie: group),

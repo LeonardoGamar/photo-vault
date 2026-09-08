@@ -520,7 +520,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
 
   Future<void> _editAsset() async {
     final asset = _currentAsset;
-    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+    final saved = await Navigator.of(context, rootNavigator: true).push<bool>(MaterialPageRoute(
       builder: (_) =>
           ImageEditorScreen(
             asset: asset,
@@ -548,7 +548,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
 
   Future<void> _developAsset() async {
     final asset = _currentAsset;
-    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+    final saved = await Navigator.of(context, rootNavigator: true).push<bool>(MaterialPageRoute(
       builder: (_) => DevelopScreen(
         asset: asset,
         db: widget.db,
@@ -564,7 +564,7 @@ class _AssetViewerScreenState extends State<AssetViewerScreen> {
 
   Future<void> _trimVideoAsset() async {
     final asset = _currentAsset;
-    final saved = await Navigator.of(context).push<bool>(MaterialPageRoute(
+    final saved = await Navigator.of(context, rootNavigator: true).push<bool>(MaterialPageRoute(
       builder: (_) =>
           VideoTrimScreen(asset: asset, db: widget.db, paths: widget.paths),
     ));

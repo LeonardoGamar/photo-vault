@@ -188,7 +188,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _openAsset(List<AssetData> assets, AssetData asset) {
-    Navigator.of(context)
+    Navigator.of(context, rootNavigator: true)
         .push(MaterialPageRoute(
           builder: (_) => AssetViewerScreen(
             assets: assets,
