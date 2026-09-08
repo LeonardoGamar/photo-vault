@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -74,13 +75,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (await widget.library.db.spracheWert() == sprachcode) return;
     await widget.library.db.setSprache(sprachcode);
-    final nachher = sprachcode == 'system'
-        ? _systemsprache()
-        : sprachcode;
+    final nachher = sprachcode == 'system' ? _systemsprache() : sprachcode;
 
     final richtung = switch ((vorher, nachher)) {
       ('de', 'en') => aiTagVocabularyEnglisch,
-      ('en', 'de') => {for (final e in aiTagVocabularyEnglisch.entries) e.value: e.key},
+      ('en', 'de') => {
+          for (final e in aiTagVocabularyEnglisch.entries) e.value: e.key
+        },
       _ => null,
     };
     if (richtung == null || !mounted) return;
@@ -107,7 +108,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (eigene > 0) ...[
               const SizedBox(height: 10),
               Text(t.spracheVokabularSelbstAngelegt(eigene),
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ],
         ),
@@ -139,7 +141,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// ersten Eintrag aus `supportedLocales` zurückfallen; genau das bildet
   /// diese Zeile nach, statt es zu raten.
   String _systemsprache() {
-    final system = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+    final system =
+        WidgetsBinding.instance.platformDispatcher.locale.languageCode;
     return AppTexte.supportedLocales.any((l) => l.languageCode == system)
         ? system
         : AppTexte.supportedLocales.first.languageCode;
@@ -157,7 +160,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _encryptManualBackup = false;
   bool _downloadingGeoData = false;
   double _geoDataProgress = 0;
-  final TextEditingController _aiTagVocabularyController = TextEditingController();
+  final TextEditingController _aiTagVocabularyController =
+      TextEditingController();
 
   /// Sucheingabe über den Gruppen. Filtert nach Titel UND Beschreibung –
   /// wer „Passphrase" eingibt, soll den gesperrten Ordner auch dann finden,
@@ -248,12 +252,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _trashSettingsFuture = widget.library.db.trashSettingsRow();
   }
 
-  void _reloadPinState() => setState(() => _hasPinSetFuture = widget.library.db.hasPinSet());
-  void _reloadBackupKeyState() => setState(() => _hasBackupKeyFuture = widget.library.db.hasBackupKey());
-  void _reloadBackupSettings() =>
-      setState(() => _backupSettingsFuture = widget.library.db.backupSettingsRow());
-  void _reloadTrashSettings() =>
-      setState(() => _trashSettingsFuture = widget.library.db.trashSettingsRow());
+  void _reloadPinState() =>
+      setState(() => _hasPinSetFuture = widget.library.db.hasPinSet());
+  void _reloadBackupKeyState() =>
+      setState(() => _hasBackupKeyFuture = widget.library.db.hasBackupKey());
+  void _reloadBackupSettings() => setState(
+      () => _backupSettingsFuture = widget.library.db.backupSettingsRow());
+  void _reloadTrashSettings() => setState(
+      () => _trashSettingsFuture = widget.library.db.trashSettingsRow());
 
   Future<void> _refresh() async {
     final belegt = await widget.library.paths.belegung();
@@ -266,12 +272,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-
   /// Datum in der Schreibweise der aktiven Sprache – 17.08.2026 gegen
   /// 8/17/2026. Vorher stand hier `${d}.${m}.${y}` von Hand zusammengesetzt,
   /// was in jeder Sprache deutsch aussah.
   String _datum(DateTime zeitpunkt) =>
-      DateFormat.yMd(Localizations.localeOf(context).toString()).format(zeitpunkt);
+      DateFormat.yMd(Localizations.localeOf(context).toString())
+          .format(zeitpunkt);
 
   String _datumZeit(DateTime zeitpunkt) {
     final sprache = Localizations.localeOf(context).toString();
@@ -288,7 +294,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final t = AppTexte.of(context);
     return switch (fehler) {
       BackupBrauchtPassphrase() => t.backupPassphraseNoetig,
-      AktualisierungsFehler(problem: Aktualisierungsproblem.keineVeroeffentlichungen) =>
+      AktualisierungsFehler(
+        problem: Aktualisierungsproblem.keineVeroeffentlichungen
+      ) =>
         t.aktualisierungKeineVeroeffentlichungen,
       AktualisierungsFehler(problem: Aktualisierungsproblem.keineVersion) =>
         t.aktualisierungKeineVersion,
@@ -333,7 +341,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   static String _backupZeile(AppTexte t, BackupProgress p) {
-    if (p.fehlgeschlagen != null) return t.backupNichtGesichert(p.fehlgeschlagen!);
+    if (p.fehlgeschlagen != null) {
+      return t.backupNichtGesichert(p.fehlgeschlagen!);
+    }
     if (p.grenzeOffen != null) return t.backupGrenzeErreicht(p.grenzeOffen!);
     return '${p.done} / ${p.total}'
         '${p.currentFile != null ? ' — ${p.currentFile}' : ''}';
@@ -384,7 +394,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     List<Modellbefund> befunde = const [];
     try {
-      befunde = await widget.library.modelDownloadService.pruefeAlleInstallierten(
+      befunde =
+          await widget.library.modelDownloadService.pruefeAlleInstallierten(
         ModelCatalog.all,
         fortschritt: (datei) {
           laeuft = datei;
@@ -392,7 +403,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       );
     } finally {
-      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
     if (!mounted) return;
 
@@ -422,7 +435,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             for (final b in auffaellig)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-                child: Text('${b.dateiname} – ${_zustandstext(context, b.zustand)}',
+                child: Text(
+                    '${b.dateiname} – ${_zustandstext(context, b.zustand)}',
                     style: Theme.of(context).textTheme.bodySmall),
               ),
           ],
@@ -440,7 +454,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       switch (zustand) {
         Modellzustand.fehlt => AppTexte.of(context).einstModellZustandFehlt,
         Modellzustand.zuKurz => AppTexte.of(context).einstModellZustandZuKurz,
-        Modellzustand.weichtAb => AppTexte.of(context).einstModellZustandWeichtAb,
+        Modellzustand.weichtAb =>
+          AppTexte.of(context).einstModellZustandWeichtAb,
         // Kommt hier nicht an – `auffaellig` filtert ihn weg. Ein
         // `default` würde einen neuen Zustand stillschweigend schlucken.
         Modellzustand.stimmt => '',
@@ -467,15 +482,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(AppTexte.of(context).einstModellLaedt(modellTitel(AppTexte.of(context), entry.id)),
+              Text(
+                  AppTexte.of(context).einstModellLaedt(
+                      modellTitel(AppTexte.of(context), entry.id)),
                   style: Theme.of(context).textTheme.titleMedium),
               // Bei einer Reihe steht sonst zwoelfmal dasselbe Fenster da
               // und man weiss nicht, wie weit es noch ist.
               if (_reihenstand != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  AppTexte.of(context)
-                      .einstAlleModelleLaeuft(_reihenstand!.$1, _reihenstand!.$2),
+                  AppTexte.of(context).einstAlleModelleLaeuft(
+                      _reihenstand!.$1, _reihenstand!.$2),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -490,7 +507,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     try {
-      await for (final p in widget.library.modelDownloadService.download(entry)) {
+      await for (final p
+          in widget.library.modelDownloadService.download(entry)) {
         progress = p.fraction;
         sheetSetState?.call(() {});
       }
@@ -500,7 +518,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         melde.fehler(_fehlertext(context, e));
       }
     } finally {
-      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
       setState(() => _downloading.remove(entry.id));
     }
   }
@@ -549,9 +569,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(AppTexte.of(context).einstGeoLaedt, style: Theme.of(context).textTheme.titleMedium),
+              Text(AppTexte.of(context).einstGeoLaedt,
+                  style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 12),
-              LinearProgressIndicator(value: _geoDataProgress > 0 ? _geoDataProgress : null),
+              LinearProgressIndicator(
+                  value: _geoDataProgress > 0 ? _geoDataProgress : null),
               const SizedBox(height: 8),
               Text('${(_geoDataProgress * 100).toStringAsFixed(0)} %'),
             ],
@@ -571,7 +593,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         melde.fehler(_fehlertext(context, e));
       }
     } finally {
-      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
       setState(() => _downloadingGeoData = false);
     }
   }
@@ -622,7 +646,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.library.db
         .setzeUeberwachtenOrdner(pfad: picked.path, token: picked.token);
     if (!mounted) return;
-    setState(() => _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner());
+    setState(() =>
+        _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner());
     final neue = await widget.library.pruefeUeberwachtenOrdner();
     if (!mounted) return;
     melde.hinweis(neue > 0
@@ -633,20 +658,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _beendeUeberwachung() async {
     await widget.library.db.setzeUeberwachtenOrdner(pfad: null, token: null);
     if (!mounted) return;
-    setState(() => _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner());
+    setState(() =>
+        _ueberwachterOrdnerFuture = widget.library.db.ueberwachterOrdner());
   }
 
   Future<void> _wechsleBibliothek(BibliothekMitZustand ziel) async {
     final bestaetigt = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppTexte.of(context).einstBibWechselnTitel(ziel.eintrag.name)),
+        title:
+            Text(AppTexte.of(context).einstBibWechselnTitel(ziel.eintrag.name)),
         content: Text(
           AppTexte.of(context).einstBibWechselnText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).einstBibWechselnAktion)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppTexte.of(context).einstBibWechselnAktion)),
         ],
       ),
     );
@@ -690,13 +721,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final bestaetigt = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppTexte.of(context).einstBibEntfernenTitel(b.eintrag.name)),
+        title:
+            Text(AppTexte.of(context).einstBibEntfernenTitel(b.eintrag.name)),
         content: Text(
           AppTexte.of(context).einstBibEntfernenText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgEntfernen)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppTexte.of(context).allgEntfernen)),
         ],
       ),
     );
@@ -716,15 +752,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // XPC-Ebene eingeführte Einschränkung für Apps ohne Entwickler-
       // Zertifikat) – für PhotoVault reicht aber jeder bereits vorhandene
       // Ordner, ein neuer muss also nicht extra im Dialog angelegt werden.
-      dialogMessage:
-          AppTexte.of(context).einstSpeicherortWaehlen,
+      dialogMessage: AppTexte.of(context).einstSpeicherortWaehlen,
     );
     if (picked == null || !mounted) return;
 
-    await _runRelocation(
-      loadingText: AppTexte.of(context).einstSpeicherortVerschiebenLaeuft,
-      action: () => LibraryLocation.applyRoot(picked, beforeMove: () => widget.library.db.close()),
-    );
+    final fortschritt = ValueNotifier<BibliotheksVerschiebefortschritt?>(null);
+    try {
+      await _runRelocation(
+        loadingText: AppTexte.of(context).einstSpeicherortVerschiebenLaeuft,
+        progress: fortschritt,
+        action: () => LibraryLocation.applyRoot(
+          picked,
+          beforeMove: () => widget.library.db.close(),
+          onProgress: (wert) => fortschritt.value = wert,
+        ),
+      );
+    } finally {
+      fortschritt.dispose();
+    }
   }
 
   Future<void> _resetLibraryLocation() async {
@@ -736,17 +781,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           AppTexte.of(context).einstSpeicherortZuruecksetzenText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).einstZuruecksetzen)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppTexte.of(context).einstZuruecksetzen)),
         ],
       ),
     );
     if (confirmed != true || !mounted) return;
 
-    await _runRelocation(
-      loadingText: AppTexte.of(context).einstSpeicherortZuruecksetzenLaeuft,
-      action: () => widget.library.resetLibraryLocation(),
-    );
+    final fortschritt = ValueNotifier<BibliotheksVerschiebefortschritt?>(null);
+    try {
+      await _runRelocation(
+        loadingText: AppTexte.of(context).einstSpeicherortZuruecksetzenLaeuft,
+        progress: fortschritt,
+        action: () => widget.library.resetLibraryLocation(
+          onProgress: (wert) => fortschritt.value = wert,
+        ),
+      );
+    } finally {
+      fortschritt.dispose();
+    }
   }
 
   /// Gemeinsamer Ablauf für Verlegen/Zurücksetzen/Reset: Ladeanzeige → Aktion
@@ -756,6 +813,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _runRelocation({
     required String loadingText,
     required Future<void> Function() action,
+    ValueListenable<BibliotheksVerschiebefortschritt?>? progress,
     // Kein Vorgabewert im Kopf: Ein übersetzter Text braucht den Kontext,
     // den es dort noch nicht gibt. null heisst „der übliche Text".
     String? restartMessage,
@@ -766,15 +824,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        content: Row(
-          children: [
-            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-            const SizedBox(width: 16),
-            Expanded(child: Text(loadingText)),
-          ],
-        ),
-      ),
+      builder: (context) {
+        Widget inhalt(BibliotheksVerschiebefortschritt? wert) => Semantics(
+              label: loadingText,
+              value: wert?.anteil == null
+                  ? null
+                  : '${(wert!.anteil! * 100).round()} %',
+              child: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(loadingText),
+                    const SizedBox(height: 16),
+                    LinearProgressIndicator(value: wert?.anteil),
+                    if (wert != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        AppTexte.of(context).einstSpeicherortFortschritt(
+                          groessentext(wert.kopierteBytes),
+                          groessentext(wert.gesamtBytes),
+                          wert.kopierteDateien,
+                          wert.gesamtDateien,
+                        ),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+
+        return AlertDialog(
+          content: progress == null
+              ? inhalt(null)
+              : ValueListenableBuilder<BibliotheksVerschiebefortschritt?>(
+                  valueListenable: progress,
+                  builder: (context, wert, _) => inhalt(wert),
+                ),
+        );
+      },
     );
 
     try {
@@ -813,8 +903,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirmed = await showTypedConfirmDialog(
       context,
       title: AppTexte.of(context).einstResetBestaetigenTitel,
-      message:
-          AppTexte.of(context).einstResetBestaetigenText,
+      message: AppTexte.of(context).einstResetBestaetigenText,
       confirmationWord: AppTexte.of(context).einstResetWort,
       confirmLabel: AppTexte.of(context).einstResetEndgueltig,
     );
@@ -836,7 +925,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openLockedFolder() async {
     final ok = await ensureVaultUnlocked(context, widget.library);
     if (!ok || !mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => LockedFolderScreen(library: widget.library)));
+    Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => LockedFolderScreen(library: widget.library)));
   }
 
   Future<void> _changePin() async {
@@ -858,8 +948,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           AppTexte.of(context).einstGesperrtAufloesenText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgEntfernen)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppTexte.of(context).allgEntfernen)),
         ],
       ),
     );
@@ -906,7 +1000,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     String? passphrase;
     if (await File(p.join(source, 'vault.key')).exists()) {
       if (!mounted) return;
-      passphrase = await showEnterPassphraseDialog(context, title: AppTexte.of(context).einstBackupPassphraseEingeben);
+      passphrase = await showEnterPassphraseDialog(context,
+          title: AppTexte.of(context).einstBackupPassphraseEingeben);
       if (passphrase == null) return;
     }
 
@@ -956,8 +1051,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           AppTexte.of(context).einstBackupEntschluesselnText,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgEntfernen)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppTexte.of(context).allgEntfernen)),
         ],
       ),
     );
@@ -1196,8 +1295,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: const Icon(Icons.brightness_auto_outlined)),
                   ],
                   selected: {mode},
-                  onSelectionChanged: (selection) =>
-                      widget.library.db.setThemeMode(themeModeToString(selection.first)),
+                  onSelectionChanged: (selection) => widget.library.db
+                      .setThemeMode(themeModeToString(selection.first)),
                 ),
               );
             },
@@ -1240,22 +1339,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 6),
                     SegmentedButton<String>(
                       segments: [
-                        ButtonSegment(value: 'system', label: Text(t.spracheSystem)),
+                        ButtonSegment(
+                            value: 'system', label: Text(t.spracheSystem)),
                         // Sprachnamen stehen bewusst in ihrer eigenen Sprache
                         // da – wer die Oberfläche nicht versteht, findet
                         // "English" trotzdem, "Englisch" womöglich nicht.
-                        ButtonSegment(value: 'de', label: Text(t.spracheDeutsch)),
-                        ButtonSegment(value: 'en', label: Text(t.spracheEnglisch)),
+                        ButtonSegment(
+                            value: 'de', label: Text(t.spracheDeutsch)),
+                        ButtonSegment(
+                            value: 'en', label: Text(t.spracheEnglisch)),
                       ],
                       selected: {aktuell},
                       showSelectedIcon: false,
-                      onSelectionChanged: (auswahl) => _wechsleSprache(auswahl.first),
+                      onSelectionChanged: (auswahl) =>
+                          _wechsleSprache(auswahl.first),
                     ),
                     const SizedBox(height: 6),
                     Text(t.spracheHinweis,
                         style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant)),
                   ],
                 ),
               );
@@ -1274,7 +1379,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.folder_special_outlined),
-                    title: Text(eintrag == null ? AppTexte.of(context).einstUeberwachtKeiner : eintrag.pfad),
+                    title: Text(eintrag == null
+                        ? AppTexte.of(context).einstUeberwachtKeiner
+                        : eintrag.pfad),
                     subtitle: Text(eintrag == null
                         ? AppTexte.of(context).einstUeberwachtErklaerung
                         : AppTexte.of(context).einstUeberwachtAktiv),
@@ -1288,7 +1395,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _waehleUeberwachtenOrdner,
                             icon: const Icon(Icons.folder_open_outlined),
-                            label: Text(eintrag == null ? AppTexte.of(context).einstUeberwachtWaehlen : AppTexte.of(context).einstUeberwachtAndererWaehlen),
+                            label: Text(eintrag == null
+                                ? AppTexte.of(context).einstUeberwachtWaehlen
+                                : AppTexte.of(context)
+                                    .einstUeberwachtAndererWaehlen),
                           ),
                         ),
                         if (eintrag != null) ...[
@@ -1297,7 +1407,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: OutlinedButton.icon(
                               onPressed: _beendeUeberwachung,
                               icon: const Icon(Icons.stop_circle_outlined),
-                              label: Text(AppTexte.of(context).einstUeberwachtBeenden),
+                              label: Text(
+                                  AppTexte.of(context).einstUeberwachtBeenden),
                             ),
                           ),
                         ],
@@ -1320,7 +1431,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (eintraege == null) {
                 return const Padding(
                   padding: EdgeInsets.all(AppSpacing.lg),
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  child:
+                      Center(child: CircularProgressIndicator(strokeWidth: 2)),
                 );
               }
               return Column(
@@ -1328,8 +1440,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   for (final b in eintraege)
                     ListTile(
                       leading: Icon(
-                        b.istAktiv ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                        color: b.istAktiv ? Theme.of(context).colorScheme.primary : null,
+                        b.istAktiv
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: b.istAktiv
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
                       ),
                       title: Text(
                         b.eintrag.name,
@@ -1348,7 +1464,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // ausgegraut erscheinen – ausgegraut heißt hier
                       // "nicht erreichbar".
                       enabled: b.erreichbar,
-                      onTap: b.erreichbar && !b.istAktiv ? () => _wechsleBibliothek(b) : null,
+                      onTap: b.erreichbar && !b.istAktiv
+                          ? () => _wechsleBibliothek(b)
+                          : null,
                       // Der Standardordner lässt sich nicht entfernen: Er
                       // wird erzeugt, nicht gespeichert, und es gibt ihn
                       // immer. Ihm einen Knopf zu geben, der nichts tut,
@@ -1358,10 +1476,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           : b.entfernbar
                               ? IconButton(
                                   icon: const Icon(Icons.playlist_remove),
-                                  tooltip: AppTexte.of(context).einstBibAusListeEntfernen,
+                                  tooltip: AppTexte.of(context)
+                                      .einstBibAusListeEntfernen,
                                   onPressed: () => _entferneBibliothek(b),
                                 )
-                              : Text(AppTexte.of(context).einstBibImmerVorhanden,
+                              : Text(
+                                  AppTexte.of(context).einstBibImmerVorhanden,
                                   style: const TextStyle(fontSize: 12)),
                     ),
                   const Divider(height: 1),
@@ -1373,7 +1493,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _bibliothekHinzufuegen,
                             icon: const Icon(Icons.library_add_outlined),
-                            label: Text(AppTexte.of(context).einstBibHinzufuegen),
+                            label:
+                                Text(AppTexte.of(context).einstBibHinzufuegen),
                           ),
                         ),
                       ],
@@ -1385,7 +1506,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Text(
                       AppTexte.of(context).einstBibWechselHinweis,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
                           ),
                     ),
                   ),
@@ -1407,7 +1529,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 trailing: IconButton(
                   icon: const Icon(Icons.open_in_new),
                   tooltip: AppTexte.of(context).einstImFinderAnzeigen,
-                  onPressed: () => _openInFinder(widget.library.paths.root.path),
+                  onPressed: () =>
+                      _openInFinder(widget.library.paths.root.path),
                 ),
               ),
               const Divider(height: 1),
@@ -1432,7 +1555,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             child: OutlinedButton.icon(
                               onPressed: _resetLibraryLocation,
                               icon: const Icon(Icons.restart_alt),
-                              label: Text(AppTexte.of(context).einstZuruecksetzen),
+                              label:
+                                  Text(AppTexte.of(context).einstZuruecksetzen),
                             ),
                           ),
                         ],
@@ -1459,7 +1583,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: Text(AppTexte.of(context).einstSpeicherbedarf),
                   subtitle: Text(groessentext(_belegung!.gesamt)),
                   childrenPadding: const EdgeInsets.only(
-                      left: AppSpacing.xxl, right: AppSpacing.lg,
+                      left: AppSpacing.xxl,
+                      right: AppSpacing.lg,
                       bottom: AppSpacing.sm),
                   children: [
                     for (final posten in _belegung!.posten)
@@ -1482,8 +1607,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   .bodyMedium
                                   ?.copyWith(
                                       fontFeatures: const [
-                                        FontFeature.tabularFigures()
-                                      ],
+                                    FontFeature.tabularFigures()
+                                  ],
                                       color: Theme.of(context)
                                           .colorScheme
                                           .onSurfaceVariant),
@@ -1509,7 +1634,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstKiHinweis,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         FutureBuilder<bool>(
@@ -1586,7 +1713,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     : () => _alleModelleLaden(fehlende),
                 label: Text(fehlende.isEmpty
                     ? AppTexte.of(context).einstAlleModelleDa
-                    : AppTexte.of(context).einstAlleModelleLaden(fehlende.length)),
+                    : AppTexte.of(context)
+                        .einstAlleModelleLaden(fehlende.length)),
               ),
             ),
           );
@@ -1597,7 +1725,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             installed: widget.library.isModelInstalled(entry),
             downloading: _downloading.contains(entry.id),
             groesse: widget.library.isModelInstalled(entry)
-                ? groessentext(widget.library.modelDownloadService.belegteBytes(entry))
+                ? groessentext(
+                    widget.library.modelDownloadService.belegteBytes(entry))
                 : null,
             onDownload: () => _downloadModel(entry),
             onDelete: () => _deleteModel(entry),
@@ -1607,8 +1736,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Text(
-            AppTexte.of(context).einstModelleBelegterPlatz(
-                groessentext(widget.library.modelDownloadService.gesamteBytes())),
+            AppTexte.of(context).einstModelleBelegterPlatz(groessentext(
+                widget.library.modelDownloadService.gesamteBytes())),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -1648,7 +1777,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: Text(AppTexte.of(context).einstAufgabenText),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => BackgroundTasksScreen(library: widget.library)),
+              MaterialPageRoute(
+                  builder: (_) =>
+                      BackgroundTasksScreen(library: widget.library)),
             ),
           ),
         ),
@@ -1659,7 +1790,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstVokabularText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
@@ -1682,7 +1815,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           for (final entry in terms)
                             InputChip(
                               label: Text(entry.term),
-                              onDeleted: () => widget.library.db.removeAiTagTerm(entry.id),
+                              onDeleted: () =>
+                                  widget.library.db.removeAiTagTerm(entry.id),
                             ),
                         ],
                       ),
@@ -1695,7 +1829,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       child: TextField(
                         controller: _aiTagVocabularyController,
                         decoration: InputDecoration(
-                          hintText: AppTexte.of(context).einstBegriffHinzufuegenFeld,
+                          hintText:
+                              AppTexte.of(context).einstBegriffHinzufuegenFeld,
                           isDense: true,
                           border: const OutlineInputBorder(),
                         ),
@@ -1779,8 +1914,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final verortete = await widget.library.db.assetsWithLocation();
     if (!mounted) return;
     final gebiete = gebieteAus([
-      for (final a in verortete)
-        (breite: a.latitude!, laenge: a.longitude!)
+      for (final a in verortete) (breite: a.latitude!, laenge: a.longitude!)
     ]);
     if (gebiete.isEmpty) {
       melde.warnung(t.einstVorladenKeineOrte);
@@ -1795,8 +1929,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Der gerade gewaehlte Stil, nicht ein fest verdrahteter: Der
     // Speicher haengt an der Adresse, und eine fuer Topo geladene Kachel
     // hilft der hellen Karte nicht.
-    final stil = switch (Kartenansicht.ausText(
-        await widget.library.db.kartenansicht())) {
+    final stil = switch (
+        Kartenansicht.ausText(await widget.library.db.kartenansicht())) {
       Kartenansicht.hell => Kartenstil.hell,
       Kartenansicht.topo => Kartenstil.topo,
       // Ohne diese Zeile lüde der Vorrat für die eigene Quelle
@@ -1814,8 +1948,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: Text(t.einstVorladenTitel),
         // Zahl UND geschätzte Grösse: „29.039 Kacheln" sagt niemandem
         // etwas, „rund 850 MB" schon.
-        content: Text(t.einstVorladenFrage(
-            gebiete.length, kacheln.length, (kacheln.length * 30 / 1024).round())),
+        content: Text(t.einstVorladenFrage(gebiete.length, kacheln.length,
+            (kacheln.length * 30 / 1024).round())),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialog, false),
@@ -1894,7 +2028,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.public_outlined,
-                size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
@@ -2002,8 +2137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           final ziel = _eigeneKarte.currentContext;
           if (ziel != null) {
             unawaited(Scrollable.ensureVisible(ziel,
-                duration: const Duration(milliseconds: 250),
-                alignment: 0.1));
+                duration: const Duration(milliseconds: 250), alignment: 0.1));
           }
         },
       ),
@@ -2058,13 +2192,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstOrteText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
           child: ListTile(
             leading: Icon(
-              widget.library.geoDataAvailable ? Icons.check_circle : Icons.cloud_download_outlined,
+              widget.library.geoDataAvailable
+                  ? Icons.check_circle
+                  : Icons.cloud_download_outlined,
               color: widget.library.geoDataAvailable
                   ? context.semantik.erfolg
                   : null,
@@ -2074,14 +2212,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
               AppTexte.of(context).einstGeoText(GeoDataCatalog.license),
             ),
             trailing: _downloadingGeoData
-                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : widget.library.geoDataAvailable
                     ? IconButton(
                         icon: const Icon(Icons.delete_outline),
                         tooltip: AppTexte.of(context).einstGeoLoeschen,
                         onPressed: _deleteGeoData,
                       )
-                    : FilledButton(onPressed: _downloadGeoData, child: Text(AppTexte.of(context).allgHerunterladen)),
+                    : FilledButton(
+                        onPressed: _downloadGeoData,
+                        child: Text(AppTexte.of(context).allgHerunterladen)),
           ),
         ),
       ];
@@ -2100,14 +2243,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     AppTexte.of(context).einstGesperrtText,
                   ),
                   isThreeLine: true,
-                  trailing: FilledButton(onPressed: _setupPin, child: Text(AppTexte.of(context).allgEinrichten)),
+                  trailing: FilledButton(
+                      onPressed: _setupPin,
+                      child: Text(AppTexte.of(context).allgEinrichten)),
                 );
               }
               final unlocked = widget.library.vaultUnlockedThisSession;
               return Column(
                 children: [
                   ListTile(
-                    leading: Icon(unlocked ? Icons.lock_open_outlined : Icons.lock_outline),
+                    leading: Icon(unlocked
+                        ? Icons.lock_open_outlined
+                        : Icons.lock_outline),
                     title: Text(AppTexte.of(context).einstGesperrterOrdner),
                     subtitle: Text(unlocked
                         ? AppTexte.of(context).einstGesperrtEntsperrt
@@ -2119,23 +2266,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   const Divider(height: 1),
+                  FutureBuilder<PrivacySettingsData?>(
+                    future: widget.library.db.privacySettingsRow(),
+                    builder: (context, privacy) => SwitchListTile(
+                      secondary: const Icon(Icons.visibility_off_outlined),
+                      title:
+                          Text(AppTexte.of(context).einstPrivateMetadatenTitel),
+                      subtitle:
+                          Text(AppTexte.of(context).einstPrivateMetadatenText),
+                      value: privacy.data?.protectMetadata ?? true,
+                      onChanged: (value) async {
+                        await widget.library.db
+                            .setProtectPrivateMetadata(value);
+                        if (mounted) setState(() {});
+                      },
+                    ),
+                  ),
+                  const Divider(height: 1),
                   Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
                     child: Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(onPressed: _changePin, child: Text(AppTexte.of(context).einstPinAendern)),
+                          child: OutlinedButton(
+                              onPressed: _changePin,
+                              child:
+                                  Text(AppTexte.of(context).einstPinAendern)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: OutlinedButton(onPressed: _removePin, child: Text(AppTexte.of(context).einstPinEntfernen)),
+                          child: OutlinedButton(
+                              onPressed: _removePin,
+                              child:
+                                  Text(AppTexte.of(context).einstPinEntfernen)),
                         ),
                       ],
                     ),
                   ),
                   if (unlocked)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
                       child: SizedBox(
                         width: double.infinity,
                         child: TextButton.icon(
@@ -2166,14 +2337,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     AppTexte.of(context).einstBackupVerschluesselungText,
                   ),
                   isThreeLine: true,
-                  trailing: FilledButton(onPressed: _setupBackupPassphrase, child: Text(AppTexte.of(context).allgEinrichten)),
+                  trailing: FilledButton(
+                      onPressed: _setupBackupPassphrase,
+                      child: Text(AppTexte.of(context).allgEinrichten)),
                 );
               }
               final unlocked = widget.library.backupKeyAvailableThisSession;
               return Column(
                 children: [
                   ListTile(
-                    leading: Icon(unlocked ? Icons.lock_open_outlined : Icons.lock_outline),
+                    leading: Icon(unlocked
+                        ? Icons.lock_open_outlined
+                        : Icons.lock_outline),
                     title: Text(AppTexte.of(context).einstBackupPassphrase),
                     subtitle: Text(unlocked
                         ? AppTexte.of(context).einstBackupEntsperrt
@@ -2186,12 +2361,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                              onPressed: _changeBackupPassphrase, child: Text(AppTexte.of(context).einstBackupAendern)),
+                              onPressed: _changeBackupPassphrase,
+                              child: Text(
+                                  AppTexte.of(context).einstBackupAendern)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: OutlinedButton(
-                              onPressed: _removeBackupEncryption, child: Text(AppTexte.of(context).allgEntfernen)),
+                              onPressed: _removeBackupEncryption,
+                              child: Text(AppTexte.of(context).allgEntfernen)),
                         ),
                       ],
                     ),
@@ -2220,10 +2398,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const Divider(height: 1),
               CheckboxListTile(
                 value: _encryptManualBackup,
-                onChanged: (v) => setState(() => _encryptManualBackup = v ?? false),
+                onChanged: (v) =>
+                    setState(() => _encryptManualBackup = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
                 title: Text(AppTexte.of(context).einstBackupVerschluesseln),
-                subtitle: Text(AppTexte.of(context).einstBackupPassphraseAbfrage),
+                subtitle:
+                    Text(AppTexte.of(context).einstBackupPassphraseAbfrage),
               ),
               // Was mitkommt und was nicht. Der Hinweis stand nirgends, und
               // der Unterschied ist erheblich: Ohne Passphrase liegt kein
@@ -2231,8 +2411,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // kämen Personen, Stammbaum, Reisen und Aktivitäten beim
               // Zurückspielen nicht wieder (Befund der 19. Prüfrunde).
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0,
-                    AppSpacing.lg, AppSpacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
                 child: Text(
                   AppTexte.of(context).einstBackupManuellHinweis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -2263,10 +2443,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                 child: Text(
                   AppTexte.of(context).einstBackupZielHinweis,
-                  style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ),
             ],
@@ -2279,7 +2462,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstBackupAutoHinweis,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
@@ -2301,25 +2486,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: destination == null
                         ? null
                         : (v) async {
-                            await widget.library.db.setAutoBackupConfig(enabled: v);
+                            await widget.library.db
+                                .setAutoBackupConfig(enabled: v);
                             if (mounted) _reloadBackupSettings();
                           },
                     title: Text(AppTexte.of(context).allgAktiv),
-                    subtitle: Text(destination ?? AppTexte.of(context).einstBackupZuerstZiel),
+                    subtitle: Text(destination ??
+                        AppTexte.of(context).einstBackupZuerstZiel),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.folder_outlined),
                     title: Text(AppTexte.of(context).einstZielordner),
-                    subtitle: Text(destination ?? AppTexte.of(context).einstBackupKeinOrdner),
+                    subtitle: Text(destination ??
+                        AppTexte.of(context).einstBackupKeinOrdner),
                     trailing: OutlinedButton(
                       onPressed: () async {
-                        final picked = await FilePicker.platform.getDirectoryPath(
-                          dialogTitle: AppTexte.of(context).einstBackupAutoZielWaehlen,
+                        final picked =
+                            await FilePicker.platform.getDirectoryPath(
+                          dialogTitle:
+                              AppTexte.of(context).einstBackupAutoZielWaehlen,
                         );
                         if (picked == null) return;
-                        await widget.library.db
-                            .setAutoBackupConfig(enabled: enabled, destination: picked);
+                        await widget.library.db.setAutoBackupConfig(
+                            enabled: enabled, destination: picked);
                         if (mounted) _reloadBackupSettings();
                       },
                       child: Text(AppTexte.of(context).einstWaehlen),
@@ -2332,15 +2522,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     trailing: DropdownButton<int>(
                       value: intervalHours,
                       items: [
-                        DropdownMenuItem(value: 1, child: Text(AppTexte.of(context).einstStuendlich)),
-                        DropdownMenuItem(value: 6, child: Text(AppTexte.of(context).einstIntervallSechsStunden)),
-                        DropdownMenuItem(value: 24, child: Text(AppTexte.of(context).einstTaeglich)),
-                        DropdownMenuItem(value: 168, child: Text(AppTexte.of(context).einstWoechentlich)),
+                        DropdownMenuItem(
+                            value: 1,
+                            child: Text(AppTexte.of(context).einstStuendlich)),
+                        DropdownMenuItem(
+                            value: 6,
+                            child: Text(AppTexte.of(context)
+                                .einstIntervallSechsStunden)),
+                        DropdownMenuItem(
+                            value: 24,
+                            child: Text(AppTexte.of(context).einstTaeglich)),
+                        DropdownMenuItem(
+                            value: 168,
+                            child:
+                                Text(AppTexte.of(context).einstWoechentlich)),
                       ],
                       onChanged: (v) async {
                         if (v == null) return;
-                        await widget.library.db
-                            .setAutoBackupConfig(enabled: enabled, intervalHours: v);
+                        await widget.library.db.setAutoBackupConfig(
+                            enabled: enabled, intervalHours: v);
                         if (mounted) _reloadBackupSettings();
                       },
                     ),
@@ -2358,10 +2558,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       value: maxMbPerRun,
                       items: [
                         DropdownMenuItem(
-                            value: 0, child: Text(AppTexte.of(context).einstUnbegrenzt)),
-                        const DropdownMenuItem(value: 500, child: Text('500 MB')),
-                        const DropdownMenuItem(value: 2000, child: Text('2 GB')),
-                        const DropdownMenuItem(value: 10000, child: Text('10 GB')),
+                            value: 0,
+                            child: Text(AppTexte.of(context).einstUnbegrenzt)),
+                        const DropdownMenuItem(
+                            value: 500, child: Text('500 MB')),
+                        const DropdownMenuItem(
+                            value: 2000, child: Text('2 GB')),
+                        const DropdownMenuItem(
+                            value: 10000, child: Text('10 GB')),
                       ],
                       onChanged: (v) async {
                         if (v == null) return;
@@ -2380,10 +2584,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   if (enabled && !keyReady)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.lg, AppSpacing.xs),
+                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg,
+                          AppSpacing.sm, AppSpacing.lg, AppSpacing.xs),
                       child: Text(
                         AppTexte.of(context).einstBackupPassphraseGesperrt,
-                        style: TextStyle(fontSize: 12, color: context.semantik.warnung),
+                        style: TextStyle(
+                            fontSize: 12, color: context.semantik.warnung),
                       ),
                     ),
                   Padding(
@@ -2391,9 +2597,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                        onPressed: destination == null ? null : _runAutoBackupNow,
+                        onPressed:
+                            destination == null ? null : _runAutoBackupNow,
                         icon: const Icon(Icons.sync),
-                        label: Text(AppTexte.of(context).einstJetztSynchronisieren),
+                        label: Text(
+                            AppTexte.of(context).einstJetztSynchronisieren),
                       ),
                     ),
                   ),
@@ -2409,7 +2617,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstPapierkorbText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
@@ -2461,7 +2671,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             : AppTexte.of(context)
                                 .papierkorbUmfang(anzahl, groessentext(platz))),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        onTap: () =>
+                            Navigator.of(context).push(MaterialPageRoute(
                           builder: (_) => TrashScreen(library: widget.library),
                         )),
                       );
@@ -2471,7 +2682,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SwitchListTile(
                     value: enabled,
                     onChanged: (v) async {
-                      await widget.library.db.setTrashAutoDeleteConfig(enabled: v);
+                      await widget.library.db
+                          .setTrashAutoDeleteConfig(enabled: v);
                       if (mounted) _reloadTrashSettings();
                     },
                     title: Text(AppTexte.of(context).allgAktiv),
@@ -2487,11 +2699,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         for (final tage in [7, 14, 30, 60, 90])
                           DropdownMenuItem(
                               value: tage,
-                              child: Text(AppTexte.of(context).einstTageDropdown(tage))),
+                              child: Text(AppTexte.of(context)
+                                  .einstTageDropdown(tage))),
                       ],
                       onChanged: (v) async {
                         if (v == null) return;
-                        await widget.library.db.setTrashAutoDeleteConfig(enabled: enabled, afterDays: v);
+                        await widget.library.db.setTrashAutoDeleteConfig(
+                            enabled: enabled, afterDays: v);
                         if (mounted) _reloadTrashSettings();
                       },
                     ),
@@ -2516,20 +2730,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
           child: Text(
             AppTexte.of(context).einstResetText,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Card(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
-            side: BorderSide(color: Theme.of(context).colorScheme.error.withValues(alpha: 0.4)),
+            side: BorderSide(
+                color:
+                    Theme.of(context).colorScheme.error.withValues(alpha: 0.4)),
           ),
           child: ListTile(
-            leading: Icon(Icons.warning_amber_outlined, color: Theme.of(context).colorScheme.error),
+            leading: Icon(Icons.warning_amber_outlined,
+                color: Theme.of(context).colorScheme.error),
             title: Text(AppTexte.of(context).einstResetTitel),
             subtitle: Text(AppTexte.of(context).einstResetKurz),
             trailing: OutlinedButton(
-              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error),
               onPressed: _resetDatabase,
               child: Text(AppTexte.of(context).einstResetKnopf),
             ),
@@ -2574,7 +2794,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     leading: const Icon(Icons.memory_outlined),
                     title: Text(modelle.isEmpty
                         ? AppTexte.of(context).einstKeineModelle
-                        : AppTexte.of(context).einstModelleGeladen(modelle.length, katalog.length)),
+                        : AppTexte.of(context).einstModelleGeladen(
+                            modelle.length, katalog.length)),
                     subtitle: Text(modelle.isEmpty
                         ? AppTexte.of(context).einstModelleUnbenutzt
                         : modelle
@@ -2589,7 +2810,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Text(
                       AppTexte.of(context).einstAktualisierungHinweis,
                       style: TextStyle(
-                          fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          fontSize: 12,
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                   ),
                   if (_aktualisierungsstand != null)
@@ -2603,7 +2826,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             : context.semantik.erfolg,
                       ),
                       title: Text(_aktualisierungsstand!.istNeuereVerfuegbar
-                          ? AppTexte.of(context).einstAktualisierungNeuer(_aktualisierungsstand!.neueste)
+                          ? AppTexte.of(context).einstAktualisierungNeuer(
+                              _aktualisierungsstand!.neueste)
                           : AppTexte.of(context).einstAktualisierungAktuell),
                       subtitle: _aktualisierungsstand!.istNeuereVerfuegbar
                           ? Text(_aktualisierungsstand!.seitenUrl ?? '')
@@ -2627,9 +2851,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2))
                                 : const Icon(Icons.system_update_alt_outlined),
-                            label: Text(AppTexte.of(context).einstNachAktualisierungSuchen),
+                            label: Text(AppTexte.of(context)
+                                .einstNachAktualisierungSuchen),
                           ),
                         ),
                       ],
@@ -2661,7 +2887,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ];
-
 
   /// Ein Schalter für eine Übersetzungsrichtung.
   ///
@@ -2699,7 +2924,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : AppTexte.of(context).einstModellNichtGeladen(beschreibung),
               style: TextStyle(
                 fontSize: 12,
-                color: installiert ? null : Theme.of(context).colorScheme.outline,
+                color:
+                    installiert ? null : Theme.of(context).colorScheme.outline,
               ),
             ),
           ),
@@ -2713,6 +2939,7 @@ class _ModelCard extends StatelessWidget {
   final ModelCatalogEntry entry;
   final bool installed;
   final bool downloading;
+
   /// Belegter Platz, bereits lesbar formatiert – null, solange das Modell
   /// nicht installiert ist. Vorher lässt sich die Grösse nicht angeben:
   /// Der Katalog führt nur Dateinamen und Prüfsummen, keine Längen.
@@ -2740,20 +2967,25 @@ class _ModelCard extends StatelessWidget {
         title: Text(modellTitel(AppTexte.of(context), entry.id)),
         subtitle: Text([
           modellBeschreibung(AppTexte.of(context), entry.id),
-          AppTexte.of(context)
-                  .einstModellLizenzZeile(modellLizenz(AppTexte.of(context), entry.id)) +
+          AppTexte.of(context).einstModellLizenzZeile(
+                  modellLizenz(AppTexte.of(context), entry.id)) +
               (groesse != null ? ' · $groesse' : ''),
         ].join('\n')),
         isThreeLine: true,
         trailing: downloading
-            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2))
             : installed
                 ? IconButton(
                     icon: const Icon(Icons.delete_outline),
                     tooltip: AppTexte.of(context).einstModellLoeschen,
                     onPressed: onDelete,
                   )
-                : FilledButton(onPressed: onDownload, child: Text(AppTexte.of(context).allgHerunterladen)),
+                : FilledButton(
+                    onPressed: onDownload,
+                    child: Text(AppTexte.of(context).allgHerunterladen)),
       ),
     );
   }

@@ -1,7 +1,7 @@
 name: photo_vault
 description: Eigenständige, lokale Foto-/Video-Verwaltung (kein Server nötig) mit Gesichtserkennung, KI-Bildsuche und manuellem Cloud-Backup.
 publish_to: 'none'
-version: 3.9.0
+version: 3.10.0
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -46,7 +46,7 @@ dependencies:
   crypto: ^3.0.5
 
   # Darstellung / Medien
-  cached_network_image: ^3.4.1 # auch für lokale file://-URIs mit Caching nutzbar
+  cached_network_image: ^4.0.0 # auch für lokale file://-URIs mit Caching nutzbar
   photo_view: ^0.15.0
 
   # Videowiedergabe über libmpv. Ersetzt video_player, das ausschließlich
@@ -110,7 +110,7 @@ dependencies:
   share_plus: ^12.0.2
   # Liefert die Version aus dem App-Bundle (CFBundleShortVersionString)
   # statt einer Konstante im Code, die man beim Versionssprung vergisst.
-  package_info_plus: ^8.0.0
+  package_info_plus: ^9.0.1
 
   # Balkendiagramme für die Analyseseite (Fotos pro Jahr/Monat, Kameras) –
   # reiner Flutter-Widget-Code, kein Cloud-Dienst.
@@ -134,7 +134,7 @@ dev_dependencies:
     sdk: flutter
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0
   # Die Uhr anhalten, ohne ein Fenster zu bauen: Die Meldungszentrale
   # laesst Meldungen nach Fristen verblassen, und die will man in einem
   # reinen Diensttest pruefen, nicht in Echtzeit abwarten.

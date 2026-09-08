@@ -85,7 +85,7 @@ void main() {
     final neu = (await db.assetById(asset.id))!;
     expect(neu.fileCreatedAt, DateTime(2013, 8, 27, 9, 15),
         reason: 'das Datum ist das Richtige, nicht das zu Korrigierende');
-    expect(neu.relativePath, contains('2013/08'));
+    expect(neu.relativePath, contains(p.join('2013', '08')));
     expect(File(pfade.absolute(neu.relativePath).path).existsSync(), isTrue);
     expect(alt.existsSync(), isFalse);
   });
@@ -123,7 +123,8 @@ void main() {
 
     // Die vorhandene Datei ist umgelegt; die fehlende bekommt ihr Datum
     // trotzdem vermerkt, statt den ganzen Lauf abzubrechen.
-    expect((await db.assetById(da.id))!.relativePath, contains('2014/02'));
+    expect((await db.assetById(da.id))!.relativePath,
+        contains(p.join('2014', '02')));
   });
 
   test('der Fortschritt zählt bis zur letzten Aufnahme', () async {
@@ -149,7 +150,7 @@ void main() {
     // Ohne 'localtime' läge in einer Zone östlich von Greenwich jede
     // Aufnahme der ersten Stunden eines Monats scheinbar falsch.
     final asset = await lege('j.jpg', DateTime(2021, 7, 1, 0, 30));
-    expect(asset.relativePath, contains('2021/07'));
+    expect(asset.relativePath, contains(p.join('2021', '07')));
     expect((await db.assetsFuerAblageordnung()).map((a) => a.id),
         isNot(contains(asset.id)),
         reason: 'diese Aufnahme liegt richtig');
@@ -157,7 +158,7 @@ void main() {
 
   test('auch der letzte Moment eines Monats liegt richtig', () async {
     final asset = await lege('k.jpg', DateTime(2021, 7, 31, 23, 30));
-    expect(asset.relativePath, contains('2021/07'));
+    expect(asset.relativePath, contains(p.join('2021', '07')));
     expect((await db.assetsFuerAblageordnung()).map((a) => a.id),
         isNot(contains(asset.id)));
   });
@@ -208,7 +209,8 @@ void main() {
     final asset = await lege('y.jpg', DateTime(2007, 1, 4));
     await nurSpalteAendern(asset.id, DateTime(2013, 8, 27));
     await library.ordneAblageNeu().drain<void>();
-    expect((await db.assetById(asset.id))!.relativePath, contains('2013/08'));
+    expect((await db.assetById(asset.id))!.relativePath,
+        contains(p.join('2013', '08')));
   });
 
   test('ein liegengebliebener Zettel wird eingesammelt', () async {
@@ -222,12 +224,14 @@ void main() {
     expect(await db.countAblageordnung(), 0,
         reason: 'die Aufnahme selbst liegt richtig – nur der Zettel nicht');
     expect(await library.zaehleAblageordnung(), 1,
-        reason: 'die Karte muss diese Arbeit anzeigen, sonst sieht sie niemand');
+        reason:
+            'die Karte muss diese Arbeit anzeigen, sonst sieht sie niemand');
 
     await library.ordneAblageNeu().drain<void>();
 
     expect(verirrt.existsSync(), isFalse);
-    expect(pfade.absolute(pfade.xmpSidecarPath(asset.relativePath)).existsSync(),
+    expect(
+        pfade.absolute(pfade.xmpSidecarPath(asset.relativePath)).existsSync(),
         isTrue);
     expect(await library.zaehleAblageordnung(), 0,
         reason: 'ein zweiter Lauf haette sonst wieder etwas zu tun');

@@ -210,11 +210,15 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
     await _laden();
   }
 
-  List<AktivitaetenData> get _ohneReise =>
-      [for (final k in _aktivitaeten) if (k.reiseId == null) k];
+  List<AktivitaetenData> get _ohneReise => [
+        for (final k in _aktivitaeten)
+          if (k.reiseId == null) k
+      ];
 
-  List<AktivitaetenData> get _mitReise =>
-      [for (final k in _aktivitaeten) if (k.reiseId != null) k];
+  List<AktivitaetenData> get _mitReise => [
+        for (final k in _aktivitaeten)
+          if (k.reiseId != null) k
+      ];
 
   /// Die Zahlen im Kopf – wie bei den Reisen, und nach derselben Regel:
   /// Was null wäre, fällt weg.
@@ -330,16 +334,15 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
               ),
             )
           : _aktivitaeten.isEmpty && _vorschlaege.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxl),
+              ? SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: Center(
                     child: SizedBox(
                       width: 440,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(t.aktivitaetenLeer,
-                              textAlign: TextAlign.center),
+                          Text(t.aktivitaetenLeer, textAlign: TextAlign.center),
                           // Ohne den Datensatz weiss die App nicht, wo
                           // etwas aufgenommen wurde – dann ist „noch
                           // keine Aktivität" nur die halbe Auskunft.
@@ -348,9 +351,10 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
                             Text(
                               t.fortschrittOhneGeodaten,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: farben.onSurfaceVariant),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: farben.onSurfaceVariant),
                             ),
                           ],
                         ],
@@ -388,8 +392,8 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
                       ]),
                     ),
                     SliverPadding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.lg),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
                       sliver: Kachelraster(
                           kacheln:
                               _kacheln(t, _ohneReise, mitReisename: false)),
@@ -402,8 +406,8 @@ class _AktivitaetenScreenState extends State<AktivitaetenScreen> {
                       ]),
                     ),
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0,
-                          AppSpacing.lg, AppSpacing.lg),
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                       sliver: Kachelraster(
                           kacheln: _kacheln(t, _mitReise, mitReisename: true)),
                     ),
@@ -499,6 +503,7 @@ class _Vorschlagskarte extends StatelessWidget {
     );
   }
 }
+
 /// Die Bilder eines Vorschlags, damit man ihn beurteilen kann.
 ///
 /// Eigenes Widget und nicht in [_Vorschlagskarte] eingebaut: Die Karte
@@ -540,7 +545,8 @@ class _Vorschaureihe extends StatelessWidget {
                         child: AssetThumbnailTile(
                           asset: Rasterzeile.aus(a),
                           paths: library.paths,
-                          onTap: () => Navigator.of(context, rootNavigator: true).push(
+                          onTap: () =>
+                              Navigator.of(context, rootNavigator: true).push(
                             MaterialPageRoute(
                               builder: (_) => AssetViewerScreen(
                                 assets: aufnahmen,
@@ -642,7 +648,6 @@ class _AktivitaetskachelState extends State<Aktivitaetskachel> {
   }
 }
 
-
 /// Eine Aktivität als Zeile – in der Liste und als Kapitel einer Reise.
 class Aktivitaetszeile extends StatefulWidget {
   final AktivitaetenData aktivitaet;
@@ -705,7 +710,8 @@ class _AktivitaetszeileState extends State<Aktivitaetszeile> {
         title: Row(
           children: [
             Icon(symbolFuerKennung(art),
-                size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
             const SizedBox(width: AppSpacing.xs),
             Expanded(child: Text(widget.aktivitaet.name)),
           ],

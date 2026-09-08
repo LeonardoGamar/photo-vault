@@ -121,6 +121,9 @@ class ImportService {
   }
 
   Future<ImportResult> importFile(String filePath) async {
+    String? unvollstaendigeAssetId;
+    File? unvollstaendigesOriginal;
+    var datenbankEintragGespeichert = false;
     try {
       final ext = p.extension(filePath).toLowerCase();
       if (!_imageExtensions.contains(ext) && !_videoExtensions.contains(ext)) {
@@ -141,30 +144,24 @@ class ImportService {
       // Name, der ein Bild behauptet, bleibt deshalb unangetastet – dort
       // gäbe es kein Signal, das widerspräche.
       final istBildNachName = _imageExtensions.contains(ext);
-      final isImage = istBildNachName ||
-          (await inhaltskennung(sourceFile, null)) != null;
+      final isImage =
+          istBildNachName || (await inhaltskennung(sourceFile, null)) != null;
 
-      // Für Bilder werden die Bytes ohnehin für EXIF/Thumbnail gebraucht –
-      // dort einmalig laden und die Prüfsumme daraus berechnen. Videos sind
-      // oft hunderte MB bis mehrere GB groß: dafür lohnt sich das nicht –
-      // Prüfsumme streamend berechnen und die Datei vom Betriebssystem
-      // kopieren lassen, statt sie komplett in den Dart-Heap zu laden.
-      Uint8List? bytes;
-      final String checksum;
-      if (isImage) {
-        bytes = await sourceFile.readAsBytes();
-        checksum = sha256.convert(bytes).toString();
-      } else {
-        checksum = (await sha256.bind(sourceFile.openRead()).first).toString();
-      }
+      // Prüfsumme immer streamend. Auch ein Foto kann ein 300-MB-TIFF oder
+      // Panorama sein; es für den Hash komplett im Dart-Heap zu halten ist
+      // unnötig. EXIF wird unten ebenfalls über den dateibasierten Leser
+      // geholt, und die Dekodierung begrenzt ihren eigenen Lebenszyklus.
+      final checksum =
+          (await sha256.bind(sourceFile.openRead()).first).toString();
 
       if (await _db.checksumExists(checksum)) {
         return ImportResult(filePath, ImportOutcome.duplicateSkipped);
       }
 
       final assetId = _uuid.v4();
+      unvollstaendigeAssetId = assetId;
       final exifMeta = isImage
-          ? await _readExifMetadata(bytes!, sourceFile, ext)
+          ? await _readExifMetadata(sourceFile, ext)
           : const _ExifMetadata(null, null, CameraInfo());
       // Videos haben keine EXIF-Daten, aber sehr wohl einen Ort, einen
       // Aufnahmezeitpunkt und eine Kamera – alles drei steht im
@@ -194,19 +191,14 @@ class ImportService {
       final relativePath =
           _paths.originalRelativePath(fileCreatedAt, assetId, ext);
       final targetFile = _paths.absolute(relativePath);
+      unvollstaendigesOriginal = targetFile;
       await targetFile.parent.create(recursive: true);
       final int fileSizeBytes;
-      if (isImage) {
-        await targetFile.writeAsBytes(bytes!);
-        fileSizeBytes = bytes.length;
-      } else {
-        await sourceFile.copy(targetFile.path);
-        fileSizeBytes = await targetFile.length();
-      }
+      await sourceFile.copy(targetFile.path);
+      fileSizeBytes = await targetFile.length();
 
       final thumbResult = isImage
-          ? await generateThumbnailAndPreview(targetFile, assetId, ext,
-              alreadyReadBytes: bytes)
+          ? await generateThumbnailAndPreview(targetFile, assetId, ext)
           : await generateVideoThumbnail(targetFile, assetId);
 
       await _db.insertAsset(AssetsCompanion.insert(
@@ -242,10 +234,33 @@ class ImportService {
         iso: Value(exifMeta.camera.iso),
         exposureTimeSeconds: Value(exifMeta.camera.exposureTimeSeconds),
       ));
+      datenbankEintragGespeichert = true;
 
       return ImportResult(filePath, ImportOutcome.imported, assetId: assetId);
     } catch (e) {
+      // Scheitert der Import vor der Datenbankzeile, darf keine vorbereitete
+      // Datei in der Bibliothek zurückbleiben.
+      if (!datenbankEintragGespeichert && unvollstaendigeAssetId != null) {
+        await _raeumeImportresteAuf(
+            unvollstaendigeAssetId, unvollstaendigesOriginal);
+      }
       return ImportResult(filePath, ImportOutcome.failed, error: e.toString());
+    }
+  }
+
+  Future<void> _raeumeImportresteAuf(String assetId, File? original) async {
+    final kandidaten = <File>{
+      if (original != null) original,
+      _paths.absolute(_paths.thumbnailRelativePath(assetId)),
+      _paths.absolute(_paths.previewRelativePath(assetId)),
+    };
+    for (final datei in kandidaten) {
+      try {
+        if (await datei.exists()) await datei.delete();
+      } on FileSystemException {
+        // Der ursprüngliche Importfehler bleibt die hilfreiche Meldung. Ein
+        // verbliebener Rest wird zusätzlich von der Integritätsprüfung erkannt.
+      }
     }
   }
 
@@ -272,8 +287,15 @@ class ImportService {
     final needsNativeConversion = heicAndRawExtensions.contains(ext) ||
         (inhalt != null && heicAndRawExtensions.contains(inhalt));
 
+    // Große direkt darstellbare Bilder werden ebenfalls nativ auf eine
+    // begrenzte Vorschau verkleinert. Sonst müssten beispielsweise ein
+    // 300-MB-TIFF und zusätzlich sein vollständig dekodiertes Pixelbild über
+    // die Isolate-Grenze. Falls auf der Plattform kein Konverter verfügbar
+    // ist, bleibt der bisherige Dart-Rückfall erhalten.
+    final forceBoundedDecode = await sourceFile.length() > 32 * 1024 * 1024;
+
     Uint8List? convertedBytes;
-    if (needsNativeConversion) {
+    if (needsNativeConversion || forceBoundedDecode) {
       convertedBytes = await NativeImageConverter.convertToJpegBytes(sourceFile,
           maxDimension: 2048);
     }
@@ -335,8 +357,7 @@ class ImportService {
   /// gross genug für Gesichtserkennung und Texterkennung.
   Future<ThumbnailResult> generateVideoThumbnail(
       File sourceFile, String assetId) async {
-    final native = await NativeImageConverter.generateVideoThumbnail(
-        sourceFile,
+    final native = await NativeImageConverter.generateVideoThumbnail(sourceFile,
         maxDimension: videoStandbildKante);
     if (native == null) return const ThumbnailResult();
 
@@ -455,13 +476,13 @@ class ImportService {
   }
 
   /// Liest Aufnahmedatum, GPS-Ort und Kamera-/Objektiv-Angaben in einem
-  /// Durchlauf aus den EXIF-Daten eines Fotos (alles steckt im selben
-  /// `readExifFromBytes`-Ergebnis).
-  Future<_ExifMetadata> _readExifMetadata(
-      Uint8List bytes, File datei, String endung) async {
+  /// Durchlauf aus den EXIF-Daten eines Fotos. Der dateibasierte Leser greift
+  /// gezielt auf die benötigten Bereiche zu und lädt große Originale nicht
+  /// vollständig in den Dart-Heap.
+  Future<_ExifMetadata> _readExifMetadata(File datei, String endung) async {
     Map<String, IfdTag> tags = const {};
     try {
-      tags = await readExifFromBytes(bytes);
+      tags = await readExifFromFile(datei);
     } catch (_) {
       // Bleibt leer – der Rückfall unten greift.
     }
@@ -472,7 +493,7 @@ class ImportService {
     // dem GPS-Wörterbuch gefragt, und `raw-identify` gibt gar keines aus.
     // Siehe [leseCr3Gps].
     final gps = parseExifGps(tags) ??
-        (await _istCr3(datei, bytes, endung)
+        (await _istCr3(datei, null, endung)
             ? _alsGps(await leseCr3Gps(datei))
             : null);
 
@@ -490,7 +511,8 @@ class ImportService {
     final widerspruch = datum == null &&
         kamera.isEmpty &&
         !heicAndRawExtensions.contains(endung) &&
-        heicAndRawExtensions.contains(kennungAus(bytes) ?? endung);
+        heicAndRawExtensions
+            .contains((await inhaltskennung(datei, null)) ?? endung);
     if (widerspruch ||
         (datum == null &&
             kamera.isEmpty &&
@@ -544,7 +566,9 @@ class ImportService {
     }
     final kamera = parseExifCameraInfo(tags);
     final datum = exifDatumAusText(_rohesExifDatum(tags));
-    if (kamera.isEmpty && datum == null && rawImageExtensions.contains(endung)) {
+    if (kamera.isEmpty &&
+        datum == null &&
+        rawImageExtensions.contains(endung)) {
       final nativ = await NativeImageConverter.readCameraMetadata(file);
       if (!nativ.isEmpty) return nativ;
     }
@@ -619,8 +643,7 @@ class ImportService {
 
     // Massgeblich ist, was die Bytes sagen, nicht der Name: Ein als
     // `.jpg` benanntes HEIC braucht den nativen Leser genauso.
-    final wirklich =
-        (rohbytes == null ? null : kennungAus(rohbytes)) ?? endung;
+    final wirklich = (rohbytes == null ? null : kennungAus(rohbytes)) ?? endung;
     if (!heicAndRawExtensions.contains(endung) &&
         !heicAndRawExtensions.contains(wirklich)) {
       return Datumsbefund(null, versatzMinuten: versatz);

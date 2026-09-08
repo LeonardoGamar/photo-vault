@@ -43,8 +43,13 @@ Gelaendenetz _netz() {
     hoehen[i] = 400 + 50 * math.sin(i / 7);
   }
   return baueNetz(Hoehengitter(
-    spalten: n, zeilen: n, hoehen: hoehen,
-    nord: 50.63, sued: 50.60, west: 9.85, ost: 9.91,
+    spalten: n,
+    zeilen: n,
+    hoehen: hoehen,
+    nord: 50.63,
+    sued: 50.60,
+    west: 9.85,
+    ost: 9.91,
   ));
 }
 
@@ -106,8 +111,7 @@ Rect? _unterschied(Uint8List a, Uint8List b,
       // Eine Schwelle und kein exakter Vergleich: Die Ränder der Tafel
       // sind abgerundet und weich, dort unterscheiden sich einzelne
       // Punkte um einen Hauch.
-      final d = math.max(
-          (a[i] - b[i]).abs(),
+      final d = math.max((a[i] - b[i]).abs(),
           math.max((a[i + 1] - b[i + 1]).abs(), (a[i + 2] - b[i + 2]).abs()));
       if (d <= 8) continue;
       if (x < links) links = x;
@@ -117,8 +121,8 @@ Rect? _unterschied(Uint8List a, Uint8List b,
     }
   }
   if (rechts < 0) return null;
-  return Rect.fromLTRB(links.toDouble(), oben.toDouble(), rechts + 1.0,
-      unten + 1.0);
+  return Rect.fromLTRB(
+      links.toDouble(), oben.toDouble(), rechts + 1.0, unten + 1.0);
 }
 
 Flugmesswert _wert(String name, String wert, String breitester,
@@ -294,8 +298,8 @@ exit 0
       // Den nativen Weg abschalten: Sonst entschiede die Maschine, auf
       // der der Test laeuft, welchen Weg er prueft.
       NativerVideoschreiber.vergiss();
-      final bote = TestDefaultBinaryMessengerBinding
-          .instance.defaultBinaryMessenger;
+      final bote =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
       bote.setMockMethodCallHandler(
           NativerVideoschreiber.kanal, (_) async => false);
       // **Und der Kachelspeicher braucht einen Ordner.** Er fragt beim
@@ -383,5 +387,8 @@ exit 0
       expect(tafel!.left, lessThan(_breite * 0.1));
       expect(tafel.top, greaterThan(_hoehe * 0.5));
     }, timeout: const Timeout(Duration(minutes: 2)));
-  });
+  },
+      skip: Platform.isWindows
+          ? 'Der POSIX-ffmpeg-Doppelgänger ist unter Windows nicht ausführbar.'
+          : false);
 }

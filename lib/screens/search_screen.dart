@@ -10,6 +10,7 @@ import '../l10n/app_localizations.dart';
 import '../widgets/namens_dialog.dart' show MitTextsteuerung;
 import '../services/clip_service.dart';
 import '../services/search_filters.dart';
+import '../services/similarity_ranking.dart';
 import '../services/sortierung.dart';
 import '../services/suchsatz.dart';
 import '../services/videostandbilder.dart';
@@ -398,7 +399,7 @@ class _SearchScreenState extends State<SearchScreen>
         // Etwas mehr als die 200, die am Ende stehen sollen: Ein Video
         // kann mit mehreren Standbildern in der Rangfolge auftauchen, und
         // die fallen gleich wieder zusammen.
-        final ranked = ClipService.rankBySimilarity(queryVector, kandidaten,
+        final ranked = await rankBySimilarityOffMain(queryVector, kandidaten,
             topK: 200 * (1 + videoStandbilderHoechstens));
         // searchAssets sortiert nach Datum – hier zählt die Ähnlichkeit.
         // Je Aufnahme zählt ihr bestes Standbild; die Rangfolge kommt
@@ -406,8 +407,8 @@ class _SearchScreenState extends State<SearchScreen>
         final gesehen = <String>{};
         final rangfolge = [
           for (final e in ranked)
-            if (gesehen.add(LibraryState.aufnahmeAusSuchschluessel(e.key)))
-              LibraryState.aufnahmeAusSuchschluessel(e.key),
+            if (gesehen.add(LibraryState.aufnahmeAusSuchschluessel(e.$1)))
+              LibraryState.aufnahmeAusSuchschluessel(e.$1),
         ].take(200).toList();
         // `assetsByIds` behält die übergebene Reihenfolge bei – die
         // Rangfolge nach Ähnlichkeit übersteht den Umweg also.

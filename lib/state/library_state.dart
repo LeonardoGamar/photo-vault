@@ -65,7 +65,12 @@ export 'hintergrundlauf.dart' show ImportProgress;
 /// Eine Aufzählung statt eines fertigen Namens: Dieser Dienst kennt keine
 /// Oberflächensprache, und der Name wird an zwei Stellen angezeigt (Leiste
 /// oben, Hintergrundaufgaben). Die Zuordnung zum Text steht dort.
-enum Analysestufe { bildanalyse, texterkennung, schlagwoerter, bildbeschreibung }
+enum Analysestufe {
+  bildanalyse,
+  texterkennung,
+  schlagwoerter,
+  bildbeschreibung
+}
 
 /// Der Name einer Stufe in der Oberflächensprache.
 String analysestufeName(AppTexte t, Analysestufe stufe) => switch (stufe) {
@@ -138,13 +143,15 @@ img.Image? decodeImageBytes(Uint8List bytes) {
 /// Bedarf von offiziellen Open-Source-Quellen herunter, statt sie
 /// mitzuliefern oder auf proprietäre Betriebssystem-APIs zu setzen.
 class LibraryState extends ChangeNotifier {
-  late final AppDatabase db;
-  late final StoragePaths paths;
-  late final ImportService importService;
-  late final BackupService backupService;
-  late final ModelDownloadService modelDownloadService;
-  late final GeoDataDownloadService geoDataDownloadService;
-  late final RestoreQueueService restoreQueue;
+  // Ein fehlgeschlagener Start schließt bereits geöffnete Teile; ein neuer
+  // Versuch legt sie anschließend frisch an.
+  late AppDatabase db;
+  late StoragePaths paths;
+  late ImportService importService;
+  late BackupService backupService;
+  late ModelDownloadService modelDownloadService;
+  late GeoDataDownloadService geoDataDownloadService;
+  late RestoreQueueService restoreQueue;
 
   // Jedes KI-Modell wird erst beim ersten Gebrauch geladen und nach einer
   // Weile Leerlauf wieder freigegeben (siehe ModellHalter, _sweepIdleModels) –
@@ -155,7 +162,8 @@ class LibraryState extends ChangeNotifier {
   // audit_optimierungen_test.dart) und dürfen dabei nicht auf ein
   // uninitialisiertes `late`-Feld treffen. _loadModelsIfPresent() ersetzt
   // die Platzhalter beim echten Start durch die tatsächlichen Halter.
-  ModellHalter<FaceEngineService> faceEngineHalter = _leererHalter('Gesichtserkennung');
+  ModellHalter<FaceEngineService> faceEngineHalter =
+      _leererHalter('Gesichtserkennung');
   ModellHalter<EyeStateService> eyeStateHalter = _leererHalter('Augen-Zustand');
   // CLIP getrennt nach Encoder: Der Bildteil (335 MB) arbeitet in der
   // Hintergrundanalyse, der Textteil (242 MB) nur, wenn jemand eine
@@ -165,7 +173,8 @@ class LibraryState extends ChangeNotifier {
   // Text-Embeddings der Vokabelbegriffe) und deshalb beide leiht.
   ModellHalter<ClipService> clipBildHalter = _leererHalter('CLIP-Bild');
   ModellHalter<ClipService> clipTextHalter = _leererHalter('CLIP-Text');
-  ModellHalter<SegmentationService> segmentationHalter = _leererHalter('Segmentierung');
+  ModellHalter<SegmentationService> segmentationHalter =
+      _leererHalter('Segmentierung');
   ModellHalter<FlorenceCaptioningService> captioningHalter =
       _leererHalter('Bildbeschreibung');
 
@@ -184,7 +193,8 @@ class LibraryState extends ChangeNotifier {
   static ModellHalter<T> _leererHalter<T>(String name) => ModellHalter<T>(
         name: name,
         installiert: false,
-        laden: () => throw StateError('LibraryState.initialize() wurde noch nicht aufgerufen.'),
+        laden: () => throw StateError(
+            'LibraryState.initialize() wurde noch nicht aufgerufen.'),
         entsorgen: (_) async {},
       );
 
@@ -211,6 +221,7 @@ class LibraryState extends ChangeNotifier {
   /// eine bereits geladene [ClipService]-Sitzung als Parameter, deshalb ohne
   /// eigenen Halter und für die ganze App-Laufzeit unverändert nutzbar.
   final AiTaggingService aiTaggingService = AiTaggingService();
+
   /// Name der geöffneten Bibliothek – nur gesetzt, wenn überhaupt mehr als
   /// eine bekannt ist. Sonst wäre die Anzeige in der Navigationsleiste ein
   /// Hinweis ohne Aussage.
@@ -234,6 +245,11 @@ class LibraryState extends ChangeNotifier {
   Future<void> _geoLaeuft = Future<void>.value();
   bool _ready = false;
   bool get isReady => _ready;
+
+  String? _initialisierungsfehler;
+  String? get initialisierungsfehler => _initialisierungsfehler;
+  bool _initialisierungLaeuft = false;
+  bool _datenbankGeoeffnet = false;
 
   /// Gesetzt, wenn eine andere Instanz dieselbe Bibliothek hält. [initialize]
   /// bricht dann ab, BEVOR die Datenbank geöffnet wird – die Oberfläche zeigt
@@ -261,7 +277,8 @@ class LibraryState extends ChangeNotifier {
   int? _embeddingsCacheGeneration;
 
   Future<Map<String, Float32List>> cachedEmbeddings() async {
-    if (_embeddingsCache != null && _embeddingsCacheGeneration == db.embeddingsGeneration) {
+    if (_embeddingsCache != null &&
+        _embeddingsCacheGeneration == db.embeddingsGeneration) {
       return _embeddingsCache!;
     }
     final result = await db.allEmbeddings();
@@ -462,7 +479,9 @@ class LibraryState extends ChangeNotifier {
       kerne,
       schwelleFuer: (id) {
         final person = leute[id];
-        return person == null ? faceSimilarityThreshold : schwelleFuerPerson(person);
+        return person == null
+            ? faceSimilarityThreshold
+            : schwelleFuerPerson(person);
       },
     );
     return treffer == null ? null : leute[treffer.personId];
@@ -487,7 +506,8 @@ class LibraryState extends ChangeNotifier {
     if (!await db.uebersetzeSucheUndTags()) return text;
     try {
       // `mit` gibt null zurück, wenn das Modell doch nicht ladbar war.
-      final uebersetzt = await uebersetzungDeEnHalter.mit((s) => s.translate(text));
+      final uebersetzt =
+          await uebersetzungDeEnHalter.mit((s) => s.translate(text));
       if (uebersetzt == null || uebersetzt.trim().isEmpty) return text;
       return uebersetzt;
     } catch (e) {
@@ -519,6 +539,46 @@ class LibraryState extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    if (_initialisierungLaeuft) return;
+    _initialisierungLaeuft = true;
+    _initialisierungsfehler = null;
+    _ready = false;
+    try {
+      await _initialize();
+    } catch (e, spur) {
+      debugPrint('Photo Vault konnte nicht initialisiert werden: $e');
+      debugPrintStack(stackTrace: spur);
+      await _raeumeFehlgeschlagenenStartAuf();
+      _bibliothekBelegt = false;
+      _belegterOrt = null;
+      _initialisierungsfehler = e.toString();
+      notifyListeners();
+    } finally {
+      _initialisierungLaeuft = false;
+    }
+  }
+
+  Future<void> _raeumeFehlgeschlagenenStartAuf() async {
+    _autoBackupTimer?.cancel();
+    _trashPurgeTimer?.cancel();
+    _ordnerTimer?.cancel();
+    _modellFreigabeTimer?.cancel();
+    _autoBackupTimer = null;
+    _trashPurgeTimer = null;
+    _ordnerTimer = null;
+    _modellFreigabeTimer = null;
+    if (_datenbankGeoeffnet) {
+      try {
+        await db.close();
+      } catch (_) {
+        // Der ursprüngliche Startfehler bleibt die aussagekräftige Meldung.
+      }
+      _datenbankGeoeffnet = false;
+    }
+    await Bibliothekssperre.gib();
+  }
+
+  Future<void> _initialize() async {
     // ERST die Bibliothek beanspruchen, DANN die Datenbank öffnen. Zwei
     // Instanzen auf derselben Datei zeigen verschiedene Stände, lassen
     // Hintergrundaufgaben doppelt laufen und schreiben abwechselnd
@@ -536,6 +596,7 @@ class LibraryState extends ChangeNotifier {
     _belegterOrt = null;
 
     db = await AppDatabase.open();
+    _datenbankGeoeffnet = true;
     paths = await StoragePaths.instance();
     importService = ImportService(db, paths);
     backupService = BackupService(db, paths);
@@ -566,7 +627,10 @@ class LibraryState extends ChangeNotifier {
     try {
       final bekannt = await LibraryLocation.bekannte();
       if (bekannt.length > 1) {
-        aktiveBibliothek = bekannt.where((b) => b.istAktiv).map((b) => b.eintrag.name).firstOrNull;
+        aktiveBibliothek = bekannt
+            .where((b) => b.istAktiv)
+            .map((b) => b.eintrag.name)
+            .firstOrNull;
       }
     } catch (e) {
       debugPrint('Bibliotheksliste nicht lesbar: $e');
@@ -606,26 +670,30 @@ class LibraryState extends ChangeNotifier {
     // regelmäßig, damit es auch bei einer lange offenen Sitzung nicht erst
     // beim nächsten Neustart nachgeholt wird.
     unawaited(runAutoBackupIfDue());
-    _autoBackupTimer = Timer.periodic(const Duration(minutes: 30), (_) => runAutoBackupIfDue());
+    _autoBackupTimer = Timer.periodic(
+        const Duration(minutes: 30), (_) => runAutoBackupIfDue());
 
     // Automatischer Papierkorb-Ablauf – aus demselben Grund (kein
     // Hintergrunddienst) ebenfalls einmal direkt beim Start geprüft und
     // danach regelmäßig. Ein gröberes Intervall als beim Backup reicht hier,
     // da "nach N Tagen" ohnehin keine Sekundengenauigkeit braucht.
     unawaited(purgeExpiredTrashIfDue());
-    _trashPurgeTimer = Timer.periodic(const Duration(hours: 6), (_) => purgeExpiredTrashIfDue());
+    _trashPurgeTimer = Timer.periodic(
+        const Duration(hours: 6), (_) => purgeExpiredTrashIfDue());
 
     // Überwachter Ordner – einmal beim Start und danach regelmässig, aus
     // demselben Grund wie beim automatischen Backup: Es gibt keinen
     // Hintergrunddienst, der das erledigen könnte.
     unawaited(pruefeUeberwachtenOrdner());
-    _ordnerTimer = Timer.periodic(_ordnerIntervall, (_) => pruefeUeberwachtenOrdner());
+    _ordnerTimer =
+        Timer.periodic(_ordnerIntervall, (_) => pruefeUeberwachtenOrdner());
 
     // Gibt KI-Modelle frei, die seit dem letzten Durchlauf nicht mehr in
     // Benutzung sind (siehe ModellHalter.freigebenWennUnbenutzt) – das ist
     // der Gegenpart zum bedarfsweisen Laden: ohne das hier bliebe ein einmal
     // benutztes Modell bis zum Beenden der App im Speicher.
-    _modellFreigabeTimer = Timer.periodic(const Duration(minutes: 2), (_) => _sweepIdleModels());
+    _modellFreigabeTimer =
+        Timer.periodic(const Duration(minutes: 2), (_) => _sweepIdleModels());
 
     _ready = true;
     notifyListeners();
@@ -703,14 +771,18 @@ class LibraryState extends ChangeNotifier {
     );
     uebersetzungEnDeHalter = ModellHalter<TranslationService>(
       name: 'translate-en-de',
-      installiert: TranslationService.isAvailable(_modelsDir!, Uebersetzungsrichtung.enDe),
-      laden: () => TranslationService.load(_modelsDir!, Uebersetzungsrichtung.enDe),
+      installiert: TranslationService.isAvailable(
+          _modelsDir!, Uebersetzungsrichtung.enDe),
+      laden: () =>
+          TranslationService.load(_modelsDir!, Uebersetzungsrichtung.enDe),
       entsorgen: (s) => s.dispose(),
     );
     uebersetzungDeEnHalter = ModellHalter<TranslationService>(
       name: 'translate-de-en',
-      installiert: TranslationService.isAvailable(_modelsDir!, Uebersetzungsrichtung.deEn),
-      laden: () => TranslationService.load(_modelsDir!, Uebersetzungsrichtung.deEn),
+      installiert: TranslationService.isAvailable(
+          _modelsDir!, Uebersetzungsrichtung.deEn),
+      laden: () =>
+          TranslationService.load(_modelsDir!, Uebersetzungsrichtung.deEn),
       entsorgen: (s) => s.dispose(),
     );
     ocrHalter = ModellHalter<OcrService>(
@@ -849,7 +921,8 @@ class LibraryState extends ChangeNotifier {
   bool get faceDetectionAvailable => faceEngineHalter.installiert;
   // Statische Dateiprüfung statt `faceEngine?.canEmbed`: Letzteres brauchte
   // eine dauerhaft geladene Instanz, die es jetzt nicht mehr gibt.
-  bool get faceRecognitionAvailable => FaceEngineService.isRecognitionAvailable(_modelsDir!);
+  bool get faceRecognitionAvailable =>
+      FaceEngineService.isRecognitionAvailable(_modelsDir!);
   bool get segmentationAvailable => segmentationHalter.installiert;
   bool get captioningAvailable => captioningHalter.installiert;
   bool get uebersetzungEnDeAvailable => uebersetzungEnDeHalter.installiert;
@@ -879,7 +952,8 @@ class LibraryState extends ChangeNotifier {
         done,
         filePaths.length,
         currentFile: p.basename(filePath),
-        assetId: result.outcome == ImportOutcome.imported ? result.assetId : null,
+        assetId:
+            result.outcome == ImportOutcome.imported ? result.assetId : null,
         duplikat: result.outcome == ImportOutcome.duplicateSkipped,
         gescheitert: result.outcome == ImportOutcome.failed,
       );
@@ -909,7 +983,8 @@ class LibraryState extends ChangeNotifier {
   /// dekodierbar ist (z.B. beschädigt).
   Future<img.Image?> _decodeAsset(AssetData asset) async {
     try {
-      return await compute(decodeImageBytes, await _decodableFile(asset).readAsBytes());
+      return await compute(
+          decodeImageBytes, await _decodableFile(asset).readAsBytes());
     } catch (_) {
       return null;
     }
@@ -928,14 +1003,18 @@ class LibraryState extends ChangeNotifier {
     if (isImage && !_livePhotoImageExts.contains(ext)) return;
     if (!isImage && ext != _livePhotoVideoExt) return;
 
-    final stem = p.basenameWithoutExtension(asset.originalFileName).toLowerCase();
-    final candidates = await db.unlinkedAssetsOfType(isImage ? 'VIDEO' : 'IMAGE');
+    final stem =
+        p.basenameWithoutExtension(asset.originalFileName).toLowerCase();
+    final candidates =
+        await db.unlinkedAssetsOfType(isImage ? 'VIDEO' : 'IMAGE');
     for (final candidate in candidates) {
       if (candidate.id == asset.id) continue;
-      final candidateExt = p.extension(candidate.originalFileName).toLowerCase();
+      final candidateExt =
+          p.extension(candidate.originalFileName).toLowerCase();
       if (isImage && candidateExt != _livePhotoVideoExt) continue;
       if (!isImage && !_livePhotoImageExts.contains(candidateExt)) continue;
-      final candidateStem = p.basenameWithoutExtension(candidate.originalFileName).toLowerCase();
+      final candidateStem =
+          p.basenameWithoutExtension(candidate.originalFileName).toLowerCase();
       if (candidateStem == stem) {
         await db.linkAssets(asset.id, candidate.id);
         return;
@@ -1012,7 +1091,8 @@ class LibraryState extends ChangeNotifier {
               rule.regionCenterLat != null &&
               rule.regionCenterLon != null &&
               rule.regionRadiusKm != null &&
-              ReverseGeocoder.haversineKm(latitude, longitude, rule.regionCenterLat!, rule.regionCenterLon!) <=
+              ReverseGeocoder.haversineKm(latitude, longitude,
+                      rule.regionCenterLat!, rule.regionCenterLon!) <=
                   rule.regionRadiusKm!;
         case 'dateRange':
           matches = fileCreatedAt != null &&
@@ -1021,7 +1101,9 @@ class LibraryState extends ChangeNotifier {
               !fileCreatedAt.isBefore(rule.dateFrom!) &&
               !fileCreatedAt.isAfter(rule.dateTo!);
         case 'aiTag':
-          matches = aiTags != null && rule.aiTagTerm != null && aiTags.contains(rule.aiTagTerm);
+          matches = aiTags != null &&
+              rule.aiTagTerm != null &&
+              aiTags.contains(rule.aiTagTerm);
         default:
           matches = false;
       }
@@ -1097,13 +1179,17 @@ class LibraryState extends ChangeNotifier {
     _analyseZurueckgestellt = false;
     _analyseAbbruch = false;
 
-    final stufen = <({Analysestufe name, Stream<ImportProgress> Function() lauf})>[
+    final stufen =
+        <({Analysestufe name, Stream<ImportProgress> Function() lauf})>[
       (name: Analysestufe.bildanalyse, lauf: () => _bildinhaltsAnalyse()),
       (name: Analysestufe.texterkennung, lauf: () => backfillOcrText()),
       // Kein eigener CLIP-Schritt mehr – die Embeddings entstehen bereits in
       // der Bildanalyse. [backfillClipEmbeddings] bleibt für den manuellen
       // Aufruf in den Werkzeugen erhalten.
-      (name: Analysestufe.schlagwoerter, lauf: () => backfillAiTags(onlyUntagged: true)),
+      (
+        name: Analysestufe.schlagwoerter,
+        lauf: () => backfillAiTags(onlyUntagged: true)
+      ),
       (name: Analysestufe.bildbeschreibung, lauf: () => backfillCaptions()),
     ];
 
@@ -1262,7 +1348,9 @@ class LibraryState extends ChangeNotifier {
   /// wird, und tut das nicht mehr. Ein Parameter, den niemand liest, ist
   /// eine Behauptung über die Regel, die nicht mehr stimmt.
   Startabweisung? pruefeStart(String schluessel) =>
-      (_laeufe[schluessel]?.offen ?? false) ? Startabweisung.laeuftBereits : null;
+      (_laeufe[schluessel]?.offen ?? false)
+          ? Startabweisung.laeuftBereits
+          : null;
 
   /// Ob [lauf] jetzt losdarf.
   ///
@@ -1451,7 +1539,8 @@ class LibraryState extends ChangeNotifier {
     if (asset == null) return;
 
     await _tryLinkLivePhoto(asset);
-    await applyCameraPreset(asset.id, cameraMake: asset.cameraMake, cameraModel: asset.cameraModel);
+    await applyCameraPreset(asset.id,
+        cameraMake: asset.cameraMake, cameraModel: asset.cameraModel);
     await applyAutomationRules(
       asset.id,
       latitude: asset.latitude,
@@ -1471,11 +1560,11 @@ class LibraryState extends ChangeNotifier {
     if (geocoder != null && asset.latitude != null && asset.longitude != null) {
       final result = geocoder!.lookup(asset.latitude!, asset.longitude!);
       if (result != null) {
-        await db.setLocationNames(asset.id, country: result.country, state: result.state, city: result.city);
+        await db.setLocationNames(asset.id,
+            country: result.country, state: result.state, city: result.city);
       }
     }
   }
-
 
   /// Setzt den Ort von Hand – und trägt die Ortsnamen gleich mit nach.
   ///
@@ -1583,8 +1672,7 @@ class LibraryState extends ChangeNotifier {
         // Dieselbe Schwelle wie die Unterdrückung mehrfacher Erkennungen
         // derselben Stelle (FaceEngineService.detectFaces) – es ist
         // dieselbe Frage: Ist das nochmal dieses Gesicht?
-        if (ignorierteBoxen
-            .any((alt) => FacePostprocess.iou(alt, box) > 0.3)) {
+        if (ignorierteBoxen.any((alt) => FacePostprocess.iou(alt, box) > 0.3)) {
           continue;
         }
         final faceId = const Uuid().v4();
@@ -1606,7 +1694,8 @@ class LibraryState extends ChangeNotifier {
           try {
             eyeOpenScore = await eyeState.eyeOpenScore(decoded, box);
           } catch (e) {
-            debugPrint('Augen-Zustand-Erkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+            debugPrint(
+                'Augen-Zustand-Erkennung fehlgeschlagen für ${asset.originalFileName}: $e');
           }
         }
 
@@ -1618,8 +1707,11 @@ class LibraryState extends ChangeNotifier {
           boxW: box.width,
           boxH: box.height,
           cropRelativePath: Value(paths.faceRelativePath(faceId)),
-          embedding: embedding != null ? Value(blobFromEmbeddingFloats(embedding)) : const Value.absent(),
-          eyeOpenScore: eyeOpenScore != null ? Value(eyeOpenScore) : const Value.absent(),
+          embedding: embedding != null
+              ? Value(blobFromEmbeddingFloats(embedding))
+              : const Value.absent(),
+          eyeOpenScore:
+              eyeOpenScore != null ? Value(eyeOpenScore) : const Value.absent(),
           // Auf dem Ausschnitt, der ohnehin schon im Speicher liegt –
           // kein zweiter Dekodiervorgang, keine zweite Skalierung.
           schaerfe: Value(gesichtsschaerfe(croppedThumb)),
@@ -1627,7 +1719,8 @@ class LibraryState extends ChangeNotifier {
       }
       await db.markFacesScanned([asset.id]);
     } catch (e) {
-      debugPrint('Gesichtserkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+      debugPrint(
+          'Gesichtserkennung fehlgeschlagen für ${asset.originalFileName}: $e');
     }
   }
 
@@ -1683,7 +1776,8 @@ class LibraryState extends ChangeNotifier {
             deleteExistingUnassigned: !onlyNewPhotos,
           );
           done++;
-          yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+          yield ImportProgress(done, assets.length,
+              currentFile: asset.originalFileName);
         }
       } finally {
         if (eyeState != null) eyeStateHalter.zurueckgeben();
@@ -1697,7 +1791,8 @@ class LibraryState extends ChangeNotifier {
   /// native Bildkonvertierung für HEIC/DNG oder die Video-Thumbnail-
   /// Erzeugung erst nachträglich eingerichtet wurde. [onlyMissing] = true
   /// verarbeitet nur Assets ohne Thumbnail.
-  Stream<ImportProgress> regenerateThumbnails({required bool onlyMissing}) async* {
+  Stream<ImportProgress> regenerateThumbnails(
+      {required bool onlyMissing}) async* {
     final assets = await db.assetsForThumbnailRegen(onlyMissing: onlyMissing);
     var done = 0;
     yield ImportProgress(0, assets.length);
@@ -1724,10 +1819,12 @@ class LibraryState extends ChangeNotifier {
           );
         }
       } catch (e) {
-        debugPrint('Vorschau-Erzeugung fehlgeschlagen für ${asset.originalFileName}: $e');
+        debugPrint(
+            'Vorschau-Erzeugung fehlgeschlagen für ${asset.originalFileName}: $e');
       }
       done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, assets.length,
+          currentFile: asset.originalFileName);
     }
   }
 
@@ -1799,10 +1896,12 @@ class LibraryState extends ChangeNotifier {
           );
         }
       } catch (e) {
-        debugPrint('Neu-Rendern fehlgeschlagen für ${asset.originalFileName}: $e');
+        debugPrint(
+            'Neu-Rendern fehlgeschlagen für ${asset.originalFileName}: $e');
       }
       done++;
-      yield ImportProgress(done, entries.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, entries.length,
+          currentFile: asset.originalFileName);
     }
   }
 
@@ -1816,7 +1915,8 @@ class LibraryState extends ChangeNotifier {
     for (final asset in images) {
       await _tryLinkLivePhoto(asset);
       done++;
-      yield ImportProgress(done, images.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, images.length,
+          currentFile: asset.originalFileName);
     }
   }
 
@@ -1886,15 +1986,16 @@ class LibraryState extends ChangeNotifier {
 
     try {
       for (final asset in assets) {
-        final gps =
-            await importService.readGpsLocation(paths.absolute(asset.relativePath));
+        final gps = await importService
+            .readGpsLocation(paths.absolute(asset.relativePath));
         if (gps != null) {
           await db.setLocation(asset.id, gps.latitude, gps.longitude);
         }
         block.add(asset.id);
         if (block.length >= blockGroesse) await blockSchreiben();
         done++;
-        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+        yield ImportProgress(done, assets.length,
+            currentFile: asset.originalFileName);
       }
     } finally {
       // Auch bei Abbruch: Was angesehen wurde, ist angesehen. Ein
@@ -2051,7 +2152,8 @@ class LibraryState extends ChangeNotifier {
               try {
                 final neue = <({double stelle, Uint8List vector})>[];
                 for (final stelle in stellen) {
-                  final bild = await NativeImageConverter.generateVideoThumbnail(
+                  final bild =
+                      await NativeImageConverter.generateVideoThumbnail(
                     paths.absolute(video.relativePath),
                     maxDimension: videoStandbildKante,
                     anteil: stelle,
@@ -2154,7 +2256,9 @@ class LibraryState extends ChangeNotifier {
       await db.transaction(() async {
         for (final e in zuSchreiben) {
           await db.setLocationNames(e.id,
-              country: e.treffer.country, state: e.treffer.state, city: e.treffer.city);
+              country: e.treffer.country,
+              state: e.treffer.state,
+              city: e.treffer.city);
         }
       });
     }
@@ -2164,7 +2268,8 @@ class LibraryState extends ChangeNotifier {
       if (result != null) block.add((id: asset.id, treffer: result));
       if (block.length >= blockGroesse) await blockSchreiben();
       done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, assets.length,
+          currentFile: asset.originalFileName);
     }
     await blockSchreiben();
   }
@@ -2177,13 +2282,16 @@ class LibraryState extends ChangeNotifier {
     var done = 0;
     yield ImportProgress(0, assets.length);
     for (final asset in assets) {
-      final info = await importService.readCameraInfo(paths.absolute(asset.relativePath));
+      final info = await importService
+          .readCameraInfo(paths.absolute(asset.relativePath));
       if (!info.isEmpty) {
         await db.setCameraMetadata(asset.id, info);
-        await applyCameraPreset(asset.id, cameraMake: info.make, cameraModel: info.model);
+        await applyCameraPreset(asset.id,
+            cameraMake: info.make, cameraModel: info.model);
       }
       done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, assets.length,
+          currentFile: asset.originalFileName);
     }
   }
 
@@ -2224,7 +2332,8 @@ class LibraryState extends ChangeNotifier {
         // Eine Minute Spielraum: Sekundenbruchteile und Rundungen der
         // verschiedenen Wege sollen keine Verschiebung auslösen.
         if (neu != null &&
-            neu.difference(asset.fileCreatedAt).abs() > const Duration(minutes: 1)) {
+            neu.difference(asset.fileCreatedAt).abs() >
+                const Duration(minutes: 1)) {
           await _datumUmschreiben(asset, neu);
         }
       }
@@ -2275,7 +2384,8 @@ class LibraryState extends ChangeNotifier {
       }
       final neu = daten.zeitpunkt;
       if (neu != null &&
-          neu.difference(asset.fileCreatedAt).abs() > const Duration(minutes: 1)) {
+          neu.difference(asset.fileCreatedAt).abs() >
+              const Duration(minutes: 1)) {
         await _datumUmschreiben(asset, neu);
       }
     }
@@ -2427,7 +2537,8 @@ class LibraryState extends ChangeNotifier {
   /// ärgerlich, aber er darf keinen Umzug rückgängig machen, der sonst
   /// geklappt hat. Er wird beim nächsten Lauf von
   /// [verirrteBeipackzettel] ohnehin eingesammelt.
-  Future<void> _beipackzettelMitnehmen(String alterPfad, String neuerPfad) async {
+  Future<void> _beipackzettelMitnehmen(
+      String alterPfad, String neuerPfad) async {
     final alt = paths.absolute(paths.xmpSidecarPath(alterPfad));
     if (!await alt.exists()) return;
     try {
@@ -2463,10 +2574,12 @@ class LibraryState extends ChangeNotifier {
     final wurzel = Directory(p.join(paths.root.path, 'originals'));
     if (!wurzel.existsSync()) return const [];
     final pfadJeKennung = {
-      for (final a in await db.allAssetsForIntegrityCheck()) a.id: a.relativePath
+      for (final a in await db.allAssetsForIntegrityCheck())
+        a.id: a.relativePath
     };
     final gefunden = <({String von, String nach})>[];
-    await for (final eintrag in wurzel.list(recursive: true, followLinks: false)) {
+    await for (final eintrag
+        in wurzel.list(recursive: true, followLinks: false)) {
       if (eintrag is! File) continue;
       final rel = p.relative(eintrag.path, from: paths.root.path);
       if (p.extension(rel).toLowerCase() != '.xmp') continue;
@@ -2515,7 +2628,8 @@ class LibraryState extends ChangeNotifier {
       // Programmstart und muss aus dem gespeicherten Merkmal wiederhergestellt
       // werden (siehe FolderAccess).
       final zugriff = FolderAccess.forCurrentPlatform();
-      var pfad = await zugriff.resolveRoot(path: eintrag.pfad, token: eintrag.token);
+      var pfad =
+          await zugriff.resolveRoot(path: eintrag.pfad, token: eintrag.token);
       // Ohne Merkmal liefert die macOS-Umsetzung grundsätzlich null – das
       // ist für Ordner ausserhalb des Programmbereichs richtig, schliesst
       // aber auch solche aus, die ohnehin gelesen werden dürfen (innerhalb
@@ -2544,7 +2658,7 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
-    // -----------------------------------------------------------------------
+  // -----------------------------------------------------------------------
   // Entwicklungseinstellungen übertragen
   // -----------------------------------------------------------------------
 
@@ -2719,7 +2833,9 @@ class LibraryState extends ChangeNotifier {
           maxDimension: 4096,
           quality: 0.92,
         );
-        if (bytes == null) throw Exception('Bild konnte nicht gerendert werden.');
+        if (bytes == null) {
+          throw Exception('Bild konnte nicht gerendert werden.');
+        }
 
         final zielPfad = paths.developedRelativePath(asset.id);
         final datei = paths.absolute(zielPfad);
@@ -2750,10 +2866,12 @@ class LibraryState extends ChangeNotifier {
           developedRelativePath: zielPfad,
         );
       } catch (e) {
-        debugPrint('Entwicklung übertragen fehlgeschlagen für ${asset.originalFileName}: $e');
+        debugPrint(
+            'Entwicklung übertragen fehlgeschlagen für ${asset.originalFileName}: $e');
       }
       done++;
-      yield ImportProgress(done, ziele.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, ziele.length,
+          currentFile: asset.originalFileName);
     }
   }
 
@@ -2788,7 +2906,8 @@ class LibraryState extends ChangeNotifier {
         try {
           List<Textstelle>? stellen;
           if (ueberSystem) {
-            stellen = await NativeImageConverter.recognizeText(_decodableFile(asset));
+            stellen =
+                await NativeImageConverter.recognizeText(_decodableFile(asset));
           } else {
             final bild = await _decodeAsset(asset);
             if (bild != null) stellen = await modell!.erkenne(bild);
@@ -2811,10 +2930,12 @@ class LibraryState extends ChangeNotifier {
           debugPrint('Texterkennung: ${e.stellen} Stellen mit Schrift in '
               '${asset.originalFileName}, keine lesbar – Foto bleibt offen.');
         } catch (e) {
-          debugPrint('Texterkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+          debugPrint(
+              'Texterkennung fehlgeschlagen für ${asset.originalFileName}: $e');
         }
         done++;
-        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+        yield ImportProgress(done, assets.length,
+            currentFile: asset.originalFileName);
       }
     } finally {
       if (!ueberSystem) ocrHalter.zurueckgeben();
@@ -2856,7 +2977,9 @@ class LibraryState extends ChangeNotifier {
       for (final asset in assets) {
         try {
           final decoded = await _decodeAsset(asset);
-          if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
+          if (decoded == null) {
+            throw Exception('Bild konnte nicht dekodiert werden.');
+          }
           final caption = await service.generateCaption(decoded);
           String? deutsch;
           if (uebersetzer != null && caption.isNotEmpty) {
@@ -2865,15 +2988,18 @@ class LibraryState extends ChangeNotifier {
             } catch (e) {
               // Eine fehlgeschlagene Übersetzung darf die Beschreibung
               // nicht mitreissen – das englische Original ist brauchbar.
-              debugPrint('Übersetzung fehlgeschlagen für ${asset.originalFileName}: $e');
+              debugPrint(
+                  'Übersetzung fehlgeschlagen für ${asset.originalFileName}: $e');
             }
           }
           await db.setAiCaption(asset.id, caption, deutsch: deutsch);
         } catch (e) {
-          debugPrint('KI-Bildbeschreibung fehlgeschlagen für ${asset.originalFileName}: $e');
+          debugPrint(
+              'KI-Bildbeschreibung fehlgeschlagen für ${asset.originalFileName}: $e');
         }
         done++;
-        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+        yield ImportProgress(done, assets.length,
+            currentFile: asset.originalFileName);
       }
     } finally {
       if (uebersetzer != null) uebersetzungEnDeHalter.zurueckgeben();
@@ -2892,7 +3018,8 @@ class LibraryState extends ChangeNotifier {
   ///
   /// [alle] übersetzt auch das, was schon eine deutsche Fassung hat – nach
   /// einem Modellwechsel der sinnvolle Weg.
-  Stream<ImportProgress> uebersetzeBildbeschreibungen({bool alle = false}) async* {
+  Stream<ImportProgress> uebersetzeBildbeschreibungen(
+      {bool alle = false}) async* {
     // Erst die Arbeit ermitteln, dann das Modell holen – siehe
     // [_bildinhaltsAnalyse].
     final assets = await db.assetsForCaptionTranslation(alle: alle);
@@ -2914,15 +3041,19 @@ class LibraryState extends ChangeNotifier {
         if (englisch.isNotEmpty) {
           try {
             final deutsch = await uebersetzer.translate(englisch);
-            if (deutsch.trim().isNotEmpty) await db.setAiCaptionDe(asset.id, deutsch.trim());
+            if (deutsch.trim().isNotEmpty) {
+              await db.setAiCaptionDe(asset.id, deutsch.trim());
+            }
           } catch (e) {
             // Ein Satz, an dem sich das Modell verschluckt, darf den Lauf
             // über die ganze Bibliothek nicht beenden.
-            debugPrint('Übersetzung fehlgeschlagen für ${asset.originalFileName}: $e');
+            debugPrint(
+                'Übersetzung fehlgeschlagen für ${asset.originalFileName}: $e');
           }
         }
         done++;
-        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+        yield ImportProgress(done, assets.length,
+            currentFile: asset.originalFileName);
       }
     } finally {
       uebersetzungEnDeHalter.zurueckgeben();
@@ -2960,7 +3091,8 @@ class LibraryState extends ChangeNotifier {
     try {
       final gesichter = await faceEngineHalter.leihen();
       try {
-        final augenzustand = gesichter != null ? await eyeStateHalter.leihen() : null;
+        final augenzustand =
+            gesichter != null ? await eyeStateHalter.leihen() : null;
         try {
           var done = 0;
           yield ImportProgress(0, kandidaten.length);
@@ -2976,9 +3108,11 @@ class LibraryState extends ChangeNotifier {
               if (decoded != null) {
                 if (brauchtUnschaerfe) {
                   try {
-                    await db.setSharpnessScore(asset.id, await compute(computeBlurScore, decoded));
+                    await db.setSharpnessScore(
+                        asset.id, await compute(computeBlurScore, decoded));
                   } catch (e) {
-                    debugPrint('Unschärfe fehlgeschlagen für ${asset.originalFileName}: $e');
+                    debugPrint(
+                        'Unschärfe fehlgeschlagen für ${asset.originalFileName}: $e');
                   }
                 }
                 if (brauchtGesichter) {
@@ -2991,21 +3125,25 @@ class LibraryState extends ChangeNotifier {
                       deleteExistingUnassigned: false,
                     );
                   } catch (e) {
-                    debugPrint('Gesichtserkennung fehlgeschlagen für ${asset.originalFileName}: $e');
+                    debugPrint(
+                        'Gesichtserkennung fehlgeschlagen für ${asset.originalFileName}: $e');
                   }
                 }
                 if (brauchtEmbedding) {
                   try {
-                    await db.saveEmbedding(asset.id, await clip.embedImage(decoded));
+                    await db.saveEmbedding(
+                        asset.id, await clip.embedImage(decoded));
                   } catch (e) {
-                    debugPrint('CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
+                    debugPrint(
+                        'CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
                   }
                 }
               }
             }
 
             done++;
-            yield ImportProgress(done, kandidaten.length, currentFile: asset.originalFileName);
+            yield ImportProgress(done, kandidaten.length,
+                currentFile: asset.originalFileName);
           }
         } finally {
           if (augenzustand != null) eyeStateHalter.zurueckgeben();
@@ -3032,13 +3170,16 @@ class LibraryState extends ChangeNotifier {
       try {
         final decoded = await _decodeAsset(asset);
         if (decoded != null) {
-          await db.setSharpnessScore(asset.id, await compute(computeBlurScore, decoded));
+          await db.setSharpnessScore(
+              asset.id, await compute(computeBlurScore, decoded));
         }
       } catch (e) {
-        debugPrint('Unschärfe-Berechnung fehlgeschlagen für ${asset.originalFileName}: $e');
+        debugPrint(
+            'Unschärfe-Berechnung fehlgeschlagen für ${asset.originalFileName}: $e');
       }
       done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, assets.length,
+          currentFile: asset.originalFileName);
     }
   }
 
@@ -3066,7 +3207,8 @@ class LibraryState extends ChangeNotifier {
           if (await datei.exists()) {
             final bild = img.decodeImage(await datei.readAsBytes());
             if (bild != null) {
-              await db.setzeGesichtsschaerfe(gesicht.id, gesichtsschaerfe(bild));
+              await db.setzeGesichtsschaerfe(
+                  gesicht.id, gesichtsschaerfe(bild));
             }
           }
         }
@@ -3100,10 +3242,12 @@ class LibraryState extends ChangeNotifier {
         tagsByAssetId[asset.id] ?? const [],
         gesichter: gesichterByAssetId[asset.id] ?? const [],
       );
-      final sidecarFile = paths.absolute(paths.xmpSidecarPath(asset.relativePath));
+      final sidecarFile =
+          paths.absolute(paths.xmpSidecarPath(asset.relativePath));
       await sidecarFile.writeAsString(xmp);
       done++;
-      yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+      yield ImportProgress(done, assets.length,
+          currentFile: asset.originalFileName);
     }
   }
 
@@ -3111,9 +3255,11 @@ class LibraryState extends ChangeNotifier {
   /// Schließt dafür die aktuelle Datenbankverbindung – die App muss danach
   /// neu gestartet werden, damit sie den Standardordner wieder lädt (siehe
   /// [LibraryLocation] für die Details zur Sandbox-Zugriffsproblematik).
-  Future<void> resetLibraryLocation() async {
+  Future<void> resetLibraryLocation({
+    ValueChanged<BibliotheksVerschiebefortschritt>? onProgress,
+  }) async {
     await db.close();
-    await LibraryLocation.resetToDefault();
+    await LibraryLocation.resetToDefault(onProgress: onProgress);
   }
 
   /// Löscht die GESAMTE Bibliothek unwiderruflich: die Datenbank (Fotos-
@@ -3198,14 +3344,18 @@ class LibraryState extends ChangeNotifier {
       for (final asset in assets) {
         try {
           final decoded = await _decodeAsset(asset);
-          if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
+          if (decoded == null) {
+            throw Exception('Bild konnte nicht dekodiert werden.');
+          }
           final embedding = await service.embedImage(decoded);
           await db.saveEmbedding(asset.id, embedding);
         } catch (e) {
-          debugPrint('CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
+          debugPrint(
+              'CLIP-Embedding fehlgeschlagen für ${asset.originalFileName}: $e');
         }
         done++;
-        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+        yield ImportProgress(done, assets.length,
+            currentFile: asset.originalFileName);
       }
     } finally {
       clipBildHalter.zurueckgeben();
@@ -3253,7 +3403,9 @@ class LibraryState extends ChangeNotifier {
           var embedding = await db.embeddingForAsset(asset.id);
           if (embedding == null) {
             final decoded = await _decodeAsset(asset);
-            if (decoded == null) throw Exception('Bild konnte nicht dekodiert werden.');
+            if (decoded == null) {
+              throw Exception('Bild konnte nicht dekodiert werden.');
+            }
             embedding = await clipBild.embedImage(decoded);
             await db.saveEmbedding(asset.id, embedding);
           }
@@ -3271,7 +3423,8 @@ class LibraryState extends ChangeNotifier {
             await db.tagAsset(asset.id, tag, quelle: Tagquelle.ki);
           }
           if (tags.isNotEmpty) {
-            await applyAutomationRules(asset.id, aiTags: tags, rules: automationRules);
+            await applyAutomationRules(asset.id,
+                aiTags: tags, rules: automationRules);
           }
           // Auch bei LEERER Trefferliste vermerken: "kein Begriff passt" ist
           // ein Ergebnis, kein offener Posten. Ohne diesen Vermerk bliebe das
@@ -3281,10 +3434,12 @@ class LibraryState extends ChangeNotifier {
           // catch) soll erneut versucht werden.
           await db.markAiTagsScanned([asset.id]);
         } catch (e) {
-          debugPrint('KI-Tagging fehlgeschlagen für ${asset.originalFileName}: $e');
+          debugPrint(
+              'KI-Tagging fehlgeschlagen für ${asset.originalFileName}: $e');
         }
         done++;
-        yield ImportProgress(done, assets.length, currentFile: asset.originalFileName);
+        yield ImportProgress(done, assets.length,
+            currentFile: asset.originalFileName);
       }
     } finally {
       clipTextHalter.zurueckgeben();
@@ -3312,7 +3467,10 @@ class LibraryState extends ChangeNotifier {
   /// entsperrt.
   Future<void> setupVaultPin(String pin) async {
     final wrapped = await VaultCrypto.createMasterKey(pin);
-    await db.saveVaultKey(kdfSalt: wrapped.kdfSalt, nonce: wrapped.nonce, wrapped: wrapped.wrapped);
+    await db.saveVaultKey(
+        kdfSalt: wrapped.kdfSalt,
+        nonce: wrapped.nonce,
+        wrapped: wrapped.wrapped);
     _vaultKey = wrapped.masterKey;
   }
 
@@ -3326,7 +3484,8 @@ class LibraryState extends ChangeNotifier {
     if (kdfSalt == null || nonce == null || wrapped == null) {
       throw StateError('Kein PIN eingerichtet.');
     }
-    _vaultKey = await VaultCrypto.unwrapMasterKey(pin, kdfSalt: kdfSalt, nonce: nonce, wrapped: wrapped);
+    _vaultKey = await VaultCrypto.unwrapMasterKey(pin,
+        kdfSalt: kdfSalt, nonce: nonce, wrapped: wrapped);
   }
 
   /// Ändert den PIN, ohne den Master-Key (und damit alle bereits
@@ -3334,9 +3493,14 @@ class LibraryState extends ChangeNotifier {
   /// des Master-Keys ändert sich.
   Future<void> changeVaultPin(String newPin) async {
     final key = _vaultKey;
-    if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    if (key == null) {
+      throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    }
     final wrapped = await VaultCrypto.wrapMasterKey(key, newPin);
-    await db.saveVaultKey(kdfSalt: wrapped.kdfSalt, nonce: wrapped.nonce, wrapped: wrapped.wrapped);
+    await db.saveVaultKey(
+        kdfSalt: wrapped.kdfSalt,
+        nonce: wrapped.nonce,
+        wrapped: wrapped.wrapped);
   }
 
   /// Entfernt den PIN-Schutz und entschlüsselt alle gesperrten Dateien
@@ -3344,10 +3508,13 @@ class LibraryState extends ChangeNotifier {
   /// erreichbar.
   Future<void> removeVaultPin() async {
     final key = _vaultKey;
-    if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    if (key == null) {
+      throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    }
     final locked = await db.watchLockedAssets().first;
     for (final asset in locked) {
       await _decryptAssetFiles(asset, key);
+      await _restorePrivateMetadata(asset.id, key);
       await db.setAssetsLocked([asset.id], false);
     }
     await db.clearVaultKey();
@@ -3452,6 +3619,150 @@ class LibraryState extends ChangeNotifier {
     }
   }
 
+  static const _privateMetadataMagic = <int>[0x50, 0x56, 0x4d, 0x31];
+
+  /// Schreibt die privaten, in SQLite sonst direkt lesbaren Angaben als
+  /// authentifiziert verschlüsselten Datensatz. Die Asset-ID wird als AAD
+  /// gebunden, damit zwei gültige Metadatendateien nicht vertauscht werden
+  /// können. Klartext entsteht dabei nur im Arbeitsspeicher.
+  Future<void> _protectPrivateMetadata(AssetData asset, SecretKey key) async {
+    final setting = await db.privacySettingsRow();
+    if (!(setting?.protectMetadata ?? true)) return;
+
+    final relations = await db.privateRelationsForAsset(asset.id);
+    final metadata = <String, Object?>{
+      'originalFileName': asset.originalFileName,
+      'fileCreatedAt': asset.fileCreatedAt.toIso8601String(),
+      'importedAt': asset.importedAt.toIso8601String(),
+      'isFavorite': asset.isFavorite,
+      'faceScanExcluded': asset.faceScanExcluded,
+      'description': asset.description,
+      'latitude': asset.latitude,
+      'longitude': asset.longitude,
+      'cameraMake': asset.cameraMake,
+      'cameraModel': asset.cameraModel,
+      'lensModel': asset.lensModel,
+      'focalLengthMm': asset.focalLengthMm,
+      'fNumber': asset.fNumber,
+      'iso': asset.iso,
+      'exposureTimeSeconds': asset.exposureTimeSeconds,
+      'exposureBiasEv': asset.exposureBiasEv,
+      'focalLength35mm': asset.focalLength35mm,
+      'locationCountry': asset.locationCountry,
+      'locationState': asset.locationState,
+      'locationCity': asset.locationCity,
+      'rating': asset.rating,
+      'colorLabel': asset.colorLabel,
+      'ocrText': asset.ocrText,
+      'ocrScanned': asset.ocrScanned,
+      'ocrBoxen': asset.ocrBoxen,
+      'gpsGeprueft': asset.gpsGeprueft,
+      'datumGeschaetzt': asset.datumGeschaetzt,
+      'datumGeprueft': asset.datumGeprueft,
+      'ortGeerbt': asset.ortGeerbt,
+      'videobilderGeprueft': asset.videobilderGeprueft,
+      'zeitversatzMinuten': asset.zeitversatzMinuten,
+      'aiCaption': asset.aiCaption,
+      'aiCaptionDe': asset.aiCaptionDe,
+      'aiCaptionScanned': asset.aiCaptionScanned,
+      'aiCaptionEdited': asset.aiCaptionEdited,
+      'aiTagsScanned': asset.aiTagsScanned,
+      'tags': relations['tags'] ?? const <String>[],
+      'albums': relations['albums'] ?? const <String>[],
+    };
+    final cipher = AesGcm.with256bits();
+    final nonce = cipher.newNonce();
+    final box = await cipher.encrypt(utf8.encode(jsonEncode(metadata)),
+        secretKey: key, nonce: nonce, aad: utf8.encode(asset.id));
+    final target = paths.absolute(paths.vaultMetadataRelativePath(asset.id));
+    final part = File('${target.path}.part');
+    try {
+      await part.writeAsBytes([
+        ..._privateMetadataMagic,
+        ...nonce,
+        ...box.cipherText,
+        ...box.mac.bytes
+      ], flush: true);
+      if (await target.exists()) await target.delete();
+      await part.rename(target.path);
+    } finally {
+      if (await part.exists()) await part.delete();
+    }
+    await db.hidePrivateMetadata(asset.id);
+  }
+
+  Future<void> _restorePrivateMetadata(String assetId, SecretKey key) async {
+    final target = paths.absolute(paths.vaultMetadataRelativePath(assetId));
+    if (!await target.exists()) return; // Bestand aus älteren Fassungen.
+    final bytes = await target.readAsBytes();
+    if (bytes.length < 4 + 12 + 16 ||
+        !listEquals(bytes.sublist(0, 4), _privateMetadataMagic)) {
+      throw const FormatException('Ungültige private Metadatendatei.');
+    }
+    final nonce = bytes.sublist(4, 16);
+    final payload = bytes.sublist(16, bytes.length - 16);
+    final mac = Mac(bytes.sublist(bytes.length - 16));
+    final cipher = AesGcm.with256bits();
+    final clear = await cipher.decrypt(
+      SecretBox(payload, nonce: nonce, mac: mac),
+      secretKey: key,
+      aad: utf8.encode(assetId),
+    );
+    final json = jsonDecode(utf8.decode(clear)) as Map<String, dynamic>;
+    double? number(String key) => (json[key] as num?)?.toDouble();
+    final tags = <(String, String)>[];
+    for (final encoded in (json['tags'] as List? ?? const [])) {
+      final parts = (encoded as String).split('\u0000');
+      if (parts.length == 2) tags.add((parts[0], parts[1]));
+    }
+    await db.restorePrivateMetadata(
+      assetId,
+      AssetsCompanion(
+        originalFileName: Value(json['originalFileName'] as String),
+        fileCreatedAt: Value(DateTime.parse(json['fileCreatedAt'] as String)),
+        importedAt: Value(DateTime.parse(json['importedAt'] as String)),
+        isFavorite: Value(json['isFavorite'] as bool),
+        faceScanExcluded: Value(json['faceScanExcluded'] as bool),
+        description: Value(json['description'] as String?),
+        latitude: Value(number('latitude')),
+        longitude: Value(number('longitude')),
+        cameraMake: Value(json['cameraMake'] as String?),
+        cameraModel: Value(json['cameraModel'] as String?),
+        lensModel: Value(json['lensModel'] as String?),
+        focalLengthMm: Value(number('focalLengthMm')),
+        fNumber: Value(number('fNumber')),
+        iso: Value(json['iso'] as int?),
+        exposureTimeSeconds: Value(number('exposureTimeSeconds')),
+        exposureBiasEv: Value(number('exposureBiasEv')),
+        focalLength35mm: Value(number('focalLength35mm')),
+        locationCountry: Value(json['locationCountry'] as String?),
+        locationState: Value(json['locationState'] as String?),
+        locationCity: Value(json['locationCity'] as String?),
+        rating: Value(json['rating'] as int),
+        colorLabel: Value(json['colorLabel'] as String?),
+        ocrText: Value(json['ocrText'] as String?),
+        ocrScanned: Value(json['ocrScanned'] as bool),
+        ocrBoxen: Value(json['ocrBoxen'] as String?),
+        gpsGeprueft: Value(json['gpsGeprueft'] as bool),
+        datumGeschaetzt: Value(json['datumGeschaetzt'] as bool),
+        datumGeprueft: Value(json['datumGeprueft'] as bool),
+        ortGeerbt: Value(json['ortGeerbt'] as bool),
+        videobilderGeprueft: Value(json['videobilderGeprueft'] as bool),
+        zeitversatzMinuten: Value(json['zeitversatzMinuten'] as int?),
+        aiCaption: Value(json['aiCaption'] as String?),
+        aiCaptionDe: Value(json['aiCaptionDe'] as String?),
+        aiCaptionScanned: Value(json['aiCaptionScanned'] as bool),
+        aiCaptionEdited: Value(json['aiCaptionEdited'] as bool),
+        aiTagsScanned: Value(json['aiTagsScanned'] as bool),
+      ),
+      tags: tags,
+      albumIds: [
+        for (final id in json['albums'] as List? ?? const []) id as String
+      ],
+    );
+    await target.delete();
+  }
+
   /// Verschlüsselt ein Foto/Video und verschiebt es in den gesperrten
   /// Ordner. Setzt voraus, dass der gesperrte Ordner für diese Sitzung
   /// bereits entsperrt ist (siehe [ensureVaultUnlocked] in
@@ -3460,8 +3771,11 @@ class LibraryState extends ChangeNotifier {
   /// eines Live Photos verschlüsselt ist.
   Future<void> lockAsset(AssetData asset) async {
     final key = _vaultKey;
-    if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    if (key == null) {
+      throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    }
     await _encryptAssetFiles(asset, key);
+    await _protectPrivateMetadata(asset, key);
     await db.setAssetsLocked([asset.id], true);
     // Auch die aus dem Bildinhalt abgeleiteten Daten müssen weg, sonst
     // bliebe der Inhalt in der unverschlüsselten Datenbank lesbar – siehe
@@ -3474,6 +3788,7 @@ class LibraryState extends ChangeNotifier {
       final partner = await db.assetById(asset.linkedAssetId!);
       if (partner != null && !partner.isLocked) {
         await _encryptAssetFiles(partner, key);
+        await _protectPrivateMetadata(partner, key);
         await db.setAssetsLocked([partner.id], true);
         await db.clearDerivedContentData([partner.id]);
         await db.verlegeProfilbilderVon([partner.id]);
@@ -3494,13 +3809,17 @@ class LibraryState extends ChangeNotifier {
   /// entfernt das Foto (samt Live-Photo-Partner) aus dem gesperrten Ordner.
   Future<void> unlockAsset(AssetData asset) async {
     final key = _vaultKey;
-    if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    if (key == null) {
+      throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    }
     await _decryptAssetFiles(asset, key);
+    await _restorePrivateMetadata(asset.id, key);
     await db.setAssetsLocked([asset.id], false);
     if (asset.linkedAssetId != null) {
       final partner = await db.assetById(asset.linkedAssetId!);
       if (partner != null && partner.isLocked) {
         await _decryptAssetFiles(partner, key);
+        await _restorePrivateMetadata(partner.id, key);
         await db.setAssetsLocked([partner.id], false);
       }
     }
@@ -3509,7 +3828,8 @@ class LibraryState extends ChangeNotifier {
   /// Temporäres Verzeichnis außerhalb der Bibliothek für rein zur Anzeige
   /// entschlüsselte Dateien (Vollbildansicht/Thumbnails im gesperrten
   /// Ordner) – die Originaldatei auf der Platte bleibt verschlüsselt.
-  Directory get _decryptCacheDir => Directory(p.join(Directory.systemTemp.path, 'photovault_decrypt'));
+  Directory get _decryptCacheDir =>
+      Directory(p.join(Directory.systemTemp.path, 'photovault_decrypt'));
 
   /// Wie viel Klartext im Zwischenspeicher liegen darf, bevor die
   /// ältesten Stücke weichen.
@@ -3561,7 +3881,9 @@ class LibraryState extends ChangeNotifier {
   /// Setzt einen bereits entsperrten gesperrten Ordner voraus.
   Future<File> decryptForViewing(String relativePath) async {
     final key = _vaultKey;
-    if (key == null) throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    if (key == null) {
+      throw StateError('Der gesperrte Ordner muss vorher entsperrt sein.');
+    }
     final cacheDir = _decryptCacheDir;
     final frisch = !await cacheDir.exists();
     await cacheDir.create(recursive: true);
@@ -3586,7 +3908,8 @@ class LibraryState extends ChangeNotifier {
       // das Entschlüsseln ab, hielte der Zwischenspeicher die abgebrochene
       // Fassung für fertig und zeigte sie beim nächsten Zugriff wortlos
       // weiter, statt es erneut zu versuchen.
-      final teil = File('${target.path}.${DateTime.now().microsecondsSinceEpoch}');
+      final teil =
+          File('${target.path}.${DateTime.now().microsecondsSinceEpoch}');
       try {
         await VaultCrypto.decryptFile(paths.absolute(relativePath), teil, key);
         await teil.rename(target.path);
@@ -3634,6 +3957,35 @@ class LibraryState extends ChangeNotifier {
     vergissAlleBilder();
   }
 
+  /// Räumt Klartext-Vorschauen aus dem Tresor-Zwischenspeicher und alte,
+  /// unvollständige Schreibdateien weg. Beide Gruppen sind vollständig
+  /// regenerierbar; Originale, Vorschaubilder und Modelle werden nie
+  /// gelöscht.
+  Future<({int dateien, int bytes})> bereinigeTemporareDateien() async {
+    var cacheDateien = 0;
+    var cacheBytes = 0;
+    final dir = _decryptCacheDir;
+    if (await dir.exists()) {
+      await for (final entity
+          in dir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          try {
+            cacheDateien++;
+            cacheBytes += await entity.length();
+          } on FileSystemException {
+            // Bereits verschwunden.
+          }
+        }
+      }
+    }
+    await clearDecryptCache();
+    final reste = await paths.bereinigeSchreibreste();
+    return (
+      dateien: cacheDateien + reste.dateien,
+      bytes: cacheBytes + reste.bytes,
+    );
+  }
+
   // -----------------------------------------------------------------------
   // Backup-Verschlüsselung (eigener Master-Key, eigene Passphrase – bewusst
   // getrennt vom PIN des gesperrten Ordners, siehe BackupSettings)
@@ -3644,7 +3996,10 @@ class LibraryState extends ChangeNotifier {
 
   Future<void> setupBackupPassphrase(String passphrase) async {
     final wrapped = await VaultCrypto.createMasterKey(passphrase);
-    await db.saveBackupKey(kdfSalt: wrapped.kdfSalt, nonce: wrapped.nonce, wrapped: wrapped.wrapped);
+    await db.saveBackupKey(
+        kdfSalt: wrapped.kdfSalt,
+        nonce: wrapped.nonce,
+        wrapped: wrapped.wrapped);
     _backupKey = wrapped.masterKey;
   }
 
@@ -3656,14 +4011,20 @@ class LibraryState extends ChangeNotifier {
     if (kdfSalt == null || nonce == null || wrapped == null) {
       throw StateError('Keine Backup-Passphrase eingerichtet.');
     }
-    _backupKey = await VaultCrypto.unwrapMasterKey(passphrase, kdfSalt: kdfSalt, nonce: nonce, wrapped: wrapped);
+    _backupKey = await VaultCrypto.unwrapMasterKey(passphrase,
+        kdfSalt: kdfSalt, nonce: nonce, wrapped: wrapped);
   }
 
   Future<void> changeBackupPassphrase(String newPassphrase) async {
     final key = _backupKey;
-    if (key == null) throw StateError('Die Backup-Passphrase muss vorher entsperrt sein.');
+    if (key == null) {
+      throw StateError('Die Backup-Passphrase muss vorher entsperrt sein.');
+    }
     final wrapped = await VaultCrypto.wrapMasterKey(key, newPassphrase);
-    await db.saveBackupKey(kdfSalt: wrapped.kdfSalt, nonce: wrapped.nonce, wrapped: wrapped.wrapped);
+    await db.saveBackupKey(
+        kdfSalt: wrapped.kdfSalt,
+        nonce: wrapped.nonce,
+        wrapped: wrapped.wrapped);
   }
 
   /// Entfernt nur die lokale Backup-Verschlüsselungs-Einrichtung – bereits
@@ -3679,7 +4040,8 @@ class LibraryState extends ChangeNotifier {
   /// Führt ein manuelles Backup aus – bei [encrypt] mit dem für diese
   /// Sitzung entsperrten Backup-Schlüssel (siehe [ensureBackupKeyAvailable]
   /// in pin_dialogs.dart, das der Aufrufer vorher ausgeführt haben muss).
-  Stream<BackupProgress> runManualBackup(String destination, {required bool encrypt}) async* {
+  Stream<BackupProgress> runManualBackup(String destination,
+      {required bool encrypt}) async* {
     final grenze = await _backupGrenzeBytes();
     yield* backupService.performBackup(destination,
         encryptionKey: encrypt ? _backupKey : null, maxBytesPerRun: grenze);
@@ -3699,7 +4061,9 @@ class LibraryState extends ChangeNotifier {
   /// entsperrt ist.
   Stream<BackupProgress> runAutoBackupNow(String destination) async* {
     final key = _backupKey;
-    if (key == null) throw StateError('Die Backup-Passphrase muss vorher entsperrt sein.');
+    if (key == null) {
+      throw StateError('Die Backup-Passphrase muss vorher entsperrt sein.');
+    }
     yield* backupService.performAutoBackup(destination, key,
         maxBytesPerRun: await _backupGrenzeBytes());
     await db.setLastAutoBackupAt(DateTime.now());
@@ -3727,7 +4091,9 @@ class LibraryState extends ChangeNotifier {
     }
 
     final key = _backupKey;
-    if (key == null) return; // Passphrase muss erst wieder manuell entsperrt werden.
+    if (key == null) {
+      return; // Passphrase muss erst wieder manuell entsperrt werden.
+    }
 
     _autoBackupRunning = true;
     try {
@@ -3762,6 +4128,7 @@ class LibraryState extends ChangeNotifier {
     for (final relPath in await dateienVon(asset)) {
       await paths.deletePermanently(relPath);
     }
+    await paths.deletePermanently(paths.vaultMetadataRelativePath(asset.id));
   }
 
   /// Prüft, ob im Papierkorb liegende Assets älter als das eingestellte
@@ -3775,7 +4142,8 @@ class LibraryState extends ChangeNotifier {
 
     _trashPurgeRunning = true;
     try {
-      final cutoff = DateTime.now().subtract(Duration(days: config.autoDeleteAfterDays));
+      final cutoff =
+          DateTime.now().subtract(Duration(days: config.autoDeleteAfterDays));
       final expired = await db.expiredTrashAssets(cutoff);
       for (final asset in expired) {
         await deleteAssetFilesFromDisk(asset);

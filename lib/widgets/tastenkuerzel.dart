@@ -24,6 +24,7 @@ class Tastenkuerzeltafel extends StatelessWidget {
       children: [
         _Abschnitt(titel: t.kuerzelNavigation, kuerzel: [
           ('⌘1 – ⌘0', t.kuerzelBereicheWechseln),
+          ('⌘K / Ctrl+K', t.kuerzelBefehlspalette),
           ('—', t.kuerzelReisenOhne),
           ('?', t.kuerzelUebersichtOeffnen),
         ]),

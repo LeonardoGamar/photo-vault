@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
@@ -32,12 +33,23 @@ void main() {
   setUp(() async {
     wurzel = Directory.systemTemp.createTempSync('pv_zurueck_');
     db = AppDatabase(NativeDatabase.memory());
-    pfade = await StoragePaths.forTesting(Directory(p.join(wurzel.path, 'lib')));
+    pfade =
+        await StoragePaths.forTesting(Directory(p.join(wurzel.path, 'lib')));
   });
 
   tearDown(() async {
     await db.close();
-    wurzel.deleteSync(recursive: true);
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+    for (var versuch = 0; versuch < 40 && wurzel.existsSync(); versuch++) {
+      try {
+        await wurzel.delete(recursive: true);
+      } on FileSystemException {
+        if (versuch == 39) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      }
+    }
   });
 
   /// Legt eine Datei mit Inhalt an und gibt ihren Pfad relativ zur
@@ -86,8 +98,8 @@ void main() {
   test('eine unveraenderte Aufnahme hat nichts zurueckzunehmen', () async {
     final a = await aufnahme('a1');
     expect(bearbeitungsarten(a), isEmpty);
-    expect(
-        await originalWiederherstellen(db: db, paths: pfade, asset: a), isEmpty);
+    expect(await originalWiederherstellen(db: db, paths: pfade, asset: a),
+        isEmpty);
   });
 
   test('die Entwicklung samt Masken faellt weg', () async {
@@ -96,8 +108,8 @@ void main() {
     final bearbeitet = await hole('a1');
     expect(bearbeitungsarten(bearbeitet), {Bearbeitungsart.entwickelt});
 
-    final genommen = await originalWiederherstellen(
-        db: db, paths: pfade, asset: bearbeitet);
+    final genommen =
+        await originalWiederherstellen(db: db, paths: pfade, asset: bearbeitet);
     expect(genommen, {Bearbeitungsart.entwickelt});
 
     final nachher = await hole('a1');
@@ -149,7 +161,8 @@ void main() {
     // Frage nach dem Zwischenspeicher wirft sie eine
     // `MissingPluginException` mitten in den Lauf - sichtbar erst unter
     // `runAsync`, weil erst dort die Zusagen wirklich zu Ende laufen.
-    final bote = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final bote =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     const ablage = MethodChannel('plugins.flutter.io/path_provider');
     bote.setMockMethodCallHandler(ablage, (_) async => wurzel.path);
     addTearDown(() => bote.setMockMethodCallHandler(ablage, null));
@@ -204,8 +217,8 @@ void main() {
       expect(find.textContaining('entwickelt'), findsOneWidget);
 
       // Und der Knopf daneben nimmt es zurueck - nach einer Rueckfrage.
-      await tester.tapAt(tester
-          .getCenter(find.byTooltip('Original wiederherstellen')));
+      await tester
+          .tapAt(tester.getCenter(find.byTooltip('Original wiederherstellen')));
       await takte();
       // Der Ja-Knopf traegt den Namen der Handlung. Stuende dort wie
       // ueberall sonst "Löschen", laese es sich, als werde das Original
@@ -219,6 +232,10 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(milliseconds: 1));
+      // Der eingebaute Kachelspeicher hält auf Windows seinen
+      // Größenwächter offen, bis er ausdrücklich beendet wird.
+      await BuiltInMapCachingProvider.getOrCreateInstance()
+          .destroy(deleteCache: true);
     });
   });
 

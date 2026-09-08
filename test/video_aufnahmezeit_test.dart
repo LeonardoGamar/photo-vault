@@ -55,7 +55,10 @@ void main() {
     return [
       ...kasten('meta', [
         ...kasten('keys', [
-          0, 0, 0, 0,
+          0,
+          0,
+          0,
+          0,
           ...u32(namen.length),
           for (final n in namen) ...[
             ...u32(8 + n.codeUnits.length),
@@ -90,7 +93,10 @@ void main() {
           ..add(kasten('mdat', List.filled(2000, 7)))
           ..add(kasten('moov', [
             ...kasten('mvhd', [
-              0, 0, 0, 0,
+              0,
+              0,
+              0,
+              0,
               ...u32(sek),
               ...u32(sek),
               ...u32(1000),
@@ -145,7 +151,7 @@ void main() {
       videobytes(mvhdSekunden: seit1904(DateTime.utc(2013, 6, 2, 16, 40, 17))),
       dateizeit: DateTime(2026, 8, 30, 7),
     );
-    expect(asset.relativePath, contains('2013/06'));
+    expect(asset.relativePath, contains(p.join('2013', '06')));
     expect(File(pfade.absolute(asset.relativePath).path).existsSync(), isTrue);
   });
 

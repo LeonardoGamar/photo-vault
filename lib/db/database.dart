@@ -131,7 +131,8 @@ class Assets extends Table {
   /// stehlen, wenn beide gleichzeitig genutzt werden.
   BoolColumn get autoBackedUp => boolean().withDefault(const Constant(false))();
   BoolColumn get facesScanned => boolean().withDefault(const Constant(false))();
-  TextColumn get linkedAssetId => text().nullable()(); // Live-Photo-Partner (Foto<->Video)
+  TextColumn get linkedAssetId =>
+      text().nullable()(); // Live-Photo-Partner (Foto<->Video)
 
   /// Aus EXIF-GPS-Daten übernommen (nur Fotos) oder manuell in der
   /// Info-Ansicht der Vollbildvorschau gesetzt/korrigiert. Beide null,
@@ -221,8 +222,7 @@ class Assets extends Table {
   /// `false` für alles Bestehende: Nach dem Umstieg läuft der Nachtrag
   /// genau **einmal** über die ganze Bibliothek – und findet dabei die
   /// Videos, an die er vorher nie herankam. Danach ist er still.
-  BoolColumn get gpsGeprueft =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get gpsGeprueft => boolean().withDefault(const Constant(false))();
 
   /// Ob [fileCreatedAt] **geraten** ist statt gemessen.
   ///
@@ -277,8 +277,7 @@ class Assets extends Table {
   /// Faellt mit, sobald der Ort neu gesetzt wird (siehe [setLocation]) –
   /// wer eine Koordinate eintraegt oder aus der Datei liest, ersetzt die
   /// Vermutung durch etwas Belegtes.
-  BoolColumn get ortGeerbt =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get ortGeerbt => boolean().withDefault(const Constant(false))();
 
   /// Ob bei diesem Video schon nach weiteren Standbildern gesehen wurde
   /// (siehe `services/videostandbilder.dart`).
@@ -320,7 +319,8 @@ class Assets extends Table {
 
   /// Eigenes Flag statt "aiCaption == null" als "noch nicht erzeugt"-Signal,
   /// analog zu [ocrScanned].
-  BoolColumn get aiCaptionScanned => boolean().withDefault(const Constant(false))();
+  BoolColumn get aiCaptionScanned =>
+      boolean().withDefault(const Constant(false))();
 
   /// Ob jemand die Bildunterschrift von Hand geändert hat.
   ///
@@ -332,7 +332,8 @@ class Assets extends Table {
   ///
   /// Zurücknehmen lässt es sich, indem das Feld geleert wird – dann ist das
   /// Foto wieder Kandidat für das Modell.
-  BoolColumn get aiCaptionEdited => boolean().withDefault(const Constant(false))();
+  BoolColumn get aiCaptionEdited =>
+      boolean().withDefault(const Constant(false))();
 
   /// Eigenes Flag statt "hat keine Tags" als "noch nicht verschlagwortet"-
   /// Signal, aus demselben Grund wie [ocrScanned]: Dass CLIP zu keinem
@@ -341,7 +342,8 @@ class Assets extends Table {
   /// dauerhaft Kandidaten und die Tagging-Stufe lud bei JEDEM Programmstart
   /// beide CLIP-Encoder (577 MB), rechnete sie durch und erzeugte wieder
   /// nichts (Audit-Fund: gemessen 1066 MB Grundlast statt 214 MB).
-  BoolColumn get aiTagsScanned => boolean().withDefault(const Constant(false))();
+  BoolColumn get aiTagsScanned =>
+      boolean().withDefault(const Constant(false))();
 
   /// Laplace-Varianz des Bilds (siehe blur_detection.dart) – höher = schärfer.
   /// Null, solange noch nicht berechnet.
@@ -426,8 +428,7 @@ class AssetTags extends Table {
   ///
   /// Die Vorgabe ist bewusst `hand`: Wer eine Zeile anlegt, ohne sich zu
   /// äussern, meint den Fall, der niemals gelöscht wird.
-  TextColumn get quelle =>
-      text().withDefault(const Constant(Tagquelle.hand))();
+  TextColumn get quelle => text().withDefault(const Constant(Tagquelle.hand))();
 
   @override
   Set<Column> get primaryKey => {assetId, tagId};
@@ -490,7 +491,8 @@ class DevelopPresets extends Table {
   RealColumn get highlights => real().withDefault(const Constant(0))();
   RealColumn get sharpness => real().withDefault(const Constant(0))();
   RealColumn get noiseReduction => real().withDefault(const Constant(0))();
-  BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get lensCorrectionEnabled =>
+      boolean().withDefault(const Constant(true))();
   RealColumn get clarity => real().withDefault(const Constant(0))();
   RealColumn get vignette => real().withDefault(const Constant(0))();
 
@@ -605,9 +607,12 @@ class AutomationRuleTags extends Table {
 @DataClassName('DevelopSettingsData')
 class DevelopSettings extends Table {
   TextColumn get assetId => text()();
-  RealColumn get exposure => real().withDefault(const Constant(0))(); // EV, -3..3
-  RealColumn get temperature => real().nullable()(); // Kelvin, null = Kamera-Weißabgleich
-  RealColumn get tint => real().nullable()(); // Grün/Magenta, null = Kamera-Weißabgleich
+  RealColumn get exposure =>
+      real().withDefault(const Constant(0))(); // EV, -3..3
+  RealColumn get temperature =>
+      real().nullable()(); // Kelvin, null = Kamera-Weißabgleich
+  RealColumn get tint =>
+      real().nullable()(); // Grün/Magenta, null = Kamera-Weißabgleich
   RealColumn get contrast => real().withDefault(const Constant(0))(); // -1..1
   RealColumn get shadows => real().withDefault(const Constant(0))(); // -1..1
 
@@ -619,8 +624,10 @@ class DevelopSettings extends Table {
   /// nur keinen Griff dafür.
   RealColumn get highlights => real().withDefault(const Constant(0))();
   RealColumn get sharpness => real().withDefault(const Constant(0))(); // 0..1
-  RealColumn get noiseReduction => real().withDefault(const Constant(0))(); // 0..1
-  BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
+  RealColumn get noiseReduction =>
+      real().withDefault(const Constant(0))(); // 0..1
+  BoolColumn get lensCorrectionEnabled =>
+      boolean().withDefault(const Constant(true))();
 
   /// Klarheit (lokaler Mikrokontrast) und Vignettierung, je -1..1.
   ///
@@ -744,7 +751,8 @@ class DevelopMasks extends Table {
   RealColumn get highlights => real().withDefault(const Constant(0))();
   RealColumn get sharpness => real().withDefault(const Constant(0))();
   RealColumn get noiseReduction => real().withDefault(const Constant(0))();
-  BoolColumn get lensCorrectionEnabled => boolean().withDefault(const Constant(true))();
+  BoolColumn get lensCorrectionEnabled =>
+      boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime()();
 
   /// JSON-kodierte [MaskShapeDefinition] (siehe vector_mask_service.dart) –
@@ -771,7 +779,8 @@ class DevelopMasks extends Table {
 class RestoreJobs extends Table {
   TextColumn get id => text()();
   TextColumn get assetId => text()();
-  TextColumn get status => text()(); // 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
+  TextColumn get status =>
+      text()(); // 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
   IntColumn get tilesDone => integer().withDefault(const Constant(0))();
   IntColumn get tilesTotal => integer().withDefault(const Constant(0))();
   TextColumn get errorMessage => text().nullable()();
@@ -897,8 +906,7 @@ class Reisen extends Table {
   ///
   /// Einsatz, Dienstreise, Besuch: „Reise" trifft nicht jede, und in der
   /// Liste sähen sonst alle gleich aus.
-  TextColumn get art =>
-      text().withDefault(Constant(reiseartVorgabe.kennung))();
+  TextColumn get art => text().withDefault(Constant(reiseartVorgabe.kennung))();
 
   /// Das Titelbild. `null` heißt „nimm die erste Aufnahme" – und ist
   /// etwas anderes als ein gewähltes Bild, das später gelöscht wurde.
@@ -1408,6 +1416,13 @@ class PrivacySettings extends Table {
   BlobColumn get wrappedMasterKeyNonce => blob().nullable()();
   BlobColumn get wrappedMasterKey => blob().nullable()();
 
+  /// Entfernt bei neu gesperrten Aufnahmen zusätzlich lesbare Angaben aus
+  /// der SQLite-Datei. Die Werte liegen dann authentifiziert verschlüsselt
+  /// neben den ebenfalls verschlüsselten Mediendateien und kehren erst beim
+  /// dauerhaften Entsperren zurück.
+  BoolColumn get protectMetadata =>
+      boolean().withDefault(const Constant(true))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -1442,9 +1457,11 @@ class BackupSettings extends Table {
   BlobColumn get wrappedMasterKeyNonce => blob().nullable()();
   BlobColumn get wrappedMasterKey => blob().nullable()();
 
-  BoolColumn get autoBackupEnabled => boolean().withDefault(const Constant(false))();
+  BoolColumn get autoBackupEnabled =>
+      boolean().withDefault(const Constant(false))();
   TextColumn get autoBackupDestination => text().nullable()();
-  IntColumn get autoBackupIntervalHours => integer().withDefault(const Constant(24))();
+  IntColumn get autoBackupIntervalHours =>
+      integer().withDefault(const Constant(24))();
   DateTimeColumn get lastAutoBackupAt => dateTime().nullable()();
 
   /// Obergrenze je Sicherungslauf in Megabyte, 0 = unbegrenzt.
@@ -1453,7 +1470,8 @@ class BackupSettings extends Table {
   /// zigtausend Dateien auf einmal im Sync-Ordner, und der Upload läuft
   /// danach stunden- bis tagelang. Mit Grenze wird portionsweise gesichert,
   /// der Rest folgt beim nächsten Intervall.
-  IntColumn get autoBackupMaxMbPerRun => integer().withDefault(const Constant(0))();
+  IntColumn get autoBackupMaxMbPerRun =>
+      integer().withDefault(const Constant(0))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -1468,8 +1486,10 @@ class BackupSettings extends Table {
 @DataClassName('TrashSettingsData')
 class TrashSettings extends Table {
   IntColumn get id => integer()();
-  BoolColumn get autoDeleteEnabled => boolean().withDefault(const Constant(false))();
-  IntColumn get autoDeleteAfterDays => integer().withDefault(const Constant(30))();
+  BoolColumn get autoDeleteEnabled =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get autoDeleteAfterDays =>
+      integer().withDefault(const Constant(30))();
   DateTimeColumn get lastPurgeAt => dateTime().nullable()();
 
   @override
@@ -1499,7 +1519,8 @@ class AppSettings extends Table {
   /// Hintergrundaufgabe nachlaufen. Standard an – sonst blieben frisch
   /// importierte Fotos ohne Suche und ohne Personenzuordnung, bis jemand
   /// die Werkzeuge von Hand anstößt.
-  BoolColumn get autoAnalyzeAfterImport => boolean().withDefault(const Constant(true))();
+  BoolColumn get autoAnalyzeAfterImport =>
+      boolean().withDefault(const Constant(true))();
 
   /// Ordner, der laufend auf neue Dateien geprüft wird (siehe
   /// LibraryState.pruefeUeberwachtenOrdner). Null = keiner eingerichtet.
@@ -1516,7 +1537,8 @@ class AppSettings extends Table {
   /// Einstellung lag bisher nur im Speicher – der Regler unter "Werkzeuge"
   /// war bei jedem Programmstart wieder auf dem Ausgangswert, ohne dass
   /// das irgendwo stand.
-  RealColumn get faceSimilarityThreshold => real().withDefault(const Constant(0.363))();
+  RealColumn get faceSimilarityThreshold =>
+      real().withDefault(const Constant(0.363))();
 
   /// Zuletzt gewählte Kartenansicht: `'hell'`, `'dunkel'`, `'topo'` oder
   /// `'globus'` (siehe `Kartenansicht` in map_screen.dart).
@@ -1530,7 +1552,8 @@ class AppSettings extends Table {
   /// nächsten Öffnen wieder die dunkle vor - ohne dass das irgendwo
   /// stand. Derselbe Fall wie seinerzeit bei
   /// [faceSimilarityThreshold].
-  TextColumn get kartenansicht => text().withDefault(const Constant('dunkel'))();
+  TextColumn get kartenansicht =>
+      text().withDefault(const Constant('dunkel'))();
 
   /// Schlüssel für die CARTO-Kacheln der dunklen Karte. Null = keiner.
   ///
@@ -1757,7 +1780,8 @@ class AppSettings extends Table {
   IntColumn get maxGleichzeitig => integer().withDefault(const Constant(1))();
 
   /// Bildbeschreibungen ins Deutsche übersetzen (Modell `translation_en_de`).
-  BoolColumn get translateCaptions => boolean().withDefault(const Constant(false))();
+  BoolColumn get translateCaptions =>
+      boolean().withDefault(const Constant(false))();
 
   /// Deutsche Suchanfragen und Schlagwörter vor der KI-Bildsuche ins
   /// Englische übersetzen (Modell `translation_de_en`).
@@ -1768,7 +1792,8 @@ class AppSettings extends Table {
   /// aber weder gross noch durchgängig – und die Zahl vergebener Tags
   /// sinkt bei gleicher Schwelle von 402 auf 248. Eine solche Änderung
   /// gehört nicht stillschweigend eingeschaltet.
-  BoolColumn get translateSearchAndTags => boolean().withDefault(const Constant(false))();
+  BoolColumn get translateSearchAndTags =>
+      boolean().withDefault(const Constant(false))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -1822,6 +1847,66 @@ class DuplikatAusnahmen extends Table {
 
   @override
   Set<Column> get primaryKey => {assetA, assetB};
+}
+
+class _SperrWiederholung extends QueryInterceptor {
+  Future<T> _wiederhole<T>(Future<T> Function() arbeit) async {
+    final uhr = Stopwatch()..start();
+    while (true) {
+      try {
+        return await arbeit();
+      } catch (e, stack) {
+        if (!_istSperre(e) ||
+            uhr.elapsedMilliseconds >= AppDatabase.sperrwartezeitMs) {
+          Error.throwWithStackTrace(e, stack);
+        }
+        final rest = AppDatabase.sperrwartezeitMs - uhr.elapsedMilliseconds;
+        await Future<void>.delayed(Duration(milliseconds: rest.clamp(1, 40)));
+      }
+    }
+  }
+
+  // Fehler eines Hintergrund-Isolats können von Drift als entferntes
+  // Fehlerobjekt zurückkommen. Dann bleibt der SQLite-Code in der stabilen
+  // Textdarstellung erhalten, auch wenn der konkrete Dart-Typ verloren ist.
+  bool _istSperre(Object fehler) {
+    if (fehler is SqliteException) {
+      return fehler.resultCode == 5 || fehler.resultCode == 6;
+    }
+    final fund = RegExp(r'^SqliteException\((\d+)\):').firstMatch('$fehler');
+    final code = fund == null ? null : int.tryParse(fund.group(1)!);
+    return code != null && (code & 0xff == 5 || code & 0xff == 6);
+  }
+
+  @override
+  Future<void> runBatched(
+          QueryExecutor executor, BatchedStatements statements) =>
+      _wiederhole(() => executor.runBatched(statements));
+
+  @override
+  Future<void> runCustom(
+          QueryExecutor executor, String statement, List<Object?> args) =>
+      _wiederhole(() => executor.runCustom(statement, args));
+
+  @override
+  Future<int> runInsert(
+          QueryExecutor executor, String statement, List<Object?> args) =>
+      _wiederhole(() => executor.runInsert(statement, args));
+
+  @override
+  Future<int> runDelete(
+          QueryExecutor executor, String statement, List<Object?> args) =>
+      _wiederhole(() => executor.runDelete(statement, args));
+
+  @override
+  Future<int> runUpdate(
+          QueryExecutor executor, String statement, List<Object?> args) =>
+      _wiederhole(() => executor.runUpdate(statement, args));
+
+  @override
+  Future<List<Map<String, Object?>>> runSelect(
+          QueryExecutor executor, String statement, List<Object?> args) =>
+      _wiederhole(() => executor.runSelect(statement, args));
 }
 
 @DriftDatabase(tables: [
@@ -1884,14 +1969,66 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 81;
+  int get schemaVersion => 83;
+
+  Future<void> _createAssetSearchFts() async {
+    await customStatement('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS asset_search_fts USING fts5(
+        asset_id UNINDEXED,
+        original_file_name,
+        description,
+        ocr_text,
+        ai_caption,
+        ai_caption_de,
+        tokenize = 'unicode61 remove_diacritics 2'
+      )
+    ''');
+    await customStatement('DELETE FROM asset_search_fts');
+    await customStatement('''
+      INSERT INTO asset_search_fts
+        (asset_id, original_file_name, description, ocr_text, ai_caption, ai_caption_de)
+      SELECT id, original_file_name, coalesce(description, ''),
+             coalesce(ocr_text, ''), coalesce(ai_caption, ''),
+             coalesce(ai_caption_de, '')
+      FROM assets
+    ''');
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS assets_fts_insert AFTER INSERT ON assets BEGIN
+        INSERT INTO asset_search_fts
+          (asset_id, original_file_name, description, ocr_text, ai_caption, ai_caption_de)
+        VALUES (new.id, new.original_file_name, coalesce(new.description, ''),
+                coalesce(new.ocr_text, ''), coalesce(new.ai_caption, ''),
+                coalesce(new.ai_caption_de, ''));
+      END
+    ''');
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS assets_fts_update
+      AFTER UPDATE OF original_file_name, description, ocr_text, ai_caption, ai_caption_de
+      ON assets BEGIN
+        DELETE FROM asset_search_fts WHERE asset_id = old.id;
+        INSERT INTO asset_search_fts
+          (asset_id, original_file_name, description, ocr_text, ai_caption, ai_caption_de)
+        VALUES (new.id, new.original_file_name, coalesce(new.description, ''),
+                coalesce(new.ocr_text, ''), coalesce(new.ai_caption, ''),
+                coalesce(new.ai_caption_de, ''));
+      END
+    ''');
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS assets_fts_delete AFTER DELETE ON assets BEGIN
+        DELETE FROM asset_search_fts WHERE asset_id = old.id;
+      END
+    ''');
+  }
 
   /// Bestückt AiTagVocabulary mit dem ursprünglichen, festen Begriffs-Array
   /// – für Neuinstallationen ([onCreate], das NICHT durch [onUpgrade] läuft)
   /// ebenso wie für das Upgrade bestehender Installationen auf v24.
   Future<void> _seedAiTagVocabulary() => batch((b) => b.insertAll(
         aiTagVocabulary,
-        [for (final term in defaultAiTagVocabulary) AiTagVocabularyCompanion.insert(term: term)],
+        [
+          for (final term in defaultAiTagVocabulary)
+            AiTagVocabularyCompanion.insert(term: term)
+        ],
       ));
 
   /// Indizes für die im Betrieb häufigsten Filter/Sortierungen – ohne sie
@@ -1907,19 +2044,17 @@ class AppDatabase extends _$AppDatabase {
   /// [onCreate] wie aus der Migration. Ein Index, den nur bestehende
   /// Bibliotheken bekommen, fehlt genau dort, wo niemand ihn vermisst:
   /// bei der Neuinstallation.
-  Future<void> _createIndicesV51(Migrator m) => customStatement(
-      'CREATE INDEX IF NOT EXISTS idx_reise_aufnahme_asset '
-      'ON reise_aufnahmen (asset_id)');
+  Future<void> _createIndicesV51(Migrator m) =>
+      customStatement('CREATE INDEX IF NOT EXISTS idx_reise_aufnahme_asset '
+          'ON reise_aufnahmen (asset_id)');
 
   Future<void> _createIndicesV55(Migrator m) async {
     // Die Punkte einer Spur werden immer am Stück und in ihrer
     // Reihenfolge geholt; ohne Index wäre das bei zehntausend Punkten je
     // Spur ein Durchlauf über alle Spuren.
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_spurpunkte_spur '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_spurpunkte_spur '
         'ON spurpunkte (spur_id, nummer)');
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_spuren_aktivitaet '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_spuren_aktivitaet '
         'ON spuren (aktivitaet_id)');
   }
 
@@ -1929,8 +2064,7 @@ class AppDatabase extends _$AppDatabase {
         'ON aktivitaet_aufnahmen (asset_id)');
     // Die Aktivitäten einer Reise werden bei jedem Öffnen einer Reise
     // geholt; ohne Index ist das ein Durchlauf über alle.
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_aktivitaeten_reise '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_aktivitaeten_reise '
         'ON aktivitaeten (reise_id)');
   }
 
@@ -1938,10 +2072,10 @@ class AppDatabase extends _$AppDatabase {
     await customStatement(
         'CREATE INDEX IF NOT EXISTS idx_assets_trashed_locked_created '
         'ON assets (is_trashed, is_locked, file_created_at DESC)');
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_assets_location '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_assets_location '
         'ON assets (location_country, location_state, location_city)');
-    await customStatement('CREATE INDEX IF NOT EXISTS idx_faces_asset_id ON faces (asset_id)');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_faces_asset_id ON faces (asset_id)');
     // Teilindex, nicht vollständig: Nur ein kleiner Teil aller Gesichter ist
     // beiseitegelegt, und genau danach wird gefragt. Gemessen an 17.836
     // Gesichtern / 7.988 Fotos: ohne Index 8,3 ms, mit Teilindex 0,49 ms.
@@ -1950,7 +2084,8 @@ class AppDatabase extends _$AppDatabase {
     // eingrenzt.
     await customStatement('CREATE INDEX IF NOT EXISTS idx_faces_ignored '
         'ON faces (is_ignored) WHERE is_ignored = 1');
-    await customStatement('CREATE INDEX IF NOT EXISTS idx_faces_person_id ON faces (person_id)');
+    await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_faces_person_id ON faces (person_id)');
     await customStatement(
         'CREATE INDEX IF NOT EXISTS idx_album_assets_asset_id ON album_assets (asset_id)');
   }
@@ -1965,20 +2100,16 @@ class AppDatabase extends _$AppDatabase {
   /// GPS-Fotos bzw. noch nicht gesicherte Fotos) statt die komplette
   /// Tabelle zu indexieren.
   Future<void> _createIndicesV14(Migrator m) async {
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_assets_trashed_at '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_assets_trashed_at '
         'ON assets (is_trashed, trashed_at DESC)');
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_assets_gps '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_assets_gps '
         'ON assets (latitude, longitude) WHERE latitude IS NOT NULL');
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_assets_not_backed_up '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_assets_not_backed_up '
         'ON assets (is_trashed, is_locked) WHERE backed_up = 0');
     await customStatement(
         'CREATE INDEX IF NOT EXISTS idx_assets_not_auto_backed_up '
         'ON assets (is_trashed, is_locked) WHERE auto_backed_up = 0');
-    await customStatement(
-        'CREATE INDEX IF NOT EXISTS idx_assets_camera '
+    await customStatement('CREATE INDEX IF NOT EXISTS idx_assets_camera '
         'ON assets (camera_make, camera_model)');
   }
 
@@ -1992,6 +2123,7 @@ class AppDatabase extends _$AppDatabase {
           await _createIndicesV51(m);
           await _createIndicesV54(m);
           await _createIndicesV55(m);
+          await _createAssetSearchFts();
           await _seedAiTagVocabulary();
         },
         // **Die Schritte stehen aufsteigend, und das ist eine Zusage.**
@@ -2032,8 +2164,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 7) {
             await m.addColumn(privacySettings, privacySettings.kdfSalt);
-            await m.addColumn(privacySettings, privacySettings.wrappedMasterKeyNonce);
-            await m.addColumn(privacySettings, privacySettings.wrappedMasterKey);
+            await m.addColumn(
+                privacySettings, privacySettings.wrappedMasterKeyNonce);
+            await m.addColumn(
+                privacySettings, privacySettings.wrappedMasterKey);
             // Das alte Schema (Version 6) hat "gesperrte" Fotos nie
             // tatsächlich verschlüsselt, nur aus den normalen Ansichten
             // gefiltert. Ein bestehender PIN-Hash lässt sich nicht sicher
@@ -2129,8 +2263,12 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(restoreJobs);
           }
           if (from < 28) {
-            await _addColumnIfMissing(m, appSettings, appSettings.autoAnalyzeAfterImport,
-                'app_settings', 'auto_analyze_after_import');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.autoAnalyzeAfterImport,
+                'app_settings',
+                'auto_analyze_after_import');
           }
           if (from < 29) {
             // Beide bewusst nachgeholt: Eine fehlerhafte Zwischenfassung hat
@@ -2138,10 +2276,18 @@ class AppDatabase extends _$AppDatabase {
             // Spalte anzulegen. Ohne dieses Nachholen bliebe eine so
             // markierte Datenbank dauerhaft unbrauchbar, weil Drift die
             // Migration für erledigt hält und nie erneut ausführt.
-            await _addColumnIfMissing(m, appSettings, appSettings.autoAnalyzeAfterImport,
-                'app_settings', 'auto_analyze_after_import');
-            await _addColumnIfMissing(m, backupSettings, backupSettings.autoBackupMaxMbPerRun,
-                'backup_settings', 'auto_backup_max_mb_per_run');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.autoAnalyzeAfterImport,
+                'app_settings',
+                'auto_analyze_after_import');
+            await _addColumnIfMissing(
+                m,
+                backupSettings,
+                backupSettings.autoBackupMaxMbPerRun,
+                'backup_settings',
+                'auto_backup_max_mb_per_run');
           }
           if (from < 30) {
             await m.createTable(automationRules);
@@ -2152,33 +2298,61 @@ class AppDatabase extends _$AppDatabase {
                 m, assets, assets.aiTagsScanned, 'assets', 'ai_tags_scanned');
           }
           if (from < 32) {
-            await _addColumnIfMissing(m, appSettings, appSettings.watchedFolderPath,
-                'app_settings', 'watched_folder_path');
-            await _addColumnIfMissing(m, appSettings, appSettings.watchedFolderToken,
-                'app_settings', 'watched_folder_token');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.watchedFolderPath,
+                'app_settings',
+                'watched_folder_path');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.watchedFolderToken,
+                'app_settings',
+                'watched_folder_token');
           }
           if (from < 33) {
             // Tonwertkurve und Farbmischer. Beide nullable, `null` = neutral
             // – vorhandene Entwicklungen bleiben dadurch unverändert
             // gültig, es ist nichts nachzutragen.
-            await _addColumnIfMissing(m, developSettings, developSettings.toneCurveJson,
-                'develop_settings', 'tone_curve_json');
-            await _addColumnIfMissing(m, developSettings, developSettings.colorMixerJson,
-                'develop_settings', 'color_mixer_json');
-            await _addColumnIfMissing(m, developHistory, developHistory.toneCurveJson,
-                'develop_history', 'tone_curve_json');
-            await _addColumnIfMissing(m, developHistory, developHistory.colorMixerJson,
-                'develop_history', 'color_mixer_json');
+            await _addColumnIfMissing(
+                m,
+                developSettings,
+                developSettings.toneCurveJson,
+                'develop_settings',
+                'tone_curve_json');
+            await _addColumnIfMissing(
+                m,
+                developSettings,
+                developSettings.colorMixerJson,
+                'develop_settings',
+                'color_mixer_json');
+            await _addColumnIfMissing(
+                m,
+                developHistory,
+                developHistory.toneCurveJson,
+                'develop_history',
+                'tone_curve_json');
+            await _addColumnIfMissing(
+                m,
+                developHistory,
+                developHistory.colorMixerJson,
+                'develop_history',
+                'color_mixer_json');
           }
           if (from < 34) {
             // Lernende Gesichtserkennung. Ohne Rückmeldungen verhält sich
             // alles wie bisher: Die persönliche Schwelle bleibt null, es
             // gilt die allgemeine.
             await m.createTable(faceMatchFeedback);
+            await _addColumnIfMissing(m, people, people.similarityThreshold,
+                'people', 'similarity_threshold');
             await _addColumnIfMissing(
-                m, people, people.similarityThreshold, 'people', 'similarity_threshold');
-            await _addColumnIfMissing(m, appSettings, appSettings.faceSimilarityThreshold,
-                'app_settings', 'face_similarity_threshold');
+                m,
+                appSettings,
+                appSettings.faceSimilarityThreshold,
+                'app_settings',
+                'face_similarity_threshold');
           }
           if (from < 35) {
             // Übersetzung. Beide Schalter stehen auf aus, vorhandene
@@ -2186,10 +2360,18 @@ class AppDatabase extends _$AppDatabase {
             // Modelle installiert und den Schalter umlegt, bekommt Deutsch.
             await _addColumnIfMissing(
                 m, assets, assets.aiCaptionDe, 'assets', 'ai_caption_de');
-            await _addColumnIfMissing(m, appSettings, appSettings.translateCaptions,
-                'app_settings', 'translate_captions');
-            await _addColumnIfMissing(m, appSettings, appSettings.translateSearchAndTags,
-                'app_settings', 'translate_search_and_tags');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.translateCaptions,
+                'app_settings',
+                'translate_captions');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.translateSearchAndTags,
+                'app_settings',
+                'translate_search_and_tags');
           }
           if (from < 36) {
             // Oberflächensprache. Standard 'system' – für bestehende
@@ -2209,7 +2391,8 @@ class AppDatabase extends _$AppDatabase {
             // keine eigene: Die Alternative wäre eine Ausschlussliste
             // gewesen, die bei jeder Abfrage mitgejoint werden müsste – für
             // eine Eigenschaft, die genau ein Gesicht betrifft.
-            await _addColumnIfMissing(m, faces, faces.isIgnored, 'faces', 'is_ignored');
+            await _addColumnIfMissing(
+                m, faces, faces.isIgnored, 'faces', 'is_ignored');
             // Erst nach der Spalte – ein Index auf eine noch nicht
             // existierende Spalte scheitert.
             await _createPerformanceIndices(m);
@@ -2219,22 +2402,26 @@ class AppDatabase extends _$AppDatabase {
             // beiden Tabellen, damit der Verlauf nichts fallen lässt.
             // Ausgeschrieben statt in einer Schleife: Über beide Tabellen zu
             // laufen verliert deren konkreten Typ und damit die Spalten.
+            await _addColumnIfMissing(m, developSettings,
+                developSettings.clarity, 'develop_settings', 'clarity');
+            await _addColumnIfMissing(m, developSettings,
+                developSettings.vignette, 'develop_settings', 'vignette');
+            await _addColumnIfMissing(m, developSettings,
+                developSettings.lutPath, 'develop_settings', 'lut_path');
             await _addColumnIfMissing(
-                m, developSettings, developSettings.clarity, 'develop_settings', 'clarity');
-            await _addColumnIfMissing(
-                m, developSettings, developSettings.vignette, 'develop_settings', 'vignette');
-            await _addColumnIfMissing(
-                m, developSettings, developSettings.lutPath, 'develop_settings', 'lut_path');
-            await _addColumnIfMissing(m, developSettings, developSettings.lutStrength,
-                'develop_settings', 'lut_strength');
-            await _addColumnIfMissing(
-                m, developHistory, developHistory.clarity, 'develop_history', 'clarity');
-            await _addColumnIfMissing(
-                m, developHistory, developHistory.vignette, 'develop_history', 'vignette');
-            await _addColumnIfMissing(
-                m, developHistory, developHistory.lutPath, 'develop_history', 'lut_path');
-            await _addColumnIfMissing(m, developHistory, developHistory.lutStrength,
-                'develop_history', 'lut_strength');
+                m,
+                developSettings,
+                developSettings.lutStrength,
+                'develop_settings',
+                'lut_strength');
+            await _addColumnIfMissing(m, developHistory, developHistory.clarity,
+                'develop_history', 'clarity');
+            await _addColumnIfMissing(m, developHistory,
+                developHistory.vignette, 'develop_history', 'vignette');
+            await _addColumnIfMissing(m, developHistory, developHistory.lutPath,
+                'develop_history', 'lut_path');
+            await _addColumnIfMissing(m, developHistory,
+                developHistory.lutStrength, 'develop_history', 'lut_strength');
           }
           if (from < 40) {
             // Stammbaum: Verwandtschaften und Lebensdaten. Beides ist rein
@@ -2242,8 +2429,10 @@ class AppDatabase extends _$AppDatabase {
             // verhalten sich wie zuvor, der Stammbaum einer Person ohne
             // Einträge ist schlicht leer.
             await m.createTable(personBeziehungen);
-            await _addColumnIfMissing(m, people, people.geburtsdatum, 'people', 'geburtsdatum');
-            await _addColumnIfMissing(m, people, people.sterbedatum, 'people', 'sterbedatum');
+            await _addColumnIfMissing(
+                m, people, people.geburtsdatum, 'people', 'geburtsdatum');
+            await _addColumnIfMissing(
+                m, people, people.sterbedatum, 'people', 'sterbedatum');
             await customStatement(
                 'CREATE INDEX IF NOT EXISTS idx_beziehung_andere ON person_beziehungen (andere_id)');
           }
@@ -2251,13 +2440,15 @@ class AppDatabase extends _$AppDatabase {
             // Geschlecht, nur für die Verwandtschaftsbezeichnungen. Leer
             // bedeutet „nicht angegeben" – der Stammbaum zeigt dann die
             // geschlechtsneutrale Form.
-            await _addColumnIfMissing(m, people, people.geschlecht, 'people', 'geschlecht');
+            await _addColumnIfMissing(
+                m, people, people.geschlecht, 'people', 'geschlecht');
           }
           if (from < 42) {
             // Lebensereignisse. Eine neue, anfangs leere Tabelle – ohne
             // einen einzigen Eintrag verhält sich alles wie zuvor.
             await m.createTable(lebensereignisse);
-            await customStatement('CREATE INDEX IF NOT EXISTS idx_ereignis_person '
+            await customStatement(
+                'CREATE INDEX IF NOT EXISTS idx_ereignis_person '
                 'ON lebensereignisse (person_id)');
           }
           if (from < 43) {
@@ -2266,15 +2457,15 @@ class AppDatabase extends _$AppDatabase {
             // die Info-Ansicht lässt eine fehlende Angabe einfach weg.
             await _addColumnIfMissing(
                 m, assets, assets.exposureBiasEv, 'assets', 'exposure_bias_ev');
-            await _addColumnIfMissing(
-                m, assets, assets.focalLength35mm, 'assets', 'focal_length35mm');
+            await _addColumnIfMissing(m, assets, assets.focalLength35mm,
+                'assets', 'focal_length35mm');
           }
           if (from < 44) {
             // Merkmal für eine von Hand geänderte Bildunterschrift. Für
             // bestehende Fotos falsch – vorher liess sie sich gar nicht
             // ändern.
-            await _addColumnIfMissing(
-                m, assets, assets.aiCaptionEdited, 'assets', 'ai_caption_edited');
+            await _addColumnIfMissing(m, assets, assets.aiCaptionEdited,
+                'assets', 'ai_caption_edited');
           }
           if (from < 45) {
             // Ausnahmen der Duplikatsuche. Neue, anfangs leere Tabelle –
@@ -2285,15 +2476,12 @@ class AppDatabase extends _$AppDatabase {
             // Der Lichter-Regler. Vorgabe 0 heisst neutral: Jede bereits
             // gespeicherte Entwicklung sieht nach der Migration genauso
             // aus wie davor – niemand findet sein Bild verändert vor.
-            await _addColumnIfMissing(
-                m, developSettings, developSettings.highlights,
-                'develop_settings', 'highlights');
-            await _addColumnIfMissing(
-                m, developMasks, developMasks.highlights,
+            await _addColumnIfMissing(m, developSettings,
+                developSettings.highlights, 'develop_settings', 'highlights');
+            await _addColumnIfMissing(m, developMasks, developMasks.highlights,
                 'develop_masks', 'highlights');
-            await _addColumnIfMissing(
-                m, developHistory, developHistory.highlights,
-                'develop_history', 'highlights');
+            await _addColumnIfMissing(m, developHistory,
+                developHistory.highlights, 'develop_history', 'highlights');
           }
           if (from < 47) {
             // Benannte Entwicklungs-Vorgaben. Neue, anfangs leere Tabelle –
@@ -2381,25 +2569,35 @@ class AppDatabase extends _$AppDatabase {
             // „keiner" und damit invertierte OSM-Kacheln – die dunkle
             // Karte funktioniert also ohne jedes Zutun weiter, nur ohne
             // das Wasserzeichen.
-            await _addColumnIfMissing(m, appSettings, appSettings.cartoSchluessel,
-                'app_settings', 'carto_schluessel');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.cartoSchluessel,
+                'app_settings',
+                'carto_schluessel');
           }
           if (from < 59) {
             // Wie viele schwere Aufgaben nebeneinander laufen dürfen
             // (siehe die Spalte). Vorgabe eins = das bisherige Verhalten.
-            await _addColumnIfMissing(m, appSettings, appSettings.maxGleichzeitig,
-                'app_settings', 'max_gleichzeitig');
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.maxGleichzeitig,
+                'app_settings',
+                'max_gleichzeitig');
           }
           if (from < 60) {
             // Wo der erkannte Text im Bild steht (siehe die Spalte). Leer
             // fuer alles Bisherige; die Texterkennung holt es nach.
-            await _addColumnIfMissing(m, assets, assets.ocrBoxen, 'assets', 'ocr_boxen');
+            await _addColumnIfMissing(
+                m, assets, assets.ocrBoxen, 'assets', 'ocr_boxen');
           }
           if (from < 61) {
             // Schaerfe des Gesichtsausschnitts (siehe die Spalte). Leer
             // fuer alles Bisherige; der Nachlauf holt es aus den bereits
             // gespeicherten Ausschnitten, ohne ein Foto neu zu dekodieren.
-            await _addColumnIfMissing(m, faces, faces.schaerfe, 'faces', 'schaerfe');
+            await _addColumnIfMissing(
+                m, faces, faces.schaerfe, 'faces', 'schaerfe');
           }
           if (from < 62) {
             // Abgelehnte Serienvorschlaege – bis hierher verschwand ein
@@ -2445,8 +2643,9 @@ class AppDatabase extends _$AppDatabase {
             // Andersherum stünde beides da und jedes Live Photo zählte
             // doppelt.
             for (final tabelle in ['aktivitaet_aufnahmen', 'reise_aufnahmen']) {
-              final spalte =
-                  tabelle == 'aktivitaet_aufnahmen' ? 'aktivitaet_id' : 'reise_id';
+              final spalte = tabelle == 'aktivitaet_aufnahmen'
+                  ? 'aktivitaet_id'
+                  : 'reise_id';
               await m.database.customStatement('''
                 INSERT OR IGNORE INTO $tabelle ($spalte, asset_id)
                 SELECT z.$spalte, a.linked_asset_id
@@ -2479,47 +2678,68 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 67) {
             // Vorgabe true = genau das bisherige Verhalten.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.karteHochaufloesend, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.karteHochaufloesend,
+                'app_settings',
                 'karte_hochaufloesend');
           }
           if (from < 68) {
             // Beides leer = genau das bisherige Verhalten: Der Baum
             // beginnt bei der Person mit den meisten Verwandten.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.stammbaumAnsicht, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.stammbaumAnsicht,
+                'app_settings',
                 'stammbaum_ansicht');
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.stammbaumPerson, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.stammbaumPerson,
+                'app_settings',
                 'stammbaum_person');
             // Die mittlere Stufe ist genau die Groesse, die es vorher
             // als einzige gab.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.zeitleisteKachelstufe, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.zeitleisteKachelstufe,
+                'app_settings',
                 'zeitleiste_kachelstufe');
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.listenspalten, 'app_settings', 'listenspalten');
+            await _addColumnIfMissing(m, appSettings, appSettings.listenspalten,
+                'app_settings', 'listenspalten');
           }
           if (from < 69) {
             // Vorgabe = Quadrate, also genau das bisherige Bild. Wer
             // nichts umstellt, merkt von der zweiten Form nichts.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.zeitleisteFormNr, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.zeitleisteFormNr,
+                'app_settings',
                 'zeitleiste_form_nr');
           }
           if (from < 70) {
             // Vorgabe an. Die Spalte ist neu, also hat noch niemand eine
             // Wahl getroffen - und wer die Bewegung nicht will, findet
             // den Schalter in den Einstellungen.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.schwebeVorschau, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.schwebeVorschau,
+                'app_settings',
                 'schwebe_vorschau');
           }
           if (from < 71) {
             // Vorgabe Mittag - genau die Beleuchtung, die es vorher als
             // einzige gab.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.gelaendeStimmungNr, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.gelaendeStimmungNr,
+                'app_settings',
                 'gelaende_stimmung_nr');
           }
           if (from < 72) {
@@ -2530,23 +2750,35 @@ class AppDatabase extends _$AppDatabase {
             // Die vier Spalten der Geländeauflage. Die Vorgaben stehen
             // bei den Spalten selbst; sie aendern das Bild sichtbar, und
             // das ist Absicht (siehe [AppSettings.gelaendeGrundNr]).
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.gelaendeGrundNr, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.gelaendeGrundNr,
+                'app_settings',
                 'gelaende_grund_nr');
             await _addColumnIfMissing(m, appSettings, appSettings.gelaendeWege,
                 'app_settings', 'gelaende_wege');
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.gelaendeBeschriftung, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.gelaendeBeschriftung,
+                'app_settings',
                 'gelaende_beschriftung');
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.gelaendeHoehenlinien, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.gelaendeHoehenlinien,
+                'app_settings',
                 'gelaende_hoehenlinien');
           }
           if (from < 73) {
             // Der Schalter fuer die Schilder. Vorgabe an - sie sind der
             // Grund, warum die Landschaft mehr sagt als eine Karte.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.gelaendeWanderobjekte, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.gelaendeWanderobjekte,
+                'app_settings',
                 'gelaende_wanderobjekte');
           }
           if (from < 74) {
@@ -2569,8 +2801,8 @@ class AppDatabase extends _$AppDatabase {
             // eine Falschaussage waere. Statt einer Vermutung ueber alle
             // laeuft der Nachtrag einmal ueber die Bibliothek und sieht
             // in JEDER Datei nach, ob ein Aufnahmedatum darin steht.
-            await _addColumnIfMissing(
-                m, assets, assets.datumGeschaetzt, 'assets', 'datum_geschaetzt');
+            await _addColumnIfMissing(m, assets, assets.datumGeschaetzt,
+                'assets', 'datum_geschaetzt');
             await _addColumnIfMissing(
                 m, assets, assets.datumGeprueft, 'assets', 'datum_geprueft');
           }
@@ -2601,8 +2833,11 @@ class AppDatabase extends _$AppDatabase {
             // Vorgabe = neueste Aufnahme oben, also genau die
             // Reihenfolge, die es vorher als einzige gab. Wer nichts
             // umstellt, merkt von der Wahl nichts.
-            await _addColumnIfMissing(m, appSettings,
-                appSettings.zeitleisteSortierungNr, 'app_settings',
+            await _addColumnIfMissing(
+                m,
+                appSettings,
+                appSettings.zeitleisteSortierungNr,
+                'app_settings',
                 'zeitleiste_sortierung_nr');
           }
           if (from < 80) {
@@ -2616,6 +2851,17 @@ class AppDatabase extends _$AppDatabase {
             // „Reise" – was sie bisher der Sache nach war. Wer eine als
             // Einsatz oder Dienstreise führen will, sagt es danach.
             await _addColumnIfMissing(m, reisen, reisen.art, 'reisen', 'art');
+          }
+          if (from < 82) {
+            await _createAssetSearchFts();
+          }
+          if (from < 83) {
+            await _addColumnIfMissing(
+                m,
+                privacySettings,
+                privacySettings.protectMetadata,
+                'privacy_settings',
+                'protect_metadata');
           }
         },
       );
@@ -2693,7 +2939,8 @@ class AppDatabase extends _$AppDatabase {
     String tabellenName,
     String spaltenName,
   ) async {
-    final vorhanden = await customSelect('PRAGMA table_info($tabellenName)').get();
+    final vorhanden =
+        await customSelect('PRAGMA table_info($tabellenName)').get();
     final namen = vorhanden.map((r) => r.data['name'] as String).toSet();
     if (namen.contains(spaltenName)) return;
     await m.addColumn(table, spalte);
@@ -2705,9 +2952,16 @@ class AppDatabase extends _$AppDatabase {
     final libraryRoot = await LibraryLocation.currentRoot();
     await libraryRoot.create(recursive: true);
     final dbFile = File(p.join(libraryRoot.path, 'library.sqlite'));
-    return AppDatabase(
-        NativeDatabase.createInBackground(dbFile, setup: bereiteVerbindungVor));
+    return AppDatabase(mitSperrwartezeit(NativeDatabase.createInBackground(
+        dbFile,
+        setup: bereiteVerbindungVor)));
   }
+
+  /// Ergänzt SQLites native Wartezeit um Wiederholungen für Plattformen, auf
+  /// denen der gebündelte Treiber `busy_timeout` bei einzelnen Sperrarten
+  /// vorzeitig mit `SQLITE_BUSY` oder `SQLITE_LOCKED` beendet.
+  static QueryExecutor mitSperrwartezeit(QueryExecutor executor) =>
+      executor.interceptWith(_SperrWiederholung());
 
   /// Wie lange auf eine belegte Datenbank gewartet wird, bevor
   /// aufgegeben wird.
@@ -2762,7 +3016,8 @@ class AppDatabase extends _$AppDatabase {
   /// Prüft anhand der Prüfsumme, ob eine Datei bereits importiert wurde
   /// (Duplikaterkennung beim Import).
   Future<bool> checksumExists(String checksum) async {
-    final row = await (select(assets)..where((t) => t.checksum.equals(checksum)))
+    final row = await (select(assets)
+          ..where((t) => t.checksum.equals(checksum)))
         .getSingleOrNull();
     return row != null;
   }
@@ -2855,9 +3110,8 @@ class AppDatabase extends _$AppDatabase {
     void gemeldet() {
       // Ein Nachzügler ist schon bestellt – der holt alles mit ab.
       if (nachzuegler != null) return;
-      final seit = zuletzt == null
-          ? fenster
-          : DateTime.now().difference(zuletzt!);
+      final seit =
+          zuletzt == null ? fenster : DateTime.now().difference(zuletzt!);
       if (seit >= fenster) {
         unawaited(frage());
       } else {
@@ -2917,8 +3171,7 @@ class AppDatabase extends _$AppDatabase {
   /// auseinanderlaufen koennen; `sortierung_test.dart` haelt sie
   /// zusammen, indem es die erzeugte Abfrage gegen [sortierungSql]
   /// stellt.
-  List<OrderingTerm Function($AssetsTable)> _sortierterme(
-          Rastersortierung s) =>
+  List<OrderingTerm Function($AssetsTable)> _sortierterme(Rastersortierung s) =>
       switch (s) {
         Rastersortierung.aufnahmeNeu => [
             (t) => OrderingTerm.desc(t.fileCreatedAt)
@@ -2980,14 +3233,12 @@ class AppDatabase extends _$AppDatabase {
   /// Der Fotowähler zeigt ein Raster und wandelt jede Zeile ohnehin in
   /// eine [Rasterzeile] um – die 56 Spalten davor waren an dieser
   /// Bibliothek 80 ms, die 20 gebrauchten sind 30.
-  Future<List<Rasterzeile>> alleRasterzeilen() async =>
-      (await customSelect(
-              'SELECT $rasterSpalten FROM assets WHERE $rasterSichtbar '
-              'ORDER BY file_created_at DESC',
-              readsFrom: {assets})
-          .get())
-          .map(Rasterzeile.ausZeile)
-          .toList();
+  Future<List<Rasterzeile>> alleRasterzeilen() async => (await customSelect(
+          'SELECT $rasterSpalten FROM assets WHERE $rasterSichtbar '
+          'ORDER BY file_created_at DESC',
+          readsFrom: {assets}).get())
+      .map(Rasterzeile.ausZeile)
+      .toList();
 
   Future<List<AssetData>> alleAufnahmen() => (select(assets)
         ..where((t) =>
@@ -3066,8 +3317,10 @@ class AppDatabase extends _$AppDatabase {
       _countWhere(visible & assets.type.equals('IMAGE')),
       _countWhere(visible & assets.type.equals('VIDEO')),
       _countWhere(visible & assets.isFavorite.equals(true)),
-      _countWhere(assets.isTrashed.equals(true) & assets.isLocked.equals(false)),
-      _countWhere(assets.isLocked.equals(true) & assets.isTrashed.equals(false)),
+      _countWhere(
+          assets.isTrashed.equals(true) & assets.isLocked.equals(false)),
+      _countWhere(
+          assets.isLocked.equals(true) & assets.isTrashed.equals(false)),
       _loadTotalSizeBytes(),
       watchAssetCountsByYear().first,
       _loadCountsByMonth(visible),
@@ -3106,7 +3359,8 @@ class AppDatabase extends _$AppDatabase {
   /// Anzahl Fotos/Videos je Kalendermonat (1-12), über alle Jahre summiert –
   /// zeigt saisonale Muster (z.B. mehr Fotos im Sommer/an Feiertagen).
   Future<Map<int, int>> _loadCountsByMonth(Expression<bool> visible) async {
-    const monthExpr = CustomExpression<String>("strftime('%m', file_created_at, 'unixepoch')");
+    const monthExpr = CustomExpression<String>(
+        "strftime('%m', file_created_at, 'unixepoch')");
     final countExpr = assets.id.count();
     final query = selectOnly(assets)
       ..addColumns([monthExpr, countExpr])
@@ -3114,7 +3368,8 @@ class AppDatabase extends _$AppDatabase {
       ..groupBy([monthExpr]);
     final rows = await query.get();
     return {
-      for (final row in rows) int.parse(row.read<String>(monthExpr)!): row.read<int>(countExpr) ?? 0,
+      for (final row in rows)
+        int.parse(row.read<String>(monthExpr)!): row.read<int>(countExpr) ?? 0,
     };
   }
 
@@ -3122,7 +3377,8 @@ class AppDatabase extends _$AppDatabase {
   /// die Analyseseite – schließt Fotos ganz ohne Kamerainformation
   /// (Screenshots, Scans, ...) bewusst NICHT aus, damit deren Anteil an der
   /// Bibliothek sichtbar wird.
-  Future<List<CameraStat>> _loadTopCameras(Expression<bool> visible, {int limit = 12}) async {
+  Future<List<CameraStat>> _loadTopCameras(Expression<bool> visible,
+      {int limit = 12}) async {
     final countExpr = assets.id.count();
     final query = selectOnly(assets)
       ..addColumns([assets.cameraMake, assets.cameraModel, countExpr])
@@ -3286,8 +3542,8 @@ class AppDatabase extends _$AppDatabase {
 
     // `_gedrosselt` liefert Listen; eine Zusammenfassung ist immer genau
     // eine Zeile.
-    return _gedrosselt(bauen, TableUpdateQuery.onTable(assets))
-        .map((zeilen) => zeilen.isEmpty
+    return _gedrosselt(bauen, TableUpdateQuery.onTable(assets)).map((zeilen) =>
+        zeilen.isEmpty
             ? const Papierkorbumfang(anzahl: 0, bytes: 0)
             : zeilen.first);
   }
@@ -3349,7 +3605,8 @@ class AppDatabase extends _$AppDatabase {
   /// hält die Bildschirme davon fern (siehe
   /// `datum_setzen_verschiebt_test.dart`); für Prüfstände selbst ist der
   /// kurze Weg hier richtig.
-  Future<void> setFileCreatedAtBulk(List<String> assetIds, DateTime fileCreatedAt) =>
+  Future<void> setFileCreatedAtBulk(
+          List<String> assetIds, DateTime fileCreatedAt) =>
       (update(assets)..where((t) => t.id.isIn(assetIds))).write(AssetsCompanion(
         fileCreatedAt: Value(fileCreatedAt),
         // Wie bei [setAufnahmezeitpunkt]: Ein gesetztes Datum ist kein
@@ -3389,7 +3646,8 @@ class AppDatabase extends _$AppDatabase {
         locationCity: Value(city),
       ));
 
-  Future<void> setLocationBulk(List<String> assetIds, double? latitude, double? longitude) =>
+  Future<void> setLocationBulk(
+          List<String> assetIds, double? latitude, double? longitude) =>
       (update(assets)..where((t) => t.id.isIn(assetIds))).write(AssetsCompanion(
         latitude: Value(latitude),
         longitude: Value(longitude),
@@ -3399,14 +3657,15 @@ class AppDatabase extends _$AppDatabase {
       ));
 
   Future<void> moveToTrash(List<String> assetIds) async {
-    await (update(assets)..where((t) => t.id.isIn(assetIds)))
-        .write(AssetsCompanion(isTrashed: const Value(true), trashedAt: Value(DateTime.now())));
+    await (update(assets)..where((t) => t.id.isIn(assetIds))).write(
+        AssetsCompanion(
+            isTrashed: const Value(true), trashedAt: Value(DateTime.now())));
     _embeddingsGeneration++;
   }
 
   Future<void> restoreFromTrash(List<String> assetIds) async {
-    await (update(assets)..where((t) => t.id.isIn(assetIds)))
-        .write(const AssetsCompanion(isTrashed: Value(false), trashedAt: Value(null)));
+    await (update(assets)..where((t) => t.id.isIn(assetIds))).write(
+        const AssetsCompanion(isTrashed: Value(false), trashedAt: Value(null)));
     _embeddingsGeneration++;
   }
 
@@ -3437,7 +3696,8 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> zaehleDuplikatAusnahmen() async {
     final zaehler = duplikatAusnahmen.assetA.count();
-    final zeile = await (selectOnly(duplikatAusnahmen)..addColumns([zaehler])).getSingle();
+    final zeile = await (selectOnly(duplikatAusnahmen)..addColumns([zaehler]))
+        .getSingle();
     return zeile.read(zaehler) ?? 0;
   }
 
@@ -3497,17 +3757,20 @@ class AppDatabase extends _$AppDatabase {
   /// Für den automatischen Papierkorb-Ablauf, siehe
   /// [LibraryState.purgeExpiredTrashIfDue].
   Future<List<AssetData>> expiredTrashAssets(DateTime cutoff) => (select(assets)
-        ..where((t) => t.isTrashed.equals(true) & t.trashedAt.isSmallerThanValue(cutoff)))
+        ..where((t) =>
+            t.isTrashed.equals(true) & t.trashedAt.isSmallerThanValue(cutoff)))
       .get();
 
   Future<TrashSettingsData?> trashSettingsRow() =>
       (select(trashSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
 
-  Future<void> setTrashAutoDeleteConfig({required bool enabled, int? afterDays}) =>
+  Future<void> setTrashAutoDeleteConfig(
+          {required bool enabled, int? afterDays}) =>
       into(trashSettings).insertOnConflictUpdate(TrashSettingsCompanion.insert(
         id: const Value(0),
         autoDeleteEnabled: Value(enabled),
-        autoDeleteAfterDays: afterDays != null ? Value(afterDays) : const Value.absent(),
+        autoDeleteAfterDays:
+            afterDays != null ? Value(afterDays) : const Value.absent(),
       ));
 
   Future<void> setLastTrashPurgeAt(DateTime when) =>
@@ -3529,7 +3792,8 @@ class AppDatabase extends _$AppDatabase {
   /// abgefragt, um zu entscheiden, ob die Analyse anlaufen soll.
   /// Der überwachte Ordner samt Sandbox-Merkmal, oder null.
   Future<({String pfad, String? token})?> ueberwachterOrdner() async {
-    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     final pfad = row?.watchedFolderPath;
     if (pfad == null || pfad.isEmpty) return null;
     return (pfad: pfad, token: row?.watchedFolderToken);
@@ -3548,7 +3812,8 @@ class AppDatabase extends _$AppDatabase {
   /// [rechneAlleSchwellenNeu]), sonst hätte der Regler für bereits
   /// gelernte Personen keine Wirkung mehr.
   Future<void> setFaceSimilarityThreshold(double wert) => transaction(() async {
-        await into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
+        await into(appSettings)
+            .insertOnConflictUpdate(AppSettingsCompanion.insert(
           id: const Value(0),
           faceSimilarityThreshold: Value(wert),
         ));
@@ -3556,12 +3821,14 @@ class AppDatabase extends _$AppDatabase {
       });
 
   Future<double> faceSimilarityThresholdWert() async {
-    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     return row?.faceSimilarityThreshold ?? 0.363;
   }
 
   Future<bool> autoAnalyzeAfterImportEnabled() async {
-    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     return row?.autoAnalyzeAfterImport ?? true;
   }
 
@@ -3610,18 +3877,21 @@ class AppDatabase extends _$AppDatabase {
             .getSingleOrNull();
         if (zielVokabel != null) {
           // Ziel gibt es schon – der alte Eintrag ist damit überflüssig.
-          await (delete(aiTagVocabulary)..where((t) => t.id.equals(vorhandenesVokabel.id))).go();
+          await (delete(aiTagVocabulary)
+                ..where((t) => t.id.equals(vorhandenesVokabel.id)))
+              .go();
         } else {
-          await (update(aiTagVocabulary)..where((t) => t.id.equals(vorhandenesVokabel.id)))
+          await (update(aiTagVocabulary)
+                ..where((t) => t.id.equals(vorhandenesVokabel.id)))
               .write(AiTagVocabularyCompanion(term: Value(neu)));
         }
 
         // --- Schlagwort samt Zuordnungen ---
-        final altesTag =
-            await (select(tags)..where((t) => t.name.equals(alt))).getSingleOrNull();
+        final altesTag = await (select(tags)..where((t) => t.name.equals(alt)))
+            .getSingleOrNull();
         if (altesTag != null) {
-          final zielTag =
-              await (select(tags)..where((t) => t.name.equals(neu))).getSingleOrNull();
+          final zielTag = await (select(tags)..where((t) => t.name.equals(neu)))
+              .getSingleOrNull();
           if (zielTag == null) {
             await (update(tags)..where((t) => t.id.equals(altesTag.id)))
                 .write(TagsCompanion(name: Value(neu)));
@@ -3632,13 +3902,17 @@ class AppDatabase extends _$AppDatabase {
                   ..where((t) => t.tagId.equals(altesTag.id)))
                 .get();
             for (final zuweisung in betroffene) {
-              await into(assetTags).insertOnConflictUpdate(AssetTagsCompanion.insert(
+              await into(assetTags)
+                  .insertOnConflictUpdate(AssetTagsCompanion.insert(
                 assetId: zuweisung.assetId,
                 tagId: zielTag.id,
               ));
             }
-            await (delete(assetTags)..where((t) => t.tagId.equals(altesTag.id))).go();
-            await (delete(automationRuleTags)..where((t) => t.tagId.equals(altesTag.id))).go();
+            await (delete(assetTags)..where((t) => t.tagId.equals(altesTag.id)))
+                .go();
+            await (delete(automationRuleTags)
+                  ..where((t) => t.tagId.equals(altesTag.id)))
+                .go();
             await (delete(tags)..where((t) => t.id.equals(altesTag.id))).go();
           }
         }
@@ -3668,7 +3942,8 @@ class AppDatabase extends _$AppDatabase {
       ));
 
   Future<String> spracheWert() async {
-    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     return row?.sprache ?? 'system';
   }
 
@@ -3691,7 +3966,8 @@ class AppDatabase extends _$AppDatabase {
   /// `datum_setzen_verschiebt_test.dart`); für Prüfstände selbst ist der
   /// kurze Weg hier richtig.
   Future<void> setFileCreatedAt(String assetId, DateTime fileCreatedAt) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         fileCreatedAt: Value(fileCreatedAt),
         // Wie bei [setAufnahmezeitpunkt]: Ein gesetztes Datum ist kein
         // geratenes mehr.
@@ -3714,8 +3990,10 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// Nach dem Leeren trägt der Nachtrag die richtigen Namen ein; ohne
   /// Koordinate bleibt es leer, und das ist die Wahrheit.
-  Future<void> setLocation(String assetId, double? latitude, double? longitude) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+  Future<void> setLocation(
+          String assetId, double? latitude, double? longitude) =>
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         latitude: Value(latitude),
         longitude: Value(longitude),
         locationCountry: const Value(null),
@@ -3785,8 +4063,10 @@ class AppDatabase extends _$AppDatabase {
         ortGeerbt: const Value(true),
       ));
 
-  Future<Set<String>> verworfeneOrtsvorschlagsschluessel() async =>
-      {for (final z in await select(verworfeneOrtsvorschlaege).get()) z.schluessel};
+  Future<Set<String>> verworfeneOrtsvorschlagsschluessel() async => {
+        for (final z in await select(verworfeneOrtsvorschlaege).get())
+          z.schluessel
+      };
 
   Future<void> verwirfOrtsvorschlag(String schluessel) =>
       into(verworfeneOrtsvorschlaege).insertOnConflictUpdate(
@@ -3841,8 +4121,9 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// Der Papierkorb ist dabei: Ein zurückgeholtes Foto soll nicht als
   /// einziges ohne Herkunftsvermerk dastehen.
-  Expression<bool> _datumOffen(bool alle) =>
-      alle ? const CustomExpression<bool>('1') : assets.datumGeprueft.equals(false);
+  Expression<bool> _datumOffen(bool alle) => alle
+      ? const CustomExpression<bool>('1')
+      : assets.datumGeprueft.equals(false);
 
   Future<List<AssetData>> assetsFuerDatumsherkunft({bool alle = false}) =>
       (select(assets)..where((_) => _datumOffen(alle))).get();
@@ -3869,8 +4150,8 @@ class AppDatabase extends _$AppDatabase {
     if (assetIds.isEmpty) return;
     final geraten = geschaetzt.toSet();
     await transaction(() async {
-      await (update(assets)..where((t) => t.id.isIn(assetIds))).write(
-          const AssetsCompanion(
+      await (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(const AssetsCompanion(
               datumGeprueft: Value(true),
               datumGeschaetzt: Value(false),
               // Auch der Versatz wird zurueckgenommen: Wer den Lauf mit
@@ -3898,7 +4179,8 @@ class AppDatabase extends _$AppDatabase {
   /// CameraInfo) – beim Import automatisch oder nachträglich über das
   /// Werkzeug "Kameradaten einlesen".
   Future<void> setCameraMetadata(String assetId, CameraInfo info) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         cameraMake: Value(info.make),
         cameraModel: Value(info.model),
         lensModel: Value(info.lensModel),
@@ -3950,7 +4232,8 @@ class AppDatabase extends _$AppDatabase {
   /// Serien heraus, obwohl der Grund dafür gerade behoben wurde.
   Future<void> setAufnahmezeitpunkt(String assetId, DateTime zeitpunkt,
           {String? neuerPfad}) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         fileCreatedAt: Value(zeitpunkt),
         datumGeschaetzt: const Value(false),
         relativePath:
@@ -4040,7 +4323,8 @@ class AppDatabase extends _$AppDatabase {
   /// gelöschtes Foto liegt weiterhin unter `originals/`, und die Frage
   /// lautet hier nicht „stimmt das Datum", sondern „stimmt der Ordner".
   Expression<bool> get _ablageFalsch => const CustomExpression<bool>(
-        "relative_path LIKE 'originals/%' AND substr(relative_path, 11, 7) "
+        "replace(relative_path, char(92), '/') LIKE 'originals/%' AND "
+        "substr(replace(relative_path, char(92), '/'), 11, 7) "
         "<> strftime('%Y/%m', file_created_at, 'unixepoch', 'localtime')",
       );
 
@@ -4060,7 +4344,8 @@ class AppDatabase extends _$AppDatabase {
   /// `recognizeText`) – [text] darf leer sein (kein Text im Bild gefunden),
   /// `ocrScanned` unterscheidet das von "noch nicht gescannt".
   Future<void> setOcrResult(String assetId, String text, {String? boxen}) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         ocrText: Value(text),
         ocrBoxen: Value(boxen),
         ocrScanned: const Value(true),
@@ -4086,8 +4371,8 @@ class AppDatabase extends _$AppDatabase {
   /// nicht an der Suchanfrage, dass nichts kommt – dann ist die
   /// Texterkennung schlicht noch nie gelaufen. "Keine Treffer" wäre
   /// dafür die falsche Auskunft.
-  Future<int> zaehleMitErkanntemText() => _countWhere(
-      assets.ocrText.isNotNull() & assets.ocrText.equals('').not());
+  Future<int> zaehleMitErkanntemText() =>
+      _countWhere(assets.ocrText.isNotNull() & assets.ocrText.equals('').not());
 
   /// Was die Texterkennung noch vor sich hat.
   ///
@@ -4133,20 +4418,24 @@ class AppDatabase extends _$AppDatabase {
   /// [deutsch] ist die übersetzte Fassung, sofern das Übersetzungsmodell
   /// installiert und eingeschaltet ist. Das englische Original bleibt in
   /// jedem Fall stehen.
-  Future<void> setAiCaption(String assetId, String caption, {String? deutsch}) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+  Future<void> setAiCaption(String assetId, String caption,
+          {String? deutsch}) =>
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         aiCaption: Value(caption),
         aiCaptionDe: Value(deutsch),
         aiCaptionScanned: const Value(true),
       ));
 
   Future<bool> uebersetzeBeschreibungen() async {
-    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     return row?.translateCaptions ?? false;
   }
 
   Future<bool> uebersetzeSucheUndTags() async {
-    final row = await (select(appSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(appSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     return row?.translateSearchAndTags ?? false;
   }
 
@@ -4202,21 +4491,29 @@ class AppDatabase extends _$AppDatabase {
     required double west,
     required double nord,
     required double ost,
-    required Future<List<({int osmId, int artNr, double breite, double laenge,
-            String? name, double? hoehe})>?>
-        Function() holen,
+    required Future<
+                List<
+                    ({
+                      int osmId,
+                      int artNr,
+                      double breite,
+                      double laenge,
+                      String? name,
+                      double? hoehe
+                    })>?>
+            Function()
+        holen,
   }) async {
     String r(double w) => w.toStringAsFixed(3);
     final schluessel = '${r(sued)},${r(west)},${r(nord)},${r(ost)}';
 
-    Future<List<WanderpunkteData>> ausDerBibliothek() =>
-        (select(wanderpunkte)
-              ..where((t) =>
-                  t.breite.isBiggerOrEqualValue(sued) &
-                  t.breite.isSmallerOrEqualValue(nord) &
-                  t.laenge.isBiggerOrEqualValue(west) &
-                  t.laenge.isSmallerOrEqualValue(ost)))
-            .get();
+    Future<List<WanderpunkteData>> ausDerBibliothek() => (select(wanderpunkte)
+          ..where((t) =>
+              t.breite.isBiggerOrEqualValue(sued) &
+              t.breite.isSmallerOrEqualValue(nord) &
+              t.laenge.isBiggerOrEqualValue(west) &
+              t.laenge.isSmallerOrEqualValue(ost)))
+        .get();
 
     final schonGefragt = await (select(wanderabfragen)
           ..where((t) => t.kasten.equals(schluessel)))
@@ -4440,8 +4737,7 @@ class AppDatabase extends _$AppDatabase {
     final wert = schluessel?.trim();
     return into(appSettings).insertOnConflictUpdate(AppSettingsCompanion.insert(
       id: const Value(0),
-      cartoSchluessel:
-          Value(wert == null || wert.isEmpty ? null : wert),
+      cartoSchluessel: Value(wert == null || wert.isEmpty ? null : wert),
     ));
   }
 
@@ -4475,7 +4771,8 @@ class AppDatabase extends _$AppDatabase {
       (select(assets)..where((t) => _brauchtBeschreibung(alle))).get();
 
   /// Zählvariante von [assetsForCaptionBackfill], siehe [countLocationBackfill].
-  Future<int> countCaptionBackfill() => _countWhere(_brauchtBeschreibung(false));
+  Future<int> countCaptionBackfill() =>
+      _countWhere(_brauchtBeschreibung(false));
 
   /// Bedingung für „hat eine englische Bildunterschrift, aber (noch) keine
   /// deutsche".
@@ -4506,7 +4803,8 @@ class AppDatabase extends _$AppDatabase {
       (select(assets)..where((t) => _uebersetzbareBeschreibung(alle))).get();
 
   /// Zählvariante von [assetsForCaptionTranslation].
-  Future<int> countCaptionTranslation() => _countWhere(_uebersetzbareBeschreibung(false));
+  Future<int> countCaptionTranslation() =>
+      _countWhere(_uebersetzbareBeschreibung(false));
 
   /// Trägt die deutsche Fassung nach, ohne das englische Original oder das
   /// `aiCaptionScanned`-Merkmal anzufassen.
@@ -4533,9 +4831,11 @@ class AppDatabase extends _$AppDatabase {
 
     final englischDanach = deutsch ? (vorher.aiCaption ?? '') : gesetzt;
     final deutschDanach = deutsch ? gesetzt : (vorher.aiCaptionDe ?? '');
-    final nochWas = englischDanach.trim().isNotEmpty || deutschDanach.trim().isNotEmpty;
+    final nochWas =
+        englischDanach.trim().isNotEmpty || deutschDanach.trim().isNotEmpty;
 
-    await (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+    await (update(assets)..where((t) => t.id.equals(assetId)))
+        .write(AssetsCompanion(
       aiCaption: deutsch ? const Value.absent() : wert,
       aiCaptionDe: deutsch ? wert : const Value.absent(),
       aiCaptionEdited: Value(nochWas),
@@ -4570,9 +4870,11 @@ class AppDatabase extends _$AppDatabase {
   /// `hatEmbedding` kommt aus dem Left Join und sagt, ob die CLIP-Stufe für
   /// dieses Foto noch etwas zu tun hat – die beiden anderen Stufen lassen
   /// sich direkt am Asset ablesen ([Assets.sharpnessScore], [Assets.facesScanned]).
-  Future<List<({AssetData asset, bool hatEmbedding})>> assetsForCombinedImageAnalysis() async {
+  Future<List<({AssetData asset, bool hatEmbedding})>>
+      assetsForCombinedImageAnalysis() async {
     final query = select(assets).join([
-      leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
+      leftOuterJoin(
+          imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
     ])
       ..where(_auswertbar(assets) &
           assets.isTrashed.equals(false) &
@@ -4583,7 +4885,10 @@ class AppDatabase extends _$AppDatabase {
     final rows = await query.get();
     return [
       for (final r in rows)
-        (asset: r.readTable(assets), hatEmbedding: r.readTableOrNull(imageEmbeddings) != null),
+        (
+          asset: r.readTable(assets),
+          hatEmbedding: r.readTableOrNull(imageEmbeddings) != null
+        ),
     ];
   }
 
@@ -4611,12 +4916,13 @@ class AppDatabase extends _$AppDatabase {
   /// exakt dieselbe `isLocked`-Ausnahme wie bei [assetsNotBackedUp]. Beim
   /// manuellen Export (siehe ExportService.exportAsset) gilt das NICHT: dort
   /// hat der Nutzer das Entschlüsseln/Exportieren bereits aktiv angestoßen.
-  Future<List<AssetData>> assetsForXmpExport() =>
-      (select(assets)..where((t) => t.isTrashed.equals(false) & t.isLocked.equals(false))).get();
+  Future<List<AssetData>> assetsForXmpExport() => (select(assets)
+        ..where((t) => t.isTrashed.equals(false) & t.isLocked.equals(false)))
+      .get();
 
   /// Zählvariante von [assetsForXmpExport], siehe [countLocationBackfill].
-  Future<int> countXmpExport() =>
-      _countWhere(assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+  Future<int> countXmpExport() => _countWhere(
+      assets.isTrashed.equals(false) & assets.isLocked.equals(false));
 
   /// Noch unbewertete Fotos/Videos für den Sichtungs-Modus (Culling) –
   /// bewusst `rating == 0` statt eines eigenen "gesichtet"-Flags: sobald ein
@@ -4627,7 +4933,9 @@ class AppDatabase extends _$AppDatabase {
   /// Hauptanwendungsfall sind.
   Future<List<AssetData>> assetsForCulling({int limit = 500}) => (select(assets)
         ..where((t) =>
-            t.rating.equals(0) & t.isTrashed.equals(false) & t.isLocked.equals(false))
+            t.rating.equals(0) &
+            t.isTrashed.equals(false) &
+            t.isLocked.equals(false))
         ..orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)])
         ..limit(limit))
       .get();
@@ -4642,7 +4950,8 @@ class AppDatabase extends _$AppDatabase {
     String? state,
     required String city,
   }) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         locationCountry: Value(country),
         locationState: Value(state),
         locationCity: Value(city),
@@ -4660,10 +4969,11 @@ class AppDatabase extends _$AppDatabase {
       .get();
 
   /// Zählvariante von [assetsForLocationNameBackfill], siehe [countLocationBackfill].
-  Future<int> countLocationNameBackfill() => _countWhere(assets.isTrashed.equals(false) &
-      assets.latitude.isNotNull() &
-      assets.longitude.isNotNull() &
-      assets.locationCountry.isNull());
+  Future<int> countLocationNameBackfill() =>
+      _countWhere(assets.isTrashed.equals(false) &
+          assets.latitude.isNotNull() &
+          assets.longitude.isNotNull() &
+          assets.locationCountry.isNull());
 
   /// Alle nicht gelöschten Assets mit aufgelöstem Orts-Namen (Land/
   /// Bundesland/Stadt), neueste zuerst – für die "Erkannte Orte"-Sektion im
@@ -4805,10 +5115,9 @@ class AppDatabase extends _$AppDatabase {
       }
     }
     if (treffer.isEmpty) return const [];
-    final geladen = await (select(assets)..where((t) => t.id.isIn(treffer)))
-        .get();
-    return geladen
-      ..sort((a, b) => b.fileCreatedAt.compareTo(a.fileCreatedAt));
+    final geladen =
+        await (select(assets)..where((t) => t.id.isIn(treffer))).get();
+    return geladen..sort((a, b) => b.fileCreatedAt.compareTo(a.fileCreatedAt));
   }
 
   /// Ersetzt Original-Datei (Pfad + Prüfsumme) eines Assets nach einer
@@ -4816,8 +5125,10 @@ class AppDatabase extends _$AppDatabase {
   /// Löscht eine ggf. vorhandene konvertierte Vorschau (HEIC/RAW & Co.):
   /// nach der Bearbeitung ist die neue Originaldatei selbst bereits ein
   /// direkt darstellbares JPEG.
-  Future<void> setEditedAssetFile(String assetId, {required String relativePath, required String checksum}) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
+  Future<void> setEditedAssetFile(String assetId,
+          {required String relativePath, required String checksum}) =>
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
         relativePath: Value(relativePath),
         checksum: Value(checksum),
         previewRelativePath: const Value(null),
@@ -4849,7 +5160,9 @@ class AppDatabase extends _$AppDatabase {
   /// Dateiname, anderer Typ) schon in der Bibliothek liegt.
   Future<List<AssetData>> unlinkedAssetsOfType(String type) => (select(assets)
         ..where((t) =>
-            t.type.equals(type) & t.isTrashed.equals(false) & t.linkedAssetId.isNull()))
+            t.type.equals(type) &
+            t.isTrashed.equals(false) &
+            t.linkedAssetId.isNull()))
       .get();
 
   /// Zählvariante von [unlinkedAssetsOfType], siehe [countLocationBackfill].
@@ -4859,7 +5172,9 @@ class AppDatabase extends _$AppDatabase {
       _countWhere(assets.type.equals(type));
 
   Future<int> countUnlinkedAssetsOfType(String type) =>
-      _countWhere(assets.type.equals(type) & assets.isTrashed.equals(false) & assets.linkedAssetId.isNull());
+      _countWhere(assets.type.equals(type) &
+          assets.isTrashed.equals(false) &
+          assets.linkedAssetId.isNull());
 
   Future<void> linkAssets(String idA, String idB) async {
     await (update(assets)..where((t) => t.id.equals(idA)))
@@ -4875,8 +5190,9 @@ class AppDatabase extends _$AppDatabase {
       {for (final z in await select(verworfeneSerien).get()) z.schluessel};
 
   Future<void> verwirfSerienvorschlag(String schluessel) =>
-      into(verworfeneSerien).insertOnConflictUpdate(VerworfeneSerienCompanion.insert(
-          schluessel: schluessel, verworfenAm: DateTime.now()));
+      into(verworfeneSerien).insertOnConflictUpdate(
+          VerworfeneSerienCompanion.insert(
+              schluessel: schluessel, verworfenAm: DateTime.now()));
 
   /// Die Einbettungen, die für einen Serienvorschlag überhaupt in Frage
   /// kommen: alles, was nicht schon in einem Stapel liegt.
@@ -4899,7 +5215,8 @@ class AppDatabase extends _$AppDatabase {
   /// (siehe die `stackId`/`isStackCover`-Filter dort), die übrigen
   /// Mitglieder werden aus der Rasteransicht ausgeblendet. [stackId] wird
   /// vom Aufrufer erzeugt (Muster wie `createSavedSearch`/`createAlbum`).
-  Future<void> createStack(String stackId, List<String> assetIds, String coverAssetId) async {
+  Future<void> createStack(
+      String stackId, List<String> assetIds, String coverAssetId) async {
     assert(assetIds.contains(coverAssetId));
     await batch((b) {
       for (final id in assetIds) {
@@ -4908,7 +5225,8 @@ class AppDatabase extends _$AppDatabase {
           AssetsCompanion(
             stackId: Value(stackId),
             isStackCover: Value(id == coverAssetId),
-            stackSize: id == coverAssetId ? Value(assetIds.length) : const Value(null),
+            stackSize:
+                id == coverAssetId ? Value(assetIds.length) : const Value(null),
           ),
           where: (t) => t.id.equals(id),
         );
@@ -4918,8 +5236,12 @@ class AppDatabase extends _$AppDatabase {
 
   /// Löst einen Stapel wieder auf ("Serie auflösen") – alle Mitglieder
   /// werden wieder einzeln sichtbar.
-  Future<void> unstackAssets(String stackId) => (update(assets)..where((t) => t.stackId.equals(stackId)))
-      .write(const AssetsCompanion(stackId: Value(null), isStackCover: Value(false), stackSize: Value(null)));
+  Future<void> unstackAssets(String stackId) =>
+      (update(assets)..where((t) => t.stackId.equals(stackId))).write(
+          const AssetsCompanion(
+              stackId: Value(null),
+              isStackCover: Value(false),
+              stackSize: Value(null)));
 
   Future<List<AssetData>> assetsInStack(String stackId) =>
       (select(assets)..where((t) => t.stackId.equals(stackId))).get();
@@ -4951,11 +5273,12 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Zählvariante von [assetsForThumbnailRegen], siehe [countLocationBackfill].
-  Future<int> countThumbnailRegen({required bool onlyMissing}) => _countWhere(onlyMissing
-      ? assets.isTrashed.equals(false) &
-          assets.isLocked.equals(false) &
-          _fehlendeVorschau(assets)
-      : assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+  Future<int> countThumbnailRegen({required bool onlyMissing}) =>
+      _countWhere(onlyMissing
+          ? assets.isTrashed.equals(false) &
+              assets.isLocked.equals(false) &
+              _fehlendeVorschau(assets)
+          : assets.isTrashed.equals(false) & assets.isLocked.equals(false));
 
   /// „Fehlt hier ein Vorschaubild?"
   ///
@@ -5041,14 +5364,19 @@ class AppDatabase extends _$AppDatabase {
     int? heightPx,
     double? durationSeconds,
   }) =>
-      (update(assets)..where((t) => t.id.equals(assetId))).write(AssetsCompanion(
-        thumbnailRelativePath:
-            thumbnailRelativePath != null ? Value(thumbnailRelativePath) : const Value.absent(),
-        previewRelativePath:
-            previewRelativePath != null ? Value(previewRelativePath) : const Value.absent(),
+      (update(assets)..where((t) => t.id.equals(assetId)))
+          .write(AssetsCompanion(
+        thumbnailRelativePath: thumbnailRelativePath != null
+            ? Value(thumbnailRelativePath)
+            : const Value.absent(),
+        previewRelativePath: previewRelativePath != null
+            ? Value(previewRelativePath)
+            : const Value.absent(),
         widthPx: widthPx != null ? Value(widthPx) : const Value.absent(),
         heightPx: heightPx != null ? Value(heightPx) : const Value.absent(),
-        durationSeconds: durationSeconds != null ? Value(durationSeconds) : const Value.absent(),
+        durationSeconds: durationSeconds != null
+            ? Value(durationSeconds)
+            : const Value.absent(),
       ));
 
   // -----------------------------------------------------------------------
@@ -5056,7 +5384,8 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Future<DevelopSettingsData?> developSettingsForAsset(String assetId) =>
-      (select(developSettings)..where((t) => t.assetId.equals(assetId))).getSingleOrNull();
+      (select(developSettings)..where((t) => t.assetId.equals(assetId)))
+          .getSingleOrNull();
 
   /// Speichert die Entwicklungs-Einstellungen und das dazu gerenderte Bild
   /// in einer Transaktion, damit `Assets.developedRelativePath` nie auf
@@ -5072,8 +5401,9 @@ class AppDatabase extends _$AppDatabase {
     required String developedRelativePath,
   }) =>
       transaction(() async {
-        final previous =
-            await (select(developSettings)..where((t) => t.assetId.equals(assetId))).getSingleOrNull();
+        final previous = await (select(developSettings)
+              ..where((t) => t.assetId.equals(assetId)))
+            .getSingleOrNull();
         if (previous != null) {
           await into(developHistory).insert(DevelopHistoryCompanion.insert(
             assetId: assetId,
@@ -5093,8 +5423,9 @@ class AppDatabase extends _$AppDatabase {
           await _pruneDevelopHistory(assetId);
         }
         await into(developSettings).insertOnConflictUpdate(settings);
-        await (update(assets)..where((t) => t.id.equals(assetId)))
-            .write(AssetsCompanion(developedRelativePath: Value(developedRelativePath)));
+        await (update(assets)..where((t) => t.id.equals(assetId))).write(
+            AssetsCompanion(
+                developedRelativePath: Value(developedRelativePath)));
       });
 
   /// Begrenzt [DevelopHistory] auf die neuesten [keep] Einträge pro Asset,
@@ -5125,7 +5456,8 @@ class AppDatabase extends _$AppDatabase {
   /// Setzt ein Asset auf unentwickelt zurück (Regler-"Zurücksetzen") – der
   /// Aufrufer löscht die zugehörige gerenderte Datei selbst von der Platte.
   Future<void> resetDevelopSettings(String assetId) => transaction(() async {
-        await (delete(developSettings)..where((t) => t.assetId.equals(assetId))).go();
+        await (delete(developSettings)..where((t) => t.assetId.equals(assetId)))
+            .go();
         await (update(assets)..where((t) => t.id.equals(assetId)))
             .write(const AssetsCompanion(developedRelativePath: Value(null)));
       });
@@ -5133,7 +5465,8 @@ class AppDatabase extends _$AppDatabase {
   /// Alle entwickelten Assets samt ihrer Einstellungen – für das
   /// "Entwickelte Fotos neu rendern"-Werkzeug (z.B. nach einer Änderung an
   /// der Render-Logik selbst).
-  Future<List<(AssetData, DevelopSettingsData)>> assetsWithDevelopSettings() async {
+  Future<List<(AssetData, DevelopSettingsData)>>
+      assetsWithDevelopSettings() async {
     final query = select(assets).join([
       innerJoin(developSettings, developSettings.assetId.equalsExp(assets.id)),
     ])
@@ -5143,7 +5476,9 @@ class AppDatabase extends _$AppDatabase {
       // unverschlüsselt in developed/ zu schreiben.
       ..where(assets.isTrashed.equals(false) & assets.isLocked.equals(false));
     final rows = await query.get();
-    return rows.map((r) => (r.readTable(assets), r.readTable(developSettings))).toList();
+    return rows
+        .map((r) => (r.readTable(assets), r.readTable(developSettings)))
+        .toList();
   }
 
   /// Zählvariante von [assetsWithDevelopSettings], siehe [countLocationBackfill].
@@ -5174,13 +5509,15 @@ class AppDatabase extends _$AppDatabase {
   /// statt N+1-Abfragen pro Asset.
   Future<List<DevelopMaskData>> allDevelopMasks() => select(developMasks).get();
 
-  Future<int> createDevelopMask(DevelopMasksCompanion mask) => into(developMasks).insert(mask);
+  Future<int> createDevelopMask(DevelopMasksCompanion mask) =>
+      into(developMasks).insert(mask);
 
   /// Aktualisiert nur die Regler-Werte einer bereits vorhandenen Maske
   /// (Label/Maskendatei bleiben unverändert) – beim Speichern im
   /// Entwickeln-Screen, analog zu [saveDevelopResult] für die globalen
   /// Regler.
-  Future<void> updateDevelopMaskAdjustments(int id, DevelopMasksCompanion adjustments) =>
+  Future<void> updateDevelopMaskAdjustments(
+          int id, DevelopMasksCompanion adjustments) =>
       (update(developMasks)..where((t) => t.id.equals(id))).write(adjustments);
 
   /// Aktualisiert die Geometrie einer Vektor-Maske nach erneutem Bearbeiten
@@ -5189,24 +5526,28 @@ class AppDatabase extends _$AppDatabase {
   /// wie [createDevelopMask]), hier wird nur die Quelle der Wahrheit
   /// (`shapeDefinitionJson`) aktualisiert.
   Future<void> updateDevelopMaskShape(int id, String shapeDefinitionJson) =>
-      (update(developMasks)..where((t) => t.id.equals(id)))
-          .write(DevelopMasksCompanion(shapeDefinitionJson: Value(shapeDefinitionJson)));
+      (update(developMasks)..where((t) => t.id.equals(id))).write(
+          DevelopMasksCompanion(
+              shapeDefinitionJson: Value(shapeDefinitionJson)));
 
   /// "Maske entfernen" – der Aufrufer löscht die zugehörige PNG-Datei selbst
   /// von der Platte (Muster wie [resetDevelopSettings]/[resetVideoTrim]).
-  Future<void> deleteDevelopMask(int id) => (delete(developMasks)..where((t) => t.id.equals(id))).go();
+  Future<void> deleteDevelopMask(int id) =>
+      (delete(developMasks)..where((t) => t.id.equals(id))).go();
 
   // -----------------------------------------------------------------------
   // KI-Restaurierung (RestoreQueueService, RestoreService)
   // -----------------------------------------------------------------------
 
-  Future<void> createRestoreJob(RestoreJobsCompanion job) => into(restoreJobs).insert(job);
+  Future<void> createRestoreJob(RestoreJobsCompanion job) =>
+      into(restoreJobs).insert(job);
 
   /// Alle Aufträge, neueste zuerst – Grundlage für den Warteschlangen-
   /// Indikator (nur `queued`/`running` gefiltert vom Aufrufer) und den
   /// Warteschlangen-Screen (alle Status).
   Stream<List<RestoreJobData>> watchRestoreJobs() =>
-      (select(restoreJobs)..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
+      (select(restoreJobs)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .watch();
 
   /// Der älteste noch wartende Auftrag – FIFO, ein Auftrag gleichzeitig
   /// (siehe RestoreQueueService: parallele ONNX-Inferenzen würden sich nur
@@ -5220,17 +5561,23 @@ class AppDatabase extends _$AppDatabase {
   /// Bereits wartender/laufender Auftrag für dieses Asset, falls vorhanden
   /// – verhindert in [RestoreQueueService.enqueue] doppelte Aufträge für
   /// dasselbe Foto (z.B. durch einen Doppelklick).
-  Future<RestoreJobData?> activeRestoreJobForAsset(String assetId) => (select(restoreJobs)
-        ..where((t) => t.assetId.equals(assetId) & t.status.isIn(['queued', 'running']))
-        ..limit(1))
-      .getSingleOrNull();
+  Future<RestoreJobData?> activeRestoreJobForAsset(String assetId) =>
+      (select(restoreJobs)
+            ..where((t) =>
+                t.assetId.equals(assetId) &
+                t.status.isIn(['queued', 'running']))
+            ..limit(1))
+          .getSingleOrNull();
 
-  Future<void> updateRestoreJobProgress(String id, int tilesDone, int tilesTotal) =>
+  Future<void> updateRestoreJobProgress(
+          String id, int tilesDone, int tilesTotal) =>
       (update(restoreJobs)..where((t) => t.id.equals(id))).write(
-        RestoreJobsCompanion(tilesDone: Value(tilesDone), tilesTotal: Value(tilesTotal)),
+        RestoreJobsCompanion(
+            tilesDone: Value(tilesDone), tilesTotal: Value(tilesTotal)),
       );
 
-  Future<void> markRestoreJobStatus(String id, String status, {String? errorMessage}) =>
+  Future<void> markRestoreJobStatus(String id, String status,
+          {String? errorMessage}) =>
       (update(restoreJobs)..where((t) => t.id.equals(id))).write(
         RestoreJobsCompanion(
           status: Value(status),
@@ -5245,23 +5592,29 @@ class AppDatabase extends _$AppDatabase {
             'queued' => const Value(null),
             _ => const Value.absent(),
           },
-          completedAt: Value(status == 'queued' || status == 'running' ? null : DateTime.now()),
+          completedAt: Value(status == 'queued' || status == 'running'
+              ? null
+              : DateTime.now()),
         ),
       );
 
-  Future<void> deleteRestoreJob(String id) => (delete(restoreJobs)..where((t) => t.id.equals(id))).go();
+  Future<void> deleteRestoreJob(String id) =>
+      (delete(restoreJobs)..where((t) => t.id.equals(id))).go();
 
   /// Schließt einen erfolgreichen Auftrag transaktional ab: setzt
   /// `Assets.restoredRelativePath` UND markiert den Auftrag `done` in einem
   /// Zug (Muster: [saveDevelopResult]) – verhindert einen inkonsistenten
   /// Zwischenstand (Job "done", aber Asset zeigt noch nicht auf das
   /// Ergebnis, oder umgekehrt).
-  Future<void> completeRestoreJob(String jobId, String assetId, String restoredRelativePath) =>
+  Future<void> completeRestoreJob(
+          String jobId, String assetId, String restoredRelativePath) =>
       transaction(() async {
-        await (update(assets)..where((t) => t.id.equals(assetId)))
-            .write(AssetsCompanion(restoredRelativePath: Value(restoredRelativePath)));
-        await (update(restoreJobs)..where((t) => t.id.equals(jobId)))
-            .write(RestoreJobsCompanion(status: const Value('done'), completedAt: Value(DateTime.now())));
+        await (update(assets)..where((t) => t.id.equals(assetId))).write(
+            AssetsCompanion(restoredRelativePath: Value(restoredRelativePath)));
+        await (update(restoreJobs)..where((t) => t.id.equals(jobId))).write(
+            RestoreJobsCompanion(
+                status: const Value('done'),
+                completedAt: Value(DateTime.now())));
       });
 
   /// Crash-Safety: setzt beim App-Start jeden Auftrag, der beim letzten
@@ -5271,7 +5624,8 @@ class AppDatabase extends _$AppDatabase {
   /// neu. Siehe LibraryState.initialize().
   Future<void> resetStuckRunningRestoreJobs() =>
       (update(restoreJobs)..where((t) => t.status.equals('running'))).write(
-        const RestoreJobsCompanion(status: Value('queued'), tilesDone: Value(0), tilesTotal: Value(0)),
+        const RestoreJobsCompanion(
+            status: Value('queued'), tilesDone: Value(0), tilesTotal: Value(0)),
       );
 
   // -----------------------------------------------------------------------
@@ -5279,7 +5633,8 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Future<VideoTrimData?> videoTrimForAsset(String assetId) =>
-      (select(videoTrims)..where((t) => t.assetId.equals(assetId))).getSingleOrNull();
+      (select(videoTrims)..where((t) => t.assetId.equals(assetId)))
+          .getSingleOrNull();
 
   /// Speichert Start/Ende und das dazu geschnittene Video in einer
   /// Transaktion, analog zu [saveDevelopResult] – `Assets.trimmedRelativePath`
@@ -5292,21 +5647,23 @@ class AppDatabase extends _$AppDatabase {
     required String trimmedRelativePath,
   }) =>
       transaction(() async {
-        await into(videoTrims).insertOnConflictUpdate(VideoTrimsCompanion.insert(
+        await into(videoTrims)
+            .insertOnConflictUpdate(VideoTrimsCompanion.insert(
           assetId: assetId,
           startSeconds: startSeconds,
           endSeconds: endSeconds,
           updatedAt: DateTime.now(),
         ));
-        await (update(assets)..where((t) => t.id.equals(assetId)))
-            .write(AssetsCompanion(trimmedRelativePath: Value(trimmedRelativePath)));
+        await (update(assets)..where((t) => t.id.equals(assetId))).write(
+            AssetsCompanion(trimmedRelativePath: Value(trimmedRelativePath)));
       });
 
   /// Setzt ein Video auf den Originalausschnitt zurück (Zuschneiden-
   /// "Zurücksetzen") – der Aufrufer löscht die zugehörige geschnittene
   /// Datei selbst von der Platte.
   Future<void> resetVideoTrim(String assetId) => transaction(() async {
-        await (delete(videoTrims)..where((t) => t.assetId.equals(assetId))).go();
+        await (delete(videoTrims)..where((t) => t.assetId.equals(assetId)))
+            .go();
         await (update(assets)..where((t) => t.id.equals(assetId)))
             .write(const AssetsCompanion(trimmedRelativePath: Value(null)));
       });
@@ -5316,7 +5673,8 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Stream<List<AlbumData>> watchAlbums() =>
-      (select(albums)..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
+      (select(albums)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .watch();
 
   Future<void> createAlbum(AlbumsCompanion album) => into(albums).insert(album);
 
@@ -5324,7 +5682,8 @@ class AppDatabase extends _$AppDatabase {
     await batch((b) {
       b.insertAllOnConflictUpdate(
         albumAssets,
-        assetIds.map((id) => AlbumAssetsCompanion.insert(albumId: albumId, assetId: id)),
+        assetIds.map(
+            (id) => AlbumAssetsCompanion.insert(albumId: albumId, assetId: id)),
       );
     });
   }
@@ -5370,10 +5729,10 @@ class AppDatabase extends _$AppDatabase {
     return erste?.readTableOrNull(assets);
   }
 
-  Future<void> removeAssetFromAlbum(String albumId, String assetId) =>
-      (delete(albumAssets)
-            ..where((t) => t.albumId.equals(albumId) & t.assetId.equals(assetId)))
-          .go();
+  Future<void> removeAssetFromAlbum(String albumId, String assetId) => (delete(
+          albumAssets)
+        ..where((t) => t.albumId.equals(albumId) & t.assetId.equals(assetId)))
+      .go();
 
   Stream<List<AssetData>> watchAlbumAssets(String albumId) {
     final query = select(assets).join([
@@ -5414,10 +5773,11 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Future<String> ensureTag(String name) async {
-    final existing =
-        await (select(tags)..where((t) => t.name.equals(name))).getSingleOrNull();
+    final existing = await (select(tags)..where((t) => t.name.equals(name)))
+        .getSingleOrNull();
     if (existing != null) return existing.id;
-    final id = name.hashCode.toRadixString(36) + DateTime.now().microsecondsSinceEpoch.toString();
+    final id = name.hashCode.toRadixString(36) +
+        DateTime.now().microsecondsSinceEpoch.toString();
     await into(tags).insert(TagsCompanion.insert(id: id, name: name));
     return id;
   }
@@ -5534,18 +5894,21 @@ class AppDatabase extends _$AppDatabase {
   /// den Tag bei Bedarf erst per Name anlegt) – für das Anwenden eines
   /// Kamera-Presets, dessen Tags bereits als IDs gespeichert sind, ohne
   /// zusätzlichen Namens-Lookup.
-  Future<void> tagAssetById(String assetId, String tagId) => into(assetTags)
-      .insertOnConflictUpdate(AssetTagsCompanion.insert(assetId: assetId, tagId: tagId));
+  Future<void> tagAssetById(String assetId, String tagId) =>
+      into(assetTags).insertOnConflictUpdate(
+          AssetTagsCompanion.insert(assetId: assetId, tagId: tagId));
 
   // -----------------------------------------------------------------------
   // Entwicklungs-Vorgaben (benannte Reglerstände)
   // -----------------------------------------------------------------------
 
   Stream<List<DevelopPresetData>> watchDevelopPresets() =>
-      (select(developPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+      (select(developPresets)..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          .watch();
 
   Future<List<DevelopPresetData>> alleDevelopPresets() =>
-      (select(developPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+      (select(developPresets)..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          .get();
 
   /// Legt eine Vorgabe an oder aktualisiert sie – wie
   /// [upsertExportPreset], samt derselben Begründung: Der Konflikt wird
@@ -5573,7 +5936,8 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Stream<List<ExportPresetData>> watchExportPresets() =>
-      (select(exportPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+      (select(exportPresets)..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          .watch();
 
   Future<List<ExportPresetData>> alleExportPresets() =>
       (select(exportPresets)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
@@ -5607,7 +5971,10 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Stream<List<CameraPresetData>> watchCameraPresets() => (select(cameraPresets)
-        ..orderBy([(t) => OrderingTerm.asc(t.cameraMake), (t) => OrderingTerm.asc(t.cameraModel)]))
+        ..orderBy([
+          (t) => OrderingTerm.asc(t.cameraMake),
+          (t) => OrderingTerm.asc(t.cameraModel)
+        ]))
       .watch();
 
   /// Tag-Zuordnungen ALLER Presets auf einmal (presetId -> Tag-IDs), reaktiv
@@ -5636,7 +6003,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<String>> tagIdsForCameraPreset(String presetId) async {
-    final rows = await (select(cameraPresetTags)..where((t) => t.presetId.equals(presetId))).get();
+    final rows = await (select(cameraPresetTags)
+          ..where((t) => t.presetId.equals(presetId)))
+        .get();
     return rows.map((r) => r.tagId).toList();
   }
 
@@ -5644,12 +6013,14 @@ class AppDatabase extends _$AppDatabase {
   /// einzelner Hinzufügen-/Entfernen-Aufrufe) – der Editor übergibt bei
   /// jedem Speichern die vollständige, gewünschte Tag-Menge.
   Future<void> setCameraPresetTags(String presetId, List<String> tagIds) async {
-    await (delete(cameraPresetTags)..where((t) => t.presetId.equals(presetId))).go();
+    await (delete(cameraPresetTags)..where((t) => t.presetId.equals(presetId)))
+        .go();
     if (tagIds.isEmpty) return;
     await batch((b) {
       b.insertAll(
         cameraPresetTags,
-        tagIds.map((tagId) => CameraPresetTagsCompanion.insert(presetId: presetId, tagId: tagId)),
+        tagIds.map((tagId) =>
+            CameraPresetTagsCompanion.insert(presetId: presetId, tagId: tagId)),
       );
     });
   }
@@ -5660,10 +6031,13 @@ class AppDatabase extends _$AppDatabase {
   /// über `.get()` + erste Zeile statt `getSingleOrNull()`, damit ein aus
   /// Versehen doppelt angelegtes Preset für dieselbe Kamera nicht den
   /// gesamten Importvorgang mit einer Exception abbricht.
-  Future<CameraPresetData?> cameraPresetFor(String? cameraMake, String? cameraModel) async {
+  Future<CameraPresetData?> cameraPresetFor(
+      String? cameraMake, String? cameraModel) async {
     if (cameraMake == null || cameraModel == null) return null;
     final rows = await (select(cameraPresets)
-          ..where((t) => t.cameraMake.equals(cameraMake) & t.cameraModel.equals(cameraModel))
+          ..where((t) =>
+              t.cameraMake.equals(cameraMake) &
+              t.cameraModel.equals(cameraModel))
           ..limit(1))
         .get();
     return rows.isEmpty ? null : rows.first;
@@ -5675,7 +6049,8 @@ class AppDatabase extends _$AppDatabase {
   // -----------------------------------------------------------------------
 
   Stream<List<AutomationRuleData>> watchAutomationRules() =>
-      (select(automationRules)..orderBy([(t) => OrderingTerm.asc(t.name)])).watch();
+      (select(automationRules)..orderBy([(t) => OrderingTerm.asc(t.name)]))
+          .watch();
 
   /// Alle Regeln auf einmal statt eines gezielten Lookups (anders als
   /// [cameraPresetFor]): die Bedingungen sind zu unterschiedlich geformt
@@ -5683,7 +6058,8 @@ class AppDatabase extends _$AppDatabase {
   /// zusammenzufassen – die Tabelle ist wie CameraPresets klein, ein voller
   /// Scan mit Auswertung in Dart (siehe LibraryState.applyAutomationRules)
   /// ist hier güngstiger als der Aufwand einer typspezifischen Abfrage.
-  Future<List<AutomationRuleData>> allAutomationRules() => select(automationRules).get();
+  Future<List<AutomationRuleData>> allAutomationRules() =>
+      select(automationRules).get();
 
   /// Tag-Zuordnungen ALLER Regeln auf einmal, reaktiv – siehe
   /// [watchAllCameraPresetTagIds] für die Begründung (N+1/Veralten
@@ -5707,19 +6083,23 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<List<String>> tagIdsForAutomationRule(String ruleId) async {
-    final rows = await (select(automationRuleTags)..where((t) => t.ruleId.equals(ruleId))).get();
+    final rows = await (select(automationRuleTags)
+          ..where((t) => t.ruleId.equals(ruleId)))
+        .get();
     return rows.map((r) => r.tagId).toList();
   }
 
   /// Ersetzt die komplette Tag-Zuordnung einer Regel auf einmal, siehe
   /// [setCameraPresetTags].
   Future<void> setAutomationRuleTags(String ruleId, List<String> tagIds) async {
-    await (delete(automationRuleTags)..where((t) => t.ruleId.equals(ruleId))).go();
+    await (delete(automationRuleTags)..where((t) => t.ruleId.equals(ruleId)))
+        .go();
     if (tagIds.isEmpty) return;
     await batch((b) {
       b.insertAll(
         automationRuleTags,
-        tagIds.map((tagId) => AutomationRuleTagsCompanion.insert(ruleId: ruleId, tagId: tagId)),
+        tagIds.map((tagId) =>
+            AutomationRuleTagsCompanion.insert(ruleId: ruleId, tagId: tagId)),
       );
     });
   }
@@ -5852,17 +6232,20 @@ class AppDatabase extends _$AppDatabase {
 
   /// Für die Einstellungen (reaktiv, damit Änderungen sofort sichtbar sind).
   Stream<List<AiTagVocabularyData>> watchAiTagVocabulary() =>
-      (select(aiTagVocabulary)..orderBy([(t) => OrderingTerm.asc(t.term)])).watch();
+      (select(aiTagVocabulary)..orderBy([(t) => OrderingTerm.asc(t.term)]))
+          .watch();
 
   /// Idempotent (Muster: [ensureTag]) – ein Doppel-Tap auf "Hinzufügen"
   /// erzeugt keinen doppelten Eintrag und keinen UNIQUE-Constraint-Fehler.
   Future<void> addAiTagTerm(String term) async {
     final trimmed = term.trim();
     if (trimmed.isEmpty) return;
-    final existing =
-        await (select(aiTagVocabulary)..where((t) => t.term.equals(trimmed))).getSingleOrNull();
+    final existing = await (select(aiTagVocabulary)
+          ..where((t) => t.term.equals(trimmed)))
+        .getSingleOrNull();
     if (existing != null) return;
-    await into(aiTagVocabulary).insert(AiTagVocabularyCompanion.insert(term: trimmed));
+    await into(aiTagVocabulary)
+        .insert(AiTagVocabularyCompanion.insert(term: trimmed));
   }
 
   Future<void> removeAiTagTerm(int id) =>
@@ -5871,8 +6254,9 @@ class AppDatabase extends _$AppDatabase {
   /// Einmaliger, nicht-reaktiver Read für Aufrufer, die keinen Stream
   /// brauchen (Import-Pipeline, Backfill) – analog zu [tagsForAsset].
   Future<List<String>> aiTagVocabularyTerms() async {
-    final rows =
-        await (select(aiTagVocabulary)..orderBy([(t) => OrderingTerm.asc(t.term)])).get();
+    final rows = await (select(aiTagVocabulary)
+          ..orderBy([(t) => OrderingTerm.asc(t.term)]))
+        .get();
     return rows.map((r) => r.term).toList();
   }
 
@@ -5901,7 +6285,8 @@ class AppDatabase extends _$AppDatabase {
   /// als eine zweite Aufzaehlung derselben 24 Filter, die eines Tages
   /// auseinanderliefe.
   List<Expression<bool>> _suchbedingungen(
-      SearchFilters filters, List<String>? restrictToIds) {
+      SearchFilters filters, List<String>? restrictToIds,
+      {bool textAlreadyFiltered = false}) {
     final wo = <Expression<bool>>[
       assets.isTrashed.equals(false),
       assets.isLocked.equals(false),
@@ -5918,17 +6303,26 @@ class AppDatabase extends _$AppDatabase {
     }
 
     final text = filters.query.trim();
-    if (text.isNotEmpty && filters.textMode == SearchTextMode.filename) {
+    if (!textAlreadyFiltered &&
+        text.isNotEmpty &&
+        filters.textMode == SearchTextMode.filename) {
       wo.add(assets.originalFileName.like('%$text%'));
-    } else if (text.isNotEmpty && filters.textMode == SearchTextMode.description) {
+    } else if (!textAlreadyFiltered &&
+        text.isNotEmpty &&
+        filters.textMode == SearchTextMode.description) {
       wo.add(assets.description.like('%$text%'));
-    } else if (text.isNotEmpty && filters.textMode == SearchTextMode.ocr) {
+    } else if (!textAlreadyFiltered &&
+        text.isNotEmpty &&
+        filters.textMode == SearchTextMode.ocr) {
       wo.add(assets.ocrText.like('%$text%'));
-    } else if (text.isNotEmpty && filters.textMode == SearchTextMode.caption) {
+    } else if (!textAlreadyFiltered &&
+        text.isNotEmpty &&
+        filters.textMode == SearchTextMode.caption) {
       // Beide Fassungen: Wer die Übersetzung erst später einschaltet, hat
       // Fotos mit nur englischer und Fotos mit beiden Beschreibungen. Nur
       // in einer zu suchen liesse einen Teil der Bibliothek unauffindbar.
-      wo.add(assets.aiCaption.like('%$text%') | assets.aiCaptionDe.like('%$text%'));
+      wo.add(assets.aiCaption.like('%$text%') |
+          assets.aiCaptionDe.like('%$text%'));
     }
 
     if (filters.cameraMake != null) {
@@ -5959,8 +6353,8 @@ class AppDatabase extends _$AppDatabase {
     if (filters.endDate != null) {
       final end = filters.endDate!;
       // Enddatum inklusive -> bis zum letzten Millisekunde des gewählten Tages.
-      wo.add(assets.fileCreatedAt
-          .isSmallerOrEqualValue(DateTime(end.year, end.month, end.day, 23, 59, 59, 999)));
+      wo.add(assets.fileCreatedAt.isSmallerOrEqualValue(
+          DateTime(end.year, end.month, end.day, 23, 59, 59, 999)));
     }
 
     if (filters.mediaType == MediaTypeFilter.image) {
@@ -5981,7 +6375,8 @@ class AppDatabase extends _$AppDatabase {
     }
 
     if (filters.notInAnyAlbum) {
-      wo.add(notExistsQuery(select(albumAssets)..where((aa) => aa.assetId.equalsExp(assets.id))));
+      wo.add(notExistsQuery(
+          select(albumAssets)..where((aa) => aa.assetId.equalsExp(assets.id))));
     }
 
     if (filters.minRating != null) {
@@ -6003,39 +6398,92 @@ class AppDatabase extends _$AppDatabase {
       wo.add(assets.fNumber.isSmallerOrEqualValue(filters.maxFNumber!));
     }
     if (filters.minFocalLengthMm != null) {
-      wo.add(assets.focalLengthMm.isBiggerOrEqualValue(filters.minFocalLengthMm!));
+      wo.add(
+          assets.focalLengthMm.isBiggerOrEqualValue(filters.minFocalLengthMm!));
     }
     if (filters.maxFocalLengthMm != null) {
-      wo.add(assets.focalLengthMm.isSmallerOrEqualValue(filters.maxFocalLengthMm!));
+      wo.add(assets.focalLengthMm
+          .isSmallerOrEqualValue(filters.maxFocalLengthMm!));
     }
     if (filters.maxSharpnessScore != null) {
-      wo.add(assets.sharpnessScore.isSmallerOrEqualValue(filters.maxSharpnessScore!));
+      wo.add(assets.sharpnessScore
+          .isSmallerOrEqualValue(filters.maxSharpnessScore!));
     }
     if (filters.nurGeschaetztesDatum) {
       wo.add(assets.datumGeschaetzt.equals(true));
     }
 
     for (final personId in filters.personIds) {
-      wo.add(existsQuery(
-          select(faces)..where((f) => f.assetId.equalsExp(assets.id) & f.personId.equals(personId))));
+      wo.add(existsQuery(select(faces)
+        ..where((f) =>
+            f.assetId.equalsExp(assets.id) & f.personId.equals(personId))));
     }
 
     if (filters.noTag) {
-      wo.add(notExistsQuery(select(assetTags)..where((at) => at.assetId.equalsExp(assets.id))));
+      wo.add(notExistsQuery(
+          select(assetTags)..where((at) => at.assetId.equalsExp(assets.id))));
     } else {
       for (final tagId in filters.tagIds) {
-        wo.add(existsQuery(
-            select(assetTags)..where((at) => at.assetId.equalsExp(assets.id) & at.tagId.equals(tagId))));
+        wo.add(existsQuery(select(assetTags)
+          ..where((at) =>
+              at.assetId.equalsExp(assets.id) & at.tagId.equals(tagId))));
       }
     }
 
     return wo;
   }
 
+  Future<List<String>?> _ftsAssetIds(SearchFilters filters) async {
+    final text = filters.query.trim();
+    if (text.isEmpty) return null;
+    final columns = switch (filters.textMode) {
+      SearchTextMode.filename => ['original_file_name'],
+      SearchTextMode.description => ['description'],
+      SearchTextMode.ocr => ['ocr_text'],
+      SearchTextMode.caption => ['ai_caption', 'ai_caption_de'],
+      _ => const <String>[],
+    };
+    if (columns.isEmpty) return null;
+    // **Jeder Begriff in Anführungszeichen.** Der Ausdruck unten lässt nur
+    // Buchstaben, Ziffern und Unterstrich durch, aber das genügt nicht: FTS5
+    // liest `AND`, `OR` und `NOT` als Verknüpfung, sobald sie nackt
+    // dastehen. Die Suche nach „a AND b" wurde damit zu
+    // `(a* AND AND* AND b*)` – ein Syntaxfehler, der im Suchbildschirm als
+    // „Suche fehlgeschlagen" landete, statt Treffer zu liefern. In
+    // Anführungszeichen ist derselbe Begriff ein Wort wie jedes andere, und
+    // das nachgestellte `*` bleibt gültige Präfixsuche.
+    final terms = RegExp(r'[\p{L}\p{N}_]+', unicode: true)
+        .allMatches(text)
+        .map((match) => '"${match.group(0)!.replaceAll('"', '""')}"*')
+        .toList();
+    if (terms.isEmpty) return const [];
+    final query = columns
+        .map((column) => '$column : (${terms.join(' AND ')})')
+        .join(' OR ');
+    final rows = await customSelect(
+      'SELECT asset_id FROM asset_search_fts WHERE asset_search_fts MATCH ?',
+      variables: [Variable<String>(query)],
+    ).get();
+    return [for (final row in rows) row.read<String>('asset_id')];
+  }
+
+  List<String>? _intersectIds(List<String>? requested, List<String>? fts) {
+    if (fts == null) return requested;
+    if (requested == null) return fts;
+    final allowed = fts.toSet();
+    return [
+      for (final id in requested)
+        if (allowed.contains(id)) id
+    ];
+  }
+
   Future<List<AssetData>> searchAssets(SearchFilters filters,
-      {List<String>? restrictToIds}) {
+      {List<String>? restrictToIds}) async {
+    final fts = await _ftsAssetIds(filters);
+    final effectiveIds = _intersectIds(restrictToIds, fts);
     final query = select(assets);
-    for (final b in _suchbedingungen(filters, restrictToIds)) {
+    for (final b in _suchbedingungen(filters, effectiveIds,
+        textAlreadyFiltered: fts != null)) {
       query.where((_) => b);
     }
     query.orderBy([(t) => OrderingTerm.desc(t.fileCreatedAt)]);
@@ -6055,8 +6503,11 @@ class AppDatabase extends _$AppDatabase {
   /// eine Sortierung, die niemand liest.
   Future<List<String>> searchAssetIds(SearchFilters filters,
       {List<String>? restrictToIds}) async {
+    final fts = await _ftsAssetIds(filters);
+    final effectiveIds = _intersectIds(restrictToIds, fts);
     final query = selectOnly(assets)..addColumns([assets.id]);
-    for (final b in _suchbedingungen(filters, restrictToIds)) {
+    for (final b in _suchbedingungen(filters, effectiveIds,
+        textAlreadyFiltered: fts != null)) {
       query.where(b);
     }
     return [for (final z in await query.get()) z.read(assets.id)!];
@@ -6066,7 +6517,8 @@ class AppDatabase extends _$AppDatabase {
   /// einer Text-Spalte – für die Dropdowns im Suchoptionen-Panel (Kamera-
   /// Marke/-Modell/Objektiv), damit dort nur Werte auswählbar sind, die auch
   /// wirklich zu einem Treffer führen können.
-  Future<List<String>> _distinctNonNullValues(GeneratedColumn<String> column) async {
+  Future<List<String>> _distinctNonNullValues(
+      GeneratedColumn<String> column) async {
     final query = selectOnly(assets, distinct: true)
       ..addColumns([column])
       ..where(column.isNotNull())
@@ -6075,9 +6527,12 @@ class AppDatabase extends _$AppDatabase {
     return rows.map((r) => r.read(column)!).toList();
   }
 
-  Future<List<String>> distinctCameraMakes() => _distinctNonNullValues(assets.cameraMake);
-  Future<List<String>> distinctCameraModels() => _distinctNonNullValues(assets.cameraModel);
-  Future<List<String>> distinctLensModels() => _distinctNonNullValues(assets.lensModel);
+  Future<List<String>> distinctCameraMakes() =>
+      _distinctNonNullValues(assets.cameraMake);
+  Future<List<String>> distinctCameraModels() =>
+      _distinctNonNullValues(assets.cameraModel);
+  Future<List<String>> distinctLensModels() =>
+      _distinctNonNullValues(assets.lensModel);
 
   /// Alle in der Bibliothek vorkommenden Dateiformate – für die
   /// Auswahlliste im Suchfeld. Bewusst aus dem Bestand statt aus einer
@@ -6094,15 +6549,22 @@ class AppDatabase extends _$AppDatabase {
     final query = selectOnly(assets, distinct: true)
       ..addColumns([assets.cameraMake, assets.cameraModel])
       ..where(assets.cameraMake.isNotNull() & assets.cameraModel.isNotNull())
-      ..orderBy([OrderingTerm.asc(assets.cameraMake), OrderingTerm.asc(assets.cameraModel)]);
+      ..orderBy([
+        OrderingTerm.asc(assets.cameraMake),
+        OrderingTerm.asc(assets.cameraModel)
+      ]);
     final rows = await query.get();
     return [
       for (final row in rows)
-        (row.read<String>(assets.cameraMake)!, row.read<String>(assets.cameraModel)!),
+        (
+          row.read<String>(assets.cameraMake)!,
+          row.read<String>(assets.cameraModel)!
+        ),
     ];
   }
 
-  Future<List<String>> distinctCountries() => _distinctNonNullValues(assets.locationCountry);
+  Future<List<String>> distinctCountries() =>
+      _distinctNonNullValues(assets.locationCountry);
 
   /// ALLE vorkommenden Bundesländer/Provinzen, ohne Einschränkung auf ein
   /// Land – für den Satzleser (siehe `suchsatz.dart`), der beim Lesen von
@@ -6141,7 +6603,8 @@ class AppDatabase extends _$AppDatabase {
   Future<List<String>> distinctStates(String country) async {
     final query = selectOnly(assets, distinct: true)
       ..addColumns([assets.locationState])
-      ..where(assets.locationState.isNotNull() & assets.locationCountry.equals(country))
+      ..where(assets.locationState.isNotNull() &
+          assets.locationCountry.equals(country))
       ..orderBy([OrderingTerm.asc(assets.locationState)]);
     final rows = await query.get();
     return rows.map((r) => r.read(assets.locationState)!).toList();
@@ -6152,7 +6615,8 @@ class AppDatabase extends _$AppDatabase {
   Future<List<String>> distinctCities(String state) async {
     final query = selectOnly(assets, distinct: true)
       ..addColumns([assets.locationCity])
-      ..where(assets.locationCity.isNotNull() & assets.locationState.equals(state))
+      ..where(
+          assets.locationCity.isNotNull() & assets.locationState.equals(state))
       ..orderBy([OrderingTerm.asc(assets.locationCity)]);
     final rows = await query.get();
     return rows.map((r) => r.read(assets.locationCity)!).toList();
@@ -6162,7 +6626,8 @@ class AppDatabase extends _$AppDatabase {
   // Gespeicherte Suchen ("Intelligente Alben")
   // -----------------------------------------------------------------------
 
-  Future<void> createSavedSearch(String id, String name, SearchFilters filters) =>
+  Future<void> createSavedSearch(
+          String id, String name, SearchFilters filters) =>
       into(savedSearches).insert(SavedSearchesCompanion.insert(
         id: id,
         name: name,
@@ -6171,7 +6636,8 @@ class AppDatabase extends _$AppDatabase {
       ));
 
   Stream<List<SavedSearchData>> watchSavedSearches() =>
-      (select(savedSearches)..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
+      (select(savedSearches)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+          .watch();
 
   Future<void> deleteSavedSearch(String id) =>
       (delete(savedSearches)..where((t) => t.id.equals(id))).go();
@@ -6182,7 +6648,8 @@ class AppDatabase extends _$AppDatabase {
   /// App abstürzen zu lassen.
   SearchFilters decodeSavedSearchFilters(String filtersJson) {
     try {
-      return SearchFilters.fromJson(jsonDecode(filtersJson) as Map<String, dynamic>);
+      return SearchFilters.fromJson(
+          jsonDecode(filtersJson) as Map<String, dynamic>);
     } catch (_) {
       return const SearchFilters();
     }
@@ -6212,7 +6679,8 @@ class AppDatabase extends _$AppDatabase {
   Stream<PersonData?> watchPerson(String id) =>
       (select(people)..where((t) => t.id.equals(id))).watchSingleOrNull();
 
-  Future<void> createPerson(PeopleCompanion person) => into(people).insert(person);
+  Future<void> createPerson(PeopleCompanion person) =>
+      into(people).insert(person);
 
   Future<void> insertFace(FacesCompanion face) => into(faces).insert(face);
 
@@ -6241,10 +6709,11 @@ class AppDatabase extends _$AppDatabase {
   Future<List<FaceData>> allUnassignedFaces() async {
     final query = select(faces).join([
       innerJoin(assets, assets.id.equalsExp(faces.assetId)),
-    ])..where(faces.personId.isNull() &
-        faces.isIgnored.equals(false) &
-        assets.isTrashed.equals(false) &
-        assets.isLocked.equals(false));
+    ])
+      ..where(faces.personId.isNull() &
+          faces.isIgnored.equals(false) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false));
     final rows = await query.get();
     return rows.map((r) => r.readTable(faces)).toList();
   }
@@ -6288,8 +6757,8 @@ class AppDatabase extends _$AppDatabase {
   /// nächste Scan findet die Stelle wieder. Wer sie loswerden will, legt
   /// sie beiseite (siehe [Faces.isIgnored]).
   Future<String?> loescheGesicht(String faceId) async {
-    final vorher =
-        await (select(faces)..where((t) => t.id.equals(faceId))).getSingleOrNull();
+    final vorher = await (select(faces)..where((t) => t.id.equals(faceId)))
+        .getSingleOrNull();
     if (vorher == null) return null;
     await (delete(faces)..where((t) => t.id.equals(faceId))).go();
     return vorher.cropRelativePath;
@@ -6339,15 +6808,20 @@ class AppDatabase extends _$AppDatabase {
   ///
   /// Beiseitegelegte werden mitgelöscht: Wer „alle Erkennungen löschen"
   /// wählt, meint auch die, die schon aussortiert waren.
-  Future<({int anzahl, List<String> pfade})> loescheAlleUnbenanntenErkennungen() async {
+  Future<({int anzahl, List<String> pfade})>
+      loescheAlleUnbenanntenErkennungen() async {
     final query = select(faces).join([
       innerJoin(assets, assets.id.equalsExp(faces.assetId)),
-    ])..where(faces.personId.isNull() &
-        assets.isTrashed.equals(false) &
-        assets.isLocked.equals(false));
-    final betroffen = (await query.get()).map((r) => r.readTable(faces)).toList();
+    ])
+      ..where(faces.personId.isNull() &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false));
+    final betroffen =
+        (await query.get()).map((r) => r.readTable(faces)).toList();
     if (betroffen.isEmpty) return (anzahl: 0, pfade: const <String>[]);
-    await (delete(faces)..where((t) => t.id.isIn([for (final f in betroffen) f.id]))).go();
+    await (delete(faces)
+          ..where((t) => t.id.isIn([for (final f in betroffen) f.id])))
+        .go();
     return (
       anzahl: betroffen.length,
       pfade: [
@@ -6380,7 +6854,8 @@ class AppDatabase extends _$AppDatabase {
   /// wäre aber unter „Ignoriert" gelistet.
   Future<void> setFacesIgnored(List<String> faceIds, bool ignoriert) async {
     if (faceIds.isEmpty) return;
-    await (update(faces)..where((t) => t.id.isIn(faceIds))).write(FacesCompanion(
+    await (update(faces)..where((t) => t.id.isIn(faceIds)))
+        .write(FacesCompanion(
       isIgnored: Value(ignoriert),
       personId: ignoriert ? const Value(null) : const Value.absent(),
     ));
@@ -6506,13 +6981,16 @@ class AppDatabase extends _$AppDatabase {
       (update(faces)..where((f) => f.id.equals(faceId)))
           .write(FacesCompanion(schaerfe: Value(wert)));
 
-  Future<void> assignFacesToPerson(List<String> faceIds, String personId) async {
+  Future<void> assignFacesToPerson(
+      List<String> faceIds, String personId) async {
     // Wer einem beiseitegelegten Gesicht einen Namen gibt, hat es damit
     // zurückgeholt – sonst verschwände es unmittelbar nach dem Benennen
     // wieder aus der Personenansicht.
-    await (update(faces)..where((t) => t.id.isIn(faceIds)))
-        .write(FacesCompanion(personId: Value(personId), isIgnored: const Value(false)));
-    final assignedFaces = await (select(faces)..where((t) => t.id.isIn(faceIds))).get();
+    await (update(faces)..where((t) => t.id.isIn(faceIds))).write(
+        FacesCompanion(
+            personId: Value(personId), isIgnored: const Value(false)));
+    final assignedFaces =
+        await (select(faces)..where((t) => t.id.isIn(faceIds))).get();
     final withCrop = assignedFaces.where((f) => f.cropRelativePath != null);
     if (withCrop.isNotEmpty) {
       await setPersonCoverIfUnset(personId, withCrop.first.cropRelativePath!);
@@ -6558,23 +7036,32 @@ class AppDatabase extends _$AppDatabase {
       // Genau die allgemeine Schwelle wird als "nichts Eigenes" gespeichert
       // – sonst wanderte sie nicht mit, wenn der Nutzer die allgemeine
       // später in den Werkzeugen ändert.
-      PeopleCompanion(similarityThreshold: Value(abgeleitet == allgemein ? null : abgeleitet)),
+      PeopleCompanion(
+          similarityThreshold:
+              Value(abgeleitet == allgemein ? null : abgeleitet)),
     );
   }
 
-  Future<List<GesichtsRueckmeldung>> gesichtsRueckmeldungen(String personId) async {
-    final rows = await (select(faceMatchFeedback)..where((t) => t.personId.equals(personId))).get();
+  Future<List<GesichtsRueckmeldung>> gesichtsRueckmeldungen(
+      String personId) async {
+    final rows = await (select(faceMatchFeedback)
+          ..where((t) => t.personId.equals(personId)))
+        .get();
     return [
       for (final r in rows)
-        GesichtsRueckmeldung(bestaetigt: r.accepted, aehnlichkeit: r.similarity),
+        GesichtsRueckmeldung(
+            bestaetigt: r.accepted, aehnlichkeit: r.similarity),
     ];
   }
 
   /// Verwirft alles Gelernte zu einer Person – der Ausweg, wenn die
   /// Anpassung einmal danebenliegt und der Nutzer nicht nachvollziehen
   /// kann, warum.
-  Future<void> vergissGesichtsEntscheidungen(String personId) => transaction(() async {
-        await (delete(faceMatchFeedback)..where((t) => t.personId.equals(personId))).go();
+  Future<void> vergissGesichtsEntscheidungen(String personId) =>
+      transaction(() async {
+        await (delete(faceMatchFeedback)
+              ..where((t) => t.personId.equals(personId)))
+            .go();
         await (update(people)..where((t) => t.id.equals(personId)))
             .write(const PeopleCompanion(similarityThreshold: Value(null)));
       });
@@ -6602,8 +7089,10 @@ class AppDatabase extends _$AppDatabase {
   /// noch keins hat – wird beim automatischen Zuordnen eines Gesichts
   /// aufgerufen, damit ein bereits manuell gewähltes Profilbild nicht
   /// überschrieben wird.
-  Future<void> setPersonCoverIfUnset(String personId, String cropRelativePath) async {
-    final person = await (select(people)..where((t) => t.id.equals(personId))).getSingleOrNull();
+  Future<void> setPersonCoverIfUnset(
+      String personId, String cropRelativePath) async {
+    final person = await (select(people)..where((t) => t.id.equals(personId)))
+        .getSingleOrNull();
     if (person != null && person.coverFaceCropPath == null) {
       await setPersonCover(personId, cropRelativePath);
     }
@@ -6613,7 +7102,8 @@ class AppDatabase extends _$AppDatabase {
   /// [keepPersonId] zugeordnet, anschließend wird die überflüssige
   /// Personen-Zeile gelöscht. Nützlich, wenn die Gesichtserkennung
   /// dieselbe reale Person versehentlich als zwei Personen angelegt hat.
-  Future<void> mergePeople({required String keepPersonId, required String removePersonId}) async {
+  Future<void> mergePeople(
+      {required String keepPersonId, required String removePersonId}) async {
     await transaction(() async {
       await (update(faces)..where((t) => t.personId.equals(removePersonId)))
           .write(FacesCompanion(personId: Value(keepPersonId)));
@@ -6694,7 +7184,8 @@ class AppDatabase extends _$AppDatabase {
           final fest = k.art == Verwandtschaft.partner
               ? partnerKanteFuer(k.personId, k.andereId)
               : k;
-          await into(personBeziehungen).insert(PersonBeziehungenCompanion.insert(
+          await into(personBeziehungen)
+              .insert(PersonBeziehungenCompanion.insert(
             personId: fest.personId,
             andereId: fest.andereId,
             art: artZuText(fest.art),
@@ -6774,7 +7265,8 @@ class AppDatabase extends _$AppDatabase {
     final zeilen = await alleBeziehungen();
     return [
       for (final z in zeilen)
-        if (artAusText(z.art) case final art?) kante(z.personId, z.andereId, art),
+        if (artAusText(z.art) case final art?)
+          kante(z.personId, z.andereId, art),
     ];
   }
 
@@ -7034,7 +7526,8 @@ class AppDatabase extends _$AppDatabase {
       await (update(spuren)..where((t) => t.reiseId.isIn(andere)))
           .write(SpurenCompanion(reiseId: Value(ziel)));
       await (delete(reiseAufnahmen)..where((t) => t.reiseId.isIn(andere))).go();
-      await (delete(reisetagnotizen)..where((t) => t.reiseId.isIn(andere))).go();
+      await (delete(reisetagnotizen)..where((t) => t.reiseId.isIn(andere)))
+          .go();
       await (delete(reisen)..where((t) => t.id.isIn(andere))).go();
 
       // **Zeitraum aus den Aufnahmen und nicht aus den Reisen.** Wer
@@ -7084,7 +7577,8 @@ class AppDatabase extends _$AppDatabase {
     final sauber = text.trim();
     if (sauber.isEmpty) {
       await (delete(reisetagnotizen)
-            ..where((t) => t.reiseId.equals(reiseId) & t.tag.equals(tagesbeginn)))
+            ..where(
+                (t) => t.reiseId.equals(reiseId) & t.tag.equals(tagesbeginn)))
           .go();
       return;
     }
@@ -7194,7 +7688,8 @@ class AppDatabase extends _$AppDatabase {
     // weil er der bessere wäre, sondern damit dieselbe Bibliothek
     // zweimal dasselbe anzeigt.
     final gesamt = <String, int>{};
-    final beste = <String, ({String ort, String? region, String? land, int n})>{};
+    final beste =
+        <String, ({String ort, String? region, String? land, int n})>{};
     final orte = <String, Set<String>>{};
     for (final z in zeilen) {
       final kennung = z.read<String>('kennung');
@@ -7224,9 +7719,8 @@ class AppDatabase extends _$AppDatabase {
           region: beste[kennung]?.region,
           land: beste[kennung]?.land,
           // Der häufigste zählt nicht als „weiterer".
-          weitereOrte: (orte[kennung]?.length ?? 0) == 0
-              ? 0
-              : orte[kennung]!.length - 1,
+          weitereOrte:
+              (orte[kennung]?.length ?? 0) == 0 ? 0 : orte[kennung]!.length - 1,
           aufnahmen: gesamt[kennung]!,
         ),
     };
@@ -7246,10 +7740,10 @@ class AppDatabase extends _$AppDatabase {
             mode: InsertMode.insertOrIgnore,
           ));
 
-  Future<void> aufnahmeAusReise(String reiseId, String assetId) =>
-      (delete(reiseAufnahmen)
-            ..where((t) => t.reiseId.equals(reiseId) & t.assetId.equals(assetId)))
-          .go();
+  Future<void> aufnahmeAusReise(String reiseId, String assetId) => (delete(
+          reiseAufnahmen)
+        ..where((t) => t.reiseId.equals(reiseId) & t.assetId.equals(assetId)))
+      .go();
 
   // ---------------------------------------------------------------
   // Aktivitäten. Dieselbe Bauart wie die Reisen darüber – bis auf die
@@ -7379,15 +7873,16 @@ class AppDatabase extends _$AppDatabase {
     final ende = DateTime(bis.year, bis.month, bis.day, 23, 59, 59, 999);
     final anfang = DateTime(von.year, von.month, von.day);
     return (await customSelect(
-                'SELECT $rasterSpalten FROM assets WHERE $rasterSichtbar '
-                'AND file_created_at >= ? AND file_created_at <= ? '
-                'ORDER BY file_created_at ASC',
-                variables: [
-                  Variable.withDateTime(anfang),
-                  Variable.withDateTime(ende)
-                ],
-                readsFrom: {assets})
-            .get())
+            'SELECT $rasterSpalten FROM assets WHERE $rasterSichtbar '
+            'AND file_created_at >= ? AND file_created_at <= ? '
+            'ORDER BY file_created_at ASC',
+            variables: [
+          Variable.withDateTime(anfang),
+          Variable.withDateTime(ende)
+        ],
+            readsFrom: {
+          assets
+        }).get())
         .map(Rasterzeile.ausZeile)
         .toList();
   }
@@ -7550,8 +8045,9 @@ class AppDatabase extends _$AppDatabase {
       (update(reisen)..where((t) => t.id.equals(id)))
           .write(ReisenCompanion(art: Value(art)));
 
-  Future<Map<String, String>> reiseJeAufnahme() async =>
-      {for (final z in await select(reiseAufnahmen).get()) z.assetId: z.reiseId};
+  Future<Map<String, String>> reiseJeAufnahme() async => {
+        for (final z in await select(reiseAufnahmen).get()) z.assetId: z.reiseId
+      };
 
   // ---------------------------------------------------------------
   // Aufgezeichnete Spuren.
@@ -7560,11 +8056,10 @@ class AppDatabase extends _$AppDatabase {
       (select(spuren)..orderBy([(t) => OrderingTerm.desc(t.angelegtAm)])).get();
 
   /// Die Spuren einer Reise – dieselbe Tabelle, die andere Spalte.
-  Future<List<SpurenData>> spurenDerReise(String reiseId) =>
-      (select(spuren)
-            ..where((t) => t.reiseId.equals(reiseId))
-            ..orderBy([(t) => OrderingTerm(expression: t.angelegtAm)]))
-          .get();
+  Future<List<SpurenData>> spurenDerReise(String reiseId) => (select(spuren)
+        ..where((t) => t.reiseId.equals(reiseId))
+        ..orderBy([(t) => OrderingTerm(expression: t.angelegtAm)]))
+      .get();
 
   Future<List<SpurenData>> spurenDerAktivitaet(String aktivitaetId) =>
       (select(spuren)
@@ -7601,8 +8096,9 @@ class AppDatabase extends _$AppDatabase {
   Future<void> spurAendern(String id, SpurenCompanion aenderung) =>
       (update(spuren)..where((t) => t.id.equals(id))).write(aenderung);
 
-  Future<Set<String>> verworfeneAktivitaetsvorschlaege() async =>
-      {for (final z in await select(verworfeneAktivitaeten).get()) z.schluessel};
+  Future<Set<String>> verworfeneAktivitaetsvorschlaege() async => {
+        for (final z in await select(verworfeneAktivitaeten).get()) z.schluessel
+      };
 
   Future<void> verwirfAktivitaetsvorschlag(String schluessel) =>
       into(verworfeneAktivitaeten).insertOnConflictUpdate(
@@ -7623,16 +8119,17 @@ class AppDatabase extends _$AppDatabase {
   /// Eine Abfrage über die ganze Bibliothek, aber nur mit den fünf
   /// Spalten, die zählen: Bei hunderttausend Aufnahmen wäre das Laden
   /// vollständiger Zeilen der teuerste Teil des ganzen Vorgangs.
-  Future<List<
-      ({
-        String id,
-        DateTime zeit,
-        double breite,
-        double laenge,
-        String? land,
-        String? region,
-        String? stadt
-      })>> aufnahmenFuerReiseerkennung() async {
+  Future<
+      List<
+          ({
+            String id,
+            DateTime zeit,
+            double breite,
+            double laenge,
+            String? land,
+            String? region,
+            String? stadt
+          })>> aufnahmenFuerReiseerkennung() async {
     // `_isPrimaryGridEntry` wie überall sonst: Die Videohälfte eines Live
     // Photos ist keine eigene Aufnahme, und ein Stapel zählt einmal.
     //
@@ -7706,8 +8203,7 @@ class AppDatabase extends _$AppDatabase {
                   e.ort == null ? const Value.absent() : Value(e.land),
               locationState:
                   e.ort == null ? const Value.absent() : Value(e.region),
-              locationCity:
-                  e.ort == null ? const Value.absent() : Value(e.ort),
+              locationCity: e.ort == null ? const Value.absent() : Value(e.ort),
             ),
             where: (t) => t.id.equals(e.assetId),
           );
@@ -7835,8 +8331,7 @@ class AppDatabase extends _$AppDatabase {
   /// `null` für beide Werte heisst „nicht verortet" – so lässt sich eine
   /// falsch geratene Zuordnung auch wieder wegnehmen, ohne den
   /// aufgeschriebenen Ortsnamen zu verlieren.
-  Future<void> setzeEreignisort(String id,
-          {double? breite, double? laenge}) =>
+  Future<void> setzeEreignisort(String id, {double? breite, double? laenge}) =>
       (update(lebensereignisse)..where((t) => t.id.equals(id))).write(
         LebensereignisseCompanion(
           ortBreite: Value(breite),
@@ -7848,7 +8343,8 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setzeGeschlecht(String personId, Geschlecht? geschlecht) =>
       (update(people)..where((t) => t.id.equals(personId))).write(
         PeopleCompanion(
-          geschlecht: Value(geschlecht == null ? null : geschlechtZuText(geschlecht)),
+          geschlecht:
+              Value(geschlecht == null ? null : geschlechtZuText(geschlecht)),
         ),
       );
 
@@ -7915,8 +8411,8 @@ class AppDatabase extends _$AppDatabase {
   /// erst die Liste der Personen erlaubt der Karte zu entscheiden, welcher
   /// Verwandtschaftsgrad die Farbe bestimmt. Ein einzelnes „gehört zur
   /// Familie“ genügte dafür nicht.
-  Future<List<({AssetData asset, Set<String> personen})>> verorteteAssetsFuerPersonen(
-      List<String> personIds) async {
+  Future<List<({AssetData asset, Set<String> personen})>>
+      verorteteAssetsFuerPersonen(List<String> personIds) async {
     if (personIds.isEmpty) return [];
     final query = select(assets).join([
       innerJoin(faces, faces.assetId.equalsExp(assets.id)),
@@ -8004,9 +8500,9 @@ class AppDatabase extends _$AppDatabase {
     return _countWhere(predicate);
   }
 
-  Future<void> markFacesScanned(List<String> assetIds) => (update(assets)
-        ..where((t) => t.id.isIn(assetIds)))
-      .write(const AssetsCompanion(facesScanned: Value(true)));
+  Future<void> markFacesScanned(List<String> assetIds) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(const AssetsCompanion(facesScanned: Value(true)));
 
   /// Löscht bereits erkannte, aber noch keiner Person zugeordnete Gesichter
   /// eines Assets, bevor ein erneuter Scan neue Erkennungen einfügt – manuell
@@ -8034,7 +8530,9 @@ class AppDatabase extends _$AppDatabase {
           t.isIgnored.equals(false));
     final betroffen = await auswahl.get();
     if (betroffen.isEmpty) return const [];
-    await (delete(faces)..where((t) => t.id.isIn([for (final f in betroffen) f.id]))).go();
+    await (delete(faces)
+          ..where((t) => t.id.isIn([for (final f in betroffen) f.id])))
+        .go();
     return [
       for (final f in betroffen)
         if (f.cropRelativePath != null) f.cropRelativePath!,
@@ -8059,7 +8557,8 @@ class AppDatabase extends _$AppDatabase {
   /// automatische KI-Tagging, das das beim Import ohnehin berechnete
   /// Bild-Embedding wiederverwendet, statt das Bild erneut zu dekodieren.
   Future<Float32List?> embeddingForAsset(String assetId) async {
-    final row = await (select(imageEmbeddings)..where((t) => t.assetId.equals(assetId)))
+    final row = await (select(imageEmbeddings)
+          ..where((t) => t.assetId.equals(assetId)))
         .getSingleOrNull();
     if (row == null) return null;
     return floatsFromEmbeddingBlob(row.vector);
@@ -8073,9 +8572,11 @@ class AppDatabase extends _$AppDatabase {
   /// gestauchten Bild und einer aus einem mittig zugeschnittenen lassen
   /// sich nicht sinnvoll gegeneinander rechnen (siehe `_aufClipGroesse` in
   /// clip_service.dart).
-  Future<List<AssetData>> assetsForEmbeddingBackfill({bool alle = false}) async {
+  Future<List<AssetData>> assetsForEmbeddingBackfill(
+      {bool alle = false}) async {
     final query = select(assets).join([
-      leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
+      leftOuterJoin(
+          imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
     ])
       ..where(_auswertbar(assets) &
           assets.isTrashed.equals(false) &
@@ -8092,7 +8593,8 @@ class AppDatabase extends _$AppDatabase {
   Future<int> countEmbeddingBackfill() async {
     final countExpr = assets.id.count();
     final query = selectOnly(assets).join([
-      leftOuterJoin(imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
+      leftOuterJoin(
+          imageEmbeddings, imageEmbeddings.assetId.equalsExp(assets.id)),
     ])
       ..addColumns([countExpr])
       ..where(_auswertbar(assets) &
@@ -8118,11 +8620,14 @@ class AppDatabase extends _$AppDatabase {
   /// Wer stattdessen "Alle" wählt, ergänzt passende KI-Tags auch bei
   /// bereits getaggten Fotos, ohne vorhandene (auch manuelle) Tags zu
   /// entfernen.
-  Future<List<AssetData>> assetsForAiTagging({required bool onlyUntagged}) async {
+  Future<List<AssetData>> assetsForAiTagging(
+      {required bool onlyUntagged}) async {
     if (!onlyUntagged) {
       return (select(assets)
             ..where((t) =>
-                _auswertbar(t) & t.isTrashed.equals(false) & t.isLocked.equals(false)))
+                _auswertbar(t) &
+                t.isTrashed.equals(false) &
+                t.isLocked.equals(false)))
           .get();
     }
     final query = select(assets).join([
@@ -8146,8 +8651,9 @@ class AppDatabase extends _$AppDatabase {
   /// Zählvariante von [assetsForAiTagging], siehe [countLocationBackfill].
   Future<int> countAiTagging({required bool onlyUntagged}) async {
     if (!onlyUntagged) {
-      return _countWhere(
-          _auswertbar(assets) & assets.isTrashed.equals(false) & assets.isLocked.equals(false));
+      return _countWhere(_auswertbar(assets) &
+          assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false));
     }
     final countExpr = assets.id.count();
     final query = selectOnly(assets).join([
@@ -8191,7 +8697,9 @@ class AppDatabase extends _$AppDatabase {
       assets.type.equals('VIDEO') &
       assets.isTrashed.equals(false) &
       assets.isLocked.equals(false) &
-      (alle ? const CustomExpression<bool>('1') : assets.videobilderGeprueft.equals(false));
+      (alle
+          ? const CustomExpression<bool>('1')
+          : assets.videobilderGeprueft.equals(false));
 
   Future<List<AssetData>> assetsFuerVideobilder({bool alle = false}) =>
       (select(assets)..where((_) => _videobilderOffen(alle))).get();
@@ -8208,8 +8716,7 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setzeVideoeinbettungen(
       String assetId, List<({double stelle, Uint8List vector})> bilder) async {
     await transaction(() async {
-      await (delete(videoeinbettungen)
-            ..where((t) => t.assetId.equals(assetId)))
+      await (delete(videoeinbettungen)..where((t) => t.assetId.equals(assetId)))
           .go();
       for (final b in bilder) {
         await into(videoeinbettungen).insert(VideoeinbettungenCompanion.insert(
@@ -8286,19 +8793,36 @@ class AppDatabase extends _$AppDatabase {
       (select(assets)..where((t) => t.isLocked.equals(false))).get();
 
   Future<List<AssetData>> assetsNotBackedUp() => (select(assets)
-        ..where((t) => t.backedUp.equals(false) & t.isTrashed.equals(false) & t.isLocked.equals(false)))
+        ..where((t) =>
+            t.backedUp.equals(false) &
+            t.isTrashed.equals(false) &
+            t.isLocked.equals(false)))
       .get();
 
-  Future<void> markBackedUp(List<String> assetIds) => (update(assets)
-        ..where((t) => t.id.isIn(assetIds)))
-      .write(const AssetsCompanion(backedUp: Value(true)));
+  Future<void> markBackedUp(List<String> assetIds) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(const AssetsCompanion(backedUp: Value(true)));
 
   Future<void> insertBackupRecord(BackupRecordsCompanion record) =>
       into(backupRecords).insert(record);
 
-  Future<BackupRecordData?> lastBackupRecord() =>
-      (select(backupRecords)..orderBy([(t) => OrderingTerm.desc(t.performedAt)]))
-          .getSingleOrNull();
+  Future<BackupRecordData?> lastBackupRecord() => (select(backupRecords)
+        ..orderBy([(t) => OrderingTerm.desc(t.performedAt)]))
+      .getSingleOrNull();
+
+  /// Schnelle SQLite-Eigenprüfung für die Zustandsübersicht. Anders als die
+  /// vollständige Integritätsprüfung liest sie keine Mediendateien.
+  Future<bool> databaseQuickCheck() async {
+    final rows = await customSelect('PRAGMA quick_check').get();
+    return rows.isNotEmpty &&
+        rows.every((row) => row.data.values.singleOrNull == 'ok');
+  }
+
+  Future<int> countNotAutoBackedUp() => _countWhere(
+        assets.isTrashed.equals(false) &
+            assets.isLocked.equals(false) &
+            assets.autoBackedUp.equals(false),
+      );
 
   // -----------------------------------------------------------------------
   // Backup-Verschlüsselung + automatisches Backup
@@ -8309,7 +8833,8 @@ class AppDatabase extends _$AppDatabase {
   // und die Konfiguration des automatischen Backups gespeichert.
 
   Future<bool> hasBackupKey() async {
-    final row = await (select(backupSettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(backupSettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     return row?.wrappedMasterKey != null;
   }
 
@@ -8321,7 +8846,8 @@ class AppDatabase extends _$AppDatabase {
     required Uint8List nonce,
     required Uint8List wrapped,
   }) =>
-      into(backupSettings).insertOnConflictUpdate(BackupSettingsCompanion.insert(
+      into(backupSettings)
+          .insertOnConflictUpdate(BackupSettingsCompanion.insert(
         id: const Value(0),
         kdfSalt: Value(kdfSalt),
         wrappedMasterKeyNonce: Value(nonce),
@@ -8333,7 +8859,8 @@ class AppDatabase extends _$AppDatabase {
   /// unberührt (sie lassen sich weiterhin mit der Passphrase entschlüsseln,
   /// die App merkt sich nur den Schlüssel nicht mehr).
   Future<void> clearBackupKey() =>
-      (update(backupSettings)..where((t) => t.id.equals(0))).write(const BackupSettingsCompanion(
+      (update(backupSettings)..where((t) => t.id.equals(0)))
+          .write(const BackupSettingsCompanion(
         kdfSalt: Value(null),
         wrappedMasterKeyNonce: Value(null),
         wrappedMasterKey: Value(null),
@@ -8346,8 +8873,10 @@ class AppDatabase extends _$AppDatabase {
   /// oder auch nur des Aktiv-Schalters übergab kein Ziel und löschte damit
   /// den zuvor gewählten Ordner, der dann erneut ausgewählt werden musste.
   /// Zum bewussten Entfernen gibt es [clearAutoBackupDestination].
-  Future<void> setAutoBackupConfig({required bool enabled, String? destination, int? intervalHours}) =>
-      into(backupSettings).insertOnConflictUpdate(BackupSettingsCompanion.insert(
+  Future<void> setAutoBackupConfig(
+          {required bool enabled, String? destination, int? intervalHours}) =>
+      into(backupSettings)
+          .insertOnConflictUpdate(BackupSettingsCompanion.insert(
         id: const Value(0),
         autoBackupEnabled: Value(enabled),
         autoBackupDestination:
@@ -8356,16 +8885,16 @@ class AppDatabase extends _$AppDatabase {
             intervalHours != null ? Value(intervalHours) : const Value.absent(),
       ));
 
-  Future<void> setAutoBackupMaxMbPerRun(int mb) =>
-      into(backupSettings).insertOnConflictUpdate(BackupSettingsCompanion.insert(
+  Future<void> setAutoBackupMaxMbPerRun(int mb) => into(backupSettings)
+          .insertOnConflictUpdate(BackupSettingsCompanion.insert(
         id: const Value(0),
         autoBackupMaxMbPerRun: Value(mb),
       ));
 
   /// Entfernt das Sicherungsziel ausdrücklich (siehe [setAutoBackupConfig]).
-  Future<void> clearAutoBackupDestination() =>
-      (update(backupSettings)..where((t) => t.id.equals(0)))
-          .write(const BackupSettingsCompanion(autoBackupDestination: Value(null)));
+  Future<void> clearAutoBackupDestination() => (update(backupSettings)
+        ..where((t) => t.id.equals(0)))
+      .write(const BackupSettingsCompanion(autoBackupDestination: Value(null)));
 
   Future<void> setLastAutoBackupAt(DateTime when) =>
       (update(backupSettings)..where((t) => t.id.equals(0)))
@@ -8375,12 +8904,14 @@ class AppDatabase extends _$AppDatabase {
   /// automatische Backup (siehe [Assets.autoBackedUp]).
   Future<List<AssetData>> assetsNotAutoBackedUp() => (select(assets)
         ..where((t) =>
-            t.autoBackedUp.equals(false) & t.isTrashed.equals(false) & t.isLocked.equals(false)))
+            t.autoBackedUp.equals(false) &
+            t.isTrashed.equals(false) &
+            t.isLocked.equals(false)))
       .get();
 
-  Future<void> markAutoBackedUp(List<String> assetIds) => (update(assets)
-        ..where((t) => t.id.isIn(assetIds)))
-      .write(const AssetsCompanion(autoBackedUp: Value(true)));
+  Future<void> markAutoBackedUp(List<String> assetIds) =>
+      (update(assets)..where((t) => t.id.isIn(assetIds)))
+          .write(const AssetsCompanion(autoBackedUp: Value(true)));
 
   // -----------------------------------------------------------------------
   // Gesperrter Ordner (PIN-Schutz + echte Verschlüsselung für private Fotos)
@@ -8392,7 +8923,8 @@ class AppDatabase extends _$AppDatabase {
   // bzw. ausgelesen.
 
   Future<bool> hasPinSet() async {
-    final row = await (select(privacySettings)..where((t) => t.id.equals(0))).getSingleOrNull();
+    final row = await (select(privacySettings)..where((t) => t.id.equals(0)))
+        .getSingleOrNull();
     return row?.wrappedMasterKey != null;
   }
 
@@ -8404,14 +8936,97 @@ class AppDatabase extends _$AppDatabase {
     required Uint8List nonce,
     required Uint8List wrapped,
   }) =>
-      into(privacySettings).insertOnConflictUpdate(PrivacySettingsCompanion.insert(
+      into(privacySettings)
+          .insertOnConflictUpdate(PrivacySettingsCompanion.insert(
         id: const Value(0),
         kdfSalt: Value(kdfSalt),
         wrappedMasterKeyNonce: Value(nonce),
         wrappedMasterKey: Value(wrapped),
       ));
 
-  Future<void> clearVaultKey() => (delete(privacySettings)..where((t) => t.id.equals(0))).go();
+  Future<void> clearVaultKey() =>
+      (delete(privacySettings)..where((t) => t.id.equals(0))).go();
+
+  Future<void> setProtectPrivateMetadata(bool value) => into(privacySettings)
+      .insertOnConflictUpdate(PrivacySettingsCompanion.insert(
+          id: const Value(0), protectMetadata: Value(value)));
+
+  Future<Map<String, List<String>>> privateRelationsForAsset(
+      String assetId) async {
+    final tagRows = await (select(assetTags)
+          ..where((t) => t.assetId.equals(assetId)))
+        .get();
+    final albumRows = await (select(albumAssets)
+          ..where((a) => a.assetId.equals(assetId)))
+        .get();
+    return {
+      'tags': [for (final row in tagRows) '${row.tagId}\u0000${row.quelle}'],
+      'albums': [for (final row in albumRows) row.albumId],
+    };
+  }
+
+  /// Ersetzt die unmittelbar lesbaren privaten Angaben durch neutrale
+  /// Werte. Der Aufrufer muss die Originalwerte zuvor verschlüsselt haben.
+  Future<void> hidePrivateMetadata(String assetId) => transaction(() async {
+        await (update(assets)..where((a) => a.id.equals(assetId))).write(
+          AssetsCompanion(
+            originalFileName: const Value('Private Aufnahme'),
+            fileCreatedAt: Value(DateTime.utc(1970)),
+            importedAt: Value(DateTime.utc(1970)),
+            isFavorite: const Value(false),
+            description: const Value(null),
+            latitude: const Value(null),
+            longitude: const Value(null),
+            cameraMake: const Value(null),
+            cameraModel: const Value(null),
+            lensModel: const Value(null),
+            focalLengthMm: const Value(null),
+            fNumber: const Value(null),
+            iso: const Value(null),
+            exposureTimeSeconds: const Value(null),
+            exposureBiasEv: const Value(null),
+            focalLength35mm: const Value(null),
+            locationCountry: const Value(null),
+            locationState: const Value(null),
+            locationCity: const Value(null),
+            rating: const Value(0),
+            colorLabel: const Value(null),
+            ocrText: const Value(null),
+            ocrBoxen: const Value(null),
+            zeitversatzMinuten: const Value(null),
+            aiCaption: const Value(null),
+            aiCaptionDe: const Value(null),
+          ),
+        );
+        await (delete(assetTags)..where((t) => t.assetId.equals(assetId))).go();
+        await (delete(albumAssets)..where((a) => a.assetId.equals(assetId)))
+            .go();
+      });
+
+  Future<void> restorePrivateMetadata(
+    String assetId,
+    AssetsCompanion metadata, {
+    required List<(String, String)> tags,
+    required List<String> albumIds,
+  }) =>
+      transaction(() async {
+        await (update(assets)..where((a) => a.id.equals(assetId)))
+            .write(metadata);
+        await batch((b) {
+          for (final (tagId, source) in tags) {
+            b.insert(
+                assetTags,
+                AssetTagsCompanion.insert(
+                    assetId: assetId, tagId: tagId, quelle: Value(source)),
+                mode: InsertMode.insertOrIgnore);
+          }
+          for (final albumId in albumIds) {
+            b.insert(albumAssets,
+                AlbumAssetsCompanion.insert(albumId: albumId, assetId: assetId),
+                mode: InsertMode.insertOrIgnore);
+          }
+        });
+      });
 
   Future<void> setAssetsLocked(List<String> assetIds, bool locked) async {
     await (update(assets)..where((t) => t.id.isIn(assetIds)))
@@ -8466,7 +9081,8 @@ class AppDatabase extends _$AppDatabase {
   ///   gesperrt hat. Ein Klartextrest von 512 Byte ist der kleinere Preis;
   ///   festgehalten in der 15. Prüfrunde.
   Future<void> clearDerivedContentData(List<String> assetIds) async {
-    await (update(assets)..where((t) => t.id.isIn(assetIds))).write(const AssetsCompanion(
+    await (update(assets)..where((t) => t.id.isIn(assetIds)))
+        .write(const AssetsCompanion(
       ocrText: Value(null),
       // Die Stellen stehen im Klartext neben dem Text und verraten mit ihm
       // dasselbe – ohne diese Zeile bliebe der Wortlaut eines gesperrten
@@ -8492,10 +9108,11 @@ class AppDatabase extends _$AppDatabase {
       aiCaptionDe: Value(null),
       aiCaptionScanned: Value(false),
     ));
-    await (delete(imageEmbeddings)..where((t) => t.assetId.isIn(assetIds))).go();
+    await (delete(imageEmbeddings)..where((t) => t.assetId.isIn(assetIds)))
+        .go();
     await (delete(assetTags)
-          ..where((t) =>
-              t.assetId.isIn(assetIds) & t.quelle.equals(Tagquelle.ki)))
+          ..where(
+              (t) => t.assetId.isIn(assetIds) & t.quelle.equals(Tagquelle.ki)))
         .go();
     _embeddingsGeneration++;
   }
@@ -8516,13 +9133,15 @@ class AppDatabase extends _$AppDatabase {
   /// Wahl überschreiben.
   Future<int> verlegeProfilbilderVon(List<String> assetIds) async {
     final betroffen = await (select(faces)
-          ..where((t) => t.assetId.isIn(assetIds) & t.cropRelativePath.isNotNull()))
+          ..where(
+              (t) => t.assetId.isIn(assetIds) & t.cropRelativePath.isNotNull()))
         .get();
     final pfade = [for (final f in betroffen) f.cropRelativePath!];
     if (pfade.isEmpty) return 0;
 
-    final personen =
-        await (select(people)..where((t) => t.coverFaceCropPath.isIn(pfade))).get();
+    final personen = await (select(people)
+          ..where((t) => t.coverFaceCropPath.isIn(pfade)))
+        .get();
     for (final person in personen) {
       final ersatz = await (select(faces).join([
         innerJoin(assets, assets.id.equalsExp(faces.assetId)),
@@ -8535,8 +9154,9 @@ class AppDatabase extends _$AppDatabase {
           .get();
       await (update(people)..where((t) => t.id.equals(person.id))).write(
         PeopleCompanion(
-          coverFaceCropPath: Value(
-              ersatz.isEmpty ? null : ersatz.first.readTable(faces).cropRelativePath),
+          coverFaceCropPath: Value(ersatz.isEmpty
+              ? null
+              : ersatz.first.readTable(faces).cropRelativePath),
         ),
       );
     }

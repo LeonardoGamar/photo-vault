@@ -9,7 +9,7 @@ import 'library_location.dart';
 /// standardmäßig im App-Support-Ordner, siehe [LibraryLocation] – kann in
 /// den Einstellungen auf einen beliebigen anderen Ordner verlegt werden):
 ///
-/// <Speicherort>/
+/// `Speicherort/`
 ///   library/
 ///     originals/{yyyy}/{mm}/{assetId}.{ext}
 ///     thumbnails/{assetId}.jpg
@@ -57,6 +57,7 @@ class StoragePaths {
       'trimmed',
       'masks',
       'faces',
+      'vault_metadata',
       'luts',
       'trash',
     ]) {
@@ -71,6 +72,7 @@ class StoragePaths {
   Directory get developedDir => Directory(p.join(root.path, 'developed'));
   Directory get restoredDir => Directory(p.join(root.path, 'restored'));
   Directory get trimmedDir => Directory(p.join(root.path, 'trimmed'));
+
   /// Importierte Farbtabellen (`.cube`).
   ///
   /// Sie werden in die Bibliothek kopiert statt nur verwiesen: Eine
@@ -83,46 +85,57 @@ class StoragePaths {
 
   Directory get masksDir => Directory(p.join(root.path, 'masks'));
   Directory get facesDir => Directory(p.join(root.path, 'faces'));
+  Directory get vaultMetadataDir =>
+      Directory(p.join(root.path, 'vault_metadata'));
   Directory get trashDir => Directory(p.join(root.path, 'trash'));
 
-  String originalRelativePath(DateTime fileCreatedAt, String assetId, String extension) {
+  String originalRelativePath(
+      DateTime fileCreatedAt, String assetId, String extension) {
     final yyyy = fileCreatedAt.year.toString().padLeft(4, '0');
     final mm = fileCreatedAt.month.toString().padLeft(2, '0');
     return p.join('originals', yyyy, mm, '$assetId$extension');
   }
 
-  String thumbnailRelativePath(String assetId) => p.join('thumbnails', '$assetId.jpg');
+  String thumbnailRelativePath(String assetId) =>
+      p.join('thumbnails', '$assetId.jpg');
 
   /// Nur für Formate relevant, die Flutter nicht direkt rendern kann
   /// (HEIC/HEIF, DNG & Co.) – eine größere, konvertierte JPEG-Version für
   /// die Vollbildansicht (Thumbnails bleiben separat und kleiner).
-  String previewRelativePath(String assetId) => p.join('previews', '$assetId.jpg');
+  String previewRelativePath(String assetId) =>
+      p.join('previews', '$assetId.jpg');
 
   /// Gerendertes Ergebnis der nicht-destruktiven Entwicklung (siehe
   /// DevelopScreen) – separat von [previewRelativePath], damit sich beide
   /// unabhängig regenerieren lassen (die reine Vorschau z.B. beim
   /// HEIC/RAW-Import, das entwickelte Bild nur bei geänderten Reglern).
-  String developedRelativePath(String assetId) => p.join('developed', '$assetId.jpg');
+  String developedRelativePath(String assetId) =>
+      p.join('developed', '$assetId.jpg');
 
   /// Ergebnis einer KI-Restaurierung (siehe RestoreQueueService,
   /// RestoreJobs) – separat von [developedRelativePath], da beide
   /// unabhängig voneinander existieren können (Restaurierung nimmt das
   /// bereits entwickelte Ergebnis als Eingabe, falls vorhanden).
-  String restoredRelativePath(String assetId) => p.join('restored', '$assetId.jpg');
+  String restoredRelativePath(String assetId) =>
+      p.join('restored', '$assetId.jpg');
 
   /// Ergebnis des nicht-destruktiven Video-Zuschnitts (siehe
   /// VideoTrimScreen) – separat von [originalRelativePath], die
   /// Originaldatei wird nie angetastet.
-  String trimmedRelativePath(String assetId) => p.join('trimmed', '$assetId.mp4');
+  String trimmedRelativePath(String assetId) =>
+      p.join('trimmed', '$assetId.mp4');
 
   String faceRelativePath(String faceId) => p.join('faces', '$faceId.jpg');
+  String vaultMetadataRelativePath(String assetId) =>
+      p.join('vault_metadata', '$assetId.pvm');
 
   /// Grauwert-Alphamaske einer KI-Objektmaske (siehe MaskEditor,
   /// SegmentationService.maskToOriginalResolution). Nimmt bewusst eine vom
   /// Aufrufer erzeugte UUID statt der Auto-Increment-`id` der DevelopMasks-
   /// Zeile entgegen – die ist erst NACH dem Einfügen der Zeile bekannt, der
   /// Dateiname muss aber schon vorher feststehen, um die Datei zu schreiben.
-  String maskRelativePath(String maskFileId) => p.join('masks', '$maskFileId.png');
+  String maskRelativePath(String maskFileId) =>
+      p.join('masks', '$maskFileId.png');
 
   /// XMP-Sidecar-Pfad zu einer beliebigen bereits vorhandenen Datei (siehe
   /// xmp_writer.dart) – ein Sidecar muss denselben Basisnamen wie die
@@ -135,7 +148,27 @@ class StoragePaths {
   /// ExportService._uniqueDestinationPath), ohne eigene Fallunterscheidung.
   String xmpSidecarPath(String filePath) => p.setExtension(filePath, '.xmp');
 
-  File absolute(String relativePath) => File(p.join(root.path, relativePath));
+  /// Löst einen in der Datenbank gespeicherten Bibliothekspfad auf.
+  ///
+  /// Datenbankwerte sind auch dann keine vertrauenswürdigen Dateipfade, wenn
+  /// die Oberfläche selbst nur von uns erzeugte Werte schreibt: Eine alte,
+  /// beschädigte oder von außen eingespielte `library.sqlite` kann absolute
+  /// Pfade oder `..`-Segmente enthalten. Ohne diese Grenze würden insbesondere
+  /// [deletePermanently] und die Papierkorb-Automatik außerhalb der Bibliothek
+  /// lesen oder löschen.
+  File absolute(String relativePath) {
+    if (relativePath.isEmpty || p.isAbsolute(relativePath)) {
+      throw ArgumentError.value(
+          relativePath, 'relativePath', 'Kein relativer Bibliothekspfad');
+    }
+    final basis = p.normalize(p.absolute(root.path));
+    final ziel = p.normalize(p.absolute(p.join(basis, relativePath)));
+    if (!p.isWithin(basis, ziel)) {
+      throw ArgumentError.value(
+          relativePath, 'relativePath', 'Path leaves the library root');
+    }
+    return File(ziel);
+  }
 
   /// Verschiebt eine Originaldatei physisch in den Papierkorb-Ordner (wird
   /// beim "Papierkorb leeren" endgültig gelöscht). Gibt den neuen relativen
@@ -158,7 +191,8 @@ class StoragePaths {
   Future<int> totalOriginalsSizeBytes() async {
     var total = 0;
     if (!await originalsDir.exists()) return 0;
-    await for (final entity in originalsDir.list(recursive: true, followLinks: false)) {
+    await for (final entity
+        in originalsDir.list(recursive: true, followLinks: false)) {
       if (entity is File) total += await entity.length();
     }
     return total;
@@ -175,6 +209,7 @@ class StoragePaths {
     'trimmed',
     'masks',
     'faces',
+    'vault_metadata',
     'luts',
     'trash',
   ];
@@ -222,6 +257,35 @@ class StoragePaths {
     return Bibliotheksbelegung(
         teile: teile, sonstiges: sonstiges, datenbank: datenbank);
   }
+
+  /// Entfernt ausschließlich abgebrochene Schreibreste, die kein gültiger
+  /// Bibliotheksbestand sein können. Frische Dateien bleiben unangetastet,
+  /// damit eine parallel laufende Einfuhr oder Verschlüsselung nicht gestört
+  /// wird.
+  Future<({int dateien, int bytes})> bereinigeSchreibreste({
+    Duration mindestalter = const Duration(hours: 24),
+  }) async {
+    var dateien = 0;
+    var bytes = 0;
+    final grenze = DateTime.now().subtract(mindestalter);
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
+      if (entity is! File ||
+          !(entity.path.endsWith('.part') ||
+              entity.path.endsWith('.vaulttmp'))) {
+        continue;
+      }
+      try {
+        final stat = await entity.stat();
+        if (!stat.modified.isBefore(grenze)) continue;
+        bytes += stat.size;
+        await entity.delete();
+        dateien++;
+      } on FileSystemException {
+        // Zwischen Prüfung und Löschen bereits verschwunden.
+      }
+    }
+    return (dateien: dateien, bytes: bytes);
+  }
 }
 
 /// Was die Bibliothek belegt, nach Teilen getrennt – siehe
@@ -243,9 +307,7 @@ class Bibliotheksbelegung {
   final int datenbank;
 
   int get gesamt =>
-      datenbank +
-      sonstiges +
-      teile.values.fold<int>(0, (a, b) => a + b);
+      datenbank + sonstiges + teile.values.fold<int>(0, (a, b) => a + b);
 
   /// Die Posten in der Reihenfolge der Aufstellung, ohne die leeren.
   ///
@@ -254,8 +316,7 @@ class Bibliotheksbelegung {
   /// unauffindbar.
   List<({String name, int bytes})> get posten => [
         for (final ordner in StoragePaths.belegungsordner)
-          if ((teile[ordner] ?? 0) > 0)
-            (name: ordner, bytes: teile[ordner]!),
+          if ((teile[ordner] ?? 0) > 0) (name: ordner, bytes: teile[ordner]!),
         if (datenbank > 0) (name: 'datenbank', bytes: datenbank),
         if (sonstiges > 0) (name: 'sonstiges', bytes: sonstiges),
       ];

@@ -172,8 +172,7 @@ void main() {
       await abbauen(tester);
     });
 
-    testWidgets('ohne jede Aenderung gibt es nichts zu zeigen',
-        (tester) async {
+    testWidgets('ohne jede Aenderung gibt es nichts zu zeigen', (tester) async {
       await zeige(tester);
       await tester.tap(find.byIcon(Icons.history));
       await takte(tester, 20);
@@ -275,6 +274,8 @@ void main() {
           reason: 'waehrend des Ziehens zeichnet der Shader');
       await abbauen(tester);
     });
-  });
-
+  },
+      skip: Platform.isMacOS
+          ? false
+          : 'Der native Live-Render ist nur der maßgebliche macOS-Pfad.');
 }

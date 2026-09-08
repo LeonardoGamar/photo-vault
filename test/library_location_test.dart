@@ -17,7 +17,8 @@ void main() {
 
   setUp(() async {
     tempRoot = Directory.systemTemp.createTempSync('pv_liborte_');
-    anker = Directory(p.join(tempRoot.path, 'anker'))..createSync(recursive: true);
+    anker = Directory(p.join(tempRoot.path, 'anker'))
+      ..createSync(recursive: true);
     LibraryLocation.nutzeFuerTests(anker: anker, zugriff: const _TestZugriff());
   });
 
@@ -31,9 +32,11 @@ void main() {
   String fingerabdruck(Directory dir) {
     if (!dir.existsSync()) return 'FEHLT';
     final teile = <String>[];
-    for (final e in dir.listSync(recursive: true)..sort((a, b) => a.path.compareTo(b.path))) {
+    for (final e in dir.listSync(recursive: true)
+      ..sort((a, b) => a.path.compareTo(b.path))) {
       if (e is File) {
-        teile.add('${p.relative(e.path, from: dir.path)}:${sha256.convert(e.readAsBytesSync())}');
+        teile.add(
+            '${p.relative(e.path, from: dir.path)}:${sha256.convert(e.readAsBytesSync())}');
       }
     }
     return teile.join('|');
@@ -41,7 +44,8 @@ void main() {
 
   /// Legt einen Ordner an, der wie eine Bibliothek aussieht.
   Directory bibliothek(String name, String inhalt) {
-    final dir = Directory(p.join(tempRoot.path, name))..createSync(recursive: true);
+    final dir = Directory(p.join(tempRoot.path, name))
+      ..createSync(recursive: true);
     File(p.join(dir.path, 'library.sqlite')).writeAsStringSync('DB $inhalt');
     final originals = Directory(p.join(dir.path, 'library', 'originals'))
       ..createSync(recursive: true);
@@ -69,11 +73,13 @@ void main() {
     await LibraryLocation.fuegeHinzu(PickedFolder(b.path, ''), name: 'B');
     await LibraryLocation.wechsleZu(
         Bibliothekseintrag(path: a.path, token: '', name: 'A'));
-    expect(p.equals((await LibraryLocation.currentRoot()).path, a.path), isTrue);
+    expect(
+        p.equals((await LibraryLocation.currentRoot()).path, a.path), isTrue);
 
     await LibraryLocation.wechsleZu(
         Bibliothekseintrag(path: b.path, token: '', name: 'B'));
-    expect(p.equals((await LibraryLocation.currentRoot()).path, b.path), isTrue);
+    expect(
+        p.equals((await LibraryLocation.currentRoot()).path, b.path), isTrue);
 
     expect(fingerabdruck(a), vorherA,
         reason: 'die abgewählte Bibliothek muss unangetastet bleiben');
@@ -83,15 +89,35 @@ void main() {
 
   test('VERSCHIEBEN bewegt weiterhin – die Gegenprobe', () async {
     File(p.join(anker.path, 'library.sqlite')).writeAsStringSync('DB Standard');
+    final original =
+        File(p.join(anker.path, 'library', 'originals', 'gross.jpg'))
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(List<int>.filled(2 * 1024 * 1024, 17));
     final ziel = Directory(p.join(tempRoot.path, 'neuer_ort'))..createSync();
+    final fortschritte = <BibliotheksVerschiebefortschritt>[];
 
-    await LibraryLocation.applyRoot(PickedFolder(ziel.path, ''));
+    await LibraryLocation.applyRoot(
+      PickedFolder(ziel.path, ''),
+      onProgress: fortschritte.add,
+    );
 
     expect(File(p.join(ziel.path, 'library.sqlite')).existsSync(), isTrue,
         reason: 'applyRoot muss die Daten wirklich verschieben');
     expect(File(p.join(anker.path, 'library.sqlite')).existsSync(), isFalse,
         reason: 'und am alten Ort nichts zurücklassen');
-    expect(p.equals((await LibraryLocation.currentRoot()).path, ziel.path), isTrue);
+    expect(p.equals((await LibraryLocation.currentRoot()).path, ziel.path),
+        isTrue);
+    expect(original.existsSync(), isFalse);
+    expect(fortschritte.length, greaterThan(2),
+        reason:
+            'auch während einer großen Datei muss sich die Anzeige bewegen');
+    expect(fortschritte.first.kopierteBytes, 0);
+    expect(fortschritte.last.kopierteBytes, fortschritte.last.gesamtBytes);
+    expect(fortschritte.last.kopierteDateien, fortschritte.last.gesamtDateien);
+    for (var i = 1; i < fortschritte.length; i++) {
+      expect(fortschritte[i].kopierteBytes,
+          greaterThanOrEqualTo(fortschritte[i - 1].kopierteBytes));
+    }
   });
 
   test('das alte Einzelformat wird weiterhin verstanden', () async {
@@ -99,12 +125,14 @@ void main() {
     File(p.join(anker.path, 'location.json'))
         .writeAsStringSync(jsonEncode({'path': alt.path, 'token': 'xyz'}));
 
-    expect(p.equals((await LibraryLocation.currentRoot()).path, alt.path), isTrue,
+    expect(
+        p.equals((await LibraryLocation.currentRoot()).path, alt.path), isTrue,
         reason: 'eine vorhandene Konfiguration darf nicht ins Leere laufen');
 
     final liste = await LibraryLocation.bekannte();
     expect(liste.map((e) => e.eintrag.path), contains(alt.path));
-    expect(liste.firstWhere((e) => p.equals(e.eintrag.path, alt.path)).istAktiv, isTrue);
+    expect(liste.firstWhere((e) => p.equals(e.eintrag.path, alt.path)).istAktiv,
+        isTrue);
   });
 
   test('aus der Liste entfernen löscht keine Daten', () async {
@@ -120,7 +148,8 @@ void main() {
     expect(a.existsSync(), isTrue);
   });
 
-  test('der Standardordner lässt sich nicht entfernen und sagt das auch', () async {
+  test('der Standardordner lässt sich nicht entfernen und sagt das auch',
+      () async {
     // Er wird von bekannte() erzeugt und steht nicht in der gespeicherten
     // Liste – ein Entfernen wäre folgenlos. Die erste Fassung bot dafür
     // trotzdem einen Knopf an, der stillschweigend nichts tat.
@@ -129,7 +158,8 @@ void main() {
     expect(standard.istStandard, isTrue);
     expect(standard.entfernbar, isFalse);
 
-    expect(await LibraryLocation.entferneAusListe(standard.eintrag.path), isFalse,
+    expect(
+        await LibraryLocation.entferneAusListe(standard.eintrag.path), isFalse,
         reason: 'die Oberfläche muss erfahren, dass nichts geschah');
     expect((await LibraryLocation.bekannte()), hasLength(1));
   });
@@ -148,20 +178,26 @@ void main() {
         reason: 'ein zweites Mal gibt es nichts mehr zu entfernen');
   });
 
-  test('die aktive Bibliothek lässt sich nicht aus der Liste entfernen', () async {
+  test('die aktive Bibliothek lässt sich nicht aus der Liste entfernen',
+      () async {
     final a = bibliothek('aktiv', 'A');
     await LibraryLocation.fuegeHinzu(PickedFolder(a.path, ''), name: 'A');
-    await LibraryLocation.wechsleZu(Bibliothekseintrag(path: a.path, token: '', name: 'A'));
+    await LibraryLocation.wechsleZu(
+        Bibliothekseintrag(path: a.path, token: '', name: 'A'));
 
     await LibraryLocation.entferneAusListe(a.path);
 
-    expect((await LibraryLocation.bekannte()).map((e) => e.eintrag.path), contains(a.path),
-        reason: 'sonst zeigte der aktive Zeiger auf einen Eintrag, den es nicht mehr gibt');
+    expect((await LibraryLocation.bekannte()).map((e) => e.eintrag.path),
+        contains(a.path),
+        reason:
+            'sonst zeigte der aktive Zeiger auf einen Eintrag, den es nicht mehr gibt');
   });
 
   test('ein unerreichbarer Ort wird gemeldet, nicht geworfen', () async {
-    final weg = Directory(p.join(tempRoot.path, 'externe_platte'))..createSync();
-    await LibraryLocation.fuegeHinzu(PickedFolder(weg.path, ''), name: 'Extern');
+    final weg = Directory(p.join(tempRoot.path, 'externe_platte'))
+      ..createSync();
+    await LibraryLocation.fuegeHinzu(PickedFolder(weg.path, ''),
+        name: 'Extern');
     weg.deleteSync();
 
     final liste = await LibraryLocation.bekannte();
@@ -169,7 +205,8 @@ void main() {
     expect(eintrag.erreichbar, isFalse);
   });
 
-  test('ein unerreichbarer aktiver Ort fällt auf den Standard zurück', () async {
+  test('ein unerreichbarer aktiver Ort fällt auf den Standard zurück',
+      () async {
     final weg = Directory(p.join(tempRoot.path, 'verschwunden'))..createSync();
     await LibraryLocation.fuegeHinzu(PickedFolder(weg.path, ''), name: 'Weg');
     await LibraryLocation.wechsleZu(

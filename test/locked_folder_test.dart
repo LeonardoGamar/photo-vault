@@ -28,9 +28,11 @@ void main() {
   late LibraryState library;
 
   setUp(() async {
-    tempRoot = Directory.systemTemp.createTempSync('photo_vault_locked_folder_test_');
+    tempRoot =
+        Directory.systemTemp.createTempSync('photo_vault_locked_folder_test_');
     db = AppDatabase(NativeDatabase.memory());
-    paths = await StoragePaths.forTesting(Directory(p.join(tempRoot.path, 'library')));
+    paths = await StoragePaths.forTesting(
+        Directory(p.join(tempRoot.path, 'library')));
     import = ImportService(db, paths);
     library = LibraryState()
       ..db = db
@@ -43,15 +45,19 @@ void main() {
   });
 
   Future<AssetData> importPhoto(String name, List<int> bytes) async {
-    final incoming = Directory(p.join(tempRoot.path, 'incoming'))..createSync(recursive: true);
+    final incoming = Directory(p.join(tempRoot.path, 'incoming'))
+      ..createSync(recursive: true);
     final file = File(p.join(incoming.path, name))..writeAsBytesSync(bytes);
     final result = await import.importFile(file.path);
     expect(result.outcome, ImportOutcome.imported);
     return (await db.assetById(result.assetId!))!;
   }
 
-  test('Sperren verschlüsselt die Originaldatei auf der Platte, Entsperren stellt sie exakt wieder her', () async {
-    final originalBytes = List<int>.generate(500000, (i) => i % 256); // > 2 Verschlüsselungs-Chunks
+  test(
+      'Sperren verschlüsselt die Originaldatei auf der Platte, Entsperren stellt sie exakt wieder her',
+      () async {
+    final originalBytes = List<int>.generate(
+        500000, (i) => i % 256); // > 2 Verschlüsselungs-Chunks
     final asset = await importPhoto('geheim.jpg', originalBytes);
     final originalFile = paths.absolute(asset.relativePath);
     expect(await originalFile.readAsBytes(), equals(originalBytes));
@@ -65,8 +71,10 @@ void main() {
     final lockedAsset = (await db.assetById(asset.id))!;
     expect(lockedAsset.isLocked, isTrue);
     expect(await originalFile.readAsBytes(), isNot(equals(originalBytes)));
-    expect((await db.watchTimeline().first).map((a) => a.id), isNot(contains(asset.id)));
-    expect((await db.watchLockedAssets().first).map((a) => a.id), contains(asset.id));
+    expect((await db.watchTimeline().first).map((a) => a.id),
+        isNot(contains(asset.id)));
+    expect((await db.watchLockedAssets().first).map((a) => a.id),
+        contains(asset.id));
 
     // Anzeige-Entschlüsselung liefert die Originaldaten, ohne die Datei in
     // der Bibliothek selbst anzurühren.
@@ -79,21 +87,24 @@ void main() {
     final unlockedAsset = (await db.assetById(asset.id))!;
     expect(unlockedAsset.isLocked, isFalse);
     expect(await originalFile.readAsBytes(), equals(originalBytes));
-    expect((await db.watchTimeline().first).map((a) => a.id), contains(asset.id));
+    expect(
+        (await db.watchTimeline().first).map((a) => a.id), contains(asset.id));
   });
 
   test(
       'Sperren verschlüsselt auch Video-Zuschnitt und KI-Objektmasken, Entsperren stellt sie '
       'exakt wieder her (Audit-Fund: fehlten hier ursprünglich)', () async {
     final originalBytes = List<int>.generate(1000, (i) => i % 256);
-    final asset = await importPhoto('video.jpg', originalBytes); // Typ egal, nur Datei-Handling wird geprüft
+    final asset = await importPhoto('video.jpg',
+        originalBytes); // Typ egal, nur Datei-Handling wird geprüft
 
     final trimBytes = List<int>.generate(2000, (i) => (i * 3) % 256);
     final trimmedRelPath = 'trimmed/${asset.id}.mp4';
     paths.absolute(trimmedRelPath)
       ..parent.createSync(recursive: true)
       ..writeAsBytesSync(trimBytes);
-    await db.saveVideoTrim(asset.id, startSeconds: 0, endSeconds: 1, trimmedRelativePath: trimmedRelPath);
+    await db.saveVideoTrim(asset.id,
+        startSeconds: 0, endSeconds: 1, trimmedRelativePath: trimmedRelPath);
 
     final maskBytes = List<int>.generate(1500, (i) => (i * 7) % 256);
     const maskRelPath = 'masks/mask1.png';
@@ -137,7 +148,47 @@ void main() {
     expect(library.vaultUnlockedThisSession, isTrue);
   });
 
-  test('PIN-Wechsel erfordert keine Neuverschlüsselung – Dateien bleiben mit dem alten Master-Key lesbar', () async {
+  test(
+      'private Metadaten verschwinden aus SQLite und kehren verlustfrei zurück',
+      () async {
+    final asset = await importPhoto('Geburtstag in Berlin.jpg', [1, 2, 3]);
+    await db.setDescriptionBulk([asset.id], 'Überraschung für Anna');
+    await db.setLocation(asset.id, 52.52, 13.405);
+    await db.tagAsset(asset.id, 'Familie');
+    await db.createAlbum(AlbumsCompanion.insert(
+        id: 'album-privat', name: 'Private Feier', createdAt: DateTime(2024)));
+    await db.addAssetsToAlbum('album-privat', [asset.id]);
+    final vorDemSperren = (await db.assetById(asset.id))!;
+
+    await library.setupVaultPin('1234');
+    await library.lockAsset(vorDemSperren);
+
+    final gesperrt = (await db.assetById(asset.id))!;
+    expect(gesperrt.originalFileName, 'Private Aufnahme');
+    expect(gesperrt.description, isNull);
+    expect(gesperrt.latitude, isNull);
+    expect(await db.tagsForAsset(asset.id), isEmpty);
+    expect((await db.privateRelationsForAsset(asset.id))['albums'], isEmpty);
+    final metadata = paths.absolute(paths.vaultMetadataRelativePath(asset.id));
+    final chiffriert = await metadata.readAsBytes();
+    expect(String.fromCharCodes(chiffriert), isNot(contains('Geburtstag')));
+    expect(String.fromCharCodes(chiffriert), isNot(contains('Anna')));
+
+    await library.unlockAsset(gesperrt);
+
+    final wiederhergestellt = (await db.assetById(asset.id))!;
+    expect(wiederhergestellt.originalFileName, 'Geburtstag in Berlin.jpg');
+    expect(wiederhergestellt.description, 'Überraschung für Anna');
+    expect(wiederhergestellt.latitude, 52.52);
+    expect((await db.tagsForAsset(asset.id)).single.name, 'Familie');
+    expect((await db.privateRelationsForAsset(asset.id))['albums'],
+        contains('album-privat'));
+    expect(await metadata.exists(), isFalse);
+  });
+
+  test(
+      'PIN-Wechsel erfordert keine Neuverschlüsselung – Dateien bleiben mit dem alten Master-Key lesbar',
+      () async {
     final originalBytes = [1, 2, 3, 4, 5];
     final asset = await importPhoto('foto.jpg', originalBytes);
 
@@ -151,10 +202,13 @@ void main() {
 
     final lockedAsset = (await db.assetById(asset.id))!;
     await library.unlockAsset(lockedAsset);
-    expect(await paths.absolute(asset.relativePath).readAsBytes(), equals(originalBytes));
+    expect(await paths.absolute(asset.relativePath).readAsBytes(),
+        equals(originalBytes));
   });
 
-  test('removeVaultPin entschlüsselt alle gesperrten Fotos automatisch und entfernt den PIN', () async {
+  test(
+      'removeVaultPin entschlüsselt alle gesperrten Fotos automatisch und entfernt den PIN',
+      () async {
     final originalBytes = [9, 9, 9, 9];
     final asset = await importPhoto('foto2.jpg', originalBytes);
 
@@ -167,10 +221,13 @@ void main() {
     expect(library.vaultUnlockedThisSession, isFalse);
     final restoredAsset = (await db.assetById(asset.id))!;
     expect(restoredAsset.isLocked, isFalse);
-    expect(await paths.absolute(asset.relativePath).readAsBytes(), equals(originalBytes));
+    expect(await paths.absolute(asset.relativePath).readAsBytes(),
+        equals(originalBytes));
   });
 
-  test('ein bereits vor dem Sperren gescanntes Gesichts-Crop wird mitverschlüsselt und -entschlüsselt', () async {
+  test(
+      'ein bereits vor dem Sperren gescanntes Gesichts-Crop wird mitverschlüsselt und -entschlüsselt',
+      () async {
     final asset = await importPhoto('mit_gesicht.jpg', [1, 2, 3]);
     final faceCropBytes = [42, 42, 42, 42];
     final cropRelativePath = paths.faceRelativePath('face-1');
@@ -196,16 +253,21 @@ void main() {
     expect(await faceCropFile.readAsBytes(), equals(faceCropBytes));
   });
 
-  test('gesperrte, gelöschte Fotos landen im eigenen Papierkorb statt im normalen', () async {
+  test(
+      'gesperrte, gelöschte Fotos landen im eigenen Papierkorb statt im normalen',
+      () async {
     final asset = await importPhoto('geloescht.jpg', [1, 2, 3]);
     await library.setupVaultPin('1234');
     await library.lockAsset(asset);
 
     await db.moveToTrash([asset.id]);
 
-    expect((await db.watchTrash().first).map((a) => a.id), isNot(contains(asset.id)));
-    expect((await db.watchLockedTrash().first).map((a) => a.id), contains(asset.id));
-    expect((await db.watchLockedAssets().first).map((a) => a.id), isNot(contains(asset.id)));
+    expect((await db.watchTrash().first).map((a) => a.id),
+        isNot(contains(asset.id)));
+    expect((await db.watchLockedTrash().first).map((a) => a.id),
+        contains(asset.id));
+    expect((await db.watchLockedAssets().first).map((a) => a.id),
+        isNot(contains(asset.id)));
 
     // Wiederherstellen bringt es zurück in den gesperrten Ordner, nicht in
     // die normale Timeline.
@@ -213,11 +275,15 @@ void main() {
     final restored = (await db.assetById(asset.id))!;
     expect(restored.isLocked, isTrue);
     expect(restored.isTrashed, isFalse);
-    expect((await db.watchLockedAssets().first).map((a) => a.id), contains(asset.id));
-    expect((await db.watchTimeline().first).map((a) => a.id), isNot(contains(asset.id)));
+    expect((await db.watchLockedAssets().first).map((a) => a.id),
+        contains(asset.id));
+    expect((await db.watchTimeline().first).map((a) => a.id),
+        isNot(contains(asset.id)));
   });
 
-  test('endgültiges Löschen aus dem gesperrten Papierkorb entfernt Originaldatei, Thumbnail und DB-Zeile', () async {
+  test(
+      'endgültiges Löschen aus dem gesperrten Papierkorb entfernt Originaldatei, Thumbnail und DB-Zeile',
+      () async {
     final asset = await importPhoto('endgueltig.jpg', [1, 2, 3]);
     await library.setupVaultPin('1234');
     await library.lockAsset(asset);
@@ -236,6 +302,7 @@ void main() {
 
     expect(await originalFile.exists(), isFalse);
     expect(await db.assetById(asset.id), isNull);
-    expect((await db.watchLockedTrash().first).map((a) => a.id), isNot(contains(asset.id)));
+    expect((await db.watchLockedTrash().first).map((a) => a.id),
+        isNot(contains(asset.id)));
   });
 }

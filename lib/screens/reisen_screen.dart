@@ -229,8 +229,9 @@ class _ReisenScreenState extends State<ReisenScreen> {
                       for (final r in andere)
                         CheckboxListTile(
                           value: gewaehlt.contains(r.id),
-                          onChanged: (an) => setzen(() =>
-                              an == true ? gewaehlt.add(r.id) : gewaehlt.remove(r.id)),
+                          onChanged: (an) => setzen(() => an == true
+                              ? gewaehlt.add(r.id)
+                              : gewaehlt.remove(r.id)),
                           title: Text(r.name),
                           subtitle: Text(reiseUnterzeile(
                               t, Localizations.localeOf(context),
@@ -251,9 +252,8 @@ class _ReisenScreenState extends State<ReisenScreen> {
                 onPressed: () => Navigator.pop(dialog, false),
                 child: Text(t.allgAbbrechen)),
             FilledButton(
-                onPressed: gewaehlt.isEmpty
-                    ? null
-                    : () => Navigator.pop(dialog, true),
+                onPressed:
+                    gewaehlt.isEmpty ? null : () => Navigator.pop(dialog, true),
                 child: Text(t.reisenZusammenfuehren)),
           ],
         ),
@@ -261,8 +261,7 @@ class _ReisenScreenState extends State<ReisenScreen> {
     );
     if (ok != true || !mounted) return;
     final anzahl = gewaehlt.length;
-    await widget.library.db
-        .reisenZusammenfuehren(ziel.id, gewaehlt.toList());
+    await widget.library.db.reisenZusammenfuehren(ziel.id, gewaehlt.toList());
     if (!mounted) return;
     melde.erfolg(t.reisenZusammengefuehrt(ziel.name, anzahl));
     await _laden();
@@ -329,7 +328,8 @@ class _ReisenScreenState extends State<ReisenScreen> {
           IconButton(
             tooltip: t.weltkarteOeffnen,
             icon: const Icon(Icons.public),
-            onPressed: () => Navigator.of(context, rootNavigator: true).push(MaterialPageRoute(
+            onPressed: () => Navigator.of(context, rootNavigator: true)
+                .push(MaterialPageRoute(
               builder: (_) => WeltkarteScreen(library: widget.library),
             )),
           ),
@@ -363,14 +363,15 @@ class _ReisenScreenState extends State<ReisenScreen> {
                   const SizedBox(height: AppSpacing.lg),
                   Text(t.reisenSuchtNoch,
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),
             )
           : _reisen.isEmpty && _vorschlaege.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xxl),
+              ? SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppSpacing.xxl),
+                  child: Center(
                     child: SizedBox(
                       width: 440,
                       child: Column(
@@ -385,11 +386,13 @@ class _ReisenScreenState extends State<ReisenScreen> {
                             Text(
                               t.fortschrittOhneGeodaten,
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant),
                             ),
                           ],
                         ],
@@ -413,8 +416,8 @@ class _ReisenScreenState extends State<ReisenScreen> {
                               borderRadius: BorderRadius.circular(AppRadius.md),
                               onTap: () =>
                                   Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => LaenderlisteScreen(
-                                    library: widget.library),
+                                builder: (_) =>
+                                    LaenderlisteScreen(library: widget.library),
                               )),
                               child: Padding(
                                 padding: const EdgeInsets.all(AppSpacing.lg),
@@ -450,8 +453,8 @@ class _ReisenScreenState extends State<ReisenScreen> {
                       ]),
                     ),
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0,
-                          AppSpacing.lg, AppSpacing.lg),
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.lg),
                       sliver: Kachelraster(kacheln: [
                         for (final r in _reisen)
                           Reisekachel(
@@ -459,7 +462,8 @@ class _ReisenScreenState extends State<ReisenScreen> {
                             reise: r,
                             library: widget.library,
                             ort: ortszeile(t, _orte[r.id],
-                                sprache: Localizations.localeOf(context).languageCode),
+                                sprache: Localizations.localeOf(context)
+                                    .languageCode),
                             onTippen: () => _oeffnen(r),
                             befehle: [
                               (
@@ -563,7 +567,8 @@ class _Vorschlagskarte extends StatelessWidget {
                   vorschlag.orte.take(6).join(' · '),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: farben.onSurfaceVariant),
+                  style:
+                      TextStyle(fontSize: 12, color: farben.onSurfaceVariant),
                 ),
               ),
             const SizedBox(height: AppSpacing.md),
@@ -638,8 +643,8 @@ class _ReisekachelState extends State<Reisekachel> {
         // sonst alle gleich aus.
         symbol: symbolFuerReiseartKennung(widget.reise.art),
         name: widget.reise.name,
-        kennzeichen: t.reisenNaechte(naechteZwischen(
-            von: widget.reise.von, bis: widget.reise.bis)),
+        kennzeichen: t.reisenNaechte(
+            naechteZwischen(von: widget.reise.von, bis: widget.reise.bis)),
         zeitraum: jahresspanne(widget.reise.von, widget.reise.bis),
         ort: widget.ort,
         onTippen: widget.onTippen,
@@ -664,6 +669,5 @@ int naechteZwischen({required DateTime von, required DateTime bis}) =>
 /// Auf dem Titelbild ist Platz für ein Jahr, nicht für zwei volle Daten.
 /// Über den Jahreswechsel hinweg werden es zwei – „2024" allein wäre
 /// dort schlicht falsch.
-String jahresspanne(DateTime von, DateTime bis) => von.year == bis.year
-    ? '${von.year}'
-    : '${von.year}–${bis.year}';
+String jahresspanne(DateTime von, DateTime bis) =>
+    von.year == bis.year ? '${von.year}' : '${von.year}–${bis.year}';

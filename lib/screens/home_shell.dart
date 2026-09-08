@@ -107,13 +107,17 @@ class _Laufzeile extends StatelessWidget {
   final double? anteil;
   final String text;
   final VoidCallback abbrechen;
-  const _Laufzeile({required this.anteil, required this.text, required this.abbrechen});
+  const _Laufzeile(
+      {required this.anteil, required this.text, required this.abbrechen});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(
-          left: AppSpacing.lg, right: AppSpacing.sm, top: AppSpacing.sm, bottom: AppSpacing.sm),
+          left: AppSpacing.lg,
+          right: AppSpacing.sm,
+          top: AppSpacing.sm,
+          bottom: AppSpacing.sm),
       child: Row(
         children: [
           SizedBox(
@@ -286,7 +290,8 @@ class _HomeShellState extends State<HomeShell> {
 
     return [
       for (var i = 0; i < labels.length; i++)
-        dest(_destinationIconsOutlined[i], _destinationIconsFilled[i], labels[i]),
+        dest(_destinationIconsOutlined[i], _destinationIconsFilled[i],
+            labels[i]),
     ];
   }
 
@@ -337,6 +342,68 @@ class _HomeShellState extends State<HomeShell> {
     Icons.build,
     Icons.settings,
   ];
+
+  /// Auf einer schmalen Fläche passen elf gleichrangige Ziele weder lesbar
+  /// noch als gut treffbare Bedienelemente nebeneinander. Die vier häufigsten
+  /// bleiben direkt erreichbar; alle übrigen stehen in einem echten
+  /// „Mehr“-Menü. Die Zahlen sind weiterhin die Seitenindizes der einen
+  /// Zielliste oben.
+  static const _compactPrimaryIndices = [0, 1, 5, 8];
+
+  Future<void> _showCommandPalette() async {
+    final t = AppTexte.of(context);
+    final ziel = await showSearch<int?>(
+      context: context,
+      delegate: _CommandPaletteDelegate(
+        labels: _destinationLabels(t),
+        icons: _destinationIconsOutlined,
+        current: _seite.value,
+        hint: t.befehlspaletteHinweis,
+        empty: t.befehlspaletteLeer,
+      ),
+    );
+    if (ziel != null && mounted) _zielGewaehlt(ziel);
+  }
+
+  Future<void> _showCompactMore(AppTexte t) async {
+    final labels = _destinationLabels(t);
+    final weitere = [
+      for (var i = 0; i < labels.length; i++)
+        if (!_compactPrimaryIndices.contains(i)) i,
+    ];
+    final ziel = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.manage_search_outlined),
+              title: Text(t.befehlspaletteTitel),
+              subtitle: Text(t.befehlspaletteHinweis),
+              onTap: () => Navigator.pop(context, -1),
+            ),
+            const Divider(height: 1),
+            for (final i in weitere)
+              ListTile(
+                leading: Icon(i == _seite.value
+                    ? _destinationIconsFilled[i]
+                    : _destinationIconsOutlined[i]),
+                title: Text(labels[i]),
+                selected: i == _seite.value,
+                onTap: () => Navigator.pop(context, i),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (ziel == -1 && mounted) {
+      await _showCommandPalette();
+    } else if (ziel != null && mounted) {
+      _zielGewaehlt(ziel);
+    }
+  }
 
   /// Welches Ziel hinter ⌘1 … ⌘0 liegt – als Reihenfolge der **Ziele**,
   /// nicht der Zifferntasten.
@@ -398,6 +465,10 @@ class _HomeShellState extends State<HomeShell> {
         // auch aus einer offenen Detailseite herausführen, sonst schaltet
         // es einen Bereich um, den niemand zu sehen bekommt.
         _zielGewaehlt(target);
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.keyK) {
+        _showCommandPalette();
         return KeyEventResult.handled;
       }
     }
@@ -527,7 +598,8 @@ class _HomeShellState extends State<HomeShell> {
                   // ab der die Rail genau wie zuvor (Icon-Größe 24, kein Extra-
                   // Abstand) aussieht; die Obergrenze verhindert unangemessen große
                   // Icons auf sehr hohen Bildschirmen.
-                  final railScale = (constraints.maxHeight / 700).clamp(1.0, 1.8);
+                  final railScale =
+                      (constraints.maxHeight / 700).clamp(1.0, 1.8);
                   final railIconSize = 24.0 * railScale;
                   final railItemPadding = 10.0 * (railScale - 1.0);
 
@@ -547,7 +619,8 @@ class _HomeShellState extends State<HomeShell> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Image(
-                                  image: const AssetImage('assets/icon/app_icon.png'),
+                                  image: const AssetImage(
+                                      'assets/icon/app_icon.png'),
                                   width: 32 * railScale,
                                   height: 32 * railScale,
                                 ),
@@ -555,13 +628,14 @@ class _HomeShellState extends State<HomeShell> {
                                 // überhaupt mehr als eine gibt. Ohne diesen
                                 // Hinweis ist nach einem Wechsel nicht
                                 // erkennbar, worin man gerade arbeitet.
-                                if (widget.library.aktiveBibliothek != null) ...[
+                                if (widget.library.aktiveBibliothek !=
+                                    null) ...[
                                   const SizedBox(height: 4),
                                   SizedBox(
                                     width: 72,
                                     child: Tooltip(
-                                      message:
-                                          t.geoeffneteBibliothek(widget.library.aktiveBibliothek!),
+                                      message: t.geoeffneteBibliothek(
+                                          widget.library.aktiveBibliothek!),
                                       child: Text(
                                         widget.library.aktiveBibliothek!,
                                         textAlign: TextAlign.center,
@@ -582,14 +656,14 @@ class _HomeShellState extends State<HomeShell> {
                               ],
                             ),
                           ),
-                          destinations:
-                              _buildDestinations(t, railIconSize, railItemPadding),
+                          destinations: _buildDestinations(
+                              t, railIconSize, railItemPadding),
                           trailing: Expanded(
                             child: Align(
                               alignment: Alignment.bottomCenter,
                               child: Padding(
-                                padding:
-                                    const EdgeInsets.only(bottom: AppSpacing.lg),
+                                padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.lg),
                                 child: FloatingActionButton(
                                   heroTag: 'import-rail',
                                   tooltip: t.importierenTooltip,
@@ -625,21 +699,28 @@ class _HomeShellState extends State<HomeShell> {
           bottomNavigationBar: wide
               ? null
               : NavigationBar(
-                  selectedIndex: seite,
-                  onDestinationSelected: _zielGewaehlt,
+                  selectedIndex: _compactPrimaryIndices.contains(seite)
+                      ? _compactPrimaryIndices.indexOf(seite)
+                      : _compactPrimaryIndices.length,
+                  onDestinationSelected: (index) {
+                    if (index < _compactPrimaryIndices.length) {
+                      _zielGewaehlt(_compactPrimaryIndices[index]);
+                    } else {
+                      _showCompactMore(t);
+                    }
+                  },
                   destinations: [
-                    for (var i = 0; i < navLabels.length; i++)
+                    for (final i in _compactPrimaryIndices)
                       NavigationDestination(
                         icon: Icon(_destinationIconsOutlined[i]),
                         selectedIcon: Icon(_destinationIconsFilled[i]),
-                        // "Mehr" statt "Einstellungen" nur unten in der schmalen
-                        // NavigationBar, damit der letzte Eintrag nicht wie eine
-                        // reine Einstellungen-Seite wirkt, obwohl er (wie auf der
-                        // breiten Rail) alles rund um App-Konfiguration bündelt.
-                        label: i == navLabels.length - 1
-                            ? t.allgMehr
-                            : navLabels[i],
+                        label: navLabels[i],
                       ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.more_horiz),
+                      selectedIcon: const Icon(Icons.more),
+                      label: t.allgMehr,
+                    ),
                   ],
                 ),
           floatingActionButton: wide
@@ -651,6 +732,67 @@ class _HomeShellState extends State<HomeShell> {
                 ),
         ),
       ),
+    );
+  }
+}
+
+class _CommandPaletteDelegate extends SearchDelegate<int?> {
+  _CommandPaletteDelegate({
+    required this.labels,
+    required this.icons,
+    required this.current,
+    required String hint,
+    required this.empty,
+  }) : super(searchFieldLabel: hint);
+
+  final List<String> labels;
+  final List<IconData> icons;
+  final int current;
+  final String empty;
+
+  List<int> get _matches {
+    final needle = query.trim().toLowerCase();
+    return [
+      for (var i = 0; i < labels.length; i++)
+        if (needle.isEmpty || labels[i].toLowerCase().contains(needle)) i,
+    ];
+  }
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+        if (query.isNotEmpty)
+          IconButton(
+            tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
+            onPressed: () => query = '',
+            icon: const Icon(Icons.clear),
+          ),
+      ];
+
+  @override
+  Widget buildLeading(BuildContext context) => BackButton(
+        onPressed: () => close(context, null),
+      );
+
+  @override
+  Widget buildResults(BuildContext context) => _list(context);
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _list(context);
+
+  Widget _list(BuildContext context) {
+    final matches = _matches;
+    if (matches.isEmpty) return Center(child: Text(empty));
+    return ListView.builder(
+      itemCount: matches.length,
+      itemBuilder: (context, index) {
+        final i = matches[index];
+        return ListTile(
+          leading: Icon(icons[i]),
+          title: Text(labels[i]),
+          selected: i == current,
+          onTap: () => close(context, i),
+        );
+      },
     );
   }
 }

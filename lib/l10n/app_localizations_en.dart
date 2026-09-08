@@ -1163,6 +1163,12 @@ class AppTexteEn extends AppTexte {
   String get einstSpeicherortVerschiebenLaeuft => 'Moving library …';
 
   @override
+  String einstSpeicherortFortschritt(
+      String kopiert, String gesamt, int dateien, int dateienGesamt) {
+    return '$kopiert of $gesamt · $dateien of $dateienGesamt files';
+  }
+
+  @override
   String get einstSpeicherbedarf => 'Space used';
 
   @override
@@ -7813,4 +7819,172 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get suchoptIso => 'ISO';
+
+  @override
+  String get startFehlerTitel => 'The library could not be opened';
+
+  @override
+  String get startFehlerText =>
+      'Photo Vault encountered an error during startup. The technical details can help diagnose it.';
+
+  @override
+  String get startFehlerErneut => 'Try again';
+
+  @override
+  String get befehlspaletteTitel => 'Find a command';
+
+  @override
+  String get befehlspaletteHinweis => 'Enter a section or tool';
+
+  @override
+  String get befehlspaletteLeer => 'No matching command';
+
+  @override
+  String get kuerzelBefehlspalette => 'Open the command palette';
+
+  @override
+  String get gesundheitTitel => 'Library health';
+
+  @override
+  String get gesundheitWerkzeugText =>
+      'Check backups, database, storage and local models together.';
+
+  @override
+  String get gesundheitEinleitung =>
+      'These checks show whether the library is complete, backed up and ready to work.';
+
+  @override
+  String get gesundheitAktualisieren => 'Refresh health';
+
+  @override
+  String get gesundheitDatenbank => 'Database';
+
+  @override
+  String get gesundheitDatenbankOk => 'SQLite reports no structural errors.';
+
+  @override
+  String get gesundheitDatenbankFehler => 'SQLite reported a structural error.';
+
+  @override
+  String get gesundheitIntegritaetOeffnen => 'Check all files';
+
+  @override
+  String get gesundheitSicherung => 'Automatic backup';
+
+  @override
+  String get gesundheitSicherungAus => 'Automatic backup is turned off.';
+
+  @override
+  String get gesundheitSicherungNie =>
+      'Automatic backup is configured but has never completed successfully.';
+
+  @override
+  String gesundheitLetzteSicherung(String datum) {
+    return 'Last successful run: $datum';
+  }
+
+  @override
+  String gesundheitSicherungOffen(int anzahl) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl photos are waiting for backup.',
+      one: '1 photo is waiting for backup.',
+      zero: 'All current photos are backed up.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gesundheitSpeicher => 'Storage use';
+
+  @override
+  String gesundheitMedien(int fotos, int videos) {
+    return '$fotos photos, $videos videos';
+  }
+
+  @override
+  String get gesundheitModelle => 'Local features';
+
+  @override
+  String gesundheitModelleStand(int bereit, int gesamt) {
+    return '$bereit of $gesamt local data and AI features are ready.';
+  }
+
+  @override
+  String get datenschutzExportTitel => 'Privacy export';
+
+  @override
+  String get datenschutzExportText =>
+      'JPEG up to 2048 pixels without EXIF, GPS or XMP; known faces and detected license plates are obscured locally.';
+
+  @override
+  String datenschutzAusgelassen(int anzahl) {
+    return '$anzahl item(s) left out: videos and images that cannot be re-rendered cannot be stripped of their metadata.';
+  }
+
+  @override
+  String get sicherTeilenTitel => 'Encrypted sharing package';
+
+  @override
+  String get sicherTeilenText =>
+      'Share originals and file names in one password-protected .pvshare file.';
+
+  @override
+  String get sicherTeilenZiel => 'Save sharing package';
+
+  @override
+  String get sicherTeilenDateiname => 'PhotoVault-Share.pvshare';
+
+  @override
+  String sicherTeilenFertig(String pfad) {
+    return 'Encrypted sharing package saved: $pfad';
+  }
+
+  @override
+  String sicherTeilenFehler(String fehler) {
+    return 'Could not create the sharing package: $fehler';
+  }
+
+  @override
+  String get einstPrivateMetadatenTitel => 'Protect private metadata';
+
+  @override
+  String get einstPrivateMetadatenText =>
+      'Removes file names, dates, locations, descriptions, tags, and album assignments for newly locked items from the readable database. The values are encrypted with the vault key and restored when the item is permanently unlocked.';
+
+  @override
+  String get gesundheitBereinigen => 'Clean temporary files';
+
+  @override
+  String gesundheitBereinigt(int anzahl, String groesse) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: 'Removed $anzahl temporary files ($groesse).',
+      one: 'Removed 1 temporary file ($groesse).',
+      zero: 'No temporary leftovers found.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get sicherTeilenImportTitel => 'Open sharing package';
+
+  @override
+  String get sicherTeilenImportText =>
+      'Verify, decrypt, and import a password-protected .pvshare file into this library.';
+
+  @override
+  String get sicherTeilenImportPassphrase => 'Sharing package passphrase';
+
+  @override
+  String sicherTeilenImportFertig(int importiert, int duplikate) {
+    return 'Imported $importiert items and skipped $duplikate duplicates.';
+  }
+
+  @override
+  String sicherTeilenImportFehler(String fehler) {
+    return 'Could not open sharing package: $fehler';
+  }
 }

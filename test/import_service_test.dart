@@ -2,12 +2,22 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:photo_vault/db/database.dart';
 import 'package:photo_vault/services/import_service.dart';
 import 'package:photo_vault/services/storage_paths.dart';
 
 import 'cr3_bauen.dart';
+
+class _FehlerndeDatenbank extends AppDatabase {
+  _FehlerndeDatenbank() : super(NativeDatabase.memory());
+
+  @override
+  Future<void> insertAsset(AssetsCompanion asset) async {
+    throw StateError('nach dem Kopieren absichtlich abgebrochen');
+  }
+}
 
 void main() {
   late Directory tempRoot;
@@ -122,6 +132,27 @@ void main() {
     expect(result.outcome, ImportOutcome.failed);
     expect(result.error, contains('Nicht unterstütztes Format'));
     expect(await db.select(db.assets).get(), isEmpty);
+  });
+
+  test('ein Fehler nach dem Kopieren räumt Original und Vorschaudateien auf',
+      () async {
+    await db.close();
+    db = _FehlerndeDatenbank();
+    importService = ImportService(db, paths);
+    final file = File(p.join(sourceDir.path, 'gueltig.jpg'))
+      ..writeAsBytesSync(img.encodeJpg(img.Image(width: 24, height: 16)));
+
+    final result = await importService.importFile(file.path);
+
+    expect(result.outcome, ImportOutcome.failed);
+    expect(result.error, contains('absichtlich abgebrochen'));
+    final reste = paths.root
+        .listSync(recursive: true)
+        .whereType<File>()
+        .map((f) => p.relative(f.path, from: paths.root.path))
+        .toList();
+    expect(reste, isEmpty,
+        reason: 'ein nicht eingetragener Import darf keine Dateien behalten');
   });
 
   group('CR3 traegt seinen Ort im Container, nicht in den EXIF-Tags', () {

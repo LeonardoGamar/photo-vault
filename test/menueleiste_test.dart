@@ -82,7 +82,8 @@ void main() {
   }
 
   /// Öffnet etwas so, wie es eine Seite tut: über ihren eigenen Kontext.
-  Future<void> oeffne(WidgetTester tester, {required bool ganzesFenster}) async {
+  Future<void> oeffne(WidgetTester tester,
+      {required bool ganzesFenster}) async {
     final kontext = tester.element(find.byType(TimelineScreen));
     unawaited(Navigator.of(kontext, rootNavigator: ganzesFenster).push(
       MaterialPageRoute<void>(
@@ -150,6 +151,25 @@ void main() {
     expect(find.text('Unterseite'), findsNothing,
         reason: 'Vorher war das eine tote Taste.');
     expect(find.byType(TimelineScreen), findsOneWidget);
+    await abbauen(tester);
+  });
+
+  testWidgets('schmale Fenster zeigen vier Hauptziele und ein Mehr-Menü',
+      (tester) async {
+    tester.view.physicalSize = const Size(600, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await huelle(tester);
+
+    expect(find.byType(NavigationRail), findsNothing);
+    final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(bar.destinations, hasLength(5));
+
+    await tester.tap(find.byIcon(Icons.more_horiz));
+    await ruhe(tester);
+    expect(find.byIcon(Icons.build_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
+    expect(find.byIcon(Icons.manage_search_outlined), findsOneWidget);
     await abbauen(tester);
   });
 }

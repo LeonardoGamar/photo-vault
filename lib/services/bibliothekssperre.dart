@@ -98,27 +98,48 @@ class Bibliothekssperre {
     }
     await gib();
 
-    RandomAccessFile? datei;
     try {
       await wurzel.create(recursive: true);
-      // `append` statt `write`: `write` kürzt die Datei beim Öffnen, und
-      // das ist ein Schreibzugriff auf etwas, das eine fremde Instanz
-      // gerade gesperrt hält.
-      datei = await File(ziel).open(mode: FileMode.append);
-      datei.lockSync(FileLock.exclusive);
-      _gehalten = datei;
-      _ort = ziel;
-      return (zustand: Sperrzustand.genommen, grund: null);
     } on FileSystemException catch (e) {
-      await _schliesse(datei);
       final code = e.osError?.errorCode;
-      if (code != null && _belegtCodes.contains(code)) {
-        return (zustand: Sperrzustand.belegt, grund: null);
-      }
       final grund = '${e.osError?.message ?? e.message} (${code ?? '?'})';
-      debugPrint('Bibliothekssperre nicht prüfbar unter ${wurzel.path}: $grund');
+      debugPrint(
+          'Bibliothekssperre nicht prüfbar unter ${wurzel.path}: $grund');
       return (zustand: Sperrzustand.unklar, grund: grund);
     }
+
+    // Nach einem hart beendeten Prozess kann Windows das freigegebene Handle
+    // noch für wenige Takte als belegt melden. Ein kurzer erneuter Versuch
+    // verhindert, dass ein sofortiger Neustart fälschlich abgewiesen wird.
+    final versuche = Platform.isWindows ? 6 : 1;
+    for (var versuch = 0; versuch < versuche; versuch++) {
+      RandomAccessFile? datei;
+      try {
+        // `append` statt `write`: `write` kürzt die Datei beim Öffnen, und
+        // das ist ein Schreibzugriff auf etwas, das eine fremde Instanz
+        // gerade gesperrt hält.
+        datei = await File(ziel).open(mode: FileMode.append);
+        datei.lockSync(FileLock.exclusive);
+        _gehalten = datei;
+        _ort = ziel;
+        return (zustand: Sperrzustand.genommen, grund: null);
+      } on FileSystemException catch (e) {
+        await _schliesse(datei);
+        final code = e.osError?.errorCode;
+        if (code != null && _belegtCodes.contains(code)) {
+          if (versuch + 1 < versuche) {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+            continue;
+          }
+          return (zustand: Sperrzustand.belegt, grund: null);
+        }
+        final grund = '${e.osError?.message ?? e.message} (${code ?? '?'})';
+        debugPrint(
+            'Bibliothekssperre nicht prüfbar unter ${wurzel.path}: $grund');
+        return (zustand: Sperrzustand.unklar, grund: grund);
+      }
+    }
+    return (zustand: Sperrzustand.belegt, grund: null);
   }
 
   /// Gibt eine gehaltene Sperre her. Im Betrieb erledigt das der Kern beim

@@ -12,6 +12,7 @@ import 'db/database.dart';
 import 'l10n/app_localizations.dart';
 import 'screens/bibliothek_belegt_screen.dart';
 import 'screens/home_shell.dart';
+import 'screens/initialisierungsfehler_screen.dart';
 import 'services/bilddekodierung.dart';
 import 'services/beenden_waechter.dart';
 import 'state/library_state.dart';
@@ -167,6 +168,11 @@ class _PhotoVaultAppState extends State<PhotoVaultApp> {
                 // dreht (siehe LibraryState.initialize).
                 home: library.bibliothekBelegt
                     ? BibliothekBelegtScreen(library: library)
+                    : library.initialisierungsfehler != null
+                        ? InitialisierungsfehlerScreen(
+                            fehler: library.initialisierungsfehler!,
+                            erneutVersuchen: library.initialize,
+                          )
                     : !library.isReady
                         ? const Scaffold(
                             body: Center(child: CircularProgressIndicator()))

@@ -1,0 +1,277 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../db/database.dart';
+import '../l10n/app_localizations.dart';
+import '../services/storage_paths.dart';
+import '../state/library_state.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_theme.dart';
+import 'integrity_check_screen.dart';
+
+class LibraryHealthScreen extends StatefulWidget {
+  const LibraryHealthScreen({super.key, required this.library});
+
+  final LibraryState library;
+
+  @override
+  State<LibraryHealthScreen> createState() => _LibraryHealthScreenState();
+}
+
+class _LibraryHealthState {
+  const _LibraryHealthState({
+    required this.databaseOk,
+    required this.storage,
+    required this.backup,
+    required this.pendingBackup,
+    required this.imageCount,
+    required this.videoCount,
+    required this.modelsReady,
+    required this.modelsTotal,
+  });
+
+  final bool databaseOk;
+  final Bibliotheksbelegung storage;
+  final BackupSettingsData? backup;
+  final int pendingBackup;
+  final int imageCount;
+  final int videoCount;
+  final int modelsReady;
+  final int modelsTotal;
+}
+
+class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
+  late Future<_LibraryHealthState> _state = _load();
+  bool _cleaning = false;
+
+  Future<_LibraryHealthState> _load() async {
+    final values = await Future.wait<Object?>([
+      widget.library.db.databaseQuickCheck(),
+      widget.library.paths.belegung(),
+      widget.library.db.backupSettingsRow(),
+      widget.library.db.countNotAutoBackedUp(),
+      widget.library.db.countAssetsOfType('IMAGE'),
+      widget.library.db.countAssetsOfType('VIDEO'),
+    ]);
+    final models = [
+      widget.library.clipAvailable,
+      widget.library.faceDetectionAvailable,
+      widget.library.faceRecognitionAvailable,
+      widget.library.segmentationAvailable,
+      widget.library.captioningAvailable,
+      widget.library.ocrAvailable,
+      widget.library.geoDataAvailable,
+    ];
+    return _LibraryHealthState(
+      databaseOk: values[0] as bool,
+      storage: values[1] as Bibliotheksbelegung,
+      backup: values[2] as BackupSettingsData?,
+      pendingBackup: values[3] as int,
+      imageCount: values[4] as int,
+      videoCount: values[5] as int,
+      modelsReady: models.where((ready) => ready).length,
+      modelsTotal: models.length,
+    );
+  }
+
+  void _refresh() => setState(() => _state = _load());
+
+  Future<void> _cleanTemporaryFiles() async {
+    if (_cleaning) return;
+    setState(() => _cleaning = true);
+    final result = await widget.library.bereinigeTemporareDateien();
+    if (!mounted) return;
+    setState(() {
+      _cleaning = false;
+      _state = _load();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppTexte.of(context)
+          .gesundheitBereinigt(result.dateien, _bytes(result.bytes))),
+    ));
+  }
+
+  String _bytes(int bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var value = bytes.toDouble();
+    var unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    return '${value.toStringAsFixed(unit == 0 ? 0 : 1)} ${units[unit]}';
+  }
+
+  String _date(BuildContext context, DateTime date) =>
+      DateFormat.yMd(Localizations.localeOf(context).toString())
+          .add_Hm()
+          .format(date);
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppTexte.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(t.gesundheitTitel),
+        actions: [
+          IconButton(
+            tooltip: t.gesundheitAktualisieren,
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: FutureBuilder<_LibraryHealthState>(
+        future: _state,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('${snapshot.error}'));
+          }
+          final state = snapshot.data;
+          if (state == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final backup = state.backup;
+          final backupEnabled = backup?.autoBackupEnabled ?? false;
+          final backupOk = backupEnabled &&
+              backup?.lastAutoBackupAt != null &&
+              state.pendingBackup == 0;
+          final colors = Theme.of(context).colorScheme;
+          return ListView(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            children: [
+              Text(t.gesundheitEinleitung,
+                  style: Theme.of(context).textTheme.bodyLarge),
+              const SizedBox(height: AppSpacing.lg),
+              _StatusCard(
+                icon: state.databaseOk
+                    ? Icons.check_circle_outline
+                    : Icons.error_outline,
+                color:
+                    state.databaseOk ? context.semantik.erfolg : colors.error,
+                title: t.gesundheitDatenbank,
+                text: state.databaseOk
+                    ? t.gesundheitDatenbankOk
+                    : t.gesundheitDatenbankFehler,
+                action: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          IntegrityCheckScreen(library: widget.library),
+                    ),
+                  ),
+                  child: Text(t.gesundheitIntegritaetOeffnen),
+                ),
+              ),
+              _StatusCard(
+                icon: backupOk
+                    ? Icons.cloud_done_outlined
+                    : Icons.backup_outlined,
+                color: backupOk
+                    ? context.semantik.erfolg
+                    : context.semantik.warnung,
+                title: t.gesundheitSicherung,
+                text: !backupEnabled
+                    ? t.gesundheitSicherungAus
+                    : backup?.lastAutoBackupAt == null
+                        ? t.gesundheitSicherungNie
+                        : '${t.gesundheitLetzteSicherung(_date(context, backup!.lastAutoBackupAt!))}\n'
+                            '${t.gesundheitSicherungOffen(state.pendingBackup)}',
+              ),
+              _StatusCard(
+                icon: Icons.storage_outlined,
+                color: colors.primary,
+                title: t.gesundheitSpeicher,
+                text:
+                    '${_bytes(state.storage.gesamt)} · ${t.gesundheitMedien(state.imageCount, state.videoCount)}',
+                details: [
+                  for (final part in state.storage.posten)
+                    '${part.name}: ${_bytes(part.bytes)}',
+                ],
+                action: FilledButton.tonalIcon(
+                  onPressed: _cleaning ? null : _cleanTemporaryFiles,
+                  icon: _cleaning
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cleaning_services_outlined),
+                  label: Text(t.gesundheitBereinigen),
+                ),
+              ),
+              _StatusCard(
+                icon: state.modelsReady == state.modelsTotal
+                    ? Icons.memory_outlined
+                    : Icons.downloading_outlined,
+                color: state.modelsReady == state.modelsTotal
+                    ? context.semantik.erfolg
+                    : context.semantik.warnung,
+                title: t.gesundheitModelle,
+                text: t.gesundheitModelleStand(
+                    state.modelsReady, state.modelsTotal),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _StatusCard extends StatelessWidget {
+  const _StatusCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.text,
+    this.details = const [],
+    this.action,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String text;
+  final List<String> details;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: color, size: 30),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(text),
+                    if (details.isNotEmpty) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: AppSpacing.md,
+                        runSpacing: AppSpacing.xs,
+                        children: [
+                          for (final detail in details)
+                            Text(detail,
+                                style: Theme.of(context).textTheme.bodySmall),
+                        ],
+                      ),
+                    ],
+                    if (action != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      action!,
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+}

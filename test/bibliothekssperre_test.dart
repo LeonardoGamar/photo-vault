@@ -32,15 +32,11 @@ import 'package:photo_vault/state/library_state.dart';
 /// `flutter_tester` zeigt und nicht auf `dart`.
 void main() {
   late Directory ordner;
+  late List<Process> fremdeProzesse;
 
   setUp(() {
     ordner = Directory.systemTemp.createTempSync('pv_instanz_');
-  });
-
-  tearDown(() async {
-    await Bibliothekssperre.gib();
-    LibraryLocation.zuruecksetzenFuerTests();
-    if (ordner.existsSync()) ordner.deleteSync(recursive: true);
+    fremdeProzesse = [];
   });
 
   // ---------------------------------------------------------------------
@@ -76,8 +72,8 @@ void main(List<String> a) async {
       ..writeAsStringSync(halterQuelle);
     final ziel = p.join(wurzel.path, Bibliothekssperre.dateiname);
     await wurzel.create(recursive: true);
-    final prozess =
-        await Process.start(dartProgramm(), [skript.path, ziel]);
+    final prozess = await Process.start(dartProgramm(), [skript.path, ziel]);
+    fremdeProzesse.add(prozess);
     final da = Completer<void>();
     prozess.stdout
         .transform(utf8.decoder)
@@ -96,7 +92,24 @@ void main(List<String> a) async {
   Future<void> halterFort(Process prozess) async {
     prozess.kill(ProcessSignal.sigkill);
     await prozess.exitCode;
+    fremdeProzesse.remove(prozess);
   }
+
+  tearDown(() async {
+    for (final prozess in List<Process>.of(fremdeProzesse)) {
+      await halterFort(prozess);
+    }
+    await Bibliothekssperre.gib();
+    LibraryLocation.zuruecksetzenFuerTests();
+    for (var versuch = 0; versuch < 40 && ordner.existsSync(); versuch++) {
+      try {
+        await ordner.delete(recursive: true);
+      } on FileSystemException {
+        if (versuch == 39) rethrow;
+        await Future<void>.delayed(const Duration(milliseconds: 25));
+      }
+    }
+  });
 
   // ---------------------------------------------------------------------
   // Der Dienst
@@ -149,13 +162,13 @@ void main(List<String> a) async {
     final fremd = await halterAuf(zweite);
     addTearDown(() => halterFort(fremd));
 
-    expect((await Bibliothekssperre.nimm(ordner)).zustand,
-        Sperrzustand.genommen);
+    expect(
+        (await Bibliothekssperre.nimm(ordner)).zustand, Sperrzustand.genommen);
   }, timeout: const Timeout(Duration(seconds: 90)));
 
   test('gib() macht sie für andere wieder frei', () async {
-    expect((await Bibliothekssperre.nimm(ordner)).zustand,
-        Sperrzustand.genommen);
+    expect(
+        (await Bibliothekssperre.nimm(ordner)).zustand, Sperrzustand.genommen);
     await Bibliothekssperre.gib();
     expect(Bibliothekssperre.haeltEtwas, isFalse);
 
@@ -170,8 +183,8 @@ void main(List<String> a) async {
     await Bibliothekssperre.nimm(ordner);
     final ersterOrt = Bibliothekssperre.gehaltenerOrt;
 
-    expect((await Bibliothekssperre.nimm(zweite)).zustand,
-        Sperrzustand.genommen);
+    expect(
+        (await Bibliothekssperre.nimm(zweite)).zustand, Sperrzustand.genommen);
     expect(Bibliothekssperre.gehaltenerOrt, isNot(ersterOrt));
 
     // Und der erste Ort ist wirklich los – von aussen belegt.
@@ -182,8 +195,8 @@ void main(List<String> a) async {
   test('zweimal dieselbe zu nehmen ist folgenlos', () async {
     await Bibliothekssperre.nimm(ordner);
     final ort = Bibliothekssperre.gehaltenerOrt;
-    expect((await Bibliothekssperre.nimm(ordner)).zustand,
-        Sperrzustand.genommen);
+    expect(
+        (await Bibliothekssperre.nimm(ordner)).zustand, Sperrzustand.genommen);
     expect(Bibliothekssperre.gehaltenerOrt, ort);
   });
 
@@ -226,6 +239,21 @@ void main(List<String> a) async {
     expect(() => bib.db, throwsA(isA<Error>()),
         reason: 'die Datenbank darf gar nicht erst aufgemacht worden sein');
   }, timeout: const Timeout(Duration(seconds: 90)));
+
+  test('ein Startfehler wird als Zustand gemeldet statt weitergeworfen',
+      () async {
+    final block = File(p.join(ordner.path, 'kein_datenordner'))
+      ..writeAsStringSync('Datei statt Ordner');
+    LibraryLocation.nutzeFuerTests(anker: Directory(block.path));
+    final bib = LibraryState();
+
+    await expectLater(bib.initialize(), completes);
+
+    expect(bib.isReady, isFalse);
+    expect(bib.bibliothekBelegt, isFalse);
+    expect(bib.initialisierungsfehler, isNotNull);
+    expect(Bibliothekssperre.haeltEtwas, isFalse);
+  });
 
   testWidgets('der Bildschirm nennt den Ort und bietet drei Wege',
       (tester) async {

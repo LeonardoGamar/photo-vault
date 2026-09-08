@@ -67,7 +67,8 @@ void main() {
     db = AppDatabase(NativeDatabase.memory());
     library = LibraryState()
       ..db = db
-      ..paths = await StoragePaths.forTesting(Directory(p.join(wurzel.path, 'l')));
+      ..paths =
+          await StoragePaths.forTesting(Directory(p.join(wurzel.path, 'l')));
     await _fuellen(db);
   });
 
@@ -101,11 +102,10 @@ void main() {
     'XMP': (l) => XmpImportScreen(library: l),
   };
 
-  // Zwei Breiten: das schmale Fenster, in dem man arbeitet, und eines,
-  // das breit genug ist, dass Bildschirme ihre langen Beschriftungen
-  // ausschreiben – genau dort sass der Überlauf der Kopfzeile.
-  for (final breite in [820.0, 1100.0]) {
-    for (final skalierung in [1.0, 1.3, 1.6]) {
+  // 600 px trifft ausdrücklich die kompakte Navigation (<700), die zuvor in
+  // keinem Skalierungstest vorkam. 2,0 bildet die große Systemschrift ab.
+  for (final breite in [600.0, 820.0, 1100.0]) {
+    for (final skalierung in [1.0, 1.6, 2.0]) {
       for (final eintrag in bildschirme.entries) {
         testWidgets('${eintrag.key} bei ${skalierung}x auf ${breite.round()}',
             (tester) async {

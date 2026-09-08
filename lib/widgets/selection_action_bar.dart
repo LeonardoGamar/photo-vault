@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../db/database.dart';
@@ -9,6 +12,8 @@ import 'namens_dialog.dart' show MitTextsteuerung;
 import '../screens/photo_compare_screen.dart';
 import '../screens/export_presets_screen.dart';
 import '../services/export_service.dart';
+import '../services/secure_share_service.dart';
+import 'pin_dialogs.dart';
 import 'progress_dialog.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -92,15 +97,30 @@ class SelectionActionBar extends StatelessWidget {
                 ),
                 Text(t.auswAnzahl(count)),
                 const Spacer(),
-                IconButton(icon: const Icon(Icons.favorite_border), tooltip: t.auswFavorisieren, onPressed: onFavorite),
                 IconButton(
-                    icon: const Icon(Icons.playlist_add), tooltip: t.auswZuAlbum, onPressed: onAddToAlbum),
-                IconButton(icon: const Icon(Icons.label_outline), tooltip: t.auswTagHinzufuegen, onPressed: onTag),
-                IconButton(icon: const Icon(Icons.star_outline), tooltip: t.auswBewertungSetzen, onPressed: onSetRating),
+                    icon: const Icon(Icons.favorite_border),
+                    tooltip: t.auswFavorisieren,
+                    onPressed: onFavorite),
                 IconButton(
-                    icon: const Icon(Icons.circle_outlined), tooltip: t.auswFarbeSetzen, onPressed: onSetColorLabel),
+                    icon: const Icon(Icons.playlist_add),
+                    tooltip: t.auswZuAlbum,
+                    onPressed: onAddToAlbum),
                 IconButton(
-                    icon: const Icon(Icons.edit_note_outlined), tooltip: t.auswMetadaten, onPressed: onEditMetadata),
+                    icon: const Icon(Icons.label_outline),
+                    tooltip: t.auswTagHinzufuegen,
+                    onPressed: onTag),
+                IconButton(
+                    icon: const Icon(Icons.star_outline),
+                    tooltip: t.auswBewertungSetzen,
+                    onPressed: onSetRating),
+                IconButton(
+                    icon: const Icon(Icons.circle_outlined),
+                    tooltip: t.auswFarbeSetzen,
+                    onPressed: onSetColorLabel),
+                IconButton(
+                    icon: const Icon(Icons.edit_note_outlined),
+                    tooltip: t.auswMetadaten,
+                    onPressed: onEditMetadata),
                 if (onPasteDevelop != null)
                   IconButton(
                       icon: const Icon(Icons.auto_fix_high_outlined),
@@ -116,8 +136,14 @@ class SelectionActionBar extends StatelessWidget {
                       icon: const Icon(Icons.compare_outlined),
                       tooltip: t.auswVergleichen,
                       onPressed: onCompare),
-                IconButton(icon: const Icon(Icons.ios_share), tooltip: t.auswExportieren, onPressed: onExport),
-                IconButton(icon: const Icon(Icons.delete_outline), tooltip: t.allgLoeschen, onPressed: onDelete),
+                IconButton(
+                    icon: const Icon(Icons.ios_share),
+                    tooltip: t.auswExportieren,
+                    onPressed: onExport),
+                IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: t.allgLoeschen,
+                    onPressed: onDelete),
               ],
             ),
           ),
@@ -216,12 +242,14 @@ Future<void> runBatchFavorite(LibraryState library, List<String> assetIds) =>
 /// Zeigt eine Sternereihe zur Auswahl einer gemeinsamen Bewertung für alle
 /// übergebenen Fotos ("Keine Bewertung" setzt explizit auf 0 zurück statt
 /// den Dialog nur abzubrechen).
-Future<void> runBatchSetRating(BuildContext context, LibraryState library, List<String> assetIds) async {
+Future<void> runBatchSetRating(
+    BuildContext context, LibraryState library, List<String> assetIds) async {
   final rating = await showDialog<int>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(AppTexte.of(context).auswBewertungTitel(assetIds.length)),
-      content: StarRating(value: 0, size: 32, onChanged: (v) => Navigator.pop(context, v)),
+      content: StarRating(
+          value: 0, size: 32, onChanged: (v) => Navigator.pop(context, v)),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, 0),
@@ -241,12 +269,16 @@ Future<void> runBatchSetRating(BuildContext context, LibraryState library, List<
 /// Sentinel für "Keine Farbe" (die eigentliche Spalte ist `null`) – so lässt
 /// sich der Abbrechen-Fall (`null` vom Dialog-Barrier) vom bewussten
 /// Löschen der Markierung unterscheiden.
-Future<void> runBatchSetColorLabel(BuildContext context, LibraryState library, List<String> assetIds) async {
+Future<void> runBatchSetColorLabel(
+    BuildContext context, LibraryState library, List<String> assetIds) async {
   final result = await showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
       title: Text(AppTexte.of(context).auswFarbeTitel(assetIds.length)),
-      content: ColorLabelPicker(value: null, size: 32, onChanged: (c) => Navigator.pop(context, c ?? '')),
+      content: ColorLabelPicker(
+          value: null,
+          size: 32,
+          onChanged: (c) => Navigator.pop(context, c ?? '')),
       actions: [
         TextButton(
             onPressed: () => Navigator.pop(context, ''),
@@ -265,7 +297,8 @@ Future<void> runBatchSetColorLabel(BuildContext context, LibraryState library, L
 /// tatsächlich ausgefüllte/geänderte Felder werden geschrieben, damit die
 /// Sammelbearbeitung keine bestehenden Werte der einzelnen Fotos mit
 /// Leerwerten überschreibt.
-Future<void> runBatchEditMetadataDialog(BuildContext context, LibraryState library, List<String> assetIds) async {
+Future<void> runBatchEditMetadataDialog(
+    BuildContext context, LibraryState library, List<String> assetIds) async {
   final result = await showDialog<_BatchMetadataResult>(
     context: context,
     builder: (context) => _BatchMetadataDialog(count: assetIds.length),
@@ -344,7 +377,9 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
     Navigator.pop(
       context,
       _BatchMetadataResult(
-        description: _descriptionCtrl.text.trim().isEmpty ? null : _descriptionCtrl.text.trim(),
+        description: _descriptionCtrl.text.trim().isEmpty
+            ? null
+            : _descriptionCtrl.text.trim(),
         date: _date,
         latitude: _latitude,
         longitude: _longitude,
@@ -378,11 +413,12 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(_date == null
                     ? AppTexte.of(context).auswDatumUnveraendert
-                    : AppTexte.of(context).auswDatumGesetzt(
-                        DateFormat.yMd(Localizations.localeOf(context).toString())
-                            .format(_date!))),
+                    : AppTexte.of(context).auswDatumGesetzt(DateFormat.yMd(
+                            Localizations.localeOf(context).toString())
+                        .format(_date!))),
                 trailing: TextButton(
-                    onPressed: _pickDate, child: Text(AppTexte.of(context).allgWaehlen)),
+                    onPressed: _pickDate,
+                    child: Text(AppTexte.of(context).allgWaehlen)),
               ),
               const SizedBox(height: 12),
               Text(AppTexte.of(context).auswOrtHinweis),
@@ -414,7 +450,8 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
         TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(AppTexte.of(context).allgAbbrechen)),
-        FilledButton(onPressed: _save, child: Text(AppTexte.of(context).allgSpeichern)),
+        FilledButton(
+            onPressed: _save, child: Text(AppTexte.of(context).allgSpeichern)),
       ],
     );
   }
@@ -422,24 +459,26 @@ class _BatchMetadataDialogState extends State<_BatchMetadataDialog> {
 
 /// Fragt einen einzelnen Tag-Namen ab und fügt ihn allen übergebenen Fotos
 /// hinzu.
-Future<void> runBatchTagDialog(BuildContext context, LibraryState library, List<String> assetIds) async {
+Future<void> runBatchTagDialog(
+    BuildContext context, LibraryState library, List<String> assetIds) async {
   final tag = await showDialog<String>(
     context: context,
     builder: (context) => MitTextsteuerung(
         builder: (context, ctrl) => AlertDialog(
-      title: Text(AppTexte.of(context).auswTagTitel(assetIds.length)),
-      content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(labelText: AppTexte.of(context).auswTagFeld)),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppTexte.of(context).allgAbbrechen)),
-        FilledButton(
-            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
-            child: Text(AppTexte.of(context).allgHinzufuegen)),
-            ],
+              title: Text(AppTexte.of(context).auswTagTitel(assetIds.length)),
+              content: TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                      labelText: AppTexte.of(context).auswTagFeld)),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(AppTexte.of(context).allgAbbrechen)),
+                FilledButton(
+                    onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+                    child: Text(AppTexte.of(context).allgHinzufuegen)),
+              ],
             )),
   );
   if (tag == null || tag.isEmpty) return;
@@ -448,7 +487,8 @@ Future<void> runBatchTagDialog(BuildContext context, LibraryState library, List<
 
 /// Zeigt den Album-Auswahl-Dialog und fügt die übergebenen Fotos danach dem
 /// gewählten (oder neu angelegten) Album hinzu.
-Future<void> runBatchAddToAlbumDialog(BuildContext context, LibraryState library, List<String> assetIds) async {
+Future<void> runBatchAddToAlbumDialog(
+    BuildContext context, LibraryState library, List<String> assetIds) async {
   final existingAlbums = await library.db.watchAlbums().first;
   if (!context.mounted) return;
   final choice = await showAlbumPickerDialog(context, existingAlbums);
@@ -458,7 +498,8 @@ Future<void> runBatchAddToAlbumDialog(BuildContext context, LibraryState library
   if (choice.newName != null) {
     albumId = const Uuid().v4();
     await library.db.createAlbum(
-      AlbumsCompanion.insert(id: albumId, name: choice.newName!, createdAt: DateTime.now()),
+      AlbumsCompanion.insert(
+          id: albumId, name: choice.newName!, createdAt: DateTime.now()),
     );
   } else {
     albumId = choice.existingAlbumId!;
@@ -489,6 +530,10 @@ class _WahlVerwalten extends _Exportwahl {
   const _WahlVerwalten();
 }
 
+class _WahlSicherTeilen extends _Exportwahl {
+  const _WahlSicherTeilen();
+}
+
 /// Fragt die Ausgabe ab: die vier festen Grössen und, sofern angelegt, die
 /// eigenen Voreinstellungen. `null` bedeutet Abbruch.
 Future<_Exportwahl?> _frageExportgroesse(
@@ -503,10 +548,30 @@ Future<_Exportwahl?> _frageExportgroesse(
       return SimpleDialog(
         title: Text(t.auswExportTitel(anzahl)),
         children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, const _WahlSicherTeilen()),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.enhanced_encryption_outlined),
+              title: Text(t.sicherTeilenTitel),
+              subtitle: Text(t.sicherTeilenText),
+            ),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(
+                context, _WahlVorgabe(Exportvorgabe.datenschutz())),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: Text(t.datenschutzExportTitel),
+              subtitle: Text(t.datenschutzExportText),
+            ),
+          ),
+          const Divider(),
           for (final g in Exportgroesse.values)
             SimpleDialogOption(
-              onPressed: () =>
-                  Navigator.pop(context, _WahlVorgabe(Exportvorgabe.ausGroesse(g))),
+              onPressed: () => Navigator.pop(
+                  context, _WahlVorgabe(Exportvorgabe.ausGroesse(g))),
               child: ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(exportgroesseBezeichnung(t, g)),
@@ -568,7 +633,8 @@ Future<void> runBatchApplyPreset(
   final gewaehlt = await showDialog<DevelopPresetData>(
     context: context,
     builder: (context) => SimpleDialog(
-      title: Text(AppTexte.of(context).auswVorgabeAnwendenTitel(assetIds.length)),
+      title:
+          Text(AppTexte.of(context).auswVorgabeAnwendenTitel(assetIds.length)),
       children: [
         for (final v in vorgaben)
           SimpleDialogOption(
@@ -644,7 +710,8 @@ Future<void> runBatchPasteDevelop(
   );
 }
 
-Future<void> runBatchExport(BuildContext context, LibraryState library, List<AssetData> assets) async {
+Future<void> runBatchExport(
+    BuildContext context, LibraryState library, List<AssetData> assets) async {
   final wahl = await _frageExportgroesse(context, library, assets.length);
   if (wahl == null || !context.mounted) return;
 
@@ -658,6 +725,35 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
     ));
     if (!context.mounted) return;
     return runBatchExport(context, library, assets);
+  }
+  if (wahl is _WahlSicherTeilen) {
+    final passphrase = await showSetPassphraseDialog(context);
+    if (passphrase == null || !context.mounted) return;
+    final texte = AppTexte.of(context);
+    final defaultName = texte.sicherTeilenDateiname;
+    final extension = p.extension(defaultName);
+    final selected = await FilePicker.platform.saveFile(
+      dialogTitle: texte.sicherTeilenZiel,
+      fileName: defaultName,
+      type: FileType.custom,
+      allowedExtensions: [extension.substring(1)],
+    );
+    if (selected == null || !context.mounted) return;
+    final path = selected.toLowerCase().endsWith(extension.toLowerCase())
+        ? selected
+        : '$selected$extension';
+    try {
+      await SecureShareService(ExportService(library.paths, library: library))
+          .createPackage(assets, File(path), passphrase);
+      if (context.mounted) {
+        melde.erfolg(AppTexte.of(context).sicherTeilenFertig(path));
+      }
+    } catch (error) {
+      if (context.mounted) {
+        melde.fehler(AppTexte.of(context).sicherTeilenFehler('$error'));
+      }
+    }
+    return;
   }
   final vorgabe = (wahl as _WahlVorgabe).vorgabe;
 
@@ -678,7 +774,10 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
       return AlertDialog(
         content: Row(
           children: [
-            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2)),
             const SizedBox(width: 16),
             Expanded(
                 child: Text(AppTexte.of(context)
@@ -690,6 +789,7 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
   );
 
   var exported = 0;
+  var ausgelassen = 0;
   for (final asset in assets) {
     try {
       // Die laufende Nummer zählt die Fotos des Laufs, nicht die
@@ -698,6 +798,13 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
       await exporter.exportAsset(asset, destination,
           vorgabe: vorgabe, nummer: done + 1);
       exported++;
+    } on DatenschutzNichtMoeglich {
+      // Eigener Zweig, weil das kein Fehlschlag ist, sondern eine
+      // eingehaltene Zusage: Diese Aufnahme liesse sich nur ungesäubert
+      // ausliefern, also bleibt sie liegen. Stillschweigend mitzählen wäre
+      // das Schlimmste von beidem – der Nutzer hielte die Auswahl für
+      // gesäubert und hätte eine Datei weniger, ohne zu wissen welche.
+      ausgelassen++;
     } catch (_) {
       // Einzelne fehlgeschlagene Datei überspringen, Rest weiter exportieren.
     }
@@ -707,7 +814,11 @@ Future<void> runBatchExport(BuildContext context, LibraryState library, List<Ass
 
   if (context.mounted) {
     Navigator.of(context).pop();
-    melde.erfolg(AppTexte.of(context)
-        .auswExportFertig(exported, assets.length, destination));
+    final t = AppTexte.of(context);
+    melde.erfolg(t.auswExportFertig(exported, assets.length, destination));
+    // Nach der Erfolgsmeldung und als Warnung, nicht als Hinweis: Sie
+    // schränkt die Zeile darüber ein, und wer sie überliest, hält den
+    // Export für vollständig.
+    if (ausgelassen > 0) melde.warnung(t.datenschutzAusgelassen(ausgelassen));
   }
 }

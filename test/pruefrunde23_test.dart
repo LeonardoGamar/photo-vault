@@ -25,7 +25,8 @@ void main() {
   setUp(() async {
     wurzel = Directory.systemTemp.createTempSync('pv23_');
     db = AppDatabase(NativeDatabase.memory());
-    paths = await StoragePaths.forTesting(Directory(p.join(wurzel.path, 'library')));
+    paths = await StoragePaths.forTesting(
+        Directory(p.join(wurzel.path, 'library')));
     library = LibraryState()
       ..db = db
       ..paths = paths;
@@ -46,8 +47,10 @@ void main() {
         ui.Paint()..color = const ui.Color(0xFFFFFFFF));
     final bild = await aufnehmer.endRecording().toImage(8, 8);
     final fertig = Completer<void>();
-    final strom = PaintingBinding.instance.imageCache.putIfAbsent(schluessel,
-        () => OneFrameImageStreamCompleter(Future.value(ImageInfo(image: bild))))!;
+    final strom = PaintingBinding.instance.imageCache.putIfAbsent(
+        schluessel,
+        () => OneFrameImageStreamCompleter(
+            Future.value(ImageInfo(image: bild))))!;
     late ImageStreamListener horcher;
     horcher = ImageStreamListener((_, __) {
       if (!fertig.isCompleted) fertig.complete();
@@ -81,7 +84,8 @@ void main() {
   }
 
   group('Sperren raeumt den Bildspeicher', () {
-    test('nach dem Sperren liegt kein dekodiertes Bild mehr im Speicher', () async {
+    test('nach dem Sperren liegt kein dekodiertes Bild mehr im Speicher',
+        () async {
       await library.setupVaultPin('4711');
       final asset = await aufnahme('geheim');
 
@@ -128,8 +132,8 @@ void main() {
         await library.decryptForViewing(rel);
       }
 
-      final ordner = Directory(
-          p.join(Directory.systemTemp.path, 'photovault_decrypt'));
+      final ordner =
+          Directory(p.join(Directory.systemTemp.path, 'photovault_decrypt'));
       final stuecke = ordner.listSync().whereType<File>().toList();
       expect(stuecke, hasLength(5),
           reason: 'unterhalb der Grenze wird nichts weggeworfen');
@@ -137,10 +141,11 @@ void main() {
       expect(summe, lessThan(grenze));
     });
 
-    test('ueber der Grenze bleibt der Zwischenspeicher unter der Grenze', () async {
+    test('ueber der Grenze bleibt der Zwischenspeicher unter der Grenze',
+        () async {
       await library.setupVaultPin('4711');
-      final ordner = Directory(
-          p.join(Directory.systemTemp.path, 'photovault_decrypt'));
+      final ordner =
+          Directory(p.join(Directory.systemTemp.path, 'photovault_decrypt'));
       await ordner.create(recursive: true);
 
       // Zwoelf Fuellstuecke, die zusammen ueber der Grenze liegen –
@@ -164,7 +169,8 @@ void main() {
       // Ein echter Zulauf loest das Kuerzen aus.
       final a = await aufnahme('neu');
       await library.lockAsset(a);
-      await library.decryptForViewing((await db.assetById('neu'))!.relativePath);
+      await library
+          .decryptForViewing((await db.assetById('neu'))!.relativePath);
 
       final nachher = ordner
           .listSync()
@@ -172,7 +178,8 @@ void main() {
           .fold<int>(0, (s, f) => s + f.lengthSync());
       expect(nachher, lessThanOrEqualTo(grenze));
       // Das juengste Fuellstueck ueberlebt, das aelteste nicht.
-      expect(File(p.join(ordner.path, 'fuell${noetig - 1}')).existsSync(), isTrue);
+      expect(
+          File(p.join(ordner.path, 'fuell${noetig - 1}')).existsSync(), isTrue);
       expect(File(p.join(ordner.path, 'fuell0')).existsSync(), isFalse);
     });
   });
@@ -183,11 +190,13 @@ void main() {
       await library.setupVaultPin('4711');
       final a = await aufnahme('rechte');
       await library.lockAsset(a);
-      await library.decryptForViewing((await db.assetById('rechte'))!.relativePath);
+      await library
+          .decryptForViewing((await db.assetById('rechte'))!.relativePath);
 
-      final ordner =
-          p.join(Directory.systemTemp.path, 'photovault_decrypt');
-      final ergebnis = await Process.run('stat', ['-f', '%Lp', ordner]);
+      final ordner = p.join(Directory.systemTemp.path, 'photovault_decrypt');
+      final argumente =
+          Platform.isMacOS ? ['-f', '%Lp', ordner] : ['-c', '%a', ordner];
+      final ergebnis = await Process.run('stat', argumente);
       expect((ergebnis.stdout as String).trim(), '700',
           reason: 'Dart legt Verzeichnisse mit 0755 an – auf einem Rechner '
               'mit mehreren Benutzern laege der Klartext offen.');

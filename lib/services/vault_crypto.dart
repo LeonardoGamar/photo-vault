@@ -56,6 +56,7 @@ class VaultCrypto {
   VaultCrypto._();
 
   static final AesGcm _cipher = AesGcm.with256bits();
+  static const _bytesMagic = <int>[0x50, 0x56, 0x42, 0x31]; // PVB1
 
   /// Bewusst moderate statt maximale Argon2id-Parameter: die reine
   /// Dart-Implementierung (keine native Beschleunigung, siehe pubspec.yaml)
@@ -87,12 +88,14 @@ class VaultCrypto {
   /// Verpackt einen (neuen oder bestehenden) Master-Key mit [pin] – für die
   /// Erst-Einrichtung und für einen PIN-Wechsel (dort mit dem unverändert
   /// bleibenden, bereits vorhandenen Master-Key).
-  static Future<WrappedMasterKey> wrapMasterKey(SecretKey masterKey, String pin) async {
+  static Future<WrappedMasterKey> wrapMasterKey(
+      SecretKey masterKey, String pin) async {
     final salt = _randomBytes(16);
     final wrappingKey = await _deriveWrappingKey(pin, salt);
     final masterKeyBytes = await masterKey.extractBytes();
     final nonce = _cipher.newNonce();
-    final box = await _cipher.encrypt(masterKeyBytes, secretKey: wrappingKey, nonce: nonce);
+    final box = await _cipher.encrypt(masterKeyBytes,
+        secretKey: wrappingKey, nonce: nonce);
     return WrappedMasterKey(
       masterKey: masterKey,
       kdfSalt: salt,
@@ -119,6 +122,35 @@ class VaultCrypto {
     return SecretKey(masterKeyBytes);
   }
 
+  /// Authentifizierte Verschlüsselung für kleine Steuerdaten, die nie als
+  /// Klartextdatei auf der Platte landen sollen (z.B. Paket-Manifeste).
+  static Future<Uint8List> encryptBytes(
+      List<int> clearText, SecretKey masterKey,
+      {List<int> aad = const []}) async {
+    final nonce = _cipher.newNonce();
+    final box = await _cipher.encrypt(clearText,
+        secretKey: masterKey, nonce: nonce, aad: aad);
+    return Uint8List.fromList(
+        [..._bytesMagic, ...nonce, ...box.cipherText, ...box.mac.bytes]);
+  }
+
+  static Future<Uint8List> decryptBytes(
+      List<int> encrypted, SecretKey masterKey,
+      {List<int> aad = const []}) async {
+    if (encrypted.length < 4 + 12 + _macLength ||
+        !_bytesEqual(encrypted.sublist(0, 4), _bytesMagic)) {
+      throw const FormatException('Keine gültigen verschlüsselten Daten.');
+    }
+    final nonce = encrypted.sublist(4, 16);
+    final cipherText = encrypted.sublist(16, encrypted.length - _macLength);
+    final mac = Mac(encrypted.sublist(encrypted.length - _macLength));
+    return Uint8List.fromList(await _cipher.decrypt(
+      SecretBox(cipherText, nonce: nonce, mac: mac),
+      secretKey: masterKey,
+      aad: aad,
+    ));
+  }
+
   /// Die laufende Nummer eines Blocks als mitauthentifizierte Zusatzdaten.
   ///
   /// Sie steht nicht in der Datei – beide Seiten zählen mit. Dadurch passt
@@ -141,7 +173,8 @@ class VaultCrypto {
   /// auffiel – jeder verbliebene Block war ja gültig. Er wird auch für eine
   /// leere Quelldatei geschrieben, damit „gar keine Blöcke" nie ein
   /// gültiger Zustand ist.
-  static Future<void> encryptFile(File source, File destination, SecretKey masterKey) async {
+  static Future<void> encryptFile(
+      File source, File destination, SecretKey masterKey) async {
     final input = await source.open(mode: FileMode.read);
     final sink = destination.openWrite();
     try {
@@ -177,7 +210,8 @@ class VaultCrypto {
   /// [FormatException] bei falschem Datei-Format bzw.
   /// [SecretBoxAuthenticationError], wenn ein Chunk manipuliert/beschädigt
   /// ist oder der falsche Master-Key übergeben wurde.
-  static Future<void> decryptFile(File source, File destination, SecretKey masterKey) async {
+  static Future<void> decryptFile(
+      File source, File destination, SecretKey masterKey) async {
     final input = await source.open(mode: FileMode.read);
     final sink = destination.openWrite();
     var vollstaendig = false;
@@ -186,7 +220,8 @@ class VaultCrypto {
       final istV2 = magic.length == 4 && _bytesEqual(magic, _magicV2);
       final istV1 = magic.length == 4 && _bytesEqual(magic, _magicV1);
       if (!istV1 && !istV2) {
-        throw const FormatException('Keine gültige verschlüsselte Vault-Datei.');
+        throw const FormatException(
+            'Keine gültige verschlüsselte Vault-Datei.');
       }
 
       var nummer = 0;
@@ -202,8 +237,8 @@ class VaultCrypto {
         if (header.length != 4) {
           throw const FormatException('Unvollständiger Blockkopf.');
         }
-        final plainLength =
-            ByteData.sublistView(Uint8List.fromList(header)).getUint32(0, Endian.big);
+        final plainLength = ByteData.sublistView(Uint8List.fromList(header))
+            .getUint32(0, Endian.big);
         // Die Länge steht unverschlüsselt in der Datei und ist damit das
         // einzige Feld, das ein Angreifer frei setzen kann. Ohne diese
         // Schranke ginge sie ungeprüft an read() – bis zu 4 GiB für einen

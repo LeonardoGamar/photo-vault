@@ -5877,9 +5877,26 @@ class $PrivacySettingsTable extends PrivacySettings
   late final GeneratedColumn<Uint8List> wrappedMasterKey =
       GeneratedColumn<Uint8List>('wrapped_master_key', aliasedName, true,
           type: DriftSqlType.blob, requiredDuringInsert: false);
+  static const VerificationMeta _protectMetadataMeta =
+      const VerificationMeta('protectMetadata');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, pinHash, pinSalt, kdfSalt, wrappedMasterKeyNonce, wrappedMasterKey];
+  late final GeneratedColumn<bool> protectMetadata = GeneratedColumn<bool>(
+      'protect_metadata', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("protect_metadata" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        pinHash,
+        pinSalt,
+        kdfSalt,
+        wrappedMasterKeyNonce,
+        wrappedMasterKey,
+        protectMetadata
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -5918,6 +5935,12 @@ class $PrivacySettingsTable extends PrivacySettings
           wrappedMasterKey.isAcceptableOrUnknown(
               data['wrapped_master_key']!, _wrappedMasterKeyMeta));
     }
+    if (data.containsKey('protect_metadata')) {
+      context.handle(
+          _protectMetadataMeta,
+          protectMetadata.isAcceptableOrUnknown(
+              data['protect_metadata']!, _protectMetadataMeta));
+    }
     return context;
   }
 
@@ -5940,6 +5963,8 @@ class $PrivacySettingsTable extends PrivacySettings
           data['${effectivePrefix}wrapped_master_key_nonce']),
       wrappedMasterKey: attachedDatabase.typeMapping.read(
           DriftSqlType.blob, data['${effectivePrefix}wrapped_master_key']),
+      protectMetadata: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}protect_metadata'])!,
     );
   }
 
@@ -5957,13 +5982,20 @@ class PrivacySettingsData extends DataClass
   final Uint8List? kdfSalt;
   final Uint8List? wrappedMasterKeyNonce;
   final Uint8List? wrappedMasterKey;
+
+  /// Entfernt bei neu gesperrten Aufnahmen zusätzlich lesbare Angaben aus
+  /// der SQLite-Datei. Die Werte liegen dann authentifiziert verschlüsselt
+  /// neben den ebenfalls verschlüsselten Mediendateien und kehren erst beim
+  /// dauerhaften Entsperren zurück.
+  final bool protectMetadata;
   const PrivacySettingsData(
       {required this.id,
       this.pinHash,
       this.pinSalt,
       this.kdfSalt,
       this.wrappedMasterKeyNonce,
-      this.wrappedMasterKey});
+      this.wrappedMasterKey,
+      required this.protectMetadata});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -5984,6 +6016,7 @@ class PrivacySettingsData extends DataClass
     if (!nullToAbsent || wrappedMasterKey != null) {
       map['wrapped_master_key'] = Variable<Uint8List>(wrappedMasterKey);
     }
+    map['protect_metadata'] = Variable<bool>(protectMetadata);
     return map;
   }
 
@@ -6005,6 +6038,7 @@ class PrivacySettingsData extends DataClass
       wrappedMasterKey: wrappedMasterKey == null && nullToAbsent
           ? const Value.absent()
           : Value(wrappedMasterKey),
+      protectMetadata: Value(protectMetadata),
     );
   }
 
@@ -6020,6 +6054,7 @@ class PrivacySettingsData extends DataClass
           serializer.fromJson<Uint8List?>(json['wrappedMasterKeyNonce']),
       wrappedMasterKey:
           serializer.fromJson<Uint8List?>(json['wrappedMasterKey']),
+      protectMetadata: serializer.fromJson<bool>(json['protectMetadata']),
     );
   }
   @override
@@ -6033,6 +6068,7 @@ class PrivacySettingsData extends DataClass
       'wrappedMasterKeyNonce':
           serializer.toJson<Uint8List?>(wrappedMasterKeyNonce),
       'wrappedMasterKey': serializer.toJson<Uint8List?>(wrappedMasterKey),
+      'protectMetadata': serializer.toJson<bool>(protectMetadata),
     };
   }
 
@@ -6042,7 +6078,8 @@ class PrivacySettingsData extends DataClass
           Value<String?> pinSalt = const Value.absent(),
           Value<Uint8List?> kdfSalt = const Value.absent(),
           Value<Uint8List?> wrappedMasterKeyNonce = const Value.absent(),
-          Value<Uint8List?> wrappedMasterKey = const Value.absent()}) =>
+          Value<Uint8List?> wrappedMasterKey = const Value.absent(),
+          bool? protectMetadata}) =>
       PrivacySettingsData(
         id: id ?? this.id,
         pinHash: pinHash.present ? pinHash.value : this.pinHash,
@@ -6054,6 +6091,7 @@ class PrivacySettingsData extends DataClass
         wrappedMasterKey: wrappedMasterKey.present
             ? wrappedMasterKey.value
             : this.wrappedMasterKey,
+        protectMetadata: protectMetadata ?? this.protectMetadata,
       );
   PrivacySettingsData copyWithCompanion(PrivacySettingsCompanion data) {
     return PrivacySettingsData(
@@ -6067,6 +6105,9 @@ class PrivacySettingsData extends DataClass
       wrappedMasterKey: data.wrappedMasterKey.present
           ? data.wrappedMasterKey.value
           : this.wrappedMasterKey,
+      protectMetadata: data.protectMetadata.present
+          ? data.protectMetadata.value
+          : this.protectMetadata,
     );
   }
 
@@ -6078,7 +6119,8 @@ class PrivacySettingsData extends DataClass
           ..write('pinSalt: $pinSalt, ')
           ..write('kdfSalt: $kdfSalt, ')
           ..write('wrappedMasterKeyNonce: $wrappedMasterKeyNonce, ')
-          ..write('wrappedMasterKey: $wrappedMasterKey')
+          ..write('wrappedMasterKey: $wrappedMasterKey, ')
+          ..write('protectMetadata: $protectMetadata')
           ..write(')'))
         .toString();
   }
@@ -6090,7 +6132,8 @@ class PrivacySettingsData extends DataClass
       pinSalt,
       $driftBlobEquality.hash(kdfSalt),
       $driftBlobEquality.hash(wrappedMasterKeyNonce),
-      $driftBlobEquality.hash(wrappedMasterKey));
+      $driftBlobEquality.hash(wrappedMasterKey),
+      protectMetadata);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -6102,7 +6145,8 @@ class PrivacySettingsData extends DataClass
           $driftBlobEquality.equals(
               other.wrappedMasterKeyNonce, this.wrappedMasterKeyNonce) &&
           $driftBlobEquality.equals(
-              other.wrappedMasterKey, this.wrappedMasterKey));
+              other.wrappedMasterKey, this.wrappedMasterKey) &&
+          other.protectMetadata == this.protectMetadata);
 }
 
 class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
@@ -6112,6 +6156,7 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
   final Value<Uint8List?> kdfSalt;
   final Value<Uint8List?> wrappedMasterKeyNonce;
   final Value<Uint8List?> wrappedMasterKey;
+  final Value<bool> protectMetadata;
   const PrivacySettingsCompanion({
     this.id = const Value.absent(),
     this.pinHash = const Value.absent(),
@@ -6119,6 +6164,7 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
     this.kdfSalt = const Value.absent(),
     this.wrappedMasterKeyNonce = const Value.absent(),
     this.wrappedMasterKey = const Value.absent(),
+    this.protectMetadata = const Value.absent(),
   });
   PrivacySettingsCompanion.insert({
     this.id = const Value.absent(),
@@ -6127,6 +6173,7 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
     this.kdfSalt = const Value.absent(),
     this.wrappedMasterKeyNonce = const Value.absent(),
     this.wrappedMasterKey = const Value.absent(),
+    this.protectMetadata = const Value.absent(),
   });
   static Insertable<PrivacySettingsData> custom({
     Expression<int>? id,
@@ -6135,6 +6182,7 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
     Expression<Uint8List>? kdfSalt,
     Expression<Uint8List>? wrappedMasterKeyNonce,
     Expression<Uint8List>? wrappedMasterKey,
+    Expression<bool>? protectMetadata,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -6144,6 +6192,7 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
       if (wrappedMasterKeyNonce != null)
         'wrapped_master_key_nonce': wrappedMasterKeyNonce,
       if (wrappedMasterKey != null) 'wrapped_master_key': wrappedMasterKey,
+      if (protectMetadata != null) 'protect_metadata': protectMetadata,
     });
   }
 
@@ -6153,7 +6202,8 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
       Value<String?>? pinSalt,
       Value<Uint8List?>? kdfSalt,
       Value<Uint8List?>? wrappedMasterKeyNonce,
-      Value<Uint8List?>? wrappedMasterKey}) {
+      Value<Uint8List?>? wrappedMasterKey,
+      Value<bool>? protectMetadata}) {
     return PrivacySettingsCompanion(
       id: id ?? this.id,
       pinHash: pinHash ?? this.pinHash,
@@ -6162,6 +6212,7 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
       wrappedMasterKeyNonce:
           wrappedMasterKeyNonce ?? this.wrappedMasterKeyNonce,
       wrappedMasterKey: wrappedMasterKey ?? this.wrappedMasterKey,
+      protectMetadata: protectMetadata ?? this.protectMetadata,
     );
   }
 
@@ -6187,6 +6238,9 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
     if (wrappedMasterKey.present) {
       map['wrapped_master_key'] = Variable<Uint8List>(wrappedMasterKey.value);
     }
+    if (protectMetadata.present) {
+      map['protect_metadata'] = Variable<bool>(protectMetadata.value);
+    }
     return map;
   }
 
@@ -6198,7 +6252,8 @@ class PrivacySettingsCompanion extends UpdateCompanion<PrivacySettingsData> {
           ..write('pinSalt: $pinSalt, ')
           ..write('kdfSalt: $kdfSalt, ')
           ..write('wrappedMasterKeyNonce: $wrappedMasterKeyNonce, ')
-          ..write('wrappedMasterKey: $wrappedMasterKey')
+          ..write('wrappedMasterKey: $wrappedMasterKey, ')
+          ..write('protectMetadata: $protectMetadata')
           ..write(')'))
         .toString();
   }
@@ -23146,6 +23201,7 @@ typedef $$PrivacySettingsTableCreateCompanionBuilder = PrivacySettingsCompanion
   Value<Uint8List?> kdfSalt,
   Value<Uint8List?> wrappedMasterKeyNonce,
   Value<Uint8List?> wrappedMasterKey,
+  Value<bool> protectMetadata,
 });
 typedef $$PrivacySettingsTableUpdateCompanionBuilder = PrivacySettingsCompanion
     Function({
@@ -23155,6 +23211,7 @@ typedef $$PrivacySettingsTableUpdateCompanionBuilder = PrivacySettingsCompanion
   Value<Uint8List?> kdfSalt,
   Value<Uint8List?> wrappedMasterKeyNonce,
   Value<Uint8List?> wrappedMasterKey,
+  Value<bool> protectMetadata,
 });
 
 class $$PrivacySettingsTableFilterComposer
@@ -23184,6 +23241,10 @@ class $$PrivacySettingsTableFilterComposer
 
   ColumnFilters<Uint8List> get wrappedMasterKey => $composableBuilder(
       column: $table.wrappedMasterKey,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get protectMetadata => $composableBuilder(
+      column: $table.protectMetadata,
       builder: (column) => ColumnFilters(column));
 }
 
@@ -23215,6 +23276,10 @@ class $$PrivacySettingsTableOrderingComposer
   ColumnOrderings<Uint8List> get wrappedMasterKey => $composableBuilder(
       column: $table.wrappedMasterKey,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get protectMetadata => $composableBuilder(
+      column: $table.protectMetadata,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$PrivacySettingsTableAnnotationComposer
@@ -23243,6 +23308,9 @@ class $$PrivacySettingsTableAnnotationComposer
 
   GeneratedColumn<Uint8List> get wrappedMasterKey => $composableBuilder(
       column: $table.wrappedMasterKey, builder: (column) => column);
+
+  GeneratedColumn<bool> get protectMetadata => $composableBuilder(
+      column: $table.protectMetadata, builder: (column) => column);
 }
 
 class $$PrivacySettingsTableTableManager extends RootTableManager<
@@ -23278,6 +23346,7 @@ class $$PrivacySettingsTableTableManager extends RootTableManager<
             Value<Uint8List?> kdfSalt = const Value.absent(),
             Value<Uint8List?> wrappedMasterKeyNonce = const Value.absent(),
             Value<Uint8List?> wrappedMasterKey = const Value.absent(),
+            Value<bool> protectMetadata = const Value.absent(),
           }) =>
               PrivacySettingsCompanion(
             id: id,
@@ -23286,6 +23355,7 @@ class $$PrivacySettingsTableTableManager extends RootTableManager<
             kdfSalt: kdfSalt,
             wrappedMasterKeyNonce: wrappedMasterKeyNonce,
             wrappedMasterKey: wrappedMasterKey,
+            protectMetadata: protectMetadata,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -23294,6 +23364,7 @@ class $$PrivacySettingsTableTableManager extends RootTableManager<
             Value<Uint8List?> kdfSalt = const Value.absent(),
             Value<Uint8List?> wrappedMasterKeyNonce = const Value.absent(),
             Value<Uint8List?> wrappedMasterKey = const Value.absent(),
+            Value<bool> protectMetadata = const Value.absent(),
           }) =>
               PrivacySettingsCompanion.insert(
             id: id,
@@ -23302,6 +23373,7 @@ class $$PrivacySettingsTableTableManager extends RootTableManager<
             kdfSalt: kdfSalt,
             wrappedMasterKeyNonce: wrappedMasterKeyNonce,
             wrappedMasterKey: wrappedMasterKey,
+            protectMetadata: protectMetadata,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

@@ -64,7 +64,8 @@ const _nachladeSchwelle = 40;
 class _PeopleScreenState extends State<PeopleScreen>
     with SingleTickerProviderStateMixin {
   final Set<String> _selectedFaceIds = {};
-  final Set<String> _autoSelectedIds = {}; // von "Ähnliche mit auswählen" hinzugefügt
+  final Set<String> _autoSelectedIds =
+      {}; // von "Ähnliche mit auswählen" hinzugefügt
 
   /// Die Ähnlichkeit, mit der ein Gesicht automatisch mit ausgewählt wurde.
   ///
@@ -123,8 +124,8 @@ class _PeopleScreenState extends State<PeopleScreen>
   /// verändert hat.
   int _personenAnzahl = 0;
 
-  late final TabController _tabs =
-      TabController(length: 3, vsync: this)..addListener(_tabGewechselt);
+  late final TabController _tabs = TabController(length: 3, vsync: this)
+    ..addListener(_tabGewechselt);
 
   @override
   void initState() {
@@ -160,7 +161,9 @@ class _PeopleScreenState extends State<PeopleScreen>
 
   /// Holt den Tab „Ignoriert" nach, sobald er tatsächlich angesehen wird.
   void _tabGewechselt() {
-    if (_tabs.indexIsChanging || _tabs.index != 2 || !_ignorierteVeraltet) return;
+    if (_tabs.indexIsChanging || _tabs.index != 2 || !_ignorierteVeraltet) {
+      return;
+    }
     _ladeIgnorierte();
   }
 
@@ -202,8 +205,8 @@ class _PeopleScreenState extends State<PeopleScreen>
       _ignorierteFaces = ignoriert;
       _ignorierteAnzahl = anzahl;
       _ignorierteVeraltet = false;
-      _ausgewaehlteIgnorierte.removeWhere(
-          (id) => !ignoriert.any((f) => f.id == id));
+      _ausgewaehlteIgnorierte
+          .removeWhere((id) => !ignoriert.any((f) => f.id == id));
     });
   }
 
@@ -290,7 +293,8 @@ class _PeopleScreenState extends State<PeopleScreen>
     final wo = Overlay.of(context).context.findRenderObject() as RenderBox;
     final wahl = await showMenu<String>(
       context: context,
-      position: RelativeRect.fromRect(position & Size.zero, Offset.zero & wo.size),
+      position:
+          RelativeRect.fromRect(position & Size.zero, Offset.zero & wo.size),
       items: [
         PopupMenuItem(
           value: 'ignorieren',
@@ -364,18 +368,21 @@ class _PeopleScreenState extends State<PeopleScreen>
     });
     await _neuLaden();
     if (!mounted) return;
-    melde.erfolg(AppTexte.of(context).personenErkennungenGeloeschtMeldung(anzahl));
+    melde.erfolg(
+        AppTexte.of(context).personenErkennungenGeloeschtMeldung(anzahl));
   }
 
   Future<void> _holeZurueck() async {
     if (_ausgewaehlteIgnorierte.isEmpty) return;
-    await widget.library.db.setFacesIgnored(_ausgewaehlteIgnorierte.toList(), false);
+    await widget.library.db
+        .setFacesIgnored(_ausgewaehlteIgnorierte.toList(), false);
     if (!mounted) return;
     setState(_ausgewaehlteIgnorierte.clear);
     await _neuLaden();
   }
 
-  Float32List _vectorOf(FaceData face) => floatsFromEmbeddingBlob(face.embedding!);
+  Float32List _vectorOf(FaceData face) =>
+      floatsFromEmbeddingBlob(face.embedding!);
 
   /// Wählt Gesichter aus, die mind. einem der aktuell ausgewählten Gesichter
   /// ähnlich genug sind (Maximum der paarweisen Kosinus-Ähnlichkeit statt
@@ -412,10 +419,13 @@ class _PeopleScreenState extends State<PeopleScreen>
     final newlyAdded = <String>{};
     setState(() {
       for (final face in _unassignedFaces) {
-        if (face.embedding == null || _selectedFaceIds.contains(face.id)) continue;
+        if (face.embedding == null || _selectedFaceIds.contains(face.id)) {
+          continue;
+        }
         final vec = _vectorOf(face);
-        final bestSim =
-            referenceVectors.map((r) => FaceEngineService.cosineSimilarity(r, vec)).reduce(math.max);
+        final bestSim = referenceVectors
+            .map((r) => FaceEngineService.cosineSimilarity(r, vec))
+            .reduce(math.max);
         if (bestSim >= widget.library.faceSimilarityThreshold) {
           _selectedFaceIds.add(face.id);
           newlyAdded.add(face.id);
@@ -433,7 +443,8 @@ class _PeopleScreenState extends State<PeopleScreen>
 
   Future<void> _assignSelection() async {
     if (_selectedFaceIds.isEmpty) return;
-    final people = await widget.library.db.select(widget.library.db.people).get();
+    final people =
+        await widget.library.db.select(widget.library.db.people).get();
     if (!mounted) return;
 
     final choice = await showPersonPickerDialog(context, people,
@@ -451,7 +462,8 @@ class _PeopleScreenState extends State<PeopleScreen>
       personId = choice.existingPersonId!;
     }
 
-    await widget.library.db.assignFacesToPerson(_selectedFaceIds.toList(), personId);
+    await widget.library.db
+        .assignFacesToPerson(_selectedFaceIds.toList(), personId);
 
     // Was "Ähnliche mit auswählen" vorgeschlagen hat, ist damit beurteilt:
     // noch ausgewählt heisst bestätigt, wieder abgewählt heisst abgelehnt.
@@ -495,7 +507,8 @@ class _PeopleScreenState extends State<PeopleScreen>
   /// Zehntausend Gesichtern lief die Vergleichsphase minutenlang, ohne dass
   /// erkennbar war, ob sie überhaupt vorankommt.
   Future<void> _autoCluster() async {
-    final stand = ValueNotifier<_ClusterStand>(const _ClusterStand(_Phase.laden, null));
+    final stand =
+        ValueNotifier<_ClusterStand>(const _ClusterStand(_Phase.laden, null));
     var abgebrochen = false;
     FaceClusterLauf? lauf;
 
@@ -509,7 +522,8 @@ class _PeopleScreenState extends State<PeopleScreen>
           // lang einen Kern belegt.
           canPop: false,
           child: AlertDialog(
-            title: Text(AppTexte.of(dialogKontext).personenAutomatischGruppieren),
+            title:
+                Text(AppTexte.of(dialogKontext).personenAutomatischGruppieren),
             content: ValueListenableBuilder<_ClusterStand>(
               valueListenable: stand,
               builder: (kontext, wert, _) => Column(
@@ -518,8 +532,10 @@ class _PeopleScreenState extends State<PeopleScreen>
                 children: [
                   Text(switch (wert.phase) {
                     _Phase.laden => AppTexte.of(kontext).clusterPhaseLaden,
-                    _Phase.vergleichen => AppTexte.of(kontext).clusterPhaseVergleichen,
-                    _Phase.vorschlaege => AppTexte.of(kontext).clusterPhaseVorschlaege,
+                    _Phase.vergleichen =>
+                      AppTexte.of(kontext).clusterPhaseVergleichen,
+                    _Phase.vorschlaege =>
+                      AppTexte.of(kontext).clusterPhaseVorschlaege,
                   }),
                   const SizedBox(height: 12),
                   LinearProgressIndicator(value: wert.anteil),
@@ -584,11 +600,15 @@ class _PeopleScreenState extends State<PeopleScreen>
         context: context,
         builder: (context) => AlertDialog(
           title: Text(AppTexte.of(context).personenDauertTitel),
-          content: Text(
-              AppTexte.of(context).personenDauertText(embeddingsByFaceId.length)),
+          content: Text(AppTexte.of(context)
+              .personenDauertText(embeddingsByFaceId.length)),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).allgStarten)),
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(AppTexte.of(context).allgAbbrechen)),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(AppTexte.of(context).allgStarten)),
           ],
         ),
       );
@@ -646,7 +666,8 @@ class _PeopleScreenState extends State<PeopleScreen>
     // Eine Abfrage pro Person – bei vielen Personen dauert auch das, deshalb
     // eine eigene Phase statt eines stillen Nachlaufs bei 100 %.
     stand.value = const _ClusterStand(_Phase.vorschlaege, 0);
-    final people = await widget.library.db.select(widget.library.db.people).get();
+    final people =
+        await widget.library.db.select(widget.library.db.people).get();
     final personCentroids = <PersonData, Float32List>{};
     for (var i = 0; i < people.length; i++) {
       if (abgebrochen) {
@@ -659,7 +680,9 @@ class _PeopleScreenState extends State<PeopleScreen>
         for (final f in personFaces)
           if (f.embedding != null) floatsFromEmbeddingBlob(f.embedding!),
       ];
-      if (vectors.isNotEmpty) personCentroids[person] = meanNormalizedEmbedding(vectors);
+      if (vectors.isNotEmpty) {
+        personCentroids[person] = meanNormalizedEmbedding(vectors);
+      }
       stand.value = _ClusterStand(_Phase.vorschlaege, (i + 1) / people.length);
     }
 
@@ -667,7 +690,8 @@ class _PeopleScreenState extends State<PeopleScreen>
     final suggestions = <FaceClusterSuggestion>[];
     for (final cluster in clusters) {
       final clusterFacesData = [for (final id in cluster) faceById[id]!];
-      final centroid = meanNormalizedEmbedding([for (final id in cluster) embeddingsByFaceId[id]!]);
+      final centroid = meanNormalizedEmbedding(
+          [for (final id in cluster) embeddingsByFaceId[id]!]);
       PersonData? bestMatch;
       var bestSim = 0.0;
       for (final entry in personCentroids.entries) {
@@ -680,8 +704,9 @@ class _PeopleScreenState extends State<PeopleScreen>
       // Die persönliche Schwelle der jeweils ähnlichsten Person, nicht die
       // allgemeine: Genau darin steckt das Gelernte – wer bisher zu oft
       // fälschlich vorgeschlagen wurde, braucht jetzt mehr Ähnlichkeit.
-      final personenSchwelle =
-          bestMatch == null ? threshold : widget.library.schwelleFuerPerson(bestMatch);
+      final personenSchwelle = bestMatch == null
+          ? threshold
+          : widget.library.schwelleFuerPerson(bestMatch);
       final trifft = bestMatch != null && bestSim >= personenSchwelle;
       suggestions.add(FaceClusterSuggestion(
         faces: clusterFacesData,
@@ -694,7 +719,8 @@ class _PeopleScreenState extends State<PeopleScreen>
     stand.dispose();
     if (abgebrochen || !mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => FaceClusterReviewScreen(library: widget.library, suggestions: suggestions),
+      builder: (_) => FaceClusterReviewScreen(
+          library: widget.library, suggestions: suggestions),
     ));
     _neuLaden();
   }
@@ -725,63 +751,65 @@ class _PeopleScreenState extends State<PeopleScreen>
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
     return Column(
-        children: [
-          TabBar(controller: _tabs, tabs: [
-            // Die Zahl der Personen kommt aus demselben Stand, den das
-            // Raster darunter zeigt – sie ist damit auch dann richtig,
-            // wenn Personen im Detailbildschirm zusammengeführt oder
-            // umbenannt werden.
-            Tab(text: _mitZahl(t.personenTab, _personenAnzahl)),
-            Tab(text: _mitZahl(t.personenUnbenannteTab, _unbenannteAnzahl)),
-            Tab(text: _mitZahl(t.personenIgnoriertTab, _ignorierteAnzahl)),
-          ]),
-          Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _PeopleGrid(
-                  library: widget.library,
-                  onPersonenGeaendert: _zaehlePersonen,
-                ),
-                _UnassignedFacesGrid(
-                  onKontextmenue: _kontextmenue,
-                  faces: _unassignedFaces,
-                  library: widget.library,
-                  stand: _gesichtsstand,
-                  onSucheStarten: _starteGesichtssuche,
-                  paths: widget.library.paths,
-                  selected: _selectedFaceIds,
-                  autoSelected: _autoSelectedIds,
-                  onToggle: (id) => setState(() {
-                    _selectedFaceIds.contains(id)
-                        ? _selectedFaceIds.remove(id)
-                        : _selectedFaceIds.add(id);
-                    _autoSelectedIds.remove(id);
-                  }),
-                  onOpenPhoto: (face) => _openPhotoForFace(face, _unassignedFaces),
-                  onSelectSimilar: _toggleSelectSimilar,
-                  onAssign: _assignSelection,
-                  onIgnore: _ignoriereAuswahl,
-                  onAutoCluster: _autoCluster,
-                ),
-                _IgnorierteGesichter(
-                  onKontextmenue: _kontextmenue,
-                  faces: _ignorierteFaces,
-                  gesamt: _ignorierteAnzahl,
-                  paths: widget.library.paths,
-                  selected: _ausgewaehlteIgnorierte,
-                  onToggle: (id) => setState(() {
-                    _ausgewaehlteIgnorierte.contains(id)
-                        ? _ausgewaehlteIgnorierte.remove(id)
-                        : _ausgewaehlteIgnorierte.add(id);
-                  }),
-                  onOpenPhoto: (face) => _openPhotoForFace(face, _ignorierteFaces),
-                  onRestore: _holeZurueck,
-                ),
-              ],
-            ),
+      children: [
+        TabBar(controller: _tabs, tabs: [
+          // Die Zahl der Personen kommt aus demselben Stand, den das
+          // Raster darunter zeigt – sie ist damit auch dann richtig,
+          // wenn Personen im Detailbildschirm zusammengeführt oder
+          // umbenannt werden.
+          Tab(text: _mitZahl(t.personenTab, _personenAnzahl)),
+          Tab(text: _mitZahl(t.personenUnbenannteTab, _unbenannteAnzahl)),
+          Tab(text: _mitZahl(t.personenIgnoriertTab, _ignorierteAnzahl)),
+        ]),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: [
+              _PeopleGrid(
+                library: widget.library,
+                onPersonenGeaendert: _zaehlePersonen,
+              ),
+              _UnassignedFacesGrid(
+                onKontextmenue: _kontextmenue,
+                faces: _unassignedFaces,
+                library: widget.library,
+                stand: _gesichtsstand,
+                onSucheStarten: _starteGesichtssuche,
+                paths: widget.library.paths,
+                selected: _selectedFaceIds,
+                autoSelected: _autoSelectedIds,
+                onToggle: (id) => setState(() {
+                  _selectedFaceIds.contains(id)
+                      ? _selectedFaceIds.remove(id)
+                      : _selectedFaceIds.add(id);
+                  _autoSelectedIds.remove(id);
+                }),
+                onOpenPhoto: (face) =>
+                    _openPhotoForFace(face, _unassignedFaces),
+                onSelectSimilar: _toggleSelectSimilar,
+                onAssign: _assignSelection,
+                onIgnore: _ignoriereAuswahl,
+                onAutoCluster: _autoCluster,
+              ),
+              _IgnorierteGesichter(
+                onKontextmenue: _kontextmenue,
+                faces: _ignorierteFaces,
+                gesamt: _ignorierteAnzahl,
+                paths: widget.library.paths,
+                selected: _ausgewaehlteIgnorierte,
+                onToggle: (id) => setState(() {
+                  _ausgewaehlteIgnorierte.contains(id)
+                      ? _ausgewaehlteIgnorierte.remove(id)
+                      : _ausgewaehlteIgnorierte.add(id);
+                }),
+                onOpenPhoto: (face) =>
+                    _openPhotoForFace(face, _ignorierteFaces),
+                onRestore: _holeZurueck,
+              ),
+            ],
           ),
-        ],
+        ),
+      ],
     );
   }
 
@@ -806,13 +834,15 @@ class _PeopleGrid extends StatelessWidget {
   final Future<void> Function() onPersonenGeaendert;
   const _PeopleGrid({required this.library, required this.onPersonenGeaendert});
 
-  Future<void> _mergeInto(BuildContext context, PersonData source, List<PersonData> all) async {
+  Future<void> _mergeInto(
+      BuildContext context, PersonData source, List<PersonData> all) async {
     final candidates = all.where((p) => p.id != source.id).toList();
     if (candidates.isEmpty) return;
     final target = await showDialog<PersonData>(
       context: context,
       builder: (context) => SimpleDialog(
-        title: Text(AppTexte.of(context).personenZusammenfuehrenMit(source.name)),
+        title:
+            Text(AppTexte.of(context).personenZusammenfuehrenMit(source.name)),
         children: candidates
             .map((p) => SimpleDialogOption(
                   onPressed: () => Navigator.pop(context, p),
@@ -830,13 +860,18 @@ class _PeopleGrid extends StatelessWidget {
         content: Text(AppTexte.of(context)
             .personenZusammenfuehrenText(source.name, target.name)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppTexte.of(context).allgAbbrechen)),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppTexte.of(context).personenZusammenfuehren)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppTexte.of(context).allgAbbrechen)),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppTexte.of(context).personenZusammenfuehren)),
         ],
       ),
     );
     if (confirm == true) {
-      await library.db.mergePeople(keepPersonId: target.id, removePersonId: source.id);
+      await library.db
+          .mergePeople(keepPersonId: target.id, removePersonId: source.id);
     }
   }
 
@@ -844,7 +879,8 @@ class _PeopleGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<List<PersonData>>(
       stream: library.db.watchPeople(),
-      builder: (context, schnappschuss) => _raster(context, schnappschuss.data ?? []),
+      builder: (context, schnappschuss) =>
+          _raster(context, schnappschuss.data ?? []),
     );
   }
 
@@ -862,13 +898,16 @@ class _PeopleGrid extends StatelessWidget {
     }
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 120,
         mainAxisSpacing: 16,
         crossAxisSpacing: 16,
-        // 0.8 war zu knapp: Avatar (80px) + Name + zweizeiliger
-        // Hinweistext liefen unten um wenige Pixel über.
-        childAspectRatio: 0.66,
+        // Avatar, Abstand, eine Namenszeile und zwei Hinweiszeilen. Eine
+        // feste Seitenrelation kann diese Höhe bei grosser Systemschrift
+        // nicht abbilden; deshalb wächst jede Rasterzeile mit dem
+        // TextScaler.
+        mainAxisExtent:
+            88 + MediaQuery.textScalerOf(context).scale(20 + 2 * 17),
       ),
       itemCount: people.length,
       itemBuilder: (context, index) {
@@ -876,7 +915,8 @@ class _PeopleGrid extends StatelessWidget {
         return InkWell(
           onTap: () async {
             await Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => PersonDetailScreen(library: library, person: person),
+              builder: (_) =>
+                  PersonDetailScreen(library: library, person: person),
             ));
             // Dort lässt sich umbenennen und löschen – das Raster erfährt
             // es über seinen Strom, die Zahl am Reiter nicht.
@@ -904,10 +944,9 @@ class _PeopleGrid extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(fontSize: 9, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      height: 17 / 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ],
           ),
         );
@@ -950,10 +989,7 @@ class _LeeresGesichterraster extends StatelessWidget {
               false
             ),
           _ when s.offen > 0 && laeuft => (t.personenSucheLaeuft, false),
-          _ when s.offen > 0 => (
-              t.personenNochNichtDurchsucht(s.offen),
-              true
-            ),
+          _ when s.offen > 0 => (t.personenNochNichtDurchsucht(s.offen), true),
           _ => (t.personenKeineUnbenannten, false),
         };
         return Center(
@@ -1040,13 +1076,16 @@ class _UnassignedFacesGrid extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
           child: Row(
             children: [
               Expanded(
                 child: Text(
                   AppTexte.of(context).personenSchwellenHinweis,
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               ),
               OutlinedButton.icon(
@@ -1083,7 +1122,8 @@ class _UnassignedFacesGrid extends StatelessWidget {
                     const Positioned(
                       right: 2,
                       top: 2,
-                      child: Icon(Icons.auto_awesome, color: Colors.cyanAccent, size: 14),
+                      child: Icon(Icons.auto_awesome,
+                          color: Colors.cyanAccent, size: 14),
                     ),
                 ],
               );
@@ -1092,12 +1132,15 @@ class _UnassignedFacesGrid extends StatelessWidget {
         ),
         if (selected.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
             child: Column(
               children: [
                 Text(
                   AppTexte.of(context).personenDoppelklickHinweis,
-                  style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -1105,8 +1148,12 @@ class _UnassignedFacesGrid extends StatelessWidget {
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: onSelectSimilar,
-                        icon: Icon(autoSelected.isNotEmpty ? Icons.remove_done : Icons.auto_awesome_outlined),
-                        label: Text(autoSelected.isNotEmpty ? AppTexte.of(context).personenAehnlicheAbwaehlen : AppTexte.of(context).personenAehnlicheAuswaehlen),
+                        icon: Icon(autoSelected.isNotEmpty
+                            ? Icons.remove_done
+                            : Icons.auto_awesome_outlined),
+                        label: Text(autoSelected.isNotEmpty
+                            ? AppTexte.of(context).personenAehnlicheAbwaehlen
+                            : AppTexte.of(context).personenAehnlicheAuswaehlen),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1124,7 +1171,8 @@ class _UnassignedFacesGrid extends StatelessWidget {
                       child: FilledButton.icon(
                         onPressed: onAssign,
                         icon: const Icon(Icons.person_add_alt_1),
-                        label: Text(AppTexte.of(context).personenZuordnenKnopf(selected.length)),
+                        label: Text(AppTexte.of(context)
+                            .personenZuordnenKnopf(selected.length)),
                       ),
                     ),
                   ],
@@ -1191,14 +1239,18 @@ class _IgnorierteGesichter extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
           child: Text(
             // Sagt beides: wofür der Tab da ist und – falls gedeckelt –
             // dass hier nicht alles zu sehen ist.
             gesamt > faces.length
-                ? AppTexte.of(context).personenIgnoriertTeilHinweis(faces.length, gesamt)
+                ? AppTexte.of(context)
+                    .personenIgnoriertTeilHinweis(faces.length, gesamt)
                 : AppTexte.of(context).personenIgnoriertHinweis,
-            style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+            style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
           ),
         ),
         Expanded(
@@ -1229,13 +1281,15 @@ class _IgnorierteGesichter extends StatelessWidget {
         ),
         if (selected.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
             child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: onRestore,
                 icon: const Icon(Icons.visibility_outlined),
-                label: Text(AppTexte.of(context).personenZurueckholenKnopf(selected.length)),
+                label: Text(AppTexte.of(context)
+                    .personenZurueckholenKnopf(selected.length)),
               ),
             ),
           ),

@@ -9,11 +9,30 @@ import 'platform/folder_access.dart';
 
 export 'platform/folder_access.dart' show PickedFolder;
 
+@immutable
+class BibliotheksVerschiebefortschritt {
+  const BibliotheksVerschiebefortschritt({
+    required this.kopierteBytes,
+    required this.gesamtBytes,
+    required this.kopierteDateien,
+    required this.gesamtDateien,
+  });
+
+  final int kopierteBytes;
+  final int gesamtBytes;
+  final int kopierteDateien;
+  final int gesamtDateien;
+
+  double? get anteil =>
+      gesamtBytes == 0 ? null : (kopierteBytes / gesamtBytes).clamp(0, 1);
+}
+
 /// Eine der App bekannte Bibliothek. [path] und [token] sind dasselbe
 /// Paar, das [LibraryLocation.pickFolder] liefert; [name] dient nur der
 /// Anzeige und ist standardmäßig der Ordnername.
 class Bibliothekseintrag {
-  const Bibliothekseintrag({required this.path, this.token, required this.name});
+  const Bibliothekseintrag(
+      {required this.path, this.token, required this.name});
 
   final String path;
   final String? token;
@@ -21,7 +40,8 @@ class Bibliothekseintrag {
 
   Map<String, dynamic> toJson() => {'path': path, 'token': token, 'name': name};
 
-  static Bibliothekseintrag fromJson(Map<String, dynamic> json) => Bibliothekseintrag(
+  static Bibliothekseintrag fromJson(Map<String, dynamic> json) =>
+      Bibliothekseintrag(
         path: json['path'] as String,
         // Ältere Konfigurationen (vor der Plattform-Trennung) speichern das
         // Token noch unter dem macOS-Namen "bookmark".
@@ -85,7 +105,8 @@ class LibraryLocation {
   /// gibt – dieselbe Begründung wie bei [StoragePaths.forTesting].
   /// [zuruecksetzenFuerTests] stellt den Auslieferungszustand wieder her.
   @visibleForTesting
-  static void nutzeFuerTests({required Directory anker, FolderAccess? zugriff}) {
+  static void nutzeFuerTests(
+      {required Directory anker, FolderAccess? zugriff}) {
     _ankerFuerTests = anker;
     if (zugriff != null) _access = zugriff;
   }
@@ -223,11 +244,15 @@ class LibraryLocation {
   ///
   /// Fehlt die Datei oder ist sie unlesbar, ist die Liste leer – die App
   /// arbeitet dann im Standardordner.
-  static Future<({String? aktiv, List<Bibliothekseintrag> liste})> _leseKonfig() async {
+  static Future<({String? aktiv, List<Bibliothekseintrag> liste})>
+      _leseKonfig() async {
     final configFile = await _configFile();
-    if (!await configFile.exists()) return (aktiv: null, liste: <Bibliothekseintrag>[]);
+    if (!await configFile.exists()) {
+      return (aktiv: null, liste: <Bibliothekseintrag>[]);
+    }
     try {
-      final json = jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
+      final json =
+          jsonDecode(await configFile.readAsString()) as Map<String, dynamic>;
       final roh = json['bibliotheken'] as List<dynamic>?;
       if (roh == null) {
         // Altes Format.
@@ -237,7 +262,9 @@ class LibraryLocation {
       }
       return (
         aktiv: json['aktiv'] as String?,
-        liste: roh.map((e) => Bibliothekseintrag.fromJson(e as Map<String, dynamic>)).toList(),
+        liste: roh
+            .map((e) => Bibliothekseintrag.fromJson(e as Map<String, dynamic>))
+            .toList(),
       );
     } catch (_) {
       return (aktiv: null, liste: <Bibliothekseintrag>[]);
@@ -254,7 +281,8 @@ class LibraryLocation {
   /// Übersicht, und das Security-Scoped-Bookmark des echten Ordners weg,
   /// das nur der Ordnerdialog wieder erzeugen kann. Selten, aber teuer –
   /// und ein Umbenennen kostet nichts.
-  static Future<void> _schreibeKonfig(String? aktiv, List<Bibliothekseintrag> liste) async {
+  static Future<void> _schreibeKonfig(
+      String? aktiv, List<Bibliothekseintrag> liste) async {
     final configFile = await _configFile();
     if (aktiv == null && liste.isEmpty) {
       if (await configFile.exists()) await configFile.delete();
@@ -285,10 +313,12 @@ class LibraryLocation {
     final aktiv = konfig.aktiv;
     if (aktiv == null) return _anchorDir();
 
-    final eintrag = konfig.liste.where((e) => p.equals(e.path, aktiv)).firstOrNull;
+    final eintrag =
+        konfig.liste.where((e) => p.equals(e.path, aktiv)).firstOrNull;
     if (eintrag == null) return _anchorDir();
 
-    final resolved = await _access.resolveRoot(path: eintrag.path, token: eintrag.token);
+    final resolved =
+        await _access.resolveRoot(path: eintrag.path, token: eintrag.token);
     // Ordner nicht mehr erreichbar (gelöscht/umbenannt, Laufwerk nicht
     // eingebunden, Bookmark ungültig) – auf den Standardordner
     // zurückfallen, statt die App gar nicht erst starten zu lassen.
@@ -353,7 +383,8 @@ class LibraryLocation {
   /// verschieben. Enthält er bereits eine `library.sqlite`, ist es eine
   /// bestehende Bibliothek; ist er leer, entsteht beim ersten Öffnen eine
   /// neue (siehe [AppDatabase.open], das die Datei anlegt).
-  static Future<Bibliothekseintrag> fuegeHinzu(PickedFolder picked, {String? name}) async {
+  static Future<Bibliothekseintrag> fuegeHinzu(PickedFolder picked,
+      {String? name}) async {
     final konfig = await _leseKonfig();
     final eintrag = Bibliothekseintrag(
       path: picked.path,
@@ -411,7 +442,11 @@ class LibraryLocation {
   /// aktuelle Ort ist) – so schließt z.B. [LibraryState] darüber die
   /// Datenbankverbindung erst kurz bevor `library.sqlite` wirklich
   /// verschoben wird, statt vorschnell und ggf. für nichts.
-  static Future<String> applyRoot(PickedFolder picked, {Future<void> Function()? beforeMove}) async {
+  static Future<String> applyRoot(
+    PickedFolder picked, {
+    Future<void> Function()? beforeMove,
+    ValueChanged<BibliotheksVerschiebefortschritt>? onProgress,
+  }) async {
     final oldRoot = await currentRoot();
     final newRoot = Directory(picked.path);
     if (p.equals(oldRoot.path, newRoot.path)) return picked.path;
@@ -419,7 +454,7 @@ class LibraryLocation {
     if (beforeMove != null) await beforeMove();
 
     await newRoot.create(recursive: true);
-    await _moveLibraryData(oldRoot, newRoot);
+    await _moveLibraryData(oldRoot, newRoot, onProgress: onProgress);
 
     // Die aktive Bibliothek ist umgezogen: Ihr alter Eintrag zeigt ins
     // Leere und wird durch den neuen Ort ersetzt. Andere Einträge der
@@ -435,20 +470,22 @@ class LibraryLocation {
           p.basename(picked.path),
     );
     await _schreibeKonfig(picked.path, [
-      ...konfig.liste.where(
-          (e) => !p.equals(e.path, oldRoot.path) && !p.equals(e.path, picked.path)),
+      ...konfig.liste.where((e) =>
+          !p.equals(e.path, oldRoot.path) && !p.equals(e.path, picked.path)),
       neuerEintrag,
     ]);
     return picked.path;
   }
 
   /// Setzt den Speicherort zurück auf den Standard-App-Support-Ordner.
-  static Future<void> resetToDefault() async {
+  static Future<void> resetToDefault({
+    ValueChanged<BibliotheksVerschiebefortschritt>? onProgress,
+  }) async {
     final oldRoot = await currentRoot();
     final defaultRoot = await _anchorDir();
     if (p.equals(oldRoot.path, defaultRoot.path)) return;
 
-    await _moveLibraryData(oldRoot, defaultRoot);
+    await _moveLibraryData(oldRoot, defaultRoot, onProgress: onProgress);
 
     // Der bisherige Ort ist jetzt leer – seinen Eintrag streichen und den
     // Standard aktiv setzen. Übrige Einträge bleiben erhalten, sonst ginge
@@ -465,7 +502,11 @@ class LibraryLocation {
   /// wenn das vollständig geklappt hat – bei einem Fehler mitten im Kopieren
   /// (z.B. Speicherplatz voll) bleibt die bisherige Bibliothek so
   /// unverändert erhalten, statt in einem halb verschobenen Zustand zu enden.
-  static Future<void> _moveLibraryData(Directory from, Directory to) async {
+  static Future<void> _moveLibraryData(
+    Directory from,
+    Directory to, {
+    ValueChanged<BibliotheksVerschiebefortschritt>? onProgress,
+  }) async {
     if (p.equals(from.path, to.path)) return;
 
     final dbFrom = File(p.join(from.path, 'library.sqlite'));
@@ -473,15 +514,56 @@ class LibraryLocation {
     final libFrom = Directory(p.join(from.path, 'library'));
     final libTo = Directory(p.join(to.path, 'library'));
 
-    if (await dbFrom.exists()) {
-      await dbFrom.copy(dbTo.path);
-      for (final suffix in ['-wal', '-shm']) {
-        final side = File('${dbFrom.path}$suffix');
-        if (await side.exists()) await side.copy('${dbTo.path}$suffix');
-      }
+    final dateien = <({File quelle, File ziel, int bytes})>[];
+
+    Future<void> nimmAuf(File quelle, File ziel) async {
+      if (!await quelle.exists()) return;
+      dateien.add((quelle: quelle, ziel: ziel, bytes: await quelle.length()));
+    }
+
+    await nimmAuf(dbFrom, dbTo);
+    for (final suffix in ['-wal', '-shm']) {
+      await nimmAuf(File('${dbFrom.path}$suffix'), File('${dbTo.path}$suffix'));
     }
     if (await libFrom.exists()) {
-      await _copyDirectory(libFrom, libTo);
+      await for (final entity in libFrom.list(recursive: true)) {
+        if (entity is! File) continue;
+        final relativ = p.relative(entity.path, from: libFrom.path);
+        await nimmAuf(entity, File(p.join(libTo.path, relativ)));
+      }
+    }
+
+    final gesamtBytes = dateien.fold<int>(0, (summe, d) => summe + d.bytes);
+    var kopierteBytes = 0;
+    var kopierteDateien = 0;
+    var zuletztGemeldet = 0;
+
+    void melde({bool erzwingen = false}) {
+      if (!erzwingen && kopierteBytes - zuletztGemeldet < 1024 * 1024) return;
+      zuletztGemeldet = kopierteBytes;
+      onProgress?.call(BibliotheksVerschiebefortschritt(
+        kopierteBytes: kopierteBytes,
+        gesamtBytes: gesamtBytes,
+        kopierteDateien: kopierteDateien,
+        gesamtDateien: dateien.length,
+      ));
+    }
+
+    melde(erzwingen: true);
+    for (final datei in dateien) {
+      await datei.ziel.parent.create(recursive: true);
+      final ausgabe = datei.ziel.openWrite();
+      try {
+        await for (final block in datei.quelle.openRead()) {
+          ausgabe.add(block);
+          kopierteBytes += block.length;
+          melde();
+        }
+      } finally {
+        await ausgabe.close();
+      }
+      kopierteDateien++;
+      melde(erzwingen: true);
     }
 
     // Erst nach erfolgreichem Kopieren die Originale löschen.
@@ -494,18 +576,6 @@ class LibraryLocation {
     }
     if (await libFrom.exists()) {
       await libFrom.delete(recursive: true);
-    }
-  }
-
-  static Future<void> _copyDirectory(Directory source, Directory destination) async {
-    await destination.create(recursive: true);
-    await for (final entity in source.list(recursive: false)) {
-      final newPath = p.join(destination.path, p.basename(entity.path));
-      if (entity is Directory) {
-        await _copyDirectory(entity, Directory(newPath));
-      } else if (entity is File) {
-        await entity.copy(newPath);
-      }
     }
   }
 }

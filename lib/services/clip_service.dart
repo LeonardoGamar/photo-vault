@@ -241,17 +241,65 @@ class ClipService {
     Map<String, Float32List> candidates, {
     int topK = 200,
   }) {
-    final scored = candidates.entries.map((e) {
+    if (topK <= 0 || candidates.isEmpty) return const [];
+    final heap = <({String key, double score, int order})>[];
+
+    bool schlechterAls(
+            ({String key, double score, int order}) a,
+            ({String key, double score, int order}) b) =>
+        a.score < b.score || (a.score == b.score && a.order > b.order);
+
+    void nachOben(int index) {
+      while (index > 0) {
+        final eltern = (index - 1) ~/ 2;
+        if (!schlechterAls(heap[index], heap[eltern])) break;
+        final tmp = heap[index];
+        heap[index] = heap[eltern];
+        heap[eltern] = tmp;
+        index = eltern;
+      }
+    }
+
+    void nachUnten(int index) {
+      while (true) {
+        final links = index * 2 + 1;
+        if (links >= heap.length) return;
+        final rechts = links + 1;
+        var schlechtester = links;
+        if (rechts < heap.length &&
+            schlechterAls(heap[rechts], heap[links])) {
+          schlechtester = rechts;
+        }
+        if (!schlechterAls(heap[schlechtester], heap[index])) return;
+        final tmp = heap[index];
+        heap[index] = heap[schlechtester];
+        heap[schlechtester] = tmp;
+        index = schlechtester;
+      }
+    }
+
+    var order = 0;
+    for (final e in candidates.entries) {
       var dot = 0.0;
       final v = e.value;
       final len = math.min(query.length, v.length);
       for (var i = 0; i < len; i++) {
         dot += query[i] * v[i];
       }
-      return MapEntry(e.key, dot); // beide Vektoren sind bereits L2-normalisiert
-    }).toList();
-    scored.sort((a, b) => b.value.compareTo(a.value));
-    return scored.take(topK).toList();
+      final kandidat = (key: e.key, score: dot, order: order++);
+      if (heap.length < topK) {
+        heap.add(kandidat);
+        nachOben(heap.length - 1);
+      } else if (schlechterAls(heap.first, kandidat)) {
+        heap[0] = kandidat;
+        nachUnten(0);
+      }
+    }
+    heap.sort((a, b) {
+      final nachWert = b.score.compareTo(a.score);
+      return nachWert != 0 ? nachWert : a.order.compareTo(b.order);
+    });
+    return [for (final e in heap) MapEntry(e.key, e.score)];
   }
 
   Future<void> dispose() async {

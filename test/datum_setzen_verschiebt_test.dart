@@ -67,17 +67,18 @@ void main() {
 
   test('die Datei zieht in den Ordner des neuen Monats um', () async {
     final asset = await lege('a.jpg', DateTime(2007, 1, 4, 20, 28));
-    expect(asset.relativePath, contains('2007/01'));
+    expect(asset.relativePath, contains(p.join('2007', '01')));
     final alt = pfade.absolute(asset.relativePath);
 
     await library.setzeAufnahmedatumVonHand([asset.id], DateTime(2013, 8, 27));
 
     final neu = (await db.assetById(asset.id))!;
     expect(neu.fileCreatedAt, DateTime(2013, 8, 27));
-    expect(neu.relativePath, contains('2013/08'),
+    expect(neu.relativePath, contains(p.join('2013', '08')),
         reason: 'der Pfad muss dem neuen Datum folgen');
     expect(File(pfade.absolute(neu.relativePath).path).existsSync(), isTrue);
-    expect(alt.existsSync(), isFalse, reason: 'am alten Ort darf nichts liegen bleiben');
+    expect(alt.existsSync(), isFalse,
+        reason: 'am alten Ort darf nichts liegen bleiben');
   });
 
   test('Pfad und Datum stimmen danach überein – auch bei mehreren', () async {
@@ -92,8 +93,8 @@ void main() {
 
     for (final alt in assets) {
       final neu = (await db.assetById(alt.id))!;
-      final jahrMonat = '${neu.fileCreatedAt.year}/'
-          '${neu.fileCreatedAt.month.toString().padLeft(2, '0')}';
+      final jahrMonat = p.join('${neu.fileCreatedAt.year}',
+          neu.fileCreatedAt.month.toString().padLeft(2, '0'));
       expect(neu.relativePath, contains(jahrMonat));
       expect(File(pfade.absolute(neu.relativePath).path).existsSync(), isTrue);
     }
@@ -111,9 +112,10 @@ void main() {
 
   test('eine unbekannte Kennung wird übergangen, nicht geworfen', () async {
     final asset = await lege('d.jpg', DateTime(2020, 4, 5));
-    await library
-        .setzeAufnahmedatumVonHand(['gibtesnicht', asset.id], DateTime(2021, 7));
-    expect((await db.assetById(asset.id))!.relativePath, contains('2021/07'));
+    await library.setzeAufnahmedatumVonHand(
+        ['gibtesnicht', asset.id], DateTime(2021, 7));
+    expect((await db.assetById(asset.id))!.relativePath,
+        contains(p.join('2021', '07')));
   });
 
   test('kein Bildschirm setzt das Datum an der Datenbankschicht vorbei', () {

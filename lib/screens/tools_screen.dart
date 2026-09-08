@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../l10n/app_localizations.dart';
 import '../services/native_image_converter.dart';
+import '../services/export_service.dart';
+import '../services/secure_share_service.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
@@ -15,12 +18,14 @@ import 'export_presets_screen.dart';
 import 'staubsuche_screen.dart';
 import 'duplicates_screen.dart';
 import 'integrity_check_screen.dart';
+import 'library_health_screen.dart';
 import 'ortsvorschlaege_screen.dart';
 import 'stack_review_screen.dart';
 import 'gpx_verortung_screen.dart';
 import 'statistics_screen.dart';
 import 'xmp_import_screen.dart';
 import '../services/meldungsdienst.dart';
+import '../widgets/pin_dialogs.dart';
 
 /// Eigenständiger Bereich für Werkzeuge, die nicht Teil des normalen
 /// Durchstöberns der Bibliothek sind: manueller Gesichts-Scan (inkl. der
@@ -58,6 +63,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
   /// Serien ohne Vorrat: Die Rechnung kostet an der echten Bibliothek
   /// 2 ms, ein Zwischenspeicher waere hier nur eine zweite Wahrheit.
   Future<int>? _ortsvorschlagszahl;
+  bool _shareImporting = false;
 
   @override
   void initState() {
@@ -106,10 +112,42 @@ class _ToolsScreenState extends State<ToolsScreen> {
         paths: widget.library.paths,
         db: widget.library.db,
         library: widget.library,
-        onToggleFavorite: (a) => widget.library.db.setFavorite(a.id, !a.isFavorite),
+        onToggleFavorite: (a) =>
+            widget.library.db.setFavorite(a.id, !a.isFavorite),
         cullingMode: true,
       ),
     ));
+  }
+
+  Future<void> _importSecurePackage() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pvshare'],
+      allowMultiple: false,
+    );
+    final path = result?.files.single.path;
+    if (path == null || !mounted) return;
+    final passphrase = await showEnterPassphraseDialog(context,
+        title: AppTexte.of(context).sicherTeilenImportPassphrase);
+    if (passphrase == null || !mounted) return;
+    setState(() => _shareImporting = true);
+    try {
+      final service = SecureShareService(
+          ExportService(widget.library.paths, library: widget.library));
+      final imported = await service.importPackage(
+          File(path), passphrase, widget.library.importService);
+      if (mounted) {
+        melde.erfolg(AppTexte.of(context)
+            .sicherTeilenImportFertig(imported.imported, imported.duplicates));
+      }
+    } catch (error) {
+      if (mounted) {
+        melde.warnung(
+            AppTexte.of(context).sicherTeilenImportFehler(error.toString()));
+      }
+    } finally {
+      if (mounted) setState(() => _shareImporting = false);
+    }
   }
 
   @override
@@ -141,8 +179,36 @@ class _ToolsScreenState extends State<ToolsScreen> {
               )),
             ),
           ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.health_and_safety_outlined),
+              title: Text(t.gesundheitTitel),
+              subtitle: Text(t.gesundheitWerkzeugText),
+              isThreeLine: true,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => LibraryHealthScreen(library: widget.library),
+              )),
+            ),
+          ),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.lock_open_outlined),
+              title: Text(t.sicherTeilenImportTitel),
+              subtitle: Text(t.sicherTeilenImportText),
+              isThreeLine: true,
+              trailing: _shareImporting
+                  ? const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.file_open_outlined),
+              onTap: _shareImporting ? null : _importSecurePackage,
+            ),
+          ),
           const SizedBox(height: 20),
-          Text(t.werkzAbschnittStatistik, style: Theme.of(context).textTheme.titleMedium),
+          Text(t.werkzAbschnittStatistik,
+              style: Theme.of(context).textTheme.titleMedium),
           Card(
             child: ListTile(
               leading: const Icon(Icons.bar_chart_outlined),
@@ -151,12 +217,14 @@ class _ToolsScreenState extends State<ToolsScreen> {
               isThreeLine: true,
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => StatisticsScreen(library: widget.library)),
+                MaterialPageRoute(
+                    builder: (_) => StatisticsScreen(library: widget.library)),
               ),
             ),
           ),
           const SizedBox(height: 20),
-          Text(t.werkzAbschnittGesichtserkennung, style: Theme.of(context).textTheme.titleMedium),
+          Text(t.werkzAbschnittGesichtserkennung,
+              style: Theme.of(context).textTheme.titleMedium),
           // Nur noch der Regler: Das Scannen selbst ist eine Aufgabe. Der
           // Regler dagegen ist eine Einstellung, die entscheidet, wie
           // gefundene Gesichter zu Personen zusammengelegt werden.
@@ -164,7 +232,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.xs),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg,
+                      AppSpacing.md, AppSpacing.lg, AppSpacing.xs),
                   child: Row(
                     children: [
                       Expanded(
@@ -187,25 +256,32 @@ class _ToolsScreenState extends State<ToolsScreen> {
                           // AppDatabase.setFaceSimilarityThreshold) – bei
                           // jeder Reglerbewegung wäre das eine Datenbank-
                           // Transaktion pro Bild.
-                          onChangeEnd: (v) => widget.library.setFaceSimilarityThreshold(v),
+                          onChangeEnd: (v) =>
+                              widget.library.setFaceSimilarityThreshold(v),
                         ),
                       ),
-                      SizedBox(width: 36, child: Text(_threshold.toStringAsFixed(2))),
+                      SizedBox(
+                          width: 36,
+                          child: Text(_threshold.toStringAsFixed(2))),
                     ],
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.lg, 0, AppSpacing.lg, AppSpacing.md),
                   child: Text(
                     t.werkzSchwelleErklaerung,
-                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          Text(t.werkzAbschnittVorschau, style: Theme.of(context).textTheme.titleMedium),
+          Text(t.werkzAbschnittVorschau,
+              style: Theme.of(context).textTheme.titleMedium),
           // Eine Auskunft, kein Vorgang: ob die Umwandlung für HEIC und RAW
           // überhaupt einsatzbereit ist. Das Erzeugen der Vorschaubilder
           // selbst ist eine Aufgabe.
@@ -221,7 +297,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 // Swift-Datei zu verweisen, die es hier gar nicht gibt.
                 final ueberWerkzeuge = !Platform.isMacOS;
                 final text = bereit
-                    ? (ueberWerkzeuge ? t.werkzHeicWerkzeugeAktiv : t.werkzHeicAktiv)
+                    ? (ueberWerkzeuge
+                        ? t.werkzHeicWerkzeugeAktiv
+                        : t.werkzHeicAktiv)
                     : (ueberWerkzeuge
                         ? t.werkzHeicWerkzeugeFehlen(
                             (stand?.fehlende ?? const <String>[]).join(', '))
@@ -229,7 +307,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 return ListTile(
                   leading: Icon(
                     bereit ? Icons.check_circle_outline : Icons.error_outline,
-                    color: bereit ? context.semantik.erfolg : context.semantik.warnung,
+                    color: bereit
+                        ? context.semantik.erfolg
+                        : context.semantik.warnung,
                   ),
                   title: Text(t.werkzHeicTitel),
                   subtitle: Text(text),
@@ -239,7 +319,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(t.werkzAbschnittOrte, style: Theme.of(context).textTheme.titleMedium),
+          Text(t.werkzAbschnittOrte,
+              style: Theme.of(context).textTheme.titleMedium),
           Card(
             child: ListTile(
               leading: const Icon(Icons.route_outlined),
@@ -253,7 +334,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(t.werkzAbschnittKamera, style: Theme.of(context).textTheme.titleMedium),
+          Text(t.werkzAbschnittKamera,
+              style: Theme.of(context).textTheme.titleMedium),
           Card(
             child: Column(
               children: [
@@ -264,7 +346,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => CameraPresetsScreen(library: widget.library)),
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            CameraPresetsScreen(library: widget.library)),
                   ),
                 ),
                 const Divider(height: 1),
@@ -276,7 +360,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (_) => ExportPresetsScreen(library: widget.library)),
+                        builder: (_) =>
+                            ExportPresetsScreen(library: widget.library)),
                   ),
                 ),
                 const Divider(height: 1),
@@ -288,7 +373,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (_) => StaubsucheScreen(library: widget.library)),
+                        builder: (_) =>
+                            StaubsucheScreen(library: widget.library)),
                   ),
                 ),
                 const Divider(height: 1),
@@ -299,14 +385,17 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => AutomationRulesScreen(library: widget.library)),
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            AutomationRulesScreen(library: widget.library)),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          Text(t.werkzAbschnittBibliothek, style: Theme.of(context).textTheme.titleMedium),
+          Text(t.werkzAbschnittBibliothek,
+              style: Theme.of(context).textTheme.titleMedium),
           Card(
             child: Column(
               children: [
@@ -325,7 +414,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   subtitle: Text(t.werkzDuplikateText),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => DuplicatesScreen(library: widget.library)),
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            DuplicatesScreen(library: widget.library)),
                   ),
                 ),
                 const Divider(height: 1),
@@ -348,8 +439,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                             child: Text(
                               t.werkzStapelGefunden(zahl),
                               style: TextStyle(
-                                  color:
-                                      Theme.of(context).colorScheme.primary),
+                                  color: Theme.of(context).colorScheme.primary),
                             ),
                           );
                         },
@@ -368,7 +458,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                             return const SizedBox.shrink();
                           }
                           return Padding(
-                            padding: const EdgeInsets.only(right: AppSpacing.sm),
+                            padding:
+                                const EdgeInsets.only(right: AppSpacing.sm),
                             child: Badge(label: Text('$zahl')),
                           );
                         },
@@ -401,8 +492,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                             child: Text(
                               t.ortVorschlagAlleUebernehmen(zahl),
                               style: TextStyle(
-                                  color:
-                                      Theme.of(context).colorScheme.primary),
+                                  color: Theme.of(context).colorScheme.primary),
                             ),
                           );
                         },
@@ -421,7 +511,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                             return const SizedBox.shrink();
                           }
                           return Padding(
-                            padding: const EdgeInsets.only(right: AppSpacing.sm),
+                            padding:
+                                const EdgeInsets.only(right: AppSpacing.sm),
                             child: Badge(label: Text('$zahl')),
                           );
                         },
@@ -434,8 +525,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                         builder: (_) =>
                             OrtsvorschlaegeScreen(library: widget.library)));
                     if (mounted) {
-                      setState(() =>
-                          _ortsvorschlagszahl = _zaehleOrtsvorschlaege());
+                      setState(
+                          () => _ortsvorschlagszahl = _zaehleOrtsvorschlaege());
                     }
                   },
                 ),
@@ -447,14 +538,17 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   isThreeLine: true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => IntegrityCheckScreen(library: widget.library)),
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            IntegrityCheckScreen(library: widget.library)),
                   ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
-          Text(t.werkzAbschnittInterop, style: Theme.of(context).textTheme.titleMedium),
+          Text(t.werkzAbschnittInterop,
+              style: Theme.of(context).textTheme.titleMedium),
           Card(
             child: ListTile(
               leading: const Icon(Icons.file_open_outlined),
@@ -463,7 +557,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
               isThreeLine: true,
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => XmpImportScreen(library: widget.library)),
+                MaterialPageRoute(
+                    builder: (_) => XmpImportScreen(library: widget.library)),
               ),
             ),
           ),

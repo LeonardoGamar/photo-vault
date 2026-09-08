@@ -1976,6 +1976,13 @@ abstract class AppTexte {
   /// **'Verschiebe Bibliothek …'**
   String get einstSpeicherortVerschiebenLaeuft;
 
+  /// No description provided for @einstSpeicherortFortschritt.
+  ///
+  /// In de, this message translates to:
+  /// **'{kopiert} von {gesamt} · {dateien} von {dateienGesamt} Dateien'**
+  String einstSpeicherortFortschritt(
+      String kopiert, String gesamt, int dateien, int dateienGesamt);
+
   /// No description provided for @einstSpeicherbedarf.
   ///
   /// In de, this message translates to:
@@ -12130,6 +12137,258 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'ISO'**
   String get suchoptIso;
+
+  /// No description provided for @startFehlerTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Die Bibliothek konnte nicht geöffnet werden'**
+  String get startFehlerTitel;
+
+  /// No description provided for @startFehlerText.
+  ///
+  /// In de, this message translates to:
+  /// **'Photo Vault ist beim Start auf einen Fehler gestoßen. Die technischen Einzelheiten helfen bei der Fehlersuche.'**
+  String get startFehlerText;
+
+  /// No description provided for @startFehlerErneut.
+  ///
+  /// In de, this message translates to:
+  /// **'Erneut versuchen'**
+  String get startFehlerErneut;
+
+  /// No description provided for @befehlspaletteTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Befehl suchen'**
+  String get befehlspaletteTitel;
+
+  /// No description provided for @befehlspaletteHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Bereich oder Werkzeug eingeben'**
+  String get befehlspaletteHinweis;
+
+  /// No description provided for @befehlspaletteLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Kein passender Befehl'**
+  String get befehlspaletteLeer;
+
+  /// No description provided for @kuerzelBefehlspalette.
+  ///
+  /// In de, this message translates to:
+  /// **'Befehlspalette öffnen'**
+  String get kuerzelBefehlspalette;
+
+  /// No description provided for @gesundheitTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Bibliothekszustand'**
+  String get gesundheitTitel;
+
+  /// No description provided for @gesundheitWerkzeugText.
+  ///
+  /// In de, this message translates to:
+  /// **'Sicherung, Datenbank, Speicher und lokale Modelle gemeinsam prüfen.'**
+  String get gesundheitWerkzeugText;
+
+  /// No description provided for @gesundheitEinleitung.
+  ///
+  /// In de, this message translates to:
+  /// **'Hier stehen die Punkte, die darüber entscheiden, ob die Bibliothek vollständig, gesichert und arbeitsbereit ist.'**
+  String get gesundheitEinleitung;
+
+  /// No description provided for @gesundheitAktualisieren.
+  ///
+  /// In de, this message translates to:
+  /// **'Zustand aktualisieren'**
+  String get gesundheitAktualisieren;
+
+  /// No description provided for @gesundheitDatenbank.
+  ///
+  /// In de, this message translates to:
+  /// **'Datenbank'**
+  String get gesundheitDatenbank;
+
+  /// No description provided for @gesundheitDatenbankOk.
+  ///
+  /// In de, this message translates to:
+  /// **'SQLite meldet keine strukturellen Fehler.'**
+  String get gesundheitDatenbankOk;
+
+  /// No description provided for @gesundheitDatenbankFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'SQLite hat einen strukturellen Fehler gemeldet.'**
+  String get gesundheitDatenbankFehler;
+
+  /// No description provided for @gesundheitIntegritaetOeffnen.
+  ///
+  /// In de, this message translates to:
+  /// **'Dateien vollständig prüfen'**
+  String get gesundheitIntegritaetOeffnen;
+
+  /// No description provided for @gesundheitSicherung.
+  ///
+  /// In de, this message translates to:
+  /// **'Automatische Sicherung'**
+  String get gesundheitSicherung;
+
+  /// No description provided for @gesundheitSicherungAus.
+  ///
+  /// In de, this message translates to:
+  /// **'Die automatische Sicherung ist ausgeschaltet.'**
+  String get gesundheitSicherungAus;
+
+  /// No description provided for @gesundheitSicherungNie.
+  ///
+  /// In de, this message translates to:
+  /// **'Die automatische Sicherung ist eingerichtet, aber noch nie erfolgreich gelaufen.'**
+  String get gesundheitSicherungNie;
+
+  /// No description provided for @gesundheitLetzteSicherung.
+  ///
+  /// In de, this message translates to:
+  /// **'Letzter erfolgreicher Lauf: {datum}'**
+  String gesundheitLetzteSicherung(String datum);
+
+  /// No description provided for @gesundheitSicherungOffen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Alle aktuellen Aufnahmen sind gesichert.} =1{1 Aufnahme wartet auf die Sicherung.} other{{anzahl} Aufnahmen warten auf die Sicherung.}}'**
+  String gesundheitSicherungOffen(int anzahl);
+
+  /// No description provided for @gesundheitSpeicher.
+  ///
+  /// In de, this message translates to:
+  /// **'Speicherbelegung'**
+  String get gesundheitSpeicher;
+
+  /// No description provided for @gesundheitMedien.
+  ///
+  /// In de, this message translates to:
+  /// **'{fotos} Fotos, {videos} Videos'**
+  String gesundheitMedien(int fotos, int videos);
+
+  /// No description provided for @gesundheitModelle.
+  ///
+  /// In de, this message translates to:
+  /// **'Lokale Funktionen'**
+  String get gesundheitModelle;
+
+  /// No description provided for @gesundheitModelleStand.
+  ///
+  /// In de, this message translates to:
+  /// **'{bereit} von {gesamt} lokalen Daten- und KI-Funktionen sind bereit.'**
+  String gesundheitModelleStand(int bereit, int gesamt);
+
+  /// No description provided for @datenschutzExportTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Datenschutzexport'**
+  String get datenschutzExportTitel;
+
+  /// No description provided for @datenschutzExportText.
+  ///
+  /// In de, this message translates to:
+  /// **'JPEG bis 2048 Pixel, ohne EXIF, GPS oder XMP; bekannte Gesichter und erkannte Kennzeichen werden lokal unkenntlich gemacht.'**
+  String get datenschutzExportText;
+
+  /// No description provided for @datenschutzAusgelassen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Aufnahme(n) ausgelassen: Videos und nicht renderbare Bilder lassen sich nicht von ihren Metadaten befreien.'**
+  String datenschutzAusgelassen(int anzahl);
+
+  /// No description provided for @sicherTeilenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Verschlüsseltes Austauschpaket'**
+  String get sicherTeilenTitel;
+
+  /// No description provided for @sicherTeilenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Originale und Dateinamen in einer passwortgeschützten .pvshare-Datei weitergeben.'**
+  String get sicherTeilenText;
+
+  /// No description provided for @sicherTeilenZiel.
+  ///
+  /// In de, this message translates to:
+  /// **'Austauschpaket speichern'**
+  String get sicherTeilenZiel;
+
+  /// No description provided for @sicherTeilenDateiname.
+  ///
+  /// In de, this message translates to:
+  /// **'PhotoVault-Austausch.pvshare'**
+  String get sicherTeilenDateiname;
+
+  /// No description provided for @sicherTeilenFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'Verschlüsseltes Austauschpaket gespeichert: {pfad}'**
+  String sicherTeilenFertig(String pfad);
+
+  /// No description provided for @sicherTeilenFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Austauschpaket konnte nicht erstellt werden: {fehler}'**
+  String sicherTeilenFehler(String fehler);
+
+  /// No description provided for @einstPrivateMetadatenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Private Metadaten schützen'**
+  String get einstPrivateMetadatenTitel;
+
+  /// No description provided for @einstPrivateMetadatenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Entfernt bei neu gesperrten Aufnahmen Dateiname, Datum, Standort, Beschreibung, Schlagwörter und Albumzuordnungen aus der lesbaren Datenbank. Die Angaben werden mit dem Tresorschlüssel verschlüsselt und beim dauerhaften Entsperren wiederhergestellt.'**
+  String get einstPrivateMetadatenText;
+
+  /// No description provided for @gesundheitBereinigen.
+  ///
+  /// In de, this message translates to:
+  /// **'Temporäre Dateien bereinigen'**
+  String get gesundheitBereinigen;
+
+  /// No description provided for @gesundheitBereinigt.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =0{Keine temporären Reste gefunden.} =1{1 temporäre Datei entfernt ({groesse}).} other{{anzahl} temporäre Dateien entfernt ({groesse}).}}'**
+  String gesundheitBereinigt(int anzahl, String groesse);
+
+  /// No description provided for @sicherTeilenImportTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Austauschpaket öffnen'**
+  String get sicherTeilenImportTitel;
+
+  /// No description provided for @sicherTeilenImportText.
+  ///
+  /// In de, this message translates to:
+  /// **'Eine passwortgeschützte .pvshare-Datei prüfen, entschlüsseln und in diese Bibliothek importieren.'**
+  String get sicherTeilenImportText;
+
+  /// No description provided for @sicherTeilenImportPassphrase.
+  ///
+  /// In de, this message translates to:
+  /// **'Passphrase des Austauschpakets'**
+  String get sicherTeilenImportPassphrase;
+
+  /// No description provided for @sicherTeilenImportFertig.
+  ///
+  /// In de, this message translates to:
+  /// **'{importiert} Aufnahmen importiert, {duplikate} Duplikate übersprungen.'**
+  String sicherTeilenImportFertig(int importiert, int duplikate);
+
+  /// No description provided for @sicherTeilenImportFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'Austauschpaket konnte nicht geöffnet werden: {fehler}'**
+  String sicherTeilenImportFehler(String fehler);
 }
 
 class _AppTexteDelegate extends LocalizationsDelegate<AppTexte> {
