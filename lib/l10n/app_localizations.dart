@@ -2253,6 +2253,30 @@ abstract class AppTexte {
   /// **'Wiederherstellen'**
   String get einstWiederherstellen;
 
+  /// No description provided for @einstBackupPruefen.
+  ///
+  /// In de, this message translates to:
+  /// **'Backup prüfen'**
+  String get einstBackupPruefen;
+
+  /// No description provided for @einstBackupPruefungLaeuft.
+  ///
+  /// In de, this message translates to:
+  /// **'Prüfe Wiederherstellbarkeit …'**
+  String get einstBackupPruefungLaeuft;
+
+  /// No description provided for @einstBackupPruefungErfolgreich.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Datei(en) sind vollständig wiederherstellbar.'**
+  String einstBackupPruefungErfolgreich(int anzahl);
+
+  /// No description provided for @einstBackupPruefungFehler.
+  ///
+  /// In de, this message translates to:
+  /// **'{gueltig} gültig, {fehlend} fehlend, {beschaedigt} beschädigt.'**
+  String einstBackupPruefungFehler(int gueltig, int fehlend, int beschaedigt);
+
   /// No description provided for @einstZielordner.
   ///
   /// In de, this message translates to:
@@ -5200,6 +5224,48 @@ abstract class AppTexte {
   /// **'In den Papierkorb verschieben'**
   String get duplVerschiebenTooltip;
 
+  /// No description provided for @duplZusammenfuehren.
+  ///
+  /// In de, this message translates to:
+  /// **'Zusammenführen'**
+  String get duplZusammenfuehren;
+
+  /// No description provided for @duplZusammenfuehrenTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Ähnliche Fotos zusammenführen'**
+  String get duplZusammenfuehrenTitel;
+
+  /// No description provided for @duplZusammenfuehrenText.
+  ///
+  /// In de, this message translates to:
+  /// **'Metadaten aller {anzahl} Fotos werden auf die gewählte Aufnahme übertragen. Die übrigen Fotos landen im Papierkorb und können dort wiederhergestellt werden.'**
+  String duplZusammenfuehrenText(int anzahl);
+
+  /// No description provided for @duplBehaltenAuswahl.
+  ///
+  /// In de, this message translates to:
+  /// **'Diese Aufnahme behalten'**
+  String get duplBehaltenAuswahl;
+
+  /// No description provided for @duplBehaltenDetails.
+  ///
+  /// In de, this message translates to:
+  /// **'{sterne} Sterne · {favorit} Favorit(en)'**
+  String duplBehaltenDetails(int sterne, int favorit);
+
+  /// No description provided for @duplBeschreibungenVerbinden.
+  ///
+  /// In de, this message translates to:
+  /// **'Unterschiedliche Beschreibungen verbinden'**
+  String get duplBeschreibungenVerbinden;
+
+  /// No description provided for @duplZusammengefuehrt.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Foto(s) zusammengeführt und in den Papierkorb verschoben.'**
+  String duplZusammengefuehrt(int anzahl);
+
   /// No description provided for @clusterTitel.
   ///
   /// In de, this message translates to:
@@ -6334,6 +6400,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Dieses Backup ist verschlüsselt – eine Passphrase wird benötigt.'**
   String get backupPassphraseNoetig;
+
+  /// No description provided for @backupOrdnerFehlt.
+  ///
+  /// In de, this message translates to:
+  /// **'Im gewählten Ordner liegt kein Backup.'**
+  String get backupOrdnerFehlt;
 
   /// No description provided for @downloadPruefsummeFehler.
   ///

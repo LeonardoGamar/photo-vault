@@ -18,6 +18,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../services/aktualisierungspruefung.dart';
 import '../services/backup_service.dart';
+import '../services/backup_verification_service.dart';
 import '../services/library_location.dart';
 import '../services/storage_paths.dart';
 import '../services/model_catalog.dart';
@@ -294,6 +295,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final t = AppTexte.of(context);
     return switch (fehler) {
       BackupBrauchtPassphrase() => t.backupPassphraseNoetig,
+      BackupPruefungBrauchtPassphrase() => t.backupPassphraseNoetig,
+      BackupOrdnerFehlt() => t.backupOrdnerFehlt,
       AktualisierungsFehler(
         problem: Aktualisierungsproblem.keineVeroeffentlichungen
       ) =>
@@ -347,6 +350,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (p.grenzeOffen != null) return t.backupGrenzeErreicht(p.grenzeOffen!);
     return '${p.done} / ${p.total}'
         '${p.currentFile != null ? ' — ${p.currentFile}' : ''}';
+  }
+
+  static String _backupPruefZeile(AppTexte t, BackupPrueffortschritt p) {
+    if (p.abgeschlossen) {
+      return p.erfolgreich
+          ? t.einstBackupPruefungErfolgreich(p.gueltig)
+          : t.einstBackupPruefungFehler(p.gueltig, p.fehlend, p.beschaedigt);
+    }
+    return '${p.erledigt} / ${p.gesamt}'
+        '${p.datei != null ? ' — ${p.datei}' : ''}';
   }
 
   Future<void> _openInFinder(String path) async {
@@ -997,8 +1010,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (source == null || !mounted) return;
 
+    final wurzel = await BackupPruefdienst.findeBackupWurzel(source);
     String? passphrase;
-    if (await File(p.join(source, 'vault.key')).exists()) {
+    if (await File(p.join(wurzel, 'vault.key')).exists()) {
       if (!mounted) return;
       passphrase = await showEnterPassphraseDialog(context,
           title: AppTexte.of(context).einstBackupPassphraseEingeben);
@@ -1018,13 +1032,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: t.einstBackupWiederherstellenLaeuft,
           fehlerText: (e) => _fehlertext(dialogContext, e),
           stream: widget.library.backupService
-              .restoreFromBackup(source, widget.library.importService,
+              .restoreFromBackup(wurzel, widget.library.importService,
                   passphrase: passphrase)
               .map((p) => _wiederherstellZeile(t, p)),
         );
       },
     );
     _refresh();
+  }
+
+  Future<void> _pruefeBackup() async {
+    final source = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: AppTexte.of(context).einstBackupOrdnerWaehlen,
+    );
+    if (source == null || !mounted) return;
+    final wurzel = await BackupPruefdienst.findeBackupWurzel(source);
+    String? passphrase;
+    if (await File(p.join(wurzel, 'vault.key')).exists()) {
+      if (!mounted) return;
+      passphrase = await showEnterPassphraseDialog(context,
+          title: AppTexte.of(context).einstBackupPassphraseEingeben);
+      if (passphrase == null) return;
+    }
+    if (!mounted) return;
+    final t = AppTexte.of(context);
+    BackupPrueffortschritt? letzter;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialog) => ProgressDialog(
+        title: t.einstBackupPruefungLaeuft,
+        fehlerText: (e) => _fehlertext(dialog, e),
+        stream: BackupPruefdienst()
+            .pruefe(wurzel, passphrase: passphrase)
+            .map((fortschritt) {
+          letzter = fortschritt;
+          return _backupPruefZeile(t, fortschritt);
+        }),
+      ),
+    );
+    if (!mounted || letzter == null) return;
+    if (letzter!.erfolgreich) {
+      melde.erfolg(t.einstBackupPruefungErfolgreich(letzter!.gueltig));
+    } else {
+      melde.warnung(t.einstBackupPruefungFehler(
+          letzter!.gueltig, letzter!.fehlend, letzter!.beschaedigt));
+    }
   }
 
   Future<void> _setupBackupPassphrase() async {
@@ -2440,6 +2493,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _pruefeBackup,
+                    icon: const Icon(Icons.fact_check_outlined),
+                    label: Text(AppTexte.of(context).einstBackupPruefen),
+                  ),
                 ),
               ),
               Padding(

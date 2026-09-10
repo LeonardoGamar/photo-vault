@@ -232,6 +232,78 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
     });
   }
 
+  /// Übernimmt die hilfreichen Metadaten aller Kopien auf eine bewusst
+  /// gewählte Aufnahme. Anders als „Löschen" geht dabei kein Tag, Album,
+  /// Favorit oder Stern verloren; die Quellbilder bleiben im Papierkorb und
+  /// können dort weiterhin zurückgeholt werden.
+  Future<void> _gruppeZusammenfuehren(List<AssetData> gruppe) async {
+    var behalten = besterDerGruppe(gruppe);
+    var beschreibungenVerbinden = true;
+    final t = AppTexte.of(context);
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(t.duplZusammenfuehrenTitel),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t.duplZusammenfuehrenText(gruppe.length)),
+                const SizedBox(height: AppSpacing.md),
+                Text(t.duplBehaltenAuswahl, style: Theme.of(context).textTheme.titleSmall),
+                RadioGroup<String>(
+                  groupValue: behalten.id,
+                  onChanged: (id) {
+                    if (id == null) return;
+                    setDialogState(() => behalten =
+                        gruppe.firstWhere((asset) => asset.id == id));
+                  },
+                  child: Column(
+                    children: [
+                      for (final asset in gruppe)
+                        RadioListTile<String>(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          value: asset.id,
+                          title: Text(asset.originalFileName,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
+                          subtitle: Text(t.duplBehaltenDetails(
+                              asset.rating, asset.isFavorite ? 1 : 0)),
+                        ),
+                    ],
+                  ),
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: beschreibungenVerbinden,
+                  onChanged: (value) => setDialogState(
+                      () => beschreibungenVerbinden = value ?? true),
+                  title: Text(t.duplBeschreibungenVerbinden),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: Text(t.allgAbbrechen)),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: Text(t.duplZusammenfuehren)),
+          ],
+        ),
+      ),
+    );
+    if (bestaetigt != true) return;
+    await widget.library.db.fuehreDuplikateZusammen(
+      behaltenId: behalten.id,
+      duplikatIds: gruppe.map((asset) => asset.id).toList(),
+      beschreibungenVerbinden: beschreibungenVerbinden,
+    );
+    if (!mounted) return;
+    setState(() => _groups.remove(gruppe));
+    melde.erfolg(t.duplZusammengefuehrt(gruppe.length - 1));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -354,6 +426,11 @@ class _DuplicatesScreenState extends State<DuplicatesScreen> {
                     onPressed: () => _gruppeIgnorieren(group),
                     icon: const Icon(Icons.visibility_off_outlined, size: 18),
                     label: Text(AppTexte.of(context).duplGruppeIgnorieren),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _gruppeZusammenfuehren(group),
+                    icon: const Icon(Icons.merge_type_outlined, size: 18),
+                    label: Text(AppTexte.of(context).duplZusammenfuehren),
                   ),
                 ],
               ),

@@ -3698,6 +3698,102 @@ class AppDatabase extends _$AppDatabase {
     _embeddingsGeneration++;
   }
 
+  /// Führt die Metadaten ähnlicher Aufnahmen auf [behaltenId] zusammen und
+  /// verschiebt die übrigen Dateien anschließend in den Papierkorb.
+  ///
+  /// Der Pixelinhalt wird nie verändert. Tags und Albumzuordnungen werden
+  /// vereinigt; Favorit und höchste Sterne bleiben erhalten. Bei gleicher
+  /// Beschreibung würde ein Anhängen nur Dubletten erzeugen, bei
+  /// unterschiedlichen entscheidet [beschreibungenVerbinden], ob beide
+  /// lesbar bleiben sollen. Die ganze Operation ist eine Transaktion, damit
+  /// nie eine halbe Metadatenübernahme neben noch sichtbaren Kopien steht.
+  Future<void> fuehreDuplikateZusammen({
+    required String behaltenId,
+    required List<String> duplikatIds,
+    bool beschreibungenVerbinden = true,
+  }) =>
+      transaction(() async {
+        final ids =
+            duplikatIds.where((id) => id != behaltenId).toSet().toList();
+        if (ids.isEmpty) {
+          return;
+        }
+        final behalten = await assetById(behaltenId);
+        if (behalten == null) {
+          throw ArgumentError.value(behaltenId, 'behaltenId');
+        }
+        final kopien =
+            await (select(assets)..where((t) => t.id.isIn(ids))).get();
+        if (kopien.isEmpty) {
+          return;
+        }
+
+        var favorit = behalten.isFavorite;
+        var bewertung = behalten.rating;
+        var farbe = behalten.colorLabel;
+        final beschreibungen = <String>{
+          if (behalten.description?.trim().isNotEmpty == true)
+            behalten.description!.trim(),
+        };
+        for (final kopie in kopien) {
+          favorit = favorit || kopie.isFavorite;
+          if (kopie.rating > bewertung) bewertung = kopie.rating;
+          farbe ??= kopie.colorLabel;
+          if (kopie.description?.trim().isNotEmpty == true) {
+            beschreibungen.add(kopie.description!.trim());
+          }
+        }
+
+        for (final id in ids) {
+          final tagsDerKopie = await (select(assetTags)
+                ..where((t) => t.assetId.equals(id)))
+              .get();
+          final albenDerKopie = await (select(albumAssets)
+                ..where((t) => t.assetId.equals(id)))
+              .get();
+          for (final tag in tagsDerKopie) {
+            if (tag.quelle == Tagquelle.hand) {
+              // Hand schlägt KI – dieselbe Regel wie in [tagAsset].
+              await into(assetTags).insertOnConflictUpdate(
+                  AssetTagsCompanion.insert(
+                      assetId: behaltenId,
+                      tagId: tag.tagId,
+                      quelle: const Value(Tagquelle.hand)));
+            } else {
+              await into(assetTags).insert(
+                AssetTagsCompanion.insert(
+                    assetId: behaltenId,
+                    tagId: tag.tagId,
+                    quelle: Value(tag.quelle)),
+                mode: InsertMode.insertOrIgnore,
+              );
+            }
+          }
+          for (final album in albenDerKopie) {
+            await into(albumAssets).insert(
+              AlbumAssetsCompanion.insert(
+                  albumId: album.albumId, assetId: behaltenId),
+              mode: InsertMode.insertOrIgnore,
+            );
+          }
+        }
+
+        final beschreibung = beschreibungen.isEmpty
+            ? null
+            : beschreibungenVerbinden
+                ? beschreibungen.join('\n\n')
+                : beschreibungen.first;
+        await (update(assets)..where((t) => t.id.equals(behaltenId))).write(
+          AssetsCompanion(
+            isFavorite: Value(favorit),
+            rating: Value(bewertung),
+            colorLabel: Value(farbe),
+            description: Value(beschreibung),
+          ),
+        );
+        await moveToTrash(ids);
+      });
+
   Future<void> restoreFromTrash(List<String> assetIds) async {
     await (update(assets)..where((t) => t.id.isIn(assetIds))).write(
         const AssetsCompanion(isTrashed: Value(false), trashedAt: Value(null)));

@@ -232,32 +232,32 @@ void main() {
     group('Schwager und Schwaegerin', () {
       // Der gemeldete Fehler: Der Verwandtschaftsrechner sagt „Schwager",
       // der Baum zeigte niemanden. Nachgestellt ist die Lage aus der
-      // echten Bibliothek: Marco und Jenni sind Geschwister, Jenni ist
-      // mit Marcel zusammen, Marco mit Marly. Marcel ist Marcos Schwager,
-      // Jenni ist Marlys Schwaegerin.
+      // echten Bibliothek: Caesar und Dora sind Geschwister, Dora ist
+      // mit Felix zusammen, Caesar mit Emma. Felix ist Caesars Schwager,
+      // Dora ist Emmas Schwaegerin.
       final familie = Verwandtschaftsnetz([
-        kante('marco', 'nicki', Verwandtschaft.elternteil),
-        kante('jenni', 'nicki', Verwandtschaft.elternteil),
-        partnerKanteFuer('jenni', 'marcel'),
-        partnerKanteFuer('marco', 'marly'),
+        kante('caesar', 'berta', Verwandtschaft.elternteil),
+        kante('dora', 'berta', Verwandtschaft.elternteil),
+        partnerKanteFuer('dora', 'felix'),
+        partnerKanteFuer('caesar', 'emma'),
       ]);
-      const namen = ['jenni', 'marcel', 'marco', 'marly', 'nicki'];
+      const namen = ['dora', 'felix', 'caesar', 'emma', 'berta'];
 
       test('der Partner des Geschwisters', () {
-        final a = ausschnittUm(familie, 'marco', namen, seitenlinien: true);
-        expect(a.geschwister, ['jenni']);
-        expect(a.partner, ['marly']);
-        expect(a.schwaeger, ['marcel']);
+        final a = ausschnittUm(familie, 'caesar', namen, seitenlinien: true);
+        expect(a.geschwister, ['dora']);
+        expect(a.partner, ['emma']);
+        expect(a.schwaeger, ['felix']);
       });
 
       test('und das Geschwister des Partners – dieselbe Liste', () {
-        // Aus Marlys Sicht fuehrt der Weg ueber den Partner statt ueber
+        // Aus Emmas Sicht fuehrt der Weg ueber den Partner statt ueber
         // das Geschwister. Herauskommen soll dasselbe: eine Person, die
         // im Bild steht.
-        final a = ausschnittUm(familie, 'marly', namen, seitenlinien: true);
+        final a = ausschnittUm(familie, 'emma', namen, seitenlinien: true);
         expect(a.geschwister, isEmpty);
-        expect(a.partner, ['marco']);
-        expect(a.schwaeger, ['jenni']);
+        expect(a.partner, ['caesar']);
+        expect(a.schwaeger, ['dora']);
       });
 
       test('was der Rechner Schwager nennt, steht auch im Baum', () {

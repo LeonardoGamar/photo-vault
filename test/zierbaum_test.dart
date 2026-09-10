@@ -256,7 +256,7 @@ void main() {
   group('das Schild traegt, was auf ihm steht', () {
     test('drei Zeilen passen auf die Tafel', () {
       // Der gemeldete Fehler: Auf einem Schild lag "Sohn" halb ueber
-      // "Marco". Ein `Flexible` laesst Zeilen nicht ueberlappen - es
+      // "Martin". Ein `Flexible` laesst Zeilen nicht ueberlappen - es
       // QUETSCHT sie, und der Text malt dann ueber seinen eigenen Rand
       // hinaus.
       //

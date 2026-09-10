@@ -1326,6 +1326,22 @@ class AppTexteEn extends AppTexte {
   String get einstWiederherstellen => 'Restore';
 
   @override
+  String get einstBackupPruefen => 'Verify backup';
+
+  @override
+  String get einstBackupPruefungLaeuft => 'Checking recoverability …';
+
+  @override
+  String einstBackupPruefungErfolgreich(int anzahl) {
+    return '$anzahl file(s) can be fully restored.';
+  }
+
+  @override
+  String einstBackupPruefungFehler(int gueltig, int fehlend, int beschaedigt) {
+    return '$gueltig valid, $fehlend missing, $beschaedigt corrupted.';
+  }
+
+  @override
   String get einstZielordner => 'Destination folder';
 
   @override
@@ -2992,6 +3008,33 @@ class AppTexteEn extends AppTexte {
   String get duplVerschiebenTooltip => 'Move to the trash';
 
   @override
+  String get duplZusammenfuehren => 'Merge';
+
+  @override
+  String get duplZusammenfuehrenTitel => 'Merge similar photos';
+
+  @override
+  String duplZusammenfuehrenText(int anzahl) {
+    return 'Metadata from all $anzahl photos is transferred to the selected photo. The remaining photos go to the trash and can be restored there.';
+  }
+
+  @override
+  String get duplBehaltenAuswahl => 'Keep this photo';
+
+  @override
+  String duplBehaltenDetails(int sterne, int favorit) {
+    return '$sterne stars · $favorit favourite(s)';
+  }
+
+  @override
+  String get duplBeschreibungenVerbinden => 'Combine distinct descriptions';
+
+  @override
+  String duplZusammengefuehrt(int anzahl) {
+    return 'Merged $anzahl photo(s) and moved them to trash.';
+  }
+
+  @override
   String get clusterTitel => 'Review suggestions';
 
   @override
@@ -3750,6 +3793,10 @@ class AppTexteEn extends AppTexte {
   @override
   String get backupPassphraseNoetig =>
       'This backup is encrypted – a passphrase is needed.';
+
+  @override
+  String get backupOrdnerFehlt =>
+      'The selected folder does not contain a backup.';
 
   @override
   String downloadPruefsummeFehler(

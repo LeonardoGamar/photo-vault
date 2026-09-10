@@ -18,7 +18,7 @@ import 'package:photo_vault/widgets/person_picker_dialog.dart';
 /// und dass **dasselbe Feld sucht und anlegt**.
 ///
 /// Das letzte ist der heikle Teil: Wer sich vertippt, legt sonst eine
-/// zweite „Marco" an, statt die erste zu finden. Deshalb sagt die
+/// zweite „Martin" an, statt die erste zu finden. Deshalb sagt die
 /// Beschriftung des Knopfes, was er tut, und ein Name, den es schon gibt,
 /// führt zur bestehenden Person statt zu einer neuen.
 void main() {
@@ -153,14 +153,14 @@ void main() {
   });
 
   testWidgets('wer vorn anfängt, steht oben', (tester) async {
-    // „Ma" meint eher Marco als Thomas – sonst muss man in einer nach
+    // „Ma" meint eher Martin als Thomas – sonst muss man in einer nach
     // Alphabet sortierten Liste an den Treffern vorbeisuchen.
-    await zeige(tester, [person('p1', 'Thomas'), person('p2', 'Marco')]);
+    await zeige(tester, [person('p1', 'Thomas'), person('p2', 'Martin')]);
     await tester.enterText(find.byType(TextField), 'ma');
     await tester.pumpAndSettle();
 
     final zeilen = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
-    expect((zeilen.first.title! as Text).data, 'Marco');
+    expect((zeilen.first.title! as Text).data, 'Martin');
   });
 
   testWidgets('ein neuer Name legt an, und der Knopf sagt es', (tester) async {

@@ -1339,6 +1339,22 @@ class AppTexteDe extends AppTexte {
   String get einstWiederherstellen => 'Wiederherstellen';
 
   @override
+  String get einstBackupPruefen => 'Backup prüfen';
+
+  @override
+  String get einstBackupPruefungLaeuft => 'Prüfe Wiederherstellbarkeit …';
+
+  @override
+  String einstBackupPruefungErfolgreich(int anzahl) {
+    return '$anzahl Datei(en) sind vollständig wiederherstellbar.';
+  }
+
+  @override
+  String einstBackupPruefungFehler(int gueltig, int fehlend, int beschaedigt) {
+    return '$gueltig gültig, $fehlend fehlend, $beschaedigt beschädigt.';
+  }
+
+  @override
   String get einstZielordner => 'Zielordner';
 
   @override
@@ -3015,6 +3031,34 @@ class AppTexteDe extends AppTexte {
   String get duplVerschiebenTooltip => 'In den Papierkorb verschieben';
 
   @override
+  String get duplZusammenfuehren => 'Zusammenführen';
+
+  @override
+  String get duplZusammenfuehrenTitel => 'Ähnliche Fotos zusammenführen';
+
+  @override
+  String duplZusammenfuehrenText(int anzahl) {
+    return 'Metadaten aller $anzahl Fotos werden auf die gewählte Aufnahme übertragen. Die übrigen Fotos landen im Papierkorb und können dort wiederhergestellt werden.';
+  }
+
+  @override
+  String get duplBehaltenAuswahl => 'Diese Aufnahme behalten';
+
+  @override
+  String duplBehaltenDetails(int sterne, int favorit) {
+    return '$sterne Sterne · $favorit Favorit(en)';
+  }
+
+  @override
+  String get duplBeschreibungenVerbinden =>
+      'Unterschiedliche Beschreibungen verbinden';
+
+  @override
+  String duplZusammengefuehrt(int anzahl) {
+    return '$anzahl Foto(s) zusammengeführt und in den Papierkorb verschoben.';
+  }
+
+  @override
   String get clusterTitel => 'Vorschläge prüfen';
 
   @override
@@ -3779,6 +3823,9 @@ class AppTexteDe extends AppTexte {
   @override
   String get backupPassphraseNoetig =>
       'Dieses Backup ist verschlüsselt – eine Passphrase wird benötigt.';
+
+  @override
+  String get backupOrdnerFehlt => 'Im gewählten Ordner liegt kein Backup.';
 
   @override
   String downloadPruefsummeFehler(

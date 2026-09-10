@@ -900,7 +900,7 @@ void main() {
   testWidgets('ein Schild mit beiden Mehrzeichen laeuft nicht ueber',
       (tester) async {
     // Der gemeldete Fehler, am Bildschirmfoto zu sehen: Auf einer Karte
-    // lag "Sohn" halb ueber "Marco". Ursache waren fuenf Zeilen in einem
+    // lag "Sohn" halb ueber "Martin". Ursache waren fuenf Zeilen in einem
     // Schild, das fuer drei gebaut ist - Name, Verhaeltnis, Lebensdaten
     // plus zwei Mehrzeichen. Sie liegen jetzt als Marke am Rand.
     tester.view.physicalSize = const Size(1800, 1200);
@@ -924,8 +924,8 @@ void main() {
     await db.fuegeBeziehungHinzu(
         'urururenkel', 'ururenkel', Verwandtschaft.elternteil);
     // Ein zweiter Elternteil, der zur Mitte in keiner Beziehung steht -
-    // genau die Lage aus der Meldung, wo Marco einen Vater hatte, der
-    // von Conny aus niemand ist. Damit traegt Ururenkel BEIDE Zeichen:
+    // genau die Lage aus der Meldung, wo Martin einen Vater hatte, der
+    // von Berta aus niemand ist. Damit traegt Ururenkel BEIDE Zeichen:
     // oben ein unbekannter Elternteil, unten ein Kind ausserhalb.
     await db.createPerson(
         PeopleCompanion.insert(id: 'fremd', name: 'Fremde'));
@@ -950,7 +950,7 @@ void main() {
     // kaputt war: Ein `Flexible` laesst seine Zeilen nicht ueberlappen -
     // es DRUECKT sie zusammen, und der Text malt dann ueber seinen
     // eigenen Kasten hinaus. Auf dem Bildschirmfoto lag "Sohn" deshalb
-    // halb ueber "Marco", obwohl die Kaesten sauber untereinander lagen.
+    // halb ueber "Martin", obwohl die Kaesten sauber untereinander lagen.
     //
     // Messbar ist es an der Kastenhoehe: Sie muss mindestens die
     // Zeilenhoehe hergeben.

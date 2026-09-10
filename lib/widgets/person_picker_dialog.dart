@@ -124,7 +124,7 @@ class _PersonPickerDialogState extends State<_PersonPickerDialog> {
         if (suche.isEmpty || p.name.toLowerCase().contains(suche)) p,
     ]..sort((a, b) {
         // Wer vorn ANFÄNGT, steht vor dem, bei dem es mittendrin steht:
-        // Wer „Ma" tippt, meint eher Marco als Thomas.
+        // Wer „Ma" tippt, meint eher Martin als Thomas.
         if (suche.isNotEmpty) {
           final a0 = a.name.toLowerCase().startsWith(suche);
           final b0 = b.name.toLowerCase().startsWith(suche);
@@ -145,8 +145,8 @@ class _PersonPickerDialogState extends State<_PersonPickerDialog> {
 
   /// Ob die Eingabe genau eine bestehende Person nennt.
   ///
-  /// Gross-/Kleinschreibung zählt hier nicht: Wer „marco" tippt, meint
-  /// nicht, eine zweite Person neben „Marco" anzulegen.
+  /// Gross-/Kleinschreibung zählt hier nicht: Wer „martin" tippt, meint
+  /// nicht, eine zweite Person neben „Martin" anzulegen.
   PersonData? get _namensgleich {
     if (_suche.isEmpty) return null;
     for (final p in widget.existingPeople) {
@@ -291,7 +291,7 @@ class _PersonPickerDialogState extends State<_PersonPickerDialog> {
               : () => Navigator.pop(context, _ergebnis),
           // Die Beschriftung sagt, was passiert: zuordnen oder neu anlegen.
           // Ein Knopf, der beides tut und nur eines sagt, legt irgendwann
-          // eine zweite „Marco" an, weil sich jemand vertippt hat.
+          // eine zweite „Martin" an, weil sich jemand vertippt hat.
           child: Text(_legtAn
               ? t.personAnlegenAktion(_suche)
               : t.personZuordnenAktion),

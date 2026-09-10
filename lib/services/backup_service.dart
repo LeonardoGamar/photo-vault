@@ -428,6 +428,13 @@ class BackupService {
       assetsJson.add({
         'checksum': a.checksum,
         'originalFileName': a.originalFileName,
+        // Die Wiederherstellung braucht diesen Pfad nicht, die
+        // Sicherungsprüfung aber schon: Nur so kann sie eine vorhandene,
+        // aber veränderte Datei klar von einer fehlenden unterscheiden,
+        // ohne den ganzen Zielordner nach jedem möglichen Hash absuchen zu
+        // müssen. Bei verschlüsselten Backups liegt das Feld selbst wieder
+        // in der verschlüsselten metadata.json.
+        'backupRelativePath': a.relativePath,
         'isFavorite': a.isFavorite,
         'description': a.description,
         'fileCreatedAt': a.fileCreatedAt.toIso8601String(),

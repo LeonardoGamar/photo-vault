@@ -633,7 +633,7 @@ und mit `PATH=C:\WINDOWS\System32;C:\WINDOWS` gestartet.
 laeuft, PID 13632
 Fenstertitel: 'Photo Vault'
 Arbeitsspeicher: 178 MB
-Datenordner: C:\Users\marco\AppData\Roaming\com.example\photo_vault\PhotoVault
+Datenordner: C:\Users\<Benutzer>\AppData\Roaming\com.example\photo_vault\PhotoVault
   geodata  library  models  library.sqlite (286.720 Bytes)
 ```
 

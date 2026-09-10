@@ -178,66 +178,66 @@ void main() {
 void seitenlinienTests() {
   /// Der gemeldete Bestand, auf das Wesentliche verkürzt:
   ///
-  ///   conny ── nicki
-  ///     ├ marco ── marly        jenni ── marcel
-  ///     │   └ dante                 └ mika
+  ///   anton ── berta
+  ///     ├ caesar ── emma        dora ── felix
+  ///     │  └ gustav              └ heidi
   Verwandtschaftsnetz bestand() => Verwandtschaftsnetz([
-        kante('marco', 'conny', Verwandtschaft.elternteil),
-        kante('marco', 'nicki', Verwandtschaft.elternteil),
-        kante('jenni', 'conny', Verwandtschaft.elternteil),
-        kante('jenni', 'nicki', Verwandtschaft.elternteil),
-        kante('dante', 'marco', Verwandtschaft.elternteil),
-        kante('mika', 'jenni', Verwandtschaft.elternteil),
-        kante('mika', 'marcel', Verwandtschaft.elternteil),
-        partnerKanteFuer('marly', 'marco'),
-        partnerKanteFuer('marcel', 'jenni'),
+        kante('caesar', 'anton', Verwandtschaft.elternteil),
+        kante('caesar', 'berta', Verwandtschaft.elternteil),
+        kante('dora', 'anton', Verwandtschaft.elternteil),
+        kante('dora', 'berta', Verwandtschaft.elternteil),
+        kante('gustav', 'caesar', Verwandtschaft.elternteil),
+        kante('heidi', 'dora', Verwandtschaft.elternteil),
+        kante('heidi', 'felix', Verwandtschaft.elternteil),
+        partnerKanteFuer('emma', 'caesar'),
+        partnerKanteFuer('felix', 'dora'),
       ]);
 
   const ordnung = {
-    'conny': 0, 'nicki': 1, 'marco': 2, 'jenni': 3,
-    'marly': 4, 'marcel': 5, 'dante': 6, 'mika': 7,
+    'anton': 0, 'berta': 1, 'caesar': 2, 'dora': 3,
+    'emma': 4, 'felix': 5, 'gustav': 6, 'heidi': 7,
   };
   int rang(String id) => ordnung[id] ?? 99;
 
   Sanduhr mitSeite({bool an = true}) =>
-      ordneSanduhr(bestand(), 'marco', rang, seitenlinien: an);
+      ordneSanduhr(bestand(), 'caesar', rang, seitenlinien: an);
 
   group('Seitenlinie', () {
     test('das Geschwister steht in derselben Reihe wie die Person', () {
       final s = mitSeite();
-      final jenni = s.knoten.firstWhere((k) => k.personId == 'jenni');
-      expect(jenni.reihe, 0);
-      expect(jenni.istPartner, isFalse);
+      final dora = s.knoten.firstWhere((k) => k.personId == 'dora');
+      expect(dora.reihe, 0);
+      expect(dora.istPartner, isFalse);
     });
 
     test('der Neffe steht eine Reihe darunter – der eigentliche Anlass', () {
       final s = mitSeite();
-      final mika = s.knoten.firstWhere((k) => k.personId == 'mika');
-      expect(mika.reihe, 1);
+      final heidi = s.knoten.firstWhere((k) => k.personId == 'heidi');
+      expect(heidi.reihe, 1);
     });
 
     test('der Schwager kommt als Partner des Geschwisters mit', () {
       final s = mitSeite();
-      final marcel = s.knoten.firstWhere((k) => k.personId == 'marcel');
-      expect(marcel.reihe, 0);
-      expect(marcel.istPartner, isTrue);
+      final felix = s.knoten.firstWhere((k) => k.personId == 'felix');
+      expect(felix.reihe, 0);
+      expect(felix.istPartner, isTrue);
     });
 
     test('ohne Seitenlinie bleibt es bei der eigenen Linie', () {
       final s = mitSeite(an: false);
       final drin = s.knoten.map((k) => k.personId).toSet();
-      expect(drin, equals({'marco', 'marly', 'dante', 'conny', 'nicki'}));
-      expect(drin, isNot(contains('jenni')));
-      expect(drin, isNot(contains('mika')));
+      expect(drin, equals({'caesar', 'emma', 'gustav', 'anton', 'berta'}));
+      expect(drin, isNot(contains('dora')));
+      expect(drin, isNot(contains('heidi')));
     });
 
     test('das Geschwister hängt an denselben Eltern, mit eigenen Kanten', () {
       final s = mitSeite();
       final vonJenni = s.kanten
-          .where((k) => k.vonId == 'jenni')
+          .where((k) => k.vonId == 'dora')
           .map((k) => k.zuId)
           .toSet();
-      expect(vonJenni, containsAll({'conny', 'nicki'}),
+      expect(vonJenni, containsAll({'anton', 'berta'}),
           reason: 'ohne diese Kanten schwebte das Geschwister ohne Anschluss');
     });
 
@@ -258,26 +258,26 @@ void seitenlinienTests() {
 
     test('die Wurzel bleibt die Achse – die Eltern stehen über ihr', () {
       final s = mitSeite();
-      final marco = s.knoten.firstWhere((k) => k.personId == 'marco');
-      final conny = s.knoten.firstWhere((k) => k.personId == 'conny');
-      final nicki = s.knoten.firstWhere((k) => k.personId == 'nicki');
-      expect((conny.spalte + nicki.spalte) / 2, closeTo(marco.spalte, 0.001),
+      final caesar = s.knoten.firstWhere((k) => k.personId == 'caesar');
+      final anton = s.knoten.firstWhere((k) => k.personId == 'anton');
+      final berta = s.knoten.firstWhere((k) => k.personId == 'berta');
+      expect((anton.spalte + berta.spalte) / 2, closeTo(caesar.spalte, 0.001),
           reason: 'die Eltern rahmen die gewählte Person, nicht die Gruppe');
     });
 
     test('ein Halbgeschwister bekommt nur die Kante zum gemeinsamen Elternteil',
         () {
       final netz = Verwandtschaftsnetz([
-        kante('marco', 'conny', Verwandtschaft.elternteil),
-        kante('marco', 'nicki', Verwandtschaft.elternteil),
-        // Halb: nur conny gemeinsam.
-        kante('halb', 'conny', Verwandtschaft.elternteil),
+        kante('caesar', 'anton', Verwandtschaft.elternteil),
+        kante('caesar', 'berta', Verwandtschaft.elternteil),
+        // Halb: nur anton gemeinsam.
+        kante('halb', 'anton', Verwandtschaft.elternteil),
         kante('halb', 'fremd', Verwandtschaft.elternteil),
       ]);
-      final s = ordneSanduhr(netz, 'marco', rang);
+      final s = ordneSanduhr(netz, 'caesar', rang);
       final vonHalb =
           s.kanten.where((k) => k.vonId == 'halb').map((k) => k.zuId).toSet();
-      expect(vonHalb, equals({'conny'}),
+      expect(vonHalb, equals({'anton'}),
           reason: 'der zweite Elternteil steht nicht im Bild');
     });
 

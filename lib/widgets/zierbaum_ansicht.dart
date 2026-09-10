@@ -241,7 +241,7 @@ class _Schild extends StatelessWidget {
             // zu je dreizehn werden daraus 82,6. Ein `Flexible` lässt
             // Zeilen dann nicht überlappen, es QUETSCHT sie, und der
             // Text malt über seinen eigenen Rand hinaus. Genau so lag im
-            // gemeldeten Bild „Sohn" halb über „Marco".
+            // gemeldeten Bild „Sohn" halb über „Martin".
             //
             // Als Marke am Rand sagen sie dasselbe und kosten keine
             // Zeile. Und sie liegen im SELBEN Stack wie der Menüknopf:

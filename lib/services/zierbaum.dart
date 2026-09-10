@@ -305,7 +305,7 @@ class Schildmasse {
   /// quetscht ein `Flexible` sie zusammen – die Kästen bleiben brav
   /// untereinander, aber der Text malt über seinen eigenen Rand hinaus
   /// und liegt auf der Zeile darüber. Genau so sah es im gemeldeten
-  /// Bildschirmfoto aus: „Sohn" lag halb über „Marco".
+  /// Bildschirmfoto aus: „Sohn" lag halb über „Martin".
   ///
   /// Ein Widget-Test findet das **nicht**: Er rendert mit einer
   /// Platzhalterschrift, deren Zeilenmasse andere sind als die von EB
