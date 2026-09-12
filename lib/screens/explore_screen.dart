@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
@@ -6,6 +7,7 @@ import '../db/database.dart';
 import '../db/rasterzeile.dart';
 import '../l10n/app_localizations.dart';
 import '../services/rasterstufen.dart';
+import '../services/rueckblick.dart';
 import '../services/search_filters.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
@@ -889,19 +891,25 @@ class _MemoriesSection extends StatefulWidget {
 }
 
 class _MemoriesSectionState extends State<_MemoriesSection> {
-  late final Future<List<AssetData>> _memoriesFuture = widget.library.db.assetsOnThisDay(DateTime.now());
+  static final _heute = DateTime.now();
 
-  /// [assets] kommt bereits absteigend nach Aufnahmedatum sortiert – die
-  /// Gruppierung hier fasst sie nur noch nach "vor wie vielen Jahren"
-  /// zusammen, die Reihenfolge innerhalb einer Gruppe bleibt erhalten.
-  Map<int, List<AssetData>> _groupByYearsAgo(List<AssetData> assets) {
-    final now = DateTime.now();
-    final groups = <int, List<AssetData>>{};
-    for (final a in assets) {
-      final yearsAgo = now.year - a.fileCreatedAt.year;
-      groups.putIfAbsent(yearsAgo, () => []).add(a);
-    }
-    return groups;
+  /// Beide Fragen werden gestellt, gezeigt wird die engere, die etwas
+  /// hat (siehe [waehleRueckblick]). Der Monat kostet dieselbe Abfrage
+  /// noch einmal – gemessen 31 ms – und erspart dem Abschnitt an 104
+  /// Tagen im Jahr das wortlose Verschwinden.
+  late final Future<Rueckblick<AssetData>> _rueckblick = _laden();
+
+  Future<Rueckblick<AssetData>> _laden() async {
+    final db = widget.library.db;
+    final amTag = await db.assetsOnThisDay(_heute);
+    final imMonat =
+        amTag.isEmpty ? await db.assetsInDiesemMonat(_heute) : <AssetData>[];
+    return waehleRueckblick(
+      amTag: amTag,
+      imMonat: imMonat,
+      wann: (a) => a.fileCreatedAt,
+      heute: _heute,
+    );
   }
 
   void _openMemory(BuildContext context, List<AssetData> assets, AssetData asset) {
@@ -925,25 +933,37 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<AssetData>>(
-      future: _memoriesFuture,
+    final t = AppTexte.of(context);
+    return FutureBuilder<Rueckblick<AssetData>>(
+      future: _rueckblick,
       builder: (context, snapshot) {
-        final assets = snapshot.data ?? [];
-        if (assets.isEmpty) return const SizedBox.shrink();
-
-        final groups = _groupByYearsAgo(assets);
-        final orderedYearsAgo = groups.keys.toList()..sort();
+        final rueckblick = snapshot.data;
+        if (rueckblick == null ||
+            rueckblick.art == Rueckblickart.keiner) {
+          return const SizedBox.shrink();
+        }
+        final letzte = rueckblick.gruppen.last.jahreHer;
+        final monat = DateFormat.MMMM(Localizations.localeOf(context)
+                .toString())
+            .format(_heute);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppTexte.of(context).erkundenErinnerungen, style: Theme.of(context).textTheme.titleMedium),
+            Text(t.erkundenErinnerungen,
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            for (final yearsAgo in orderedYearsAgo) ...[
+            for (final gruppe in rueckblick.gruppen) ...[
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: Text(
-                  AppTexte.of(context).erkundenVorJahren(yearsAgo),
+                  // Der Monatsrueckblick sagt ausdruecklich Monat: „vor
+                  // 13 Jahren" ueber einem Bild vom 3. September waere
+                  // am 12. September eine Behauptung ueber den Tag, die
+                  // niemand aufgestellt hat.
+                  rueckblick.art == Rueckblickart.tag
+                      ? t.erkundenVorJahren(gruppe.jahreHer)
+                      : t.erkundenImMonatVorJahren(monat, gruppe.jahreHer),
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -951,11 +971,10 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
                 height: 140,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: groups[yearsAgo]!.length,
+                  itemCount: gruppe.dinge.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (context, index) {
-                    final group = groups[yearsAgo]!;
-                    final asset = group[index];
+                    final asset = gruppe.dinge[index];
                     return SizedBox(
                       width: 140,
                       child: ClipRRect(
@@ -963,14 +982,15 @@ class _MemoriesSectionState extends State<_MemoriesSection> {
                         child: AssetThumbnailTile(
                           asset: Rasterzeile.aus(asset),
                           paths: widget.library.paths,
-                          onTap: () => _openMemory(context, group, asset),
+                          onTap: () =>
+                              _openMemory(context, gruppe.dinge, asset),
                         ),
                       ),
                     );
                   },
                 ),
               ),
-              if (yearsAgo != orderedYearsAgo.last) const SizedBox(height: 16),
+              if (gruppe.jahreHer != letzte) const SizedBox(height: 16),
             ],
           ],
         );

@@ -85,7 +85,10 @@ void main() {
   }
 
   Future<void> zeige(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1400, 2400);
+    // Hoch genug, damit auch die weiter unten stehenden Karten gebaut
+    // sind: Die Liste baut faul, und mit jeder neuen Aufgabe rutscht
+    // „Orte einlesen" weiter nach unten.
+    tester.view.physicalSize = const Size(1400, 3600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(
@@ -166,7 +169,10 @@ void main() {
       strom: () => regler.stream,
     );
 
-    tester.view.physicalSize = const Size(1400, 2400);
+    // Hoch genug, damit auch die weiter unten stehenden Karten gebaut
+    // sind: Die Liste baut faul, und mit jeder neuen Aufgabe rutscht
+    // „Orte einlesen" weiter nach unten.
+    tester.view.physicalSize = const Size(1400, 3600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(MaterialApp(

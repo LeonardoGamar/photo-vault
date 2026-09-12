@@ -3975,6 +3975,11 @@ class AppTexteDe extends AppTexte {
   }
 
   @override
+  String erkundenImMonatVorJahren(String monat, int jahre) {
+    return 'Im $monat vor $jahre Jahren';
+  }
+
+  @override
   String get gesichtBenennen => 'Gesicht benennen';
 
   @override
@@ -4363,6 +4368,17 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get personenIgnorierenTooltip => 'Ausgewählte Gesichter ignorieren';
+
+  @override
+  String personenZugeordnetMeldung(int anzahl, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl Gesichter „$name“ zugeordnet.',
+      one: 'Ein Gesicht „$name“ zugeordnet.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String personenIgnoriertMeldung(int anzahl) {
@@ -8024,6 +8040,85 @@ class AppTexteDe extends AppTexte {
 
   @override
   String get gesundheitGesichterZuordnen => 'Zu den Personen';
+
+  @override
+  String get gesundheitDatumTitel => 'Fragwürdige Aufnahmedaten';
+
+  @override
+  String gesundheitDatumOffen(int anzahl) {
+    return '$anzahl Aufnahme(n) tragen einen Zeitstempel auf voller Stunde – bei einem echten Auslösezeitpunkt wären das rund zwei. Der Lauf sieht in der Datei nach, was wirklich dort steht.';
+  }
+
+  @override
+  String get gesundheitDatumPruefen => 'Datumsherkunft prüfen';
+
+  @override
+  String get gesundheitVideobilderTitel => 'Videos aus einem Standbild';
+
+  @override
+  String gesundheitVideobilderOffen(int anzahl) {
+    return '$anzahl Video(s) sind länger als zehn Sekunden und werden trotzdem nur nach ihrem ersten Standbild durchsucht.';
+  }
+
+  @override
+  String get gesundheitVideobilderHolen => 'Weitere Standbilder holen';
+
+  @override
+  String get stufeWiedererkennung => 'Wiedererkennung';
+
+  @override
+  String get aufgWiedererkennungTitel => 'Wer könnte das sein?';
+
+  @override
+  String get aufgWiedererkennungText =>
+      'Vergleicht namenlose Gesichter mit den benannten Personen und schlägt vor, wer zu sehen sein könnte. Zugeordnet wird nichts – das bleibt Ihre Entscheidung.';
+
+  @override
+  String get werkzWiedererkennung => 'Gesichter vergleichen';
+
+  @override
+  String get werkzAlleVerglichen => 'Alle Gesichter sind bereits verglichen.';
+
+  @override
+  String get gesundheitVorschlaegeTitel => 'Erkannte Gesichter warten';
+
+  @override
+  String gesundheitVorschlaegeOffen(int anzahl) {
+    return '$anzahl namenlose(s) Gesicht(er) ähneln einer benannten Person genug für einen Vorschlag.';
+  }
+
+  @override
+  String get gesundheitVorschlaegeAnsehen => 'Vorschläge ansehen';
+
+  @override
+  String get vorschlaegeTitel => 'Wer könnte das sein?';
+
+  @override
+  String get vorschlaegeEinleitung =>
+      'Vorgeschlagen, nicht zugeordnet. Sie sehen je Person, was die Erkennung gefunden hat, und entscheiden.';
+
+  @override
+  String vorschlaegeAnzahl(int anzahl) {
+    return '$anzahl Vorschlag/Vorschläge';
+  }
+
+  @override
+  String get vorschlaegeKeine => 'Zurzeit gibt es keine Vorschläge.';
+
+  @override
+  String get vorschlaegeBeiseite => 'Beiseitegelegte einbeziehen';
+
+  @override
+  String get vorschlaegeBeiseiteHinweis =>
+      'Sie haben diese Gesichter einmal weggelegt – damals gab es die heutigen Personen zum Teil noch nicht. Hier steht, was die Erkennung darin jetzt findet.';
+
+  @override
+  String get vorschlaegeBeiseiteLeer =>
+      'Unter den beiseitegelegten Gesichtern findet die Erkennung nichts.';
+
+  @override
+  String get vorschlaegeLaufHinweis =>
+      'Noch nichts verglichen. Der Lauf „Wer könnte das sein?“ füllt diese Liste.';
 
   @override
   String get datenschutzExportTitel => 'Datenschutzexport';

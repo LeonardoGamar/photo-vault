@@ -2,6 +2,9 @@
 #
 #   tool\windows_werkzeuge.ps1 [-Ziel <Ordner>]
 #
+# Ohne -Ziel: %LOCALAPPDATA%\PhotoVault\werkzeuge, siehe
+# windows_werkzeugort.ps1 - ausdruecklich NICHT unter build\.
+#
 # Unter Windows gibt es keine Paketquelle, aus der sich heif-dec oder
 # dcraw_emu nachinstallieren liessen. Sie muessen mitgeliefert werden -
 # und damit stellt sich dieselbe Frage wie bei den KI-Modellen: Woher, und
@@ -37,8 +40,9 @@ function Titel($t) { Write-Host ""; Write-Host $t; Write-Host ('-' * $t.Length) 
 function Gut($t)   { Write-Host "  [ok] $t" -ForegroundColor Green }
 function Schlecht($t) { Write-Host "  [!!] $t" -ForegroundColor Red }
 
-# Erst hier aufloesen, nicht in der param()-Zeile: Dort ist
-# $PSScriptRoot LEER. Gemessen auf der Testmaschine:
+# Das Ziel erst hier bestimmen, nicht in der param()-Zeile: Dort ist
+# $PSScriptRoot LEER. Damals, als die Vorgabe noch ein relativer Pfad war,
+# hiess das gemessen auf der Testmaschine:
 #
 #   param-Default : [\..\build\windows\werkzeuge]
 #   PSScriptRoot  : [C:\Users\...\photo_vault\tool]   (im Rumpf richtig)
@@ -47,7 +51,9 @@ function Schlecht($t) { Write-Host "  [!!] $t" -ForegroundColor Red }
 # Das Skript hat seine Werkzeuge also ins Wurzelverzeichnis der Platte
 # geschrieben statt ins Projekt - und dabei jedes Mal "[ok]" gemeldet.
 # Ins Paket kam, was vom allerersten Lauf zufaellig im Projektordner lag.
-if (-not $Ziel) { $Ziel = Join-Path $PSScriptRoot '..\build\windows\werkzeuge' }
+# Der Ort kommt jetzt aus windows_werkzeugort.ps1 und ist absolut.
+. (Join-Path $PSScriptRoot 'windows_werkzeugort.ps1')
+if (-not $Ziel) { $Ziel = Werkzeugort }
 $Ziel = [System.IO.Path]::GetFullPath($Ziel)
 # Leeren, nicht ergaenzen. Ein Werkzeug aus einem frueheren, halb
 # gescheiterten Lauf bliebe sonst liegen und wanderte ins Paket - und

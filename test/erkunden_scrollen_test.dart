@@ -85,10 +85,14 @@ void main() {
       await aufnahme('a$i', DateTime(2026, 5, 1).add(Duration(days: i)),
           breite: 52.2 + i * 0.01, laenge: 9.8 + i * 0.01);
     }
-    // „An diesem Tag" braucht Aufnahmen von heute in frueheren Jahren.
+    // „An diesem Tag" braucht Aufnahmen von heute in frueheren Jahren –
+    // und eine krumme Uhrzeit: Volle Stunden gelten seit 3.13.0 als
+    // erfunden und fallen aus den Erinnerungen (siehe
+    // [AppDatabase.assetsOnThisDay]).
     final heute = DateTime.now();
     for (var j = 1; j <= 5; j++) {
-      await aufnahme('e$j', DateTime(heute.year - j, heute.month, heute.day, 12),
+      await aufnahme(
+          'e$j', DateTime(heute.year - j, heute.month, heute.day, 12, 17),
           breite: 52.3, laenge: 9.7);
     }
     for (var i = 0; i < 6; i++) {

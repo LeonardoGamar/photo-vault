@@ -2250,6 +2250,8 @@
       }
     }
   },
+  "erkundenImMonatVorJahren": "Im {monat} vor {jahre} Jahren",
+  "@erkundenImMonatVorJahren": {"placeholders": {"monat": {"type": "String"}, "jahre": {"type": "int"}}},
   "gesichtBenennen": "Gesicht benennen",
   "gesichtUnbenannt": "Unbenannt",
   "bearbZuschneiden": "Zuschneiden",
@@ -2451,6 +2453,17 @@
     }
   },
   "personenIgnorierenTooltip": "Ausgewählte Gesichter ignorieren",
+  "personenZugeordnetMeldung": "{anzahl, plural, =1{Ein Gesicht „{name}“ zugeordnet.} other{{anzahl} Gesichter „{name}“ zugeordnet.}}",
+  "@personenZugeordnetMeldung": {
+    "placeholders": {
+      "anzahl": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "personenIgnoriertMeldung": "{anzahl, plural, =1{Ein Gesicht ignoriert.} other{{anzahl} Gesichter ignoriert.}}",
   "@personenIgnoriertMeldung": {
     "placeholders": {
@@ -4838,6 +4851,32 @@
   "gesundheitGesichterOffen": "{anzahl} erkannte(s) Gesicht(er) gehören noch zu niemandem. Unter Personen lassen sie sich in Gruppen zuordnen.",
   "@gesundheitGesichterOffen": {"placeholders": {"anzahl": {"type": "int"}}},
   "gesundheitGesichterZuordnen": "Zu den Personen",
+  "gesundheitDatumTitel": "Fragwürdige Aufnahmedaten",
+  "gesundheitDatumOffen": "{anzahl} Aufnahme(n) tragen einen Zeitstempel auf voller Stunde – bei einem echten Auslösezeitpunkt wären das rund zwei. Der Lauf sieht in der Datei nach, was wirklich dort steht.",
+  "@gesundheitDatumOffen": {"placeholders": {"anzahl": {"type": "int"}}},
+  "gesundheitDatumPruefen": "Datumsherkunft prüfen",
+  "gesundheitVideobilderTitel": "Videos aus einem Standbild",
+  "gesundheitVideobilderOffen": "{anzahl} Video(s) sind länger als zehn Sekunden und werden trotzdem nur nach ihrem ersten Standbild durchsucht.",
+  "@gesundheitVideobilderOffen": {"placeholders": {"anzahl": {"type": "int"}}},
+  "gesundheitVideobilderHolen": "Weitere Standbilder holen",
+  "stufeWiedererkennung": "Wiedererkennung",
+  "aufgWiedererkennungTitel": "Wer könnte das sein?",
+  "aufgWiedererkennungText": "Vergleicht namenlose Gesichter mit den benannten Personen und schlägt vor, wer zu sehen sein könnte. Zugeordnet wird nichts – das bleibt Ihre Entscheidung.",
+  "werkzWiedererkennung": "Gesichter vergleichen",
+  "werkzAlleVerglichen": "Alle Gesichter sind bereits verglichen.",
+  "gesundheitVorschlaegeTitel": "Erkannte Gesichter warten",
+  "gesundheitVorschlaegeOffen": "{anzahl} namenlose(s) Gesicht(er) ähneln einer benannten Person genug für einen Vorschlag.",
+  "@gesundheitVorschlaegeOffen": {"placeholders": {"anzahl": {"type": "int"}}},
+  "gesundheitVorschlaegeAnsehen": "Vorschläge ansehen",
+  "vorschlaegeTitel": "Wer könnte das sein?",
+  "vorschlaegeEinleitung": "Vorgeschlagen, nicht zugeordnet. Sie sehen je Person, was die Erkennung gefunden hat, und entscheiden.",
+  "vorschlaegeAnzahl": "{anzahl} Vorschlag/Vorschläge",
+  "@vorschlaegeAnzahl": {"placeholders": {"anzahl": {"type": "int"}}},
+  "vorschlaegeKeine": "Zurzeit gibt es keine Vorschläge.",
+  "vorschlaegeBeiseite": "Beiseitegelegte einbeziehen",
+  "vorschlaegeBeiseiteHinweis": "Sie haben diese Gesichter einmal weggelegt – damals gab es die heutigen Personen zum Teil noch nicht. Hier steht, was die Erkennung darin jetzt findet.",
+  "vorschlaegeBeiseiteLeer": "Unter den beiseitegelegten Gesichtern findet die Erkennung nichts.",
+  "vorschlaegeLaufHinweis": "Noch nichts verglichen. Der Lauf „Wer könnte das sein?“ füllt diese Liste.",
   "@gesundheitModelleStand": {"placeholders": {"bereit": {"type": "int"}, "gesamt": {"type": "int"}}},
   "datenschutzExportTitel": "Datenschutzexport",
   "datenschutzExportText": "JPEG bis 2048 Pixel, ohne EXIF, GPS oder XMP; bekannte Gesichter und erkannte Kennzeichen werden lokal unkenntlich gemacht.",

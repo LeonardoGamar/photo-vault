@@ -6600,6 +6600,12 @@ abstract class AppTexte {
   /// **'{jahre, plural, =1{Vor 1 Jahr} other{Vor {jahre} Jahren}}'**
   String erkundenVorJahren(int jahre);
 
+  /// No description provided for @erkundenImMonatVorJahren.
+  ///
+  /// In de, this message translates to:
+  /// **'Im {monat} vor {jahre} Jahren'**
+  String erkundenImMonatVorJahren(String monat, int jahre);
+
   /// No description provided for @gesichtBenennen.
   ///
   /// In de, this message translates to:
@@ -7265,6 +7271,12 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Ausgewählte Gesichter ignorieren'**
   String get personenIgnorierenTooltip;
+
+  /// No description provided for @personenZugeordnetMeldung.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl, plural, =1{Ein Gesicht „{name}“ zugeordnet.} other{{anzahl} Gesichter „{name}“ zugeordnet.}}'**
+  String personenZugeordnetMeldung(int anzahl, String name);
 
   /// No description provided for @personenIgnoriertMeldung.
   ///
@@ -12389,6 +12401,138 @@ abstract class AppTexte {
   /// In de, this message translates to:
   /// **'Zu den Personen'**
   String get gesundheitGesichterZuordnen;
+
+  /// No description provided for @gesundheitDatumTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Fragwürdige Aufnahmedaten'**
+  String get gesundheitDatumTitel;
+
+  /// No description provided for @gesundheitDatumOffen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Aufnahme(n) tragen einen Zeitstempel auf voller Stunde – bei einem echten Auslösezeitpunkt wären das rund zwei. Der Lauf sieht in der Datei nach, was wirklich dort steht.'**
+  String gesundheitDatumOffen(int anzahl);
+
+  /// No description provided for @gesundheitDatumPruefen.
+  ///
+  /// In de, this message translates to:
+  /// **'Datumsherkunft prüfen'**
+  String get gesundheitDatumPruefen;
+
+  /// No description provided for @gesundheitVideobilderTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Videos aus einem Standbild'**
+  String get gesundheitVideobilderTitel;
+
+  /// No description provided for @gesundheitVideobilderOffen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Video(s) sind länger als zehn Sekunden und werden trotzdem nur nach ihrem ersten Standbild durchsucht.'**
+  String gesundheitVideobilderOffen(int anzahl);
+
+  /// No description provided for @gesundheitVideobilderHolen.
+  ///
+  /// In de, this message translates to:
+  /// **'Weitere Standbilder holen'**
+  String get gesundheitVideobilderHolen;
+
+  /// No description provided for @stufeWiedererkennung.
+  ///
+  /// In de, this message translates to:
+  /// **'Wiedererkennung'**
+  String get stufeWiedererkennung;
+
+  /// No description provided for @aufgWiedererkennungTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Wer könnte das sein?'**
+  String get aufgWiedererkennungTitel;
+
+  /// No description provided for @aufgWiedererkennungText.
+  ///
+  /// In de, this message translates to:
+  /// **'Vergleicht namenlose Gesichter mit den benannten Personen und schlägt vor, wer zu sehen sein könnte. Zugeordnet wird nichts – das bleibt Ihre Entscheidung.'**
+  String get aufgWiedererkennungText;
+
+  /// No description provided for @werkzWiedererkennung.
+  ///
+  /// In de, this message translates to:
+  /// **'Gesichter vergleichen'**
+  String get werkzWiedererkennung;
+
+  /// No description provided for @werkzAlleVerglichen.
+  ///
+  /// In de, this message translates to:
+  /// **'Alle Gesichter sind bereits verglichen.'**
+  String get werkzAlleVerglichen;
+
+  /// No description provided for @gesundheitVorschlaegeTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Erkannte Gesichter warten'**
+  String get gesundheitVorschlaegeTitel;
+
+  /// No description provided for @gesundheitVorschlaegeOffen.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} namenlose(s) Gesicht(er) ähneln einer benannten Person genug für einen Vorschlag.'**
+  String gesundheitVorschlaegeOffen(int anzahl);
+
+  /// No description provided for @gesundheitVorschlaegeAnsehen.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorschläge ansehen'**
+  String get gesundheitVorschlaegeAnsehen;
+
+  /// No description provided for @vorschlaegeTitel.
+  ///
+  /// In de, this message translates to:
+  /// **'Wer könnte das sein?'**
+  String get vorschlaegeTitel;
+
+  /// No description provided for @vorschlaegeEinleitung.
+  ///
+  /// In de, this message translates to:
+  /// **'Vorgeschlagen, nicht zugeordnet. Sie sehen je Person, was die Erkennung gefunden hat, und entscheiden.'**
+  String get vorschlaegeEinleitung;
+
+  /// No description provided for @vorschlaegeAnzahl.
+  ///
+  /// In de, this message translates to:
+  /// **'{anzahl} Vorschlag/Vorschläge'**
+  String vorschlaegeAnzahl(int anzahl);
+
+  /// No description provided for @vorschlaegeKeine.
+  ///
+  /// In de, this message translates to:
+  /// **'Zurzeit gibt es keine Vorschläge.'**
+  String get vorschlaegeKeine;
+
+  /// No description provided for @vorschlaegeBeiseite.
+  ///
+  /// In de, this message translates to:
+  /// **'Beiseitegelegte einbeziehen'**
+  String get vorschlaegeBeiseite;
+
+  /// No description provided for @vorschlaegeBeiseiteHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Sie haben diese Gesichter einmal weggelegt – damals gab es die heutigen Personen zum Teil noch nicht. Hier steht, was die Erkennung darin jetzt findet.'**
+  String get vorschlaegeBeiseiteHinweis;
+
+  /// No description provided for @vorschlaegeBeiseiteLeer.
+  ///
+  /// In de, this message translates to:
+  /// **'Unter den beiseitegelegten Gesichtern findet die Erkennung nichts.'**
+  String get vorschlaegeBeiseiteLeer;
+
+  /// No description provided for @vorschlaegeLaufHinweis.
+  ///
+  /// In de, this message translates to:
+  /// **'Noch nichts verglichen. Der Lauf „Wer könnte das sein?“ füllt diese Liste.'**
+  String get vorschlaegeLaufHinweis;
 
   /// No description provided for @datenschutzExportTitel.
   ///

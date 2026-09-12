@@ -4411,6 +4411,24 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_ignored" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _vorschlagPersonIdMeta =
+      const VerificationMeta('vorschlagPersonId');
+  @override
+  late final GeneratedColumn<String> vorschlagPersonId =
+      GeneratedColumn<String>('vorschlag_person_id', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _vorschlagWertMeta =
+      const VerificationMeta('vorschlagWert');
+  @override
+  late final GeneratedColumn<double> vorschlagWert = GeneratedColumn<double>(
+      'vorschlag_wert', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _vorschlagGeprueftAmMeta =
+      const VerificationMeta('vorschlagGeprueftAm');
+  @override
+  late final GeneratedColumn<DateTime> vorschlagGeprueftAm =
+      GeneratedColumn<DateTime>('vorschlag_geprueft_am', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -4424,7 +4442,10 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
         embedding,
         eyeOpenScore,
         schaerfe,
-        isIgnored
+        isIgnored,
+        vorschlagPersonId,
+        vorschlagWert,
+        vorschlagGeprueftAm
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4499,6 +4520,24 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
       context.handle(_isIgnoredMeta,
           isIgnored.isAcceptableOrUnknown(data['is_ignored']!, _isIgnoredMeta));
     }
+    if (data.containsKey('vorschlag_person_id')) {
+      context.handle(
+          _vorschlagPersonIdMeta,
+          vorschlagPersonId.isAcceptableOrUnknown(
+              data['vorschlag_person_id']!, _vorschlagPersonIdMeta));
+    }
+    if (data.containsKey('vorschlag_wert')) {
+      context.handle(
+          _vorschlagWertMeta,
+          vorschlagWert.isAcceptableOrUnknown(
+              data['vorschlag_wert']!, _vorschlagWertMeta));
+    }
+    if (data.containsKey('vorschlag_geprueft_am')) {
+      context.handle(
+          _vorschlagGeprueftAmMeta,
+          vorschlagGeprueftAm.isAcceptableOrUnknown(
+              data['vorschlag_geprueft_am']!, _vorschlagGeprueftAmMeta));
+    }
     return context;
   }
 
@@ -4532,6 +4571,13 @@ class $FacesTable extends Faces with TableInfo<$FacesTable, FaceData> {
           .read(DriftSqlType.double, data['${effectivePrefix}schaerfe']),
       isIgnored: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_ignored'])!,
+      vorschlagPersonId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}vorschlag_person_id']),
+      vorschlagWert: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}vorschlag_wert']),
+      vorschlagGeprueftAm: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime,
+          data['${effectivePrefix}vorschlag_geprueft_am']),
     );
   }
 
@@ -4593,6 +4639,36 @@ class FaceData extends DataClass implements Insertable<FaceData> {
   /// verschwindet aus dem Raster und aus der automatischen Gruppierung,
   /// bleibt aber unter „Ignoriert" auffindbar und rückholbar.
   final bool isIgnored;
+
+  /// Wer hier vermutlich zu sehen ist – gerechnet, nicht bestaetigt.
+  ///
+  /// **Warum das in der Tabelle steht und nicht bei Bedarf gerechnet
+  /// wird.** Die Rechnung ist ein Vergleich jedes Gesichts mit jedem
+  /// Personenkern; an der echten Bibliothek sind das 14.065 mal 45
+  /// Vergleiche ueber je 512 Zahlen. Das ist als Hintergrundlauf richtig
+  /// aufgehoben und als Antwort auf „wie viel liegt an?" unbrauchbar.
+  /// Mit der Spalte kostet die Zahl auf dem Gesundheitsbildschirm eine
+  /// gewoehnliche Zaehlung.
+  ///
+  /// Vorschlag heisst Vorschlag: Zugeordnet wird erst, wenn jemand
+  /// zugestimmt hat. Ein uebersehener Fehlvorschlag kostet eine falsche
+  /// Zuordnung, und die faellt spaeter niemandem mehr auf.
+  final String? vorschlagPersonId;
+
+  /// Die Aehnlichkeit zum Kern dieser Person, zum Zeitpunkt der Rechnung.
+  ///
+  /// Wird beim Bestaetigen oder Ablehnen als Rueckmeldung festgehalten
+  /// (siehe [Gesichtsrueckmeldungen]) – ohne den Wert liesse sich aus der
+  /// Entscheidung keine Schwelle ableiten.
+  final double? vorschlagWert;
+
+  /// Wann zuletzt nach einem Vorschlag gesucht wurde – auch dann gesetzt,
+  /// wenn nichts nahe genug lag.
+  ///
+  /// Ohne diese Marke waere „noch nicht geprueft" von „geprueft, nichts
+  /// gefunden" nicht zu unterscheiden, und jeder Lauf faenge wieder bei
+  /// allen 14.065 an.
+  final DateTime? vorschlagGeprueftAm;
   const FaceData(
       {required this.id,
       required this.assetId,
@@ -4605,7 +4681,10 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       this.embedding,
       this.eyeOpenScore,
       this.schaerfe,
-      required this.isIgnored});
+      required this.isIgnored,
+      this.vorschlagPersonId,
+      this.vorschlagWert,
+      this.vorschlagGeprueftAm});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -4631,6 +4710,15 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       map['schaerfe'] = Variable<double>(schaerfe);
     }
     map['is_ignored'] = Variable<bool>(isIgnored);
+    if (!nullToAbsent || vorschlagPersonId != null) {
+      map['vorschlag_person_id'] = Variable<String>(vorschlagPersonId);
+    }
+    if (!nullToAbsent || vorschlagWert != null) {
+      map['vorschlag_wert'] = Variable<double>(vorschlagWert);
+    }
+    if (!nullToAbsent || vorschlagGeprueftAm != null) {
+      map['vorschlag_geprueft_am'] = Variable<DateTime>(vorschlagGeprueftAm);
+    }
     return map;
   }
 
@@ -4658,6 +4746,15 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           ? const Value.absent()
           : Value(schaerfe),
       isIgnored: Value(isIgnored),
+      vorschlagPersonId: vorschlagPersonId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vorschlagPersonId),
+      vorschlagWert: vorschlagWert == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vorschlagWert),
+      vorschlagGeprueftAm: vorschlagGeprueftAm == null && nullToAbsent
+          ? const Value.absent()
+          : Value(vorschlagGeprueftAm),
     );
   }
 
@@ -4677,6 +4774,11 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       eyeOpenScore: serializer.fromJson<double?>(json['eyeOpenScore']),
       schaerfe: serializer.fromJson<double?>(json['schaerfe']),
       isIgnored: serializer.fromJson<bool>(json['isIgnored']),
+      vorschlagPersonId:
+          serializer.fromJson<String?>(json['vorschlagPersonId']),
+      vorschlagWert: serializer.fromJson<double?>(json['vorschlagWert']),
+      vorschlagGeprueftAm:
+          serializer.fromJson<DateTime?>(json['vorschlagGeprueftAm']),
     );
   }
   @override
@@ -4695,6 +4797,9 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       'eyeOpenScore': serializer.toJson<double?>(eyeOpenScore),
       'schaerfe': serializer.toJson<double?>(schaerfe),
       'isIgnored': serializer.toJson<bool>(isIgnored),
+      'vorschlagPersonId': serializer.toJson<String?>(vorschlagPersonId),
+      'vorschlagWert': serializer.toJson<double?>(vorschlagWert),
+      'vorschlagGeprueftAm': serializer.toJson<DateTime?>(vorschlagGeprueftAm),
     };
   }
 
@@ -4710,7 +4815,10 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           Value<Uint8List?> embedding = const Value.absent(),
           Value<double?> eyeOpenScore = const Value.absent(),
           Value<double?> schaerfe = const Value.absent(),
-          bool? isIgnored}) =>
+          bool? isIgnored,
+          Value<String?> vorschlagPersonId = const Value.absent(),
+          Value<double?> vorschlagWert = const Value.absent(),
+          Value<DateTime?> vorschlagGeprueftAm = const Value.absent()}) =>
       FaceData(
         id: id ?? this.id,
         assetId: assetId ?? this.assetId,
@@ -4727,6 +4835,14 @@ class FaceData extends DataClass implements Insertable<FaceData> {
             eyeOpenScore.present ? eyeOpenScore.value : this.eyeOpenScore,
         schaerfe: schaerfe.present ? schaerfe.value : this.schaerfe,
         isIgnored: isIgnored ?? this.isIgnored,
+        vorschlagPersonId: vorschlagPersonId.present
+            ? vorschlagPersonId.value
+            : this.vorschlagPersonId,
+        vorschlagWert:
+            vorschlagWert.present ? vorschlagWert.value : this.vorschlagWert,
+        vorschlagGeprueftAm: vorschlagGeprueftAm.present
+            ? vorschlagGeprueftAm.value
+            : this.vorschlagGeprueftAm,
       );
   FaceData copyWithCompanion(FacesCompanion data) {
     return FaceData(
@@ -4746,6 +4862,15 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           : this.eyeOpenScore,
       schaerfe: data.schaerfe.present ? data.schaerfe.value : this.schaerfe,
       isIgnored: data.isIgnored.present ? data.isIgnored.value : this.isIgnored,
+      vorschlagPersonId: data.vorschlagPersonId.present
+          ? data.vorschlagPersonId.value
+          : this.vorschlagPersonId,
+      vorschlagWert: data.vorschlagWert.present
+          ? data.vorschlagWert.value
+          : this.vorschlagWert,
+      vorschlagGeprueftAm: data.vorschlagGeprueftAm.present
+          ? data.vorschlagGeprueftAm.value
+          : this.vorschlagGeprueftAm,
     );
   }
 
@@ -4763,7 +4888,10 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           ..write('embedding: $embedding, ')
           ..write('eyeOpenScore: $eyeOpenScore, ')
           ..write('schaerfe: $schaerfe, ')
-          ..write('isIgnored: $isIgnored')
+          ..write('isIgnored: $isIgnored, ')
+          ..write('vorschlagPersonId: $vorschlagPersonId, ')
+          ..write('vorschlagWert: $vorschlagWert, ')
+          ..write('vorschlagGeprueftAm: $vorschlagGeprueftAm')
           ..write(')'))
         .toString();
   }
@@ -4781,7 +4909,10 @@ class FaceData extends DataClass implements Insertable<FaceData> {
       $driftBlobEquality.hash(embedding),
       eyeOpenScore,
       schaerfe,
-      isIgnored);
+      isIgnored,
+      vorschlagPersonId,
+      vorschlagWert,
+      vorschlagGeprueftAm);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4797,7 +4928,10 @@ class FaceData extends DataClass implements Insertable<FaceData> {
           $driftBlobEquality.equals(other.embedding, this.embedding) &&
           other.eyeOpenScore == this.eyeOpenScore &&
           other.schaerfe == this.schaerfe &&
-          other.isIgnored == this.isIgnored);
+          other.isIgnored == this.isIgnored &&
+          other.vorschlagPersonId == this.vorschlagPersonId &&
+          other.vorschlagWert == this.vorschlagWert &&
+          other.vorschlagGeprueftAm == this.vorschlagGeprueftAm);
 }
 
 class FacesCompanion extends UpdateCompanion<FaceData> {
@@ -4813,6 +4947,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
   final Value<double?> eyeOpenScore;
   final Value<double?> schaerfe;
   final Value<bool> isIgnored;
+  final Value<String?> vorschlagPersonId;
+  final Value<double?> vorschlagWert;
+  final Value<DateTime?> vorschlagGeprueftAm;
   final Value<int> rowid;
   const FacesCompanion({
     this.id = const Value.absent(),
@@ -4827,6 +4964,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     this.eyeOpenScore = const Value.absent(),
     this.schaerfe = const Value.absent(),
     this.isIgnored = const Value.absent(),
+    this.vorschlagPersonId = const Value.absent(),
+    this.vorschlagWert = const Value.absent(),
+    this.vorschlagGeprueftAm = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FacesCompanion.insert({
@@ -4842,6 +4982,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     this.eyeOpenScore = const Value.absent(),
     this.schaerfe = const Value.absent(),
     this.isIgnored = const Value.absent(),
+    this.vorschlagPersonId = const Value.absent(),
+    this.vorschlagWert = const Value.absent(),
+    this.vorschlagGeprueftAm = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         assetId = Value(assetId),
@@ -4862,6 +5005,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     Expression<double>? eyeOpenScore,
     Expression<double>? schaerfe,
     Expression<bool>? isIgnored,
+    Expression<String>? vorschlagPersonId,
+    Expression<double>? vorschlagWert,
+    Expression<DateTime>? vorschlagGeprueftAm,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4877,6 +5023,10 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       if (eyeOpenScore != null) 'eye_open_score': eyeOpenScore,
       if (schaerfe != null) 'schaerfe': schaerfe,
       if (isIgnored != null) 'is_ignored': isIgnored,
+      if (vorschlagPersonId != null) 'vorschlag_person_id': vorschlagPersonId,
+      if (vorschlagWert != null) 'vorschlag_wert': vorschlagWert,
+      if (vorschlagGeprueftAm != null)
+        'vorschlag_geprueft_am': vorschlagGeprueftAm,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4894,6 +5044,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       Value<double?>? eyeOpenScore,
       Value<double?>? schaerfe,
       Value<bool>? isIgnored,
+      Value<String?>? vorschlagPersonId,
+      Value<double?>? vorschlagWert,
+      Value<DateTime?>? vorschlagGeprueftAm,
       Value<int>? rowid}) {
     return FacesCompanion(
       id: id ?? this.id,
@@ -4908,6 +5061,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
       eyeOpenScore: eyeOpenScore ?? this.eyeOpenScore,
       schaerfe: schaerfe ?? this.schaerfe,
       isIgnored: isIgnored ?? this.isIgnored,
+      vorschlagPersonId: vorschlagPersonId ?? this.vorschlagPersonId,
+      vorschlagWert: vorschlagWert ?? this.vorschlagWert,
+      vorschlagGeprueftAm: vorschlagGeprueftAm ?? this.vorschlagGeprueftAm,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4951,6 +5107,16 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
     if (isIgnored.present) {
       map['is_ignored'] = Variable<bool>(isIgnored.value);
     }
+    if (vorschlagPersonId.present) {
+      map['vorschlag_person_id'] = Variable<String>(vorschlagPersonId.value);
+    }
+    if (vorschlagWert.present) {
+      map['vorschlag_wert'] = Variable<double>(vorschlagWert.value);
+    }
+    if (vorschlagGeprueftAm.present) {
+      map['vorschlag_geprueft_am'] =
+          Variable<DateTime>(vorschlagGeprueftAm.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4972,6 +5138,9 @@ class FacesCompanion extends UpdateCompanion<FaceData> {
           ..write('eyeOpenScore: $eyeOpenScore, ')
           ..write('schaerfe: $schaerfe, ')
           ..write('isIgnored: $isIgnored, ')
+          ..write('vorschlagPersonId: $vorschlagPersonId, ')
+          ..write('vorschlagWert: $vorschlagWert, ')
+          ..write('vorschlagGeprueftAm: $vorschlagGeprueftAm, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -21687,7 +21856,11 @@ class $$AssetsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AssetsTable, AssetData>(table),
+                    BaseReferences<_$AppDatabase, $AssetsTable, AssetData>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -21838,7 +22011,11 @@ class $$AlbumsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AlbumsTable, AlbumData>(table),
+                    BaseReferences<_$AppDatabase, $AlbumsTable, AlbumData>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -21960,7 +22137,11 @@ class $$AlbumAssetsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AlbumAssetsTable, AlbumAsset>(table),
+                    BaseReferences<_$AppDatabase, $AlbumAssetsTable,
+                        AlbumAsset>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -22078,7 +22259,11 @@ class $$TagsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$TagsTable, TagData>(table),
+                    BaseReferences<_$AppDatabase, $TagsTable, TagData>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -22213,7 +22398,11 @@ class $$AssetTagsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AssetTagsTable, AssetTag>(table),
+                    BaseReferences<_$AppDatabase, $AssetTagsTable, AssetTag>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -22413,7 +22602,11 @@ class $$PeopleTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$PeopleTable, PersonData>(table),
+                    BaseReferences<_$AppDatabase, $PeopleTable, PersonData>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -22444,6 +22637,9 @@ typedef $$FacesTableCreateCompanionBuilder = FacesCompanion Function({
   Value<double?> eyeOpenScore,
   Value<double?> schaerfe,
   Value<bool> isIgnored,
+  Value<String?> vorschlagPersonId,
+  Value<double?> vorschlagWert,
+  Value<DateTime?> vorschlagGeprueftAm,
   Value<int> rowid,
 });
 typedef $$FacesTableUpdateCompanionBuilder = FacesCompanion Function({
@@ -22459,6 +22655,9 @@ typedef $$FacesTableUpdateCompanionBuilder = FacesCompanion Function({
   Value<double?> eyeOpenScore,
   Value<double?> schaerfe,
   Value<bool> isIgnored,
+  Value<String?> vorschlagPersonId,
+  Value<double?> vorschlagWert,
+  Value<DateTime?> vorschlagGeprueftAm,
   Value<int> rowid,
 });
 
@@ -22506,6 +22705,17 @@ class $$FacesTableFilterComposer extends Composer<_$AppDatabase, $FacesTable> {
 
   ColumnFilters<bool> get isIgnored => $composableBuilder(
       column: $table.isIgnored, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get vorschlagPersonId => $composableBuilder(
+      column: $table.vorschlagPersonId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get vorschlagWert => $composableBuilder(
+      column: $table.vorschlagWert, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get vorschlagGeprueftAm => $composableBuilder(
+      column: $table.vorschlagGeprueftAm,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$FacesTableOrderingComposer
@@ -22554,6 +22764,18 @@ class $$FacesTableOrderingComposer
 
   ColumnOrderings<bool> get isIgnored => $composableBuilder(
       column: $table.isIgnored, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get vorschlagPersonId => $composableBuilder(
+      column: $table.vorschlagPersonId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get vorschlagWert => $composableBuilder(
+      column: $table.vorschlagWert,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get vorschlagGeprueftAm => $composableBuilder(
+      column: $table.vorschlagGeprueftAm,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$FacesTableAnnotationComposer
@@ -22600,6 +22822,15 @@ class $$FacesTableAnnotationComposer
 
   GeneratedColumn<bool> get isIgnored =>
       $composableBuilder(column: $table.isIgnored, builder: (column) => column);
+
+  GeneratedColumn<String> get vorschlagPersonId => $composableBuilder(
+      column: $table.vorschlagPersonId, builder: (column) => column);
+
+  GeneratedColumn<double> get vorschlagWert => $composableBuilder(
+      column: $table.vorschlagWert, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get vorschlagGeprueftAm => $composableBuilder(
+      column: $table.vorschlagGeprueftAm, builder: (column) => column);
 }
 
 class $$FacesTableTableManager extends RootTableManager<
@@ -22637,6 +22868,9 @@ class $$FacesTableTableManager extends RootTableManager<
             Value<double?> eyeOpenScore = const Value.absent(),
             Value<double?> schaerfe = const Value.absent(),
             Value<bool> isIgnored = const Value.absent(),
+            Value<String?> vorschlagPersonId = const Value.absent(),
+            Value<double?> vorschlagWert = const Value.absent(),
+            Value<DateTime?> vorschlagGeprueftAm = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FacesCompanion(
@@ -22652,6 +22886,9 @@ class $$FacesTableTableManager extends RootTableManager<
             eyeOpenScore: eyeOpenScore,
             schaerfe: schaerfe,
             isIgnored: isIgnored,
+            vorschlagPersonId: vorschlagPersonId,
+            vorschlagWert: vorschlagWert,
+            vorschlagGeprueftAm: vorschlagGeprueftAm,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -22667,6 +22904,9 @@ class $$FacesTableTableManager extends RootTableManager<
             Value<double?> eyeOpenScore = const Value.absent(),
             Value<double?> schaerfe = const Value.absent(),
             Value<bool> isIgnored = const Value.absent(),
+            Value<String?> vorschlagPersonId = const Value.absent(),
+            Value<double?> vorschlagWert = const Value.absent(),
+            Value<DateTime?> vorschlagGeprueftAm = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FacesCompanion.insert(
@@ -22682,10 +22922,17 @@ class $$FacesTableTableManager extends RootTableManager<
             eyeOpenScore: eyeOpenScore,
             schaerfe: schaerfe,
             isIgnored: isIgnored,
+            vorschlagPersonId: vorschlagPersonId,
+            vorschlagWert: vorschlagWert,
+            vorschlagGeprueftAm: vorschlagGeprueftAm,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$FacesTable, FaceData>(table),
+                    BaseReferences<_$AppDatabase, $FacesTable, FaceData>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -22867,7 +23114,12 @@ class $$FaceMatchFeedbackTableTableManager extends RootTableManager<
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$FaceMatchFeedbackTable, FaceMatchFeedbackData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $FaceMatchFeedbackTable,
+                        FaceMatchFeedbackData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -22997,7 +23249,11 @@ class $$ImageEmbeddingsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$ImageEmbeddingsTable, ImageEmbedding>(table),
+                    BaseReferences<_$AppDatabase, $ImageEmbeddingsTable,
+                        ImageEmbedding>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -23172,7 +23428,11 @@ class $$BackupRecordsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$BackupRecordsTable, BackupRecordData>(table),
+                    BaseReferences<_$AppDatabase, $BackupRecordsTable,
+                        BackupRecordData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -23376,7 +23636,12 @@ class $$PrivacySettingsTableTableManager extends RootTableManager<
             protectMetadata: protectMetadata,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$PrivacySettingsTable, PrivacySettingsData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $PrivacySettingsTable,
+                        PrivacySettingsData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -23618,7 +23883,12 @@ class $$BackupSettingsTableTableManager extends RootTableManager<
             autoBackupMaxMbPerRun: autoBackupMaxMbPerRun,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$BackupSettingsTable, BackupSettingsData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $BackupSettingsTable,
+                        BackupSettingsData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -23776,7 +24046,11 @@ class $$SavedSearchesTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$SavedSearchesTable, SavedSearchData>(table),
+                    BaseReferences<_$AppDatabase, $SavedSearchesTable,
+                        SavedSearchData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -23932,7 +24206,11 @@ class $$TrashSettingsTableTableManager extends RootTableManager<
             lastPurgeAt: lastPurgeAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$TrashSettingsTable, TrashSettingsData>(table),
+                    BaseReferences<_$AppDatabase, $TrashSettingsTable,
+                        TrashSettingsData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -24078,7 +24356,12 @@ class $$DuplikatAusnahmenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$DuplikatAusnahmenTable, DuplikatAusnahmeData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $DuplikatAusnahmenTable,
+                        DuplikatAusnahmeData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -24254,7 +24537,11 @@ class $$CameraPresetsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$CameraPresetsTable, CameraPresetData>(table),
+                    BaseReferences<_$AppDatabase, $CameraPresetsTable,
+                        CameraPresetData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -24383,7 +24670,11 @@ class $$CameraPresetTagsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$CameraPresetTagsTable, CameraPresetTag>(table),
+                    BaseReferences<_$AppDatabase, $CameraPresetTagsTable,
+                        CameraPresetTag>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -24744,7 +25035,12 @@ class $$DevelopSettingsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$DevelopSettingsTable, DevelopSettingsData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $DevelopSettingsTable,
+                        DevelopSettingsData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -25114,7 +25410,12 @@ class $$DevelopHistoryTableTableManager extends RootTableManager<
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$DevelopHistoryTable, DevelopHistoryData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $DevelopHistoryTable,
+                        DevelopHistoryData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -25271,7 +25572,11 @@ class $$VideoTrimsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$VideoTrimsTable, VideoTrimData>(table),
+                    BaseReferences<_$AppDatabase, $VideoTrimsTable,
+                        VideoTrimData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -25596,7 +25901,11 @@ class $$DevelopMasksTableTableManager extends RootTableManager<
             shapeDefinitionJson: shapeDefinitionJson,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$DevelopMasksTable, DevelopMaskData>(table),
+                    BaseReferences<_$AppDatabase, $DevelopMasksTable,
+                        DevelopMaskData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -25830,7 +26139,11 @@ class $$RestoreJobsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$RestoreJobsTable, RestoreJobData>(table),
+                    BaseReferences<_$AppDatabase, $RestoreJobsTable,
+                        RestoreJobData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -26440,7 +26753,11 @@ class $$AppSettingsTableTableManager extends RootTableManager<
             translateSearchAndTags: translateSearchAndTags,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AppSettingsTable, AppSettingsData>(table),
+                    BaseReferences<_$AppDatabase, $AppSettingsTable,
+                        AppSettingsData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -26563,7 +26880,12 @@ class $$AiTagVocabularyTableTableManager extends RootTableManager<
             term: term,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AiTagVocabularyTable, AiTagVocabularyData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $AiTagVocabularyTable,
+                        AiTagVocabularyData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -26835,7 +27157,12 @@ class $$AutomationRulesTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AutomationRulesTable, AutomationRuleData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $AutomationRulesTable,
+                        AutomationRuleData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -26965,7 +27292,12 @@ class $$AutomationRuleTagsTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AutomationRuleTagsTable, AutomationRuleTag>(
+                        table),
+                    BaseReferences<_$AppDatabase, $AutomationRuleTagsTable,
+                        AutomationRuleTag>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -27335,7 +27667,11 @@ class $$DevelopPresetsTableTableManager extends RootTableManager<
             erstelltAm: erstelltAm,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$DevelopPresetsTable, DevelopPresetData>(table),
+                    BaseReferences<_$AppDatabase, $DevelopPresetsTable,
+                        DevelopPresetData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -27548,7 +27884,11 @@ class $$ExportPresetsTableTableManager extends RootTableManager<
             erstelltAm: erstelltAm,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$ExportPresetsTable, ExportPresetData>(table),
+                    BaseReferences<_$AppDatabase, $ExportPresetsTable,
+                        ExportPresetData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -27694,7 +28034,12 @@ class $$PersonBeziehungenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$PersonBeziehungenTable, PersonBeziehungenData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $PersonBeziehungenTable,
+                        PersonBeziehungenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -27915,7 +28260,12 @@ class $$LebensereignisseTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$LebensereignisseTable, LebensereignisseData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $LebensereignisseTable,
+                        LebensereignisseData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -28131,7 +28481,11 @@ class $$ReisenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$ReisenTable, ReisenData>(table),
+                    BaseReferences<_$AppDatabase, $ReisenTable, ReisenData>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -28257,7 +28611,12 @@ class $$ReiseAufnahmenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$ReiseAufnahmenTable, ReiseAufnahmenData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $ReiseAufnahmenTable,
+                        ReiseAufnahmenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -28416,7 +28775,12 @@ class $$ReisetagnotizenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$ReisetagnotizenTable, ReisetagnotizenData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $ReisetagnotizenTable,
+                        ReisetagnotizenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -28546,7 +28910,12 @@ class $$VerworfeneReisenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$VerworfeneReisenTable, VerworfeneReisenData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $VerworfeneReisenTable,
+                        VerworfeneReisenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -28763,7 +29132,11 @@ class $$OrtsmarkenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$OrtsmarkenTable, OrtsmarkenData>(table),
+                    BaseReferences<_$AppDatabase, $OrtsmarkenTable,
+                        OrtsmarkenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -28981,7 +29354,11 @@ class $$AktivitaetenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AktivitaetenTable, AktivitaetenData>(table),
+                    BaseReferences<_$AppDatabase, $AktivitaetenTable,
+                        AktivitaetenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -29114,7 +29491,12 @@ class $$AktivitaetAufnahmenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$AktivitaetAufnahmenTable,
+                        AktivitaetAufnahmenData>(table),
+                    BaseReferences<_$AppDatabase, $AktivitaetAufnahmenTable,
+                        AktivitaetAufnahmenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -29248,7 +29630,12 @@ class $$VerworfeneAktivitaetenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$VerworfeneAktivitaetenTable,
+                        VerworfeneAktivitaetenData>(table),
+                    BaseReferences<_$AppDatabase, $VerworfeneAktivitaetenTable,
+                        VerworfeneAktivitaetenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -29524,7 +29911,11 @@ class $$SpurenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$SpurenTable, SpurenData>(table),
+                    BaseReferences<_$AppDatabase, $SpurenTable, SpurenData>(
+                        db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -29707,7 +30098,11 @@ class $$SpurpunkteTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$SpurpunkteTable, SpurpunkteData>(table),
+                    BaseReferences<_$AppDatabase, $SpurpunkteTable,
+                        SpurpunkteData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -29837,7 +30232,12 @@ class $$VerworfeneSerienTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$VerworfeneSerienTable, VerworfeneSerienData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $VerworfeneSerienTable,
+                        VerworfeneSerienData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -29971,7 +30371,14 @@ class $$VerworfeneOrtsvorschlaegeTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$VerworfeneOrtsvorschlaegeTable,
+                        VerworfeneOrtsvorschlaegeData>(table),
+                    BaseReferences<
+                        _$AppDatabase,
+                        $VerworfeneOrtsvorschlaegeTable,
+                        VerworfeneOrtsvorschlaegeData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -30119,7 +30526,12 @@ class $$VideoeinbettungenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$VideoeinbettungenTable, VideoeinbettungenData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $VideoeinbettungenTable,
+                        VideoeinbettungenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -30302,7 +30714,11 @@ class $$WanderpunkteTableTableManager extends RootTableManager<
             hoehe: hoehe,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$WanderpunkteTable, WanderpunkteData>(table),
+                    BaseReferences<_$AppDatabase, $WanderpunkteTable,
+                        WanderpunkteData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));
@@ -30431,7 +30847,12 @@ class $$WanderabfragenTableTableManager extends RootTableManager<
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
-              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .map((e) => (
+                    e.readTable<$WanderabfragenTable, WanderabfragenData>(
+                        table),
+                    BaseReferences<_$AppDatabase, $WanderabfragenTable,
+                        WanderabfragenData>(db, table, e)
+                  ))
               .toList(),
           prefetchHooksCallback: null,
         ));

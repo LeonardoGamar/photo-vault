@@ -69,7 +69,8 @@ enum Analysestufe {
   bildanalyse,
   texterkennung,
   schlagwoerter,
-  bildbeschreibung
+  bildbeschreibung,
+  wiedererkennung
 }
 
 /// Der Name einer Stufe in der Oberflächensprache.
@@ -78,6 +79,7 @@ String analysestufeName(AppTexte t, Analysestufe stufe) => switch (stufe) {
       Analysestufe.texterkennung => t.stufeTexterkennung,
       Analysestufe.schlagwoerter => t.stufeSchlagwoerter,
       Analysestufe.bildbeschreibung => t.stufeBildbeschreibung,
+      Analysestufe.wiedererkennung => t.stufeWiedererkennung,
     };
 
 /// Fortschritt der Hintergrundanalyse (siehe
@@ -1214,6 +1216,13 @@ class LibraryState extends ChangeNotifier {
         lauf: () => backfillAiTags(onlyUntagged: true)
       ),
       (name: Analysestufe.bildbeschreibung, lauf: () => backfillCaptions()),
+      // Zuletzt, und das ist keine Nebensache: Die Gesichter entstehen
+      // erst in der Bildanalyse ganz oben. Wer hier frueher fragt, fragt
+      // nach Gesichtern, die es noch nicht gibt.
+      (
+        name: Analysestufe.wiedererkennung,
+        lauf: () => backfillWiedererkennung()
+      ),
     ];
 
     try {
@@ -2144,6 +2153,91 @@ class LibraryState extends ChangeNotifier {
   /// Duplikatsuche und die Serienerkennung fragen „welche Aufnahme sieht
   /// wem ähnlich" und fänden bei fünf Zeilen je Video fünfmal dasselbe
   /// Video (siehe [Videoeinbettungen]).
+  /// Sucht zu jedem noch namenlosen Gesicht die Person, die es sein
+  /// koennte – und **schlaegt sie nur vor**.
+  ///
+  /// **Warum es diesen Lauf braucht.** Die Rechnung dafuer gibt es seit
+  /// langem ([personenvorschlag]), aufgerufen wurde sie an genau drei
+  /// Stellen: Vollbild, Info-Blatt, Gesichter-Durchsicht. Alle drei
+  /// setzen voraus, dass jemand ein Gesicht **anschaut**. Nach einem
+  /// Import lagen die neuen Gesichter deshalb einfach da. An der echten
+  /// Bibliothek endete das damit, dass 14.065 Gesichter von Hand
+  /// beiseitegelegt wurden – die Warteschlange war nicht abgearbeitet,
+  /// sondern weggeraeumt.
+  ///
+  /// **Und warum nur vorschlagen.** Ein falscher Vorschlag, den jemand
+  /// wegklickt, kostet Zeit; einer, den jemand uebersieht und bestaetigt,
+  /// kostet eine falsche Zuordnung – und die faellt spaeter niemandem
+  /// mehr auf. Zugeordnet wird deshalb erst nach Zustimmung.
+  ///
+  /// Gerechnet wird gegen die Kerne der benannten Personen, mit der
+  /// **persoenlichen** Schwelle jeder Person: Darin steckt, was aus
+  /// frueheren Zustimmungen und Ablehnungen gelernt wurde.
+  Stream<ImportProgress> backfillWiedererkennung(
+      {bool alle = false, bool beiseite = false}) async* {
+    final gesichter =
+        await db.gesichterFuerWiedererkennung(alle: alle, beiseite: beiseite);
+    if (gesichter.isEmpty) {
+      yield ImportProgress(0, 0);
+      return;
+    }
+
+    // Die Kerne einmal fuer den ganzen Lauf. Sie je Gesicht neu zu
+    // bilden hiesse, 2366 Einbettungen zehntausendfach zu mitteln.
+    final roh = await db.einbettungenZugeordneterGesichter();
+    final leute = {for (final p in await db.select(db.people).get()) p.id: p};
+    final kerne = personenkerne([
+      for (final e in roh)
+        if (leute.containsKey(e.personId))
+          (personId: e.personId, vektor: floatsFromEmbeddingBlob(e.vektor)),
+    ]);
+    if (kerne.isEmpty) {
+      // Ohne eine einzige benannte Person gibt es nichts zu vergleichen.
+      // Die Marke trotzdem zu setzen waere falsch: Sobald die erste
+      // Person benannt ist, gehoeren diese Gesichter wieder in den Lauf.
+      yield ImportProgress(0, 0);
+      return;
+    }
+
+    var done = 0;
+    var gefunden = 0;
+    yield ImportProgress(0, gesichter.length);
+    final ergebnisse = <({String faceId, String? personId, double? wert})>[];
+    for (final gesicht in gesichter) {
+      final einbettung = gesicht.embedding;
+      if (einbettung != null) {
+        final treffer = besterTreffer(
+          floatsFromEmbeddingBlob(einbettung),
+          kerne,
+          schwelleFuer: (id) {
+            final person = leute[id];
+            return person == null
+                ? faceSimilarityThreshold
+                : schwelleFuerPerson(person);
+          },
+        );
+        if (treffer != null) gefunden++;
+        ergebnisse.add((
+          faceId: gesicht.id,
+          personId: treffer?.personId,
+          wert: treffer?.aehnlichkeit,
+        ));
+      }
+      done++;
+      // Blockweise sichern statt erst am Ende: Wer den Lauf nach der
+      // Haelfte abbricht, soll die Haelfte behalten – und ein Abbruch
+      // geschieht hier ueber das Abbestellen des Stroms, mitten in der
+      // Schleife.
+      if (done % 200 == 0) {
+        await db.merkeVorschlaege(ergebnisse);
+        ergebnisse.clear();
+        yield ImportProgress(done, gesichter.length, getan: gefunden);
+      }
+    }
+    await db.merkeVorschlaege(ergebnisse);
+    yield ImportProgress(done, gesichter.length, getan: gefunden);
+  }
+
   Stream<ImportProgress> backfillVideobilder({bool alle = false}) async* {
     final videos = await db.assetsFuerVideobilder(alle: alle);
     if (videos.isEmpty) {

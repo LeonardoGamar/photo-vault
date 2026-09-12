@@ -43,13 +43,13 @@ void main() {
     await db.setFileCreatedAt(oneYearAgo.id, DateTime(2025, 8, 11, 14, 30));
 
     final threeYearsAgo = await importPhoto('b.jpg');
-    await db.setFileCreatedAt(threeYearsAgo.id, DateTime(2023, 8, 11, 9));
+    await db.setFileCreatedAt(threeYearsAgo.id, DateTime(2023, 8, 11, 9, 41));
 
     final sameDayThisYear = await importPhoto('c.jpg');
     await db.setFileCreatedAt(sameDayThisYear.id, today);
 
     final differentDay = await importPhoto('d.jpg');
-    await db.setFileCreatedAt(differentDay.id, DateTime(2025, 8, 12));
+    await db.setFileCreatedAt(differentDay.id, DateTime(2025, 8, 12, 9, 41));
 
     final results = await db.assetsOnThisDay(today);
 
@@ -60,7 +60,7 @@ void main() {
     final today = DateTime(2026, 8, 11);
 
     final trashed = await importPhoto('trashed.jpg');
-    await db.setFileCreatedAt(trashed.id, DateTime(2025, 8, 11));
+    await db.setFileCreatedAt(trashed.id, DateTime(2025, 8, 11, 9, 41));
     await db.moveToTrash([trashed.id]);
 
     final results = await db.assetsOnThisDay(today);

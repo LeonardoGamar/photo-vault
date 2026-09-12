@@ -3946,6 +3946,11 @@ class AppTexteEn extends AppTexte {
   }
 
   @override
+  String erkundenImMonatVorJahren(String monat, int jahre) {
+    return 'In $monat, $jahre years ago';
+  }
+
+  @override
   String get gesichtBenennen => 'Name face';
 
   @override
@@ -4329,6 +4334,17 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get personenIgnorierenTooltip => 'Ignore selected faces';
+
+  @override
+  String personenZugeordnetMeldung(int anzahl, String name) {
+    String _temp0 = intl.Intl.pluralLogic(
+      anzahl,
+      locale: localeName,
+      other: '$anzahl faces assigned to “$name”.',
+      one: 'One face assigned to “$name”.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String personenIgnoriertMeldung(int anzahl) {
@@ -7979,6 +7995,85 @@ class AppTexteEn extends AppTexte {
 
   @override
   String get gesundheitGesichterZuordnen => 'Go to People';
+
+  @override
+  String get gesundheitDatumTitel => 'Questionable capture dates';
+
+  @override
+  String gesundheitDatumOffen(int anzahl) {
+    return '$anzahl item(s) carry a timestamp on the full hour – with a real shutter time about two would. The run looks into the file for what is actually there.';
+  }
+
+  @override
+  String get gesundheitDatumPruefen => 'Check date origin';
+
+  @override
+  String get gesundheitVideobilderTitel => 'Videos judged from one frame';
+
+  @override
+  String gesundheitVideobilderOffen(int anzahl) {
+    return '$anzahl video(s) run longer than ten seconds and are still searched by their first frame alone.';
+  }
+
+  @override
+  String get gesundheitVideobilderHolen => 'Fetch more frames';
+
+  @override
+  String get stufeWiedererkennung => 'Recognition';
+
+  @override
+  String get aufgWiedererkennungTitel => 'Who might this be?';
+
+  @override
+  String get aufgWiedererkennungText =>
+      'Compares unnamed faces with the named people and suggests who might be shown. Nothing is assigned – that stays your decision.';
+
+  @override
+  String get werkzWiedererkennung => 'Compare faces';
+
+  @override
+  String get werkzAlleVerglichen => 'All faces have already been compared.';
+
+  @override
+  String get gesundheitVorschlaegeTitel => 'Recognised faces are waiting';
+
+  @override
+  String gesundheitVorschlaegeOffen(int anzahl) {
+    return '$anzahl unnamed face(s) resemble a named person closely enough for a suggestion.';
+  }
+
+  @override
+  String get gesundheitVorschlaegeAnsehen => 'Review suggestions';
+
+  @override
+  String get vorschlaegeTitel => 'Who might this be?';
+
+  @override
+  String get vorschlaegeEinleitung =>
+      'Suggested, not assigned. You see per person what recognition found, and you decide.';
+
+  @override
+  String vorschlaegeAnzahl(int anzahl) {
+    return '$anzahl suggestion(s)';
+  }
+
+  @override
+  String get vorschlaegeKeine => 'There are no suggestions at the moment.';
+
+  @override
+  String get vorschlaegeBeiseite => 'Include set-aside faces';
+
+  @override
+  String get vorschlaegeBeiseiteHinweis =>
+      'You set these faces aside once – back then some of today\'s people did not exist yet. This is what recognition finds among them now.';
+
+  @override
+  String get vorschlaegeBeiseiteLeer =>
+      'Recognition finds nothing among the set-aside faces.';
+
+  @override
+  String get vorschlaegeLaufHinweis =>
+      'Nothing compared yet. The run \\u201cWho might this be?\\u201d fills this list.';
 
   @override
   String get datenschutzExportTitel => 'Privacy export';

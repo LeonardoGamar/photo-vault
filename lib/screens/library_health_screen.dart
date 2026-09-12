@@ -7,9 +7,11 @@ import '../services/storage_paths.dart';
 import '../state/library_state.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_theme.dart';
+import 'background_tasks_screen.dart';
 import 'home_shell.dart' show Hauptbereich;
 import 'integrity_check_screen.dart';
 import 'ortsvorschlaege_screen.dart';
+import 'vorschlaege_screen.dart';
 
 class LibraryHealthScreen extends StatefulWidget {
   const LibraryHealthScreen({super.key, required this.library});
@@ -32,6 +34,9 @@ class _LibraryHealthState {
     required this.modelsTotal,
     required this.ortsvorschlaege,
     required this.offeneGesichter,
+    required this.auffaelligeDaten,
+    required this.videoZweitblick,
+    required this.vorschlaege,
   });
 
   final bool databaseOk;
@@ -46,6 +51,9 @@ class _LibraryHealthState {
   /// Was an Arbeit bereitliegt, ohne dass jemand danach fragen muss.
   final int ortsvorschlaege;
   final int offeneGesichter;
+  final int auffaelligeDaten;
+  final int videoZweitblick;
+  final int vorschlaege;
 }
 
 class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
@@ -62,6 +70,9 @@ class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
       widget.library.db.countAssetsOfType('VIDEO'),
       widget.library.db.countOrtsvorschlagskandidaten(),
       widget.library.db.countOffeneGesichter(),
+      widget.library.db.countAuffaelligeAufnahmedaten(),
+      widget.library.db.countVideoZweitblick(),
+      widget.library.db.countVorschlaege(),
     ]);
     final models = [
       widget.library.clipAvailable,
@@ -83,10 +94,29 @@ class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
       modelsTotal: models.length,
       ortsvorschlaege: values[6] as int,
       offeneGesichter: values[7] as int,
+      auffaelligeDaten: values[8] as int,
+      videoZweitblick: values[9] as int,
+      vorschlaege: values[10] as int,
     );
   }
 
   void _refresh() => setState(() => _state = _load());
+
+  /// Fuehrt zur Aufgabenliste und hebt dort die gemeinte Karte hervor.
+  ///
+  /// Nach der Rueckkehr wird neu gezaehlt: Wer den Lauf angestossen hat,
+  /// soll die Karte hier nicht unveraendert wiederfinden.
+  Future<void> _zeigeAufgabe(String schluessel) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BackgroundTasksScreen(
+          library: widget.library,
+          hervorheben: schluessel,
+        ),
+      ),
+    );
+    if (mounted) _refresh();
+  }
 
   Future<void> _cleanTemporaryFiles() async {
     if (_cleaning) return;
@@ -248,6 +278,66 @@ class _LibraryHealthScreenState extends State<LibraryHealthScreen> {
                         widget.library.zeigeBereich(Hauptbereich.personen),
                     icon: const Icon(Icons.arrow_forward),
                     label: Text(t.gesundheitGesichterZuordnen),
+                  ),
+                ),
+              // **Die zweite Hälfte desselben Gedankens.** Die beiden
+              // Karten darüber kamen, weil Arbeit bereitlag, von der
+              // nirgends stand, dass sie wartet. An derselben Bibliothek
+              // hatten von den drei Auswertungen der 7. Auflage genau die
+              // beiden ohne Karte **noch nie gelaufen**: kein einziges
+              // geschätztes Datum, keine einzige Videoeinbettung – bei
+              // 1097 auffälligen Zeitstempeln und 219 langen Videos.
+              //
+              // Die Zahlen hier sind **enger** als die der Aufgabenliste:
+              // Dort steht „betrifft 8098" bzw. „429", weil der Lauf so
+              // viele ansieht. Ändern wird er nur bei diesen hier etwas,
+              // und eine Zahl, die mehr verspricht als dahinter steht,
+              // ist schlimmer als keine.
+              // Die Wiedererkennung laeuft von selbst nach jedem Import
+              // – gerade deshalb gehoert ihr Ergebnis hierher. Ein
+              // Vorschlag, den niemand zu sehen bekommt, ist dasselbe wie
+              // kein Vorschlag; genau daran sind die 14.065 von Hand
+              // beiseitegelegten Gesichter entstanden.
+              if (state.vorschlaege > 0)
+                _StatusCard(
+                  icon: Icons.person_search_outlined,
+                  color: context.semantik.warnung,
+                  title: t.gesundheitVorschlaegeTitel,
+                  text: t.gesundheitVorschlaegeOffen(state.vorschlaege),
+                  action: FilledButton.tonalIcon(
+                    onPressed: () async {
+                      await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            VorschlaegeScreen(library: widget.library),
+                      ));
+                      if (mounted) _refresh();
+                    },
+                    icon: const Icon(Icons.arrow_forward),
+                    label: Text(t.gesundheitVorschlaegeAnsehen),
+                  ),
+                ),
+              if (state.auffaelligeDaten > 0)
+                _StatusCard(
+                  icon: Icons.event_busy_outlined,
+                  color: context.semantik.warnung,
+                  title: t.gesundheitDatumTitel,
+                  text: t.gesundheitDatumOffen(state.auffaelligeDaten),
+                  action: FilledButton.tonalIcon(
+                    onPressed: () => _zeigeAufgabe('datumsherkunft'),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: Text(t.gesundheitDatumPruefen),
+                  ),
+                ),
+              if (state.videoZweitblick > 0)
+                _StatusCard(
+                  icon: Icons.video_library_outlined,
+                  color: context.semantik.warnung,
+                  title: t.gesundheitVideobilderTitel,
+                  text: t.gesundheitVideobilderOffen(state.videoZweitblick),
+                  action: FilledButton.tonalIcon(
+                    onPressed: () => _zeigeAufgabe('videobilder'),
+                    icon: const Icon(Icons.arrow_forward),
+                    label: Text(t.gesundheitVideobilderHolen),
                   ),
                 ),
               _StatusCard(

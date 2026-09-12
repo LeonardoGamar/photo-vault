@@ -40,6 +40,8 @@ import '../services/sortierung.dart'
         sortierungSql;
 import '../services/stammbaum.dart';
 import '../services/verwandtschaftsgrad.dart';
+import '../services/videostandbilder.dart'
+    show videoZweitblickAb, videostandbildstellen;
 import '../services/xmp_regionen.dart';
 import '../services/eigenkarte.dart';
 
@@ -982,6 +984,16 @@ typedef Ortsbezug = ({
   int aufnahmen,
 });
 
+/// Der Stand eines Gesichts, bevor es zugeordnet wurde.
+///
+/// Wird von [AppDatabase.gesichtsstand] gelesen und von
+/// [AppDatabase.nimmZuordnungZurueck] zurückgeschrieben.
+typedef Gesichtsstand = ({
+  String id,
+  String? personId,
+  bool ignoriert,
+});
+
 /// Ein abgelehnter Reisevorschlag.
 ///
 /// Ohne dieses Gedächtnis käme derselbe Vorschlag bei jedem Start wieder
@@ -1380,6 +1392,36 @@ class Faces extends Table {
   /// verschwindet aus dem Raster und aus der automatischen Gruppierung,
   /// bleibt aber unter „Ignoriert" auffindbar und rückholbar.
   BoolColumn get isIgnored => boolean().withDefault(const Constant(false))();
+
+  /// Wer hier vermutlich zu sehen ist – gerechnet, nicht bestaetigt.
+  ///
+  /// **Warum das in der Tabelle steht und nicht bei Bedarf gerechnet
+  /// wird.** Die Rechnung ist ein Vergleich jedes Gesichts mit jedem
+  /// Personenkern; an der echten Bibliothek sind das 14.065 mal 45
+  /// Vergleiche ueber je 512 Zahlen. Das ist als Hintergrundlauf richtig
+  /// aufgehoben und als Antwort auf „wie viel liegt an?" unbrauchbar.
+  /// Mit der Spalte kostet die Zahl auf dem Gesundheitsbildschirm eine
+  /// gewoehnliche Zaehlung.
+  ///
+  /// Vorschlag heisst Vorschlag: Zugeordnet wird erst, wenn jemand
+  /// zugestimmt hat. Ein uebersehener Fehlvorschlag kostet eine falsche
+  /// Zuordnung, und die faellt spaeter niemandem mehr auf.
+  TextColumn get vorschlagPersonId => text().nullable()();
+
+  /// Die Aehnlichkeit zum Kern dieser Person, zum Zeitpunkt der Rechnung.
+  ///
+  /// Wird beim Bestaetigen oder Ablehnen als Rueckmeldung festgehalten
+  /// (siehe [Gesichtsrueckmeldungen]) – ohne den Wert liesse sich aus der
+  /// Entscheidung keine Schwelle ableiten.
+  RealColumn get vorschlagWert => real().nullable()();
+
+  /// Wann zuletzt nach einem Vorschlag gesucht wurde – auch dann gesetzt,
+  /// wenn nichts nahe genug lag.
+  ///
+  /// Ohne diese Marke waere „noch nicht geprueft" von „geprueft, nichts
+  /// gefunden" nicht zu unterscheiden, und jeder Lauf faenge wieder bei
+  /// allen 14.065 an.
+  DateTimeColumn get vorschlagGeprueftAm => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -1969,7 +2011,7 @@ class AppDatabase extends _$AppDatabase {
   int get embeddingsGeneration => _embeddingsGeneration;
 
   @override
-  int get schemaVersion => 84;
+  int get schemaVersion => 85;
 
   Future<void> _createAssetSearchFts() async {
     await customStatement('''
@@ -2897,6 +2939,17 @@ class AppDatabase extends _$AppDatabase {
             // liesse den alten stehen – er muss weg, bevor der neue kommt.
             await customStatement('DROP TRIGGER IF EXISTS assets_fts_update');
             await _createAssetSearchTriggers();
+          }
+          if (from < 85) {
+            // Drei neue Spalten, alle leer: Vor dem ersten Lauf gibt es
+            // keine Vorschlaege, und genau so sieht die App danach aus.
+            for (final (spalte, name) in [
+              (faces.vorschlagPersonId, 'vorschlag_person_id'),
+              (faces.vorschlagWert, 'vorschlag_wert'),
+              (faces.vorschlagGeprueftAm, 'vorschlag_geprueft_am'),
+            ]) {
+              await _addColumnIfMissing(m, faces, spalte, 'faces', name);
+            }
           }
         },
       );
@@ -4322,6 +4375,46 @@ class AppDatabase extends _$AppDatabase {
   Future<int> countDatumsherkunft({bool alle = false}) =>
       _countWhere(_datumOffen(alle));
 
+  /// Nur die Aufnahmen, bei denen der Lauf voraussichtlich etwas ändert:
+  /// solche, deren Zeitstempel auf einer **vollen Stunde** sitzt.
+  ///
+  /// **Warum genau dieses Merkmal.** Ein echter Auslösezeitpunkt trifft die
+  /// volle Stunde mit einer Wahrscheinlichkeit von 1:3600. An der
+  /// Produktivbibliothek wären das bei 7443 Aufnahmen rund **2** – gezählt
+  /// wurden **1097**, davon **948** auf ein und derselben Sekunde. Das ist
+  /// kein Zufall, sondern ein Datum ohne Uhrzeit, das jemand beim Einlesen
+  /// auf 00:00 aufgefüllt hat.
+  ///
+  /// [countDatumsherkunft] zählt dagegen alles, was noch niemand
+  /// nachgesehen hat – an derselben Bibliothek 8098. Als Zahl auf dem
+  /// Gesundheitsbildschirm verspräche sie Arbeit, die der Lauf gar nicht
+  /// leistet, und das ist schlimmer als keine Zahl (siehe
+  /// [countOffeneGesichter]).
+  ///
+  /// **Gerechnet wird in Ortszeit, nicht in UTC.** Die volle Stunde ist
+  /// eine Eigenschaft der Uhrzeit, die jemand gesehen hat, als der Wert
+  /// entstand. In Zonen mit halbstuendigem Versatz – Indien, Teile
+  /// Australiens – laege eine erfundene Mitternacht in UTC bei 1800
+  /// Sekunden und bliebe ungezaehlt. Der Sommerzeitsprung stoert dabei
+  /// nicht: Er betraegt ueberall volle Stunden und aendert am Rest der
+  /// Division nichts.
+  /// Der Verdacht als Ausdruck, fuer alle, die ihn ausschliessen wollen –
+  /// siehe [countAuffaelligeAufnahmedaten] fuer die Begruendung der
+  /// vollen Stunde.
+  Expression<bool> _nichtAufVollerStunde() => CustomExpression<bool>(
+      '(file_created_at + '
+      '${DateTime.now().timeZoneOffset.inSeconds}) % 3600 <> 0');
+
+  Future<int> countAuffaelligeAufnahmedaten() => _countWhere(
+        _datumOffen(false) &
+            assets.fileCreatedAt.isNotNull() &
+            // file_created_at liegt als Sekunden seit 1970 vor, nicht als
+            // Text und nicht in Millisekunden – der Rest der Division ist
+            // deshalb direkt zu haben.
+            CustomExpression<bool>('(file_created_at + '
+                '${DateTime.now().timeZoneOffset.inSeconds}) % 3600 = 0'),
+      );
+
   /// Vermerkt „nachgesehen" für eine ganze Gruppe – und setzt bei denen
   /// aus [geschaetzt] zugleich die Marke.
   ///
@@ -5281,12 +5374,26 @@ class AppDatabase extends _$AppDatabase {
   /// echten Bibliothek liegen 948 Aufnahmen auf einem einzigen erfundenen
   /// Zeitpunkt – am 27. August wären sie alle auf einmal erschienen, und
   /// keine einzige davon entstand an diesem Tag.
+  ///
+  /// **Die Marke allein genuegt nicht.** `datum_geschaetzt` wird erst
+  /// gesetzt, wenn der Lauf „Herkunft der Aufnahmedaten" ueber die
+  /// Bibliothek gegangen ist – an der echten stand sie am 10.09.2026 bei
+  /// **0**, und die Abwehr oben war damit wirkungslos: Am 27. August
+  /// haette dieser Abschnitt 1103 Aufnahmen gezeigt, 1096 davon mit einer
+  /// erfundenen Uhrzeit.
+  ///
+  /// Deshalb zusaetzlich der Verdacht selbst, der keinen Lauf braucht:
+  /// ein Zeitstempel auf voller Ortszeit-Stunde (siehe
+  /// [countAuffaelligeAufnahmedaten]). Der Preis dafuer sind die rund
+  /// **zwei** Aufnahmen, die eine volle Stunde zufaellig treffen; der
+  /// Ertrag sind die 1095, die es nicht zufaellig tun.
   Future<List<AssetData>> assetsOnThisDay(DateTime today) async {
     final schlank = selectOnly(assets)
       ..addColumns([assets.id, assets.fileCreatedAt])
       ..where(assets.isTrashed.equals(false) &
           assets.isLocked.equals(false) &
           assets.datumGeschaetzt.equals(false) &
+          _nichtAufVollerStunde() &
           _isPrimaryGridEntry(assets));
     final treffer = <String>[];
     for (final zeile in await schlank.get()) {
@@ -5304,6 +5411,47 @@ class AppDatabase extends _$AppDatabase {
         treffer.add(zeile.rawData.read<String>('assets.id'));
       }
     }
+    if (treffer.isEmpty) return const [];
+    final geladen =
+        await (select(assets)..where((t) => t.id.isIn(treffer))).get();
+    return geladen..sort((a, b) => b.fileCreatedAt.compareTo(a.fileCreatedAt));
+  }
+
+  /// Was in diesem **Monat** frueherer Jahre entstanden ist – ohne den
+  /// heutigen Tag, denn den zeigt [assetsOnThisDay].
+  ///
+  /// **Warum es die zweite, weitere Frage braucht.** Der Tagesabschnitt
+  /// trifft an der echten Bibliothek nur an **261 von 365** Tagen etwas,
+  /// und an 107 davon sind es hoechstens drei Aufnahmen. An den uebrigen
+  /// 104 Tagen verschwand der Abschnitt wortlos – heute, am 12.
+  /// September, war das so. Der Monat ist die naechstgroessere Frage, die
+  /// fast immer eine Antwort hat, und sie ist genauso wahr: „im
+  /// September vor 13 Jahren" behauptet nichts ueber den Tag.
+  ///
+  /// [hoechstensJeJahr] deckelt, was ein einzelner Jahrgang beisteuert –
+  /// ohne das waere ein Monat mit 900 Aufnahmen kein Rueckblick, sondern
+  /// die Zeitleiste.
+  Future<List<AssetData>> assetsInDiesemMonat(DateTime heute,
+      {int hoechstensJeJahr = 12}) async {
+    final schlank = selectOnly(assets)
+      ..addColumns([assets.id, assets.fileCreatedAt])
+      ..where(assets.isTrashed.equals(false) &
+          assets.isLocked.equals(false) &
+          assets.datumGeschaetzt.equals(false) &
+          _nichtAufVollerStunde() &
+          _isPrimaryGridEntry(assets));
+    final jeJahr = <int, List<String>>{};
+    for (final zeile in await schlank.get()) {
+      final wann = DateTime.fromMillisecondsSinceEpoch(
+          zeile.rawData.read<int>('assets.file_created_at') * 1000);
+      if (wann.month != heute.month || wann.year == heute.year) continue;
+      if (wann.day == heute.day) continue;
+      final liste = jeJahr.putIfAbsent(wann.year, () => []);
+      if (liste.length < hoechstensJeJahr) {
+        liste.add(zeile.rawData.read<String>('assets.id'));
+      }
+    }
+    final treffer = [for (final l in jeJahr.values) ...l];
     if (treffer.isEmpty) return const [];
     final geladen =
         await (select(assets)..where((t) => t.id.isIn(treffer))).get();
@@ -7171,6 +7319,164 @@ class AppDatabase extends _$AppDatabase {
       (update(faces)..where((f) => f.id.equals(faceId)))
           .write(FacesCompanion(schaerfe: Value(wert)));
 
+  /// Gesichter, fuer die noch kein Vorschlag gerechnet wurde.
+  ///
+  /// [alle] nimmt auch die schon geprueften wieder mit – der Weg, nachdem
+  /// neue Personen benannt wurden: Ein Gesicht, zu dem es vor einem Monat
+  /// keinen Kern gab, kann heute einen haben.
+  ///
+  /// [beiseite] entscheidet ueber die 14.065 beiseitegelegten. Sie sind
+  /// standardmaessig **draussen**: Wer sie weggelegt hat, hat entschieden,
+  /// und dieselbe Frage von selbst noch einmal zu stellen waere keine
+  /// Hilfe, sondern Widerspruch. Als ausdruecklicher Durchgang lohnt es
+  /// sich trotzdem – an der echten Bibliothek liegen dort 960 Gesichter,
+  /// die heute ueber der Schwelle einer inzwischen benannten Person
+  /// liegen.
+  Expression<bool> _wiedererkennungOffen(
+          {required bool alle, required bool beiseite}) =>
+      faces.personId.isNull() &
+      faces.embedding.isNotNull() &
+      (beiseite
+          ? const CustomExpression<bool>('1')
+          : faces.isIgnored.equals(false)) &
+      (alle
+          ? const CustomExpression<bool>('1')
+          : faces.vorschlagGeprueftAm.isNull());
+
+  Future<List<FaceData>> gesichterFuerWiedererkennung(
+      {bool alle = false, bool beiseite = false}) async {
+    final zeilen = await (select(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+          ..where(_wiedererkennungOffen(alle: alle, beiseite: beiseite) &
+              assets.isTrashed.equals(false) &
+              assets.isLocked.equals(false)))
+        .get();
+    return [for (final z in zeilen) z.readTable(faces)];
+  }
+
+  /// Zaehlvariante von [gesichterFuerWiedererkennung].
+  Future<int> countWiedererkennungOffen(
+          {bool alle = false, bool beiseite = false}) async =>
+      _zaehleGesichter(_wiedererkennungOffen(alle: alle, beiseite: beiseite));
+
+  /// Wie viele Vorschlaege auf eine Entscheidung warten – die Zahl fuer
+  /// den Gesundheitsbildschirm.
+  ///
+  /// Beiseitegelegte zaehlen hier **nicht** mit: Sie sind entschieden, und
+  /// eine Zahl, die mehr verspricht als die Liste dahinter zeigt, ist
+  /// schlimmer als keine (siehe [countOffeneGesichter]).
+  Future<int> countVorschlaege({bool beiseite = false}) =>
+      _zaehleGesichter(faces.personId.isNull() &
+          faces.vorschlagPersonId.isNotNull() &
+          faces.isIgnored.equals(beiseite));
+
+  Future<int> _zaehleGesichter(Expression<bool> bedingung) async {
+    final anzahl = faces.id.count();
+    final zeile = await (selectOnly(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+          ..addColumns([anzahl])
+          ..where(bedingung &
+              assets.isTrashed.equals(false) &
+              assets.isLocked.equals(false)))
+        .getSingle();
+    return zeile.read(anzahl) ?? 0;
+  }
+
+  /// Schreibt das Ergebnis eines Wiedererkennungslaufs.
+  ///
+  /// **In einem Zug und nicht je Gesicht.** Bei den Ortsnamen kostete das
+  /// einzeln 2131 ms gegen 139 ms in Bloecken; hier geht es um
+  /// zehntausende Zeilen. Die Marke [Faces.vorschlagGeprueftAm] wird auch
+  /// dort gesetzt, wo nichts gefunden wurde – sonst begaenne der naechste
+  /// Lauf wieder von vorn.
+  Future<void> merkeVorschlaege(
+      List<({String faceId, String? personId, double? wert})> ergebnisse,
+      {DateTime? jetzt}) async {
+    if (ergebnisse.isEmpty) return;
+    final zeitpunkt = jetzt ?? DateTime.now();
+    await batch((b) {
+      for (final e in ergebnisse) {
+        b.update(
+          faces,
+          FacesCompanion(
+            vorschlagPersonId: Value(e.personId),
+            vorschlagWert: Value(e.wert),
+            vorschlagGeprueftAm: Value(zeitpunkt),
+          ),
+          where: (t) => t.id.equals(e.faceId),
+        );
+      }
+    });
+  }
+
+  /// Die wartenden Vorschlaege, nach Person gebuendelt und nach Menge
+  /// sortiert.
+  Future<List<({PersonData person, int anzahl})>> vorschlaegeJePerson(
+      {bool beiseite = false}) async {
+    // Erst zaehlen, dann die Personen dazuholen. Ein `readTable` auf die
+    // gruppierte Abfrage geht nicht: Eine Gruppe ist keine Zeile der
+    // Personentabelle, und drift sagt das auch so.
+    final anzahl = faces.id.count();
+    final zeilen = await (selectOnly(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+          ..addColumns([faces.vorschlagPersonId, anzahl])
+          ..where(faces.personId.isNull() &
+              faces.vorschlagPersonId.isNotNull() &
+              faces.isIgnored.equals(beiseite) &
+              assets.isTrashed.equals(false) &
+              assets.isLocked.equals(false))
+          ..groupBy([faces.vorschlagPersonId]))
+        .get();
+    final mengen = {
+      for (final z in zeilen)
+        z.read(faces.vorschlagPersonId)!: z.read(anzahl) ?? 0,
+    };
+    if (mengen.isEmpty) return const [];
+    final leute = await (select(people)
+          ..where((t) => t.id.isIn(mengen.keys.toList())))
+        .get();
+    final liste = [
+      for (final p in leute) (person: p, anzahl: mengen[p.id] ?? 0),
+    ]..sort((a, b) => b.anzahl.compareTo(a.anzahl));
+    return liste;
+  }
+
+  /// Die Vorschlaege zu einer Person, wie [PersonSuggestionsScreen] sie
+  /// erwartet – absteigend nach Aehnlichkeit, das Sicherste zuerst.
+  Future<List<({FaceData gesicht, double aehnlichkeit})>> vorschlaegeFuerPerson(
+      String personId,
+      {bool beiseite = false}) async {
+    final zeilen = await (select(faces).join([
+      innerJoin(assets, assets.id.equalsExp(faces.assetId)),
+    ])
+          ..where(faces.personId.isNull() &
+              faces.vorschlagPersonId.equals(personId) &
+              faces.isIgnored.equals(beiseite) &
+              assets.isTrashed.equals(false) &
+              assets.isLocked.equals(false)))
+        .get();
+    final liste = [
+      for (final z in zeilen)
+        (gesicht: z.readTable(faces), aehnlichkeit: z.readTable(faces).vorschlagWert ?? 0),
+    ]..sort((a, b) => b.aehnlichkeit.compareTo(a.aehnlichkeit));
+    return liste;
+  }
+
+  /// Nimmt den Vorschlag von diesen Gesichtern weg – nach einer
+  /// Ablehnung.
+  ///
+  /// Die Marke [Faces.vorschlagGeprueftAm] bleibt stehen: Der naechste
+  /// Lauf soll dieselbe Frage nicht sofort wieder stellen. Erst ein Lauf
+  /// mit „alle" fragt erneut, und bis dahin ist die Schwelle dieser
+  /// Person durch die Ablehnung gestiegen.
+  Future<void> verwirfVorschlaege(List<String> faceIds) =>
+      (update(faces)..where((t) => t.id.isIn(faceIds))).write(
+          const FacesCompanion(
+              vorschlagPersonId: Value(null), vorschlagWert: Value(null)));
+
   Future<void> assignFacesToPerson(
       List<String> faceIds, String personId) async {
     // Wer einem beiseitegelegten Gesicht einen Namen gibt, hat es damit
@@ -7178,13 +7484,80 @@ class AppDatabase extends _$AppDatabase {
     // wieder aus der Personenansicht.
     await (update(faces)..where((t) => t.id.isIn(faceIds))).write(
         FacesCompanion(
-            personId: Value(personId), isIgnored: const Value(false)));
+            personId: Value(personId),
+            isIgnored: const Value(false),
+            // Der Vorschlag ist erledigt, sobald er angenommen wurde – er
+            // stuende sonst weiter in der Warteschlange.
+            vorschlagPersonId: const Value(null),
+            vorschlagWert: const Value(null)));
     final assignedFaces =
         await (select(faces)..where((t) => t.id.isIn(faceIds))).get();
     final withCrop = assignedFaces.where((f) => f.cropRelativePath != null);
     if (withCrop.isNotEmpty) {
       await setPersonCoverIfUnset(personId, withCrop.first.cropRelativePath!);
     }
+  }
+
+  /// Der Stand der Gesichter vor einer Zuordnung – genau das, was
+  /// [nimmZuordnungZurueck] zurückschreiben muss.
+  ///
+  /// Vorher lesen statt hinterher raten: Ein Gesicht kann schon jemandem
+  /// gehört haben oder beiseitegelegt gewesen sein, und [assignFacesToPerson]
+  /// holt Beiseitegelegtes ausdrücklich zurück.
+  Future<List<Gesichtsstand>> gesichtsstand(List<String> faceIds) async {
+    final rows = await (select(faces)..where((t) => t.id.isIn(faceIds))).get();
+    return [
+      for (final f in rows)
+        (id: f.id, personId: f.personId, ignoriert: f.isIgnored),
+    ];
+  }
+
+  /// Nimmt eine Zuordnung samt allem zurück, was sie ausgelöst hat.
+  ///
+  /// Eine Zuordnung ändert mehr als die eine Spalte: Sie holt
+  /// beiseitegelegte Gesichter zurück, setzt gegebenenfalls das Titelbild
+  /// der Person, legt Rückmeldungen für die lernende Wiedererkennung an und
+  /// verschiebt damit deren Schwelle. Ein Rückgängig, das nur `person_id`
+  /// leert, liesse die Person mit einem fremden Titelbild und einer
+  /// Schwelle zurück, die aus einer zurückgenommenen Entscheidung stammt.
+  ///
+  /// [rueckmeldungenSeit] ist der Zeitpunkt, den
+  /// [merkeGesichtsEntscheidungen] verwendet hat; `null`, wenn keine
+  /// Rückmeldungen entstanden sind.
+  Future<void> nimmZuordnungZurueck({
+    required List<Gesichtsstand> gesichter,
+    required String personId,
+    required bool personWarNeu,
+    required String? titelbildVorher,
+    required DateTime? rueckmeldungenSeit,
+    required double allgemeineSchwelle,
+  }) async {
+    if (gesichter.isEmpty) return;
+    await transaction(() async {
+      for (final g in gesichter) {
+        await (update(faces)..where((t) => t.id.equals(g.id))).write(
+          FacesCompanion(
+              personId: Value(g.personId), isIgnored: Value(g.ignoriert)),
+        );
+      }
+      if (rueckmeldungenSeit != null) {
+        await (delete(faceMatchFeedback)
+              ..where((t) =>
+                  t.personId.equals(personId) &
+                  t.faceId.isIn([for (final g in gesichter) g.id]) &
+                  t.createdAt.isBiggerOrEqualValue(rueckmeldungenSeit)))
+            .go();
+      }
+      if (personWarNeu) {
+        // Die Person entstand allein für diese Zuordnung; ohne sie bliebe
+        // ein leerer Name in der Liste stehen.
+        await (delete(people)..where((t) => t.id.equals(personId))).go();
+      } else {
+        await (update(people)..where((t) => t.id.equals(personId))).write(
+            PeopleCompanion(coverFaceCropPath: Value(titelbildVorher)));
+        await _aktualisiereSchwelle(personId, allgemeineSchwelle);
+      }
+    });
   }
 
   // -----------------------------------------------------------------------
@@ -7197,14 +7570,19 @@ class AppDatabase extends _$AppDatabase {
   /// Beides zusammen in einer Transaktion, damit die gespeicherte Schwelle
   /// nie zu einem anderen Satz Rückmeldungen gehört als dem, der in der
   /// Oberfläche als Begründung angezeigt wird.
-  Future<void> merkeGesichtsEntscheidungen(
+  ///
+  /// Gibt den Zeitpunkt zurück, unter dem die Rückmeldungen abgelegt wurden
+  /// – [nimmZuordnungZurueck] braucht ihn, um genau diese Zeilen wieder zu
+  /// entfernen und nicht ältere zu derselben Person. `null`, wenn nichts
+  /// abzulegen war.
+  Future<DateTime?> merkeGesichtsEntscheidungen(
     String personId,
     List<({String faceId, bool accepted, double similarity})> entscheidungen, {
     required double allgemeineSchwelle,
   }) async {
-    if (entscheidungen.isEmpty) return;
+    if (entscheidungen.isEmpty) return null;
+    final jetzt = DateTime.now();
     await transaction(() async {
-      final jetzt = DateTime.now();
       await batch((b) => b.insertAll(faceMatchFeedback, [
             for (final e in entscheidungen)
               FaceMatchFeedbackCompanion.insert(
@@ -7217,6 +7595,7 @@ class AppDatabase extends _$AppDatabase {
           ]));
       await _aktualisiereSchwelle(personId, allgemeineSchwelle);
     });
+    return jetzt;
   }
 
   Future<void> _aktualisiereSchwelle(String personId, double allgemein) async {
@@ -8897,6 +9276,20 @@ class AppDatabase extends _$AppDatabase {
   /// Zaehlvariante von [assetsFuerVideobilder], siehe [countLocationBackfill].
   Future<int> countVideobilder({bool alle = false}) =>
       _countWhere(_videobilderOffen(alle));
+
+  /// Nur die Videos, bei denen der zweite Blick etwas bringt: die ab
+  /// [videoZweitblickAb].
+  ///
+  /// [countVideobilder] zaehlt alle 429 Videos der Produktivbibliothek,
+  /// obwohl [videostandbildstellen] fuer 210 davon eine leere Liste
+  /// liefert – bei einem Live-Photo-Fetzen von zwei Sekunden ist das eine
+  /// vorhandene Standbild das ganze Video. Auf dem Gesundheitsbildschirm
+  /// steht deshalb die kleinere, ehrliche Zahl (**219**).
+  Future<int> countVideoZweitblick() => _countWhere(
+        _videobilderOffen(false) &
+            assets.durationSeconds
+                .isBiggerOrEqualValue(videoZweitblickAb.inSeconds.toDouble()),
+      );
 
   /// Schreibt die Einbettungen der zusaetzlichen Standbilder eines Videos
   /// – **die alten fallen dabei weg**.

@@ -26,6 +26,15 @@ import 'package:photo_vault/db/database.dart';
 ///   roh über `rawData` (das halbiert die Zeit), und die Namen dafür
 ///   vergibt drift. Änderte sich daran etwas, liefe das Lesen in einen
 ///   Fehler – und ohne diesen Prüfstand erst beim Anwender.
+/// **Die Fixtures tragen krumme Uhrzeiten, und das ist Absicht.**
+///
+/// Seit Fassung 3.13.0 fallen Aufnahmen auf voller Stunde aus den
+/// Erinnerungen: An der echten Bibliothek liegen dort 1097 statt der
+/// erwarteten zwei, 948 davon auf ein und derselben Sekunde, und am 27.
+/// August waeren sie alle auf einmal als „vor 20 Jahren" erschienen
+/// (siehe [AppDatabase.assetsOnThisDay]). Geprueft wird hier
+/// Sichtbarkeit, Sortierung und Schaltjahr – nicht die Uhrzeit; die
+/// runden Werte von frueher waren Bequemlichkeit, nicht Aussage.
 void main() {
   late AppDatabase db;
 
@@ -76,10 +85,10 @@ void main() {
   }
 
   test('derselbe Tag in früheren Jahren, neueste zuerst', () async {
-    await foto('a2024', wann: DateTime(2024, 8, 15, 10));
-    await foto('a2025', wann: DateTime(2025, 8, 15, 10));
-    await foto('heuer', wann: DateTime(2026, 8, 15, 10));
-    await foto('tagsdrauf', wann: DateTime(2024, 8, 16, 10));
+    await foto('a2024', wann: DateTime(2024, 8, 15, 10, 17));
+    await foto('a2025', wann: DateTime(2025, 8, 15, 10, 17));
+    await foto('heuer', wann: DateTime(2026, 8, 15, 10, 17));
+    await foto('tagsdrauf', wann: DateTime(2024, 8, 16, 10, 17));
 
     final heute = DateTime(2026, 8, 15);
     final ids = (await db.assetsOnThisDay(heute)).map((a) => a.id).toList();
@@ -91,14 +100,14 @@ void main() {
   test('was ausgeblendet gehört, bleibt ausgeblendet', () async {
     // Genau die Regel, die überall sonst gilt (_isPrimaryGridEntry) – sie
     // steht nur einmal, und die schlanke Abfrage benutzt dieselbe.
-    await foto('sichtbar', wann: DateTime(2024, 8, 15, 12));
+    await foto('sichtbar', wann: DateTime(2024, 8, 15, 12, 17));
     await foto('videohaelfte',
-        wann: DateTime(2024, 8, 15, 11), typ: 'VIDEO', verknuepft: 'sichtbar');
+        wann: DateTime(2024, 8, 15, 11, 17), typ: 'VIDEO', verknuepft: 'sichtbar');
     await foto('stapelmitglied',
-        wann: DateTime(2024, 8, 15, 10), stapel: 's1');
-    await foto('papierkorb', wann: DateTime(2024, 8, 15, 9), papierkorb: true);
-    await foto('tresor', wann: DateTime(2024, 8, 15, 8), gesperrt: true);
-    await foto('freiesvideo', wann: DateTime(2024, 8, 15, 7), typ: 'VIDEO');
+        wann: DateTime(2024, 8, 15, 10, 17), stapel: 's1');
+    await foto('papierkorb', wann: DateTime(2024, 8, 15, 9, 17), papierkorb: true);
+    await foto('tresor', wann: DateTime(2024, 8, 15, 8, 17), gesperrt: true);
+    await foto('freiesvideo', wann: DateTime(2024, 8, 15, 7, 17), typ: 'VIDEO');
 
     final heute = DateTime(2026, 8, 15);
     final ids = (await db.assetsOnThisDay(heute)).map((a) => a.id).toList();
@@ -107,14 +116,14 @@ void main() {
   });
 
   test('ohne Treffer wird gar nicht erst nachgeladen', () async {
-    await foto('anderer', wann: DateTime(2024, 3, 3));
+    await foto('anderer', wann: DateTime(2024, 3, 3, 9, 17));
     expect(await db.assetsOnThisDay(DateTime(2026, 8, 15)), isEmpty);
   });
 
   test('der 29. Februar findet nur Schaltjahre', () async {
     // Der Tag, an dem eine Rechnung über den Jahrestag leicht danebengreift.
-    await foto('schalt', wann: DateTime(2024, 2, 29, 12));
-    await foto('erster', wann: DateTime(2023, 3, 1, 12));
+    await foto('schalt', wann: DateTime(2024, 2, 29, 12, 17));
+    await foto('erster', wann: DateTime(2023, 3, 1, 12, 17));
     final heute = DateTime(2028, 2, 29);
     final ids = (await db.assetsOnThisDay(heute)).map((a) => a.id).toList();
     expect(ids, ['schalt']);
@@ -126,7 +135,7 @@ void main() {
     // der Datenbank, nicht die gewünschte – sortiert wird danach.
     for (var jahr = 2010; jahr < 2026; jahr++) {
       for (var stunde = 0; stunde < 5; stunde++) {
-        await foto('f$jahr-$stunde', wann: DateTime(jahr, 8, 15, stunde));
+        await foto('f$jahr-$stunde', wann: DateTime(jahr, 8, 15, stunde, 17));
       }
     }
     final heute = DateTime(2026, 8, 15);

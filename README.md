@@ -170,7 +170,15 @@ echter Hardware.
 - **Timeline** – alle Fotos/Videos chronologisch nach Monat gruppiert, mit
   Scrubber zum schnellen Springen
 - **Entdecken** – Einstiegsseite mit Personen, Orten, zuletzt hinzugefügten
-  Alben/Fotos und "Erinnerungen" (Fotos vom selben Tag früherer Jahre)
+  Alben/Fotos und einem **Rückblick**. Der fragt zuerst nach dem
+  Kalendertag („heute vor X Jahren") und, wenn der nichts hergibt, nach
+  dem Monat („im September vor 13 Jahren") – genauso wahr, und ohne eine
+  Behauptung über den Tag. An einer gewachsenen Bibliothek trifft die
+  Tagesfrage nur an 261 von 365 Tagen etwas; an den übrigen verschwand der
+  Abschnitt früher wortlos. Aufnahmen mit einem Zeitstempel auf voller
+  Stunde bleiben draussen: Das trifft der Zufall zweimal je Bibliothek,
+  ein Einlesevorgang ohne Uhrzeit dagegen tausendfach – und „vor 20
+  Jahren, an genau diesem Tag" wäre dann für jedes davon gelogen
 - **Kalender** – Jahresübersicht mit Titelbild und Foto-/Videoanzahl je Jahr
 - **Karte** – Fotos mit GPS-Daten auf einer Karte (OpenStreetMap-Kacheln)
   oder wahlweise auf einem interaktiven 3D-Globus. Die dunkle Karte
@@ -415,6 +423,17 @@ echter Hardware.
   findet: eine Gemäldewand im Hintergrund, ein Zeitungsfoto, ein Plakat.
   Bereits erkannte Gesichter bleiben dabei stehen; die Ausnahme gilt dem
   Suchen, nicht dem Gefundenen.
+- **Wiedererkennung nach dem Import** – jedes neu erkannte Gesicht wird
+  von selbst mit den benannten Personen verglichen; wer nahe genug liegt,
+  wird **vorgeschlagen**, nach Person gebündelt und mit einem Klick je
+  Gruppe bestätigt. Zugeordnet wird nichts: Ein falscher Vorschlag, den
+  jemand wegklickt, kostet Zeit – einer, den jemand übersieht und
+  bestätigt, kostet eine falsche Zuordnung, und die fällt später niemandem
+  mehr auf. Verglichen wird gegen die **persönliche** Schwelle jeder
+  Person, in der steckt, was aus früheren Zusagen und Absagen gelernt
+  wurde. Beiseitegelegte Gesichter bleiben draussen, bis man ausdrücklich
+  danach fragt – sie sind entschieden; als eigener Durchgang lohnt es sich
+  trotzdem, weil weggelegt wurde, bevor es die heutigen Personen gab
 - **KI-Bildsuche** – natürlichsprachige Suche ("Sonnenuntergang am Meer")
   über **CLIP ViT-B/32** (OpenAI-Originalgewichte, MIT-Lizenz)
 - **KI-Bildbeschreibung** – automatische (englische) Bildunterschrift pro
@@ -702,7 +721,7 @@ Fassung 1.18 abgelöst.
 
 **Falls du schon eine Bibliothek mit älterer Version dieses Projekts hast:**
 Das Datenbankschema hat sich seit den ersten Versionen mehrfach erweitert
-(aktuell Schema-Version 84: Kamera-Presets, RAW-Entwicklung, Video-Trim,
+(aktuell Schema-Version 85: Kamera-Presets, RAW-Entwicklung, Video-Trim,
 Gesichts-Clustering, gesperrter Ordner, gespeicherte Suchen,
 Erscheinungsbild-Einstellungen, Vektor-Masken, KI-Restaurierungs-
 Warteschlange, Tonwertkurve und Farbmischer, gelernte
@@ -717,7 +736,8 @@ Kartenstil und Ebenen der Geländeansicht, Wanderobjekte, geschätzte und
 geprüfte Aufnahmedaten, geerbte Orte samt verworfenen Vorschlägen,
 Video-Einbettungen mehrerer Standbilder, Zeitzonenversatz, Sortierung
 der Zeitleiste, Tagesnotizen und Art einer Reise, Volltextsuchindex,
-Metadaten-Datenschutz beim Export, …). Drift
+Metadaten-Datenschutz beim Export, vorgeschlagene Personen je Gesicht,
+…). Drift
 migriert das automatisch beim
 ersten Start nach dem Update – es muss nichts manuell gelöscht werden,
 vorhandene Fotos/Alben/Personen bleiben erhalten.
@@ -855,12 +875,16 @@ im Hintergrund laufen sollen:
   **Kamera-Presets** verwalten
 - **Zustand der Bibliothek** – eine Seite, die sagt, ob die Datenbank in
   Ordnung ist, wie viel Platz belegt ist, welche Modelle bereitliegen –
-  und **welche Arbeit liegengeblieben ist**: wie viele Aufnahmen einen Ort
-  von ihren zeitlichen Nachbarn erben könnten und wie viele erkannte
-  Gesichter noch zu niemandem gehören. Beide Zahlen führen dorthin, wo
-  sich die Sache erledigen lässt, und beide sind bewusst genau: gezählt
-  wird nicht „alles ohne Ort", sondern nur, was der Vorschlag auch
-  anbieten kann
+  und **welche Arbeit liegengeblieben ist**: Aufnahmen, die einen Ort von
+  ihren zeitlichen Nachbarn erben könnten; erkannte Gesichter, die noch zu
+  niemandem gehören; Gesichter, für die die Wiedererkennung eine Person
+  vorschlägt; Aufnahmen mit einem fragwürdigen Aufnahmedatum; Videos, die
+  bislang nur aus ihrem ersten Standbild beurteilt werden. Jede Zahl führt
+  dorthin, wo sich die Sache erledigen lässt, und jede ist bewusst **enger
+  als die Aufgabenliste**: Dort steht, was ein Lauf ansieht, hier steht,
+  was er ändert. An einer gewachsenen Bibliothek sind das 8098 gegen 1097
+  und 429 gegen 219 – eine Zahl, die mehr verspricht als die Liste
+  dahinter zeigt, ist schlimmer als keine
 - **Bibliotheks-Integritätsprüfung** – fehlende oder veränderte Dateien finden
 - **XMP-Sidecars schreiben/einlesen** – Metadatenaustausch mit anderen
   Programmen in beide Richtungen

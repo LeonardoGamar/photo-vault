@@ -310,6 +310,10 @@ class _Aufgabenrahmen extends StatelessWidget {
   final List<_Leistenknopf> knoepfe;
   final bool bedienbar;
 
+  /// Diese Karte ist das Ziel eines Verweises von aussen (siehe
+  /// [BackgroundTasksScreen.hervorheben]).
+  final bool hervorgehoben;
+
   const _Aufgabenrahmen({
     required this.icon,
     required this.titel,
@@ -317,6 +321,7 @@ class _Aufgabenrahmen extends StatelessWidget {
     required this.inhalt,
     required this.knoepfe,
     required this.bedienbar,
+    this.hervorgehoben = false,
   });
 
   @override
@@ -324,6 +329,12 @@ class _Aufgabenrahmen extends StatelessWidget {
     final farben = Theme.of(context).colorScheme;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      shape: hervorgehoben
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: farben.primary, width: 2),
+            )
+          : null,
       // Ohne das Beschneiden stünde die Leiste rechts über die abgerundeten
       // Ecken der Karte hinaus.
       clipBehavior: Clip.antiAlias,
@@ -452,7 +463,11 @@ class Aufgabe {
 class _TaskCard extends StatefulWidget {
   final LibraryState library;
   final Aufgabe aufgabe;
-  const _TaskCard({required this.library, required this.aufgabe});
+  final bool hervorgehoben;
+  const _TaskCard(
+      {required this.library,
+      required this.aufgabe,
+      this.hervorgehoben = false});
 
   @override
   State<_TaskCard> createState() => _TaskCardState();
@@ -576,6 +591,7 @@ class _TaskCardState extends State<_TaskCard> {
         }
 
         return _Aufgabenrahmen(
+          hervorgehoben: widget.hervorgehoben,
           icon: _a.icon,
           titel: _a.titel,
           beschreibung: _a.beschreibung,
@@ -741,6 +757,31 @@ List<Aufgabe> aufgabenliste(AppTexte t, LibraryState library) => [
             laufTitel: t.werkzScanneNeue,
             emptyMessage: t.werkzKeinePassenden,
             stream: () => library.rescanFaces(onlyNewPhotos: true),
+          ),
+        ],
+      ),
+      Aufgabe(
+        schluessel: 'wiedererkennung',
+        icon: Icons.person_search_outlined,
+        titel: t.aufgWiedererkennungTitel,
+        beschreibung: t.aufgWiedererkennungText,
+        offenLabel: t.aufgBetrifft,
+        offeneZahl: () => library.db.countWiedererkennungOffen(),
+        aktionen: [
+          // „Alle" fragt auch dort noch einmal, wo schon verglichen
+          // wurde – der Weg, nachdem neue Personen benannt wurden: Ein
+          // Gesicht ohne Kern von damals kann heute einen haben.
+          Aufgabenaktion(
+            modus: Aufgabenmodus.alle,
+            laufTitel: t.werkzWiedererkennung,
+            emptyMessage: t.werkzKeinePassenden,
+            stream: () => library.backfillWiedererkennung(alle: true),
+          ),
+          Aufgabenaktion(
+            modus: Aufgabenmodus.fehlende,
+            laufTitel: t.werkzWiedererkennung,
+            emptyMessage: t.werkzAlleVerglichen,
+            stream: () => library.backfillWiedererkennung(),
           ),
         ],
       ),
@@ -1210,12 +1251,29 @@ Future<bool> _frageAblage(BuildContext context) async {
 /// und wie viele nebeneinander laufen dürfen.
 class BackgroundTasksScreen extends StatelessWidget {
   final LibraryState library;
-  const BackgroundTasksScreen({super.key, required this.library});
+
+  /// Schluessel der Aufgabe, um derentwillen dieser Bildschirm geoeffnet
+  /// wurde – sie steht dann oben und traegt einen Rahmen.
+  ///
+  /// **Warum umsortieren und nicht hinscrollen.** Die Liste haelt zwanzig
+  /// Karten; `Scrollable.ensureVisible` erreicht nur, was gerade gebaut
+  /// ist, und eine faule Liste baut das Ziel erst, wenn es fast sichtbar
+  /// ist. Wer von einer Meldung kommt, die eine Zahl nennt, soll die
+  /// zugehoerige Karte sofort sehen – nicht sie suchen.
+  final String? hervorheben;
+
+  const BackgroundTasksScreen(
+      {super.key, required this.library, this.hervorheben});
 
   @override
   Widget build(BuildContext context) {
     final t = AppTexte.of(context);
     final aufgaben = aufgabenliste(t, library);
+    final ziel = hervorheben;
+    if (ziel != null) {
+      final stelle = aufgaben.indexWhere((a) => a.schluessel == ziel);
+      if (stelle > 0) aufgaben.insert(0, aufgaben.removeAt(stelle));
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(t.aufgTitel),
@@ -1244,7 +1302,11 @@ class BackgroundTasksScreen extends StatelessWidget {
           _CombinedAnalysisCard(library: library),
           const SizedBox(height: AppSpacing.md),
           for (final aufgabe in aufgaben)
-            _TaskCard(library: library, aufgabe: aufgabe),
+            _TaskCard(
+              library: library,
+              aufgabe: aufgabe,
+              hervorgehoben: aufgabe.schluessel == ziel,
+            ),
         ],
       ),
     );

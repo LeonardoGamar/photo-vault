@@ -91,7 +91,8 @@ function Importe($pfad) {
 
 $Wurzel = [System.IO.Path]::GetFullPath("$PSScriptRoot\..")
 $Bundle = "$Wurzel\build\windows\x64\runner\Release"
-$Werkzeuge = "$Wurzel\build\windows\werkzeuge"
+. (Join-Path $PSScriptRoot 'windows_werkzeugort.ps1')
+$Werkzeuge = Werkzeugort
 $Paket = "$Wurzel\build\windows\paket\PhotoVault"
 
 function Titel($t) { Write-Host ""; Write-Host $t; Write-Host ('-' * $t.Length) }
@@ -102,11 +103,14 @@ $script:Fehler = 0
 Titel "Voraussetzungen"
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) { Schlecht "flutter fehlt"; exit 1 }
 Gut "flutter"
+if (WerkzeugeUmziehen $Wurzel $Werkzeuge) {
+  Gut "Werkzeuge aus build\windows\werkzeuge herausgeholt (siehe windows_werkzeugort.ps1)"
+}
 if (-not (Test-Path "$Werkzeuge\heif-dec.exe")) {
-  Schlecht "Werkzeuge fehlen - erst tool\windows_werkzeuge.ps1 laufen lassen"
+  Schlecht "Werkzeuge fehlen unter $Werkzeuge - erst tool\windows_werkzeuge.ps1 laufen lassen"
   exit 1
 }
-Gut "Werkzeuge liegen bereit"
+Gut "Werkzeuge liegen bereit: $Werkzeuge"
 
 Titel "Flutter-Bundle bauen"
 Push-Location $Wurzel

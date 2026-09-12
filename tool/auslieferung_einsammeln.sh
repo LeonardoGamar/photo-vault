@@ -74,3 +74,8 @@ if [ ! -f SHA256SUMS.txt ]; then
   exit 1
 fi
 shasum -a 256 -c SHA256SUMS.txt
+
+# Die aktuelle macOS-App bleibt unter /Applications/Photo Vault.app. Frühere
+# Test- und Sicherungskopien dort würden Spotlight als zweite Programme zeigen;
+# sie werden daher nach dem vollständig geprüften Release archiviert.
+"$wurzel/tool/macos_spotlight_aufräumen.sh" "$version"

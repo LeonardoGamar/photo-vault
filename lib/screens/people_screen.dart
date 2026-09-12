@@ -18,6 +18,7 @@ import '../widgets/person_picker_dialog.dart';
 import 'face_cluster_review_screen.dart';
 import 'face_review_screen.dart';
 import 'person_detail_screen.dart';
+import 'vorschlaege_screen.dart';
 import '../services/meldungsdienst.dart';
 import '../widgets/profilbild.dart';
 
@@ -288,6 +289,7 @@ class _PeopleScreenState extends State<PeopleScreen>
   Future<void> _kontextmenue(Offset position) async {
     final t = AppTexte.of(context);
     final offen = await widget.library.db.unassignedFacesCount();
+    final vorschlaege = await widget.library.db.countVorschlaege();
     if (!mounted) return;
 
     final wo = Overlay.of(context).context.findRenderObject() as RenderBox;
@@ -296,6 +298,20 @@ class _PeopleScreenState extends State<PeopleScreen>
       position:
           RelativeRect.fromRect(position & Size.zero, Offset.zero & wo.size),
       items: [
+        // Ganz oben, und das mit Absicht: Direkt darunter steht „alle
+        // beiseitelegen". An der echten Bibliothek sind auf diesem Weg
+        // 14.065 Gesichter weggeraeumt worden, und 960 davon haetten
+        // einen Namen bekommen koennen. Wer hier steht, soll erst sehen,
+        // was die Erkennung anzubieten hat.
+        PopupMenuItem(
+          value: 'vorschlaege',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.person_search_outlined),
+            title: Text(t.vorschlaegeTitel),
+            subtitle: Text(t.vorschlaegeAnzahl(vorschlaege)),
+          ),
+        ),
         PopupMenuItem(
           value: 'ignorieren',
           enabled: offen > 0,
@@ -318,6 +334,13 @@ class _PeopleScreenState extends State<PeopleScreen>
       ],
     );
     if (!mounted || wahl == null) return;
+    if (wahl == 'vorschlaege') {
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => VorschlaegeScreen(library: widget.library),
+      ));
+      if (mounted) await _neuLaden();
+      return;
+    }
     if (wahl == 'ignorieren') return _alleIgnorieren();
     return _alleErkennungenLoeschen();
   }
@@ -452,7 +475,13 @@ class _PeopleScreenState extends State<PeopleScreen>
         title: AppTexte.of(context).personenZuordnen(_selectedFaceIds.length));
     if (choice == null) return;
 
+    // Vor dem Zugriff lesen, nicht hinterher raten: Ein Gesicht kann schon
+    // jemandem gehoert haben oder beiseitegelegt gewesen sein.
+    final vorher =
+        await widget.library.db.gesichtsstand(_selectedFaceIds.toList());
+
     String personId;
+    final personIstNeu = choice.newName != null;
     if (choice.newName != null) {
       personId = const Uuid().v4();
       await widget.library.db.createPerson(
@@ -461,6 +490,16 @@ class _PeopleScreenState extends State<PeopleScreen>
     } else {
       personId = choice.existingPersonId!;
     }
+    final name = choice.newName ??
+        people.firstWhere((p) => p.id == personId).name;
+
+    // Die Zuordnung setzt das Titelbild, falls die Person noch keines hat.
+    final titelbildVorher = personIstNeu
+        ? null
+        : (await (widget.library.db.select(widget.library.db.people)
+                  ..where((t) => t.id.equals(personId)))
+                .getSingleOrNull())
+            ?.coverFaceCropPath;
 
     await widget.library.db
         .assignFacesToPerson(_selectedFaceIds.toList(), personId);
@@ -477,8 +516,9 @@ class _PeopleScreenState extends State<PeopleScreen>
           similarity: e.value,
         ),
     ];
+    DateTime? rueckmeldungenSeit;
     if (entscheidungen.isNotEmpty) {
-      await widget.library.db.merkeGesichtsEntscheidungen(
+      rueckmeldungenSeit = await widget.library.db.merkeGesichtsEntscheidungen(
         personId,
         entscheidungen,
         allgemeineSchwelle: widget.library.faceSimilarityThreshold,
@@ -495,6 +535,31 @@ class _PeopleScreenState extends State<PeopleScreen>
     await _entferneAusRaster(zugeordnet, nachIgnoriert: false);
     // Eine neue Person kann dabei entstanden sein.
     if (choice.newName != null) await _zaehlePersonen();
+
+    if (!mounted) return;
+    // Zuordnen ist der meistbenutzte Handgriff dieser Ansicht, und
+    // „Aehnliche mit auswaehlen" ordnet eine ganze Gruppe auf einen Klick
+    // zu. Sass die Schwelle zu grosszuegig, sind es die falschen. Das
+    // Ignorieren daneben liess sich laengst zuruecknehmen - ausgerechnet
+    // das folgenreichere nicht.
+    melde.hinweis(
+      AppTexte.of(context).personenZugeordnetMeldung(zugeordnet.length, name),
+      aktion: (
+        beschriftung: AppTexte.of(context).allgRueckgaengig,
+        beiDruck: () async {
+          await widget.library.db.nimmZuordnungZurueck(
+            gesichter: vorher,
+            personId: personId,
+            personWarNeu: personIstNeu,
+            titelbildVorher: titelbildVorher,
+            rueckmeldungenSeit: rueckmeldungenSeit,
+            allgemeineSchwelle: widget.library.faceSimilarityThreshold,
+          );
+          await _neuLaden();
+          await _zaehlePersonen();
+        },
+      ),
+    );
   }
 
   /// Gruppiert alle unzugeordneten Gesichter automatisch (siehe

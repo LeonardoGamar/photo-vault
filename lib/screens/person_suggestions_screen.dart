@@ -49,6 +49,18 @@ class _PersonSuggestionsScreenState extends State<PersonSuggestionsScreen> {
       await widget.library.db.assignFacesToPerson(angenommen, widget.person.id);
     }
 
+    // Das Abgewaehlte verliert seinen gespeicherten Vorschlag. Ohne das
+    // stuende dieselbe Frage nach jedem Oeffnen der Liste wieder da – die
+    // Antwort ist aber gegeben, und sie steckt ab jetzt in der Schwelle
+    // dieser Person.
+    final abgelehnt = [
+      for (final v in widget.vorschlaege)
+        if (!_gewaehlt.contains(v.gesicht.id)) v.gesicht.id,
+    ];
+    if (abgelehnt.isNotEmpty) {
+      await widget.library.db.verwirfVorschlaege(abgelehnt);
+    }
+
     await widget.library.db.merkeGesichtsEntscheidungen(
       widget.person.id,
       [
