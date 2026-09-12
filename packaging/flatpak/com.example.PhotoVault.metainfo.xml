@@ -68,6 +68,14 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="3.14.0" date="2026-09-12">
+      <description>
+        <p>Face recognition now runs by itself after every import. Faces close enough to a named person are suggested, grouped per person and confirmed with one click - nothing is assigned automatically, because a wrong suggestion that someone overlooks costs a wrong assignment.</p>
+        <p>The memories section asks the next larger question when the calendar day has nothing: "in September, 13 years ago" instead of vanishing without a word.</p>
+        <p>Invented capture dates no longer appear as memories. Timestamps sitting on a full hour are treated as guessed - chance hits that twice per library, an import without a time of day hits it a thousand times.</p>
+        <p>The library health screen additionally reports waiting person suggestions, questionable capture dates and videos judged from a single frame.</p>
+      </description>
+    </release>
     <release version="3.12.0" date="2026-09-09">
       <description>
         <p>Backup verification checks the manifest, file hashes and encrypted backup integrity before a restore is needed.</p>
